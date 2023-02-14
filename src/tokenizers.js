@@ -424,6 +424,28 @@ class WhitespaceSplit extends PreTokenizer {
     }
 }
 
+class AutoTokenizer {
+    static async from_pretrained(modelPath) {
+        // TODO get files in parallel
+        let tokenizerJSON = await fetchJSON(pathJoin(modelPath, 'tokenizer.json'));
+        let tokenizerConfig = await fetchJSON(pathJoin(modelPath, 'tokenizer_config.json'));
+
+        switch (tokenizerConfig.tokenizer_class) {
+            case 'T5Tokenizer':
+                return new T5Tokenizer(tokenizerJSON, tokenizerConfig);
+
+            case 'DistilBertTokenizer':
+                return new DistilBertTokenizer(tokenizerJSON, tokenizerConfig);
+
+            case 'BertTokenizer':
+                return new BertTokenizer(tokenizerJSON, tokenizerConfig);
+
+            default:
+                console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
+                return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
+        }
+    }
+}
 class PreTrainedTokenizer extends Callable {
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
@@ -459,26 +481,7 @@ class PreTrainedTokenizer extends Callable {
         let tokens = this.model.convert_ids_to_tokens(token_ids);
         return this.decoder(tokens)
     }
-    static async from_pretrained(modelPath) {
-        // TODO get files in parallel
-        let tokenizerJSON = await fetchJSON(pathJoin(modelPath, 'tokenizer.json'));
-        let tokenizerConfig = await fetchJSON(pathJoin(modelPath, 'tokenizer_config.json'));
 
-        switch (tokenizerConfig.tokenizer_class) {
-            case 'T5Tokenizer':
-                return new T5Tokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'DistilBertTokenizer':
-                return new DistilBertTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'BertTokenizer':
-                return new BertTokenizer(tokenizerJSON, tokenizerConfig);
-
-            default:
-                console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
-                return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
-        }
-    }
 }
 
 class BertTokenizer extends PreTrainedTokenizer { }
@@ -630,4 +633,6 @@ class TokenLatticeNode {
 }
 
 
-export { PreTrainedTokenizer, BertTokenizer, DistilBertTokenizer, T5Tokenizer };
+// TODO export later:
+// BertTokenizer, DistilBertTokenizer, T5Tokenizer
+export { AutoTokenizer };

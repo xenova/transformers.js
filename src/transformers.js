@@ -1,10 +1,10 @@
 
-import { PreTrainedTokenizer } from "./tokenizers.js";
-import { PreTrainedModel } from "./models.js";
+import { AutoTokenizer } from "./tokenizers.js";
+import { AutoModel } from "./models.js";
 
 
 // Allow global access to these variables
-window.PreTrainedTokenizer = PreTrainedTokenizer
-window.PreTrainedModel = PreTrainedModel
+window.AutoTokenizer = AutoTokenizer
+window.AutoModel = AutoModel
 
-export { PreTrainedTokenizer, PreTrainedModel};
+export { AutoTokenizer, AutoModel };
