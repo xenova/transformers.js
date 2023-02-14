@@ -1,4 +1,4 @@
-import { Callable } from './utils.js'
+import { Callable, fetchJSON, pathJoin } from './utils.js'
 
 
 class TokenizerModel extends Callable {
@@ -425,8 +425,10 @@ class WhitespaceSplit extends PreTokenizer {
 }
 
 class AutoTokenizer {
+    // Helper class to determine tokenizer type from tokenizer.json
+
     static async from_pretrained(modelPath) {
-        // TODO get files in parallel
+        // TODO fetch in parallel
         let tokenizerJSON = await fetchJSON(pathJoin(modelPath, 'tokenizer.json'));
         let tokenizerConfig = await fetchJSON(pathJoin(modelPath, 'tokenizer_config.json'));
 
@@ -633,6 +635,4 @@ class TokenLatticeNode {
 }
 
 
-// TODO export later:
-// BertTokenizer, DistilBertTokenizer, T5Tokenizer
-export { AutoTokenizer };
+export { AutoTokenizer, BertTokenizer, DistilBertTokenizer, T5Tokenizer };
