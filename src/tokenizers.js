@@ -461,6 +461,14 @@ class PreTrainedTokenizer extends Callable {
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
     }
 
+    static async from_pretrained(modelPath) {
+        // TODO get files in parallel
+        let tokenizerJSON = await fetchJSON(pathJoin(modelPath, 'tokenizer.json'));
+        let tokenizerConfig = await fetchJSON(pathJoin(modelPath, 'tokenizer_config.json'));
+
+        return new this(tokenizerJSON, tokenizerConfig);
+    }
+
     _call(text) {
         return this.encode(text);
     }
