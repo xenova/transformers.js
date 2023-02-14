@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="Transformers.js" />
+    <meta name="author" content="Xenova" />
+    <title>Transformers.js</title>
+
+    <!-- Favicon-->
+    <!-- Icon made by Freepik (https://www.flaticon.com/free-icons/robot) -->
+    <link rel="icon" type="image/x-icon" href="./assets/icons/favicon.ico" />
+
+    <!-- Bootstrap icons-->
+    <link href="./assets/css/bootstrap-icons.css" rel="stylesheet" />
+
+    <!-- Core theme CSS (includes Bootstrap)-->
+    <link href="./assets/css/theme.css" rel="stylesheet" />
+
+    <!-- Code highlighting -->
+    <link href="./assets/css/prism.css" rel="stylesheet" />
+
+    <!-- Custom styles for page -->
+    <link href="./assets/css/style.css" rel="stylesheet" />
+
+
+    <!-- Bootstrap core JS-->
+    <script src="./assets/js/bootstrap.bundle.min.js" defer></script>
+
+    <!-- Code highlighting JS -->
+    <script src="./assets/js/prism.js" defer></script>
+
+    <!-- Transformers.js -->
+    <!-- TODO use dist -->
+    <script type="module" src="./src/transformers.js" defer></script>
+
+    <!-- Page JS-->
+    <script src="./assets/js/scripts.js" defer></script>
+
+</head>
+
+<body>
+    <!-- Responsive navbar-->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container px-5">
+            <a class="navbar-brand" href="#">Transformers.js</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link" href="#getting-started">Getting Started</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#demo">Demo</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#usage">Usage</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#examples">Examples</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Modal -->
+    <div class="modal fade" id="content-modal" tabindex="-1" aria-labelledby="modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-label">Viewing content</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header-->
+    <header class="bg-dark pt-3 pb-5">
+        <div class="container px-5">
+            <div class="row gx-5 justify-content-center">
+                <div class="col-lg-6">
+                    <div class="text-center">
+                        <h1 class="display-5 fw-bolder text-white mb-2">Transformers.js</h1>
+                        <p class="lead text-white-50 mb-4">
+                            Run <span class="text-white">🤗</span> Transformers in your browser!
+                        </p>
+                        <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                            <a class="btn btn-primary btn-lg px-4 me-sm-3" href="#">Download</a>
+                            <a class="btn btn-outline-light btn-lg px-4"
+                                href="https://github.com/xenova/transformers.js">
+                                <i class="bi bi-github"></i> View Source
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Getting started section -->
+    <section class="py-4 border-bottom" id="getting-started">
+        <div class="container px-5 my-3">
+            <div class="mb-3">
+                <h2 class="fw-bolder">Getting Started</h2>
+            </div>
+            <div class="row gx-5">
+                <div class="col-lg-6 mb-4 mb-lg-0">
+                    <p class="lead mb-0">Include source on page (HTML)</p>
+
+                    <pre><code class="language-html">TODO</code></pre>
+                </div>
+
+                <div class="col-lg-6 mb-4 mb-lg-0">
+                    <p class="lead mb-0">Usage (JavaScript)</p>
+                    <pre><code class="language-js">// TODO</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo section-->
+    <section class="py-4 border-bottom" id="demo">
+        <div class="container px-5 my-4">
+            <div class="mb-4">
+                <h2 class="fw-bolder">Demo</h2>
+                <p class="lead mb-0">TODO</p>
+            </div>
+            <div class="row gx-5">
+                <div class="col-12">
+                    <label>Task: </label>
+                    <select class="form-select mt-1">
+                        <option value="t5-small" selected>Translation (t5-small)</option>
+                        <!-- <option value="bert-base-uncased">bert-base-uncased</option>
+                        <option value="distilbert-base-uncased">distilbert-base-uncased</option> -->
+                    </select>
+
+                    <label class="mt-2">Subtask: </label>
+                    <select class="form-select mt-1">
+                        <option value="t5-small" selected>English to French</option>
+                        <!-- <option value="bert-base-uncased">bert-base-uncased</option>
+                        <option value="distilbert-base-uncased">distilbert-base-uncased</option> -->
+                    </select>
+                </div>
+                <div class="col-lg-6 mt-3">
+                    <textarea class="form-control" rows="5"></textarea>
+                </div>
+                <div class="col-lg-6 mt-2 mt-lg-3">
+                    <textarea class="form-control" rows="5"></textarea>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Usage section-->
+    <section class="py-4 border-bottom" id="usage">
+        <div class="container px-5 my-4">
+            <div class="mb-3">
+                <h2 class="fw-bolder">Usage</h2>
+            </div>
+            <div class="row gx-5 justify-content-center">
+                <div class="col-lg-12 mb-3">
+                    TODO
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Examples section-->
+    <section class="py-4 border-bottom" id="examples">
+        <div class="container px-5 my-4">
+            <div class="mb-4">
+                <h2 class="fw-bolder">Examples</h2>
+            </div>
+            <div class="row gx-5">
+                <div class="col-lg-12 mb-3">TODO</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer-->
+    <footer class="py-3 bg-dark">
+        <div class="container px-5">
+            <p class="m-0 text-center text-white">Copyright &copy; Xenova 2023</p>
+        </div>
+    </footer>
+
+</body>
+
+
+</html>
