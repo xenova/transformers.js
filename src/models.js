@@ -187,8 +187,7 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
     getPastKeyValues(pkvNames, decoderResults) {
         const pkvs = [];
         for (const i in pkvNames) {
-            const k = pkvNames[i];
-            const v = decoderResults[k];
+            const v = decoderResults[pkvNames[i]];
             pkvs.push([`pkv_${i}`, v]);
         }
         return pkvs;
