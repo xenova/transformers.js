@@ -33,5 +33,47 @@ function reverseDictionary(data) {
     return Object.fromEntries(Object.entries(data).map(([key, value]) => [value, key]));
 }
 
+function indexOfMax(arr) {
+    // https://stackoverflow.com/a/11301464
 
-export { Callable, fetchJSON, pathJoin, reverseDictionary };
+    if (arr.length === 0) {
+        return -1;
+    }
+
+    var max = arr[0];
+    var maxIndex = 0;
+
+    for (var i = 1; i < arr.length; ++i) {
+        if (arr[i] > max) {
+            maxIndex = i;
+            max = arr[i];
+        }
+    }
+
+    return maxIndex;
+}
+
+function softmax(arr) {
+    // Compute the maximum value in the array
+    const max = Math.max(...arr);
+
+    // Compute the exponentials of the array values
+    const exps = arr.map((x) => Math.exp(x - max));
+
+    // Compute the sum of the exponentials
+    const sumExps = exps.reduce((acc, val) => acc + val, 0);
+
+    // Compute the softmax values
+    const softmax = exps.map((x) => x / sumExps);
+
+    return softmax;
+}
+
+export {
+    Callable,
+    fetchJSON,
+    pathJoin,
+    reverseDictionary,
+    indexOfMax,
+    softmax
+};

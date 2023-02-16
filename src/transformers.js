@@ -5,6 +5,7 @@ import {
 } from "./tokenizers.js";
 import {
     AutoModel,
+    AutoModelForSequenceClassification,
     AutoModelForSeq2SeqLM,
     T5ForConditionalGeneration
 } from "./models.js";
@@ -16,6 +17,7 @@ window.T5Tokenizer = T5Tokenizer
 
 window.AutoModel = AutoModel
 window.AutoModelForSeq2SeqLM = AutoModelForSeq2SeqLM
+window.AutoModelForSequenceClassification = AutoModelForSequenceClassification
 window.T5ForConditionalGeneration = T5ForConditionalGeneration
 
 export {
@@ -26,5 +28,6 @@ export {
     // Models
     AutoModel,
     AutoModelForSeq2SeqLM,
+    AutoModelForSequenceClassification,
     T5ForConditionalGeneration
 };

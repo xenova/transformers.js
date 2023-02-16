@@ -1,4 +1,4 @@
-import { Callable, fetchJSON, pathJoin } from "./utils.js";
+import { Callable, fetchJSON, pathJoin, indexOfMax, softmax } from "./utils.js";
 
 
 async function constructSession(path) {
@@ -11,15 +11,18 @@ async function constructSession(path) {
     });
 }
 
+//////////////////////////////////////////////////
+// AutoModels, used to simplify construction of PreTrainedModels
+// (uses config to instantiate correct class)
 class AutoModel {
     // Helper class to determine model type from config
 
     static async from_pretrained(modelPath) {
 
-        let [config, session] = await Promise.all([
-            fetchJSON(pathJoin(modelPath, 'config.json')),
-            constructSession(pathJoin(modelPath, 'model.onnx'))
-        ]);
+        let config = await fetchJSON(pathJoin(modelPath, 'config.json'));
+        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
+
+        let session = await constructSession(pathJoin(modelPath, modelName));
 
         switch (config.model_type) {
             case 'bert':
@@ -32,6 +35,25 @@ class AutoModel {
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
                 return new PreTrainedModel(config, session);
+        }
+    }
+}
+
+class AutoModelForSequenceClassification {
+
+    static async from_pretrained(modelPath) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(pathJoin(modelPath, 'config.json')),
+            constructSession(pathJoin(modelPath, 'model.onnx'))
+        ]);
+
+        switch (config.model_type) {
+            case 'distilbert':
+                return new DistilBertForSequenceClassification(config, session);
+
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
         }
     }
 }
@@ -59,7 +81,9 @@ class AutoModelForSeq2SeqLM {
         }
     }
 }
+//////////////////////////////////////////////////
 
+// Base class
 class PreTrainedModel extends Callable {
     constructor(config, encoder_session) {
         super();
@@ -70,11 +94,11 @@ class PreTrainedModel extends Callable {
 
     static async from_pretrained(modelPath) {
 
+        let config = await fetchJSON(pathJoin(modelPath, 'config.json'));
+        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
+
         // Load model
-        let [config, session] = await Promise.all([
-            fetchJSON(pathJoin(modelPath, 'config.json')),
-            constructSession(pathJoin(modelPath, 'model.onnx'))
-        ]);
+        let session = await constructSession(pathJoin(modelPath, modelName));
 
         return new this(config, session);
     }
@@ -103,13 +127,34 @@ class PreTrainedModel extends Callable {
     }
 
 }
+//////////////////////////////////////////////////
 
+// Bert models
 class BertModel extends PreTrainedModel { }
-class DistilBertModel extends PreTrainedModel { }
+//////////////////////////////////////////////////
 
-class T5PreTrainedModel extends PreTrainedModel {
+//////////////////////////////////////////////////
+// DistilBert models
+class DistilBertPreTrainedModel extends PreTrainedModel { }
+class DistilBertModel extends DistilBertPreTrainedModel { }
+class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits.data;
+        let predictionIndex = indexOfMax(logits);
+        let score = softmax(logits)[predictionIndex];
 
-};
+        return {
+            logits: logits,
+            prediction: this.config.id2label[predictionIndex],
+            score: score
+        };
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// T5 models
+class T5PreTrainedModel extends PreTrainedModel { };
 
 class T5Model extends T5PreTrainedModel {
     async generate(...args) {
@@ -274,6 +319,7 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         return logitAndId[0][1];
     }
 }
+//////////////////////////////////////////////////
 
 class Seq2SeqLMOutput {
     constructor(logits, pastKeyValues, encoderOutputs) {
@@ -286,5 +332,6 @@ class Seq2SeqLMOutput {
 export {
     AutoModel,
     AutoModelForSeq2SeqLM,
+    AutoModelForSequenceClassification,
     T5ForConditionalGeneration
 };
