@@ -509,7 +509,15 @@ class PreTrainedTokenizer extends Callable {
 
 }
 
-class BertTokenizer extends PreTrainedTokenizer { }
+class BertTokenizer extends PreTrainedTokenizer {
+    encode(text) {
+        let encoded = super.encode(text);
+
+        // Add default token_type_ids
+        encoded.token_type_ids = new Array(encoded.input_ids.length).fill(0)
+        return encoded;
+    }
+}
 class DistilBertTokenizer extends PreTrainedTokenizer { }
 class T5Tokenizer extends PreTrainedTokenizer { }
 
