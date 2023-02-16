@@ -283,6 +283,12 @@ class TemplateProcessing extends PostProcessor {
 }
 
 class Decoder extends Callable {
+
+    constructor(config) {
+        super();
+        this.config = config;
+    }
+
     static fromConfig(config) {
         switch (config.type) {
             case 'WordPiece':
@@ -312,8 +318,7 @@ class Decoder extends Callable {
 class WordPieceDecoder extends Decoder {
 
     constructor(config) {
-        super();
-        this.config = config;
+        super(config);
         this.convertRegex = new RegExp(` ${config.prefix}`, 'g');
     }
 
@@ -370,7 +375,7 @@ class MetaspacePreTokenizer extends PreTokenizer {
 
 class MetaspaceDecoder extends Decoder {
     constructor(config) {
-        super();
+        super(config);
 
         this.addPrefixSpace = config.add_prefix_space;
         this.replacement = config.replacement;
@@ -454,11 +459,15 @@ class PreTrainedTokenizer extends Callable {
         this.tokenizerJSON = tokenizerJSON;
         this.tokenizerConfig = tokenizerConfig;
 
+        this.special_tokens = tokenizerJSON.added_tokens.map(x => x.content);
+
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
+
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
+
     }
 
     static async from_pretrained(modelPath) {
@@ -487,8 +496,14 @@ class PreTrainedTokenizer extends Callable {
         }
     }
 
-    decode(token_ids) {
+    decode(token_ids, skip_special_tokens = false) {
         let tokens = this.model.convert_ids_to_tokens(token_ids);
+
+        if (skip_special_tokens) {
+            tokens = tokens.filter(x => !this.special_tokens.includes(x));
+        }
+
+        // TODO add option to skip special tokens
         return this.decoder(tokens)
     }
 
