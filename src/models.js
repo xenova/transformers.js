@@ -124,6 +124,12 @@ class PreTrainedModel extends Callable {
 
         this.config = config;
         this.session = session;
+
+
+        this.default_generation_options = {
+            max_length: 100,
+            top_k: 0
+        }
     }
 
     static async from_pretrained(modelPath) {
@@ -163,49 +169,50 @@ class PreTrainedModel extends Callable {
     async generate(...args) {
         throw Error("generate should be implemented in subclasses.")
     }
+    prepareGenerationOptions(options) {
+        return Object.assign({}, this.default_generation_options, options)
+    }
 
     chooseSampler(topK) {
-        let sampler = x => this.sampleLogitsGreedily(x);
+        let sampler;
         if (topK > 0) {
             sampler = x => this.sampleLogitsTopK(x, topK);
+        } else {
+            sampler = x => this.sampleLogitsGreedily(x);
         }
         return sampler;
 
     }
 
-    sampleLogitsGreedily(logits) {
-        let shape = logits.dims;
-        let [batchSize, seqLength, vocabSize] = shape;
-        let n = batchSize * seqLength * vocabSize;
-        let startIndex = n - vocabSize;
-        let argmaxi = 0;
-        let argmax = logits.data[startIndex + argmaxi];
-        for (let i = 1; i < vocabSize; i++) {
-            let l = logits.data[startIndex + i];
-            if (l > argmax) {
-                argmaxi = i;
-                argmax = l;
-            }
+    getLastLogits(logits) {
+        let [_, seqLength, vocabSize] = logits.dims;
+
+        let logs = logits.data;
+        if (seqLength > 1) {
+            logs = logs.slice(-vocabSize);
         }
-        return argmaxi;
+        return logs;
+    }
+    sampleLogitsGreedily(logits) {
+        let logs = this.getLastLogits(logits);
+        return indexOfMax(logs);
     }
     sampleLogitsTopK(logits, k) {
-        let shape = logits.dims;
-        let [batchSize, seqLength, vocabSize] = shape;
-        let n = batchSize * seqLength * vocabSize;
-        let startIndex = n - vocabSize;
-        let logs = logits.data.slice(startIndex);
+
+        let [batchSize, seqLength, vocabSize] = logits.dims;
+
         k = Math.min(k, vocabSize);
-        let logitAndId = Array.from(logs).map((x, i) => [x, i])
-            .sort((a, b) => b[0] - a[0]);
-        const sMin = Math.exp(-100.0);
-        let sumS = 0.0;
-        for (let i = 0; i < logitAndId.length; i++) {
-            const s = i < k ? Math.exp(logitAndId[i][0]) : sMin;
-            sumS += s;
-            logitAndId[i][0] = s;
-        }
-        let r = Math.random() * sumS;
+        let logs = this.getLastLogits(logits);
+
+        let logitAndId = Array.from(logs)
+            .map((x, i) => [x, i])            // Get indices
+            .sort((a, b) => b[0] - a[0])      // Sort by log probabilities
+            .slice(0, k)                      // Get top k items
+            .map(x => [Math.exp(x[0]), x[1]]) // convert to probabilities
+
+        let sumProbabilities = logitAndId.reduce((acc, curr) => acc + curr[0], 0);
+
+        let r = Math.random() * sumProbabilities;
         for (let i = 0; i < logitAndId.length; i++) {
             r -= logitAndId[i][0];
             if (r <= 0) {
@@ -289,7 +296,8 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         return new this(config, session, decoder_session, decoder_with_past_model);
     }
 
-    async generate(inputTokenIds, maxLength = 20, topK = 0) {
+    async generate(inputTokenIds, options = {}) {
+        options = this.prepareGenerationOptions(options);
 
         let attentionMask = new Array(inputTokenIds.length).fill(1);
 
@@ -297,9 +305,9 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         let pastKeyValues = null;
         let outputTokenIds = [this.config.decoder_start_token_id];
         let numOutputTokens = 1;
-        const maxOutputTokens = numOutputTokens + maxLength;
+        const maxOutputTokens = numOutputTokens + options.max_length;
 
-        let sampler = this.chooseSampler(topK);
+        let sampler = this.chooseSampler(options.top_k);
 
         while (numOutputTokens < maxOutputTokens) {
             let output = await this.forward({
@@ -389,16 +397,17 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         this.dim_kv = this.config.n_embd / this.num_heads;
     }
 
-    async generate(inputTokenIds, maxLength = 20, topK = 0) {
+    async generate(inputTokenIds, options = {}) {
+        options = this.prepareGenerationOptions(options);
 
         let model_input_ids = [...inputTokenIds]
 
         let pastKeyValues = null;
         let outputTokenIds = [];
         let numOutputTokens = 1;
-        const maxOutputTokens = numOutputTokens + maxLength;
+        const maxOutputTokens = numOutputTokens + options.max_length;
 
-        let sampler = this.chooseSampler(topK);
+        let sampler = this.chooseSampler(options.top_k);
 
         while (numOutputTokens < maxOutputTokens) {
             let output = await this.forward({
