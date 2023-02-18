@@ -289,16 +289,13 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         return new this(config, session, decoder_session, decoder_with_past_model);
     }
 
-    async generate(inputTokenIds, maxLength = 10, topK = 0) {
+    async generate(inputTokenIds, maxLength = 20, topK = 0) {
 
         let attentionMask = new Array(inputTokenIds.length).fill(1);
 
         let encoderOutputs = null;
         let pastKeyValues = null;
-        let outputTokenIds = [];
-        if (this.config.decoder_start_token_id !== null) {
-            outputTokenIds.push(this.config.decoder_start_token_id);
-        }
+        let outputTokenIds = [this.config.decoder_start_token_id];
         let numOutputTokens = 1;
         const maxOutputTokens = numOutputTokens + maxLength;
 
@@ -394,7 +391,7 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
 
     async generate(inputTokenIds, maxLength = 20, topK = 0) {
 
-        let movingInputs = [...inputTokenIds]
+        let model_input_ids = [...inputTokenIds]
 
         let pastKeyValues = null;
         let outputTokenIds = [];
@@ -404,19 +401,16 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         let sampler = this.chooseSampler(topK);
 
         while (numOutputTokens < maxOutputTokens) {
-            let z = inputTokenIds.length + outputTokenIds.length;
-            let model_inputs = {
-                input_ids: movingInputs,
-                attention_mask: new Array(z).fill(1),
+            let output = await this.forward({
+                input_ids: model_input_ids,
+                attention_mask: new Array(inputTokenIds.length + outputTokenIds.length).fill(1),
                 past_key_values: pastKeyValues,
-            }
-
-            let output = await this.forward(model_inputs);
+            });
             pastKeyValues = output.pastKeyValues;
 
             let newTokenId = sampler(output.logits);
             outputTokenIds.push(newTokenId);
-            movingInputs = [newTokenId];
+            model_input_ids = [newTokenId];
 
             ++numOutputTokens;
             if (newTokenId === this.config.eos_token_id) {
