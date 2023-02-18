@@ -224,10 +224,9 @@ class PreTrainedModel extends Callable {
     }
     addPastKeyValues(decoderFeeds, pastKeyValues, suffix = '') {
         if (pastKeyValues === null) {
-            let s = this.dim_kv / this.num_heads;
             for (let i = 0; i < this.num_layers; ++i) {
-                decoderFeeds[`past_key_values.${i}${suffix}.key`] = new ort.Tensor('float32', [], [1, this.num_heads, 0, s])
-                decoderFeeds[`past_key_values.${i}${suffix}.value`] = new ort.Tensor('float32', [], [1, this.num_heads, 0, s])
+                decoderFeeds[`past_key_values.${i}${suffix}.key`] = new ort.Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
+                decoderFeeds[`past_key_values.${i}${suffix}.value`] = new ort.Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
             }
         } else {
             Object.assign(decoderFeeds, pastKeyValues)
@@ -390,7 +389,7 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
 
         this.num_heads = this.config.n_head
         this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd
+        this.dim_kv = this.config.n_embd / this.num_heads;
     }
 
     async generate(inputTokenIds, maxLength = 20, topK = 0) {
