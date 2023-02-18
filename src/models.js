@@ -15,6 +15,7 @@ async function constructSession(path) {
     });
     let modelBuffer = await response.arrayBuffer();
     return await ort.InferenceSession.create(modelBuffer, {
+        // executionProviders: ["webgl"]
         executionProviders: ["wasm"]
     });
 }
@@ -71,7 +72,7 @@ class AutoModelForSequenceClassification {
 class AutoModelForSeq2SeqLM {
     static async from_pretrained(modelPath) {
 
-        let [config, encoder_session, decoder_session, init_decoder_session] = await Promise.all([
+        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
             fetchJSON(pathJoin(modelPath, 'config.json')),
             constructSession(pathJoin(modelPath, 'encoder_model.onnx')),
             constructSession(pathJoin(modelPath, 'decoder_model.onnx')),
@@ -82,9 +83,31 @@ class AutoModelForSeq2SeqLM {
             case 't5':
                 return new T5ForConditionalGeneration(
                     config,
-                    encoder_session,
+                    session,
                     decoder_session,
-                    init_decoder_session
+                    decoder_with_past_model
+                );
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+}
+
+class AutoModelForCausalLM {
+    static async from_pretrained(modelPath) {
+        // , decoder_with_past_model
+
+        // let name = use_past ?  : 'decoder_model.onnx'
+        let [config, session] = await Promise.all([
+            fetchJSON(pathJoin(modelPath, 'config.json')),
+            constructSession(pathJoin(modelPath, 'decoder_with_past_model.onnx'))
+        ])
+
+        switch (config.model_type) {
+            case 'gpt2':
+                return new GPT2LMHeadModel(
+                    config,
+                    session
                 );
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
@@ -96,11 +119,11 @@ class AutoModelForSeq2SeqLM {
 //////////////////////////////////////////////////
 // Base class
 class PreTrainedModel extends Callable {
-    constructor(config, encoder_session) {
+    constructor(config, session) {
         super();
 
         this.config = config;
-        this.encoder_session = encoder_session;
+        this.session = session;
     }
 
     static async from_pretrained(modelPath) {
@@ -129,50 +152,27 @@ class PreTrainedModel extends Callable {
     }
     async _call(model_inputs) {
         // TODO allow batched inputs
+        // TODO return ModelOutput object?
 
         model_inputs = this.prepare_inputs(model_inputs)
-        return await this.encoder_session.run(model_inputs);
+        return await this.session.run(model_inputs);
     }
     async forward(model_inputs) {
         throw Error("forward should be implemented in subclasses.")
     }
+    async generate(...args) {
+        throw Error("generate should be implemented in subclasses.")
+    }
 
-    async generate(inputTokenIds, maxLength = 100, topK = 0, topP = 0, numBeams = 0) {
-
-        let attentionMask = new Array(inputTokenIds.length).fill(1);
-
-        let encoderOutputs = null;
-        let pastKeyValues = null;
-        let outputTokenIds = [this.config.decoder_start_token_id];
-        let numOutputTokens = 1;
-        const maxOutputTokens = numOutputTokens + maxLength;
-
+    chooseSampler(topK) {
         let sampler = x => this.sampleLogitsGreedily(x);
         if (topK > 0) {
             sampler = x => this.sampleLogitsTopK(x, topK);
         }
+        return sampler;
 
-        while (numOutputTokens < maxOutputTokens) {
-
-            let output = await this.forward({
-                input_ids: inputTokenIds,
-                attention_mask: attentionMask,
-                decoder_input_ids: outputTokenIds,
-                encoder_outputs: encoderOutputs,
-                past_key_values: pastKeyValues,
-            });
-            pastKeyValues = output.pastKeyValues;
-            encoderOutputs = output.encoderOutputs;
-
-            let newTokenId = sampler(output.logits);
-            outputTokenIds.push(newTokenId);
-            ++numOutputTokens;
-            if (newTokenId === this.config.eos_token_id) {
-                break;
-            }
-        }
-        return outputTokenIds;
     }
+
     sampleLogitsGreedily(logits) {
         let shape = logits.dims;
         let [batchSize, seqLength, vocabSize] = shape;
@@ -214,6 +214,26 @@ class PreTrainedModel extends Callable {
         }
         return logitAndId[0][1];
     }
+    getPastKeyValues(pkvNames, decoderResults) {
+        const pkvs = {};
+
+        for (const name of pkvNames) {
+            pkvs[name.replace('present', 'past_key_values')] = decoderResults[name]
+        }
+        return pkvs;
+    }
+    addPastKeyValues(decoderFeeds, pastKeyValues, suffix = '') {
+        if (pastKeyValues === null) {
+            let s = this.dim_kv / this.num_heads;
+            for (let i = 0; i < this.num_layers; ++i) {
+                decoderFeeds[`past_key_values.${i}${suffix}.key`] = new ort.Tensor('float32', [], [1, this.num_heads, 0, s])
+                decoderFeeds[`past_key_values.${i}${suffix}.value`] = new ort.Tensor('float32', [], [1, this.num_heads, 0, s])
+            }
+        } else {
+            Object.assign(decoderFeeds, pastKeyValues)
+        }
+    }
+
 }
 //////////////////////////////////////////////////
 
@@ -247,26 +267,64 @@ class T5Model extends T5PreTrainedModel {
 }
 
 class T5ForConditionalGeneration extends T5PreTrainedModel {
-    constructor(config, encoder_session, decoder_session, init_decoder_session) {
-        super(config, encoder_session);
+    constructor(config, session, decoder_session, decoder_with_past_model) {
+        super(config, session);
         this.decoder_session = decoder_session;
-        this.init_decoder_session = init_decoder_session;
+        this.decoder_with_past_model = decoder_with_past_model;
+
+        this.num_heads = this.config.num_heads
+        this.num_layers = this.config.num_layers
+        this.dim_kv = this.config.d_kv
     }
 
     static async from_pretrained(modelPath) {
         // TODO optimize? Lots of overlap between decoder and init_decoder
 
-        let [config, encoder_session, decoder_session, init_decoder_session] = await Promise.all([
+        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
             fetchJSON(pathJoin(modelPath, 'config.json')),
             constructSession(pathJoin(modelPath, 'encoder_model.onnx')),
             constructSession(pathJoin(modelPath, 'decoder_model.onnx')),
             constructSession(pathJoin(modelPath, 'decoder_with_past_model.onnx'))
         ])
 
-        return new this(config, encoder_session, decoder_session, init_decoder_session);
+        return new this(config, session, decoder_session, decoder_with_past_model);
     }
 
+    async generate(inputTokenIds, maxLength = 10, topK = 0) {
 
+        let attentionMask = new Array(inputTokenIds.length).fill(1);
+
+        let encoderOutputs = null;
+        let pastKeyValues = null;
+        let outputTokenIds = [];
+        if (this.config.decoder_start_token_id !== null) {
+            outputTokenIds.push(this.config.decoder_start_token_id);
+        }
+        let numOutputTokens = 1;
+        const maxOutputTokens = numOutputTokens + maxLength;
+
+        let sampler = this.chooseSampler(topK);
+
+        while (numOutputTokens < maxOutputTokens) {
+            let output = await this.forward({
+                input_ids: inputTokenIds,
+                attention_mask: attentionMask,
+                decoder_input_ids: outputTokenIds.slice(-1),
+                encoder_outputs: encoderOutputs,
+                past_key_values: pastKeyValues,
+            });
+            pastKeyValues = output.pastKeyValues;
+            encoderOutputs = output.encoderOutputs;
+
+            let newTokenId = sampler(output.logits);
+            outputTokenIds.push(newTokenId);
+            ++numOutputTokens;
+            if (newTokenId === this.config.eos_token_id) {
+                break;
+            }
+        }
+        return outputTokenIds;
+    }
     async forward(model_inputs) {
         model_inputs = this.prepare_inputs(model_inputs)
 
@@ -276,51 +334,43 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         let encoderOutputs = model_inputs.encoder_outputs;
         let pastKeyValues = model_inputs.past_key_values;
 
-
         if (encoderOutputs === null) {
             const encoderFeeds = {
                 "input_ids": inputIdsTensor,
                 "attention_mask": encoderAttentionMaskTensor,
             }
-            const encoderResults = await this.encoder_session.run(encoderFeeds);
-            const encoderHiddenStates = encoderResults.hidden_states;
-            encoderOutputs = encoderHiddenStates;
+            const encoderResults = await this.session.run(encoderFeeds);
+            encoderOutputs = encoderResults.last_hidden_state;
         }
-
-        // const decoderAttentionMaskTensor = new ort.Tensor("int64", new BigInt64Array(decoderInputIds.length).fill(1n), [1, decoderInputIds.length]);
-        const decoderFeeds = {
+        let decoderFeeds = {
             "input_ids": decoderInputIdsTensor,
             "encoder_attention_mask": encoderAttentionMaskTensor,
             "encoder_hidden_states": encoderOutputs,
         };
-        let logits = null;
 
+        if (pastKeyValues !== null) {
+            delete pastKeyValues['encoder_last_hidden_state'];
+        }
+
+        let logits;
         if (pastKeyValues === null) {
-            const initDecoderResults = await this.init_decoder_session.run(decoderFeeds);
+            const initDecoderResults = await this.decoder_session.run(decoderFeeds);
             logits = initDecoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.init_decoder_session.outputNames.slice(1), initDecoderResults);
+            pastKeyValues = this.getPastKeyValues(this.decoder_session.outputNames.slice(1), initDecoderResults);
 
         } else {
-            for (const [k, v] of pastKeyValues) {
-                decoderFeeds[k] = v;
-            }
-            const decoderResults = await this.decoder_session.run(decoderFeeds);
+            Object.assign(decoderFeeds, pastKeyValues)
+
+            const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
             logits = decoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_session.outputNames.slice(1), decoderResults);
+            pastKeyValues = this.getPastKeyValues(this.decoder_with_past_model.outputNames.slice(1), decoderResults);
+            delete pastKeyValues['encoder_last_hidden_state'];
+
         }
+
         return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
     }
-
-    getPastKeyValues(pkvNames, decoderResults) {
-        const pkvs = [];
-        for (const i in pkvNames) {
-            const v = decoderResults[pkvNames[i]];
-            pkvs.push([`pkv_${i}`, v]);
-        }
-        return pkvs;
-    }
 }
-
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -333,7 +383,68 @@ class GPT2Model extends GPT2PreTrainedModel {
         )
     }
 }
-class GPT2LMHeadModel extends GPT2PreTrainedModel { }
+
+class GPT2LMHeadModel extends GPT2PreTrainedModel {
+    constructor(config, session) {
+        super(config, session);
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.n_embd
+    }
+
+    async generate(inputTokenIds, maxLength = 20, topK = 0) {
+
+        let movingInputs = [...inputTokenIds]
+
+        let pastKeyValues = null;
+        let outputTokenIds = [];
+        let numOutputTokens = 1;
+        const maxOutputTokens = numOutputTokens + maxLength;
+
+        let sampler = this.chooseSampler(topK);
+
+        while (numOutputTokens < maxOutputTokens) {
+            let z = inputTokenIds.length + outputTokenIds.length;
+            let model_inputs = {
+                input_ids: movingInputs,
+                attention_mask: new Array(z).fill(1),
+                past_key_values: pastKeyValues,
+            }
+
+            let output = await this.forward(model_inputs);
+            pastKeyValues = output.pastKeyValues;
+
+            let newTokenId = sampler(output.logits);
+            outputTokenIds.push(newTokenId);
+            movingInputs = [newTokenId];
+
+            ++numOutputTokens;
+            if (newTokenId === this.config.eos_token_id) {
+                break;
+            }
+        }
+        return outputTokenIds;
+    }
+
+    async forward(model_inputs) {
+        model_inputs = this.prepare_inputs(model_inputs)
+
+        let pastKeyValues = model_inputs.past_key_values;
+        let decoderFeeds = {
+            input_ids: model_inputs.input_ids,
+            attention_mask: model_inputs.attention_mask,
+        }
+        this.addPastKeyValues(decoderFeeds, pastKeyValues)
+
+        let decoderResults = await this.session.run(decoderFeeds);
+        let logits = decoderResults.logits;
+
+        pastKeyValues = this.getPastKeyValues(this.session.outputNames.slice(1), decoderResults);
+        return { logits, pastKeyValues };
+    }
+
+}
 // class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
 // TODO
 // }
@@ -360,5 +471,6 @@ export {
     AutoModel,
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
+    AutoModelForCausalLM,
     T5ForConditionalGeneration
 };
