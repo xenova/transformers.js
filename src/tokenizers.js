@@ -1,4 +1,4 @@
-import { Callable, fetchJSON, pathJoin } from './utils.js'
+import { Callable, fetchJSON, pathJoin, reverseDictionary } from './utils.js'
 
 
 class TokenizerModel extends Callable {
@@ -8,6 +8,9 @@ class TokenizerModel extends Callable {
                 return new WordPieceTokenizer(config);
             case 'Unigram':
                 return new Unigram(config, ...args);
+
+            case 'BPE':
+                return new BPE(config, ...args);
             default:
                 throw new Error(`Unknown TokenizerModel type: ${config.type}`);
         }
@@ -163,9 +166,144 @@ class Unigram extends TokenizerModel {
 
 }
 
+const BYTES_TO_UNICODE = (() => {
+    // Returns list of utf-8 byte and a mapping to unicode strings.
+    // We specifically avoids mapping to whitespace/control characters
+    // the bpe code barfs on.
+
+    const bs = [
+        ...Array.from({ length: "~".charCodeAt(0) - "!".charCodeAt(0) + 1 }, (_, i) => i + "!".charCodeAt(0)),
+        ...Array.from({ length: "¬".charCodeAt(0) - "¡".charCodeAt(0) + 1 }, (_, i) => i + "¡".charCodeAt(0)),
+        ...Array.from({ length: "ÿ".charCodeAt(0) - "®".charCodeAt(0) + 1 }, (_, i) => i + "®".charCodeAt(0)),
+    ];
+    let cs = bs.slice();
+    let n = 0;
+    for (let b = 0; b < 256; b++) {
+        if (!bs.includes(b)) {
+            bs.push(b);
+            cs.push(256 + n);
+            n += 1;
+        }
+    }
+    cs = cs.map(n => String.fromCharCode(n));
+    return Object.fromEntries(bs.map((b, i) => [b, cs[i]]));
+})();
+
+const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
+
+class BPE extends TokenizerModel {
+    constructor(config, moreConfig) {
+        super();
+        this.config = config;
+        console.log({ config, moreConfig })
+
+        this.tokens_to_ids = config.vocab;
+
+        this.unk_token_id = this.tokens_to_ids[config.unk_token];
+        this.unk_token = config.unk_token;
+
+        let e = Object.entries(this.tokens_to_ids);
+        this.vocab = Array(e.length);
+
+        for (const [key, value] of e) {
+            this.vocab[value] = key;
+        }
+
+        this.bpe_ranks = Object.fromEntries(config.merges.map((x, i) => [x, i]));
+        this.merges = config.merges.map(x => x.split(/\s+/))
+
+        this.byte_encoder = BYTES_TO_UNICODE;
+
+        this.cache = {}
+    }
+
+    get_pairs(word) {
+        let pairs = new Set();
+        let prev_char = word[0];
+        for (let i = 1; i < word.length; i++) {
+            let char = word[i];
+            pairs.add(`${prev_char} ${char}`);
+            prev_char = char;
+        }
+        return [...pairs];
+    }
+
+    bpe(token) {
+        if (token in this.cache) {
+            return this.cache[token];
+        }
+        let word = Array.from(token);
+        let pairs = this.get_pairs(word);
+
+        if (!pairs.length) {
+            return token;
+        }
+
+        while (true) {
+            let bigram = pairs.reduce((a, b) => {
+                let c = this.bpe_ranks[a] ?? Infinity
+                let d = this.bpe_ranks[b] ?? Infinity
+                return c <= d ? a : b;
+            });
+            if (!(bigram in this.bpe_ranks)) {
+                break;
+            }
+            let [first, second] = bigram.split(/\s+/g)
+            let new_word = [];
+            let i = 0;
+            let j = -1;
+
+            while (i < word.length) {
+                try {
+                    j = word.indexOf(first, i);
+                    if (j === -1) throw "Error";
+                } catch (e) {
+                    new_word.push(...word.slice(i));
+                    break;
+                }
+                new_word.push(...word.slice(i, j));
+                i = j;
+
+                if (word[i] === first && i < word.length - 1 && word[i + 1] === second) {
+                    new_word.push(first + second);
+                    i += 2;
+                } else {
+                    new_word.push(word[i]);
+                    i += 1;
+                }
+            }
+            word = new_word
+            if (word.length === 1) {
+                break;
+            } else {
+                pairs = this.get_pairs(word);
+            }
+        }
+        let final_word = word.join(" ");
+        this.cache[token] = final_word;
+        return final_word;
+    }
+    encode(tokens) {
+        let outputTokens = [];
+
+        let byte_encoder = b => this.byte_encoder[b.charCodeAt(0)];
+        for (let token of tokens) {
+            token = Array.from(token).map(byte_encoder).join('');
+            let bpe_token_list = this.bpe(token).split(' ');
+            outputTokens.push(...bpe_token_list);
+        }
+
+        console.log('outputTokens', outputTokens)
+
+        return outputTokens;
+    }
+
+}
+
 class Normalizer extends Callable {
 
     static fromConfig(config) {
+        if (config === null) return null;
         switch (config.type) {
             case 'BertNormalizer':
                 return new BertNormalizer(config);
@@ -219,6 +357,10 @@ class PreTokenizer extends Callable {
                 return new WhitespaceSplit(config);
             case 'Metaspace':
                 return new MetaspacePreTokenizer(config);
+
+            case 'ByteLevel':
+                return new ByteLevelPreTokenizer(config);
+
             default:
                 throw new Error(`Unknown PreTokenizer type: ${config.type}`);
         }
@@ -237,10 +379,23 @@ class BertPreTokenizer extends PreTokenizer {
     constructor(config) {
         super();
         // TODO use config
+        this.pattern = /\b\w+\b|[^\s\w]+/g
     }
     pre_tokenize(text) {
         // Split on whitespace and punctuation
-        return text.trim().match(/\b\w+\b|[^\s\w]+/g) || [];
+        return text.trim().match(this.pattern) || [];
+    }
+}
+class ByteLevelPreTokenizer extends PreTokenizer {
+    constructor(config) {
+        super();
+        // TODO use config
+        this.pattern = /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+    }
+
+    pre_tokenize(text) {
+        // Split on whitespace and punctuation
+        return text.trim().match(this.pattern) || [];
     }
 }
 
@@ -250,6 +405,10 @@ class PostProcessor extends Callable {
         switch (config.type) {
             case 'TemplateProcessing':
                 return new TemplateProcessing(config);
+
+            case 'ByteLevel':
+                return new ByteLevelPostProcessor(config);
+
             default:
                 throw new Error(`Unknown PostProcessor type: ${config.type}`);
         }
@@ -281,6 +440,15 @@ class TemplateProcessing extends PostProcessor {
         return toReturn;
     }
 }
+class ByteLevelPostProcessor extends PostProcessor {
+    constructor(config) {
+        super();
+        this.config = config;
+    }
+    post_process(tokens) {
+        return tokens;
+    }
+}
 
 class Decoder extends Callable {
 
@@ -295,6 +463,8 @@ class Decoder extends Callable {
                 return new WordPieceDecoder(config);
             case 'Metaspace':
                 return new MetaspaceDecoder(config);
+            case 'ByteLevel':
+                return new ByteLevelDecoder(config);
             default:
                 throw new Error(`Unknown Decoder type: ${config.type}`);
         }
@@ -349,6 +519,26 @@ class WordPieceDecoder extends Decoder {
             text = this.clean_up_tokenization(text);
         }
         return text;
+    }
+}
+
+class ByteLevelDecoder extends Decoder {
+    constructor(config) {
+        super(config);
+
+        this.byte_decoder = UNICODE_TO_BYTES;
+        this.text_decoder = new TextDecoder("utf-8", {
+            fatal: false,
+            ignoreBOM: true,
+            ignoreEncoding: false
+        });
+    }
+
+    decode(tokens) {
+        let text = this.convert_tokens_to_string(tokens);
+        let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
+        let decoded_text = this.text_decoder.decode(byteArray);
+        return decoded_text;
     }
 }
 
@@ -456,6 +646,8 @@ class AutoTokenizer {
 class PreTrainedTokenizer extends Callable {
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
+
+        // console.log({ tokenizerJSON, tokenizerConfig })
         this.tokenizerJSON = tokenizerJSON;
         this.tokenizerConfig = tokenizerConfig;
 
@@ -466,6 +658,7 @@ class PreTrainedTokenizer extends Callable {
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
 
+        // TODO - maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
     }
@@ -483,7 +676,9 @@ class PreTrainedTokenizer extends Callable {
     }
 
     encode(text) {
-        text = this.normalizer(text);
+        if (this.normalizer !== null) {
+            text = this.normalizer(text);
+        }
         let tokens = this.pre_tokenizer(text);
 
         tokens = this.model(tokens);
