@@ -137,6 +137,7 @@ class PreTrainedModel extends Callable {
             num_beams: 1,
             num_return_sequences: 1,
             early_stopping: false,
+            do_sample: false,
         }
     }
 
@@ -191,7 +192,12 @@ class PreTrainedModel extends Callable {
 
             let newest_beams = [];
             for (let beam of beams) {
-                if (beam.done) continue;
+                if (beam.done) {
+                    // TODO add length penalty (for ending early)
+                    // Add this beam back into the pool
+                    newest_beams.push(beam);
+                    continue
+                }
 
                 let output = await this.runBeam(beam, inputTokenIds);
 
@@ -237,7 +243,7 @@ class PreTrainedModel extends Callable {
 
         // TODO add beam
         if (options.num_beams > 1) {
-            sampler = new BeamSearchSampler(options.num_beams)
+            sampler = new BeamSearchSampler(options.num_beams, options.do_sample, options.top_k)
 
         } else if (options.top_k > 0) {
             sampler = new TopKSampler(options.top_k)
