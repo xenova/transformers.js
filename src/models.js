@@ -140,6 +140,8 @@ class PreTrainedModel extends Callable {
             early_stopping: false,
             do_sample: false,
             discount_factor: 1,
+
+            callback_function: null
         }
     }
 
@@ -222,7 +224,6 @@ class PreTrainedModel extends Callable {
                     }
                     newest_beams.push(newBeam);
                 }
-
             }
             ++numOutputTokens;
 
@@ -232,6 +233,11 @@ class PreTrainedModel extends Callable {
                 .slice(0, options.num_beams)        // remove outside beam width
 
             beams = newest_beams;
+
+            // Run callback
+            if (options.callback_function) {
+                options.callback_function(beams);
+            }
         }
 
         if (options.num_return_sequences > 1) {
