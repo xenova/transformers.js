@@ -409,9 +409,9 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
                 });
                 beam.past_key_values = output.past_key_values;
 
-                let newTokenIds = sampler(output.logits);
+                let sampledTokens = sampler(output.logits);
 
-                for (let [newTokenId, logProb] of newTokenIds) {
+                for (let [newTokenId, logProb] of sampledTokens) {
                     // use previous beam as a starting point
                     let newBeam = { ...beam };
 
