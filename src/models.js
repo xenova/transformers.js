@@ -3,9 +3,14 @@ import {
     fetchJSON,
     pathJoin,
     indexOfMax,
-    softmax
+    softmax,
 } from "./utils.js";
 
+import {
+    GreedySampler,
+    TopKSampler,
+    BeamSearchSampler
+} from "./samplers.js"
 
 //////////////////////////////////////////////////
 // Helper functions
@@ -128,7 +133,10 @@ class PreTrainedModel extends Callable {
 
         this.default_generation_options = {
             max_length: 100,
-            top_k: 0
+            top_k: 0,
+            num_beams: 1,
+            num_return_sequences: 1,
+            early_stopping: false,
         }
     }
 
@@ -173,54 +181,22 @@ class PreTrainedModel extends Callable {
         return Object.assign({}, this.default_generation_options, options)
     }
 
-    chooseSampler(topK) {
+    chooseSampler(options) {
         let sampler;
-        if (topK > 0) {
-            sampler = x => this.sampleLogitsTopK(x, topK);
+
+        // TODO add beam
+        if (options.num_beams > 1) {
+            sampler = new BeamSearchSampler(options.num_beams)
+
+        } else if (options.top_k > 0) {
+            sampler = new TopKSampler(options.top_k)
         } else {
-            sampler = x => this.sampleLogitsGreedily(x);
+            sampler = new GreedySampler()
         }
+
         return sampler;
-
     }
 
-    getLastLogits(logits) {
-        let [_, seqLength, vocabSize] = logits.dims;
-
-        let logs = logits.data;
-        if (seqLength > 1) {
-            logs = logs.slice(-vocabSize);
-        }
-        return logs;
-    }
-    sampleLogitsGreedily(logits) {
-        let logs = this.getLastLogits(logits);
-        return indexOfMax(logs);
-    }
-    sampleLogitsTopK(logits, k) {
-
-        let [batchSize, seqLength, vocabSize] = logits.dims;
-
-        k = Math.min(k, vocabSize);
-        let logs = this.getLastLogits(logits);
-
-        let logitAndId = Array.from(logs)
-            .map((x, i) => [x, i])            // Get indices
-            .sort((a, b) => b[0] - a[0])      // Sort by log probabilities
-            .slice(0, k)                      // Get top k items
-            .map(x => [Math.exp(x[0]), x[1]]) // convert to probabilities
-
-        let sumProbabilities = logitAndId.reduce((acc, curr) => acc + curr[0], 0);
-
-        let r = Math.random() * sumProbabilities;
-        for (let i = 0; i < logitAndId.length; i++) {
-            r -= logitAndId[i][0];
-            if (r <= 0) {
-                return logitAndId[i][1];
-            }
-        }
-        return logitAndId[0][1];
-    }
     getPastKeyValues(pkvNames, decoderResults) {
         const pkvs = {};
 
@@ -307,7 +283,7 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         let numOutputTokens = 1;
         const maxOutputTokens = numOutputTokens + options.max_length;
 
-        let sampler = this.chooseSampler(options.top_k);
+        let sampler = this.chooseSampler(options);
 
         while (numOutputTokens < maxOutputTokens) {
             let output = await this.forward({
@@ -320,7 +296,7 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
             pastKeyValues = output.pastKeyValues;
             encoderOutputs = output.encoderOutputs;
 
-            let newTokenId = sampler(output.logits);
+            let newTokenId = sampler(output);
             outputTokenIds.push(newTokenId);
             ++numOutputTokens;
             if (newTokenId === this.config.eos_token_id) {
@@ -399,51 +375,94 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
 
     async generate(inputTokenIds, options = {}) {
         options = this.prepareGenerationOptions(options);
+        // TODO implement early_stopping
+        // https://huggingface.co/blog/how-to-generate
 
         let model_input_ids = [...inputTokenIds]
 
-        let pastKeyValues = null;
-        let outputTokenIds = [];
         let numOutputTokens = 1;
         const maxOutputTokens = numOutputTokens + options.max_length;
 
-        let sampler = this.chooseSampler(options.top_k);
+        let sampler = this.chooseSampler(options);
 
-        while (numOutputTokens < maxOutputTokens) {
-            let output = await this.forward({
-                input_ids: model_input_ids,
-                attention_mask: new Array(inputTokenIds.length + outputTokenIds.length).fill(1),
-                past_key_values: pastKeyValues,
-            });
-            pastKeyValues = output.pastKeyValues;
-
-            let newTokenId = sampler(output.logits);
-            outputTokenIds.push(newTokenId);
-            model_input_ids = [newTokenId];
-
-            ++numOutputTokens;
-            if (newTokenId === this.config.eos_token_id) {
-                break;
-            }
+        let initBeam = {
+            attention_mask: new Array(inputTokenIds.length).fill(1),
+            model_input_ids: model_input_ids,
+            past_key_values: null,
+            output_token_ids: [],
+            num_output_tokens: numOutputTokens,
+            done: false,
+            score: 0,
         }
-        return outputTokenIds;
+
+        let beams = [initBeam];
+
+        while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
+
+            let newest_beams = [];
+            for (let i = 0; i < beams.length; ++i) {
+                let beam = beams[i];
+                if (beam.done) continue;
+
+                let attention_mask = new Array(inputTokenIds.length + beam.output_token_ids.length).fill(1);
+
+                let output = await this.forward({
+                    input_ids: beam.model_input_ids,
+                    attention_mask: attention_mask,
+                    past_key_values: beam.past_key_values,
+                });
+                beam.past_key_values = output.past_key_values;
+
+                let newTokenIds = sampler(output.logits);
+
+                for (let [newTokenId, logProb] of newTokenIds) {
+                    // use previous beam as a starting point
+                    let newBeam = { ...beam };
+
+                    // update new beam
+                    newBeam.output_token_ids = [...beam.output_token_ids, newTokenId]
+                    newBeam.model_input_ids = [newTokenId];
+                    newBeam.score += logProb;
+
+                    if (newTokenId === this.config.eos_token_id) {
+                        newBeam.done = true;
+                    }
+                    newest_beams.push(newBeam);
+                }
+
+            }
+            ++numOutputTokens;
+
+            // Update beams
+            newest_beams = newest_beams
+                .sort((a, b) => b.score - a.score)  // sort based on score
+                .slice(0, options.num_beams)        // remove outside beam width
+
+            beams = newest_beams;
+        }
+
+        if (options.num_return_sequences > 1) {
+            return beams.slice(0, options.num_return_sequences).map(x => x.output_token_ids);
+        } else {
+            return beams[0].output_token_ids;
+        }
     }
 
     async forward(model_inputs) {
         model_inputs = this.prepare_inputs(model_inputs)
 
-        let pastKeyValues = model_inputs.past_key_values;
+        let past_key_values = model_inputs.past_key_values;
         let decoderFeeds = {
             input_ids: model_inputs.input_ids,
             attention_mask: model_inputs.attention_mask,
         }
-        this.addPastKeyValues(decoderFeeds, pastKeyValues)
+        this.addPastKeyValues(decoderFeeds, past_key_values)
 
         let decoderResults = await this.session.run(decoderFeeds);
         let logits = decoderResults.logits;
 
-        pastKeyValues = this.getPastKeyValues(this.session.outputNames.slice(1), decoderResults);
-        return { logits, pastKeyValues };
+        past_key_values = this.getPastKeyValues(this.session.outputNames.slice(1), decoderResults);
+        return { logits, past_key_values };
     }
 
 }
