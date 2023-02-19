@@ -195,7 +195,6 @@ class BPE extends TokenizerModel {
     constructor(config, moreConfig) {
         super();
         this.config = config;
-        console.log({ config, moreConfig })
 
         this.tokens_to_ids = config.vocab;
 
@@ -292,8 +291,6 @@ class BPE extends TokenizerModel {
             let bpe_token_list = this.bpe(token).split(' ');
             outputTokens.push(...bpe_token_list);
         }
-
-        console.log('outputTokens', outputTokens)
 
         return outputTokens;
     }
@@ -647,7 +644,6 @@ class PreTrainedTokenizer extends Callable {
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
 
-        // console.log({ tokenizerJSON, tokenizerConfig })
         this.tokenizerJSON = tokenizerJSON;
         this.tokenizerConfig = tokenizerConfig;
 
