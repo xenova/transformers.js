@@ -397,8 +397,7 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
 
             let newest_beams = [];
-            for (let i = 0; i < beams.length; ++i) {
-                let beam = beams[i];
+            for (let beam of beams) {
                 if (beam.done) continue;
 
                 let attention_mask = new Array(inputTokenIds.length + beam.output_token_ids.length).fill(1);
