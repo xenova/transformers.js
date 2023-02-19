@@ -27,6 +27,13 @@ class Sampler extends Callable {
         return logs;
     }
 
+    addTemperature(logits, temperature){
+        if (temperature >= 1) {
+            return logits;
+        }
+        return logits.map(x => x * temperature);
+    }
+
     getTopLogits(logits, top_k = 0) {
         // if top == 0, return all
 
@@ -72,10 +79,11 @@ class GreedySampler extends Sampler {
 }
 
 class TopKSampler extends Sampler {
-    constructor(k) {
+    constructor(k, temperature) {
         super();
 
         this.k = k;
+        this.temperature = temperature;
     }
 
     sample(logits) {
@@ -83,6 +91,7 @@ class TopKSampler extends Sampler {
         let k = Math.min(this.k, vocabSize);
 
         let logs = this.getLastLogits(logits);
+        logs = this.addTemperature(logs, this.temperature);
 
         // Get top k tokens
         let topLogits = this.getTopLogits(logs, k);
@@ -101,21 +110,23 @@ class TopKSampler extends Sampler {
 }
 
 class BeamSearchSampler extends Sampler {
-    constructor(num_beams, do_sample, top_k) {
+    constructor(num_beams, do_sample, top_k, temperature) {
         super();
         this.num_beams = num_beams; // maximum number of beams
         this.do_sample = do_sample; // if true, perform multinomial sampling
 
         this.top_k = top_k; // if do_sample, sample from top k items
+        this.temperature = temperature;
     }
 
     sample(logits) {
 
-        const logs = this.getLastLogits(logits);
+        let logs = this.getLastLogits(logits);
+        logs = this.addTemperature(logs, this.temperature);
 
-        if (this.do_sample) {
+        if (this.do_sample || this.top_k > 0) {
             const [batchSize, seqLength, vocabSize] = logits.dims;
-            const k = Math.min(this.k, vocabSize);
+            const k = Math.min(this.top_k, vocabSize);
             const topLogits = this.getTopLogits(logs, k);
 
             // Compute softmax over top k logits

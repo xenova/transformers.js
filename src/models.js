@@ -135,9 +135,11 @@ class PreTrainedModel extends Callable {
             max_length: 100,
             top_k: 0,
             num_beams: 1,
+            temperature: 1,
             num_return_sequences: 1,
             early_stopping: false,
             do_sample: false,
+            discount_factor: 1,
         }
     }
 
@@ -209,6 +211,10 @@ class PreTrainedModel extends Callable {
 
                     // update new beam
                     this.updateBeam(newBeam, newTokenId)
+
+                    if (options.discount_factor < 1) {
+                        newBeam.score *= options.discount_factor;
+                    }
                     newBeam.score += logProb;
 
                     if (newTokenId === this.config.eos_token_id) {
@@ -243,10 +249,18 @@ class PreTrainedModel extends Callable {
 
         // TODO add beam
         if (options.num_beams > 1) {
-            sampler = new BeamSearchSampler(options.num_beams, options.do_sample, options.top_k)
+            sampler = new BeamSearchSampler(
+                options.num_beams,
+                options.do_sample,
+                options.top_k,
+                options.temperature
+            )
 
         } else if (options.top_k > 0) {
-            sampler = new TopKSampler(options.top_k)
+            sampler = new TopKSampler(
+                options.top_k,
+                options.temperature
+            )
         } else {
             sampler = new GreedySampler()
         }
