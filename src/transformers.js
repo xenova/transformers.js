@@ -15,19 +15,27 @@ import {
 } from "./models.js";
 
 
-// Allow global access to these variables
-window.AutoTokenizer = AutoTokenizer
-window.BertTokenizer = BertTokenizer
-window.DistilBertTokenizer = DistilBertTokenizer
-window.T5Tokenizer = T5Tokenizer
-window.GPT2Tokenizer = GPT2Tokenizer
+if (typeof window === 'undefined') {
+    // We are running in a web worker
 
-window.AutoModel = AutoModel
-window.AutoModelForSeq2SeqLM = AutoModelForSeq2SeqLM
-window.AutoModelForSequenceClassification = AutoModelForSequenceClassification
-window.AutoModelForCausalLM = AutoModelForCausalLM
+} else {
+    // We are running in the main thread
+    // Allow global access to these variables
 
-window.T5ForConditionalGeneration = T5ForConditionalGeneration
+    window.AutoTokenizer = AutoTokenizer
+    window.BertTokenizer = BertTokenizer
+    window.DistilBertTokenizer = DistilBertTokenizer
+    window.T5Tokenizer = T5Tokenizer
+    window.GPT2Tokenizer = GPT2Tokenizer
+
+    window.AutoModel = AutoModel
+    window.AutoModelForSeq2SeqLM = AutoModelForSeq2SeqLM
+    window.AutoModelForSequenceClassification = AutoModelForSequenceClassification
+    window.AutoModelForCausalLM = AutoModelForCausalLM
+
+    window.T5ForConditionalGeneration = T5ForConditionalGeneration
+
+}
 
 export {
     // Tokenizers
@@ -42,5 +50,7 @@ export {
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
     AutoModelForCausalLM,
-    T5ForConditionalGeneration
+    T5ForConditionalGeneration,
+
+    // other
 };
