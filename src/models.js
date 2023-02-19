@@ -174,8 +174,59 @@ class PreTrainedModel extends Callable {
     async forward(model_inputs) {
         throw Error("forward should be implemented in subclasses.")
     }
-    async generate(...args) {
-        throw Error("generate should be implemented in subclasses.")
+
+    async generate(inputTokenIds, options = {}) {
+        options = this.prepareGenerationOptions(options);
+        // TODO implement early_stopping
+        // https://huggingface.co/blog/how-to-generate
+
+        let numOutputTokens = 1;
+        const maxOutputTokens = numOutputTokens + options.max_length;
+
+        let sampler = this.chooseSampler(options);
+
+        let beams = [this.getStartBeam(inputTokenIds, numOutputTokens)];
+
+        while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
+
+            let newest_beams = [];
+            for (let beam of beams) {
+                if (beam.done) continue;
+
+                let output = await this.runBeam(beam, inputTokenIds);
+
+                let sampledTokens = sampler(output.logits);
+
+                for (let [newTokenId, logProb] of sampledTokens) {
+                    // use previous beam as a starting point
+                    let newBeam = { ...beam };
+
+                    // update new beam
+                    this.updateBeam(newBeam, newTokenId)
+                    newBeam.score += logProb;
+
+                    if (newTokenId === this.config.eos_token_id) {
+                        newBeam.done = true;
+                    }
+                    newest_beams.push(newBeam);
+                }
+
+            }
+            ++numOutputTokens;
+
+            // Update beams
+            newest_beams = newest_beams
+                .sort((a, b) => b.score - a.score)  // sort based on score
+                .slice(0, options.num_beams)        // remove outside beam width
+
+            beams = newest_beams;
+        }
+
+        if (options.num_return_sequences > 1) {
+            return beams.slice(0, options.num_return_sequences).map(x => x.output_token_ids);
+        } else {
+            return beams[0].output_token_ids;
+        }
     }
     prepareGenerationOptions(options) {
         return Object.assign({}, this.default_generation_options, options)
@@ -272,41 +323,42 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         return new this(config, session, decoder_session, decoder_with_past_model);
     }
 
-    async generate(inputTokenIds, options = {}) {
-        options = this.prepareGenerationOptions(options);
-
-
-        let beam = {
+    getStartBeam(inputTokenIds, numOutputTokens) {
+        // arguments ignored in this case
+        return {
             encoder_outputs: null,
             past_key_values: null,
-            decoder_input_ids: [this.config.decoder_start_token_id],
+
+            // decoder_input_ids == output_token_ids
+            output_token_ids: [this.config.decoder_start_token_id],
+            done: false,
+            score: 0,
         }
-
-        let numOutputTokens = 1;
-        const maxOutputTokens = numOutputTokens + options.max_length;
-
-        let sampler = this.chooseSampler(options);
-        let attentionMask = new Array(inputTokenIds.length).fill(1);
-        while (numOutputTokens < maxOutputTokens) {
-            let output = await this.forward({
-                input_ids: inputTokenIds,
-                attention_mask: attentionMask,
-                decoder_input_ids: beam.decoder_input_ids.slice(-1),
-                encoder_outputs: beam.encoder_outputs,
-                past_key_values: beam.past_key_values,
-            });
-            beam.past_key_values = output.past_key_values;
-            beam.encoder_outputs = output.encoder_outputs;
-
-            let newTokenId = sampler(output.logits)[0][0];
-            beam.decoder_input_ids.push(newTokenId);
-            ++numOutputTokens;
-            if (newTokenId === this.config.eos_token_id) {
-                break;
-            }
-        }
-        return beam.decoder_input_ids;
     }
+
+    async runBeam(beam, inputTokenIds) {
+        // 1. Prepare
+        let model_inputs = {
+            input_ids: inputTokenIds,
+            attention_mask: new Array(inputTokenIds.length).fill(1),
+            decoder_input_ids: beam.output_token_ids.slice(-1),
+            encoder_outputs: beam.encoder_outputs,
+            past_key_values: beam.past_key_values,
+        }
+
+        // 2. Run
+        let output = await this.forward(model_inputs);
+
+        // 3. Update
+        beam.past_key_values = output.past_key_values;
+        beam.encoder_outputs = output.encoder_outputs;
+
+        return output;
+    }
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
     async forward(model_inputs) {
         model_inputs = this.prepare_inputs(model_inputs)
 
@@ -370,78 +422,39 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         this.dim_kv = this.config.n_embd / this.num_heads;
     }
 
-    async generate(inputTokenIds, options = {}) {
-        options = this.prepareGenerationOptions(options);
-        // TODO implement early_stopping
-        // https://huggingface.co/blog/how-to-generate
-
-        let model_input_ids = [...inputTokenIds]
-
-        let numOutputTokens = 1;
-        const maxOutputTokens = numOutputTokens + options.max_length;
-
-        let sampler = this.chooseSampler(options);
-
-        let initBeam = {
+    getStartBeam(inputTokenIds, numOutputTokens) {
+        return {
             attention_mask: new Array(inputTokenIds.length).fill(1),
-            model_input_ids: model_input_ids,
+            model_input_ids: [...inputTokenIds],
             past_key_values: null,
             output_token_ids: [],
             num_output_tokens: numOutputTokens,
             done: false,
             score: 0,
         }
+    }
 
-        let beams = [initBeam];
 
-        while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
-
-            let newest_beams = [];
-            for (let beam of beams) {
-                if (beam.done) continue;
-
-                let attention_mask = new Array(inputTokenIds.length + beam.output_token_ids.length).fill(1);
-
-                let output = await this.forward({
-                    input_ids: beam.model_input_ids,
-                    attention_mask: attention_mask,
-                    past_key_values: beam.past_key_values,
-                });
-                beam.past_key_values = output.past_key_values;
-
-                let sampledTokens = sampler(output.logits);
-
-                for (let [newTokenId, logProb] of sampledTokens) {
-                    // use previous beam as a starting point
-                    let newBeam = { ...beam };
-
-                    // update new beam
-                    newBeam.output_token_ids = [...beam.output_token_ids, newTokenId]
-                    newBeam.model_input_ids = [newTokenId];
-                    newBeam.score += logProb;
-
-                    if (newTokenId === this.config.eos_token_id) {
-                        newBeam.done = true;
-                    }
-                    newest_beams.push(newBeam);
-                }
-
-            }
-            ++numOutputTokens;
-
-            // Update beams
-            newest_beams = newest_beams
-                .sort((a, b) => b.score - a.score)  // sort based on score
-                .slice(0, options.num_beams)        // remove outside beam width
-
-            beams = newest_beams;
+    async runBeam(beam, inputTokenIds) {
+        // 1. Prepare
+        let model_inputs = {
+            input_ids: beam.model_input_ids,
+            attention_mask: new Array(inputTokenIds.length + beam.output_token_ids.length).fill(1),
+            past_key_values: beam.past_key_values,
         }
 
-        if (options.num_return_sequences > 1) {
-            return beams.slice(0, options.num_return_sequences).map(x => x.output_token_ids);
-        } else {
-            return beams[0].output_token_ids;
-        }
+        // 2. Run
+        let output = await this.forward(model_inputs);
+
+        // 3. Update
+        beam.past_key_values = output.past_key_values;
+
+        return output;
+    }
+
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId]
+        beam.model_input_ids = [newTokenId];
     }
 
     async forward(model_inputs) {
