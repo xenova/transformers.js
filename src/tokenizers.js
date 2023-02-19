@@ -634,6 +634,9 @@ class AutoTokenizer {
             case 'BertTokenizer':
                 return new BertTokenizer(tokenizerJSON, tokenizerConfig);
 
+            case 'GPT2Tokenizer':
+                return new GPT2Tokenizer(tokenizerJSON, tokenizerConfig);
+
             default:
                 console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
                 return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
@@ -725,6 +728,7 @@ class BertTokenizer extends PreTrainedTokenizer {
 }
 class DistilBertTokenizer extends PreTrainedTokenizer { }
 class T5Tokenizer extends PreTrainedTokenizer { }
+class GPT2Tokenizer extends PreTrainedTokenizer { }
 
 
 class CharTrie {
@@ -871,4 +875,10 @@ class TokenLatticeNode {
 }
 
 
-export { AutoTokenizer, BertTokenizer, DistilBertTokenizer, T5Tokenizer };
+export {
+    AutoTokenizer,
+    BertTokenizer,
+    DistilBertTokenizer,
+    T5Tokenizer,
+    GPT2Tokenizer
+};

@@ -1,7 +1,10 @@
 
 import {
     AutoTokenizer,
-    T5Tokenizer
+    BertTokenizer,
+    DistilBertTokenizer,
+    T5Tokenizer,
+    GPT2Tokenizer
 } from "./tokenizers.js";
 import {
     AutoModel,
@@ -14,7 +17,10 @@ import {
 
 // Allow global access to these variables
 window.AutoTokenizer = AutoTokenizer
+window.BertTokenizer = BertTokenizer
+window.DistilBertTokenizer = DistilBertTokenizer
 window.T5Tokenizer = T5Tokenizer
+window.GPT2Tokenizer = GPT2Tokenizer
 
 window.AutoModel = AutoModel
 window.AutoModelForSeq2SeqLM = AutoModelForSeq2SeqLM
@@ -26,7 +32,10 @@ window.T5ForConditionalGeneration = T5ForConditionalGeneration
 export {
     // Tokenizers
     AutoTokenizer,
+    BertTokenizer,
+    DistilBertTokenizer,
     T5Tokenizer,
+    GPT2Tokenizer,
 
     // Models
     AutoModel,
