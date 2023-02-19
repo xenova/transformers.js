@@ -12,6 +12,8 @@ import {
     BeamSearchSampler
 } from "./samplers.js"
 
+import './ort.js'
+
 //////////////////////////////////////////////////
 // Helper functions
 async function constructSession(path) {
