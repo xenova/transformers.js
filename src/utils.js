@@ -53,40 +53,33 @@ function indexOfMax(arr) {
     return maxIndex;
 }
 
+
 function softmax(arr) {
     // Compute the maximum value in the array
     const max = Math.max(...arr);
 
     // Compute the exponentials of the array values
-    const exps = arr.map((x) => Math.exp(x - max));
+    const exps = arr.map(x => Math.exp(x - max));
 
     // Compute the sum of the exponentials
     const sumExps = exps.reduce((acc, val) => acc + val, 0);
 
     // Compute the softmax values
-    const softmax = exps.map((x) => x / sumExps);
+    const softmaxArr = exps.map(x => x / sumExps);
 
-    return softmax;
+    return softmaxArr;
 }
 
 function log_softmax(arr) {
-    // Compute the maximum value in the array
-    const maxVal = Math.max(...arr);
+    // Compute the softmax values
+    const softmaxArr = softmax(arr);
 
-    // Compute the exponentials of the array values
-    const exps = arr.map(x => Math.exp(x - maxVal));
+    // Apply log formula to each element
+    const logSoftmaxArr = softmaxArr.map(x => Math.log(x));
 
-    // Compute the sum of the exponentials
-    const sumExps = exps.reduce((acc, val) => acc + val, 0);
-
-    // Take the natural logarithm of the sum
-    const logSumExp = Math.log(sumExps);
-
-    // Apply the log_softmax formula to each element
-    const logSoftmax = arr.map(x => x - maxVal - logSumExp);
-
-    return logSoftmax;
+    return logSoftmaxArr;
 }
+
 export {
     Callable,
     fetchJSON,
