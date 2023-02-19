@@ -275,57 +275,56 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
     async generate(inputTokenIds, options = {}) {
         options = this.prepareGenerationOptions(options);
 
-        let attentionMask = new Array(inputTokenIds.length).fill(1);
 
-        let encoderOutputs = null;
-        let pastKeyValues = null;
-        let outputTokenIds = [this.config.decoder_start_token_id];
+        let beam = {
+            encoder_outputs: null,
+            past_key_values: null,
+            decoder_input_ids: [this.config.decoder_start_token_id],
+        }
+
         let numOutputTokens = 1;
         const maxOutputTokens = numOutputTokens + options.max_length;
 
         let sampler = this.chooseSampler(options);
-
+        let attentionMask = new Array(inputTokenIds.length).fill(1);
         while (numOutputTokens < maxOutputTokens) {
             let output = await this.forward({
                 input_ids: inputTokenIds,
                 attention_mask: attentionMask,
-                decoder_input_ids: outputTokenIds.slice(-1),
-                encoder_outputs: encoderOutputs,
-                past_key_values: pastKeyValues,
+                decoder_input_ids: beam.decoder_input_ids.slice(-1),
+                encoder_outputs: beam.encoder_outputs,
+                past_key_values: beam.past_key_values,
             });
-            pastKeyValues = output.pastKeyValues;
-            encoderOutputs = output.encoderOutputs;
+            beam.past_key_values = output.past_key_values;
+            beam.encoder_outputs = output.encoder_outputs;
 
-            let newTokenId = sampler(output);
-            outputTokenIds.push(newTokenId);
+            let newTokenId = sampler(output.logits)[0][0];
+            beam.decoder_input_ids.push(newTokenId);
             ++numOutputTokens;
             if (newTokenId === this.config.eos_token_id) {
                 break;
             }
         }
-        return outputTokenIds;
+        return beam.decoder_input_ids;
     }
     async forward(model_inputs) {
         model_inputs = this.prepare_inputs(model_inputs)
 
-        let inputIdsTensor = model_inputs.input_ids;
-        let encoderAttentionMaskTensor = model_inputs.attention_mask;
-        let decoderInputIdsTensor = model_inputs.decoder_input_ids;
         let encoderOutputs = model_inputs.encoder_outputs;
         let pastKeyValues = model_inputs.past_key_values;
 
         if (encoderOutputs === null) {
             const encoderFeeds = {
-                "input_ids": inputIdsTensor,
-                "attention_mask": encoderAttentionMaskTensor,
+                input_ids: model_inputs.input_ids,
+                attention_mask: model_inputs.attention_mask,
             }
             const encoderResults = await this.session.run(encoderFeeds);
             encoderOutputs = encoderResults.last_hidden_state;
         }
         let decoderFeeds = {
-            "input_ids": decoderInputIdsTensor,
-            "encoder_attention_mask": encoderAttentionMaskTensor,
-            "encoder_hidden_states": encoderOutputs,
+            input_ids: model_inputs.decoder_input_ids,
+            encoder_attention_mask: model_inputs.attention_mask,
+            encoder_hidden_states: encoderOutputs,
         };
 
         if (pastKeyValues !== null) {
@@ -344,8 +343,6 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
             const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
             logits = decoderResults.logits;
             pastKeyValues = this.getPastKeyValues(this.decoder_with_past_model.outputNames.slice(1), decoderResults);
-            delete pastKeyValues['encoder_last_hidden_state'];
-
         }
 
         return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
@@ -472,10 +469,10 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
 //////////////////////////////////////////////////
 
 class Seq2SeqLMOutput {
-    constructor(logits, pastKeyValues, encoderOutputs) {
+    constructor(logits, past_key_values, encoder_outputs) {
         this.logits = logits;
-        this.pastKeyValues = pastKeyValues;
-        this.encoderOutputs = encoderOutputs;
+        this.past_key_values = past_key_values;
+        this.encoder_outputs = encoder_outputs;
     }
 }
 
