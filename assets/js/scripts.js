@@ -17,21 +17,38 @@ const PROGRESS_BARS = document.getElementById('progress-bars');
 
 const GENERATE_BUTTON = document.getElementById('generate');
 
+// Parameters
+const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
+
 // Add event listeners
 TASK_SELECTOR.addEventListener('input', (e) => {
 	for (let element of TASKS) {
 		if (element.getAttribute('task') === e.target.value) {
-			element.style.display = 'flex';
+			element.style.display = 'block';
 		} else {
 			element.style.display = 'none';
 		}
 	}
 });
 
+function parseValue(value, type) {
+	switch (type) {
+		case 'number':
+			return Number(value);
+		case 'bool':
+			return value === 'true'
+		default:
+			return value
+	}
+}
 GENERATE_BUTTON.addEventListener('click', (e) => {
 	// Set and pass generation settings to web worker
 	let data = {
-		task: TASK_SELECTOR.value
+		task: TASK_SELECTOR.value,
+		generation: Object.fromEntries([...GENERATION_OPTIONS].map(x => {
+			let value = parseValue(x.value, x.type);
+			return [x.getAttribute('param-name'), value]
+		}))
 	};
 	if (TASK_SELECTOR.value === 'translation') {
 
