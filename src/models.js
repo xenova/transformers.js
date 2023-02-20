@@ -16,15 +16,75 @@ import './ort.js'
 
 //////////////////////////////////////////////////
 // Helper functions
-async function constructSession(path) {
+
+function dispatchCallback(progressCallback, data) {
+    if (progressCallback !== null) progressCallback(data);
+}
+async function constructSession(modelPath, fileName, progressCallback = null) {
+    let path = pathJoin(modelPath, fileName);
+
+    // Initiate session
+    dispatchCallback(progressCallback, {
+        status: 'initiate',
+        name: modelPath,
+        file: fileName
+    })
+
+    // Make request
     let response = await fetch(path, {
         cache: 'force-cache'
     });
-    let modelBuffer = await response.arrayBuffer();
-    return await ort.InferenceSession.create(modelBuffer, {
+    dispatchCallback(progressCallback, {
+        status: 'download',
+        name: modelPath,
+        file: fileName
+    })
+
+    // Track progress
+    const contentLength = response.headers.get('Content-Length');
+    const total = parseInt(contentLength);
+    let loaded = 0;
+    const reader = response.body.getReader();
+
+    const buffer = new Uint8Array(total);
+
+    async function read() {
+        const { done, value } = await reader.read();
+        if (done) return;
+
+        buffer.set(value, loaded)
+        loaded += value.length;
+
+        const progress = (loaded / total) * 100;
+
+        // Call your function here
+        dispatchCallback(progressCallback, {
+            status: 'progress',
+            progress: progress,
+            loaded: loaded,
+            total: total,
+            name: modelPath,
+            file: fileName
+        })
+
+        return read();
+    }
+
+    // Actually read
+    await read();
+
+    dispatchCallback(progressCallback, {
+        status: 'done',
+        name: modelPath,
+        file: fileName
+    });
+
+    let session = await ort.InferenceSession.create(buffer, {
         // executionProviders: ["webgl"]
         executionProviders: ["wasm"]
     });
+
+    return session
 }
 
 //////////////////////////////////////////////////
@@ -35,12 +95,18 @@ async function constructSession(path) {
 class AutoModel {
     // Helper class to determine model type from config
 
-    static async from_pretrained(modelPath) {
+    static async from_pretrained(modelPath, progressCallback = null) {
 
         let config = await fetchJSON(pathJoin(modelPath, 'config.json'));
         let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
 
-        let session = await constructSession(pathJoin(modelPath, modelName));
+        let session = await constructSession(modelPath, modelName, progressCallback);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
 
         switch (config.model_type) {
             case 'bert':
@@ -59,12 +125,18 @@ class AutoModel {
 
 class AutoModelForSequenceClassification {
 
-    static async from_pretrained(modelPath) {
+    static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
             fetchJSON(pathJoin(modelPath, 'config.json')),
-            constructSession(pathJoin(modelPath, 'model.onnx'))
+            constructSession(modelPath, 'model.onnx', progressCallback)
         ]);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
 
         switch (config.model_type) {
             case 'distilbert':
@@ -77,14 +149,20 @@ class AutoModelForSequenceClassification {
 }
 
 class AutoModelForSeq2SeqLM {
-    static async from_pretrained(modelPath) {
+    static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
             fetchJSON(pathJoin(modelPath, 'config.json')),
-            constructSession(pathJoin(modelPath, 'encoder_model.onnx')),
-            constructSession(pathJoin(modelPath, 'decoder_model.onnx')),
-            constructSession(pathJoin(modelPath, 'decoder_with_past_model.onnx'))
+            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
         ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
 
         switch (config.model_type) {
             case 't5':
@@ -101,14 +179,20 @@ class AutoModelForSeq2SeqLM {
 }
 
 class AutoModelForCausalLM {
-    static async from_pretrained(modelPath) {
+    static async from_pretrained(modelPath, progressCallback = null) {
         // , decoder_with_past_model
 
         // let name = use_past ?  : 'decoder_model.onnx'
         let [config, session] = await Promise.all([
             fetchJSON(pathJoin(modelPath, 'config.json')),
-            constructSession(pathJoin(modelPath, 'decoder_with_past_model.onnx'))
+            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
         ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
 
         switch (config.model_type) {
             case 'gpt2':
@@ -147,13 +231,19 @@ class PreTrainedModel extends Callable {
         }
     }
 
-    static async from_pretrained(modelPath) {
+    static async from_pretrained(modelPath, progressCallback = null) {
 
         let config = await fetchJSON(pathJoin(modelPath, 'config.json'));
         let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
 
         // Load model
-        let session = await constructSession(pathJoin(modelPath, modelName));
+        let session = await constructSession(modelPath, modelName, progressCallback);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
 
         return new this(config, session);
     }
@@ -338,15 +428,21 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         this.dim_kv = this.config.d_kv
     }
 
-    static async from_pretrained(modelPath) {
+    static async from_pretrained(modelPath, progressCallback = null) {
         // TODO optimize? Lots of overlap between decoder and init_decoder
 
         let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
             fetchJSON(pathJoin(modelPath, 'config.json')),
-            constructSession(pathJoin(modelPath, 'encoder_model.onnx')),
-            constructSession(pathJoin(modelPath, 'decoder_model.onnx')),
-            constructSession(pathJoin(modelPath, 'decoder_with_past_model.onnx'))
+            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
         ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
 
         return new this(config, session, decoder_session, decoder_with_past_model);
     }
