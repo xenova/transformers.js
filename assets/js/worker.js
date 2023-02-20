@@ -92,6 +92,7 @@ async function translate(data) {
 
     let input_ids = tokenizer(text).input_ids
     let outputs = await model.generate(input_ids, {
+        ...data.generation,
         callback_function: function (beams) {
             let skip_special_tokens = true;
             const decodedText = tokenizer.decode(beams[0].output_token_ids, skip_special_tokens)
@@ -123,9 +124,7 @@ async function text_generation(data) {
     let text = data.text.trim();
     let input_ids = tokenizer(text).input_ids
     model.generate(input_ids, {
-        // num_beams: 10,
-        max_length: 100,
-
+        ...data.generation,
         callback_function: function (beams) {
             const decodedText = tokenizer.decode(beams[0].output_token_ids, true)
 
