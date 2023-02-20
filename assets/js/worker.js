@@ -120,8 +120,8 @@ async function text_generation(data) {
     let tokenizer = translationModelFactory.tokenizer
     let model = translationModelFactory.model
 
-
-    let input_ids = tokenizer(data.text).input_ids
+    let text = data.text.trim();
+    let input_ids = tokenizer(text).input_ids
     model.generate(input_ids, {
         // num_beams: 10,
         max_length: 100,
@@ -132,7 +132,7 @@ async function text_generation(data) {
             self.postMessage({
                 type: 'update',
                 target: data.elementIdToUpdate,
-                data: decodedText
+                data: text + decodedText
             });
 
         }
