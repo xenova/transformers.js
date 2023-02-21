@@ -154,8 +154,8 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                 <label>Task: </label>
                 <div class="col-12 mt-1">
                     <select id="task" class="form-select">
-                        <option value="translation" model="t5-small" selected>Translation (t5-small)</option>
-                        <option value="text-generation" model="gpt2">Text generation (gpt2)</option>
+                        <option value="translation" selected>Translation (t5-small)</option>
+                        <option value="text-generation">Text generation (distilgpt2)</option>
                         <!-- <option value="summarization" model="...">Summarization (t5-small)</option> -->
                         <!-- <option value="none" model="bert-base-uncased">bert-base-uncased</option> -->
                         <!-- <option value="none" model="distilbert-base-uncased">distilbert-base-uncased</option> -->
@@ -186,29 +186,29 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Max length</span>
-                                <input param-name="max_length" datatype="number" min="1"
-                                    class="form-control generation-option" value=20>
+                                <input type="number" param-name="max_length" datatype="number" min="1"
+                                    class="form-control generation-option" value=50>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2" title="Number of beams">
                                 <span class="input-group-text">No. beams</span>
-                                <input param-name="num_beams" datatype="number" min="1" max="50"
+                                <input type="number" param-name="num_beams" datatype="number" min="1" max="50"
                                     class="form-control generation-option" value=1>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
-                            <div class="input-group mb-2" title="Temperature (between 0 and 1)">
+                            <div class="input-group mb-2" title="Temperature (> 0)">
                                 <span class="input-group-text">Temp.</span>
-                                <input param-name="temperature" datatype="number" min="0" max="1" step="0.1"
+                                <input type="number" param-name="temperature" datatype="number" min="0.001" step="1"
                                     class="form-control generation-option" value=1>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Top K</span>
-                                <input param-name="top_k" datatype="number" min="0"
-                                    class="form-control generation-option" value=0>
+                                <input type="number" param-name="top_k" datatype="number" min="0"
+                                    class="form-control generation-option" value=20>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
@@ -216,15 +216,15 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                                 <label class="input-group-text" for="sample-select">Sample</label>
                                 <select param-name="do_sample" datatype="bool" class="form-select generation-option"
                                     id="sample-select">
-                                    <option value="true">Yes</option>
-                                    <option value="false" selected>No</option>
+                                    <option value="true" selected>Yes</option>
+                                    <option value="false">No</option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2" title="Discount factor (between 0 and 1)">
                                 <span class="input-group-text">Discount</span>
-                                <input param-name="discount_factor" datatype="number" min="0" max="1" step="0.1"
+                                <input type="number" param-name="discount_factor" datatype="number" min="0" max="1" step="0.1"
                                     class="form-control generation-option" value=1>
                             </div>
                         </div>
@@ -246,11 +246,14 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                     <div class="row">
                         <div class="col-lg-12 mt-3">
                             <textarea id="text-generation-textbox" class="form-control"
-                                rows="10">once upon a time,</textarea>
+                                rows="10">I enjoy walking with my cute dog,</textarea>
                         </div>
                     </div>
                 </div>
-
+                <div class="mt-3 mb-1">
+                    Note: For more information about the different parameters, check out HuggingFace's
+                <a href="https://huggingface.co/blog/how-to-generate">guide to text generation</a>.
+                </div>
                 <div class="col-12 mt-2 d-flex justify-content-center">
                     <button id="generate" type="button" class="btn btn-primary">Generate</button>
 
@@ -262,9 +265,7 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
 
                 <div id="progress" class="col-12 mt-4" style="display: none;">
                     <div class="d-flex align-items-center position-relative py-2">
-                        <p>
-                            <strong>Loading model files...</strong> (only run once)
-                        </p>
+                        <div><strong>Loading model files...</strong> (only run once)</div>
                         <div class="spinner-border position-absolute" role="status" aria-hidden="true" style="right: 0">
                         </div>
                     </div>
@@ -321,13 +322,14 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
-                            <div class="fw-bold">GPT2</div>
+                            <div class="fw-bold">GPT2/DistilGPT</div>
                             Tasks: Feature extraction
                             <pre style="display: inline;">(AutoModel)</pre>, and Text generation
                             <pre style="display: inline;">(AutoModelForCausalLM)</pre>.
                             <br>
-                            For more information, check out the <a
-                                href="https://huggingface.co/docs/transformers/model_doc/gpt2">GPT2 docs</a>.
+                            For more information, check out the 
+                            <a href="https://huggingface.co/docs/transformers/model_doc/gpt2">GPT2 docs</a> or
+                            <a href="https://huggingface.co/distilgpt2">DistilGPT2 docs</a>.
                         </div>
                     </li>
                 </ol>
@@ -335,11 +337,12 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                 <p class="mb-2">Don't see your model type or task supported? Raise an
                     <a href="https://github.com/xenova/transformers.js/issues/new">issue</a> on GitHub, and if there's
                     enough demand, we will add it!
-                    
+
                     <br>
                     <br>
                     We use <a href="https://onnxruntime.ai/">ONNX Runtime</a> to run the
-                    models, so you must convert your PyTorch model to ONNX (which can be done using our
+                    models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using
+                    our
                     <a href="https://github.com/xenova/transformers.js/blob/main/scripts/convert.py">conversion
                         script</a>).
             </div>
