@@ -62,7 +62,7 @@ class Sampler extends Callable {
         return 0; // return first (most probable) as a fallback
     }
 
-    static getSampler(options){
+    static getSampler(options) {
         // TODO add beam
         if (options.num_beams > 1) {
             return new BeamSearchSampler(
@@ -72,7 +72,7 @@ class Sampler extends Callable {
                 options.top_k,
             )
 
-        } else if (options.top_k > 0) {
+        } else if (options.top_k > 0 || options.do_sample) {
             return new TopKSampler(
                 options.temperature,
                 options.top_k,
@@ -105,7 +105,10 @@ class TopKSampler extends Sampler {
 
     sample(logits) {
         let [batchSize, seqLength, vocabSize] = logits.dims;
-        let k = Math.min(this.k, vocabSize);
+        let k = vocabSize;
+        if (this.k > 0) {
+            k = Math.min(this.k, k);
+        }
 
         let logs = this.getLastLogits(logits);
 
@@ -140,7 +143,11 @@ class BeamSearchSampler extends Sampler {
 
         if (this.do_sample || this.top_k > 0) {
             const [batchSize, seqLength, vocabSize] = logits.dims;
-            const k = Math.min(this.top_k, vocabSize);
+
+            let k = vocabSize;
+            if (this.top_k > 0) {
+                k = Math.min(this.top_k, k);
+            }
             const topLogits = this.getTopLogits(logs, k);
 
             // Compute softmax over top k logits
