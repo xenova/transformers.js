@@ -273,6 +273,9 @@ class PreTrainedModel extends Callable {
     }
 
     async generate(inputTokenIds, options = {}) {
+        if(inputTokenIds.length === 0){
+            throw Error("Must supply a non-empty array of input token ids.")
+        }
         options = this.prepareGenerationOptions(options);
         // TODO implement early_stopping
         // https://huggingface.co/blog/how-to-generate
