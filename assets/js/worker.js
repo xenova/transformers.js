@@ -72,7 +72,10 @@ class TranslationModelFactory extends ModelFactory {
 }
 
 class TextGenerationModelFactory extends ModelFactory {
-    static path = '/models/onnx/gpt2';
+    // static path = '/models/onnx/gpt2';
+    // static path = '/models/onnx/distilgpt2';
+    static path = 'https://huggingface.co/Xenova/distilgpt2-onnx_quantized/resolve/main/';
+    
     static model_class = AutoModelForCausalLM;
 }
 
