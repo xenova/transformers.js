@@ -212,6 +212,7 @@ class BPE extends TokenizerModel {
         this.merges = config.merges.map(x => x.split(/\s+/))
 
         this.byte_encoder = BYTES_TO_UNICODE;
+        this.text_encoder = new TextEncoder();
 
         this.cache = {}
     }
@@ -285,9 +286,8 @@ class BPE extends TokenizerModel {
     encode(tokens) {
         let outputTokens = [];
 
-        let byte_encoder = b => this.byte_encoder[b.charCodeAt(0)];
         for (let token of tokens) {
-            token = Array.from(token).map(byte_encoder).join('');
+            token = Array.from(this.text_encoder.encode(token), byte => this.byte_encoder[byte]).join('');
             let bpe_token_list = this.bpe(token).split(' ');
             outputTokens.push(...bpe_token_list);
         }
