@@ -28,6 +28,7 @@ if (typeof window === 'undefined') {
     })();
     let scriptFolder = (new URL(scriptPath)).pathname;
     ort.env.wasm.wasmPaths = scriptFolder.substring(0, scriptFolder.lastIndexOf('/') + 1);
+    console.log(`Set ort.env.wasm.wasmPaths to ${ort.env.wasm.wasmPaths}`);
 
     // Allow global access to these variables
     window.AutoTokenizer = AutoTokenizer
