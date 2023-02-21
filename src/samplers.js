@@ -26,8 +26,8 @@ class Sampler extends Callable {
         }
 
         // add temperature
-        if (this.temperature < 1) {
-            logs = logs.map(x => x * this.temperature)
+        if (this.temperature > 0) {
+            logs = logs.map(x => x / this.temperature)
         }
         return logs;
     }
