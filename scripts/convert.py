@@ -17,6 +17,8 @@ from optimum.exporters.onnx.convert import (
     export,
     export_models
 )
+from onnxruntime.quantization import quantize_dynamic, QuantType
+from tqdm import tqdm
 
 
 @dataclass
@@ -102,8 +104,47 @@ SUPPORTED_MODELS = {
         "multiple-choice",
         "token-classification",
         "question-answering",
+    ],
+    't5': [
+        "default",
+        "default-with-past",
+        "seq2seq-lm",
+        "seq2seq-lm-with-past",
+    ],
+    'gpt2': [
+        "default",
+        "default-with-past",
+        "causal-lm",
+        "causal-lm-with-past",
+        "sequence-classification",
+        "token-classification",
     ]
 }
+
+
+def quantize(models_name_or_path):
+    """
+    Quantize the weights of the model from float32 to int8 to allow very efficient inference on modern CPU
+
+    Uses unsigned ints for activation values, signed ints for weights, per
+    https://onnxruntime.ai/docs/performance/quantization.html#data-type-selection
+    it is faster on most CPU architectures
+    Args:
+        onnx_model_path: Path to location the exported ONNX model is stored
+    Returns: The Path generated for the quantized
+    """
+
+    for model in tqdm(models_name_or_path, desc='Quantizing'):
+        # model_name = os.path.splitext(os.path.basename(model))[0]
+        quantize_dynamic(
+            model_input=model,
+            model_output=model,
+            per_channel=True,
+            reduce_range=True,  # should be the same as per_channel
+            activation_type=QuantType.QUInt8,
+            weight_type=QuantType.QInt8,  # per docs, signed is faster on most CPUs
+            optimize_model=False,
+        )  # op_types_to_quantize=['MatMul', 'Relu', 'Add', 'Mul' ],
 
 
 def main():
@@ -119,9 +160,6 @@ def main():
         conv_args.input_parent_dir, conv_args.model_id)
     output_model_folder = os.path.join(
         conv_args.output_parent_dir, conv_args.model_id)
-
-    # 1. Load config
-    model_config = AutoConfig.from_pretrained(input_model_folder)
 
     # Infer the task
     task = conv_args.task
@@ -166,53 +204,47 @@ def main():
     onnx_model_paths = []
 
     # Step 1. convert huggingface model to onnx
-    if model_config.model_type == 't5':
-        from .models.t5 import generate_onnx_representation, quantize
-
-        onnx_model_paths = generate_onnx_representation(
-            model_config,
-            input_model_folder,
-            output_model_folder
-        )
-
-    else:  # Not T5 - use optimum
-
-        if model.config.is_encoder_decoder or task.startswith("causal-lm"):
-            if model.config.is_encoder_decoder and task.startswith("causal-lm"):
-                raise ValueError(
-                    f"model.config.is_encoder_decoder is True and task is `{task}`, which are incompatible. If the task was auto-inferred, please fill a bug report"
-                    f"at https://github.com/huggingface/optimum, if --task was explicitely passed, make sure you selected the right task for the model,"
-                    f" referring to `optimum.exporters.tasks.TaskManager`'s `_TASKS_TO_AUTOMODELS`."
-                )
-            if model.config.is_encoder_decoder:
-                models_and_onnx_configs = get_encoder_decoder_models_for_export(
-                    model,
-                    onnx_config
-                )
-            else:
-                models_and_onnx_configs = get_decoder_models_for_export(
-                    model,
-                    onnx_config
-                )
-
-            export_models(
-                models_and_onnx_configs=models_and_onnx_configs,
-                opset=conv_args.opset,
-                output_dir=output_model_folder,
-                input_shapes=input_shapes,
-                device=conv_args.device,
+    if model.config.is_encoder_decoder or task.startswith("causal-lm"):
+        if model.config.is_encoder_decoder and task.startswith("causal-lm"):
+            raise ValueError(
+                f"model.config.is_encoder_decoder is True and task is `{task}`, which are incompatible. If the task was auto-inferred, please fill a bug report"
+                f"at https://github.com/huggingface/optimum, if --task was explicitely passed, make sure you selected the right task for the model,"
+                f" referring to `optimum.exporters.tasks.TaskManager`'s `_TASKS_TO_AUTOMODELS`."
             )
-
+        if model.config.is_encoder_decoder:
+            models_and_onnx_configs = get_encoder_decoder_models_for_export(
+                model,
+                onnx_config
+            )
         else:
-
-            export(
-                model=model,
-                config=onnx_config,
-                output=Path(os.path.join(output_model_folder, 'model.onnx')),
-                opset=conv_args.opset,
-                input_shapes=input_shapes,
-                device=conv_args.device,
+            models_and_onnx_configs = get_decoder_models_for_export(
+                model,
+                onnx_config
             )
+
+        export_models(
+            models_and_onnx_configs=models_and_onnx_configs,
+            opset=conv_args.opset,
+            output_dir=output_model_folder,
+            input_shapes=input_shapes,
+            device=conv_args.device,
+        )
+        onnx_model_paths = [
+            os.path.join(output_model_folder, f'{x}.onnx')
+            for x in models_and_onnx_configs
+        ]
+
+    else:
+        output_path = Path(os.path.join(output_model_folder, 'model.onnx'))
+        export(
+            model=model,
+            config=onnx_config,
+            output=output_path,
+            opset=conv_args.opset,
+            input_shapes=input_shapes,
+            device=conv_args.device,
+        )
+        onnx_model_paths.append(output_path)
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
