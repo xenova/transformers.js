@@ -1,6 +1,6 @@
 # Transformers.js
 
-Run 🤗 Transformers in your browser!
+Run 🤗 Transformers in your browser! We currently support [BERT](https://huggingface.co/docs/transformers/model_doc/bert), [DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert), [T5](https://huggingface.co/docs/transformers/model_doc/t5) and [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2) models; for a variety of tasks including feature extraction, masked language modelling, text classification, translation, summarization, and text generation.
 
 ## Getting Started
 
