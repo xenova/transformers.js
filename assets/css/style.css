@@ -2,6 +2,7 @@
     align-items: start;
     width: 0%;
     padding: 2px 8px;
+    min-height: 22px;
 }
 
 .progress {
