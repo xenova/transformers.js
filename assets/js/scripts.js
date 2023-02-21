@@ -46,7 +46,7 @@ GENERATE_BUTTON.addEventListener('click', (e) => {
 	let data = {
 		task: TASK_SELECTOR.value,
 		generation: Object.fromEntries([...GENERATION_OPTIONS].map(x => {
-			let value = parseValue(x.value, x.type);
+			let value = parseValue(x.value, x.getAttribute('datatype'));
 			return [x.getAttribute('param-name'), value]
 		}))
 	};
