@@ -69,13 +69,6 @@ We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser,
     
 Note: We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy).
 
-1. t5-small
-    python -m scripts.convert --quantize --model_id t5-small --task seq2seq-lm-with-past
-
-2. gpt2
-    python -m scripts.convert --quantize --model_id gpt2 --task causal-lm-with-past
-    rm ./models/onnx/gpt2/decoder_model.onnx
-
 ## Examples
 *Coming soon*
 
