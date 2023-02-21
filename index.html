@@ -46,7 +46,6 @@
                 aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="#getting-started">Getting Started</a></li>
                     <li class="nav-item"><a class="nav-link" href="#demo">Demo</a></li>
                     <li class="nav-item"><a class="nav-link" href="#usage">Usage</a></li>
                     <li class="nav-item"><a class="nav-link" href="#examples">Examples</a></li>
@@ -91,22 +90,54 @@
         </div>
     </header>
 
-    <!-- Getting started section -->
-    <section class="py-4 border-bottom" id="getting-started">
-        <div class="container px-5 my-3">
-            <div class="mb-3">
+
+    <!-- Teaser section-->
+    <section class="py-4 border-bottom" id="teaser">
+        <div class="container px-5 my-4">
+            <div class="mb-2">
                 <h2 class="fw-bolder">Getting Started</h2>
+                <p class="lead mb-0">Get your models running in the browser. It's super easy to translate from your
+                    existing code!</p>
             </div>
-            <div class="row gx-5">
-                <div class="col-lg-6 mb-4 mb-lg-0">
-                    <p class="lead mb-0">Include source on page (HTML)</p>
+            <div>
+                <div class="row gx-5">
+                    <div class="col-lg-6 mb-4 mb-lg-0">
+                        <pre><code class="language-python">from transformers import (
+    AutoTokenizer,
+    AutoModelForSeq2SeqLM
+)
 
-                    <pre><code class="language-html">TODO</code></pre>
-                </div>
+model_path = './models/pytorch/t5-small'
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
 
-                <div class="col-lg-6 mb-4 mb-lg-0">
-                    <p class="lead mb-0">Usage (JavaScript)</p>
-                    <pre><code class="language-js">// TODO</code></pre>
+text = 'translate English to French: Hello, how are you?'
+input_ids = tokenizer(text, return_tensors='pt').input_ids
+
+output_token_ids = model.generate(input_ids)
+output_text = tokenizer.decode(output_token_ids[0], True)
+print(output_text) # "Bonjour, comment êtes-vous?"</code></pre>
+                        <p class="mb-0 text-center">Python (original)</p>
+
+                    </div>
+                    <div class="col-lg-6 mb-4 mb-lg-0">
+                        <pre><code class="language-js">import {
+    AutoTokenizer,
+    AutoModelForSeq2SeqLM
+} from "transformers.js";
+
+let path = './models/onnx/t5-small';
+let tokenizer = await AutoTokenizer.from_pretrained(path);
+let model = await AutoModelForSeq2SeqLM.from_pretrained(path);
+
+let text = 'translate English to French: Hello, how are you?';
+let input_ids = tokenizer(text).input_ids;
+
+let output_token_ids = await model.generate(input_ids);
+let output_text = tokenizer.decode(output_token_ids[0], true);
+console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
+                        <p class="mb-0 text-center">JavaScript</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -115,9 +146,9 @@
     <!-- Demo section-->
     <section class="py-4 border-bottom" id="demo">
         <div class="container px-5 my-4">
-            <div class="mb-4">
+            <div class="mb-2">
                 <h2 class="fw-bolder">Demo</h2>
-                <p class="lead mb-0">TODO</p>
+                <p class="lead mb-0">Don't believe us? Play around with some models below:</p>
             </div>
             <div class="row justify-content-center">
                 <label>Task: </label>
@@ -142,8 +173,8 @@
                         <div style="width: 40px;" class="d-flex justify-content-center align-items-center">to</div>
                         <div style="width: calc(50% - 20px);">
                             <select id="language-to" class="form-select mt-1 col-3">
-                                <option value="German" selected>German</option>
-                                <option value="French">French</option>
+                                <option value="French" selected>French</option>
+                                <option value="German">German</option>
                                 <option value="Romanian">Romanian</option>
                             </select>
                         </div>
@@ -155,31 +186,36 @@
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Max length</span>
-                                <input param-name="max_length" type="number" min="1" class="form-control generation-option" value=20>
+                                <input param-name="max_length" datatype="number" min="1"
+                                    class="form-control generation-option" value=20>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2" title="Number of beams">
                                 <span class="input-group-text">No. beams</span>
-                                <input param-name="num_beams" type="number" min="1" max="50" class="form-control generation-option" value=1>
+                                <input param-name="num_beams" datatype="number" min="1" max="50"
+                                    class="form-control generation-option" value=1>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2" title="Temperature (between 0 and 1)">
                                 <span class="input-group-text">Temp.</span>
-                                <input param-name="temperature" type="number" min="0" max="1" step="0.1" class="form-control generation-option" value=1>
+                                <input param-name="temperature" datatype="number" min="0" max="1" step="0.1"
+                                    class="form-control generation-option" value=1>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Top K</span>
-                                <input param-name="top_k" type="number" min="0" class="form-control generation-option" value=0>
+                                <input param-name="top_k" datatype="number" min="0"
+                                    class="form-control generation-option" value=0>
                             </div>
                         </div>
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2" title="Perform multinomial sampling">
                                 <label class="input-group-text" for="sample-select">Sample</label>
-                                <select param-name="do_sample" type="bool" class="form-select generation-option" id="sample-select">
+                                <select param-name="do_sample" datatype="bool" class="form-select generation-option"
+                                    id="sample-select">
                                     <option value="true">Yes</option>
                                     <option value="false" selected>No</option>
                                 </select>
@@ -188,7 +224,8 @@
                         <div class="col-xl-2 col-md-4 col-sm-6">
                             <div class="input-group mb-2" title="Discount factor (between 0 and 1)">
                                 <span class="input-group-text">Discount</span>
-                                <input param-name="do_sample" type="number" min="0" max="1" step="0.1" class="form-control generation-option" value=0>
+                                <input param-name="discount_factor" datatype="number" min="0" max="1" step="0.1"
+                                    class="form-control generation-option" value=1>
                             </div>
                         </div>
                     </div>
@@ -225,7 +262,9 @@
 
                 <div id="progress" class="col-12 mt-4" style="display: none;">
                     <div class="d-flex align-items-center position-relative py-2">
-                        <strong>Loading model files...</strong>
+                        <p>
+                            <strong>Loading model files...</strong> (only run once)
+                        </p>
                         <div class="spinner-border position-absolute" role="status" aria-hidden="true" style="right: 0">
                         </div>
                     </div>
@@ -242,11 +281,67 @@
         <div class="container px-5 my-4">
             <div class="mb-3">
                 <h2 class="fw-bolder">Usage</h2>
-            </div>
-            <div class="row gx-5 justify-content-center">
-                <div class="col-lg-12 mb-3">
-                    TODO
-                </div>
+                <p class="lead mb-2">Currently, we support the following models and tasks:
+                <ol class="list-group list-group-numbered">
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">BERT</div>
+                            Tasks: Feature extraction
+                            <pre style="display: inline;">(AutoModel)</pre>,
+                            Masked Language Modelling
+                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>.
+                            <br>
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/bert">BERT docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">DistilBERT</div>
+                            Tasks: Feature extraction
+                            <pre style="display: inline;">(AutoModel)</pre>, Text Classification
+                            <pre style="display: inline;">(AutoModelForSequenceClassification)</pre>.
+                            <br>
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/distilbert">DistilBERT
+                                docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">T5</div>
+                            Tasks: Feature extraction
+                            <pre style="display: inline;">(AutoModel)</pre>, and Sequence-to-sequence for
+                            translation/summarization
+                            <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
+                            <br>
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/t5">T5 docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">GPT2</div>
+                            Tasks: Feature extraction
+                            <pre style="display: inline;">(AutoModel)</pre>, and Text generation
+                            <pre style="display: inline;">(AutoModelForCausalLM)</pre>.
+                            <br>
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/gpt2">GPT2 docs</a>.
+                        </div>
+                    </li>
+                </ol>
+                <br>
+                <p class="mb-2">Don't see your model type or task supported? Raise an
+                    <a href="https://github.com/xenova/transformers.js/issues/new">issue</a> on GitHub, and if there's
+                    enough demand, we will add it!
+                    
+                    <br>
+                    <br>
+                    We use <a href="https://onnxruntime.ai/">ONNX Runtime</a> to run the
+                    models, so you must convert your PyTorch model to ONNX (which can be done using our
+                    <a href="https://github.com/xenova/transformers.js/blob/main/scripts/convert.py">conversion
+                        script</a>).
             </div>
         </div>
     </section>
@@ -254,41 +349,13 @@
     <!-- Examples section-->
     <section class="py-4 border-bottom" id="examples">
         <div class="container px-5 my-4">
-            <div class="mb-4">
+            <div class="mb-3">
                 <h2 class="fw-bolder">Examples</h2>
-                <div>
-                    <div class="row gx-5">
-                        <div class="col-lg-6 mb-4 mb-lg-0">
-                            <p class="lead mb-0">Python code</p>
-
-                            <pre><code class="language-python">path = './models/onnx/t5-small';
-tokenizer = AutoTokenizer.from_pretrained(path)
-model = AutoModelForSeq2SeqLM.from_pretrained(path)
-
-text = 'translate English to French: Hello, how are you?.'
-input_ids = tokenizer(text).input_ids
-
-outputTokenIds = model.generate(input_ids);
-outputText = tokenizer.decode(outputTokenIds, skip_special_tokens=True);</code></pre>
-                        </div>
-
-                        <div class="col-lg-6 mb-4 mb-lg-0">
-                            <p class="lead mb-0">Corresponding JavaScript Code</p>
-                            <pre><code class="language-js">let path = './models/onnx/t5-small';
-let tokenizer = await AutoTokenizer.from_pretrained(path)
-let model = await AutoModelForSeq2SeqLM.from_pretrained(path)
-
-let text = 'translate English to French: Hello, how are you?.'
-let input_ids = tokenizer(text).input_ids
-
-let outputTokenIds = await model.generate(input_ids);
-let outputText = tokenizer.decode(outputTokenIds, skip_special_tokens=true);</code></pre>
-                        </div>
-                    </div>
-                </div>
             </div>
-            <div class="row gx-5">
-                <div class="col-lg-12 mb-3">TODO</div>
+            <div class="row gx-5 justify-content-center">
+                <div class="col-lg-12 mb-3">
+                    <em>Coming soon...</em>
+                </div>
             </div>
         </div>
     </section>
