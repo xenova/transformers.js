@@ -51,7 +51,30 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"
 *Coming soon*
 
 ## Usage
+###
 *Coming soon*
+
+### Convert PyTorch models to ONNX
+We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using our conversion script). For the following examples, we assume your PyTorch models are located in the ./models/pytorch/ folder. To choose a different location, specify the parent input folder with `--input_parent_dir /path/to/parent_dir/` (note: without the model id).
+
+1. t5-small
+    ```
+    python -m scripts.convert --quantize --model_id t5-small --task seq2seq-lm-with-past
+    ```
+
+2. gpt2
+    ```
+    python -m scripts.convert --quantize --model_id gpt2 --task causal-lm-with-past
+    ```
+    
+Note: We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy).
+
+1. t5-small
+    python -m scripts.convert --quantize --model_id t5-small --task seq2seq-lm-with-past
+
+2. gpt2
+    python -m scripts.convert --quantize --model_id gpt2 --task causal-lm-with-past
+    rm ./models/onnx/gpt2/decoder_model.onnx
 
 ## Examples
 *Coming soon*
