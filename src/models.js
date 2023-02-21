@@ -7,9 +7,7 @@ import {
 } from "./utils.js";
 
 import {
-    GreedySampler,
-    TopKSampler,
-    BeamSearchSampler
+    Sampler
 } from "./samplers.js"
 
 import './ort.js'
@@ -115,6 +113,8 @@ class AutoModel {
                 return new DistilBertModel(config, session);
             case 't5':
                 return new T5Model(config, session);
+            case 'gpt2':
+                return new GPT2Model(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -280,7 +280,7 @@ class PreTrainedModel extends Callable {
         let numOutputTokens = 1;
         const maxOutputTokens = numOutputTokens + options.max_length;
 
-        let sampler = this.chooseSampler(options);
+        let sampler = Sampler.getSampler(options);
 
         let beams = [this.getStartBeam(inputTokenIds, numOutputTokens)];
 
@@ -335,35 +335,11 @@ class PreTrainedModel extends Callable {
         if (options.num_return_sequences > 1) {
             return beams.slice(0, options.num_return_sequences).map(x => x.output_token_ids);
         } else {
-            return beams[0].output_token_ids;
+            return [beams[0].output_token_ids];
         }
     }
     prepareGenerationOptions(options) {
         return Object.assign({}, this.default_generation_options, options)
-    }
-
-    chooseSampler(options) {
-        let sampler;
-
-        // TODO add beam
-        if (options.num_beams > 1) {
-            sampler = new BeamSearchSampler(
-                options.num_beams,
-                options.do_sample,
-                options.top_k,
-                options.temperature
-            )
-
-        } else if (options.top_k > 0) {
-            sampler = new TopKSampler(
-                options.top_k,
-                options.temperature
-            )
-        } else {
-            sampler = new GreedySampler()
-        }
-
-        return sampler;
     }
 
     getPastKeyValues(pkvNames, decoderResults) {

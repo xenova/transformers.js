@@ -6,8 +6,9 @@ import {
 } from "./utils.js"
 
 class Sampler extends Callable {
-    constructor() {
+    constructor(temperature) {
         super();
+        this.temperature = temperature;
     }
 
     _call(logits) {
@@ -24,15 +25,13 @@ class Sampler extends Callable {
             logs = logs.slice(-vocabSize);
         }
 
+        // add temperature
+        if (this.temperature < 1) {
+            logs = logs.map(x => x * this.temperature)
+        }
         return logs;
     }
 
-    addTemperature(logits, temperature){
-        if (temperature >= 1) {
-            return logits;
-        }
-        return logits.map(x => x * temperature);
-    }
 
     getTopLogits(logits, top_k = 0) {
         // if top == 0, return all
@@ -62,6 +61,26 @@ class Sampler extends Callable {
         }
         return 0; // return first (most probable) as a fallback
     }
+
+    static getSampler(options){
+        // TODO add beam
+        if (options.num_beams > 1) {
+            return new BeamSearchSampler(
+                options.temperature,
+                options.num_beams,
+                options.do_sample,
+                options.top_k,
+            )
+
+        } else if (options.top_k > 0) {
+            return new TopKSampler(
+                options.temperature,
+                options.top_k,
+            )
+        } else {
+            return new GreedySampler(options.temperature)
+        }
+    }
 }
 
 class GreedySampler extends Sampler {
@@ -79,11 +98,9 @@ class GreedySampler extends Sampler {
 }
 
 class TopKSampler extends Sampler {
-    constructor(k, temperature) {
-        super();
-
+    constructor(temperature, k) {
+        super(temperature);
         this.k = k;
-        this.temperature = temperature;
     }
 
     sample(logits) {
@@ -91,7 +108,6 @@ class TopKSampler extends Sampler {
         let k = Math.min(this.k, vocabSize);
 
         let logs = this.getLastLogits(logits);
-        logs = this.addTemperature(logs, this.temperature);
 
         // Get top k tokens
         let topLogits = this.getTopLogits(logs, k);
@@ -110,19 +126,17 @@ class TopKSampler extends Sampler {
 }
 
 class BeamSearchSampler extends Sampler {
-    constructor(num_beams, do_sample, top_k, temperature) {
-        super();
+    constructor(temperature, num_beams, do_sample, top_k) {
+        super(temperature);
         this.num_beams = num_beams; // maximum number of beams
         this.do_sample = do_sample; // if true, perform multinomial sampling
 
         this.top_k = top_k; // if do_sample, sample from top k items
-        this.temperature = temperature;
     }
 
     sample(logits) {
 
         let logs = this.getLastLogits(logits);
-        logs = this.addTemperature(logs, this.temperature);
 
         if (this.do_sample || this.top_k > 0) {
             const [batchSize, seqLength, vocabSize] = logits.dims;
@@ -148,6 +162,7 @@ class BeamSearchSampler extends Sampler {
 }
 
 export {
+    Sampler,
     GreedySampler,
     TopKSampler,
     BeamSearchSampler
