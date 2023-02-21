@@ -67,14 +67,12 @@ class ModelFactory {
 }
 
 class TranslationModelFactory extends ModelFactory {
-    // example using local path
-    static path = '/models/onnx/t5-small';
+    static path = 'https://huggingface.co/Xenova/t5-small_onnx-quantized/resolve/main/';
     static model_class = AutoModelForSeq2SeqLM;
 }
 
 class TextGenerationModelFactory extends ModelFactory {
-    // example using URL
-    static path = 'https://huggingface.co/Xenova/distilgpt2-onnx_quantized/resolve/main/';
+    static path = 'https://huggingface.co/Xenova/distilgpt2_onnx-quantized/resolve/main/';
     static model_class = AutoModelForCausalLM;
 }
 
