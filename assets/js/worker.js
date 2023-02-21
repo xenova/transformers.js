@@ -13,7 +13,10 @@ import {
 
 // First, set path to wasm files. This is needed when running in a web worker.
 // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
-ort.env.wasm.wasmPaths = '/src/'
+// The following code sets the wasm paths relative to the worker.js
+// e.g., /transformers.js/assets/js/worker.js -> /transformers.js/src/
+ort.env.wasm.wasmPaths = location.pathname.split('/').slice(0, -1 - 2).join('/') + '/src/'
+
 
 // Define task function mapping
 const TASK_FUNCTION_MAPPING = {
