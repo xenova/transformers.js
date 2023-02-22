@@ -4,7 +4,7 @@ Run 🤗 Transformers in your browser! We currently support [BERT](https://huggi
 
 ## Getting Started
 
-Get your models running in the browser. It's super easy to translate from your existing code!
+Get your models running in the browser. It's super easy to translate from existing code!
 
 
 Python (original):
