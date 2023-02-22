@@ -1,4 +1,10 @@
-import { Callable, fetchJSON, pathJoin, reverseDictionary } from './utils.js'
+import {
+    Callable,
+    fetchJSON,
+    pathJoin,
+    reverseDictionary,
+    escapeRegExp
+} from './utils.js'
 
 
 class TokenizerModel extends Callable {
@@ -651,6 +657,13 @@ class PreTrainedTokenizer extends Callable {
         this.tokenizerConfig = tokenizerConfig;
 
         this.special_tokens = tokenizerJSON.added_tokens.map(x => x.content);
+        this.special_tokens_regex = new RegExp(
+            '(' + this.special_tokens.map(escapeRegExp).join('|') + ')'
+        );
+
+        // Set mask token if present (otherwise will be undefined, which is fine)
+        this.mask_token = this.tokenizerConfig.mask_token;
+        this.mask_token_id = this.tokenizerJSON.model.vocab[this.mask_token];
 
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
@@ -674,13 +687,27 @@ class PreTrainedTokenizer extends Callable {
         return this.encode(text);
     }
 
-    encode(text) {
+    encode_single(text) {
         if (this.normalizer !== null) {
             text = this.normalizer(text);
         }
         let tokens = this.pre_tokenizer(text);
 
-        tokens = this.model(tokens);
+        return this.model(tokens);
+    }
+    encode(text) {
+        // First, we take care of special tokens. Needed to avoid issues arising from
+        // normalization and/or pretokenization (which may not preserve special tokens)
+        const sections = text.split(this.special_tokens_regex).filter(x => x);
+
+        let tokens = sections.map(x => {
+            if (this.special_tokens.includes(x)) {
+                return x
+            } else {
+                return this.encode_single(x)
+            }
+        }).flat();
+
         tokens = this.post_processor(tokens);
 
         let ids = this.model.convert_tokens_to_ids(tokens);
