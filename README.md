@@ -48,7 +48,7 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"
 
 
 ## Demo
-Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova.github.io/transformers.js/)
+Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova.github.io/transformers.js/). As you'll see, everything runs inside the browser!
 
 ## Usage
 ###
