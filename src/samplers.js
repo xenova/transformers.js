@@ -11,18 +11,24 @@ class Sampler extends Callable {
         this.temperature = temperature;
     }
 
-    _call(logits) {
-        return this.sample(logits);
+    _call(logits, index=-1) {
+        // Sample from logits, of dims [batch, sequence_length, vocab_size].
+        // If index is specified, sample from [batch, index, vocab_size].
+        return this.sample(logits, index);
     }
-    sample(logits) {
+    sample(logits, index) {
         throw Error("sample should be implemented in subclasses.")
     }
-    getLastLogits(logits) {
-        let [_, seqLength, vocabSize] = logits.dims;
+    getLogits(logits, index) {
+        let vocabSize = logits.dims[2];
 
         let logs = logits.data;
-        if (seqLength > 1) {
+
+        if (index === -1) {
             logs = logs.slice(-vocabSize);
+        } else {
+            let startIndex = index * vocabSize;
+            logs = logs.slice(startIndex, startIndex + vocabSize);
         }
 
         // add temperature
@@ -84,9 +90,9 @@ class Sampler extends Callable {
 }
 
 class GreedySampler extends Sampler {
-    sample(logits) {
+    sample(logits, index = -1) {
         // NOTE: no need to do log_softmax here since we only take the maximum
-        let logs = this.getLastLogits(logits);
+        let logs = this.getLogits(logits, index);
         let argmax = indexOfMax(logs);
 
         // Note: score is meaningless in this context, since we are performing
@@ -103,14 +109,14 @@ class TopKSampler extends Sampler {
         this.k = k;
     }
 
-    sample(logits) {
+    sample(logits, index = -1) {
         let [batchSize, seqLength, vocabSize] = logits.dims;
         let k = vocabSize;
         if (this.k > 0) {
             k = Math.min(this.k, k);
         }
 
-        let logs = this.getLastLogits(logits);
+        let logs = this.getLogits(logits, index);
 
         // Get top k tokens
         let topLogits = this.getTopLogits(logs, k);
@@ -137,9 +143,9 @@ class BeamSearchSampler extends Sampler {
         this.top_k = top_k; // if do_sample, sample from top k items
     }
 
-    sample(logits) {
+    sample(logits, index = -1) {
 
-        let logs = this.getLastLogits(logits);
+        let logs = this.getLogits(logits, index);
 
         if (this.do_sample || this.top_k > 0) {
             const [batchSize, seqLength, vocabSize] = logits.dims;
