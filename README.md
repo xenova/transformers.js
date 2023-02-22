@@ -57,22 +57,23 @@ Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova
 ### Convert PyTorch models to ONNX
 We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using our conversion script). For the following examples, we assume your PyTorch models are located in the ./models/pytorch/ folder. To choose a different location, specify the parent input folder with `--input_parent_dir /path/to/parent_dir/` (note: without the model id).
 
-1. t5-small
+Here are some of the models we have already converted (along with the command used).
+1. [t5-small](https://huggingface.co/Xenova/t5-small_onnx-quantized) for translation/summarization.
     ```
     python -m scripts.convert --quantize --model_id t5-small --task seq2seq-lm-with-past
     ```
 
-2. gpt2
+2. [distilgpt2](https://huggingface.co/Xenova/distilgpt2_onnx-quantized) for text generation.
     ```
-    python -m scripts.convert --quantize --model_id gpt2 --task causal-lm-with-past
+    python -m scripts.convert --quantize --model_id distilgpt2 --task causal-lm-with-past
     ```
 
-3. bert-base-uncased
+3. [bert-base-uncased](https://huggingface.co/Xenova/bert-base-uncased_onnx-quantized) for masked language modelling.
     ```
     python -m scripts.convert --quantize --model_id bert-base-uncased --task masked-lm
     ```
 
-4. bert-base-cased
+4. [bert-base-cased](https://huggingface.co/Xenova/bert-base-cased_onnx-quantized) for masked language modelling.
     ```
     python -m scripts.convert --quantize --model_id bert-base-cased --task masked-lm
     ```
