@@ -2,7 +2,8 @@ import {
     Callable,
     indexOfMax,
     softmax,
-    log_softmax
+    log_softmax,
+    getTopItems
 } from "./utils.js"
 
 class Sampler extends Callable {
@@ -37,22 +38,6 @@ class Sampler extends Callable {
         }
         return logs;
     }
-
-
-    getTopLogits(logits, top_k = 0) {
-        // if top == 0, return all
-
-        logits = Array.from(logits)
-            .map((x, i) => [i, x])            // Get indices ([index, score])
-            .sort((a, b) => b[1] - a[1])      // Sort by log probabilities
-
-        if (top_k > 0) {
-            logits = logits.slice(0, top_k);    // Get top k items
-        }
-
-        return logits
-    }
-
 
     randomSelect(probabilities) {
         // Return index of chosen item
@@ -119,7 +104,7 @@ class TopKSampler extends Sampler {
         let logs = this.getLogits(logits, index);
 
         // Get top k tokens
-        let topLogits = this.getTopLogits(logs, k);
+        let topLogits = getTopItems(logs, k);
 
         // Compute softmax over logits
         let probabilities = softmax(topLogits.map(x => x[1]));
@@ -154,7 +139,7 @@ class BeamSearchSampler extends Sampler {
             if (this.top_k > 0) {
                 k = Math.min(this.top_k, k);
             }
-            const topLogits = this.getTopLogits(logs, k);
+            const topLogits = getTopItems(logs, k);
 
             // Compute softmax over top k logits
             const probabilities = softmax(topLogits.map(x => x[1]));
@@ -168,7 +153,7 @@ class BeamSearchSampler extends Sampler {
         } else {
             // first perform log softmax to get scores over whole distribution
             const logProbabilities = log_softmax(logs);
-            const topLogits = this.getTopLogits(logProbabilities, this.num_beams);
+            const topLogits = getTopItems(logProbabilities, this.num_beams);
             return topLogits;
         }
     }

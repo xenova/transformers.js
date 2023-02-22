@@ -84,6 +84,19 @@ function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
+function getTopItems(items, top_k=0) {
+    // if top == 0, return all
+
+    items = Array.from(items)
+        .map((x, i) => [i, x])            // Get indices ([index, score])
+        .sort((a, b) => b[1] - a[1])      // Sort by log probabilities
+
+    if (top_k > 0) {
+        items = items.slice(0, top_k);    // Get top k items
+    }
+
+    return items
+}
 export {
     Callable,
     fetchJSON,
@@ -92,5 +105,6 @@ export {
     indexOfMax,
     softmax,
     log_softmax,
-    escapeRegExp
+    escapeRegExp,
+    getTopItems
 };
