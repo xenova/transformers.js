@@ -11,6 +11,7 @@ import {
     AutoModelForSequenceClassification,
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
+    AutoModelForMaskedLM,
     T5ForConditionalGeneration
 } from "./models.js";
 
@@ -41,6 +42,7 @@ if (typeof window === 'undefined') {
     window.AutoModelForSeq2SeqLM = AutoModelForSeq2SeqLM
     window.AutoModelForSequenceClassification = AutoModelForSequenceClassification
     window.AutoModelForCausalLM = AutoModelForCausalLM
+    window.AutoModelForMaskedLM = AutoModelForMaskedLM
 
     window.T5ForConditionalGeneration = T5ForConditionalGeneration
 
@@ -59,6 +61,7 @@ export {
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
     AutoModelForCausalLM,
+    AutoModelForMaskedLM,
     T5ForConditionalGeneration,
 
     // other

@@ -4,10 +4,13 @@ import {
     pathJoin,
     indexOfMax,
     softmax,
+    getTopItems
 } from "./utils.js";
 
 import {
-    Sampler
+    Sampler,
+    GreedySampler,
+    TopKSampler
 } from "./samplers.js"
 
 import './ort.js'
@@ -205,6 +208,33 @@ class AutoModelForCausalLM {
         }
     }
 }
+
+class AutoModelForMaskedLM {
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let config = await fetchJSON(pathJoin(modelPath, 'config.json'));
+        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
+
+        let session = await constructSession(modelPath, modelName, progressCallback);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'bert':
+                return new BertForMaskedLM(config, session);
+
+            default:
+                console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
+                return new PreTrainedModel(config, session);
+        }
+    }
+
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -249,17 +279,21 @@ class PreTrainedModel extends Callable {
     }
 
     prepare_inputs(model_inputs) {
+        let new_model_inputs = {};
+
         // TODO improve
         for (let [key, value] of Object.entries(model_inputs)) {
             if (Array.isArray(value) && value && Number.isInteger(value[0])) {
                 // convert integer arrays to tensor
-                model_inputs[key] = new ort.Tensor('int64',
+                new_model_inputs[key] = new ort.Tensor('int64',
                     BigInt64Array.from(value.map(x => BigInt(x))),
                     [1, value.length]
                 );
+            } else {
+                new_model_inputs[key] = value;
             }
         }
-        return model_inputs;
+        return new_model_inputs;
     }
     async _call(model_inputs) {
         // TODO allow batched inputs
@@ -273,7 +307,7 @@ class PreTrainedModel extends Callable {
     }
 
     async generate(inputTokenIds, options = {}) {
-        if(inputTokenIds.length === 0){
+        if (inputTokenIds.length === 0) {
             throw Error("Must supply a non-empty array of input token ids.")
         }
         options = this.prepareGenerationOptions(options);
@@ -369,6 +403,12 @@ class PreTrainedModel extends Callable {
 
 // Bert models
 class BertModel extends PreTrainedModel { }
+class BertForMaskedLM extends BertModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new MaskedLMOutput(logits, model_inputs)
+    }
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -600,10 +640,57 @@ class ClassificationOutput {
     }
 }
 
+class MaskedLMOutput {
+    constructor(logits, model_inputs) {
+        this.logits = logits;
+        this.model_inputs = model_inputs;
+
+        this.default_sample_options = {
+            top_k: 0,
+            temperature: 1,
+            num_return_sequences: 1,
+            do_sample: false,
+        }
+    }
+
+    prepareGenerationOptions(options) {
+        return Object.assign({}, this.default_sample_options, options)
+    }
+
+    sample(mask_token_index, options = {}) {
+        options = this.prepareGenerationOptions(options)
+
+        // Helper method to support sampling from masked outputs
+        // https://huggingface.co/docs/transformers/main/tasks/masked_language_modeling
+        // mask_token_indices is a boolean array which indicates which items should be sampled
+        let vocabSize = this.logits.dims[2];
+
+        // Get top n masked elements
+        let startIndex = mask_token_index * vocabSize;
+        let logs = this.logits.data.slice(startIndex, startIndex + vocabSize);
+        let items = getTopItems(logs, options.num_return_sequences);
+
+        let numSequences = Math.min(items.length, options.num_return_sequences);
+
+        // Start with n masked sentences
+        let returnedSequences = [];
+
+        // Assign predictions to sequences
+        for (let j = 0; j < numSequences; ++j) {
+            let sequence = [...this.model_inputs.input_ids];
+            sequence[mask_token_index] = items[j][0];
+            returnedSequences.push(sequence);
+        }
+
+        return returnedSequences;
+    }
+}
+
 export {
     AutoModel,
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
     AutoModelForCausalLM,
+    AutoModelForMaskedLM,
     T5ForConditionalGeneration
 };
