@@ -80,6 +80,10 @@ function log_softmax(arr) {
     return logSoftmaxArr;
 }
 
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
 export {
     Callable,
     fetchJSON,
@@ -87,5 +91,6 @@ export {
     reverseDictionary,
     indexOfMax,
     softmax,
-    log_softmax
+    log_softmax,
+    escapeRegExp
 };
