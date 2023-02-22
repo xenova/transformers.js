@@ -66,7 +66,18 @@ We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser,
     ```
     python -m scripts.convert --quantize --model_id gpt2 --task causal-lm-with-past
     ```
-    
+
+3. bert-base-uncased
+    ```
+    python -m scripts.convert --quantize --model_id bert-base-uncased --task masked-lm
+    ```
+
+4. bert-base-cased
+    ```
+    python -m scripts.convert --quantize --model_id bert-base-cased --task masked-lm
+    ```
+
+
 Note: We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy).
 
 ## Examples

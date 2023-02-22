@@ -154,8 +154,9 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                 <label>Task: </label>
                 <div class="col-12 mt-1">
                     <select id="task" class="form-select">
-                        <option value="translation" selected>Translation w/ t5-small (150 MB)</option>
+                        <option value="translation" selected>Translation w/ t5-small (151 MB)</option>
                         <option value="text-generation">Text generation w/ distilgpt2 (250 MB)</option>
+                        <option value="masked-language-modelling">Masked language modelling w/ bert-base-uncased (132 MB)</option>
                         <!-- <option value="summarization" model="...">Summarization (t5-small)</option> -->
                         <!-- <option value="none" model="bert-base-uncased">bert-base-uncased</option> -->
                         <!-- <option value="none" model="distilbert-base-uncased">distilbert-base-uncased</option> -->
@@ -183,35 +184,42 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                 <div>
                     <label class="mt-2">Parameters: </label>
                     <div class="row">
-                        <div class="col-xl-2 col-md-4 col-sm-6">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Max length</span>
                                 <input type="number" param-name="max_length" datatype="number" min="1"
                                     class="form-control generation-option" value=50>
                             </div>
                         </div>
-                        <div class="col-xl-2 col-md-4 col-sm-6">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
                             <div class="input-group mb-2" title="Number of beams">
                                 <span class="input-group-text">No. beams</span>
                                 <input type="number" param-name="num_beams" datatype="number" min="1" max="50"
                                     class="form-control generation-option" value=1>
                             </div>
                         </div>
-                        <div class="col-xl-2 col-md-4 col-sm-6">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="masked-language-modelling">
+                            <div class="input-group mb-2" title="Number of samples">
+                                <span class="input-group-text">No. samples</span>
+                                <input type="number" param-name="num_return_sequences" datatype="number" min="1" max="50"
+                                    class="form-control generation-option" value=1>
+                            </div>
+                        </div>
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
                             <div class="input-group mb-2" title="Temperature (> 0)">
                                 <span class="input-group-text">Temp.</span>
                                 <input type="number" param-name="temperature" datatype="number" min="0.001" step="1"
                                     class="form-control generation-option" value=1>
                             </div>
                         </div>
-                        <div class="col-xl-2 col-md-4 col-sm-6">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Top K</span>
                                 <input type="number" param-name="top_k" datatype="number" min="0"
                                     class="form-control generation-option" value=20>
                             </div>
                         </div>
-                        <div class="col-xl-2 col-md-4 col-sm-6">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
                             <div class="input-group mb-2" title="Perform multinomial sampling">
                                 <label class="input-group-text" for="sample-select">Sample</label>
                                 <select param-name="do_sample" datatype="bool" class="form-select generation-option"
@@ -221,7 +229,7 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                                 </select>
                             </div>
                         </div>
-                        <div class="col-xl-2 col-md-4 col-sm-6">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
                             <div class="input-group mb-2" title="Discount factor (between 0 and 1)">
                                 <span class="input-group-text">Discount</span>
                                 <input type="number" param-name="discount_factor" datatype="number" min="0" max="1" step="0.1"
@@ -231,6 +239,17 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                     </div>
                 </div>
 
+                <div task="masked-language-modelling" class="task-settings">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <textarea id="mlm-input-textbox" class="mt-3 form-control"
+                                rows="5">The goal of life is [MASK].</textarea>
+                        </div>
+                        <div class="col-lg-6">
+                            <textarea id="mlm-output-textbox" class="mt-3 form-control" rows="5"></textarea>
+                        </div>
+                    </div>
+                </div>
                 <div task="translation" class="task-settings">
                     <div class="row">
                         <div class="col-lg-6">
@@ -242,7 +261,7 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                         </div>
                     </div>
                 </div>
-                <div task="text-generation" class="task-settings" style="display: none;">
+                <div task="text-generation" class="task-settings">
                     <div class="row">
                         <div class="col-lg-12 mt-3">
                             <textarea id="text-generation-textbox" class="form-control"

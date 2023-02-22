@@ -8,6 +8,7 @@ import {
     AutoModelForSequenceClassification,
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
+    AutoModelForMaskedLM,
     T5ForConditionalGeneration,
 } from '../../src/transformers.js';
 
@@ -22,6 +23,7 @@ ort.env.wasm.wasmPaths = location.pathname.split('/').slice(0, -1 - 2).join('/')
 const TASK_FUNCTION_MAPPING = {
     'translation': translate,
     'text-generation': text_generation,
+    'masked-language-modelling': masked_lm
 }
 
 // Listen for messages from UI
@@ -79,11 +81,16 @@ class TextGenerationModelFactory extends ModelFactory {
     static model_class = AutoModelForCausalLM;
 }
 
+class MaskedLMModelFactory extends ModelFactory {
+    static path = 'https://huggingface.co/Xenova/bert-base-cased_onnx-quantized/resolve/main/';
+    static model_class = AutoModelForMaskedLM;
+}
+
 async function translate(data) {
     let translationModelFactory = await TranslationModelFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
-            task: 'translate',
+            task: 'translation',
             data: data
         });
     })
@@ -145,4 +152,36 @@ async function text_generation(data) {
         //     target: data.elementIdToUpdate,
         // });
     })
+}
+
+
+async function masked_lm(data) {
+
+    let translationModelFactory = await MaskedLMModelFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'masked-language-modelling',
+            data: data
+        });
+    })
+
+    let tokenizer = translationModelFactory.tokenizer;
+    let model = translationModelFactory.model;
+
+    let inputs = tokenizer(data.text);
+    let output = await model(inputs);
+
+    let mask_token_index = inputs.input_ids.indexOf(tokenizer.mask_token_id)
+
+    // sample from outputs
+    let sampled = output.sample(mask_token_index, data.generation)
+
+    let samples = tokenizer.decode(sampled, true);
+    self.postMessage({
+        type: 'update',
+        target: data.elementIdToUpdate,
+        data: samples.join('\n')
+    });
+
+    return samples;
 }

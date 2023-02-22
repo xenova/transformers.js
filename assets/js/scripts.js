@@ -6,30 +6,40 @@ const worker = new Worker('./assets/js/worker.js', { type: 'module' });
 
 // Define elements
 const TASK_SELECTOR = document.getElementById('task');
-const INPUT_TEXTBOX = document.getElementById('input-textbox');
-const OUTPUT_TEXTBOX = document.getElementById('output-textbox');
-const TEXT_GENERATION_TEXTBOX = document.getElementById('text-generation-textbox');
+
+// translation inputs
 const LANGUAGE_FROM = document.getElementById('language-from');
 const LANGUAGE_TO = document.getElementById('language-to');
+const INPUT_TEXTBOX = document.getElementById('input-textbox');
+const OUTPUT_TEXTBOX = document.getElementById('output-textbox');
+
+// text generation inputs
+const TEXT_GENERATION_TEXTBOX = document.getElementById('text-generation-textbox');
+
 const TASKS = document.getElementsByClassName('task-settings')
 const PROGRESS = document.getElementById('progress');
 const PROGRESS_BARS = document.getElementById('progress-bars');
 
 const GENERATE_BUTTON = document.getElementById('generate');
 
+const MLM_INPUT_TEXTBOX = document.getElementById('mlm-input-textbox');
+const MLM_OUTPUT_TEXTBOX = document.getElementById('mlm-output-textbox');
+
 // Parameters
 const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
 
-// Add event listeners
-TASK_SELECTOR.addEventListener('input', (e) => {
+function updateVisibility() {
 	for (let element of TASKS) {
-		if (element.getAttribute('task') === e.target.value) {
+		if (element.getAttribute('task').split(',').includes(TASK_SELECTOR.value)) {
 			element.style.display = 'block';
 		} else {
 			element.style.display = 'none';
 		}
 	}
-});
+}
+updateVisibility();
+// Add event listeners
+TASK_SELECTOR.addEventListener('input', updateVisibility);
 
 function parseValue(value, type) {
 	switch (type) {
@@ -50,19 +60,25 @@ GENERATE_BUTTON.addEventListener('click', (e) => {
 			return [x.getAttribute('param-name'), value]
 		}))
 	};
-	if (TASK_SELECTOR.value === 'translation') {
+	switch (TASK_SELECTOR.value) {
+		case 'translation':
+			data.languageFrom = LANGUAGE_FROM.value
+			data.languageTo = LANGUAGE_TO.value
+			data.text = INPUT_TEXTBOX.value
+			data.elementIdToUpdate = 'output-textbox'
+			break;
 
-		data.languageFrom = LANGUAGE_FROM.value
-		data.languageTo = LANGUAGE_TO.value
-		data.text = INPUT_TEXTBOX.value
-		data.elementIdToUpdate = 'output-textbox'
+		case 'text-generation':
+			data.text = TEXT_GENERATION_TEXTBOX.value
+			data.elementIdToUpdate = 'text-generation-textbox'
+			break;
 
-	} else if (TASK_SELECTOR.value === 'text-generation') {
-		data.text = TEXT_GENERATION_TEXTBOX.value
-		data.elementIdToUpdate = 'text-generation-textbox'
-	} else {
-		// throw error
-		return
+		case 'masked-language-modelling':
+			data.text = MLM_INPUT_TEXTBOX.value
+			data.elementIdToUpdate = 'mlm-output-textbox'
+			break;
+		default:
+			return;
 	}
 
 	worker.postMessage(data);
