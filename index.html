@@ -339,8 +339,10 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                             <div class="fw-bold">BERT</div>
                             Tasks: Feature extraction
                             <pre style="display: inline;">(AutoModel)</pre>,
-                            Masked Language Modelling
-                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>.
+                            masked language modelling
+                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>, and
+                            sequence classification
+                            <pre style="display: inline;">(AutoModelForSequenceClassification)</pre>.
                             <br>
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/bert">BERT docs</a>.
@@ -350,7 +352,10 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">DistilBERT</div>
                             Tasks: Feature extraction
-                            <pre style="display: inline;">(AutoModel)</pre>, Text Classification
+                            <pre style="display: inline;">(AutoModel)</pre>,
+                            masked language modelling
+                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>, and
+                            sequence classification
                             <pre style="display: inline;">(AutoModelForSequenceClassification)</pre>.
                             <br>
                             For more information, check out the <a
@@ -362,7 +367,7 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">T5</div>
                             Tasks: Feature extraction
-                            <pre style="display: inline;">(AutoModel)</pre>, and Sequence-to-sequence for
+                            <pre style="display: inline;">(AutoModel)</pre>, and sequence-to-sequence for
                             translation/summarization
                             <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
                             <br>
@@ -374,7 +379,7 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">GPT2/DistilGPT</div>
                             Tasks: Feature extraction
-                            <pre style="display: inline;">(AutoModel)</pre>, and Text generation
+                            <pre style="display: inline;">(AutoModel)</pre>, and text generation
                             <pre style="display: inline;">(AutoModelForCausalLM)</pre>.
                             <br>
                             For more information, check out the
