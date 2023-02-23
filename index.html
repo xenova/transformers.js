@@ -111,16 +111,16 @@
     AutoModelForSeq2SeqLM
 )
 
-model_path = './models/pytorch/t5-small'
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
+path = './models/pytorch/t5-small'
+tokenizer = AutoTokenizer.from_pretrained(path)
+model = AutoModelForSeq2SeqLM.from_pretrained(path)
 
 text = 'translate English to French: Hello, how are you?'
 input_ids = tokenizer(text, return_tensors='pt').input_ids
 
 output_token_ids = model.generate(input_ids)
 output_text = tokenizer.decode(output_token_ids[0], True)
-print(output_text) # "Bonjour, comment êtes-vous?"</code></pre>
+print(output_text) # "Bonjour, comment allez-vous?"</code></pre>
                         <p class="mb-0 text-center">Python (original)</p>
 
                     </div>
@@ -139,7 +139,7 @@ let input_ids = tokenizer(text).input_ids;
 
 let output_token_ids = await model.generate(input_ids);
 let output_text = tokenizer.decode(output_token_ids[0], true);
-console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
+console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                         <p class="mb-0 text-center">JavaScript (ours)</p>
                     </div>
                 </div>
