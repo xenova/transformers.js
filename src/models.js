@@ -142,6 +142,8 @@ class AutoModelForSequenceClassification {
         });
 
         switch (config.model_type) {
+            case 'bert':
+                return new BertForSequenceClassification(config, session);
             case 'distilbert':
                 return new DistilBertForSequenceClassification(config, session);
 
@@ -402,11 +404,18 @@ class PreTrainedModel extends Callable {
 //////////////////////////////////////////////////
 
 // Bert models
-class BertModel extends PreTrainedModel { }
-class BertForMaskedLM extends BertModel {
+class BertPreTrainedModel extends PreTrainedModel { }
+class BertModel extends BertPreTrainedModel { }
+class BertForMaskedLM extends BertPreTrainedModel {
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new MaskedLMOutput(logits, model_inputs)
+    }
+}
+class BertForSequenceClassification extends BertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits.data;
+        return new ClassificationOutput(this.config, logits)
     }
 }
 //////////////////////////////////////////////////
@@ -635,7 +644,11 @@ class ClassificationOutput {
     constructor(modelConfig, logits) {
         this.logits = logits;
         this.prediction = indexOfMax(logits);
-        this.score = softmax(logits)[this.prediction];
+        this.scores = softmax(logits);
+        this.id2label = modelConfig.id2label;
+        this.label2id = modelConfig.label2id;
+
+        this.score = this.scores[this.prediction];
         this.label = modelConfig.id2label[this.prediction];
     }
 }

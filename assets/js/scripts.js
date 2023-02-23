@@ -25,8 +25,49 @@ const GENERATE_BUTTON = document.getElementById('generate');
 const MLM_INPUT_TEXTBOX = document.getElementById('mlm-input-textbox');
 const MLM_OUTPUT_TEXTBOX = document.getElementById('mlm-output-textbox');
 
+const TC_INPUT_TEXTBOX = document.getElementById('tc-input-textbox');
+const TC_OUTPUT_CANVAS = document.getElementById('tc-canvas');
+
+
 // Parameters
 const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
+
+const CHARTS = {
+	'tc-canvas': new Chart(TC_OUTPUT_CANVAS, {
+		type: 'bar',
+		data: {
+			labels: ['5 stars', '4 stars', '3 stars', '2 stars', '1 star'],
+			datasets: [{
+				borderWidth: 1
+			}]
+		},
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			indexAxis: 'y',
+			scales: {
+				y: {
+					beginAtZero: true,
+				},
+				x: {
+					min: 0,
+					max: 1,
+				}
+			},
+			plugins: {
+				legend: {
+					display: false
+				},
+			},
+			layout: {
+				padding: {
+					bottom: -5,
+				}
+			},
+		}
+	})
+}
+
 
 function updateVisibility() {
 	for (let element of TASKS) {
@@ -77,6 +118,13 @@ GENERATE_BUTTON.addEventListener('click', (e) => {
 			data.text = MLM_INPUT_TEXTBOX.value
 			data.elementIdToUpdate = 'mlm-output-textbox'
 			break;
+
+		case 'sequence-classification':
+			data.text = TC_INPUT_TEXTBOX.value
+			data.elementIdToUpdate = 'tc-canvas'
+			data.targetType = 'chart'
+			break;
+
 		default:
 			return;
 	}
@@ -125,6 +173,23 @@ worker.addEventListener('message', (event) => {
 			break;
 		case 'update': // for generation
 			document.getElementById(message.target).value = message.data
+			break;
+
+		case 'complete':
+			switch (message.targetType) {
+				case 'chart':
+					const chartToUpdate = CHARTS[message.target];
+
+					// set data, ensuring labels align correctly
+					chartToUpdate.data.datasets[0].data = chartToUpdate.data.labels.map(
+						x => message.data.scores[message.data.label2id[x]]
+					);
+					chartToUpdate.update(); // update the chart
+					break;
+				default: // is text
+					// TODO
+					break;
+			}
 			break;
 		default:
 			break;

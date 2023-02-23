@@ -78,6 +78,10 @@ Here are some of the models we have already converted (along with the command us
     python -m scripts.convert --quantize --model_id bert-base-cased --task masked-lm
     ```
 
+5. [bert-base-multilingual-uncased](https://huggingface.co/Xenova/bert-base-multilingual-uncased-sentiment_onnx-quantized) for sequence classification (i.e., sentiment analysis).
+    ```
+    python -m scripts.convert --quantize --model_id bert-base-multilingual-uncased --task sequence-classification
+    ```
 
 Note: We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy).
 

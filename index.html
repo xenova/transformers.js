@@ -31,6 +31,9 @@
     <!-- Code highlighting JS -->
     <script src="./assets/js/prism.js" defer></script>
 
+    <!-- Chart JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <!-- Page JS-->
     <script src="./assets/js/scripts.js" defer></script>
 
@@ -155,10 +158,18 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                 <label>Task: </label>
                 <div class="col-12 mt-1">
                     <select id="task" class="form-select">
-                        <option value="translation" selected>Translation w/ t5-small (151 MB)</option>
-                        <option value="text-generation">Text generation w/ distilgpt2 (250 MB)</option>
-                        <option value="masked-language-modelling">Masked language modelling w/ bert-base-uncased (132
-                            MB)</option>
+                        <option value="translation" selected>
+                            Translation w/ t5-small (151 MB)
+                        </option>
+                        <option value="text-generation">
+                            Text generation w/ distilgpt2 (250 MB)
+                        </option>
+                        <option value="masked-language-modelling">
+                            Masked language modelling w/ bert-base-uncased (132 MB)
+                        </option>
+                        <option value="sequence-classification">
+                            Text classification w/ bert-base-multilingual-uncased-sentiment (170 MB)
+                        </option>
                         <!-- <option value="summarization" model="...">Summarization (t5-small)</option> -->
                         <!-- <option value="none" model="bert-base-uncased">bert-base-uncased</option> -->
                         <!-- <option value="none" model="distilbert-base-uncased">distilbert-base-uncased</option> -->
@@ -183,7 +194,7 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                         </div>
                     </div>
                 </div>
-                <div>
+                <div class="task-settings" task="translation,text-generation,masked-language-modelling">
                     <label class="mt-2">Parameters: </label>
                     <div class="row">
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
@@ -240,7 +251,17 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"</code></pre>
                         </div>
                     </div>
                 </div>
-
+                <div task="sequence-classification" class="task-settings">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <textarea id="tc-input-textbox" class="mt-3 form-control"
+                                rows="5">The Shawshank Redemption is a true masterpiece of cinema, a movie that deserves every bit of its status as one of the greatest films ever made. From its stellar performances to its unforgettable storytelling, everything about this film is a testament to the power of great filmmaking.</textarea>
+                        </div>
+                        <div class="col-lg-6 mt-1">
+                            <canvas id="tc-canvas" height="134px"></canvas>
+                        </div>
+                    </div>
+                </div>
                 <div task="masked-language-modelling" class="task-settings">
                     <div class="row">
                         <div class="col-lg-6">

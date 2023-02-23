@@ -23,7 +23,8 @@ ort.env.wasm.wasmPaths = location.pathname.split('/').slice(0, -1 - 2).join('/')
 const TASK_FUNCTION_MAPPING = {
     'translation': translate,
     'text-generation': text_generation,
-    'masked-language-modelling': masked_lm
+    'masked-language-modelling': masked_lm,
+    'sequence-classification': sequence_classification
 }
 
 // Listen for messages from UI
@@ -84,6 +85,11 @@ class TextGenerationModelFactory extends ModelFactory {
 class MaskedLMModelFactory extends ModelFactory {
     static path = 'https://huggingface.co/Xenova/bert-base-cased_onnx-quantized/resolve/main/';
     static model_class = AutoModelForMaskedLM;
+}
+
+class SequenceClassificationModelFactory extends ModelFactory {
+    static path = 'https://huggingface.co/Xenova/bert-base-multilingual-uncased-sentiment_onnx-quantized/resolve/main/';
+    static model_class = AutoModelForSequenceClassification;
 }
 
 async function translate(data) {
@@ -184,4 +190,28 @@ async function masked_lm(data) {
     });
 
     return samples;
+}
+
+async function sequence_classification(data) {
+
+    let classificationModelFactory = await SequenceClassificationModelFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'sequence-classification',
+            data: data
+        });
+    });
+    let tokenizer = classificationModelFactory.tokenizer;
+    let model = classificationModelFactory.model;
+
+    let inputs = tokenizer(data.text)
+
+    let outputs = await model(inputs)
+
+    self.postMessage({
+        type: 'complete',
+        target: data.elementIdToUpdate,
+        targetType: data.targetType,
+        data: outputs
+    });
 }
