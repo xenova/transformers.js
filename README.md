@@ -2,9 +2,13 @@
 
 Run 🤗 Transformers in your browser! We currently support [BERT](https://huggingface.co/docs/transformers/model_doc/bert), [DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert), [T5](https://huggingface.co/docs/transformers/model_doc/t5) and [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2) models, for a variety of tasks including: feature extraction, masked language modelling, text classification, translation, summarization, and text generation.
 
+
+https://user-images.githubusercontent.com/26504141/221052598-4f775c33-1064-47ff-a8b0-e9371f2a9319.mp4
+
+
 ## Getting Started
 
-Get your models running in the browser. It's super easy to translate from existing code!
+It's super easy to translate from existing code!
 
 
 Python (original):
@@ -14,16 +18,16 @@ from transformers import (
     AutoModelForSeq2SeqLM
 )
 
-model_path = './models/pytorch/t5-small'
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
+path = './models/pytorch/t5-small'
+tokenizer = AutoTokenizer.from_pretrained(path)
+model = AutoModelForSeq2SeqLM.from_pretrained(path)
 
 text = 'translate English to French: Hello, how are you?'
 input_ids = tokenizer(text, return_tensors='pt').input_ids
 
 output_token_ids = model.generate(input_ids)
 output_text = tokenizer.decode(output_token_ids[0], True)
-print(output_text) # "Bonjour, comment êtes-vous?"
+print(output_text) # "Bonjour, comment allez-vous?"
 ```
 
 Javascript (ours):
@@ -42,7 +46,7 @@ let input_ids = tokenizer(text).input_ids;
 
 let output_token_ids = await model.generate(input_ids);
 let output_text = tokenizer.decode(output_token_ids[0], true);
-console.log(output_text); // "Bonjour, comment êtes-vous?"
+console.log(output_text); // "Bonjour, comment allez-vous?"
 ```
 
 
@@ -51,10 +55,8 @@ console.log(output_text); // "Bonjour, comment êtes-vous?"
 Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova.github.io/transformers.js/). As you'll see, everything runs inside the browser!
 
 ## Usage
-###
-*Coming soon*
 
-### Convert PyTorch models to ONNX
+### Convert your PyTorch models to ONNX
 We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using our conversion script). For the following examples, we assume your PyTorch models are located in the ./models/pytorch/ folder. To choose a different location, specify the parent input folder with `--input_parent_dir /path/to/parent_dir/` (note: without the model id).
 
 Here are some of the models we have already converted (along with the command used).
@@ -85,8 +87,13 @@ Here are some of the models we have already converted (along with the command us
 
 Note: We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy).
 
+
+### Options
+*Coming soon...*
+
+
 ## Examples
-*Coming soon*
+*Coming soon... In the meantime, check out the source code for the demo [here](https://github.com/xenova/transformers.js/blob/main/assets/js/worker.js).*
 
 ## Credit
 Inspired by https://github.com/praeclarum/transformers-js
