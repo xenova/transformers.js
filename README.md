@@ -2,8 +2,8 @@
 
 Run 🤗 Transformers in your browser! We currently support [BERT](https://huggingface.co/docs/transformers/model_doc/bert), [DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert), [T5](https://huggingface.co/docs/transformers/model_doc/t5) and [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2) models, for a variety of tasks including: feature extraction, masked language modelling, text classification, translation, summarization, and text generation.
 
+![teaser](https://user-images.githubusercontent.com/26504141/221056008-e906614e-e6f0-4e10-b0a8-7d5c99e955b4.gif)
 
-https://user-images.githubusercontent.com/26504141/221052598-4f775c33-1064-47ff-a8b0-e9371f2a9319.mp4
 
 
 ## Getting Started
