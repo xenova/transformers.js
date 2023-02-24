@@ -420,6 +420,9 @@ class PostProcessor extends Callable {
             case 'ByteLevel':
                 return new ByteLevelPostProcessor(config);
 
+            case 'RobertaProcessing':
+                return new RobertaProcessing(config);
+
             default:
                 throw new Error(`Unknown PostProcessor type: ${config.type}`);
         }
@@ -430,6 +433,28 @@ class PostProcessor extends Callable {
 
     _call(tokens, ...args) {
         return this.post_process(tokens, ...args);
+    }
+}
+
+class RobertaProcessing extends PostProcessor {
+    constructor(config) {
+        super();
+        this.config = config;
+
+        // TODO use all of config:
+        // add_prefix_space, cls, sep, trim_offsets
+
+    }
+
+    post_process(tokens, tokens_pair = null) {
+        tokens = [this.config.cls[0], ...tokens, this.config.sep[0]]
+
+        // NOTE: It is intended to add 2 EOS tokens after the first set of tokens
+        // https://github.com/huggingface/tokenizers/issues/983
+        if (tokens_pair !== null) {
+            tokens = [...tokens, this.config.sep[0], ...tokens_pair, this.config.sep[0]]
+        }
+        return tokens;
     }
 }
 
@@ -515,28 +540,8 @@ class WordPieceDecoder extends Decoder {
         return tokens.join(' ').replace(this.convertRegex, '').trim();
     }
 
-    clean_up_tokenization(text) {
-        // Clean up a list of simple English tokenization artifacts
-        // like spaces before punctuations and abbreviated forms
-        return text.replace(/ \./g, '.')
-            .replace(/ \?/g, '?')
-            .replace(/ \!/g, '!')
-            .replace(/ ,/g, ',')
-            .replace(/ \' /g, "'")
-            .replace(/ n\'t/g, "n't")
-            .replace(/ \'m/g, "'m")
-            .replace(/ \'s/g, "'s")
-            .replace(/ \'ve/g, "'ve")
-            .replace(/ \'re/g, "'re");
-    }
-
     decode(tokens) {
-        let text = this.convert_tokens_to_string(tokens);
-
-        if (this.config.cleanup) {
-            text = this.clean_up_tokenization(text);
-        }
-        return text;
+        return this.convert_tokens_to_string(tokens);
     }
 }
 
@@ -658,6 +663,9 @@ class AutoTokenizer {
             case 'GPT2Tokenizer':
                 return new GPT2Tokenizer(tokenizerJSON, tokenizerConfig);
 
+            case 'BartTokenizer':
+                return new BartTokenizer(tokenizerJSON, tokenizerConfig);
+
             default:
                 console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
                 return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
@@ -717,11 +725,10 @@ class PreTrainedTokenizer extends Callable {
             } else {
                 // Actually perform encoding
                 if (this.normalizer !== null) {
-                    text = this.normalizer(text);
+                    x = this.normalizer(x);
                 }
-                let tokens = this.pre_tokenizer(text);
-
-                return this.model(tokens);
+                let sectionTokens = this.pre_tokenizer(x);
+                return this.model(sectionTokens);
             }
         }).flat();
 
@@ -742,29 +749,70 @@ class PreTrainedTokenizer extends Callable {
         }
     }
 
-    decode(token_ids, skip_special_tokens = false) {
+    clean_up_tokenization(text) {
+        // Clean up a list of simple English tokenization artifacts
+        // like spaces before punctuations and abbreviated forms
+        return text.replace(/ \./g, '.')
+            .replace(/ \?/g, '?')
+            .replace(/ \!/g, '!')
+            .replace(/ ,/g, ',')
+            .replace(/ \' /g, "'")
+            .replace(/ n\'t/g, "n't")
+            .replace(/ \'m/g, "'m")
+            .replace(/ \'s/g, "'s")
+            .replace(/ \'ve/g, "'ve")
+            .replace(/ \'re/g, "'re");
+    }
+
+    decode(
+        token_ids,
+        skip_special_tokens = false,
+        clean_up_tokenization_spaces = true,
+    ) {
         if (!Array.isArray(token_ids) || token_ids.length === 0) {
             throw Error("token_ids must be a non-empty array.");
         }
 
         if (Array.isArray(token_ids[0])) {
             // array of array
-            return token_ids.map(x => this.decode_single(x, skip_special_tokens));
+            return token_ids.map(x => this.decode_single(
+                x,
+                skip_special_tokens,
+                clean_up_tokenization_spaces
+            ));
 
         } else {
-            return this.decode_single(token_ids, skip_special_tokens)
+            return this.decode_single(
+                token_ids,
+                skip_special_tokens,
+                clean_up_tokenization_spaces
+            )
         }
     }
 
-    decode_single(token_ids, skip_special_tokens = false) {
+    decode_single(
+        token_ids,
+        skip_special_tokens = false,
+        clean_up_tokenization_spaces = true,
+    ) {
         let tokens = this.model.convert_ids_to_tokens(token_ids);
 
         if (skip_special_tokens) {
             tokens = tokens.filter(x => !this.special_tokens.includes(x));
         }
 
-        // TODO add option to skip special tokens
-        return this.decoder(tokens)
+        let decoded = this.decoder(tokens);
+
+        if (this.decoder.cleanup !== undefined && this.decoder.cleanup !== clean_up_tokenization_spaces) {
+            console.warn(`clean_up_tokenization_spaces disagrees with decoder's cleanup setting. Overriding to use decoder's cleanup setting (${this.decoder.cleanup})`)
+            clean_up_tokenization_spaces = this.decoder.cleanup;
+        }
+
+        if (clean_up_tokenization_spaces) {
+            decoded = this.clean_up_tokenization(decoded);
+        }
+
+        return decoded;
     }
 
 }
@@ -781,7 +829,7 @@ class BertTokenizer extends PreTrainedTokenizer {
 class DistilBertTokenizer extends PreTrainedTokenizer { }
 class T5Tokenizer extends PreTrainedTokenizer { }
 class GPT2Tokenizer extends PreTrainedTokenizer { }
-
+class BartTokenizer extends PreTrainedTokenizer { }
 
 class CharTrie {
     constructor() {
