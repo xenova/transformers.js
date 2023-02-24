@@ -33,6 +33,9 @@ const QA_CONTEXT_TEXTBOX = document.getElementById('qa-context-textbox');
 const QA_QUESTION_TEXTBOX = document.getElementById('qa-question-textbox');
 const QA_ANSWER_TEXTBOX = document.getElementById('qa-answer-textbox');
 
+const SUMMARIZATION_INPUT_TEXTBOX = document.getElementById('summarization-input-textbox');
+const SUMMARIZATION_OUTPUT_TEXTBOX = document.getElementById('summarization-output-textbox');
+
 
 // Parameters
 const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
@@ -136,6 +139,10 @@ GENERATE_BUTTON.addEventListener('click', (e) => {
 			data.elementIdToUpdate = QA_ANSWER_TEXTBOX.id
 			break;
 
+		case 'summarization':
+			data.text = SUMMARIZATION_INPUT_TEXTBOX.value
+			data.elementIdToUpdate = SUMMARIZATION_OUTPUT_TEXTBOX.id
+			break;
 		default:
 			return;
 	}

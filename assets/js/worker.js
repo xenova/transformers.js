@@ -27,6 +27,7 @@ const TASK_FUNCTION_MAPPING = {
     'masked-language-modelling': masked_lm,
     'sequence-classification': sequence_classification,
     'question-answering': question_answering,
+    'summarization': summarize
 }
 
 // Listen for messages from UI
@@ -97,6 +98,11 @@ class SequenceClassificationModelFactory extends ModelFactory {
 class QuestionAnsweringModelFactory extends ModelFactory {
     static path = 'https://huggingface.co/Xenova/distilbert-base-uncased-distilled-squad_onnx-quantized/resolve/main/';
     static model_class = AutoModelForQuestionAnswering;
+}
+
+class SummarizationModelFactory extends ModelFactory {
+    static path = 'https://huggingface.co/Xenova/distilbart-cnn-6-6_onnx-quantized/resolve/main/';
+    static model_class = AutoModelForSeq2SeqLM;
 }
 
 async function translate(data) {
@@ -251,4 +257,34 @@ async function question_answering(data) {
     });
 
     return answer;
+}
+
+async function summarize(data) {
+    let summarizationModelFactory = await SummarizationModelFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'summarization',
+            data: data
+        });
+    })
+
+    let tokenizer = summarizationModelFactory.tokenizer
+    let model = summarizationModelFactory.model
+
+    let input_ids = tokenizer(data.text).input_ids
+    let outputs = await model.generate(input_ids, {
+        ...data.generation,
+        callback_function: function (beams) {
+            let skip_special_tokens = true;
+            const decodedText = tokenizer.decode(beams[0].output_token_ids, skip_special_tokens)
+
+            self.postMessage({
+                type: 'update',
+                target: data.elementIdToUpdate,
+                data: decodedText.trim()
+            });
+        }
+    })
+
+    return tokenizer.decode(outputs, true);
 }

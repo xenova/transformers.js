@@ -173,7 +173,9 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                         <option value="question-answering">
                             Question answering w/ distilbert-base-uncased-distilled-squad (67 MB)
                         </option>
-                        <!-- <option value="summarization" model="...">Summarization (t5-small)</option> -->
+                        <option value="summarization">
+                            Summarization w/ distilbart-cnn-6-6 (529 MB)
+                        </option>
                     </select>
                 </div>
 
@@ -195,17 +197,17 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                         </div>
                     </div>
                 </div>
-                <div class="task-settings" task="translation,text-generation,masked-language-modelling">
+                <div class="task-settings" task="translation,text-generation,masked-language-modelling,summarization">
                     <label class="mt-2">Parameters: </label>
                     <div class="row">
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Max length</span>
                                 <input type="number" param-name="max_length" datatype="number" min="1"
                                     class="form-control generation-option" value=50>
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
                             <div class="input-group mb-2" title="Number of beams">
                                 <span class="input-group-text">No. beams</span>
                                 <input type="number" param-name="num_beams" datatype="number" min="1" max="50"
@@ -219,21 +221,21 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                                     max="50" class="form-control generation-option" value=1>
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
                             <div class="input-group mb-2" title="Temperature (> 0)">
                                 <span class="input-group-text">Temp.</span>
                                 <input type="number" param-name="temperature" datatype="number" min="0.001" step="1"
                                     class="form-control generation-option" value=1>
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Top K</span>
                                 <input type="number" param-name="top_k" datatype="number" min="0"
                                     class="form-control generation-option" value=20>
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
                             <div class="input-group mb-2" title="Perform multinomial sampling">
                                 <label class="input-group-text" for="sample-select">Sample</label>
                                 <select param-name="do_sample" datatype="bool" class="form-select generation-option"
@@ -243,7 +245,7 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                                 </select>
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
                             <div class="input-group mb-2" title="Discount factor (between 0 and 1)">
                                 <span class="input-group-text">Discount</span>
                                 <input type="number" param-name="discount_factor" datatype="number" min="0" max="1"
@@ -300,6 +302,17 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                         </div>
                         <div class="col-lg-6">
                             <textarea id="output-textbox" class="mt-3 form-control" rows="5"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div task="summarization" class="task-settings">
+                    <div class="row">
+                        <div class="col-lg-9">
+                            <textarea id="summarization-input-textbox" class="mt-3 form-control"
+                                rows="6">The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.</textarea>
+                        </div>
+                        <div class="col-lg-3">
+                            <textarea id="summarization-output-textbox" class="mt-3 form-control" rows="6"></textarea>
                         </div>
                     </div>
                 </div>
