@@ -29,6 +29,11 @@ const TC_INPUT_TEXTBOX = document.getElementById('tc-input-textbox');
 const TC_OUTPUT_CANVAS = document.getElementById('tc-canvas');
 
 
+const QA_CONTEXT_TEXTBOX = document.getElementById('qa-context-textbox');
+const QA_QUESTION_TEXTBOX = document.getElementById('qa-question-textbox');
+const QA_ANSWER_TEXTBOX = document.getElementById('qa-answer-textbox');
+
+
 // Parameters
 const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
 
@@ -106,23 +111,29 @@ GENERATE_BUTTON.addEventListener('click', (e) => {
 			data.languageFrom = LANGUAGE_FROM.value
 			data.languageTo = LANGUAGE_TO.value
 			data.text = INPUT_TEXTBOX.value
-			data.elementIdToUpdate = 'output-textbox'
+			data.elementIdToUpdate = OUTPUT_TEXTBOX.id
 			break;
 
 		case 'text-generation':
 			data.text = TEXT_GENERATION_TEXTBOX.value
-			data.elementIdToUpdate = 'text-generation-textbox'
+			data.elementIdToUpdate = TEXT_GENERATION_TEXTBOX.id
 			break;
 
 		case 'masked-language-modelling':
 			data.text = MLM_INPUT_TEXTBOX.value
-			data.elementIdToUpdate = 'mlm-output-textbox'
+			data.elementIdToUpdate = MLM_OUTPUT_TEXTBOX.id
 			break;
 
 		case 'sequence-classification':
 			data.text = TC_INPUT_TEXTBOX.value
-			data.elementIdToUpdate = 'tc-canvas'
+			data.elementIdToUpdate = TC_OUTPUT_CANVAS.id
 			data.targetType = 'chart'
+			break;
+
+		case 'question-answering':
+			data.context = QA_CONTEXT_TEXTBOX.value
+			data.question = QA_QUESTION_TEXTBOX.value
+			data.elementIdToUpdate = QA_ANSWER_TEXTBOX.id
 			break;
 
 		default:
@@ -187,7 +198,7 @@ worker.addEventListener('message', (event) => {
 					chartToUpdate.update(); // update the chart
 					break;
 				default: // is text
-					// TODO
+					document.getElementById(message.target).value = message.data
 					break;
 			}
 			break;

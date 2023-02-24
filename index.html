@@ -170,9 +170,10 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                         <option value="sequence-classification">
                             Text classification w/ bert-base-multilingual-uncased-sentiment (170 MB)
                         </option>
+                        <option value="question-answering">
+                            Question answering w/ distilbert-base-uncased-distilled-squad (67 MB)
+                        </option>
                         <!-- <option value="summarization" model="...">Summarization (t5-small)</option> -->
-                        <!-- <option value="none" model="bert-base-uncased">bert-base-uncased</option> -->
-                        <!-- <option value="none" model="distilbert-base-uncased">distilbert-base-uncased</option> -->
                     </select>
                 </div>
 
@@ -273,6 +274,24 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                         </div>
                     </div>
                 </div>
+                <div task="question-answering" class="task-settings">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <p class="mt-3 mb-0">Context:</p>
+                            <textarea id="qa-context-textbox" class="form-control"
+                                rows="7">The Amazon rainforest (Portuguese: Floresta Amazônica or Amazônia; Spanish: Selva Amazónica, Amazonía or usually Amazonia; French: Forêt amazonienne; Dutch: Amazoneregenwoud), also known in English as Amazonia or the Amazon Jungle, is a moist broadleaf forest that covers most of the Amazon basin of South America. This basin encompasses 7,000,000 square kilometres (2,700,000 sq mi), of which 5,500,000 square kilometres (2,100,000 sq mi) are covered by the rainforest. This region includes territory belonging to nine nations. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%, Colombia with 10%, and with minor amounts in Venezuela, Ecuador, Bolivia, Guyana, Suriname and French Guiana. States or departments in four nations contain "Amazonas" in their names. The Amazon represents over half of the planet's remaining rainforests, and comprises the largest and most biodiverse tract of tropical rainforest in the world, with an estimated 390 billion individual trees divided into 16,000 species.</textarea>
+                        </div>
+                        <div class="col-lg-6">
+                            <p class="mt-3 mb-0">Question:</p>
+                            <textarea id="qa-question-textbox" class="form-control"
+                                rows="5">What proportion of the planet's rainforests are found in the Amazon?</textarea>
+                        </div>
+                        <div class="col-lg-6">
+                            <p class="mt-3 mb-0">Answer:</p>
+                            <textarea id="qa-answer-textbox" class="form-control" rows="5"></textarea>
+                        </div>
+                    </div>
+                </div>
                 <div task="translation" class="task-settings">
                     <div class="row">
                         <div class="col-lg-6">
@@ -337,13 +356,12 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">BERT</div>
-                            Tasks: Feature extraction
-                            <pre style="display: inline;">(AutoModel)</pre>,
-                            masked language modelling
-                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>, and
+                            Tasks: Masked language modelling
+                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>,
+                            question answering
+                            <pre style="display: inline;">(AutoModelForQuestionAnswering)</pre>, and
                             sequence classification
                             <pre style="display: inline;">(AutoModelForSequenceClassification)</pre>.
-                            <br>
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/bert">BERT docs</a>.
                         </div>
@@ -351,13 +369,12 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">DistilBERT</div>
-                            Tasks: Feature extraction
-                            <pre style="display: inline;">(AutoModel)</pre>,
-                            masked language modelling
-                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>, and
+                            Tasks: Masked language modelling
+                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>,
+                            question answering
+                            <pre style="display: inline;">(AutoModelForQuestionAnswering)</pre>, and
                             sequence classification
                             <pre style="display: inline;">(AutoModelForSequenceClassification)</pre>.
-                            <br>
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/distilbert">DistilBERT
                                 docs</a>.
@@ -366,22 +383,18 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">T5</div>
-                            Tasks: Feature extraction
-                            <pre style="display: inline;">(AutoModel)</pre>, and sequence-to-sequence for
+                            Tasks: Sequence-to-sequence for
                             translation/summarization
                             <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
-                            <br>
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/t5">T5 docs</a>.
                         </div>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
-                            <div class="fw-bold">GPT2/DistilGPT</div>
-                            Tasks: Feature extraction
-                            <pre style="display: inline;">(AutoModel)</pre>, and text generation
+                            <div class="fw-bold">GPT2/DistilGPT2</div>
+                            Text generation
                             <pre style="display: inline;">(AutoModelForCausalLM)</pre>.
-                            <br>
                             For more information, check out the
                             <a href="https://huggingface.co/docs/transformers/model_doc/gpt2">GPT2 docs</a> or
                             <a href="https://huggingface.co/distilgpt2">DistilGPT2 docs</a>.

@@ -9,6 +9,7 @@ import {
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
+    AutoModelForQuestionAnswering,
     T5ForConditionalGeneration,
 } from '../../src/transformers.js';
 
@@ -24,7 +25,8 @@ const TASK_FUNCTION_MAPPING = {
     'translation': translate,
     'text-generation': text_generation,
     'masked-language-modelling': masked_lm,
-    'sequence-classification': sequence_classification
+    'sequence-classification': sequence_classification,
+    'question-answering': question_answering,
 }
 
 // Listen for messages from UI
@@ -92,6 +94,11 @@ class SequenceClassificationModelFactory extends ModelFactory {
     static model_class = AutoModelForSequenceClassification;
 }
 
+class QuestionAnsweringModelFactory extends ModelFactory {
+    static path = 'https://huggingface.co/Xenova/distilbert-base-uncased-distilled-squad_onnx-quantized/resolve/main/';
+    static model_class = AutoModelForQuestionAnswering;
+}
+
 async function translate(data) {
     let translationModelFactory = await TranslationModelFactory.getInstance(data => {
         self.postMessage({
@@ -126,7 +133,7 @@ async function translate(data) {
 
 async function text_generation(data) {
 
-    let translationModelFactory = await TextGenerationModelFactory.getInstance(data => {
+    let textGenerationModelFactory = await TextGenerationModelFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'text-generation',
@@ -134,8 +141,8 @@ async function text_generation(data) {
         });
     })
 
-    let tokenizer = translationModelFactory.tokenizer
-    let model = translationModelFactory.model
+    let tokenizer = textGenerationModelFactory.tokenizer
+    let model = textGenerationModelFactory.model
 
     let text = data.text.trim();
     let input_ids = tokenizer(text).input_ids
@@ -163,7 +170,7 @@ async function text_generation(data) {
 
 async function masked_lm(data) {
 
-    let translationModelFactory = await MaskedLMModelFactory.getInstance(data => {
+    let maskedLMModelFactory = await MaskedLMModelFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'masked-language-modelling',
@@ -171,8 +178,8 @@ async function masked_lm(data) {
         });
     })
 
-    let tokenizer = translationModelFactory.tokenizer;
-    let model = translationModelFactory.model;
+    let tokenizer = maskedLMModelFactory.tokenizer;
+    let model = maskedLMModelFactory.model;
 
     let inputs = tokenizer(data.text);
     let output = await model(inputs);
@@ -214,4 +221,35 @@ async function sequence_classification(data) {
         targetType: data.targetType,
         data: outputs
     });
+}
+
+
+async function question_answering(data) {
+
+    let questionAnsweringModelFactory = await QuestionAnsweringModelFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'question-answering',
+            data: data
+        });
+    })
+
+    let tokenizer = questionAnsweringModelFactory.tokenizer;
+    let model = questionAnsweringModelFactory.model;
+
+    // question, text
+    let inputs = tokenizer(data.question, data.context);
+
+    let output = await model(inputs);
+
+    let answer = tokenizer.decode(output.answer_tokens, true);
+
+    self.postMessage({
+        type: 'complete',
+        target: data.elementIdToUpdate,
+        data: answer
+    });
+
+    console.log({data})
+    return answer;
 }
