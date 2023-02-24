@@ -250,6 +250,5 @@ async function question_answering(data) {
         data: answer
     });
 
-    console.log({data})
     return answer;
 }
