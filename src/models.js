@@ -237,6 +237,36 @@ class AutoModelForMaskedLM {
     }
 
 }
+
+
+class AutoModelForQuestionAnswering {
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(pathJoin(modelPath, 'config.json')),
+            constructSession(modelPath, 'model.onnx', progressCallback)
+        ]);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'bert':
+                return new BertForQuestionAnswering(config, session);
+
+            case 'distilbert':
+                return new DistilBertForQuestionAnswering(config, session);
+
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+}
+
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -418,6 +448,12 @@ class BertForSequenceClassification extends BertPreTrainedModel {
         return new ClassificationOutput(this.config, logits)
     }
 }
+class BertForQuestionAnswering extends BertPreTrainedModel {
+    async _call(model_inputs) {
+        let outputs = await super._call(model_inputs);
+        return new QuestionAnsweringOutput(outputs, model_inputs.input_ids);
+    }
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -430,7 +466,12 @@ class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
         return new ClassificationOutput(this.config, logits)
     }
 }
-
+class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
+    async _call(model_inputs) {
+        let outputs = await super._call(model_inputs);
+        return new QuestionAnsweringOutput(outputs, model_inputs.input_ids);
+    }
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -699,11 +740,20 @@ class MaskedLMOutput {
     }
 }
 
+class QuestionAnsweringOutput {
+    constructor(outputs, input_ids) {
+        this.answer_start_index = indexOfMax(outputs.start_logits.data);
+        this.answer_end_index = indexOfMax(outputs.end_logits.data);
+        this.answer_tokens = input_ids.slice(this.answer_start_index, this.answer_end_index + 1)
+    }
+}
+
 export {
     AutoModel,
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
+    AutoModelForQuestionAnswering,
     T5ForConditionalGeneration
 };

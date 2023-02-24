@@ -416,12 +416,12 @@ class PostProcessor extends Callable {
                 throw new Error(`Unknown PostProcessor type: ${config.type}`);
         }
     }
-    post_process(tokens) {
+    post_process(tokens, ...args) {
         throw Error("post_process should be implemented in subclass.")
     }
 
-    _call(tokens) {
-        return this.post_process(tokens);
+    _call(tokens, ...args) {
+        return this.post_process(tokens, ...args);
     }
 }
 
@@ -430,16 +430,23 @@ class TemplateProcessing extends PostProcessor {
         super();
         this.config = config;
     }
-    post_process(tokens) {
+    post_process(tokens, tokens_pair = null) {
+        let type = tokens_pair === null ? this.config.single : this.config.pair
+
         let toReturn = [];
-        for (let item of this.config.single) {
+        for (let item of type) {
             if ('SpecialToken' in item) {
                 toReturn.push(item.SpecialToken.id);
-            } else if ('Sequence' in item) { // && item.Sequence === 'A'
-                toReturn.push(...tokens);
+
+            } else if ('Sequence' in item) {
+                if (item.Sequence.id === 'A') {
+                    toReturn.push(...tokens);
+
+                } else if (item.Sequence.id === 'B') {
+                    toReturn.push(...tokens_pair);
+                }
             }
         }
-        // TODO fix
         return toReturn;
     }
 }
@@ -683,34 +690,44 @@ class PreTrainedTokenizer extends Callable {
         return new this(tokenizerJSON, tokenizerConfig);
     }
 
-    _call(text) {
-        return this.encode(text);
+    _call(text, text_pair = null) {
+        return this.encode(text, text_pair);
     }
 
     encode_single(text) {
-        if (this.normalizer !== null) {
-            text = this.normalizer(text);
-        }
-        let tokens = this.pre_tokenizer(text);
+        if (text === null) return null;
 
-        return this.model(tokens);
-    }
-    encode(text) {
+        // Actual function which does encoding, for a single text
         // First, we take care of special tokens. Needed to avoid issues arising from
         // normalization and/or pretokenization (which may not preserve special tokens)
         const sections = text.split(this.special_tokens_regex).filter(x => x);
 
         let tokens = sections.map(x => {
             if (this.special_tokens.includes(x)) {
+                // Ignore special tokens
                 return x
             } else {
-                return this.encode_single(x)
+                // Actually perform encoding
+                if (this.normalizer !== null) {
+                    text = this.normalizer(text);
+                }
+                let tokens = this.pre_tokenizer(text);
+
+                return this.model(tokens);
             }
         }).flat();
 
-        tokens = this.post_processor(tokens);
+        return tokens;
+    }
 
-        let ids = this.model.convert_tokens_to_ids(tokens);
+    encode(text, text_pair = null) {
+        // Function called by users to encode possibly multiple texts
+        let tokens = this.encode_single(text);
+        let tokens2 = this.encode_single(text_pair);
+
+        let combinedTokens = this.post_processor(tokens, tokens2);
+        let ids = this.model.convert_tokens_to_ids(combinedTokens);
+
         return {
             input_ids: ids,
             attention_mask: new Array(ids.length).fill(1)
