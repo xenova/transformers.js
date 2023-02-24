@@ -356,7 +356,6 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                 </div>
             </div>
         </div>
-        </div>
     </section>
 
     <!-- Usage section-->
@@ -364,7 +363,7 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
         <div class="container px-5 my-4">
             <div class="mb-3">
                 <h2 class="fw-bolder">Usage</h2>
-                <p class="lead mb-2">Currently, we support the following models and tasks:
+                <p class="lead mb-2">Currently, we support the following models and tasks:</p>
                 <ol class="list-group list-group-numbered">
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
@@ -406,11 +405,20 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">GPT2/DistilGPT2</div>
-                            Text generation
+                            Tasks: Text generation
                             <pre style="display: inline;">(AutoModelForCausalLM)</pre>.
                             For more information, check out the
                             <a href="https://huggingface.co/docs/transformers/model_doc/gpt2">GPT2 docs</a> or
                             <a href="https://huggingface.co/distilgpt2">DistilGPT2 docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">BART</div>
+                            Tasks: Sequence-to-sequence for summarization
+                            <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/bart">BART docs</a>.
                         </div>
                     </li>
                 </ol>
@@ -426,6 +434,7 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                     our
                     <a href="https://github.com/xenova/transformers.js/blob/main/scripts/convert.py">conversion
                         script</a>).
+                </p>
             </div>
         </div>
     </section>
