@@ -90,6 +90,11 @@ Here are some of the models we have already converted (along with the command us
     python -m scripts.convert --quantize --model_id distilbert-base-uncased-distilled-squad --task question-answering
     ```
 
+6. [distilbart-cnn-6-6](https://huggingface.co/Xenova/distilbart-cnn-6-6_onnx-quantized) for summarization.
+    ```
+    python -m scripts.convert --quantize --model_id distilbart-cnn-6-6 --task seq2seq-lm-with-past
+    ```
+
 
 Note: We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy).
 

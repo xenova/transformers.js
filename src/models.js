@@ -177,6 +177,13 @@ class AutoModelForSeq2SeqLM {
                     decoder_session,
                     decoder_with_past_model
                 );
+            case 'bart':
+                return new BartForConditionalGeneration(
+                    config,
+                    session,
+                    decoder_session,
+                    decoder_with_past_model
+                );
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
         }
@@ -491,10 +498,6 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         super(config, session);
         this.decoder_session = decoder_session;
         this.decoder_with_past_model = decoder_with_past_model;
-
-        this.num_heads = this.config.num_heads
-        this.num_layers = this.config.num_layers
-        this.dim_kv = this.config.d_kv
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -671,6 +674,124 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
 // class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
 // TODO
 // }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Bart models
+class BartPretrainedModel extends PreTrainedModel { };
+
+class BartModel extends BartPretrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (BartModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'BartForConditionalGeneration'}"
+        )
+    }
+}
+
+class BartForConditionalGeneration extends BartPretrainedModel {
+    constructor(config, session, decoder_session, decoder_with_past_model) {
+        super(config, session);
+        this.decoder_session = decoder_session;
+        this.decoder_with_past_model = decoder_with_past_model;
+    }
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+        // TODO remove duplication between here and t5
+
+        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
+            fetchJSON(pathJoin(modelPath, 'config.json')),
+            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        return new this(config, session, decoder_session, decoder_with_past_model);
+    }
+
+    getStartBeam(inputTokenIds, numOutputTokens) {
+        // arguments ignored in this case
+        return {
+            encoder_outputs: null,
+            past_key_values: null,
+
+            // decoder_input_ids == output_token_ids
+            output_token_ids: [this.config.decoder_start_token_id],
+            done: false,
+            score: 0,
+        }
+    }
+
+    async runBeam(beam, inputTokenIds) {
+        // 1. Prepare
+        let model_inputs = {
+            input_ids: inputTokenIds,
+            attention_mask: new Array(inputTokenIds.length).fill(1),
+            decoder_input_ids: beam.output_token_ids.slice(-1),
+            encoder_outputs: beam.encoder_outputs,
+            past_key_values: beam.past_key_values,
+        }
+
+        // 2. Run
+        let output = await this.forward(model_inputs);
+
+        // 3. Update
+        beam.past_key_values = output.past_key_values;
+        beam.encoder_outputs = output.encoder_outputs;
+
+        return output;
+    }
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
+    async forward(model_inputs) {
+        model_inputs = this.prepare_inputs(model_inputs)
+
+        let encoderOutputs = model_inputs.encoder_outputs;
+        let pastKeyValues = model_inputs.past_key_values;
+
+        if (encoderOutputs === null) {
+            const encoderFeeds = {
+                input_ids: model_inputs.input_ids,
+                attention_mask: model_inputs.attention_mask,
+            }
+            const encoderResults = await this.session.run(encoderFeeds);
+            encoderOutputs = encoderResults.last_hidden_state;
+        }
+        let decoderFeeds = {
+            input_ids: model_inputs.decoder_input_ids,
+            encoder_attention_mask: model_inputs.attention_mask,
+            encoder_hidden_states: encoderOutputs,
+        };
+
+        if (pastKeyValues !== null) {
+            delete pastKeyValues['encoder_last_hidden_state'];
+        }
+
+        let logits;
+        if (pastKeyValues === null) {
+            const initDecoderResults = await this.decoder_session.run(decoderFeeds);
+            logits = initDecoderResults.logits;
+            pastKeyValues = this.getPastKeyValues(this.decoder_session.outputNames.slice(1), initDecoderResults);
+
+        } else {
+            Object.assign(decoderFeeds, pastKeyValues)
+
+            const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
+            logits = decoderResults.logits;
+            pastKeyValues = this.getPastKeyValues(this.decoder_with_past_model.outputNames.slice(1), decoderResults);
+        }
+
+        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+    }
+}
+
 //////////////////////////////////////////////////
 
 class Seq2SeqLMOutput {
