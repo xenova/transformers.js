@@ -338,12 +338,20 @@ class BertNormalizer extends Normalizer {
         // config.strip_accents,
         // config.lowercase,
     }
+    stripAccents(text) {
+        return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
     normalize(text) {
         if (this.config.lowercase) {
             text = text.toLowerCase();
+
+            if (this.config.strip_accents !== false) {
+                text = this.stripAccents(text);
+            }
+        } else if (this.config.strip_accents) {
+            text = this.stripAccents(text);
         }
 
-        // TODO fix
         return text;
     }
 }
