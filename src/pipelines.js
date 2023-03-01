@@ -45,6 +45,7 @@ class TextClassificationPipeline extends Pipeline {
     async _call(texts, {
         topk = 1
     } = {}) {
+
         let [inputs, outputs] = await super._call(texts)
 
         let logits = reshape(outputs.logits.data, outputs.logits.dims);
@@ -60,13 +61,13 @@ class TextClassificationPipeline extends Pipeline {
                     score: x[1],
                 }
             });
-            if (topk > 1) {
-                toReturn.push(vals);
-            } else {
+            if (topk === 1) {
                 toReturn.push(...vals);
+            } else {
+                toReturn.push(vals);
             }
         }
-        return toReturn;
+        return Array.isArray(texts) || topk === 1 ? toReturn : toReturn[0];
     }
 }
 
@@ -144,7 +145,7 @@ class FillMaskPipeline extends Pipeline {
 
         let tokenizer = this.tokenizer;
 
-        return logits.map((batch, i) => {
+        let toReturn = logits.map((batch, i) => {
             let mask_token_index = mask_token_indices[i];
             let itemLogits = batch[mask_token_index];
 
@@ -162,6 +163,8 @@ class FillMaskPipeline extends Pipeline {
                 }
             })
         })
+
+        return Array.isArray(texts) ? toReturn : toReturn[0];
     }
 }
 
@@ -169,6 +172,9 @@ class Text2TextGenerationPipeline extends Pipeline {
     _key = 'text';
 
     async _call(texts, generate_kwargs = {}) {
+        if (!Array.isArray(texts)) {
+            texts = [texts];
+        }
         // Add prefixes, if present
         let task_specific_params = this.model.config.task_specific_params
         if (task_specific_params && task_specific_params[this.task] && task_specific_params[this.task].prefix) {
@@ -298,7 +304,10 @@ const SUPPORTED_TASKS = {
 async function pipeline(
     task,
     model = null,
-    model_path_template = DEFAULT_MODEL_PATH_TEMPLATE
+    {
+        default_model_path_template = DEFAULT_MODEL_PATH_TEMPLATE,
+        progress_callback = null
+    } = {}
 ) {
     // Helper method to construct pipeline
 
@@ -310,7 +319,7 @@ async function pipeline(
     // Use model if specified, otherwise, use default
     let modelPath = model;
     if (!modelPath) {
-        modelPath = model_path_template
+        modelPath = default_model_path_template
             .replace('{model}', pipelineInfo.default.model)
             .replace('{task}', task);
     }
@@ -321,7 +330,7 @@ async function pipeline(
     // Load tokenizer and model
     let [pipelineTokenizer, pipelineModel] = await Promise.all([
         AutoTokenizer.from_pretrained(modelPath),
-        modelClass.from_pretrained(modelPath)
+        modelClass.from_pretrained(modelPath, progress_callback)
     ])
 
     return new pipelineClass(pipelineTokenizer, pipelineModel, task);
