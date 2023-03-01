@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
 
-from transformers import AutoConfig
 from transformers import AutoTokenizer, HfArgumentParser
 
 from optimum.utils import DEFAULT_DUMMY_SHAPES
@@ -76,50 +75,12 @@ class ConversionArguments:
             "help": 'The device to use to do the export. Defaults to "cpu".'
         }
     )
-
-
-SUPPORTED_TASKS = {
-    # map tasks to automodels
-    "default": "AutoModel",
-    "masked-lm": "AutoModelForMaskedLM",
-    "sequence-classification": "AutoModelForSequenceClassification",
-    "multiple-choice": "AutoModelForMultipleChoice",
-    "token-classification": "AutoModelForTokenClassification",
-    "question-answering": "AutoModelForQuestionAnswering",
-}
-
-SUPPORTED_MODELS = {
-    'bert': [
-        "default",
-        "masked-lm",
-        "sequence-classification",
-        "multiple-choice",
-        "token-classification",
-        "question-answering"
-    ],
-    'distilbert': [
-        "default",
-        "masked-lm",
-        "sequence-classification",
-        "multiple-choice",
-        "token-classification",
-        "question-answering",
-    ],
-    't5': [
-        "default",
-        "default-with-past",
-        "seq2seq-lm",
-        "seq2seq-lm-with-past",
-    ],
-    'gpt2': [
-        "default",
-        "default-with-past",
-        "causal-lm",
-        "causal-lm-with-past",
-        "sequence-classification",
-        "token-classification",
-    ]
-}
+    from_hub: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to use local files, or from the HuggingFace Hub."
+        }
+    )
 
 
 def quantize(models_name_or_path):
@@ -156,26 +117,36 @@ def main():
     )
     conv_args, = parser.parse_args_into_dataclasses()
 
-    input_model_folder = os.path.join(
-        conv_args.input_parent_dir, conv_args.model_id)
-    output_model_folder = os.path.join(
-        conv_args.output_parent_dir, conv_args.model_id)
+    if conv_args.from_hub:
+        model_path = conv_args.model_id
+    else:
+        model_path = os.path.join(
+            conv_args.input_parent_dir,
+            conv_args.model_id
+        )
 
     # Infer the task
     task = conv_args.task
     if task == "auto":
         try:
-            task = TasksManager.infer_task_from_model(input_model_folder)
+            task = TasksManager.infer_task_from_model(model_path)
         except KeyError as e:
             raise KeyError(
                 f"The task could not be automatically inferred. Please provide the argument --task with the task from {', '.join(TasksManager.get_all_tasks())}. Detailed error: {e}"
             )
 
+    output_model_folder = os.path.join(
+        conv_args.output_parent_dir,
+        'quantized' if conv_args.quantize else 'unquantized',
+        conv_args.model_id,
+        task
+    )
+
     # get the shapes to be used to generate dummy inputs
     input_shapes = DEFAULT_DUMMY_SHAPES
 
     model = TasksManager.get_model_from_task(
-        task, input_model_folder
+        task, model_path
     )
 
     onnx_config_constructor = TasksManager.get_exporter_config_constructor(
@@ -195,7 +166,7 @@ def main():
     model.config.save_pretrained(output_model_folder)
 
     # 2. Save tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(input_model_folder)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     tokenizer.save_pretrained(output_model_folder)
 
     # Create output folder
