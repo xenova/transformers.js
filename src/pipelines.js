@@ -2,12 +2,14 @@ import {
     Callable,
     softmax,
     getTopItems,
+    cos_sim
 } from "./utils.js";
 
 import {
     AutoTokenizer
 } from "./tokenizers.js";
 import {
+    AutoModel,
     AutoModelForSequenceClassification,
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
@@ -231,6 +233,24 @@ class TextGenerationPipeline extends Pipeline {
 }
 
 
+class EmbeddingsPipeline extends Pipeline {
+    async _call(texts) {
+        let [inputs, outputs] = await super._call(texts);
+
+        // Get embedding from outputs. This is typically indexed with some number.
+        delete outputs['last_hidden_state'];
+        let embeddingsTensor = Object.values(outputs)[0];
+        let embeddings = reshape(embeddingsTensor.data, embeddingsTensor.dims);
+
+        return embeddings
+    }
+
+    cos_sim(arr1, arr2) {
+        // Compute cosine similarity
+        return cos_sim(arr1, arr2)
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "pipeline": TextClassificationPipeline,
@@ -270,15 +290,7 @@ const SUPPORTED_TASKS = {
         "pipeline": TranslationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
-            "en_to_de": {
-                "model": "t5-small",
-            },
-            "en_to_fr": {
-                "model": "t5-small",
-            },
-            "en_to_ro": {
-                "model": "t5-small",
-            },
+            "model": "t5-small"
         },
         "type": "text",
     },
@@ -299,11 +311,22 @@ const SUPPORTED_TASKS = {
         "type": "text",
     },
 
+    // This task is not supported in HuggingFace transformers, but serves as a useful interface
+    // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
+    "embeddings": {
+        "pipeline": EmbeddingsPipeline,
+        "model": AutoModel,
+        "default": {
+            "model": "sentence-transformers/all-MiniLM-L6-v2"
+        },
+        "type": "text",
+    },
 }
 
 const TASK_NAME_MAPPING = {
     // Fix mismatch between pipeline name and exports (folder name)
     'text-classification': 'sequence-classification',
+    'embeddings': 'default'
 }
 
 const TASK_ALIASES = {

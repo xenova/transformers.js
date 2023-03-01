@@ -203,6 +203,40 @@ async function text_generation() {
     );
 }
 
+
+
+async function embeddings() {
+
+    // Provide sentences
+    let sentences = [
+        'This framework generates embeddings for each input sentence',
+        'Sentences are passed as a list of string.',
+        'The quick brown fox jumps over the lazy dog.'
+    ]
+
+    // Load embeddings pipeline (uses all-MiniLM-L6-v2 by default)
+    // To use a custom model, specify the path as the second parameter
+    // (e.g., await pipeline('embeddings', '/path/to/model/'))
+    let embedder = await pipeline('embeddings')
+
+    // Run sentences through embedder
+    let output = await embedder(sentences)
+
+    // Compute pairwise cosine similarity
+    for (let i = 0; i < sentences.length; ++i) {
+        for (let j = i + 1; j < sentences.length; ++j) {
+            console.log(`(${i},${j}):`, embedder.cos_sim(output[i], output[j]))
+        }
+    }
+
+    let pairwiseScores = [[output[0], output[1]], [output[0], output[2]], [output[1], output[2]]].map(x => embedder.cos_sim(...x))
+    return isDeepEqual(
+        pairwiseScores,
+        [0.8195198760573937, 0.6200714107649917, 0.5930511190112736]
+    )
+}
+
+
 function isDeepEqual(obj1, obj2, {
     tol = 1e-3
 } = {}) {

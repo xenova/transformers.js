@@ -84,7 +84,7 @@ function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
-function getTopItems(items, top_k=0) {
+function getTopItems(items, top_k = 0) {
     // if top == 0, return all
 
     items = Array.from(items)
@@ -97,6 +97,31 @@ function getTopItems(items, top_k=0) {
 
     return items
 }
+
+function dot(arr1, arr2) {
+    return arr1.reduce((acc, val, i) => acc + val * arr2[i], 0);
+}
+
+function cos_sim(arr1, arr2) {
+    // Calculate dot product of the two arrays
+    const dotProduct = dot(arr1, arr2);
+
+    // Calculate the magnitude of the first array
+    const magnitudeA = magnitude(arr1);
+
+    // Calculate the magnitude of the second array
+    const magnitudeB = magnitude(arr2);
+
+    // Calculate the cosine similarity
+    const cosineSimilarity = dotProduct / (magnitudeA * magnitudeB);
+
+    return cosineSimilarity;
+}
+
+function magnitude(arr) {
+    return Math.sqrt(arr.reduce((acc, val) => acc + val * val, 0));
+}
+
 export {
     Callable,
     fetchJSON,
@@ -106,5 +131,8 @@ export {
     softmax,
     log_softmax,
     escapeRegExp,
-    getTopItems
+    getTopItems,
+    dot,
+    cos_sim,
+    magnitude
 };
