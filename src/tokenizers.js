@@ -684,10 +684,6 @@ class PreTrainedTokenizer extends Callable {
             '(' + this.special_tokens.map(escapeRegExp).join('|') + ')'
         );
 
-        // Set mask token if present (otherwise will be undefined, which is fine)
-        this.mask_token = this.tokenizerConfig.mask_token;
-        this.mask_token_id = this.tokenizerJSON.model.vocab[this.mask_token];
-
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
@@ -696,6 +692,17 @@ class PreTrainedTokenizer extends Callable {
         // TODO - maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
+        // Set mask token if present (otherwise will be undefined, which is fine)
+        this.mask_token = this.tokenizerConfig.mask_token;
+        this.mask_token_id = this.model.tokens_to_ids[this.mask_token];
+
+        this.pad_token = this.tokenizerConfig.pad_token ?? this.tokenizerConfig.eos_token;
+        this.pad_token_id = this.model.tokens_to_ids[this.pad_token];
+
+        this.sep_token = this.tokenizerConfig.sep_token;
+        this.sep_token_id = this.model.tokens_to_ids[this.sep_token];
+
+        this.model_max_length = this.tokenizerConfig.model_max_length;
     }
 
     static async from_pretrained(modelPath) {
@@ -706,11 +713,109 @@ class PreTrainedTokenizer extends Callable {
         return new this(tokenizerJSON, tokenizerConfig);
     }
 
-    _call(text, text_pair = null) {
-        return this.encode(text, text_pair);
+    prepare_model_inputs(inputs) {
+        return inputs;
     }
 
-    encode_single(text) {
+    _call(
+        // Required positional arguments
+        text,
+
+        // Optional keyword arguments
+        {
+            text_pair = null,
+            // add_special_tokens = true, // TODO
+            padding = false,
+            truncation = null,
+            max_length = null,
+        } = {},
+    ) {
+        let tokens;
+
+        if (Array.isArray(text)) {
+            if (text.length === 0) {
+                throw Error('text array must be non-empty')
+            }
+
+            if (text_pair !== null) {
+                if (!Array.isArray(text_pair)) {
+                    throw Error('text_pair must also be an array')
+
+                } else if (text.length !== text_pair.length) {
+                    throw Error('text and text_pair must have the same length')
+                }
+
+                tokens = text.map(
+                    (text, i) => this.encode(text, text_pair[i])
+                )
+
+            } else {
+                tokens = text.map(x => this.encode(x));
+            }
+
+        } else {
+            if (text === null) {
+                throw Error('text may not be null')
+            }
+            tokens = [this.encode(text, text_pair)];
+        }
+        // At this point, tokens is batched: [batch_size, tokens]
+        // However, array may be jagged. So, we pad to max_length
+
+        let maxLengthOfBatch = Math.max(...tokens.map(x => x.length));
+
+        // If null, we calculate max length from sequences
+        if (max_length === null) {
+            max_length = maxLengthOfBatch;
+        }
+
+        // Ensure it is less than model max length
+        max_length = Math.min(max_length, this.model_max_length)
+
+        let attention_mask = [];
+        if (padding || truncation) {
+            // Perform padding and/or truncation
+            for (let i = 0; i < tokens.length; ++i) {
+                if (tokens[i].length === max_length) {
+                    attention_mask.push(new Array(tokens[i].length).fill(1))
+                    continue;
+
+                } else if (tokens[i].length > max_length) {
+                    // possibly truncate
+                    if (truncation) {
+                        tokens[i] = tokens[i].slice(0, max_length);
+                    }
+                    attention_mask.push(new Array(tokens[i].length).fill(1))
+
+                } else { // t.length < max_length
+                    if (padding) {
+                        let diff = max_length - tokens[i].length;
+                        attention_mask.push(
+                            (new Array(tokens[i].length).fill(1)).concat(new Array(diff).fill(0))
+                        )
+                        tokens[i].push(...new Array(diff).fill(this.pad_token_id))
+                    } else {
+                        attention_mask.push(new Array(tokens[i].length).fill(1))
+                    }
+                }
+            }
+        } else {
+            attention_mask = tokens.map(x => new Array(x.length).fill(1))
+        }
+
+        // Finally, add attention mask, and possibly model-specific parameters
+        let modelInputs = {
+            input_ids: tokens,
+            attention_mask: attention_mask
+        }
+
+        // Optional post-processing
+        modelInputs = this.prepare_model_inputs(modelInputs);
+
+        return modelInputs
+    }
+
+    _encode_text(text) {
         if (text === null) return null;
 
         // Actual function which does encoding, for a single text
@@ -737,16 +842,13 @@ class PreTrainedTokenizer extends Callable {
 
     encode(text, text_pair = null) {
         // Function called by users to encode possibly multiple texts
-        let tokens = this.encode_single(text);
-        let tokens2 = this.encode_single(text_pair);
+        let tokens = this._encode_text(text);
+        let tokens2 = this._encode_text(text_pair);
 
         let combinedTokens = this.post_processor(tokens, tokens2);
         let ids = this.model.convert_tokens_to_ids(combinedTokens);
 
-        return {
-            input_ids: ids,
-            attention_mask: new Array(ids.length).fill(1)
-        }
+        return ids
     }
 
     clean_up_tokenization(text) {
@@ -766,35 +868,33 @@ class PreTrainedTokenizer extends Callable {
 
     decode(
         token_ids,
-        skip_special_tokens = false,
-        clean_up_tokenization_spaces = true,
+        {
+            skip_special_tokens = false,
+            clean_up_tokenization_spaces = true
+        } = {},
     ) {
-        if (!Array.isArray(token_ids) || token_ids.length === 0) {
-            throw Error("token_ids must be a non-empty array.");
+        if (!Array.isArray(token_ids) || token_ids.length === 0 || !Number.isInteger(token_ids[0])) {
+            throw Error("token_ids must be a non-empty array of integers.");
         }
 
-        if (Array.isArray(token_ids[0])) {
-            // array of array
-            return token_ids.map(x => this.decode_single(
-                x,
+        return this.decode_single(
+            token_ids,
+            {
                 skip_special_tokens,
                 clean_up_tokenization_spaces
-            ));
+            }
 
-        } else {
-            return this.decode_single(
-                token_ids,
-                skip_special_tokens,
-                clean_up_tokenization_spaces
-            )
-        }
+        )
     }
 
     decode_single(
         token_ids,
-        skip_special_tokens = false,
-        clean_up_tokenization_spaces = true,
+        {
+            skip_special_tokens = false,
+            clean_up_tokenization_spaces = true,
+        }
     ) {
+
         let tokens = this.model.convert_ids_to_tokens(token_ids);
 
         if (skip_special_tokens) {
@@ -818,12 +918,9 @@ class PreTrainedTokenizer extends Callable {
 }
 
 class BertTokenizer extends PreTrainedTokenizer {
-    encode(text) {
-        let encoded = super.encode(text);
-
-        // Add default token_type_ids
-        encoded.token_type_ids = new Array(encoded.input_ids.length).fill(0)
-        return encoded;
+    prepare_model_inputs(inputs) {
+        inputs.token_type_ids = inputs.input_ids.map(x => new Array(x.length).fill(0))
+        return inputs;
     }
 }
 class DistilBertTokenizer extends PreTrainedTokenizer { }
