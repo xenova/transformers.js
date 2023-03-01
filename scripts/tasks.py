@@ -32,7 +32,10 @@ SUPPORTED_MODELS = {
         ],
         'sentence-transformers/all-MiniLM-L6-v2': [
             'default',
-        ]
+        ],
+        'sentence-transformers/all-MiniLM-L12-v2': [
+            'default',
+        ],
     },
     'distilbert': {
         'distilbert-base-uncased': [
@@ -77,6 +80,19 @@ SUPPORTED_MODELS = {
         'sshleifer/distilbart-cnn-6-6': [
             'seq2seq-lm-with-past'
         ]
+    },
+    'roberta': {
+        'roberta-base': [
+            'default',
+            'masked-lm',
+        ],
+        'distilroberta-base': [
+            'default',
+            'masked-lm',
+        ],
+        'sentence-transformers/all-distilroberta-v1': [
+            'default'
+        ]
     }
 }
 
@@ -119,6 +135,15 @@ SUPPORTED_MODELS_AND_TASKS = {
         # 'seq2seq-lm',
         'seq2seq-lm-with-past',
         'sequence-classification',
+        'question-answering',
+    ],
+    'roberta': [
+        'default',
+        'masked-lm',
+        # 'causal-lm',
+        'sequence-classification',
+        'multiple-choice',
+        'token-classification',
         'question-answering',
     ]
 }

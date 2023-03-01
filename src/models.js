@@ -113,6 +113,10 @@ class AutoModel {
                 return new T5Model(config, session);
             case 'gpt2':
                 return new GPT2Model(config, session);
+            case 'bart':
+                return new BartModel(config, session);
+            case 'roberta':
+                return new RobertaModel(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -141,6 +145,8 @@ class AutoModelForSequenceClassification {
                 return new BertForSequenceClassification(config, session);
             case 'distilbert':
                 return new DistilBertForSequenceClassification(config, session);
+            case 'roberta':
+                return new RobertaForSequenceClassification(config, session);
 
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
@@ -233,6 +239,8 @@ class AutoModelForMaskedLM {
                 return new BertForMaskedLM(config, session);
             case 'distilbert':
                 return new DistilBertForMaskedLM(config, session);
+            case 'roberta':
+                return new RobertaForMaskedLM(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -264,6 +272,9 @@ class AutoModelForQuestionAnswering {
 
             case 'distilbert':
                 return new DistilBertForQuestionAnswering(config, session);
+
+            case 'roberta':
+                return new RobertaForQuestionAnswering(config, session);
 
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
@@ -649,7 +660,7 @@ class GPT2PreTrainedModel extends PreTrainedModel { }
 class GPT2Model extends GPT2PreTrainedModel {
     async generate(...args) {
         throw Error(
-            "The current model class (GPT2Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'T5ForConditionalGeneration'}"
+            "The current model class (GPT2Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPT2LMHeadModel'}"
         )
     }
 }
@@ -837,6 +848,30 @@ class BartForConditionalGeneration extends BartPretrainedModel {
     }
 }
 
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Roberta models
+class RobertaPreTrainedModel extends PreTrainedModel { }
+class RobertaModel extends RobertaPreTrainedModel { }
+class RobertaForMaskedLM extends RobertaPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new MaskedLMOutput(logits)
+    }
+}
+class RobertaForSequenceClassification extends RobertaPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new SequenceClassifierOutput(logits)
+    }
+}
+class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
+    async _call(model_inputs) {
+        let outputs = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+    }
+}
 //////////////////////////////////////////////////
 
 class Seq2SeqLMOutput {
