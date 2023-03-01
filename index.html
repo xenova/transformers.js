@@ -106,40 +106,24 @@
             <div>
                 <div class="row gx-5">
                     <div class="col-lg-6 mb-4 mb-lg-0">
-                        <pre><code class="language-python">from transformers import (
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM
-)
+                        <pre><code class="language-python">from transformers import pipeline
 
-path = './models/pytorch/t5-small'
-tokenizer = AutoTokenizer.from_pretrained(path)
-model = AutoModelForSeq2SeqLM.from_pretrained(path)
+# Allocate a pipeline for sentiment-analysis
+classifier = pipeline('sentiment-analysis')
 
-text = 'translate English to French: Hello, how are you?'
-input_ids = tokenizer(text, return_tensors='pt').input_ids
-
-output_token_ids = model.generate(input_ids)
-output_text = tokenizer.decode(output_token_ids[0], True)
-print(output_text) # "Bonjour, comment allez-vous?"</code></pre>
+output = classifier('I love transformers!')
+# [{'label': 'POSITIVE', 'score': 0.9998069405555725}]</code></pre>
                         <p class="mb-0 text-center">Python (original)</p>
 
                     </div>
                     <div class="col-lg-6 mb-4 mb-lg-0">
-                        <pre><code class="language-js">import {
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM
-} from "transformers.js";
+                        <pre><code class="language-js">import { pipeline } from "transformers.js";
 
-let path = './models/onnx/t5-small';
-let tokenizer = await AutoTokenizer.from_pretrained(path);
-let model = await AutoModelForSeq2SeqLM.from_pretrained(path);
+// Allocate a pipeline for sentiment-analysis
+let classifier = await pipeline('sentiment-analysis')
 
-let text = 'translate English to French: Hello, how are you?';
-let input_ids = tokenizer(text).input_ids;
-
-let output_token_ids = await model.generate(input_ids);
-let output_text = tokenizer.decode(output_token_ids[0], true);
-console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
+let output = await classifier('I love transformers!')
+// [{label: 'POSITIVE', score: 0.9998176857266375}]</code></pre>
                         <p class="mb-0 text-center">JavaScript (ours)</p>
                     </div>
                 </div>
@@ -165,13 +149,13 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                             Text generation w/ distilgpt2 (250 MB)
                         </option>
                         <option value="masked-language-modelling">
-                            Masked language modelling w/ bert-base-uncased (132 MB)
+                            Masked language modelling w/ bert-base-cased (132 MB)
                         </option>
                         <option value="sequence-classification">
                             Text classification w/ bert-base-multilingual-uncased-sentiment (170 MB)
                         </option>
                         <option value="question-answering">
-                            Question answering w/ distilbert-base-uncased-distilled-squad (67 MB)
+                            Question answering w/ distilbert-base-uncased-distilled-squad (66 MB)
                         </option>
                         <option value="summarization">
                             Summarization w/ distilbart-cnn-6-6 (529 MB)
@@ -184,15 +168,15 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                     <div class="d-flex">
                         <div style="width: calc(50% - 20px);">
                             <select id="language-from" class="form-select mt-1 col-3">
-                                <option value="English" selected>English</option>
+                                <option value="en" selected>English</option>
                             </select>
                         </div>
                         <div style="width: 40px;" class="d-flex justify-content-center align-items-center">to</div>
                         <div style="width: calc(50% - 20px);">
                             <select id="language-to" class="form-select mt-1 col-3">
-                                <option value="French" selected>French</option>
-                                <option value="German">German</option>
-                                <option value="Romanian">Romanian</option>
+                                <option value="fr" selected>French</option>
+                                <option value="de">German</option>
+                                <option value="ro">Romanian</option>
                             </select>
                         </div>
                     </div>
@@ -200,14 +184,16 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                 <div class="task-settings" task="translation,text-generation,masked-language-modelling,summarization">
                     <label class="mt-2">Parameters: </label>
                     <div class="row">
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6"
+                            task="translation,text-generation,summarization">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Max length</span>
                                 <input type="number" param-name="max_length" datatype="number" min="1"
                                     class="form-control generation-option" value="50">
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6"
+                            task="translation,text-generation,summarization">
                             <div class="input-group mb-2" title="Number of beams">
                                 <span class="input-group-text">No. beams</span>
                                 <input type="number" param-name="num_beams" datatype="number" min="1" max="50"
@@ -221,21 +207,24 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                                     max="50" class="form-control generation-option" value="1">
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6"
+                            task="translation,text-generation,summarization">
                             <div class="input-group mb-2" title="Temperature (> 0)">
                                 <span class="input-group-text">Temp.</span>
                                 <input type="number" param-name="temperature" datatype="number" min="0.001" step="1"
                                     class="form-control generation-option" value="1">
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6"
+                            task="translation,text-generation,summarization">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Top K</span>
                                 <input type="number" param-name="top_k" datatype="number" min="0"
                                     class="form-control generation-option" value="20">
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6"
+                            task="translation,text-generation,summarization">
                             <div class="input-group mb-2" title="Perform multinomial sampling">
                                 <label class="input-group-text" for="sample-select">Sample</label>
                                 <select param-name="do_sample" datatype="bool" class="form-select generation-option"
@@ -245,7 +234,8 @@ console.log(output_text); // "Bonjour, comment allez-vous?"</code></pre>
                                 </select>
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="translation,text-generation,summarization">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6"
+                            task="translation,text-generation,summarization">
                             <div class="input-group mb-2" title="Discount factor (between 0 and 1)">
                                 <span class="input-group-text">Discount</span>
                                 <input type="number" param-name="discount_factor" datatype="number" min="0" max="1"

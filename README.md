@@ -13,40 +13,22 @@ It's super easy to translate from existing code!
 
 Python (original):
 ```python
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM
-)
+from transformers import pipeline
 
-path = './models/pytorch/t5-small'
-tokenizer = AutoTokenizer.from_pretrained(path)
-model = AutoModelForSeq2SeqLM.from_pretrained(path)
-
-text = 'translate English to French: Hello, how are you?'
-input_ids = tokenizer(text, return_tensors='pt').input_ids
-
-output_token_ids = model.generate(input_ids)
-output_text = tokenizer.decode(output_token_ids[0], True)
-print(output_text) # "Bonjour, comment allez-vous?"
+# Allocate a pipeline for sentiment-analysis
+classifier = pipeline('sentiment-analysis')
+output = classifier('I love transformers!')
+# [{'label': 'POSITIVE', 'score': 0.9998069405555725}]
 ```
 
 Javascript (ours):
 ```javascript
-import {
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM
-} from "transformers.js";
+import { pipeline } from "transformers.js";
 
-let path = './models/onnx/t5-small';
-let tokenizer = await AutoTokenizer.from_pretrained(path);
-let model = await AutoModelForSeq2SeqLM.from_pretrained(path);
-
-let text = 'translate English to French: Hello, how are you?';
-let input_ids = tokenizer(text).input_ids;
-
-let output_token_ids = await model.generate(input_ids);
-let output_text = tokenizer.decode(output_token_ids[0], true);
-console.log(output_text); // "Bonjour, comment allez-vous?"
+// Allocate a pipeline for sentiment-analysis
+let classifier = await pipeline('sentiment-analysis')
+let output = await classifier('I love transformers!')
+// [{label: 'POSITIVE', score: 0.9998176857266375}]
 ```
 
 
@@ -57,46 +39,22 @@ Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova
 ## Usage
 
 ### Convert your PyTorch models to ONNX
-We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using our conversion script). For the following examples, we assume your PyTorch models are located in the ./models/pytorch/ folder. To choose a different location, specify the parent input folder with `--input_parent_dir /path/to/parent_dir/` (note: without the model id).
+We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using our conversion script). In general, the command will look something like this:
+```
+python ./scripts/convert.py --model_id <hf_model_id> --from_hub --quantize --task <task>
+```
 
-Here are some of the models we have already converted (along with the command used).
-1. [t5-small](https://huggingface.co/Xenova/t5-small_onnx-quantized) for translation/summarization.
-    ```
-    python -m scripts.convert --quantize --model_id t5-small --task seq2seq-lm-with-past
-    ```
+For example, to use `bert-base-uncased` for masked language modelling, you can use the command:
+```
+python ./scripts/convert.py --model_id bert-base-uncased --from_hub --quantize --task masked-lm
+```
 
-2. [distilgpt2](https://huggingface.co/Xenova/distilgpt2_onnx-quantized) for text generation.
-    ```
-    python -m scripts.convert --quantize --model_id distilgpt2 --task causal-lm-with-past
-    ```
-
-3. [bert-base-uncased](https://huggingface.co/Xenova/bert-base-uncased_onnx-quantized) for masked language modelling.
-    ```
-    python -m scripts.convert --quantize --model_id bert-base-uncased --task masked-lm
-    ```
-
-4. [bert-base-cased](https://huggingface.co/Xenova/bert-base-cased_onnx-quantized) for masked language modelling.
-    ```
-    python -m scripts.convert --quantize --model_id bert-base-cased --task masked-lm
-    ```
-
-5. [bert-base-multilingual-uncased](https://huggingface.co/Xenova/bert-base-multilingual-uncased-sentiment_onnx-quantized) for sequence classification (i.e., sentiment analysis).
-    ```
-    python -m scripts.convert --quantize --model_id bert-base-multilingual-uncased --task sequence-classification
-    ```
-
-6. [distilbert-base-uncased-distilled-squad](https://huggingface.co/Xenova/distilbert-base-uncased-distilled-squad_onnx-quantized) for question answering.
-    ```
-    python -m scripts.convert --quantize --model_id distilbert-base-uncased-distilled-squad --task question-answering
-    ```
-
-6. [distilbart-cnn-6-6](https://huggingface.co/Xenova/distilbart-cnn-6-6_onnx-quantized) for summarization.
-    ```
-    python -m scripts.convert --quantize --model_id distilbart-cnn-6-6 --task seq2seq-lm-with-past
-    ```
+If you want to use a local model, remove the `--from_hub` flag from above and place your PyTorch model in the `./models/pytorch/` folder. You can also choose a different location by specifying the parent input folder with `--input_parent_dir /path/to/parent_dir/` (note: without the model id). 
 
 
-Note: We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy).
+Alternatively, you can find some of the models we have already converted [here](https://huggingface.co/Xenova/transformers.js). For example, to use `bert-base-uncased` for masked language modelling, you can use the model found at [https://huggingface.co/Xenova/transformers.js/tree/main/quantized/bert-base-uncased/masked-lm](https://huggingface.co/Xenova/transformers.js/tree/main/quantized/bert-base-uncased/masked-lm).
+
+*Note:* We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy). For more information, run the help command: `python ./scripts/convert.py -h`.
 
 
 ### Options

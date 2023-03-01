@@ -2,15 +2,10 @@ import {
     Callable,
     fetchJSON,
     pathJoin,
-    indexOfMax,
-    softmax,
-    getTopItems
 } from "./utils.js";
 
 import {
     Sampler,
-    GreedySampler,
-    TopKSampler
 } from "./samplers.js"
 
 import './ort.js'
@@ -236,6 +231,8 @@ class AutoModelForMaskedLM {
         switch (config.model_type) {
             case 'bert':
                 return new BertForMaskedLM(config, session);
+            case 'distilbert':
+                return new DistilBertForMaskedLM(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -287,7 +284,7 @@ class PreTrainedModel extends Callable {
 
 
         this.default_generation_options = {
-            max_length: 100,
+            max_new_tokens: 50,
             top_k: 0,
             num_beams: 1,
             temperature: 1,
@@ -317,23 +314,47 @@ class PreTrainedModel extends Callable {
         return new this(config, session);
     }
 
+    toI64Tensor(items) {
+        // items is an array
+        if (items.length === 0) {
+            throw Error("items must be non-empty");
+        }
+
+        if (Array.isArray(items[0])) {
+            // batched
+            if (items.some(x => x.length !== items[0].length)) {
+                throw Error("Unable to create tensor, you should probably activate truncation and/or padding with 'padding=True' and/or 'truncation=True' to have batched tensors with the same length.")
+            }
+
+            return new ort.Tensor('int64',
+                BigInt64Array.from(items.flat().map(x => BigInt(x))),
+                [items.length, items[0].length]
+            );
+        } else {
+            //flat
+            return new ort.Tensor('int64',
+                BigInt64Array.from(items.map(x => BigInt(x))),
+                [1, items.length]
+            );
+        }
+    }
+
     prepare_inputs(model_inputs) {
         let new_model_inputs = {};
 
         // TODO improve
         for (let [key, value] of Object.entries(model_inputs)) {
-            if (Array.isArray(value) && value && Number.isInteger(value[0])) {
-                // convert integer arrays to tensor
-                new_model_inputs[key] = new ort.Tensor('int64',
-                    BigInt64Array.from(value.map(x => BigInt(x))),
-                    [1, value.length]
-                );
+            if (Array.isArray(value)) {
+                // convert arrays to tensors
+                // TODO do not assume int64
+                new_model_inputs[key] = this.toI64Tensor(value);
             } else {
                 new_model_inputs[key] = value;
             }
         }
         return new_model_inputs;
     }
+
     async _call(model_inputs) {
         // TODO allow batched inputs
         // TODO return ModelOutput object?
@@ -346,15 +367,33 @@ class PreTrainedModel extends Callable {
     }
 
     async generate(inputTokenIds, options = {}) {
+        options = this.prepareGenerationOptions(options);
+
+        if (Array.isArray(inputTokenIds) && Array.isArray(inputTokenIds[0])) { // batched
+            let generations = (await Promise.all(inputTokenIds.map(x => this.generate_single(x, options))));
+
+            // NOTE: we flatten the output arrays, since this
+            // mimics how HuggingFace's generate function operates.
+            if (options.num_return_sequences > 1) {
+                generations = generations.map(x => x.map(y => y.flat()))
+            } else {
+                generations = generations.map(x => x.flat())
+            }
+            return generations
+        } else {
+            return this.generate_single(inputTokenIds, options)
+        }
+    }
+
+    async generate_single(inputTokenIds, options = {}) {
         if (inputTokenIds.length === 0) {
             throw Error("Must supply a non-empty array of input token ids.")
         }
-        options = this.prepareGenerationOptions(options);
         // TODO implement early_stopping
         // https://huggingface.co/blog/how-to-generate
 
         let numOutputTokens = 1;
-        const maxOutputTokens = numOutputTokens + options.max_length;
+        const maxOutputTokens = numOutputTokens + options.max_new_tokens;
 
         let sampler = Sampler.getSampler(options);
 
@@ -446,19 +485,19 @@ class BertModel extends BertPreTrainedModel { }
 class BertForMaskedLM extends BertPreTrainedModel {
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
-        return new MaskedLMOutput(logits, model_inputs)
+        return new MaskedLMOutput(logits)
     }
 }
 class BertForSequenceClassification extends BertPreTrainedModel {
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits.data;
-        return new ClassificationOutput(this.config, logits)
+        let logits = (await super._call(model_inputs)).logits;
+        return new SequenceClassifierOutput(logits)
     }
 }
 class BertForQuestionAnswering extends BertPreTrainedModel {
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
-        return new QuestionAnsweringOutput(outputs, model_inputs.input_ids);
+        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
     }
 }
 //////////////////////////////////////////////////
@@ -469,14 +508,20 @@ class DistilBertPreTrainedModel extends PreTrainedModel { }
 class DistilBertModel extends DistilBertPreTrainedModel { }
 class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits.data;
-        return new ClassificationOutput(this.config, logits)
+        let logits = (await super._call(model_inputs)).logits;
+        return new SequenceClassifierOutput(logits)
     }
 }
 class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
-        return new QuestionAnsweringOutput(outputs, model_inputs.input_ids);
+        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+    }
+}
+class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new MaskedLMOutput(logits)
     }
 }
 //////////////////////////////////////////////////
@@ -802,70 +847,22 @@ class Seq2SeqLMOutput {
     }
 }
 
-class ClassificationOutput {
-    constructor(modelConfig, logits) {
+class SequenceClassifierOutput {
+    constructor(logits) {
         this.logits = logits;
-        this.prediction = indexOfMax(logits);
-        this.scores = softmax(logits);
-        this.id2label = modelConfig.id2label;
-        this.label2id = modelConfig.label2id;
-
-        this.score = this.scores[this.prediction];
-        this.label = modelConfig.id2label[this.prediction];
     }
 }
 
 class MaskedLMOutput {
-    constructor(logits, model_inputs) {
+    constructor(logits) {
         this.logits = logits;
-        this.model_inputs = model_inputs;
-
-        this.default_sample_options = {
-            top_k: 0,
-            temperature: 1,
-            num_return_sequences: 1,
-            do_sample: false,
-        }
-    }
-
-    prepareGenerationOptions(options) {
-        return Object.assign({}, this.default_sample_options, options)
-    }
-
-    sample(mask_token_index, options = {}) {
-        options = this.prepareGenerationOptions(options)
-
-        // Helper method to support sampling from masked outputs
-        // https://huggingface.co/docs/transformers/main/tasks/masked_language_modeling
-        // mask_token_indices is a boolean array which indicates which items should be sampled
-        let vocabSize = this.logits.dims[2];
-
-        // Get top n masked elements
-        let startIndex = mask_token_index * vocabSize;
-        let logs = this.logits.data.slice(startIndex, startIndex + vocabSize);
-        let items = getTopItems(logs, options.num_return_sequences);
-
-        let numSequences = Math.min(items.length, options.num_return_sequences);
-
-        // Start with n masked sentences
-        let returnedSequences = [];
-
-        // Assign predictions to sequences
-        for (let j = 0; j < numSequences; ++j) {
-            let sequence = [...this.model_inputs.input_ids];
-            sequence[mask_token_index] = items[j][0];
-            returnedSequences.push(sequence);
-        }
-
-        return returnedSequences;
     }
 }
 
-class QuestionAnsweringOutput {
-    constructor(outputs, input_ids) {
-        this.answer_start_index = indexOfMax(outputs.start_logits.data);
-        this.answer_end_index = indexOfMax(outputs.end_logits.data);
-        this.answer_tokens = input_ids.slice(this.answer_start_index, this.answer_end_index + 1)
+class QuestionAnsweringModelOutput {
+    constructor(start_logits, end_logits) {
+        this.start_logits = start_logits;
+        this.end_logits = end_logits;
     }
 }
 

@@ -199,9 +199,12 @@ worker.addEventListener('message', (event) => {
 					const chartToUpdate = CHARTS[message.target];
 
 					// set data, ensuring labels align correctly
-					chartToUpdate.data.datasets[0].data = chartToUpdate.data.labels.map(
-						x => message.data.scores[message.data.label2id[x]]
-					);
+					let chartData = chartToUpdate.data.datasets[0].data;
+					for (let item of message.data) {
+						chartData[
+							chartToUpdate.data.labels.indexOf(item.label)
+						] = item.score
+					}
 					chartToUpdate.update(); // update the chart
 					break;
 				default: // is text

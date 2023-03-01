@@ -15,6 +15,9 @@ import {
     AutoModelForQuestionAnswering,
     T5ForConditionalGeneration
 } from "./models.js";
+import {
+    pipeline
+} from "./pipelines.js";
 
 
 if (typeof window === 'undefined') {
@@ -48,6 +51,7 @@ if (typeof window === 'undefined') {
 
     window.T5ForConditionalGeneration = T5ForConditionalGeneration
 
+    window.pipeline = pipeline
 }
 
 export {
@@ -68,4 +72,5 @@ export {
     T5ForConditionalGeneration,
 
     // other
+    pipeline
 };
