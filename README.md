@@ -13,40 +13,22 @@ It's super easy to translate from existing code!
 
 Python (original):
 ```python
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM
-)
+from transformers import pipeline
 
-path = './models/pytorch/t5-small'
-tokenizer = AutoTokenizer.from_pretrained(path)
-model = AutoModelForSeq2SeqLM.from_pretrained(path)
-
-text = 'translate English to French: Hello, how are you?'
-input_ids = tokenizer(text, return_tensors='pt').input_ids
-
-output_token_ids = model.generate(input_ids)
-output_text = tokenizer.decode(output_token_ids[0], True)
-print(output_text) # "Bonjour, comment allez-vous?"
+# Allocate a pipeline for sentiment-analysis
+classifier = pipeline('sentiment-analysis')
+output = classifier('I love transformers!')
+# [{'label': 'POSITIVE', 'score': 0.9998069405555725}]
 ```
 
 Javascript (ours):
 ```javascript
-import {
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM
-} from "transformers.js";
+import { pipeline } from "transformers.js";
 
-let path = './models/onnx/t5-small';
-let tokenizer = await AutoTokenizer.from_pretrained(path);
-let model = await AutoModelForSeq2SeqLM.from_pretrained(path);
-
-let text = 'translate English to French: Hello, how are you?';
-let input_ids = tokenizer(text).input_ids;
-
-let output_token_ids = await model.generate(input_ids);
-let output_text = tokenizer.decode(output_token_ids[0], true);
-console.log(output_text); // "Bonjour, comment allez-vous?"
+// Allocate a pipeline for sentiment-analysis
+let classifier = await pipeline('sentiment-analysis')
+let output = await classifier('I love transformers!')
+// [{label: 'POSITIVE', score: 0.9998176857266375}]
 ```
 
 
