@@ -223,11 +223,11 @@ async function embeddings() {
     let output = await embedder(sentences)
 
     // Compute pairwise cosine similarity
-    for (let i = 0; i < sentences.length; ++i) {
-        for (let j = i + 1; j < sentences.length; ++j) {
-            console.log(`(${i},${j}):`, embedder.cos_sim(output[i], output[j]))
-        }
-    }
+    // for (let i = 0; i < sentences.length; ++i) {
+    //     for (let j = i + 1; j < sentences.length; ++j) {
+    //         console.log(`(${i},${j}):`, embedder.cos_sim(output[i], output[j]))
+    //     }
+    // }
 
     let pairwiseScores = [[output[0], output[1]], [output[0], output[2]], [output[1], output[2]]].map(x => embedder.cos_sim(...x))
     return isDeepEqual(
