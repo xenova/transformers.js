@@ -301,6 +301,18 @@ const SUPPORTED_TASKS = {
 
 }
 
+const TASK_NAME_MAPPING = {
+    // Fix mismatch between pipeline name and exports (folder name)
+    'text-classification': 'sequence-classification',
+}
+
+const TASK_ALIASES = {
+    "sentiment-analysis": "text-classification",
+    "ner": "token-classification",
+    "vqa": "visual-question-answering",
+}
+
+
 async function pipeline(
     task,
     model = null,
@@ -311,6 +323,10 @@ async function pipeline(
 ) {
     // Helper method to construct pipeline
 
+    // Apply aliases
+    task = TASK_ALIASES[task] ?? task;
+
+    // Get pipeline info
     let pipelineInfo = SUPPORTED_TASKS[task.split('_', 1)[0]];
     if (!pipelineInfo) {
         throw Error(`Unsupported pipeline: ${task}. Must be one of [${Object.keys(SUPPORTED_TASKS)}]`)
@@ -321,7 +337,7 @@ async function pipeline(
     if (!modelPath) {
         modelPath = default_model_path_template
             .replace('{model}', pipelineInfo.default.model)
-            .replace('{task}', task);
+            .replace('{task}', TASK_NAME_MAPPING[task] ?? task);
     }
 
     let modelClass = pipelineInfo.model;
