@@ -2,15 +2,7 @@
 // Needed to ensure the UI thread is not blocked when running
 
 import {
-    AutoTokenizer,
-
-    AutoModel,
-    AutoModelForSequenceClassification,
-    AutoModelForSeq2SeqLM,
-    AutoModelForCausalLM,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    T5ForConditionalGeneration,
+    pipeline
 } from '../../src/transformers.js';
 
 // First, set path to wasm files. This is needed when running in a web worker.
@@ -19,6 +11,16 @@ import {
 // e.g., /transformers.js/assets/js/worker.js -> /transformers.js/src/
 ort.env.wasm.wasmPaths = location.pathname.split('/').slice(0, -1 - 2).join('/') + '/src/'
 
+// Whether to use quantized versions of models
+const USE_QUANTIZED = true;
+
+// If we are running locally, we should use the local model files (speeds up development)
+// Otherwise, we should use the remote files
+const IS_LOCAL = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+const MODEL_HOST = IS_LOCAL ? '/models/onnx/' : 'https://huggingface.co/Xenova/transformers.js/resolve/main/';
+
+// Model paths are of the form: BASE_MODEL_PATH/<model_id>/<task>
+const BASE_MODEL_PATH = MODEL_HOST + (USE_QUANTIZED ? 'quantized/' : '')
 
 // Define task function mapping
 const TASK_FUNCTION_MAPPING = {
@@ -47,10 +49,9 @@ self.addEventListener('message', async (event) => {
 
 // Define model factories
 // Ensures only one model is created of each type
-class ModelFactory {
+class PipelineFactory {
+    static task = null;
     static path = null;
-    static tokenizer_class = AutoTokenizer;
-    static model_class = AutoModel;
     static instance = null;
 
     constructor(tokenizer, model) {
@@ -59,54 +60,76 @@ class ModelFactory {
     }
 
     static async getInstance(progressCallback = null) {
-        if (this.path === null) {
-            throw Error("Must set path")
+        if (this.task === null || this.path === null) {
+            throw Error("Must set task and path")
         }
         if (this.instance === null) {
-            let [tokenizer, model] = await Promise.all([
-                this.tokenizer_class.from_pretrained(this.path),
-                this.model_class.from_pretrained(this.path, progressCallback)
-            ])
-
-            this.instance = new this(tokenizer, model);
+            this.instance = await pipeline(this.task, this.path, {
+                progress_callback: progressCallback
+            });
         }
 
         return this.instance;
     }
 }
 
-class TranslationModelFactory extends ModelFactory {
-    static path = 'https://huggingface.co/Xenova/t5-small_onnx-quantized/resolve/main/';
-    static model_class = AutoModelForSeq2SeqLM;
+class TranslationPipelineFactory extends PipelineFactory {
+    static task = 'translation';
+    static path = BASE_MODEL_PATH + 't5-small/seq2seq-lm-with-past';
+}
+class TranslationEN2DEPipelineFactory extends TranslationPipelineFactory {
+    static task = 'translation_en_to_de';
+}
+class TranslationEN2FRPipelineFactory extends TranslationPipelineFactory {
+    static task = 'translation_en_to_fr';
+}
+class TranslationEN2ROPipelineFactory extends TranslationPipelineFactory {
+    static task = 'translation_en_to_ro';
 }
 
-class TextGenerationModelFactory extends ModelFactory {
-    static path = 'https://huggingface.co/Xenova/distilgpt2_onnx-quantized/resolve/main/';
-    static model_class = AutoModelForCausalLM;
+class TextGenerationPipelineFactory extends PipelineFactory {
+    static task = 'text-generation';
+    static path = BASE_MODEL_PATH + 'distilgpt2/causal-lm-with-past';
 }
 
-class MaskedLMModelFactory extends ModelFactory {
-    static path = 'https://huggingface.co/Xenova/bert-base-cased_onnx-quantized/resolve/main/';
-    static model_class = AutoModelForMaskedLM;
+class MaskedLMPipelineFactory extends PipelineFactory {
+    static task = 'fill-mask';
+    static path = BASE_MODEL_PATH + 'bert-base-cased/masked-lm';
 }
 
-class SequenceClassificationModelFactory extends ModelFactory {
-    static path = 'https://huggingface.co/Xenova/bert-base-multilingual-uncased-sentiment_onnx-quantized/resolve/main/';
-    static model_class = AutoModelForSequenceClassification;
+class SequenceClassificationPipelineFactory extends PipelineFactory {
+    static task = 'text-classification';
+    static path = BASE_MODEL_PATH + 'nlptown/bert-base-multilingual-uncased-sentiment/sequence-classification';
 }
 
-class QuestionAnsweringModelFactory extends ModelFactory {
-    static path = 'https://huggingface.co/Xenova/distilbert-base-uncased-distilled-squad_onnx-quantized/resolve/main/';
-    static model_class = AutoModelForQuestionAnswering;
+class QuestionAnsweringPipelineFactory extends PipelineFactory {
+    static task = 'question-answering';
+    static path = BASE_MODEL_PATH + 'distilbert-base-cased-distilled-squad/question-answering';
 }
 
-class SummarizationModelFactory extends ModelFactory {
-    static path = 'https://huggingface.co/Xenova/distilbart-cnn-6-6_onnx-quantized/resolve/main/';
-    static model_class = AutoModelForSeq2SeqLM;
+class SummarizationPipelineFactory extends PipelineFactory {
+    static task = 'summarization';
+    static path = BASE_MODEL_PATH + 'sshleifer/distilbart-cnn-6-6/seq2seq-lm-with-past';
 }
 
 async function translate(data) {
-    let translationModelFactory = await TranslationModelFactory.getInstance(data => {
+
+    let pipelineClass;
+    switch (data.languageTo) {
+        case 'fr':
+            pipelineClass = TranslationEN2FRPipelineFactory;
+            break;
+        case 'de':
+            pipelineClass = TranslationEN2DEPipelineFactory;
+            break;
+        case 'ro':
+            pipelineClass = TranslationEN2ROPipelineFactory;
+            break;
+        default:
+            throw Error(`Invalid target language: ${data.languageTo}`)
+    }
+
+    let pipeline = await pipelineClass.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'translation',
@@ -114,17 +137,12 @@ async function translate(data) {
         });
     })
 
-    let tokenizer = translationModelFactory.tokenizer
-    let model = translationModelFactory.model
-
-    let text = `translate ${data.languageFrom} to ${data.languageTo}: ${data.text}`
-
-    let input_ids = tokenizer(text).input_ids
-    let outputs = await model.generate(input_ids, {
+    return await pipeline(data.text, {
         ...data.generation,
         callback_function: function (beams) {
-            let skip_special_tokens = true;
-            const decodedText = tokenizer.decode(beams[0].output_token_ids, skip_special_tokens)
+            const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
+                skip_special_tokens: true,
+            })
 
             self.postMessage({
                 type: 'update',
@@ -133,13 +151,11 @@ async function translate(data) {
             });
         }
     })
-
-    return tokenizer.decode(outputs, true);
 }
 
 async function text_generation(data) {
 
-    let textGenerationModelFactory = await TextGenerationModelFactory.getInstance(data => {
+    let pipeline = await TextGenerationPipelineFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'text-generation',
@@ -147,36 +163,28 @@ async function text_generation(data) {
         });
     })
 
-    let tokenizer = textGenerationModelFactory.tokenizer
-    let model = textGenerationModelFactory.model
-
     let text = data.text.trim();
-    let input_ids = tokenizer(text).input_ids
-    model.generate(input_ids, {
+
+    return await pipeline(text, {
         ...data.generation,
         callback_function: function (beams) {
-            const decodedText = tokenizer.decode(beams[0].output_token_ids, true)
+            const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
+                skip_special_tokens: true,
+            })
 
             self.postMessage({
                 type: 'update',
                 target: data.elementIdToUpdate,
                 data: text + decodedText
             });
-
         }
-    }).then((outputs) => {
-        // TODO: do something with outputs?
-        // self.postMessage({
-        //     type: 'complete',
-        //     target: data.elementIdToUpdate,
-        // });
     })
 }
 
 
 async function masked_lm(data) {
 
-    let maskedLMModelFactory = await MaskedLMModelFactory.getInstance(data => {
+    let pipeline = await MaskedLMPipelineFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'masked-language-modelling',
@@ -184,42 +192,30 @@ async function masked_lm(data) {
         });
     })
 
-    let tokenizer = maskedLMModelFactory.tokenizer;
-    let model = maskedLMModelFactory.model;
+    let output = await pipeline(data.text, data.generation)
 
-    let inputs = tokenizer(data.text);
-    let output = await model(inputs);
-
-    let mask_token_index = inputs.input_ids.indexOf(tokenizer.mask_token_id)
-
-    // sample from outputs
-    let sampled = output.sample(mask_token_index, data.generation)
-
-    let samples = tokenizer.decode(sampled, true);
     self.postMessage({
         type: 'update',
         target: data.elementIdToUpdate,
-        data: samples.join('\n')
+        data: output.map(x => x.sequence).join('\n')
     });
 
-    return samples;
+    return output;
 }
 
 async function sequence_classification(data) {
 
-    let classificationModelFactory = await SequenceClassificationModelFactory.getInstance(data => {
+    let pipeline = await SequenceClassificationPipelineFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'sequence-classification',
             data: data
         });
     });
-    let tokenizer = classificationModelFactory.tokenizer;
-    let model = classificationModelFactory.model;
 
-    let inputs = tokenizer(data.text)
-
-    let outputs = await model(inputs)
+    let outputs = await pipeline(data.text, {
+        topk: 5 // return all
+    })
 
     self.postMessage({
         type: 'complete',
@@ -232,7 +228,7 @@ async function sequence_classification(data) {
 
 async function question_answering(data) {
 
-    let questionAnsweringModelFactory = await QuestionAnsweringModelFactory.getInstance(data => {
+    let pipeline = await QuestionAnsweringPipelineFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'question-answering',
@@ -240,27 +236,18 @@ async function question_answering(data) {
         });
     })
 
-    let tokenizer = questionAnsweringModelFactory.tokenizer;
-    let model = questionAnsweringModelFactory.model;
-
-    // question, text
-    let inputs = tokenizer(data.question, data.context);
-
-    let output = await model(inputs);
-
-    let answer = tokenizer.decode(output.answer_tokens, true);
-
+    let answer = await pipeline(data.question, data.context)
     self.postMessage({
         type: 'complete',
         target: data.elementIdToUpdate,
-        data: answer
+        data: answer.answer
     });
 
     return answer;
 }
 
 async function summarize(data) {
-    let summarizationModelFactory = await SummarizationModelFactory.getInstance(data => {
+    let pipeline = await SummarizationPipelineFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'summarization',
@@ -268,15 +255,12 @@ async function summarize(data) {
         });
     })
 
-    let tokenizer = summarizationModelFactory.tokenizer
-    let model = summarizationModelFactory.model
-
-    let input_ids = tokenizer(data.text).input_ids
-    let outputs = await model.generate(input_ids, {
+    return await pipeline(data.text, {
         ...data.generation,
         callback_function: function (beams) {
-            let skip_special_tokens = true;
-            const decodedText = tokenizer.decode(beams[0].output_token_ids, skip_special_tokens)
+            const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
+                skip_special_tokens: true,
+            })
 
             self.postMessage({
                 type: 'update',
@@ -285,6 +269,4 @@ async function summarize(data) {
             });
         }
     })
-
-    return tokenizer.decode(outputs, true);
 }
