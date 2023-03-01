@@ -77,15 +77,6 @@ class TranslationPipelineFactory extends PipelineFactory {
     static task = 'translation';
     static path = BASE_MODEL_PATH + 't5-small/seq2seq-lm-with-past';
 }
-class TranslationEN2DEPipelineFactory extends TranslationPipelineFactory {
-    static task = 'translation_en_to_de';
-}
-class TranslationEN2FRPipelineFactory extends TranslationPipelineFactory {
-    static task = 'translation_en_to_fr';
-}
-class TranslationEN2ROPipelineFactory extends TranslationPipelineFactory {
-    static task = 'translation_en_to_ro';
-}
 
 class TextGenerationPipelineFactory extends PipelineFactory {
     static task = 'text-generation';
@@ -114,28 +105,17 @@ class SummarizationPipelineFactory extends PipelineFactory {
 
 async function translate(data) {
 
-    let pipelineClass;
-    switch (data.languageTo) {
-        case 'fr':
-            pipelineClass = TranslationEN2FRPipelineFactory;
-            break;
-        case 'de':
-            pipelineClass = TranslationEN2DEPipelineFactory;
-            break;
-        case 'ro':
-            pipelineClass = TranslationEN2ROPipelineFactory;
-            break;
-        default:
-            throw Error(`Invalid target language: ${data.languageTo}`)
-    }
-
-    let pipeline = await pipelineClass.getInstance(data => {
+    let pipeline = await TranslationPipelineFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
             task: 'translation',
             data: data
         });
     })
+
+    // Update task based on source and target languages
+    // Doing it this way prevents the same model from being loaded multiple times
+    pipeline.task = `translation_${data.languageFrom}_to_${data.languageTo}`;
 
     return await pipeline(data.text, {
         ...data.generation,
