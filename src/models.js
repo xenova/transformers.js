@@ -231,6 +231,8 @@ class AutoModelForMaskedLM {
         switch (config.model_type) {
             case 'bert':
                 return new BertForMaskedLM(config, session);
+            case 'distilbert':
+                return new DistilBertForMaskedLM(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -514,6 +516,12 @@ class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+    }
+}
+class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new MaskedLMOutput(logits)
     }
 }
 //////////////////////////////////////////////////
