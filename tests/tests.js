@@ -1,34 +1,75 @@
 async function text_classification() {
     let model_path = '/models/onnx/quantized/distilbert-base-uncased-finetuned-sst-2-english/sequence-classification'
+
+    let classifier = await pipeline('text-classification', model_path);
+
+    let outputs1 = await classifier("I hated the movie");
+
+    let outputs2 = await classifier("I hated the movie", {
+        topk: 2
+    });
+
     let texts = [
         "This was a masterpiece. Not completely faithful to the books, but enthralling from beginning to end. Might be my favorite of the three.",
         "I hated the movie"
-    ]
-
-    let classifier = await pipeline('text-classification', model_path);
-    let outputs = await classifier(texts);
+    ];
+    let outputs3 = await classifier(texts);
+    let outputs4 = await classifier(texts, {
+        topk: 2
+    });
 
     return isDeepEqual(
-        outputs,
+        outputs1,
         [
-            { label: 'POSITIVE', score: 0.9994557111289131 },
-            { label: 'NEGATIVE', score: 0.9997253840917294 }
+            { "label": "NEGATIVE", "score": 0.9997429555167534 }
         ]
+    ) && isDeepEqual(
+        outputs2,
+        [
+            { "label": "NEGATIVE", "score": 0.9997429555167534 },
+            { "label": "POSITIVE", "score": 0.00025704448324659145 }
+        ]
+    ) && isDeepEqual(
+        outputs3,
+        [
+            { "label": "POSITIVE", "score": 0.9994557111289131 },
+            { "label": "NEGATIVE", "score": 0.9997253840917294 }
+        ]
+    ) && isDeepEqual(
+        outputs4,
+        [[
+            { "label": "POSITIVE", "score": 0.9994557111289131 },
+            { "label": "NEGATIVE", "score": 0.0005442888710869216 }
+        ], [
+            { "label": "NEGATIVE", "score": 0.9997253840917294 },
+            { "label": "POSITIVE", "score": 0.0002746159082707414 }
+        ]]
     );
 }
 
 async function masked_language_modelling() {
     let model_path = '/models/onnx/quantized/bert-base-uncased/masked-lm'
-    let texts = [
+    let classifier = await pipeline('fill-mask', model_path);
+
+
+    let outputs1 = await classifier("Once upon a [MASK].");
+
+    let outputs2 = await classifier([
         "Once upon a [MASK].",
         "[MASK] is the capital of England."
-    ]
-
-    let classifier = await pipeline('fill-mask', model_path);
-    let outputs = await classifier(texts);
+    ]);
 
     return isDeepEqual(
-        outputs,
+        outputs1,
+        [
+            { "score": 0.9318257314398266, "token": 2051, "token_str": "time", "sequence": "once upon a time." },
+            { "score": 0.009929785838375943, "token": 13342, "token_str": "mattress", "sequence": "once upon a mattress." },
+            { "score": 0.0021786265124432657, "token": 3959, "token_str": "dream", "sequence": "once upon a dream." },
+            { "score": 0.0018818342753219423, "token": 2940, "token_str": "hill", "sequence": "once upon a hill." },
+            { "score": 0.00174248982811121, "token": 2154, "token_str": "day", "sequence": "once upon a day." }
+        ]
+    ) && isDeepEqual(
+        outputs2,
         [[
             { "score": 0.9828392675760468, "token": 2051, "token_str": "time", "sequence": "once upon a time." },
             { "score": 0.0027356224197534066, "token": 13342, "token_str": "mattress", "sequence": "once upon a mattress." },
@@ -94,14 +135,20 @@ async function translation() {
     let model_path = '/models/onnx/quantized/t5-small/seq2seq-lm-with-past'
     let translator = await pipeline('translation_en_to_de', model_path)
 
+    let translation1 = await translator('Hello, how are you?')
     let texts = [
         'Hello, how are you?',
         'My name is Maria.',
     ]
-    let translation = await translator(texts)
+
+    let translation2 = await translator(texts)
 
     return isDeepEqual(
-        translation,
+        translation1,
+        [{ "translation_text": "Hallo, wie sind Sie?" }]
+
+    ) && isDeepEqual(
+        translation2,
         [
             { 'translation_text': 'Hallo, wie sind Sie?' },
             { 'translation_text': 'Mein Name ist Maria.' }
