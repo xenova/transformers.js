@@ -10,6 +10,9 @@ import {
 
 import './ort.js'
 
+// Use caching when available
+const CACHE_AVAILABLE = 'caches' in self;
+
 //////////////////////////////////////////////////
 // Helper functions
 
@@ -26,10 +29,26 @@ async function constructSession(modelPath, fileName, progressCallback = null) {
         file: fileName
     })
 
-    // Make request
-    let response = await fetch(path, {
-        cache: 'force-cache'
-    });
+    let cache;
+    if (CACHE_AVAILABLE) {
+        cache = await caches.open('models-cache');
+    }
+
+    const request = new Request(path);
+
+    let response;
+    let responseToCache;
+
+    if (!CACHE_AVAILABLE || (response = await cache.match(request)) === undefined) {
+        // Caching not available, or model is not cached, so we perform the request
+        response = await fetch(path);
+
+        if (CACHE_AVAILABLE) {
+            // only clone if cache available
+            responseToCache = response.clone();
+        }
+    }
+
     dispatchCallback(progressCallback, {
         status: 'download',
         name: modelPath,
@@ -68,6 +87,11 @@ async function constructSession(modelPath, fileName, progressCallback = null) {
 
     // Actually read
     await read();
+
+    // Check again whether request is in cache. If not, we add the response to the cache
+    if (responseToCache !== undefined && await cache.match(request) === undefined) {
+        cache.put(request, responseToCache);
+    }
 
     dispatchCallback(progressCallback, {
         status: 'done',
