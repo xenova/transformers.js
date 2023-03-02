@@ -368,7 +368,7 @@ async function pipeline(
 
     // Load tokenizer and model
     let [pipelineTokenizer, pipelineModel] = await Promise.all([
-        AutoTokenizer.from_pretrained(modelPath),
+        AutoTokenizer.from_pretrained(modelPath, progress_callback),
         modelClass.from_pretrained(modelPath, progress_callback)
     ])
 

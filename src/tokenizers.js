@@ -1,7 +1,6 @@
 import {
     Callable,
     fetchJSON,
-    pathJoin,
     reverseDictionary,
     escapeRegExp
 } from './utils.js'
@@ -645,10 +644,12 @@ class WhitespaceSplit extends PreTokenizer {
 class AutoTokenizer {
     // Helper class to determine tokenizer type from tokenizer.json
 
-    static async from_pretrained(modelPath) {
-        // TODO fetch in parallel
-        let tokenizerJSON = await fetchJSON(pathJoin(modelPath, 'tokenizer.json'));
-        let tokenizerConfig = await fetchJSON(pathJoin(modelPath, 'tokenizer_config.json'));
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [tokenizerJSON, tokenizerConfig] = await Promise.all([
+            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
+            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
+        ])
 
         switch (tokenizerConfig.tokenizer_class) {
             case 'T5Tokenizer':
@@ -708,10 +709,13 @@ class PreTrainedTokenizer extends Callable {
         this.model_max_length = this.tokenizerConfig.model_max_length;
     }
 
-    static async from_pretrained(modelPath) {
+    static async from_pretrained(modelPath, progressCallback = null) {
         // TODO get files in parallel
-        let tokenizerJSON = await fetchJSON(pathJoin(modelPath, 'tokenizer.json'));
-        let tokenizerConfig = await fetchJSON(pathJoin(modelPath, 'tokenizer_config.json'));
+
+        let [tokenizerJSON, tokenizerConfig] = await Promise.all([
+            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
+            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
+        ])
 
         return new this(tokenizerJSON, tokenizerConfig);
     }

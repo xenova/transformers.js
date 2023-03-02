@@ -10,8 +10,115 @@ class Callable extends Function {
     }
 }
 
-async function fetchJSON(url) {
-    return await (await fetch(url)).json();
+
+// Use caching when available
+const CACHE_AVAILABLE = 'caches' in self;
+
+function dispatchCallback(progressCallback, data) {
+    if (progressCallback !== null) progressCallback(data);
+}
+
+async function getModelFile(modelPath, fileName, progressCallback = null) {
+
+    // Initiate session
+    dispatchCallback(progressCallback, {
+        status: 'initiate',
+        name: modelPath,
+        file: fileName
+    })
+
+    let cache;
+    if (CACHE_AVAILABLE) {
+        cache = await caches.open('transformers-cache');
+    }
+
+    const request = new Request(pathJoin(modelPath, fileName));
+
+    let response;
+    let responseToCache;
+
+    if (!CACHE_AVAILABLE || (response = await cache.match(request)) === undefined) {
+        // Caching not available, or model is not cached, so we perform the request
+        response = await fetch(request);
+
+        if (CACHE_AVAILABLE) {
+            // only clone if cache available
+            responseToCache = response.clone();
+        }
+    }
+
+    // Start downloading
+    dispatchCallback(progressCallback, {
+        status: 'download',
+        name: modelPath,
+        file: fileName
+    })
+
+    const buffer = await readResponse(response, data => {
+        dispatchCallback(progressCallback, {
+            status: 'progress',
+            ...data,
+            name: modelPath,
+            file: fileName
+        })
+    })
+
+    // Check again whether request is in cache. If not, we add the response to the cache
+    if (responseToCache !== undefined && await cache.match(request) === undefined) {
+        cache.put(request, responseToCache);
+    }
+
+    dispatchCallback(progressCallback, {
+        status: 'done',
+        name: modelPath,
+        file: fileName
+    });
+
+    return buffer;
+}
+
+async function fetchJSON(modelPath, fileName, progressCallback = null) {
+    let buffer = await getModelFile(modelPath, fileName, progressCallback);
+
+    let decoder = new TextDecoder('utf-8');
+    let jsonData = decoder.decode(buffer);
+
+    return JSON.parse(jsonData);
+}
+
+
+async function readResponse(response, progressCallback) {
+    // Read and track progress when reading a Response object
+
+    const contentLength = response.headers.get('Content-Length');
+    const total = parseInt(contentLength);
+    const reader = response.body.getReader();
+    const buffer = new Uint8Array(total);
+
+    let loaded = 0;
+    async function read() {
+        const { done, value } = await reader.read();
+        if (done) return;
+
+        buffer.set(value, loaded)
+        loaded += value.length;
+
+        const progress = (loaded / total) * 100;
+
+        // Call your function here
+        progressCallback({
+            progress: progress,
+            loaded: loaded,
+            total: total,
+        })
+
+        return read();
+    }
+
+    // Actually read
+    await read();
+
+    return buffer;
 }
 
 function pathJoin(...parts) {
@@ -124,6 +231,8 @@ function magnitude(arr) {
 
 export {
     Callable,
+    getModelFile,
+    dispatchCallback,
     fetchJSON,
     pathJoin,
     reverseDictionary,
