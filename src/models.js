@@ -1,15 +1,15 @@
-import {
+const {
     Callable,
     getModelFile,
     fetchJSON,
     dispatchCallback,
-} from "./utils.js";
+} = require("./utils.js");
 
-import {
+const {
     Sampler,
-} from "./samplers.js"
+} = require("./samplers.js");
 
-import { InferenceSession, Tensor } from 'onnxruntime-web';
+const { InferenceSession, Tensor } = require('onnxruntime-web');
 
 //////////////////////////////////////////////////
 // Helper functions
@@ -843,7 +843,7 @@ class QuestionAnsweringModelOutput {
     }
 }
 
-export {
+module.exports = {
     AutoModel,
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,

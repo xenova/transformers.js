@@ -1,21 +1,21 @@
-import {
+const {
     Callable,
     softmax,
     getTopItems,
     cos_sim
-} from "./utils.js";
+} = require("./utils.js");
 
-import {
+const {
     AutoTokenizer
-} from "./tokenizers.js";
-import {
+} = require("./tokenizers.js");
+const {
     AutoModel,
     AutoModelForSequenceClassification,
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
-} from "./models.js";
+} = require("./models.js");
 
 
 const HF_HUB_MODEL_PATH_TEMPLATE = 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/{model}/{task}/';
@@ -410,6 +410,6 @@ function product(...a) {
     return a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e])));
 }
 
-export {
+module.exports = {
     pipeline
 };

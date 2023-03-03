@@ -1,12 +1,12 @@
 
-import {
+const {
     AutoTokenizer,
     BertTokenizer,
     DistilBertTokenizer,
     T5Tokenizer,
     GPT2Tokenizer
-} from "./tokenizers.js";
-import {
+} = require("./tokenizers.js");
+const {
     AutoModel,
     AutoModelForSequenceClassification,
     AutoModelForSeq2SeqLM,
@@ -14,33 +14,13 @@ import {
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     T5ForConditionalGeneration
-} from "./models.js";
-import {
+} = require("./models.js");
+const {
     pipeline
-} from "./pipelines.js";
-import { env } from 'onnxruntime-web'
+} = require("./pipelines.js");
+const { env } = require('onnxruntime-web');
 
-
-// Allow global access to these variables
-self.AutoTokenizer = AutoTokenizer
-self.BertTokenizer = BertTokenizer
-self.DistilBertTokenizer = DistilBertTokenizer
-self.T5Tokenizer = T5Tokenizer
-self.GPT2Tokenizer = GPT2Tokenizer
-
-self.AutoModel = AutoModel
-self.AutoModelForSeq2SeqLM = AutoModelForSeq2SeqLM
-self.AutoModelForSequenceClassification = AutoModelForSequenceClassification
-self.AutoModelForCausalLM = AutoModelForCausalLM
-self.AutoModelForMaskedLM = AutoModelForMaskedLM
-self.AutoModelForQuestionAnswering = AutoModelForQuestionAnswering
-
-self.T5ForConditionalGeneration = T5ForConditionalGeneration
-
-self.pipeline = pipeline
-self.env = env
-
-export {
+const moduleExports = {
     // Tokenizers
     AutoTokenizer,
     BertTokenizer,
@@ -63,3 +43,12 @@ export {
     // onnx runtime web env
     env
 };
+
+// Allow global access to these variables
+if (typeof self !== 'undefined') {
+    // Used by web workers
+    Object.assign(self, moduleExports);
+}
+
+// Used by other modules
+module.exports = moduleExports
