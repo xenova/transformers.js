@@ -1,3 +1,84 @@
+
+// Fix "ReferenceError: self is not defined" bug when running directly with node
+// https://github.com/microsoft/onnxruntime/issues/13072
+global.self = global;
+
+const { pipeline, env } = require("..")
+
+// Disable spawning worker threads for testing.
+// This is done by setting numThreads to 1
+env.wasm.numThreads = 1
+
+function isDeepEqual(obj1, obj2, {
+    tol = 1e-3
+} = {}) {
+    // Get the keys of both objects
+    const obj1Keys = Object.keys(obj1);
+    const obj2Keys = Object.keys(obj2);
+
+    // If the objects have different number of keys, they're not equal
+    if (obj1Keys.length !== obj2Keys.length) {
+        return false;
+    }
+
+    // Compare each key-value pair recursively
+    for (const key of obj1Keys) {
+        const val1 = obj1[key];
+        const val2 = obj2[key];
+
+        // If the values are objects, compare them recursively
+        if (typeof val1 === 'object' && typeof val2 === 'object') {
+            if (!isDeepEqual(val1, val2)) {
+                return false;
+            }
+        } else if (typeof val1 !== typeof val2) {
+            // Types are not the same
+            return false;
+        } else if (typeof val1 === 'number' && Math.abs(val1 - val2) > tol) {
+            return false;
+        } else if (val1 !== val2) {
+            // If the values are not objects, compare them directly
+            return false;
+        }
+    }
+
+    // If all key-value pairs are equal, the objects are deep equal
+    return true;
+}
+
+async function embeddings() {
+
+    // Provide sentences
+    let sentences = [
+        'This framework generates embeddings for each input sentence',
+        'Sentences are passed as a list of string.',
+        'The quick brown fox jumps over the lazy dog.'
+    ]
+
+    // Load embeddings pipeline (uses all-MiniLM-L6-v2 by default)
+    // To use a custom model, specify the path as the second parameter
+    // (e.g., await pipeline('embeddings', '/path/to/model/'))
+    let embedder = await pipeline('embeddings')
+
+    // Run sentences through embedder
+    let output = await embedder(sentences)
+
+    // Compute pairwise cosine similarity
+    // for (let i = 0; i < sentences.length; ++i) {
+    //     for (let j = i + 1; j < sentences.length; ++j) {
+    //         console.log(`(${i},${j}):`, embedder.cos_sim(output[i], output[j]))
+    //     }
+    // }
+
+    let pairwiseScores = [[output[0], output[1]], [output[0], output[2]], [output[1], output[2]]].map(x => embedder.cos_sim(...x))
+
+    return isDeepEqual(
+        pairwiseScores,
+        [0.8195198760573937, 0.6200714107649917, 0.5930511190112736]
+    )
+}
+
+
 async function text_classification() {
     let model_path = '/models/onnx/quantized/distilbert-base-uncased-finetuned-sst-2-english/sequence-classification'
 
@@ -203,73 +284,13 @@ async function text_generation() {
     );
 }
 
-
-
-async function embeddings() {
-
-    // Provide sentences
-    let sentences = [
-        'This framework generates embeddings for each input sentence',
-        'Sentences are passed as a list of string.',
-        'The quick brown fox jumps over the lazy dog.'
-    ]
-
-    // Load embeddings pipeline (uses all-MiniLM-L6-v2 by default)
-    // To use a custom model, specify the path as the second parameter
-    // (e.g., await pipeline('embeddings', '/path/to/model/'))
-    let embedder = await pipeline('embeddings')
-
-    // Run sentences through embedder
-    let output = await embedder(sentences)
-
-    // Compute pairwise cosine similarity
-    // for (let i = 0; i < sentences.length; ++i) {
-    //     for (let j = i + 1; j < sentences.length; ++j) {
-    //         console.log(`(${i},${j}):`, embedder.cos_sim(output[i], output[j]))
-    //     }
-    // }
-
-    let pairwiseScores = [[output[0], output[1]], [output[0], output[2]], [output[1], output[2]]].map(x => embedder.cos_sim(...x))
-    return isDeepEqual(
-        pairwiseScores,
-        [0.8195198760573937, 0.6200714107649917, 0.5930511190112736]
-    )
-}
-
-
-function isDeepEqual(obj1, obj2, {
-    tol = 1e-3
-} = {}) {
-    // Get the keys of both objects
-    const obj1Keys = Object.keys(obj1);
-    const obj2Keys = Object.keys(obj2);
-
-    // If the objects have different number of keys, they're not equal
-    if (obj1Keys.length !== obj2Keys.length) {
-        return false;
-    }
-
-    // Compare each key-value pair recursively
-    for (const key of obj1Keys) {
-        const val1 = obj1[key];
-        const val2 = obj2[key];
-
-        // If the values are objects, compare them recursively
-        if (typeof val1 === 'object' && typeof val2 === 'object') {
-            if (!isDeepEqual(val1, val2)) {
-                return false;
-            }
-        } else if (typeof val1 !== typeof val2) {
-            // Types are not the same
-            return false;
-        } else if (typeof val1 === 'number' && Math.abs(val1 - val2) > tol) {
-            return false;
-        } else if (val1 !== val2) {
-            // If the values are not objects, compare them directly
-            return false;
-        }
-    }
-
-    // If all key-value pairs are equal, the objects are deep equal
-    return true;
-}
+// run tests
+(async () => {
+    console.log('Text classification:', await text_classification())
+    console.log('Masked language modelling:', await masked_language_modelling())
+    console.log('Question answering:', await question_answering())
+    console.log('Summarization:', await summarization())
+    console.log('Translation:', await translation())
+    console.log('Text generation:', await text_generation())
+    console.log('Embeddings:', await embeddings())
+})();
