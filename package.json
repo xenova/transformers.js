@@ -1,0 +1,39 @@
+{
+  "name": "@xenova/transformers",
+  "version": "1.0.0",
+  "description": "Run 🤗 Transformers in your browser! We currently support [BERT](https://huggingface.co/docs/transformers/model_doc/bert), [DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert), [T5](https://huggingface.co/docs/transformers/model_doc/t5), [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2), and [BART](https://huggingface.co/docs/transformers/model_doc/bart) models, for a variety of tasks including: masked language modelling, text classification, translation, summarization, question answering, and text generation.",
+  "main": "transformers.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "webpack",
+    "dev": "webpack serve",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xenova/transformers.js.git"
+  },
+  "keywords": [
+    "transformers",
+    "javascript",
+    "browser",
+    "huggingface"
+  ],
+  "author": "Xenova",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/xenova/transformers.js/issues"
+  },
+  "homepage": "https://github.com/xenova/transformers.js#readme",
+  "dependencies": {
+    "onnxruntime-web": "^1.14.0"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^11.0.0",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1",
+    "webpack-dev-server": "^4.11.1"
+  }
+}
