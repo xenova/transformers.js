@@ -35,5 +35,12 @@
     "webpack": "^5.75.0",
     "webpack-cli": "^5.0.1",
     "webpack-dev-server": "^4.11.1"
-  }
+  },
+  "files": [
+    "src",
+    "dist",
+    "tests",
+    "README.md",
+    "LICENSE"
+  ]
 }
