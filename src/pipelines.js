@@ -361,6 +361,8 @@ async function pipeline(
         modelPath = default_model_path_template
             .replace('{model}', pipelineInfo.default.model)
             .replace('{task}', TASK_NAME_MAPPING[task] ?? task);
+
+        console.log(`No model specified. Attempting to load default model from ${default_model_path_template}.`);
     }
 
     let modelClass = pipelineInfo.model;
