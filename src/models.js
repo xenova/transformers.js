@@ -9,7 +9,7 @@ import {
     Sampler,
 } from "./samplers.js"
 
-import './ort.js'
+import { InferenceSession, Tensor } from 'onnxruntime-web';
 
 //////////////////////////////////////////////////
 // Helper functions
@@ -17,7 +17,7 @@ import './ort.js'
 async function constructSession(modelPath, fileName, progressCallback = null) {
     let buffer = await getModelFile(modelPath, fileName, progressCallback);
 
-    let session = await ort.InferenceSession.create(buffer, {
+    let session = await InferenceSession.create(buffer, {
         // executionProviders: ["webgl"]
         executionProviders: ["wasm"]
     });
@@ -279,13 +279,13 @@ class PreTrainedModel extends Callable {
                 throw Error("Unable to create tensor, you should probably activate truncation and/or padding with 'padding=True' and/or 'truncation=True' to have batched tensors with the same length.")
             }
 
-            return new ort.Tensor('int64',
+            return new Tensor('int64',
                 BigInt64Array.from(items.flat().map(x => BigInt(x))),
                 [items.length, items[0].length]
             );
         } else {
             //flat
-            return new ort.Tensor('int64',
+            return new Tensor('int64',
                 BigInt64Array.from(items.map(x => BigInt(x))),
                 [1, items.length]
             );
@@ -421,8 +421,8 @@ class PreTrainedModel extends Callable {
     addPastKeyValues(decoderFeeds, pastKeyValues, suffix = '') {
         if (pastKeyValues === null) {
             for (let i = 0; i < this.num_layers; ++i) {
-                decoderFeeds[`past_key_values.${i}${suffix}.key`] = new ort.Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
-                decoderFeeds[`past_key_values.${i}${suffix}.value`] = new ort.Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
+                decoderFeeds[`past_key_values.${i}${suffix}.key`] = new Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
+                decoderFeeds[`past_key_values.${i}${suffix}.value`] = new Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
             }
         } else {
             Object.assign(decoderFeeds, pastKeyValues)
