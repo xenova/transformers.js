@@ -1,18 +1,118 @@
 
-class Callable extends Function {
-    constructor() {
-        let closure = function (...args) { return closure._call(...args) }
-        return Object.setPrototypeOf(closure, new.target.prototype)
+const fs = require('fs');
+const path = require('path');
+
+// Use caching when available
+const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
+
+class FileResponse {
+    constructor(filePath) {
+        this.filePath = filePath;
+        this.headers = {};
+        this.headers.get = (x) => this.headers[x]
+
+        this.exists = fs.existsSync(filePath);
+        if (this.exists) {
+            this.status = 200;
+            this.statusText = 'OK';
+
+
+            let stats = fs.statSync(filePath);
+            this.headers['content-length'] = stats.size;
+
+            this.updateContentType();
+
+            let self = this;
+            this.body = new ReadableStream({
+                start(controller) {
+                    self.arrayBuffer().then(buffer => {
+                        controller.enqueue(new Uint8Array(buffer));
+                        controller.close();
+                    })
+                }
+            });
+        } else {
+            this.status = 404;
+            this.statusText = 'Not Found';
+            this.body = null;
+        }
     }
 
-    _call(...args) {
-        throw Error('Must implement _call method in subclass')
+    updateContentType() {
+        // Set content-type header based on file extension
+        const extension = this.filePath.split('.').pop().toLowerCase();
+        switch (extension) {
+            case 'txt':
+                this.headers['content-type'] = 'text/plain';
+                break;
+            case 'html':
+                this.headers['content-type'] = 'text/html';
+                break;
+            case 'css':
+                this.headers['content-type'] = 'text/css';
+                break;
+            case 'js':
+                this.headers['content-type'] = 'text/javascript';
+                break;
+            case 'json':
+                this.headers['content-type'] = 'application/json';
+                break;
+            case 'png':
+                this.headers['content-type'] = 'image/png';
+                break;
+            case 'jpg':
+            case 'jpeg':
+                this.headers['content-type'] = 'image/jpeg';
+                break;
+            case 'gif':
+                this.headers['content-type'] = 'image/gif';
+                break;
+            default:
+                this.headers['content-type'] = 'application/octet-stream';
+                break;
+        }
+    }
+
+    clone() {
+        return new FileResponse(this.filePath, {
+            status: this.status,
+            statusText: this.statusText,
+            headers: this.headers,
+        });
+    }
+
+    async arrayBuffer() {
+        const data = await fs.promises.readFile(this.filePath);
+        return data.buffer;
+    }
+
+    async blob() {
+        const data = await fs.promises.readFile(this.filePath);
+        return new Blob([data], { type: this.headers['content-type'] });
+    }
+
+    async text() {
+        const data = await fs.promises.readFile(this.filePath, 'utf8');
+        return data;
+    }
+
+    async json() {
+        return JSON.parse(await this.text());
     }
 }
 
 
-// Use caching when available
-const CACHE_AVAILABLE = 'caches' in self;
+async function getFile(url) {
+    // Helper function to get a file, using either the Fetch API or FileSystem API
+    if (fs && path) {
+        // TODO determine if URL or relative path
+        let parent = path.dirname(__dirname);
+        return new FileResponse(path.join(parent, url))
+
+    } else {
+        return fetch(url)
+    }
+}
 
 function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
@@ -32,14 +132,14 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
         cache = await caches.open('transformers-cache');
     }
 
-    const request = new Request(pathJoin(modelPath, fileName));
+    const request = pathJoin(modelPath, fileName);
 
     let response;
     let responseToCache;
 
     if (!CACHE_AVAILABLE || (response = await cache.match(request)) === undefined) {
         // Caching not available, or model is not cached, so we perform the request
-        response = await fetch(request);
+        response = await getFile(request);
 
         if (CACHE_AVAILABLE) {
             // only clone if cache available
@@ -245,7 +345,19 @@ function magnitude(arr) {
     return Math.sqrt(arr.reduce((acc, val) => acc + val * val, 0));
 }
 
-export {
+
+class Callable extends Function {
+    constructor() {
+        let closure = function (...args) { return closure._call(...args) }
+        return Object.setPrototypeOf(closure, new.target.prototype)
+    }
+
+    _call(...args) {
+        throw Error('Must implement _call method in subclass')
+    }
+}
+
+module.exports = {
     Callable,
     getModelFile,
     dispatchCallback,
