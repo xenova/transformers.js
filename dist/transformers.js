@@ -1003,36 +1003,28 @@ const Tensor = _tensor_impl__WEBPACK_IMPORTED_MODULE_0__.Tensor;
 /*!***********************!*\
   !*** ./src/models.js ***!
   \***********************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "AutoModel": () => (/* binding */ AutoModel),
-/* harmony export */   "AutoModelForCausalLM": () => (/* binding */ AutoModelForCausalLM),
-/* harmony export */   "AutoModelForMaskedLM": () => (/* binding */ AutoModelForMaskedLM),
-/* harmony export */   "AutoModelForQuestionAnswering": () => (/* binding */ AutoModelForQuestionAnswering),
-/* harmony export */   "AutoModelForSeq2SeqLM": () => (/* binding */ AutoModelForSeq2SeqLM),
-/* harmony export */   "AutoModelForSequenceClassification": () => (/* binding */ AutoModelForSequenceClassification),
-/* harmony export */   "T5ForConditionalGeneration": () => (/* binding */ T5ForConditionalGeneration)
-/* harmony export */ });
-/* harmony import */ var _utils_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
-/* harmony import */ var _samplers_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./samplers.js */ "./src/samplers.js");
-/* harmony import */ var onnxruntime_web__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
-/* harmony import */ var onnxruntime_web__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(onnxruntime_web__WEBPACK_IMPORTED_MODULE_2__);
+const {
+    Callable,
+    getModelFile,
+    fetchJSON,
+    dispatchCallback,
+} = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
+const {
+    Sampler,
+} = __webpack_require__(/*! ./samplers.js */ "./src/samplers.js");
 
-
-
-
+const { InferenceSession, Tensor } = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
 
 //////////////////////////////////////////////////
 // Helper functions
 
 async function constructSession(modelPath, fileName, progressCallback = null) {
-    let buffer = await (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.getModelFile)(modelPath, fileName, progressCallback);
+    let buffer = await getModelFile(modelPath, fileName, progressCallback);
 
-    let session = await onnxruntime_web__WEBPACK_IMPORTED_MODULE_2__.InferenceSession.create(buffer, {
+    let session = await InferenceSession.create(buffer, {
         // executionProviders: ["webgl"]
         executionProviders: ["wasm"]
     });
@@ -1050,13 +1042,13 @@ class AutoModel {
 
     static async from_pretrained(modelPath, progressCallback = null) {
 
-        let config = await (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback);
+        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
         let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
 
         let session = await constructSession(modelPath, modelName, progressCallback);
 
         // Called when all parts are loaded
-        (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1087,12 +1079,12 @@ class AutoModelForSequenceClassification {
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback),
+            fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'model.onnx', progressCallback)
         ]);
 
         // Called when all parts are loaded
-        (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1115,14 +1107,14 @@ class AutoModelForSeq2SeqLM {
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback),
+            fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'encoder_model.onnx', progressCallback),
             constructSession(modelPath, 'decoder_model.onnx', progressCallback),
             constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
         ])
 
         // Called when all parts are loaded
-        ;(0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1154,12 +1146,12 @@ class AutoModelForCausalLM {
 
         // let name = use_past ?  : 'decoder_model.onnx'
         let [config, session] = await Promise.all([
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback),
+            fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
         ])
 
         // Called when all parts are loaded
-        ;(0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1180,13 +1172,13 @@ class AutoModelForMaskedLM {
 
     static async from_pretrained(modelPath, progressCallback = null) {
 
-        let config = await (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback);
+        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
         let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
 
         let session = await constructSession(modelPath, modelName, progressCallback);
 
         // Called when all parts are loaded
-        (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1213,12 +1205,12 @@ class AutoModelForQuestionAnswering {
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback),
+            fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'model.onnx', progressCallback)
         ]);
 
         // Called when all parts are loaded
-        (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1243,7 +1235,7 @@ class AutoModelForQuestionAnswering {
 
 //////////////////////////////////////////////////
 // Base class
-class PreTrainedModel extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class PreTrainedModel extends Callable {
     constructor(config, session) {
         super();
 
@@ -1267,14 +1259,14 @@ class PreTrainedModel extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
 
     static async from_pretrained(modelPath, progressCallback = null) {
 
-        let config = await (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback);
+        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
         let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
 
         // Load model
         let session = await constructSession(modelPath, modelName, progressCallback);
 
         // Called when all parts are loaded
-        (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1294,13 +1286,13 @@ class PreTrainedModel extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
                 throw Error("Unable to create tensor, you should probably activate truncation and/or padding with 'padding=True' and/or 'truncation=True' to have batched tensors with the same length.")
             }
 
-            return new onnxruntime_web__WEBPACK_IMPORTED_MODULE_2__.Tensor('int64',
+            return new Tensor('int64',
                 BigInt64Array.from(items.flat().map(x => BigInt(x))),
                 [items.length, items[0].length]
             );
         } else {
             //flat
-            return new onnxruntime_web__WEBPACK_IMPORTED_MODULE_2__.Tensor('int64',
+            return new Tensor('int64',
                 BigInt64Array.from(items.map(x => BigInt(x))),
                 [1, items.length]
             );
@@ -1363,7 +1355,7 @@ class PreTrainedModel extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
         let numOutputTokens = 1;
         const maxOutputTokens = numOutputTokens + options.max_new_tokens;
 
-        let sampler = _samplers_js__WEBPACK_IMPORTED_MODULE_1__.Sampler.getSampler(options);
+        let sampler = Sampler.getSampler(options);
 
         let beams = [this.getStartBeam(inputTokenIds, numOutputTokens)];
 
@@ -1436,8 +1428,8 @@ class PreTrainedModel extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
     addPastKeyValues(decoderFeeds, pastKeyValues, suffix = '') {
         if (pastKeyValues === null) {
             for (let i = 0; i < this.num_layers; ++i) {
-                decoderFeeds[`past_key_values.${i}${suffix}.key`] = new onnxruntime_web__WEBPACK_IMPORTED_MODULE_2__.Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
-                decoderFeeds[`past_key_values.${i}${suffix}.value`] = new onnxruntime_web__WEBPACK_IMPORTED_MODULE_2__.Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
+                decoderFeeds[`past_key_values.${i}${suffix}.key`] = new Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
+                decoderFeeds[`past_key_values.${i}${suffix}.value`] = new Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
             }
         } else {
             Object.assign(decoderFeeds, pastKeyValues)
@@ -1517,14 +1509,14 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         // TODO optimize? Lots of overlap between decoder and init_decoder
 
         let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback),
+            fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'encoder_model.onnx', progressCallback),
             constructSession(modelPath, 'decoder_model.onnx', progressCallback),
             constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
         ])
 
         // Called when all parts are loaded
-        ;(0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1712,14 +1704,14 @@ class BartForConditionalGeneration extends BartPretrainedModel {
         // TODO remove duplication between here and t5
 
         let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'config.json', progressCallback),
+            fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'encoder_model.onnx', progressCallback),
             constructSession(modelPath, 'decoder_model.onnx', progressCallback),
             constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
         ])
 
         // Called when all parts are loaded
-        ;(0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.dispatchCallback)(progressCallback, {
+        dispatchCallback(progressCallback, {
             status: 'loaded',
             name: modelPath
         });
@@ -1858,7 +1850,15 @@ class QuestionAnsweringModelOutput {
     }
 }
 
-
+module.exports = {
+    AutoModel,
+    AutoModelForSeq2SeqLM,
+    AutoModelForSequenceClassification,
+    AutoModelForCausalLM,
+    AutoModelForMaskedLM,
+    AutoModelForQuestionAnswering,
+    T5ForConditionalGeneration
+};
 
 
 /***/ }),
@@ -1867,26 +1867,32 @@ class QuestionAnsweringModelOutput {
 /*!**************************!*\
   !*** ./src/pipelines.js ***!
   \**************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "pipeline": () => (/* binding */ pipeline)
-/* harmony export */ });
-/* harmony import */ var _utils_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
-/* harmony import */ var _tokenizers_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./tokenizers.js */ "./src/tokenizers.js");
-/* harmony import */ var _models_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./models.js */ "./src/models.js");
+const {
+    Callable,
+    softmax,
+    getTopItems,
+    cos_sim
+} = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
-
-
-
+const {
+    AutoTokenizer
+} = __webpack_require__(/*! ./tokenizers.js */ "./src/tokenizers.js");
+const {
+    AutoModel,
+    AutoModelForSequenceClassification,
+    AutoModelForQuestionAnswering,
+    AutoModelForMaskedLM,
+    AutoModelForSeq2SeqLM,
+    AutoModelForCausalLM,
+} = __webpack_require__(/*! ./models.js */ "./src/models.js");
 
 
 const HF_HUB_MODEL_PATH_TEMPLATE = 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/{model}/{task}/';
 const DEFAULT_MODEL_PATH_TEMPLATE = '/models/onnx/quantized/{model}/{task}';
 
-class Pipeline extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class Pipeline extends Callable {
     constructor(tokenizer, model, task) {
         super();
         this.tokenizer = tokenizer;
@@ -1920,7 +1926,7 @@ class TextClassificationPipeline extends Pipeline {
         let id2label = this.model.config.id2label;
         let toReturn = [];
         for (let batch of logits) {
-            let scores = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.getTopItems)((0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.softmax)(batch), topk);
+            let scores = getTopItems(softmax(batch), topk);
 
             let vals = scores.map(function (x) {
                 return {
@@ -1959,9 +1965,9 @@ class QuestionAnsweringPipeline extends Pipeline {
             let ids = inputs.input_ids[j]
             let sepIndex = ids.indexOf(this.tokenizer.sep_token_id);
 
-            let s1 = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.softmax)(startLogits[j]).map((x, i) => [x, i])
+            let s1 = softmax(startLogits[j]).map((x, i) => [x, i])
                 .filter(x => x[1] > sepIndex);
-            let e1 = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.softmax)(endLogits[j]).map((x, i) => [x, i])
+            let e1 = softmax(endLogits[j]).map((x, i) => [x, i])
                 .filter(x => x[1] > sepIndex);
 
             let options = product(s1, e1)
@@ -2016,7 +2022,7 @@ class FillMaskPipeline extends Pipeline {
             let mask_token_index = mask_token_indices[i];
             let itemLogits = batch[mask_token_index];
 
-            let scores = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.getTopItems)((0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.softmax)(itemLogits), topk);
+            let scores = getTopItems(softmax(itemLogits), topk);
 
             return scores.map(function (x, j) {
                 let sequence = [...inputs.input_ids[i]];
@@ -2112,14 +2118,14 @@ class EmbeddingsPipeline extends Pipeline {
 
     cos_sim(arr1, arr2) {
         // Compute cosine similarity
-        return (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.cos_sim)(arr1, arr2)
+        return cos_sim(arr1, arr2)
     }
 }
 
 const SUPPORTED_TASKS = {
     "text-classification": {
         "pipeline": TextClassificationPipeline,
-        "model": _models_js__WEBPACK_IMPORTED_MODULE_2__.AutoModelForSequenceClassification,
+        "model": AutoModelForSequenceClassification,
         "default": {
             "model": "distilbert-base-uncased-finetuned-sst-2-english",
         },
@@ -2128,7 +2134,7 @@ const SUPPORTED_TASKS = {
 
     "question-answering": {
         "pipeline": QuestionAnsweringPipeline,
-        "model": _models_js__WEBPACK_IMPORTED_MODULE_2__.AutoModelForQuestionAnswering,
+        "model": AutoModelForQuestionAnswering,
         "default": {
             "model": "distilbert-base-cased-distilled-squad"
         },
@@ -2137,7 +2143,7 @@ const SUPPORTED_TASKS = {
 
     "fill-mask": {
         "pipeline": FillMaskPipeline,
-        "model": _models_js__WEBPACK_IMPORTED_MODULE_2__.AutoModelForMaskedLM,
+        "model": AutoModelForMaskedLM,
         "default": {
             "model": "distilroberta-base"
         },
@@ -2145,7 +2151,7 @@ const SUPPORTED_TASKS = {
     },
     "summarization": {
         "pipeline": SummarizationPipeline,
-        "model": _models_js__WEBPACK_IMPORTED_MODULE_2__.AutoModelForSeq2SeqLM,
+        "model": AutoModelForSeq2SeqLM,
         "default": {
             "model": "sshleifer/distilbart-cnn-12-6"
         },
@@ -2153,7 +2159,7 @@ const SUPPORTED_TASKS = {
     },
     "translation": {
         "pipeline": TranslationPipeline,
-        "model": _models_js__WEBPACK_IMPORTED_MODULE_2__.AutoModelForSeq2SeqLM,
+        "model": AutoModelForSeq2SeqLM,
         "default": {
             "model": "t5-small"
         },
@@ -2169,7 +2175,7 @@ const SUPPORTED_TASKS = {
     // },
     "text-generation": {
         "pipeline": TextGenerationPipeline,
-        "model": _models_js__WEBPACK_IMPORTED_MODULE_2__.AutoModelForCausalLM,
+        "model": AutoModelForCausalLM,
         "default": {
             "model": "gpt2"
         },
@@ -2180,7 +2186,7 @@ const SUPPORTED_TASKS = {
     // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
     "embeddings": {
         "pipeline": EmbeddingsPipeline,
-        "model": _models_js__WEBPACK_IMPORTED_MODULE_2__.AutoModel,
+        "model": AutoModel,
         "default": {
             "model": "sentence-transformers/all-MiniLM-L6-v2"
         },
@@ -2233,7 +2239,7 @@ async function pipeline(
 
     // Load tokenizer and model
     let [pipelineTokenizer, pipelineModel] = await Promise.all([
-        _tokenizers_js__WEBPACK_IMPORTED_MODULE_1__.AutoTokenizer.from_pretrained(modelPath, progress_callback),
+        AutoTokenizer.from_pretrained(modelPath, progress_callback),
         modelClass.from_pretrained(modelPath, progress_callback)
     ])
 
@@ -2275,6 +2281,9 @@ function product(...a) {
     return a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e])));
 }
 
+module.exports = {
+    pipeline
+};
 
 
 /***/ }),
@@ -2283,20 +2292,17 @@ function product(...a) {
 /*!*************************!*\
   !*** ./src/samplers.js ***!
   \*************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "BeamSearchSampler": () => (/* binding */ BeamSearchSampler),
-/* harmony export */   "GreedySampler": () => (/* binding */ GreedySampler),
-/* harmony export */   "Sampler": () => (/* binding */ Sampler),
-/* harmony export */   "TopKSampler": () => (/* binding */ TopKSampler)
-/* harmony export */ });
-/* harmony import */ var _utils_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
+const {
+    Callable,
+    indexOfMax,
+    softmax,
+    log_softmax,
+    getTopItems
+} = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
-
-class Sampler extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class Sampler extends Callable {
     constructor(temperature) {
         super();
         this.temperature = temperature;
@@ -2368,7 +2374,7 @@ class GreedySampler extends Sampler {
     sample(logits, index = -1) {
         // NOTE: no need to do log_softmax here since we only take the maximum
         let logs = this.getLogits(logits, index);
-        let argmax = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.indexOfMax)(logs);
+        let argmax = indexOfMax(logs);
 
         // Note: score is meaningless in this context, since we are performing
         // greedy search (p = 1 => log(p) = 0)
@@ -2394,10 +2400,10 @@ class TopKSampler extends Sampler {
         let logs = this.getLogits(logits, index);
 
         // Get top k tokens
-        let topLogits = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.getTopItems)(logs, k);
+        let topLogits = getTopItems(logs, k);
 
         // Compute softmax over logits
-        let probabilities = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.softmax)(topLogits.map(x => x[1]));
+        let probabilities = softmax(topLogits.map(x => x[1]));
 
         let sampledIndex = this.randomSelect(probabilities);
 
@@ -2429,10 +2435,10 @@ class BeamSearchSampler extends Sampler {
             if (this.top_k > 0) {
                 k = Math.min(this.top_k, k);
             }
-            const topLogits = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.getTopItems)(logs, k);
+            const topLogits = getTopItems(logs, k);
 
             // Compute softmax over top k logits
-            const probabilities = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.softmax)(topLogits.map(x => x[1]));
+            const probabilities = softmax(topLogits.map(x => x[1]));
 
             return Array.from({ length: this.num_beams }, () => {
                 const sampledIndex = this.randomSelect(probabilities);
@@ -2442,14 +2448,19 @@ class BeamSearchSampler extends Sampler {
 
         } else {
             // first perform log softmax to get scores over whole distribution
-            const logProbabilities = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.log_softmax)(logs);
-            const topLogits = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.getTopItems)(logProbabilities, this.num_beams);
+            const logProbabilities = log_softmax(logs);
+            const topLogits = getTopItems(logProbabilities, this.num_beams);
             return topLogits;
         }
     }
 }
 
-
+module.exports = {
+    Sampler,
+    GreedySampler,
+    TopKSampler,
+    BeamSearchSampler
+}
 
 
 /***/ }),
@@ -2458,22 +2469,17 @@ class BeamSearchSampler extends Sampler {
 /*!***************************!*\
   !*** ./src/tokenizers.js ***!
   \***************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "AutoTokenizer": () => (/* binding */ AutoTokenizer),
-/* harmony export */   "BertTokenizer": () => (/* binding */ BertTokenizer),
-/* harmony export */   "DistilBertTokenizer": () => (/* binding */ DistilBertTokenizer),
-/* harmony export */   "GPT2Tokenizer": () => (/* binding */ GPT2Tokenizer),
-/* harmony export */   "T5Tokenizer": () => (/* binding */ T5Tokenizer)
-/* harmony export */ });
-/* harmony import */ var _utils_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
+const {
+    Callable,
+    fetchJSON,
+    reverseDictionary,
+    escapeRegExp
+} = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
 
-
-class TokenizerModel extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class TokenizerModel extends Callable {
     static fromConfig(config, ...args) {
         switch (config.type) {
             case 'WordPiece':
@@ -2661,7 +2667,7 @@ const BYTES_TO_UNICODE = (() => {
     return Object.fromEntries(bs.map((b, i) => [b, cs[i]]));
 })();
 
-const UNICODE_TO_BYTES = (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.reverseDictionary)(BYTES_TO_UNICODE);
+const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
 
 class BPE extends TokenizerModel {
     constructor(config, moreConfig) {
@@ -2769,7 +2775,7 @@ class BPE extends TokenizerModel {
 
 }
 
-class Normalizer extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class Normalizer extends Callable {
 
     static fromConfig(config) {
         if (config === null) return null;
@@ -2823,7 +2829,7 @@ class BertNormalizer extends Normalizer {
 }
 
 
-class PreTokenizer extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class PreTokenizer extends Callable {
     static fromConfig(config) {
         switch (config.type) {
             case 'BertPreTokenizer':
@@ -2876,7 +2882,7 @@ class ByteLevelPreTokenizer extends PreTokenizer {
     }
 }
 
-class PostProcessor extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class PostProcessor extends Callable {
 
     static fromConfig(config) {
         switch (config.type) {
@@ -2959,7 +2965,7 @@ class ByteLevelPostProcessor extends PostProcessor {
     }
 }
 
-class Decoder extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class Decoder extends Callable {
 
     constructor(config) {
         super();
@@ -3114,8 +3120,8 @@ class AutoTokenizer {
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [tokenizerJSON, tokenizerConfig] = await Promise.all([
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'tokenizer.json', progressCallback),
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'tokenizer_config.json', progressCallback),
+            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
+            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
         ])
 
         switch (tokenizerConfig.tokenizer_class) {
@@ -3143,7 +3149,7 @@ class AutoTokenizer {
         }
     }
 }
-class PreTrainedTokenizer extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callable {
+class PreTrainedTokenizer extends Callable {
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
 
@@ -3152,7 +3158,7 @@ class PreTrainedTokenizer extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callabl
 
         this.special_tokens = tokenizerJSON.added_tokens.map(x => x.content);
         this.special_tokens_regex = new RegExp(
-            '(' + this.special_tokens.map(_utils_js__WEBPACK_IMPORTED_MODULE_0__.escapeRegExp).join('|') + ')'
+            '(' + this.special_tokens.map(escapeRegExp).join('|') + ')'
         );
 
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
@@ -3180,8 +3186,8 @@ class PreTrainedTokenizer extends _utils_js__WEBPACK_IMPORTED_MODULE_0__.Callabl
         // TODO get files in parallel
 
         let [tokenizerJSON, tokenizerConfig] = await Promise.all([
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'tokenizer.json', progressCallback),
-            (0,_utils_js__WEBPACK_IMPORTED_MODULE_0__.fetchJSON)(modelPath, 'tokenizer_config.json', progressCallback),
+            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
+            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
         ])
 
         return new this(tokenizerJSON, tokenizerConfig);
@@ -3547,7 +3553,76 @@ class TokenLatticeNode {
 }
 
 
+module.exports = {
+    AutoTokenizer,
+    BertTokenizer,
+    DistilBertTokenizer,
+    T5Tokenizer,
+    GPT2Tokenizer
+};
 
+/***/ }),
+
+/***/ "./src/transformers.js":
+/*!*****************************!*\
+  !*** ./src/transformers.js ***!
+  \*****************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+
+const {
+    AutoTokenizer,
+    BertTokenizer,
+    DistilBertTokenizer,
+    T5Tokenizer,
+    GPT2Tokenizer
+} = __webpack_require__(/*! ./tokenizers.js */ "./src/tokenizers.js");
+const {
+    AutoModel,
+    AutoModelForSequenceClassification,
+    AutoModelForSeq2SeqLM,
+    AutoModelForCausalLM,
+    AutoModelForMaskedLM,
+    AutoModelForQuestionAnswering,
+    T5ForConditionalGeneration
+} = __webpack_require__(/*! ./models.js */ "./src/models.js");
+const {
+    pipeline
+} = __webpack_require__(/*! ./pipelines.js */ "./src/pipelines.js");
+const { env } = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
+
+const moduleExports = {
+    // Tokenizers
+    AutoTokenizer,
+    BertTokenizer,
+    DistilBertTokenizer,
+    T5Tokenizer,
+    GPT2Tokenizer,
+
+    // Models
+    AutoModel,
+    AutoModelForSeq2SeqLM,
+    AutoModelForSequenceClassification,
+    AutoModelForCausalLM,
+    AutoModelForMaskedLM,
+    AutoModelForQuestionAnswering,
+    T5ForConditionalGeneration,
+
+    // other
+    pipeline,
+
+    // onnx runtime web env
+    env
+};
+
+// Allow global access to these variables
+if (typeof self !== 'undefined') {
+    // Used by web workers
+    Object.assign(self, moduleExports);
+}
+
+// Used by other modules
+module.exports = moduleExports
 
 /***/ }),
 
@@ -3555,41 +3630,124 @@ class TokenLatticeNode {
 /*!**********************!*\
   !*** ./src/utils.js ***!
   \**********************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "Callable": () => (/* binding */ Callable),
-/* harmony export */   "cos_sim": () => (/* binding */ cos_sim),
-/* harmony export */   "dispatchCallback": () => (/* binding */ dispatchCallback),
-/* harmony export */   "dot": () => (/* binding */ dot),
-/* harmony export */   "escapeRegExp": () => (/* binding */ escapeRegExp),
-/* harmony export */   "fetchJSON": () => (/* binding */ fetchJSON),
-/* harmony export */   "getModelFile": () => (/* binding */ getModelFile),
-/* harmony export */   "getTopItems": () => (/* binding */ getTopItems),
-/* harmony export */   "indexOfMax": () => (/* binding */ indexOfMax),
-/* harmony export */   "log_softmax": () => (/* binding */ log_softmax),
-/* harmony export */   "magnitude": () => (/* binding */ magnitude),
-/* harmony export */   "pathJoin": () => (/* binding */ pathJoin),
-/* harmony export */   "reverseDictionary": () => (/* binding */ reverseDictionary),
-/* harmony export */   "softmax": () => (/* binding */ softmax)
-/* harmony export */ });
+var __dirname = "/";
 
-class Callable extends Function {
-    constructor() {
-        let closure = function (...args) { return closure._call(...args) }
-        return Object.setPrototypeOf(closure, new.target.prototype)
+const fs = __webpack_require__(/*! fs */ "?569f");
+const path = __webpack_require__(/*! path */ "?3f59");
+
+// Use caching when available
+const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
+
+class FileResponse {
+    constructor(filePath) {
+        this.filePath = filePath;
+        this.headers = {};
+        this.headers.get = (x) => this.headers[x]
+
+        this.exists = fs.existsSync(filePath);
+        if (this.exists) {
+            this.status = 200;
+            this.statusText = 'OK';
+
+
+            let stats = fs.statSync(filePath);
+            this.headers['content-length'] = stats.size;
+
+            this.updateContentType();
+
+            let self = this;
+            this.body = new ReadableStream({
+                start(controller) {
+                    self.arrayBuffer().then(buffer => {
+                        controller.enqueue(new Uint8Array(buffer));
+                        controller.close();
+                    })
+                }
+            });
+        } else {
+            this.status = 404;
+            this.statusText = 'Not Found';
+            this.body = null;
+        }
     }
 
-    _call(...args) {
-        throw Error('Must implement _call method in subclass')
+    updateContentType() {
+        // Set content-type header based on file extension
+        const extension = this.filePath.split('.').pop().toLowerCase();
+        switch (extension) {
+            case 'txt':
+                this.headers['content-type'] = 'text/plain';
+                break;
+            case 'html':
+                this.headers['content-type'] = 'text/html';
+                break;
+            case 'css':
+                this.headers['content-type'] = 'text/css';
+                break;
+            case 'js':
+                this.headers['content-type'] = 'text/javascript';
+                break;
+            case 'json':
+                this.headers['content-type'] = 'application/json';
+                break;
+            case 'png':
+                this.headers['content-type'] = 'image/png';
+                break;
+            case 'jpg':
+            case 'jpeg':
+                this.headers['content-type'] = 'image/jpeg';
+                break;
+            case 'gif':
+                this.headers['content-type'] = 'image/gif';
+                break;
+            default:
+                this.headers['content-type'] = 'application/octet-stream';
+                break;
+        }
+    }
+
+    clone() {
+        return new FileResponse(this.filePath, {
+            status: this.status,
+            statusText: this.statusText,
+            headers: this.headers,
+        });
+    }
+
+    async arrayBuffer() {
+        const data = await fs.promises.readFile(this.filePath);
+        return data.buffer;
+    }
+
+    async blob() {
+        const data = await fs.promises.readFile(this.filePath);
+        return new Blob([data], { type: this.headers['content-type'] });
+    }
+
+    async text() {
+        const data = await fs.promises.readFile(this.filePath, 'utf8');
+        return data;
+    }
+
+    async json() {
+        return JSON.parse(await this.text());
     }
 }
 
 
-// Use caching when available
-const CACHE_AVAILABLE = 'caches' in self;
+async function getFile(url) {
+    // Helper function to get a file, using either the Fetch API or FileSystem API
+    if (fs && path) {
+        // TODO determine if URL or relative path
+        let parent = path.dirname(__dirname);
+        return new FileResponse(path.join(parent, url))
+
+    } else {
+        return fetch(url)
+    }
+}
 
 function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
@@ -3609,14 +3767,14 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
         cache = await caches.open('transformers-cache');
     }
 
-    const request = new Request(pathJoin(modelPath, fileName));
+    const request = pathJoin(modelPath, fileName);
 
     let response;
     let responseToCache;
 
     if (!CACHE_AVAILABLE || (response = await cache.match(request)) === undefined) {
         // Caching not available, or model is not cached, so we perform the request
-        response = await fetch(request);
+        response = await getFile(request);
 
         if (CACHE_AVAILABLE) {
             // only clone if cache available
@@ -3823,7 +3981,54 @@ function magnitude(arr) {
 }
 
 
+class Callable extends Function {
+    constructor() {
+        let closure = function (...args) { return closure._call(...args) }
+        return Object.setPrototypeOf(closure, new.target.prototype)
+    }
 
+    _call(...args) {
+        throw Error('Must implement _call method in subclass')
+    }
+}
+
+module.exports = {
+    Callable,
+    getModelFile,
+    dispatchCallback,
+    fetchJSON,
+    pathJoin,
+    reverseDictionary,
+    indexOfMax,
+    softmax,
+    log_softmax,
+    escapeRegExp,
+    getTopItems,
+    dot,
+    cos_sim,
+    magnitude
+};
+
+
+/***/ }),
+
+/***/ "?569f":
+/*!********************!*\
+  !*** fs (ignored) ***!
+  \********************/
+/***/ (() => {
+
+/* (ignored) */
+
+/***/ }),
+
+/***/ "?3f59":
+/*!**********************!*\
+  !*** path (ignored) ***!
+  \**********************/
+/***/ (() => {
+
+/* (ignored) */
 
 /***/ })
 
@@ -3854,18 +4059,6 @@ function magnitude(arr) {
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/compat get default export */
-/******/ 	(() => {
-/******/ 		// getDefaultExport function for compatibility with non-harmony modules
-/******/ 		__webpack_require__.n = (module) => {
-/******/ 			var getter = module && module.__esModule ?
-/******/ 				() => (module['default']) :
-/******/ 				() => (module);
-/******/ 			__webpack_require__.d(getter, { a: getter });
-/******/ 			return getter;
-/******/ 		};
-/******/ 	})();
-/******/ 	
 /******/ 	/* webpack/runtime/define property getters */
 /******/ 	(() => {
 /******/ 		// define getter functions for harmony exports
@@ -3895,64 +4088,12 @@ function magnitude(arr) {
 /******/ 	})();
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be in strict mode.
-(() => {
-"use strict";
-/*!*****************************!*\
-  !*** ./src/transformers.js ***!
-  \*****************************/
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "AutoModel": () => (/* reexport safe */ _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModel),
-/* harmony export */   "AutoModelForCausalLM": () => (/* reexport safe */ _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForCausalLM),
-/* harmony export */   "AutoModelForMaskedLM": () => (/* reexport safe */ _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForMaskedLM),
-/* harmony export */   "AutoModelForQuestionAnswering": () => (/* reexport safe */ _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForQuestionAnswering),
-/* harmony export */   "AutoModelForSeq2SeqLM": () => (/* reexport safe */ _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForSeq2SeqLM),
-/* harmony export */   "AutoModelForSequenceClassification": () => (/* reexport safe */ _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForSequenceClassification),
-/* harmony export */   "AutoTokenizer": () => (/* reexport safe */ _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.AutoTokenizer),
-/* harmony export */   "BertTokenizer": () => (/* reexport safe */ _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.BertTokenizer),
-/* harmony export */   "DistilBertTokenizer": () => (/* reexport safe */ _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.DistilBertTokenizer),
-/* harmony export */   "GPT2Tokenizer": () => (/* reexport safe */ _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.GPT2Tokenizer),
-/* harmony export */   "T5ForConditionalGeneration": () => (/* reexport safe */ _models_js__WEBPACK_IMPORTED_MODULE_1__.T5ForConditionalGeneration),
-/* harmony export */   "T5Tokenizer": () => (/* reexport safe */ _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.T5Tokenizer),
-/* harmony export */   "env": () => (/* reexport safe */ onnxruntime_web__WEBPACK_IMPORTED_MODULE_3__.env),
-/* harmony export */   "pipeline": () => (/* reexport safe */ _pipelines_js__WEBPACK_IMPORTED_MODULE_2__.pipeline)
-/* harmony export */ });
-/* harmony import */ var _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./tokenizers.js */ "./src/tokenizers.js");
-/* harmony import */ var _models_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./models.js */ "./src/models.js");
-/* harmony import */ var _pipelines_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./pipelines.js */ "./src/pipelines.js");
-/* harmony import */ var onnxruntime_web__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
-/* harmony import */ var onnxruntime_web__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(onnxruntime_web__WEBPACK_IMPORTED_MODULE_3__);
-
-
-
-
-
-
-
-// Allow global access to these variables
-self.AutoTokenizer = _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.AutoTokenizer
-self.BertTokenizer = _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.BertTokenizer
-self.DistilBertTokenizer = _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.DistilBertTokenizer
-self.T5Tokenizer = _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.T5Tokenizer
-self.GPT2Tokenizer = _tokenizers_js__WEBPACK_IMPORTED_MODULE_0__.GPT2Tokenizer
-
-self.AutoModel = _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModel
-self.AutoModelForSeq2SeqLM = _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForSeq2SeqLM
-self.AutoModelForSequenceClassification = _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForSequenceClassification
-self.AutoModelForCausalLM = _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForCausalLM
-self.AutoModelForMaskedLM = _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForMaskedLM
-self.AutoModelForQuestionAnswering = _models_js__WEBPACK_IMPORTED_MODULE_1__.AutoModelForQuestionAnswering
-
-self.T5ForConditionalGeneration = _models_js__WEBPACK_IMPORTED_MODULE_1__.T5ForConditionalGeneration
-
-self.pipeline = _pipelines_js__WEBPACK_IMPORTED_MODULE_2__.pipeline
-self.env = onnxruntime_web__WEBPACK_IMPORTED_MODULE_3__.env
-
-
-})();
-
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __webpack_require__("./src/transformers.js");
+/******/ 	
 /******/ })()
 ;
 //# sourceMappingURL=transformers.js.map
