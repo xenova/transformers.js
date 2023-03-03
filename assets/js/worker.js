@@ -1,15 +1,10 @@
 // Worker.js file for doing all transformer-based computations
 // Needed to ensure the UI thread is not blocked when running
-
-import {
-    pipeline
-} from '../../src/transformers.js';
+importScripts('/dist/transformers.min.js');
 
 // First, set path to wasm files. This is needed when running in a web worker.
 // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
-// The following code sets the wasm paths relative to the worker.js
-// e.g., /transformers.js/assets/js/worker.js -> /transformers.js/src/
-ort.env.wasm.wasmPaths = location.pathname.split('/').slice(0, -1 - 2).join('/') + '/src/'
+env.wasm.wasmPaths = '/dist/';
 
 // Whether to use quantized versions of models
 const USE_QUANTIZED = true;
