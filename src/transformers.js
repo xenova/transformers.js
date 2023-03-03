@@ -18,41 +18,27 @@ import {
 import {
     pipeline
 } from "./pipelines.js";
+import { env } from 'onnxruntime-web'
 
 
-if (typeof window === 'undefined') {
-    // We are running in a web worker
+// Allow global access to these variables
+self.AutoTokenizer = AutoTokenizer
+self.BertTokenizer = BertTokenizer
+self.DistilBertTokenizer = DistilBertTokenizer
+self.T5Tokenizer = T5Tokenizer
+self.GPT2Tokenizer = GPT2Tokenizer
 
-} else {
-    // We are running in the main thread
+self.AutoModel = AutoModel
+self.AutoModelForSeq2SeqLM = AutoModelForSeq2SeqLM
+self.AutoModelForSequenceClassification = AutoModelForSequenceClassification
+self.AutoModelForCausalLM = AutoModelForCausalLM
+self.AutoModelForMaskedLM = AutoModelForMaskedLM
+self.AutoModelForQuestionAnswering = AutoModelForQuestionAnswering
 
-    // First, we set the wasm path to point to the directory which contains this file.
-    // https://stackoverflow.com/a/42594856
-    let scriptPath = (() => {
-        return new Error().stack.match(/([^ \n])*([a-z]*:\/\/\/?)*?[a-z0-9\/\\]*\.js/ig)[0]
-    })();
-    let scriptFolder = (new URL(scriptPath)).pathname;
-    ort.env.wasm.wasmPaths = scriptFolder.substring(0, scriptFolder.lastIndexOf('/') + 1);
-    console.log(`Set ort.env.wasm.wasmPaths to ${ort.env.wasm.wasmPaths}`);
+self.T5ForConditionalGeneration = T5ForConditionalGeneration
 
-    // Allow global access to these variables
-    window.AutoTokenizer = AutoTokenizer
-    window.BertTokenizer = BertTokenizer
-    window.DistilBertTokenizer = DistilBertTokenizer
-    window.T5Tokenizer = T5Tokenizer
-    window.GPT2Tokenizer = GPT2Tokenizer
-
-    window.AutoModel = AutoModel
-    window.AutoModelForSeq2SeqLM = AutoModelForSeq2SeqLM
-    window.AutoModelForSequenceClassification = AutoModelForSequenceClassification
-    window.AutoModelForCausalLM = AutoModelForCausalLM
-    window.AutoModelForMaskedLM = AutoModelForMaskedLM
-    window.AutoModelForQuestionAnswering = AutoModelForQuestionAnswering
-
-    window.T5ForConditionalGeneration = T5ForConditionalGeneration
-
-    window.pipeline = pipeline
-}
+self.pipeline = pipeline
+self.env = env
 
 export {
     // Tokenizers
@@ -72,5 +58,8 @@ export {
     T5ForConditionalGeneration,
 
     // other
-    pipeline
+    pipeline,
+
+    // onnx runtime web env
+    env
 };
