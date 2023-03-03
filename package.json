@@ -1,7 +1,7 @@
 {
   "name": "@xenova/transformers",
   "version": "1.0.0",
-  "description": "Run 🤗 Transformers in your browser! We currently support [BERT](https://huggingface.co/docs/transformers/model_doc/bert), [DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert), [T5](https://huggingface.co/docs/transformers/model_doc/t5), [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2), and [BART](https://huggingface.co/docs/transformers/model_doc/bart) models, for a variety of tasks including: masked language modelling, text classification, translation, summarization, question answering, and text generation.",
+  "description": "Run 🤗 Transformers in your browser! We currently support BERT, DistilBERT, T5, GPT2, and BART models, for a variety of tasks including: masked language modelling, text classification, translation, summarization, question answering, and text generation.",
   "main": "./src/transformers.js",
   "directories": {
     "test": "tests"
