@@ -101,13 +101,22 @@ class FileResponse {
     }
 }
 
+function isValidHttpUrl(string) {
+    // https://stackoverflow.com/a/43467144
+    let url;
+    try {
+        url = new URL(string);
+    } catch (_) {
+        return false;
+    }
+    return url.protocol === "http:" || url.protocol === "https:";
+}
 
 async function getFile(url) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
-    if (fs && path) {
-        // TODO determine if URL or relative path
-        let parent = path.dirname(__dirname);
-        return new FileResponse(path.join(parent, url))
+
+    if (fs && !isValidHttpUrl(url)) {
+        return new FileResponse(url)
 
     } else {
         return fetch(url)
