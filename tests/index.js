@@ -3,7 +3,15 @@
 // https://github.com/microsoft/onnxruntime/issues/13072
 global.self = global;
 
-const { pipeline, env } = require("..")
+const path = require('path')
+const { pipeline, env } = require('..')
+
+// Set base model dir for testing.
+const BASE_MODEL_DIR = path.join(path.dirname(__dirname), '/models/onnx/quantized/')
+
+// Uncomment to test online
+// const BASE_MODEL_DIR = 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/'
+
 
 // Disable spawning worker threads for testing.
 // This is done by setting numThreads to 1
@@ -47,6 +55,11 @@ function isDeepEqual(obj1, obj2, {
 }
 
 async function embeddings() {
+    let model_path = path.join(BASE_MODEL_DIR, 'sentence-transformers/all-MiniLM-L6-v2/default')
+
+    // Load embeddings pipeline (uses  by default)
+    let embedder = await pipeline('embeddings', model_path)
+
 
     // Provide sentences
     let sentences = [
@@ -54,11 +67,6 @@ async function embeddings() {
         'Sentences are passed as a list of string.',
         'The quick brown fox jumps over the lazy dog.'
     ]
-
-    // Load embeddings pipeline (uses all-MiniLM-L6-v2 by default)
-    // To use a custom model, specify the path as the second parameter
-    // (e.g., await pipeline('embeddings', '/path/to/model/'))
-    let embedder = await pipeline('embeddings')
 
     // Run sentences through embedder
     let output = await embedder(sentences)
@@ -80,7 +88,7 @@ async function embeddings() {
 
 
 async function text_classification() {
-    let model_path = '/models/onnx/quantized/distilbert-base-uncased-finetuned-sst-2-english/sequence-classification'
+    let model_path = path.join(BASE_MODEL_DIR, 'distilbert-base-uncased-finetuned-sst-2-english/sequence-classification')
 
     let classifier = await pipeline('text-classification', model_path);
 
@@ -129,13 +137,13 @@ async function text_classification() {
 }
 
 async function masked_language_modelling() {
-    let model_path = '/models/onnx/quantized/bert-base-uncased/masked-lm'
-    let classifier = await pipeline('fill-mask', model_path);
+    let model_path = path.join(BASE_MODEL_DIR, 'bert-base-uncased/masked-lm')
 
+    let unmasker = await pipeline('fill-mask', model_path);
 
-    let outputs1 = await classifier("Once upon a [MASK].");
+    let outputs1 = await unmasker("Once upon a [MASK].");
 
-    let outputs2 = await classifier([
+    let outputs2 = await unmasker([
         "Once upon a [MASK].",
         "[MASK] is the capital of England."
     ]);
@@ -168,7 +176,7 @@ async function masked_language_modelling() {
 }
 
 async function question_answering() {
-    let model_path = '/models/onnx/quantized/distilbert-base-uncased-distilled-squad/question-answering'
+    let model_path = path.join(BASE_MODEL_DIR, 'distilbert-base-uncased-distilled-squad/question-answering')
 
     let question = 'Who was Jim Henson?'
     let context = 'Jim Henson was a nice puppet.'
@@ -194,7 +202,8 @@ async function question_answering() {
 }
 
 async function summarization() {
-    let model_path = '/models/onnx/quantized/sshleifer/distilbart-cnn-6-6/seq2seq-lm-with-past'
+    let model_path = path.join(BASE_MODEL_DIR, 'sshleifer/distilbart-cnn-6-6/seq2seq-lm-with-past')
+
     let summarizer = await pipeline('summarization', model_path)
 
     let texts = [
@@ -213,7 +222,8 @@ async function summarization() {
 }
 
 async function translation() {
-    let model_path = '/models/onnx/quantized/t5-small/seq2seq-lm-with-past'
+    let model_path = path.join(BASE_MODEL_DIR, 't5-small/seq2seq-lm-with-past')
+
     let translator = await pipeline('translation_en_to_de', model_path)
 
     let translation1 = await translator('Hello, how are you?')
@@ -238,7 +248,8 @@ async function translation() {
 }
 
 async function text_generation() {
-    let model_path = '/models/onnx/quantized/distilgpt2/causal-lm-with-past';
+    let model_path = path.join(BASE_MODEL_DIR, 'distilgpt2/causal-lm-with-past')
+
     let generator = await pipeline('text-generation', model_path)
 
     let output1 = await generator('Once upon a time, there was a', {
