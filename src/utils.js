@@ -150,6 +150,10 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
         // Caching not available, or model is not cached, so we perform the request
         response = await getFile(request);
 
+        if (response.status === 404) {
+            throw Error(`File not found. Could not locate "${request}".`)
+        }
+
         if (CACHE_AVAILABLE) {
             // only clone if cache available
             responseToCache = response.clone();
