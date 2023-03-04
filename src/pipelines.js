@@ -2,7 +2,8 @@ const {
     Callable,
     softmax,
     getTopItems,
-    cos_sim
+    cos_sim,
+    pathJoin
 } = require("./utils.js");
 
 const {
@@ -17,9 +18,10 @@ const {
     AutoModelForCausalLM,
 } = require("./models.js");
 
+const {
+    env
+} = require('./env.js')
 
-const HF_HUB_MODEL_PATH_TEMPLATE = 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/{model}/{task}/';
-const DEFAULT_MODEL_PATH_TEMPLATE = '/models/onnx/quantized/{model}/{task}';
 
 class Pipeline extends Callable {
     constructor(tokenizer, model, task) {
@@ -324,10 +326,20 @@ const SUPPORTED_TASKS = {
 }
 
 const TASK_NAME_MAPPING = {
-    // Fix mismatch between pipeline name and exports (folder name)
+    // Fix mismatch between pipeline's task name and exports (folder name)
     'text-classification': 'sequence-classification',
-    'embeddings': 'default'
+    'embeddings': 'default',
+    'fill-mask': 'masked-lm',
+
+    'summarization': 'seq2seq-lm-with-past',
+    'text-generation': 'causal-lm-with-past',
 }
+
+const TASK_PREFIX_MAPPING = {
+    // if task starts with one of these, set the corresponding folder name
+    'translation': 'seq2seq-lm-with-past',
+}
+
 
 const TASK_ALIASES = {
     "sentiment-analysis": "text-classification",
@@ -340,7 +352,6 @@ async function pipeline(
     task,
     model = null,
     {
-        default_model_path_template = DEFAULT_MODEL_PATH_TEMPLATE,
         progress_callback = null
     } = {}
 ) {
@@ -355,23 +366,44 @@ async function pipeline(
         throw Error(`Unsupported pipeline: ${task}. Must be one of [${Object.keys(SUPPORTED_TASKS)}]`)
     }
 
-    // Use model if specified, otherwise, use default
-    let modelPath = model;
-    if (!modelPath) {
-        modelPath = default_model_path_template
-            .replace('{model}', pipelineInfo.default.model)
-            .replace('{task}', TASK_NAME_MAPPING[task] ?? task);
 
-        console.log(`No model specified. Attempting to load default model from ${default_model_path_template}.`);
+    // Use model if specified, otherwise, use default
+    if (!model) {
+        model = pipelineInfo.default.model
+        console.log(`No model specified. Using default model: "${model}".`);
     }
+
+    // determine suffix
+    let suffix = TASK_NAME_MAPPING[task];
+    if (!suffix) {
+        // try get from suffix
+        for (const [prefix, mapping] of Object.entries(TASK_PREFIX_MAPPING)) {
+            if (task.startsWith(prefix)) {
+                suffix = mapping;
+                break;
+            }
+        }
+    }
+
+    if (!suffix) {
+        // Still not set... so, we default to the name given
+        suffix = task;
+    }
+
+    // Construct model path
+    model = pathJoin(
+        (env.remoteModels) ? env.remoteURL : env.localURL, // host prefix
+        model, // model name
+        suffix, // task suffix
+    )
 
     let modelClass = pipelineInfo.model;
     let pipelineClass = pipelineInfo.pipeline;
 
     // Load tokenizer and model
     let [pipelineTokenizer, pipelineModel] = await Promise.all([
-        AutoTokenizer.from_pretrained(modelPath, progress_callback),
-        modelClass.from_pretrained(modelPath, progress_callback)
+        AutoTokenizer.from_pretrained(model, progress_callback),
+        modelClass.from_pretrained(model, progress_callback)
     ])
 
     return new pipelineClass(pipelineTokenizer, pipelineModel, task);
