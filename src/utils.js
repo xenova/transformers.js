@@ -1,9 +1,7 @@
 
 const fs = require('fs');
 
-// Use caching when available
-const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
-const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
+const { env } = require('./env.js');
 
 class FileResponse {
     constructor(filePath) {
@@ -115,7 +113,7 @@ function isValidHttpUrl(string) {
 async function getFile(url) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
-    if (FS_AVAILABLE && !isValidHttpUrl(url)) {
+    if (env.useFS && !isValidHttpUrl(url)) {
         return new FileResponse(url)
 
     } else {
@@ -125,10 +123,6 @@ async function getFile(url) {
 
 function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
-}
-
-function isEmpty(obj) {
-    return Object.keys(obj).length === 0;
 }
 
 async function getModelFile(modelPath, fileName, progressCallback = null) {
@@ -141,7 +135,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
     })
 
     let cache;
-    if (CACHE_AVAILABLE) {
+    if (env.useCache) {
         cache = await caches.open('transformers-cache');
     }
 
@@ -150,7 +144,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
     let response;
     let responseToCache;
 
-    if (!CACHE_AVAILABLE || (response = await cache.match(request)) === undefined) {
+    if (!env.useCache || (response = await cache.match(request)) === undefined) {
         // Caching not available, or model is not cached, so we perform the request
         response = await getFile(request);
 
@@ -158,7 +152,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
             throw Error(`File not found. Could not locate "${request}".`)
         }
 
-        if (CACHE_AVAILABLE) {
+        if (env.useCache) {
             // only clone if cache available
             responseToCache = response.clone();
         }
