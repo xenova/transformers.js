@@ -6,16 +6,16 @@ global.self = global;
 const path = require('path')
 const { pipeline, env } = require('..')
 
+// Disable spawning worker threads for testing.
+// This is done by setting numThreads to 1
+env.wasm.numThreads = 1
+
 // Set base model dir for testing.
 const BASE_MODEL_DIR = path.join(path.dirname(__dirname), '/models/onnx/quantized/')
 
 // Uncomment to test online
 // const BASE_MODEL_DIR = 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/'
 
-
-// Disable spawning worker threads for testing.
-// This is done by setting numThreads to 1
-env.wasm.numThreads = 1
 
 function isDeepEqual(obj1, obj2, {
     tol = 1e-3
