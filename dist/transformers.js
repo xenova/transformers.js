@@ -2232,6 +2232,8 @@ async function pipeline(
         modelPath = default_model_path_template
             .replace('{model}', pipelineInfo.default.model)
             .replace('{task}', TASK_NAME_MAPPING[task] ?? task);
+
+        console.log(`No model specified. Attempting to load default model from ${default_model_path_template}.`);
     }
 
     let modelClass = pipelineInfo.model;
@@ -3632,7 +3634,6 @@ module.exports = moduleExports
   \**********************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var __dirname = "/";
 
 const fs = __webpack_require__(/*! fs */ "?569f");
 const path = __webpack_require__(/*! path */ "?3f59");
@@ -3736,13 +3737,22 @@ class FileResponse {
     }
 }
 
+function isValidHttpUrl(string) {
+    // https://stackoverflow.com/a/43467144
+    let url;
+    try {
+        url = new URL(string);
+    } catch (_) {
+        return false;
+    }
+    return url.protocol === "http:" || url.protocol === "https:";
+}
 
 async function getFile(url) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
-    if (fs && path) {
-        // TODO determine if URL or relative path
-        let parent = path.dirname(__dirname);
-        return new FileResponse(path.join(parent, url))
+
+    if (fs && !isValidHttpUrl(url)) {
+        return new FileResponse(url)
 
     } else {
         return fetch(url)
@@ -3775,6 +3785,10 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
     if (!CACHE_AVAILABLE || (response = await cache.match(request)) === undefined) {
         // Caching not available, or model is not cached, so we perform the request
         response = await getFile(request);
+
+        if (response.status === 404) {
+            throw Error(`File not found. Could not locate "${request}".`)
+        }
 
         if (CACHE_AVAILABLE) {
             // only clone if cache available
