@@ -999,6 +999,72 @@ const Tensor = _tensor_impl__WEBPACK_IMPORTED_MODULE_0__.Tensor;
 
 /***/ }),
 
+/***/ "./src/env.js":
+/*!********************!*\
+  !*** ./src/env.js ***!
+  \********************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var __dirname = "/";
+const fs = __webpack_require__(/*! fs */ "?569f");
+const path = __webpack_require__(/*! path */ "?3f59");
+const onnx_env = (__webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js").env);
+
+// check if various APIs are available (depends on environment)
+const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
+const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
+const PATH_AVAILABLE = !isEmpty(path); // check if path is available
+
+const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
+
+// set local model path, based on available APIs
+const DEFAULT_LOCAL_PATH = '/models/onnx/quantized/';
+const localURL = RUNNING_LOCALLY
+    ? path.join(path.dirname(__dirname), DEFAULT_LOCAL_PATH)
+    : DEFAULT_LOCAL_PATH;
+
+// First, set path to wasm files. This is needed when running in a web worker.
+// https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
+// We use remote wasm files by default to make it easier for newer users.
+// In practice, user's should probably self-host the necessary .wasm files.
+onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
+    ? path.join(path.dirname(__dirname), '/dist/')
+    : 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/';
+
+
+// Global variable used to control exection, with suitable defaults
+const env = {
+    // access onnxruntime-web's environment variables
+    onnx: onnx_env,
+
+    // whether to support loading models from the HuggingFace hub
+    remoteModels: true,
+
+    // URL to load models from
+    remoteURL: 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/',
+
+    // Local URL to load models from.
+    localURL: localURL,
+
+    // Whether to use Cache API to cache models. By default, it is true if available.
+    useCache: CACHE_AVAILABLE,
+
+    // Whether to use the file system to load files. By default, it is true available.
+    useFS: FS_AVAILABLE,
+}
+
+
+function isEmpty(obj) {
+    return Object.keys(obj).length === 0;
+}
+
+module.exports = {
+    env
+}
+
+
+/***/ }),
+
 /***/ "./src/models.js":
 /*!***********************!*\
   !*** ./src/models.js ***!
@@ -1873,7 +1939,8 @@ const {
     Callable,
     softmax,
     getTopItems,
-    cos_sim
+    cos_sim,
+    pathJoin
 } = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
 const {
@@ -1888,9 +1955,10 @@ const {
     AutoModelForCausalLM,
 } = __webpack_require__(/*! ./models.js */ "./src/models.js");
 
+const {
+    env
+} = __webpack_require__(/*! ./env.js */ "./src/env.js")
 
-const HF_HUB_MODEL_PATH_TEMPLATE = 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/{model}/{task}/';
-const DEFAULT_MODEL_PATH_TEMPLATE = '/models/onnx/quantized/{model}/{task}';
 
 class Pipeline extends Callable {
     constructor(tokenizer, model, task) {
@@ -2195,10 +2263,20 @@ const SUPPORTED_TASKS = {
 }
 
 const TASK_NAME_MAPPING = {
-    // Fix mismatch between pipeline name and exports (folder name)
+    // Fix mismatch between pipeline's task name and exports (folder name)
     'text-classification': 'sequence-classification',
-    'embeddings': 'default'
+    'embeddings': 'default',
+    'fill-mask': 'masked-lm',
+
+    'summarization': 'seq2seq-lm-with-past',
+    'text-generation': 'causal-lm-with-past',
 }
+
+const TASK_PREFIX_MAPPING = {
+    // if task starts with one of these, set the corresponding folder name
+    'translation': 'seq2seq-lm-with-past',
+}
+
 
 const TASK_ALIASES = {
     "sentiment-analysis": "text-classification",
@@ -2211,7 +2289,6 @@ async function pipeline(
     task,
     model = null,
     {
-        default_model_path_template = DEFAULT_MODEL_PATH_TEMPLATE,
         progress_callback = null
     } = {}
 ) {
@@ -2226,23 +2303,44 @@ async function pipeline(
         throw Error(`Unsupported pipeline: ${task}. Must be one of [${Object.keys(SUPPORTED_TASKS)}]`)
     }
 
-    // Use model if specified, otherwise, use default
-    let modelPath = model;
-    if (!modelPath) {
-        modelPath = default_model_path_template
-            .replace('{model}', pipelineInfo.default.model)
-            .replace('{task}', TASK_NAME_MAPPING[task] ?? task);
 
-        console.log(`No model specified. Attempting to load default model from ${default_model_path_template}.`);
+    // Use model if specified, otherwise, use default
+    if (!model) {
+        model = pipelineInfo.default.model
+        console.log(`No model specified. Using default model: "${model}".`);
     }
+
+    // determine suffix
+    let suffix = TASK_NAME_MAPPING[task];
+    if (!suffix) {
+        // try get from suffix
+        for (const [prefix, mapping] of Object.entries(TASK_PREFIX_MAPPING)) {
+            if (task.startsWith(prefix)) {
+                suffix = mapping;
+                break;
+            }
+        }
+    }
+
+    if (!suffix) {
+        // Still not set... so, we default to the name given
+        suffix = task;
+    }
+
+    // Construct model path
+    model = pathJoin(
+        (env.remoteModels) ? env.remoteURL : env.localURL, // host prefix
+        model, // model name
+        suffix, // task suffix
+    )
 
     let modelClass = pipelineInfo.model;
     let pipelineClass = pipelineInfo.pipeline;
 
     // Load tokenizer and model
     let [pipelineTokenizer, pipelineModel] = await Promise.all([
-        AutoTokenizer.from_pretrained(modelPath, progress_callback),
-        modelClass.from_pretrained(modelPath, progress_callback)
+        AutoTokenizer.from_pretrained(model, progress_callback),
+        modelClass.from_pretrained(model, progress_callback)
     ])
 
     return new pipelineClass(pipelineTokenizer, pipelineModel, task);
@@ -3591,7 +3689,8 @@ const {
 const {
     pipeline
 } = __webpack_require__(/*! ./pipelines.js */ "./src/pipelines.js");
-const { env } = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
+const { env } = __webpack_require__(/*! ./env.js */ "./src/env.js");
+
 
 const moduleExports = {
     // Tokenizers
@@ -3613,7 +3712,7 @@ const moduleExports = {
     // other
     pipeline,
 
-    // onnx runtime web env
+    // environment variables
     env
 };
 
@@ -3636,10 +3735,8 @@ module.exports = moduleExports
 
 
 const fs = __webpack_require__(/*! fs */ "?569f");
-const path = __webpack_require__(/*! path */ "?3f59");
 
-// Use caching when available
-const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
+const { env } = __webpack_require__(/*! ./env.js */ "./src/env.js");
 
 class FileResponse {
     constructor(filePath) {
@@ -3751,7 +3848,7 @@ function isValidHttpUrl(string) {
 async function getFile(url) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
-    if (fs && !isValidHttpUrl(url)) {
+    if (env.useFS && !isValidHttpUrl(url)) {
         return new FileResponse(url)
 
     } else {
@@ -3773,7 +3870,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
     })
 
     let cache;
-    if (CACHE_AVAILABLE) {
+    if (env.useCache) {
         cache = await caches.open('transformers-cache');
     }
 
@@ -3782,7 +3879,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
     let response;
     let responseToCache;
 
-    if (!CACHE_AVAILABLE || (response = await cache.match(request)) === undefined) {
+    if (!env.useCache || (response = await cache.match(request)) === undefined) {
         // Caching not available, or model is not cached, so we perform the request
         response = await getFile(request);
 
@@ -3790,7 +3887,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
             throw Error(`File not found. Could not locate "${request}".`)
         }
 
-        if (CACHE_AVAILABLE) {
+        if (env.useCache) {
             // only clone if cache available
             responseToCache = response.clone();
         }
