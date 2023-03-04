@@ -28,17 +28,18 @@ By default, Transformers.js uses hosted [models](https://huggingface.co/Xenova/t
 ```javascript
 import { env } from "@xenova/transformers";
 
-// Use different host for models (`remoteURL` defaults to HuggingFace Hub,
-// while `localURL` defaults to '/models/onnx/quantized/').
+// Use a different host for models.
+// - `remoteURL` defaults to use the HuggingFace Hub
+// - `localURL` defaults to '/models/onnx/quantized/'
 env.remoteURL = 'https://www.example.com/';
 env.localURL = '/path/to/models/';
 
-// Set whether to use remote or local models (defaults to true).
+// Set whether to use remote or local models. Defaults to true.
 //  - If true, use the path specified by `env.remoteURL`.
 //  - If false, use the path specified by `env.localURL`.
 env.remoteModels = false;
 
-// Set parent path of .wasm files (defaults to use a CDN).
+// Set parent path of .wasm files. Defaults to use a CDN.
 env.onnx.wasm.wasmPaths = '/path/to/files/';
 ```
 
