@@ -42,5 +42,9 @@
     "tests",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "browser": {
+    "fs": false,
+    "path": false
+  }
 }
