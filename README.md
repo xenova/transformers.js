@@ -23,27 +23,7 @@ Alternatively, you can use it in a `<script>` tag from a CDN, for example:
 <script src="https://www.unpkg.com/@xenova/transformers/dist/transformers.min.js"></script>
 ```
 
-### Setup
-By default, Transformers.js uses hosted [models](https://huggingface.co/Xenova/transformers.js/tree/main/quantized) precompiled [WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/), which should work out-of-the-box. You can override this behaviour as follows:
-```javascript
-import { env } from "@xenova/transformers";
-
-// Use a different host for models.
-// - `remoteURL` defaults to use the HuggingFace Hub
-// - `localURL` defaults to '/models/onnx/quantized/'
-env.remoteURL = 'https://www.example.com/';
-env.localURL = '/path/to/models/';
-
-// Set whether to use remote or local models. Defaults to true.
-//  - If true, use the path specified by `env.remoteURL`.
-//  - If false, use the path specified by `env.localURL`.
-env.remoteModels = false;
-
-// Set parent path of .wasm files. Defaults to use a CDN.
-env.onnx.wasm.wasmPaths = '/path/to/files/';
-```
-
-### Quick tour
+### Basic example
 It's super easy to translate from existing code!
 
 
@@ -69,10 +49,31 @@ let output = await classifier('I love transformers!');
 // [{label: 'POSITIVE', score: 0.9998176857266375}]
 ```
 
-*Note:* In the same way as the Python library, you can use a different model by providing its name as the second argument to the pipeline function. For example:
+In the same way as the Python library, you can use a different model by providing its name as the second argument to the pipeline function. For example:
 ```javascript
 // Use a different model for sentiment-analysis
 let classifier = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');
+```
+
+
+### Custom setup
+By default, Transformers.js uses hosted [models](https://huggingface.co/Xenova/transformers.js/tree/main/quantized) precompiled [WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/), which should work out-of-the-box. You can override this behaviour as follows:
+```javascript
+import { env } from "@xenova/transformers";
+
+// Use a different host for models.
+// - `remoteURL` defaults to use the HuggingFace Hub
+// - `localURL` defaults to '/models/onnx/quantized/'
+env.remoteURL = 'https://www.example.com/';
+env.localURL = '/path/to/models/';
+
+// Set whether to use remote or local models. Defaults to true.
+//  - If true, use the path specified by `env.remoteURL`.
+//  - If false, use the path specified by `env.localURL`.
+env.remoteModels = false;
+
+// Set parent path of .wasm files. Defaults to use a CDN.
+env.onnx.wasm.wasmPaths = '/path/to/files/';
 ```
 
 ## Usage
