@@ -50,6 +50,7 @@
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                     <li class="nav-item"><a class="nav-link" href="#demo">Demo</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#getting-started">Getting Started</a></li>
                     <li class="nav-item"><a class="nav-link" href="#usage">Usage</a></li>
                     <li class="nav-item"><a class="nav-link" href="#examples">Examples</a></li>
                 </ul>
@@ -81,7 +82,7 @@
                             Run <span class="text-white">🤗</span> Transformers in your browser!
                         </p>
                         <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
-                            <a class="btn btn-primary btn-lg px-4 me-sm-3" href="#">Download</a>
+                            <a class="btn btn-primary btn-lg px-4 me-sm-3" href="#getting-started">Get Started</a>
                             <a class="btn btn-outline-light btn-lg px-4"
                                 href="https://github.com/xenova/transformers.js">
                                 <i class="bi bi-github"></i> View Source
@@ -92,44 +93,6 @@
             </div>
         </div>
     </header>
-
-
-    <!-- Teaser section-->
-    <section class="py-4 border-bottom" id="teaser">
-        <div class="container px-5 my-4">
-            <div class="mb-2">
-                <h2 class="fw-bolder">Getting Started</h2>
-                <p class="lead mb-0">Get your models running in the browser.
-                    It's super easy to translate from existing code!
-                </p>
-            </div>
-            <div>
-                <div class="row gx-5">
-                    <div class="col-lg-6 mb-4 mb-lg-0">
-                        <pre><code class="language-python">from transformers import pipeline
-
-# Allocate a pipeline for sentiment-analysis
-classifier = pipeline('sentiment-analysis')
-
-output = classifier('I love transformers!')
-# [{'label': 'POSITIVE', 'score': 0.9998069405555725}]</code></pre>
-                        <p class="mb-0 text-center">Python (original)</p>
-
-                    </div>
-                    <div class="col-lg-6 mb-4 mb-lg-0">
-                        <pre><code class="language-js">import { pipeline } from "@xenova/transformers";
-
-// Allocate a pipeline for sentiment-analysis
-let classifier = await pipeline('sentiment-analysis');
-
-let output = await classifier('I love transformers!');
-// [{label: 'POSITIVE', score: 0.9998176857266375}]</code></pre>
-                        <p class="mb-0 text-center">JavaScript (ours)</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <!-- Demo section-->
     <section class="py-4 border-bottom" id="demo">
@@ -345,6 +308,89 @@ let output = await classifier('I love transformers!');
                     <div id="progress-bars" class="d-flex justify-content-center flex-column gap-2 py-2"></div>
                 </div>
             </div>
+        </div>
+    </section>
+
+
+    <!-- Teaser section-->
+    <section class="py-4 border-bottom" id="getting-started">
+        <div class="container px-5 my-4">
+            <div class="mb-3">
+                <h2 class="fw-bolder">Getting Started</h2>
+            </div>
+            <div class="mb-3">
+                <h5 class="mb-2">Installation</h5>
+                If you use <a href="https://www.npmjs.com/package/@xenova/transformers">npm</a>,
+                you can install it using:
+                <pre><code class="language-bash">npm i @xenova/transformers</code></pre>
+
+                Alternatively, you can use it in a
+                <pre style="display: inline;">&lt;script&gt;</pre>
+                tag from a CDN, for example:
+                <pre><code class="language-html">&lt;!-- Using jsDelivr --&gt;
+&lt;script src=&quot;https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js&quot;&gt;&lt;/script&gt;
+
+&lt;!-- or UNPKG --&gt;
+&lt;script src=&quot;https://www.unpkg.com/@xenova/transformers/dist/transformers.min.js&quot;&gt;&lt;/script&gt;</code></pre>
+            </div>
+
+            <div class="mb-3">
+                <h5 class="mb-2">Basic example</h5>
+                It's super easy to translate from existing code!
+                <div class="row gx-5">
+                    <div class="col-lg-6 mb-4 mb-lg-0">
+                        <pre><code class="language-python">from transformers import pipeline
+
+# Allocate a pipeline for sentiment-analysis
+classifier = pipeline('sentiment-analysis')
+
+output = classifier('I love transformers!')
+# [{'label': 'POSITIVE', 'score': 0.9998069405555725}]</code></pre>
+                        <p class="mb-0 text-center">Python (original)</p>
+
+                    </div>
+                    <div class="col-lg-6 mb-4 mb-lg-0">
+                        <pre><code class="language-js">import { pipeline } from "@xenova/transformers";
+
+// Allocate a pipeline for sentiment-analysis
+let classifier = await pipeline('sentiment-analysis');
+
+let output = await classifier('I love transformers!');
+// [{label: 'POSITIVE', score: 0.9998176857266375}]</code></pre>
+                        <p class="mb-0 text-center">JavaScript (ours)</p>
+                    </div>
+                </div>
+                <br>
+                In the same way as the Python library, you can use a different model by providing its
+                name as the second argument to the pipeline function. For example:
+                <pre><code class="language-js">// Use a different model for sentiment-analysis
+let classifier = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');</code></pre>
+            </div>
+
+            <div class="mb-3">
+                <h5 class="mb-2">Custom setup</h5>
+                By default, Transformers.js uses hosted <a
+                    href="https://huggingface.co/Xenova/transformers.js/tree/main/quantized">models</a>
+                precompiled
+                <a href="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/">WASM binaries</a>,
+                which should work out-of-the-box. You can override this behaviour as follows:
+                <pre><code class="language-js">import { env } from "@xenova/transformers";
+
+// Use a different host for models.
+// - `remoteURL` defaults to use the HuggingFace Hub
+// - `localURL` defaults to '/models/onnx/quantized/'
+env.remoteURL = 'https://www.example.com/';
+env.localURL = '/path/to/models/';
+
+// Set whether to use remote or local models. Defaults to true.
+//  - If true, use the path specified by `env.remoteURL`.
+//  - If false, use the path specified by `env.localURL`.
+env.remoteModels = false;
+
+// Set parent path of .wasm files. Defaults to use a CDN.
+env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
+            </div>
+
         </div>
     </section>
 
