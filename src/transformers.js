@@ -18,7 +18,8 @@ const {
 const {
     pipeline
 } = require("./pipelines.js");
-const { env } = require('onnxruntime-web');
+const { env } = require('./env.js');
+
 
 const moduleExports = {
     // Tokenizers
@@ -40,7 +41,7 @@ const moduleExports = {
     // other
     pipeline,
 
-    // onnx runtime web env
+    // environment variables
     env
 };
 
