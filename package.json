@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Run 🤗 Transformers in your browser! We currently support BERT, DistilBERT, T5, GPT2, and BART models, for a variety of tasks including: masked language modelling, text classification, translation, summarization, question answering, and text generation.",
   "main": "./src/transformers.js",
   "directories": {
