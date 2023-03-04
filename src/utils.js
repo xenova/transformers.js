@@ -1,9 +1,9 @@
 
 const fs = require('fs');
-const path = require('path');
 
 // Use caching when available
 const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
+const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
 
 class FileResponse {
     constructor(filePath) {
@@ -115,7 +115,7 @@ function isValidHttpUrl(string) {
 async function getFile(url) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
-    if (fs && !isValidHttpUrl(url)) {
+    if (FS_AVAILABLE && !isValidHttpUrl(url)) {
         return new FileResponse(url)
 
     } else {
@@ -125,6 +125,10 @@ async function getFile(url) {
 
 function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
+}
+
+function isEmpty(obj) {
+    return Object.keys(obj).length === 0;
 }
 
 async function getModelFile(modelPath, fileName, progressCallback = null) {
