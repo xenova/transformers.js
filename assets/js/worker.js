@@ -2,8 +2,7 @@
 // Needed to ensure the UI thread is not blocked when running
 importScripts('/dist/transformers.min.js');
 
-// First, set path to wasm files. This is needed when running in a web worker.
-// https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
+// Set paths to wasm files. In this case, we use the .wasm files present in /dist/.
 env.onnx.wasm.wasmPaths = '/dist/';
 
 // If we are running locally, we should use the local model files (speeds up development)
