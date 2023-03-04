@@ -117,12 +117,12 @@ output = classifier('I love transformers!')
 
                     </div>
                     <div class="col-lg-6 mb-4 mb-lg-0">
-                        <pre><code class="language-js">import { pipeline } from "transformers.js";
+                        <pre><code class="language-js">import { pipeline } from "@xenova/transformers";
 
 // Allocate a pipeline for sentiment-analysis
-let classifier = await pipeline('sentiment-analysis')
+let classifier = await pipeline('sentiment-analysis');
 
-let output = await classifier('I love transformers!')
+let output = await classifier('I love transformers!');
 // [{label: 'POSITIVE', score: 0.9998176857266375}]</code></pre>
                         <p class="mb-0 text-center">JavaScript (ours)</p>
                     </div>

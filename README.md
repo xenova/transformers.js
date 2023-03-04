@@ -17,21 +17,35 @@ from transformers import pipeline
 
 # Allocate a pipeline for sentiment-analysis
 classifier = pipeline('sentiment-analysis')
+
 output = classifier('I love transformers!')
 # [{'label': 'POSITIVE', 'score': 0.9998069405555725}]
 ```
 
 Javascript (ours):
 ```javascript
-import { pipeline } from "transformers.js";
+import { pipeline } from "@xenova/transformers";
 
 // Allocate a pipeline for sentiment-analysis
-let classifier = await pipeline('sentiment-analysis')
-let output = await classifier('I love transformers!')
+let classifier = await pipeline('sentiment-analysis');
+
+let output = await classifier('I love transformers!');
 // [{label: 'POSITIVE', score: 0.9998176857266375}]
 ```
 
+*Note:* If running locally, it is assumed that the required model files are located in `./models/onnx/quantized/`. To override this behaviour, you can specify the model path or URL as a second argument to the pipeline function. For example, to use models from the HuggingFace hub:
 
+```javascript
+// Set host, model_id and task:
+const hf_url = 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized';
+const model_id = 'distilbert-base-uncased-finetuned-sst-2-english';
+const task = 'sequence-classification';
+
+const model_url = `${hf_url}/${model_id}/${task}`;
+
+// You can now create the classifier using:
+let classifier = await pipeline('sentiment-analysis', model_url);
+```
 
 ## Demo
 Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova.github.io/transformers.js/). As you'll see, everything runs inside the browser!
