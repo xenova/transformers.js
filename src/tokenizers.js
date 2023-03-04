@@ -1,9 +1,9 @@
-import {
+const {
     Callable,
     fetchJSON,
     reverseDictionary,
     escapeRegExp
-} from './utils.js'
+} = require('./utils.js');
 
 
 class TokenizerModel extends Callable {
@@ -1080,7 +1080,7 @@ class TokenLatticeNode {
 }
 
 
-export {
+module.exports = {
     AutoTokenizer,
     BertTokenizer,
     DistilBertTokenizer,

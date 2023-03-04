@@ -1,18 +1,125 @@
 
-class Callable extends Function {
-    constructor() {
-        let closure = function (...args) { return closure._call(...args) }
-        return Object.setPrototypeOf(closure, new.target.prototype)
+const fs = require('fs');
+
+const { env } = require('./env.js');
+
+class FileResponse {
+    constructor(filePath) {
+        this.filePath = filePath;
+        this.headers = {};
+        this.headers.get = (x) => this.headers[x]
+
+        this.exists = fs.existsSync(filePath);
+        if (this.exists) {
+            this.status = 200;
+            this.statusText = 'OK';
+
+
+            let stats = fs.statSync(filePath);
+            this.headers['content-length'] = stats.size;
+
+            this.updateContentType();
+
+            let self = this;
+            this.body = new ReadableStream({
+                start(controller) {
+                    self.arrayBuffer().then(buffer => {
+                        controller.enqueue(new Uint8Array(buffer));
+                        controller.close();
+                    })
+                }
+            });
+        } else {
+            this.status = 404;
+            this.statusText = 'Not Found';
+            this.body = null;
+        }
     }
 
-    _call(...args) {
-        throw Error('Must implement _call method in subclass')
+    updateContentType() {
+        // Set content-type header based on file extension
+        const extension = this.filePath.split('.').pop().toLowerCase();
+        switch (extension) {
+            case 'txt':
+                this.headers['content-type'] = 'text/plain';
+                break;
+            case 'html':
+                this.headers['content-type'] = 'text/html';
+                break;
+            case 'css':
+                this.headers['content-type'] = 'text/css';
+                break;
+            case 'js':
+                this.headers['content-type'] = 'text/javascript';
+                break;
+            case 'json':
+                this.headers['content-type'] = 'application/json';
+                break;
+            case 'png':
+                this.headers['content-type'] = 'image/png';
+                break;
+            case 'jpg':
+            case 'jpeg':
+                this.headers['content-type'] = 'image/jpeg';
+                break;
+            case 'gif':
+                this.headers['content-type'] = 'image/gif';
+                break;
+            default:
+                this.headers['content-type'] = 'application/octet-stream';
+                break;
+        }
+    }
+
+    clone() {
+        return new FileResponse(this.filePath, {
+            status: this.status,
+            statusText: this.statusText,
+            headers: this.headers,
+        });
+    }
+
+    async arrayBuffer() {
+        const data = await fs.promises.readFile(this.filePath);
+        return data.buffer;
+    }
+
+    async blob() {
+        const data = await fs.promises.readFile(this.filePath);
+        return new Blob([data], { type: this.headers['content-type'] });
+    }
+
+    async text() {
+        const data = await fs.promises.readFile(this.filePath, 'utf8');
+        return data;
+    }
+
+    async json() {
+        return JSON.parse(await this.text());
     }
 }
 
+function isValidHttpUrl(string) {
+    // https://stackoverflow.com/a/43467144
+    let url;
+    try {
+        url = new URL(string);
+    } catch (_) {
+        return false;
+    }
+    return url.protocol === "http:" || url.protocol === "https:";
+}
 
-// Use caching when available
-const CACHE_AVAILABLE = 'caches' in self;
+async function getFile(url) {
+    // Helper function to get a file, using either the Fetch API or FileSystem API
+
+    if (env.useFS && !isValidHttpUrl(url)) {
+        return new FileResponse(url)
+
+    } else {
+        return fetch(url)
+    }
+}
 
 function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
@@ -28,20 +135,24 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
     })
 
     let cache;
-    if (CACHE_AVAILABLE) {
+    if (env.useCache) {
         cache = await caches.open('transformers-cache');
     }
 
-    const request = new Request(pathJoin(modelPath, fileName));
+    const request = pathJoin(modelPath, fileName);
 
     let response;
     let responseToCache;
 
-    if (!CACHE_AVAILABLE || (response = await cache.match(request)) === undefined) {
+    if (!env.useCache || (response = await cache.match(request)) === undefined) {
         // Caching not available, or model is not cached, so we perform the request
-        response = await fetch(request);
+        response = await getFile(request);
 
-        if (CACHE_AVAILABLE) {
+        if (response.status === 404) {
+            throw Error(`File not found. Could not locate "${request}".`)
+        }
+
+        if (env.useCache) {
             // only clone if cache available
             responseToCache = response.clone();
         }
@@ -91,17 +202,33 @@ async function readResponse(response, progressCallback) {
     // Read and track progress when reading a Response object
 
     const contentLength = response.headers.get('Content-Length');
-    const total = parseInt(contentLength);
-    const reader = response.body.getReader();
-    const buffer = new Uint8Array(total);
-
+    if (contentLength === null) {
+        console.warn('Unable to determine content-length from response headers. Will expand buffer when needed.')
+    }
+    let total = parseInt(contentLength ?? '0');
+    let buffer = new Uint8Array(total);
     let loaded = 0;
+
+    const reader = response.body.getReader();
     async function read() {
         const { done, value } = await reader.read();
         if (done) return;
 
+        let newLoaded = loaded + value.length;
+        if (newLoaded > total) {
+            total = newLoaded;
+
+            // Adding the new data will overflow buffer.
+            // In this case, we extend the buffer
+            let newBuffer = new Uint8Array(total);
+
+            // copy contents
+            newBuffer.set(buffer);
+
+            buffer = newBuffer;
+        }
         buffer.set(value, loaded)
-        loaded += value.length;
+        loaded = newLoaded;
 
         const progress = (loaded / total) * 100;
 
@@ -229,7 +356,19 @@ function magnitude(arr) {
     return Math.sqrt(arr.reduce((acc, val) => acc + val * val, 0));
 }
 
-export {
+
+class Callable extends Function {
+    constructor() {
+        let closure = function (...args) { return closure._call(...args) }
+        return Object.setPrototypeOf(closure, new.target.prototype)
+    }
+
+    _call(...args) {
+        throw Error('Must implement _call method in subclass')
+    }
+}
+
+module.exports = {
     Callable,
     getModelFile,
     dispatchCallback,

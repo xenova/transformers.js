@@ -4,10 +4,46 @@ Run 🤗 Transformers in your browser! We currently support [BERT](https://huggi
 
 ![teaser](https://user-images.githubusercontent.com/26504141/221056008-e906614e-e6f0-4e10-b0a8-7d5c99e955b4.gif)
 
-
+Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova.github.io/transformers.js/). As you'll see, everything runs inside the browser!
 
 ## Getting Started
 
+### Installation
+If you use [npm](https://www.npmjs.com/package/@xenova/transformers), you can install it using:
+```bash
+npm i @xenova/transformers
+```
+
+Alternatively, you can use it in a `<script>` tag from a CDN, for example:
+```html
+<!-- Using jsDelivr -->
+<script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
+
+<!-- or UNPKG -->
+<script src="https://www.unpkg.com/@xenova/transformers/dist/transformers.min.js"></script>
+```
+
+### Setup
+By default, Transformers.js uses hosted [models](https://huggingface.co/Xenova/transformers.js/tree/main/quantized) precompiled [WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/), which should work out-of-the-box. You can override this behaviour as follows:
+```javascript
+import { env } from "@xenova/transformers";
+
+// Use a different host for models.
+// - `remoteURL` defaults to use the HuggingFace Hub
+// - `localURL` defaults to '/models/onnx/quantized/'
+env.remoteURL = 'https://www.example.com/';
+env.localURL = '/path/to/models/';
+
+// Set whether to use remote or local models. Defaults to true.
+//  - If true, use the path specified by `env.remoteURL`.
+//  - If false, use the path specified by `env.localURL`.
+env.remoteModels = false;
+
+// Set parent path of .wasm files. Defaults to use a CDN.
+env.onnx.wasm.wasmPaths = '/path/to/files/';
+```
+
+### Quick tour
 It's super easy to translate from existing code!
 
 
@@ -17,24 +53,27 @@ from transformers import pipeline
 
 # Allocate a pipeline for sentiment-analysis
 classifier = pipeline('sentiment-analysis')
+
 output = classifier('I love transformers!')
 # [{'label': 'POSITIVE', 'score': 0.9998069405555725}]
 ```
 
 Javascript (ours):
 ```javascript
-import { pipeline } from "transformers.js";
+import { pipeline } from "@xenova/transformers";
 
 // Allocate a pipeline for sentiment-analysis
-let classifier = await pipeline('sentiment-analysis')
-let output = await classifier('I love transformers!')
+let classifier = await pipeline('sentiment-analysis');
+
+let output = await classifier('I love transformers!');
 // [{label: 'POSITIVE', score: 0.9998176857266375}]
 ```
 
-
-
-## Demo
-Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova.github.io/transformers.js/). As you'll see, everything runs inside the browser!
+*Note:* In the same way as the Python library, you can use a different model by providing its name as the second argument to the pipeline function. For example:
+```javascript
+// Use a different model for sentiment-analysis
+let classifier = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');
+```
 
 ## Usage
 

@@ -1,26 +1,13 @@
 // Worker.js file for doing all transformer-based computations
 // Needed to ensure the UI thread is not blocked when running
+importScripts('/dist/transformers.min.js');
 
-import {
-    pipeline
-} from '../../src/transformers.js';
-
-// First, set path to wasm files. This is needed when running in a web worker.
-// https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
-// The following code sets the wasm paths relative to the worker.js
-// e.g., /transformers.js/assets/js/worker.js -> /transformers.js/src/
-ort.env.wasm.wasmPaths = location.pathname.split('/').slice(0, -1 - 2).join('/') + '/src/'
-
-// Whether to use quantized versions of models
-const USE_QUANTIZED = true;
+// Set paths to wasm files. In this case, we use the .wasm files present in /dist/.
+env.onnx.wasm.wasmPaths = '/dist/';
 
 // If we are running locally, we should use the local model files (speeds up development)
 // Otherwise, we should use the remote files
-const IS_LOCAL = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
-const MODEL_HOST = IS_LOCAL ? '/models/onnx/' : 'https://huggingface.co/Xenova/transformers.js/resolve/main/';
-
-// Model paths are of the form: BASE_MODEL_PATH/<model_id>/<task>
-const BASE_MODEL_PATH = MODEL_HOST + (USE_QUANTIZED ? 'quantized/' : '')
+env.remoteModels = location.hostname !== '127.0.0.1' && location.hostname !== 'localhost';
 
 // Define task function mapping
 const TASK_FUNCTION_MAPPING = {
@@ -51,7 +38,7 @@ self.addEventListener('message', async (event) => {
 // Ensures only one model is created of each type
 class PipelineFactory {
     static task = null;
-    static path = null;
+    static model = null;
     static instance = null;
 
     constructor(tokenizer, model) {
@@ -60,11 +47,11 @@ class PipelineFactory {
     }
 
     static async getInstance(progressCallback = null) {
-        if (this.task === null || this.path === null) {
-            throw Error("Must set task and path")
+        if (this.task === null || this.model === null) {
+            throw Error("Must set task and model")
         }
         if (this.instance === null) {
-            this.instance = await pipeline(this.task, this.path, {
+            this.instance = await pipeline(this.task, this.model, {
                 progress_callback: progressCallback
             });
         }
@@ -75,32 +62,32 @@ class PipelineFactory {
 
 class TranslationPipelineFactory extends PipelineFactory {
     static task = 'translation';
-    static path = BASE_MODEL_PATH + 't5-small/seq2seq-lm-with-past';
+    static model = 't5-small';
 }
 
 class TextGenerationPipelineFactory extends PipelineFactory {
     static task = 'text-generation';
-    static path = BASE_MODEL_PATH + 'distilgpt2/causal-lm-with-past';
+    static model = 'distilgpt2';
 }
 
 class MaskedLMPipelineFactory extends PipelineFactory {
     static task = 'fill-mask';
-    static path = BASE_MODEL_PATH + 'bert-base-cased/masked-lm';
+    static model = 'bert-base-cased';
 }
 
 class SequenceClassificationPipelineFactory extends PipelineFactory {
     static task = 'text-classification';
-    static path = BASE_MODEL_PATH + 'nlptown/bert-base-multilingual-uncased-sentiment/sequence-classification';
+    static model = 'nlptown/bert-base-multilingual-uncased-sentiment';
 }
 
 class QuestionAnsweringPipelineFactory extends PipelineFactory {
     static task = 'question-answering';
-    static path = BASE_MODEL_PATH + 'distilbert-base-cased-distilled-squad/question-answering';
+    static model = 'distilbert-base-cased-distilled-squad';
 }
 
 class SummarizationPipelineFactory extends PipelineFactory {
     static task = 'summarization';
-    static path = BASE_MODEL_PATH + 'sshleifer/distilbart-cnn-6-6/seq2seq-lm-with-past';
+    static model = 'sshleifer/distilbart-cnn-6-6';
 }
 
 async function translate(data) {

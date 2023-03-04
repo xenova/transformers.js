@@ -1,10 +1,10 @@
-import {
+const {
     Callable,
     indexOfMax,
     softmax,
     log_softmax,
     getTopItems
-} from "./utils.js"
+} = require("./utils.js");
 
 class Sampler extends Callable {
     constructor(temperature) {
@@ -159,7 +159,7 @@ class BeamSearchSampler extends Sampler {
     }
 }
 
-export {
+module.exports = {
     Sampler,
     GreedySampler,
     TopKSampler,

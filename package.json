@@ -1,0 +1,50 @@
+{
+  "name": "@xenova/transformers",
+  "version": "1.0.4",
+  "description": "Run 🤗 Transformers in your browser! We currently support BERT, DistilBERT, T5, GPT2, and BART models, for a variety of tasks including: masked language modelling, text classification, translation, summarization, question answering, and text generation.",
+  "main": "./src/transformers.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "webpack",
+    "dev": "webpack serve --no-client-overlay",
+    "test": "npm run build && node tests/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xenova/transformers.js.git"
+  },
+  "keywords": [
+    "transformers",
+    "javascript",
+    "browser",
+    "huggingface"
+  ],
+  "author": "Xenova",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/xenova/transformers.js/issues"
+  },
+  "homepage": "https://github.com/xenova/transformers.js#readme",
+  "dependencies": {
+    "onnxruntime-web": "^1.14.0"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^11.0.0",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1",
+    "webpack-dev-server": "^4.11.1"
+  },
+  "files": [
+    "src",
+    "dist",
+    "tests",
+    "README.md",
+    "LICENSE"
+  ],
+  "browser": {
+    "fs": false,
+    "path": false
+  }
+}
