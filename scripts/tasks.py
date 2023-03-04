@@ -74,6 +74,22 @@ SUPPORTED_MODELS = {
         't5-base': [
             'default',
             'seq2seq-lm-with-past',
+        ],
+        'google/t5-v1_1-small': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'google/t5-v1_1-base': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'google/flan-t5-small': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'google/flan-t5-base': [
+            'default',
+            'seq2seq-lm-with-past',
         ]
     },
     'bart': {
