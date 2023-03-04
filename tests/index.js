@@ -3,19 +3,15 @@
 // https://github.com/microsoft/onnxruntime/issues/13072
 global.self = global;
 
-const path = require('path')
 const { pipeline, env } = require('..')
 
 // Disable spawning worker threads for testing.
 // This is done by setting numThreads to 1
-env.wasm.numThreads = 1
+env.onnx.wasm.numThreads = 1
 
-// Set base model dir for testing.
-const BASE_MODEL_DIR = path.join(path.dirname(__dirname), '/models/onnx/quantized/')
-
-// Uncomment to test online
-// const BASE_MODEL_DIR = 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/'
-
+// Only use local models
+env.remoteModels = false;
+// env.remoteModels = true; // Uncomment to test online
 
 function isDeepEqual(obj1, obj2, {
     tol = 1e-3
@@ -55,10 +51,9 @@ function isDeepEqual(obj1, obj2, {
 }
 
 async function embeddings() {
-    let model_path = path.join(BASE_MODEL_DIR, 'sentence-transformers/all-MiniLM-L6-v2/default')
 
     // Load embeddings pipeline (uses  by default)
-    let embedder = await pipeline('embeddings', model_path)
+    let embedder = await pipeline('embeddings', 'sentence-transformers/all-MiniLM-L6-v2')
 
 
     // Provide sentences
@@ -88,9 +83,7 @@ async function embeddings() {
 
 
 async function text_classification() {
-    let model_path = path.join(BASE_MODEL_DIR, 'distilbert-base-uncased-finetuned-sst-2-english/sequence-classification')
-
-    let classifier = await pipeline('text-classification', model_path);
+    let classifier = await pipeline('text-classification', 'distilbert-base-uncased-finetuned-sst-2-english');
 
     let outputs1 = await classifier("I hated the movie");
 
@@ -137,9 +130,8 @@ async function text_classification() {
 }
 
 async function masked_language_modelling() {
-    let model_path = path.join(BASE_MODEL_DIR, 'bert-base-uncased/masked-lm')
 
-    let unmasker = await pipeline('fill-mask', model_path);
+    let unmasker = await pipeline('fill-mask', 'bert-base-uncased');
 
     let outputs1 = await unmasker("Once upon a [MASK].");
 
@@ -176,12 +168,11 @@ async function masked_language_modelling() {
 }
 
 async function question_answering() {
-    let model_path = path.join(BASE_MODEL_DIR, 'distilbert-base-uncased-distilled-squad/question-answering')
 
     let question = 'Who was Jim Henson?'
     let context = 'Jim Henson was a nice puppet.'
 
-    let answerer = await pipeline('question-answering', model_path);
+    let answerer = await pipeline('question-answering', 'distilbert-base-uncased-distilled-squad');
     let outputs = await answerer(question, context);
 
     let outputs2 = await answerer(question, context, {
@@ -202,9 +193,8 @@ async function question_answering() {
 }
 
 async function summarization() {
-    let model_path = path.join(BASE_MODEL_DIR, 'sshleifer/distilbart-cnn-6-6/seq2seq-lm-with-past')
 
-    let summarizer = await pipeline('summarization', model_path)
+    let summarizer = await pipeline('summarization', 'sshleifer/distilbart-cnn-6-6')
 
     let texts = [
         `The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.`,
@@ -222,9 +212,8 @@ async function summarization() {
 }
 
 async function translation() {
-    let model_path = path.join(BASE_MODEL_DIR, 't5-small/seq2seq-lm-with-past')
 
-    let translator = await pipeline('translation_en_to_de', model_path)
+    let translator = await pipeline('translation_en_to_de', 't5-small')
 
     let translation1 = await translator('Hello, how are you?')
     let texts = [
@@ -248,9 +237,8 @@ async function translation() {
 }
 
 async function text_generation() {
-    let model_path = path.join(BASE_MODEL_DIR, 'distilgpt2/causal-lm-with-past')
 
-    let generator = await pipeline('text-generation', model_path)
+    let generator = await pipeline('text-generation', 'distilgpt2')
 
     let output1 = await generator('Once upon a time, there was a', {
         max_new_tokens: 10,
