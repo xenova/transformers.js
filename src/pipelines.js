@@ -282,7 +282,7 @@ const SUPPORTED_TASKS = {
         "pipeline": SummarizationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
-            "model": "sshleifer/distilbart-cnn-12-6"
+            "model": "sshleifer/distilbart-cnn-6-6"
         },
         "type": "text",
     },
