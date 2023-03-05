@@ -283,6 +283,18 @@ async function text_generation() {
     );
 }
 
+
+async function text2text_generation() {
+    let generator = await pipeline('text2text-generation', 'google/flan-t5-small')
+    let output1 = await generator('A step by step recipe to make bolognese pasta:')
+
+    return isDeepEqual(
+        output1,
+        ['Using a bolognese pasta, cut the pasta into squares and place in a large bowl.']
+    )
+}
+
+
 // run tests
 (async () => {
     console.log('Text classification:', await text_classification())
@@ -292,4 +304,6 @@ async function text_generation() {
     console.log('Translation:', await translation())
     console.log('Text generation:', await text_generation())
     console.log('Embeddings:', await embeddings())
+    console.log('Text to text generation:', await text2text_generation())
+
 })();
