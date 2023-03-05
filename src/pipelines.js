@@ -296,14 +296,14 @@ const SUPPORTED_TASKS = {
         },
         "type": "text",
     },
-    // "text2text-generation": {
-    //     "pipeline": Text2TextGenerationPipeline,
-    //     "model": AutoModelForSeq2SeqLM,
-    //     "default": {
-    //         "model": "t5-small"
-    //     },
-    //     "type": "text",
-    // },
+    "text2text-generation": {
+        "pipeline": Text2TextGenerationPipeline,
+        "model": AutoModelForSeq2SeqLM,
+        "default": {
+            "model": "google/flan-t5-small"
+        },
+        "type": "text",
+    },
     "text-generation": {
         "pipeline": TextGenerationPipeline,
         "model": AutoModelForCausalLM,
@@ -331,6 +331,7 @@ const TASK_NAME_MAPPING = {
     'embeddings': 'default',
     'fill-mask': 'masked-lm',
 
+    'text2text-generation': 'seq2seq-lm-with-past',
     'summarization': 'seq2seq-lm-with-past',
     'text-generation': 'causal-lm-with-past',
 }
