@@ -304,6 +304,11 @@ class BPE extends TokenizerModel {
 
 class Normalizer extends Callable {
 
+    constructor(config) {
+        super();
+        this.config = config;
+    }
+
     static fromConfig(config) {
         if (config === null) return null;
         switch (config.type) {
@@ -311,6 +316,10 @@ class Normalizer extends Callable {
                 return new BertNormalizer(config);
             case 'Precompiled':
                 return new Precompiled(config);
+            case 'Sequence':
+                return new NormalizerSequence(config);
+            case 'Replace':
+                return new Replace(config);
             default:
                 throw new Error(`Unknown Normalizer type: ${config.type}`);
         }
@@ -326,21 +335,39 @@ class Normalizer extends Callable {
 
 }
 
-class BertNormalizer extends Normalizer {
-    constructor(config) {
-        super();
-        this.config = config;
+class Replace extends Normalizer {
+    normalize(text) {
+        // TODO: this.config.pattern might not be Regex.
 
+        text = text.replace(new RegExp(this.config.pattern.Regex, 'g'), this.config.content)
+        return text;
+    }
+}
+class NormalizerSequence extends Normalizer {
+    constructor(config) {
+        super(config);
+        this.normalizers = config.normalizers.map(x => Normalizer.fromConfig(x));
+    }
+    normalize(text) {
+        // TODO use reduce?
+        for (let normalizer of this.normalizers) {
+            text = normalizer.normalize(text);
+        }
+        return text;
+    }
+}
+class BertNormalizer extends Normalizer {
+
+    stripAccents(text) {
+        return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    normalize(text) {
         // TODO use rest of config
         // config.clean_text,
         // config.handle_chinese_chars,
         // config.strip_accents,
         // config.lowercase,
-    }
-    stripAccents(text) {
-        return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    }
-    normalize(text) {
+
         if (this.config.lowercase) {
             text = text.toLowerCase();
 
@@ -362,7 +389,7 @@ class PreTokenizer extends Callable {
             case 'BertPreTokenizer':
                 return new BertPreTokenizer(config);
             case 'Sequence':
-                return new Sequence(config);
+                return new PreTokenizerSequence(config);
             case 'WhitespaceSplit':
                 return new WhitespaceSplit(config);
             case 'Metaspace':
@@ -573,6 +600,11 @@ class MetaspacePreTokenizer extends PreTokenizer {
         this.strRep = config.str_rep || this.replacement;
     }
     pre_tokenize(normalizedTokens) {
+        if (typeof normalizedTokens === 'string' || normalizedTokens instanceof String) {
+            // Metaspace acts on a list of tokens. If passing in a string, first split on whitespace
+            normalizedTokens = normalizedTokens.split(/\s+/);
+        }
+
         const result = [];
         for (let token of normalizedTokens) {
             let normalized = token.replace(' ', this.strRep);
@@ -611,7 +643,7 @@ class MetaspaceDecoder extends Decoder {
 
 class Precompiled extends Normalizer {
     constructor(config) {
-        super();
+        super(config);
         this.charsmap = config.precompiled_charsmap;
     }
     normalize(text) {
@@ -619,7 +651,7 @@ class Precompiled extends Normalizer {
     }
 }
 
-class Sequence extends PreTokenizer {
+class PreTokenizerSequence extends PreTokenizer {
     constructor(config) {
         super();
         this.tokenizers = config.pretokenizers.map(x => PreTokenizer.fromConfig(x));
