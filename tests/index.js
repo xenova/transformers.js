@@ -285,12 +285,30 @@ async function text_generation() {
 
 
 async function text2text_generation() {
-    let generator = await pipeline('text2text-generation', 'google/flan-t5-small')
-    let output1 = await generator('A step by step recipe to make bolognese pasta:')
+    let generator1 = await pipeline('text2text-generation', 'google/flan-t5-small')
+    let output1 = await generator1(
+        "Premise:  At my age you will probably have learnt one lesson. " +
+        "Hypothesis:  It's not certain how many lessons you'll learn by your thirties. " +
+        "Does the premise entail the hypothesis?"
+    )
+
+    let generator2 = await pipeline('text2text-generation', 'google/flan-t5-base')
+    let output2 = await generator2(`
+        Q: Roger has 5 tennis balls. He buys 2 more cans of tennis balls. Each can
+        has 3 tennis balls. How many tennis balls does he have now?
+        A: Roger started with 5 balls. 2 cans of 3 tennis balls each is 6 tennis balls.
+        5 + 6 = 11. The answer is 11.
+
+        Q: A juggler can juggle 16 balls. Half of the balls are golf balls, and half
+        of the golf balls are blue. How many blue golf balls are there?
+    `);
 
     return isDeepEqual(
         output1,
-        ['Using a bolognese pasta, cut the pasta into squares and place in a large bowl.']
+        ['it is not possible to tell']
+    ) && isDeepEqual(
+        output2,
+        ['The number of golf balls is 16 / 2 = 8 golf balls. The number of blue golf balls is 8 / 2 = 4 golf balls. The answer is 4.']
     )
 }
 
