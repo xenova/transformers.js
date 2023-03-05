@@ -173,7 +173,7 @@ class FillMaskPipeline extends Pipeline {
 }
 
 class Text2TextGenerationPipeline extends Pipeline {
-    _key = 'text';
+    _key = null;
 
     async _call(texts, generate_kwargs = {}) {
         if (!Array.isArray(texts)) {
@@ -192,9 +192,7 @@ class Text2TextGenerationPipeline extends Pipeline {
             let text = this.tokenizer.decode(x, {
                 skip_special_tokens: true,
             });
-            return {
-                [this._key]: text
-            }
+            return (this._key === null) ? text : { [this._key]: text }
         });
     }
 }
