@@ -17,6 +17,10 @@ const {
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
 } = require("./models.js");
+const {
+    AutoProcessor
+} = require("./processors.js");
+
 
 const {
     env
@@ -24,11 +28,11 @@ const {
 
 
 class Pipeline extends Callable {
-    constructor(tokenizer, model, task) {
+    constructor(task, tokenizer, model) {
         super();
+        this.task = task;
         this.tokenizer = tokenizer;
         this.model = model;
-        this.task = task;
     }
 
     async _call(texts) {
@@ -251,6 +255,25 @@ class EmbeddingsPipeline extends Pipeline {
     }
 }
 
+class AutomaticSpeechRecognitionPipeline extends Pipeline {
+
+    constructor(task, tokenizer, model, processor) {
+        super(task, tokenizer, model);
+        this.processor = processor;
+    }
+
+    async _call(audio) {
+
+        let input_features = (await this.processor(audio)).input_features
+
+        let output = await this.model.generate(input_features)
+
+        return this.tokenizer.batch_decode(output, {
+            skip_special_tokens: true,
+        })
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "pipeline": TextClassificationPipeline,
@@ -311,6 +334,16 @@ const SUPPORTED_TASKS = {
         "type": "text",
     },
 
+    "automatic-speech-recognition": {
+        "pipeline": AutomaticSpeechRecognitionPipeline,
+        "model": AutoModelForSeq2SeqLM,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "openai/whisper-tiny.en"
+        },
+        "type": "multimodal",
+    },
+
     // This task is not supported in HuggingFace transformers, but serves as a useful interface
     // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
     "embeddings": {
@@ -332,6 +365,8 @@ const TASK_NAME_MAPPING = {
     'text2text-generation': 'seq2seq-lm-with-past',
     'summarization': 'seq2seq-lm-with-past',
     'text-generation': 'causal-lm-with-past',
+
+    'automatic-speech-recognition': 'speech2seq-lm-with-past'
 }
 
 const TASK_PREFIX_MAPPING = {
@@ -398,14 +433,21 @@ async function pipeline(
 
     let modelClass = pipelineInfo.model;
     let pipelineClass = pipelineInfo.pipeline;
+    let processorClass = pipelineInfo.processor;
 
-    // Load tokenizer and model
-    let [pipelineTokenizer, pipelineModel] = await Promise.all([
+    let promises = [
         AutoTokenizer.from_pretrained(model, progress_callback),
         modelClass.from_pretrained(model, progress_callback)
-    ])
+    ];
+    if (processorClass) {
+        promises.push(
+            processorClass.from_pretrained(model, progress_callback)
+        )
+    }
 
-    return new pipelineClass(pipelineTokenizer, pipelineModel, task);
+    // Load tokenizer and model
+    let items = await Promise.all(promises)
+    return new pipelineClass(task, ...items);
 
 }
 

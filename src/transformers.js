@@ -15,6 +15,10 @@ const {
     AutoModelForQuestionAnswering,
     T5ForConditionalGeneration
 } = require("./models.js");
+
+const {
+    AutoProcessor
+} = require("./processors.js");
 const {
     pipeline
 } = require("./pipelines.js");
@@ -37,6 +41,9 @@ const moduleExports = {
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     T5ForConditionalGeneration,
+
+    // Processors
+    AutoProcessor,
 
     // other
     pipeline,

@@ -59,6 +59,8 @@ class AutoModel {
                 return new BartModel(config, session);
             case 'roberta':
                 return new RobertaModel(config, session);
+            case 'whisper':
+                return new WhisperModel(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -127,6 +129,13 @@ class AutoModelForSeq2SeqLM {
                     decoder_session,
                     decoder_with_past_model
                 );
+            case 'whisper':
+                return new WhisperForConditionalGeneration(
+                    config,
+                    session,
+                    decoder_session,
+                    decoder_with_past_model
+                )
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
         }
@@ -319,11 +328,11 @@ class PreTrainedModel extends Callable {
         throw Error("forward should be implemented in subclasses.")
     }
 
-    async generate(inputTokenIds, options = {}) {
+    async generate(inputs, options = {}) {
         options = this.prepareGenerationOptions(options);
 
-        if (Array.isArray(inputTokenIds) && Array.isArray(inputTokenIds[0])) { // batched
-            let generations = (await Promise.all(inputTokenIds.map(x => this.generate_single(x, options))));
+        if (Array.isArray(inputs) && Array.isArray(inputs[0])) { // batched
+            let generations = (await Promise.all(inputs.map(x => this.generate_single(x, options))));
 
             // NOTE: we flatten the output arrays, since this
             // mimics how HuggingFace's generate function operates.
@@ -334,12 +343,12 @@ class PreTrainedModel extends Callable {
             }
             return generations
         } else {
-            return this.generate_single(inputTokenIds, options)
+            return this.generate_single(inputs, options)
         }
     }
 
-    async generate_single(inputTokenIds, options = {}) {
-        if (inputTokenIds.length === 0) {
+    async generate_single(inputs, options = {}) {
+        if (inputs.length === 0) {
             throw Error("Must supply a non-empty array of input token ids.")
         }
         // TODO implement early_stopping
@@ -350,7 +359,7 @@ class PreTrainedModel extends Callable {
 
         let sampler = Sampler.getSampler(options);
 
-        let beams = [this.getStartBeam(inputTokenIds, numOutputTokens)];
+        let beams = [this.getStartBeam(inputs, numOutputTokens)];
 
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
 
@@ -363,7 +372,7 @@ class PreTrainedModel extends Callable {
                     continue
                 }
 
-                let output = await this.runBeam(beam, inputTokenIds);
+                let output = await this.runBeam(beam, inputs);
 
                 let sampledTokens = sampler(output.logits);
 
@@ -410,11 +419,13 @@ class PreTrainedModel extends Callable {
         return Object.assign({}, this.default_generation_options, options)
     }
 
-    getPastKeyValues(pkvNames, decoderResults) {
+    getPastKeyValues(decoderResults) {
         const pkvs = {};
 
-        for (const name of pkvNames) {
-            pkvs[name.replace('present', 'past_key_values')] = decoderResults[name]
+        for (const name in decoderResults) {
+            if (name.startsWith('present')) {
+                pkvs[name.replace('present', 'past_key_values')] = decoderResults[name]
+            }
         }
         return pkvs;
     }
@@ -581,14 +592,14 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         if (pastKeyValues === null) {
             const initDecoderResults = await this.decoder_session.run(decoderFeeds);
             logits = initDecoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_session.outputNames.slice(1), initDecoderResults);
+            pastKeyValues = this.getPastKeyValues(initDecoderResults);
 
         } else {
             Object.assign(decoderFeeds, pastKeyValues)
 
             const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
             logits = decoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_with_past_model.outputNames.slice(1), decoderResults);
+            pastKeyValues = this.getPastKeyValues(decoderResults);
         }
 
         return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
@@ -664,7 +675,7 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         let decoderResults = await this.session.run(decoderFeeds);
         let logits = decoderResults.logits;
 
-        past_key_values = this.getPastKeyValues(this.session.outputNames.slice(1), decoderResults);
+        past_key_values = this.getPastKeyValues(decoderResults);
         return { logits, past_key_values };
     }
 
@@ -776,14 +787,14 @@ class BartForConditionalGeneration extends BartPretrainedModel {
         if (pastKeyValues === null) {
             const initDecoderResults = await this.decoder_session.run(decoderFeeds);
             logits = initDecoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_session.outputNames.slice(1), initDecoderResults);
+            pastKeyValues = this.getPastKeyValues(initDecoderResults);
 
         } else {
             Object.assign(decoderFeeds, pastKeyValues)
 
             const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
             logits = decoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_with_past_model.outputNames.slice(1), decoderResults);
+            pastKeyValues = this.getPastKeyValues(decoderResults);
         }
 
         return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
@@ -812,6 +823,115 @@ class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// T5 models
+class WhisperPreTrainedModel extends PreTrainedModel { };
+
+class WhisperModel extends WhisperPreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (WhisperModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'WhisperForConditionalGeneration'}"
+        )
+    }
+}
+
+class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
+    constructor(config, session, decoder_session, decoder_with_past_model) {
+        super(config, session);
+        this.decoder_session = decoder_session;
+        this.decoder_with_past_model = decoder_with_past_model;
+    }
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+        // TODO optimize? Lots of overlap between decoder and init_decoder
+
+        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        return new this(config, session, decoder_session, decoder_with_past_model);
+    }
+
+    getStartBeam(inputTokenIds, numOutputTokens) {
+        // arguments ignored in this case
+        return {
+            encoder_outputs: null,
+            past_key_values: null,
+
+            // decoder_input_ids == output_token_ids
+            output_token_ids: [this.config.decoder_start_token_id],
+            done: false,
+            score: 0,
+        }
+    }
+
+    async runBeam(beam, inputFeatures) {
+        // 1. Prepare
+        let model_inputs = {
+            input_features: inputFeatures,
+            decoder_input_ids: beam.output_token_ids.slice(-1),
+            encoder_outputs: beam.encoder_outputs,
+            past_key_values: beam.past_key_values,
+        }
+
+        // 2. Run
+        let output = await this.forward(model_inputs);
+
+        // 3. Update
+        beam.past_key_values = output.past_key_values;
+        beam.encoder_outputs = output.encoder_outputs;
+
+        return output;
+    }
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
+    async forward(model_inputs) {
+        model_inputs = this.prepare_inputs(model_inputs)
+
+        let encoderOutputs = model_inputs.encoder_outputs;
+        let pastKeyValues = model_inputs.past_key_values;
+
+        if (encoderOutputs === null) {
+            const encoderFeeds = {
+                input_features: model_inputs.input_features,
+            }
+            const encoderResults = await this.session.run(encoderFeeds);
+            encoderOutputs = encoderResults.last_hidden_state;
+        }
+        let decoderFeeds = {
+            input_ids: model_inputs.decoder_input_ids,
+            encoder_hidden_states: encoderOutputs,
+        };
+
+        let logits;
+        if (pastKeyValues === null) {
+            const initDecoderResults = await this.decoder_session.run(decoderFeeds);
+            logits = initDecoderResults.logits;
+            pastKeyValues = this.getPastKeyValues(initDecoderResults);
+
+        } else {
+            Object.assign(decoderFeeds, pastKeyValues)
+            const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
+            logits = decoderResults.logits;
+            pastKeyValues = this.getPastKeyValues(decoderResults);
+        }
+
+        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
     }
 }
 //////////////////////////////////////////////////
