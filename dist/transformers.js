@@ -1065,6 +1065,395 @@ module.exports = {
 
 /***/ }),
 
+/***/ "./src/fft.js":
+/*!********************!*\
+  !*** ./src/fft.js ***!
+  \********************/
+/***/ ((module) => {
+
+// Code adapted from https://www.npmjs.com/package/fft.js
+
+class FFT {
+
+    constructor(size) {
+        this.size = size | 0; // convert to a 32-bit signed integer
+        if (this.size <= 1 || (this.size & (this.size - 1)) !== 0)
+            throw new Error('FFT size must be a power of two and bigger than 1');
+
+        this._csize = size << 1;
+
+        this.table = new Float64Array(this.size * 2);
+        for (let i = 0; i < this.table.length; i += 2) {
+            const angle = Math.PI * i / this.size;
+            this.table[i] = Math.cos(angle);
+            this.table[i + 1] = -Math.sin(angle);
+        }
+
+        // Find size's power of two
+        let power = 0;
+        for (let t = 1; this.size > t; t <<= 1)
+            ++power;
+
+        // Calculate initial step's width:
+        //   * If we are full radix-4 - it is 2x smaller to give inital len=8
+        //   * Otherwise it is the same as `power` to give len=4
+        this._width = power % 2 === 0 ? power - 1 : power;
+
+        // Pre-compute bit-reversal patterns
+        this._bitrev = new Int32Array(1 << this._width);
+        for (let j = 0; j < this._bitrev.length; ++j) {
+            this._bitrev[j] = 0;
+            for (let shift = 0; shift < this._width; shift += 2) {
+                const revShift = this._width - shift - 2;
+                this._bitrev[j] |= ((j >>> shift) & 3) << revShift;
+            }
+        }
+    }
+
+    createComplexArray() {
+        return new Float64Array(this._csize);
+    }
+    fromComplexArray(complex, storage) {
+        const res = storage || new Array(complex.length >>> 1);
+        for (let i = 0; i < complex.length; i += 2)
+            res[i >>> 1] = complex[i];
+        return res;
+    }
+
+    toComplexArray(input, storage) {
+        const res = storage || this.createComplexArray();
+        for (let i = 0; i < res.length; i += 2) {
+            res[i] = input[i >>> 1];
+            res[i + 1] = 0;
+        }
+        return res;
+    }
+
+    completeSpectrum(spectrum) {
+        const size = this._csize;
+        const half = size >>> 1;
+        for (let i = 2; i < half; i += 2) {
+            spectrum[size - i] = spectrum[i];
+            spectrum[size - i + 1] = -spectrum[i + 1];
+        }
+    }
+
+    transform(out, data) {
+        if (out === data)
+            throw new Error('Input and output buffers must be different');
+
+        this._transform4(out, data, 1 /* DONE */);
+    }
+
+    realTransform(out, data) {
+        if (out === data)
+            throw new Error('Input and output buffers must be different');
+
+        this._realTransform4(out, data, 1/* DONE */);
+    }
+
+    inverseTransform(out, data) {
+        if (out === data)
+            throw new Error('Input and output buffers must be different');
+
+        this._transform4(out, data, -1 /* DONE */);
+        for (let i = 0; i < out.length; ++i)
+            out[i] /= this.size;
+    }
+    _transform4(out, data, inv) {
+        // radix-4 implementation
+
+        const size = this._csize;
+
+        // Initial step (permute and transform)
+        const width = this._width;
+        let step = 1 << width;
+        let len = (size / step) << 1;
+
+        let outOff;
+        let t;
+        let bitrev = this._bitrev;
+        if (len === 4) {
+            for (outOff = 0, t = 0; outOff < size; outOff += len, ++t) {
+                const off = bitrev[t];
+                this._singleTransform2(data, out, outOff, off, step);
+            }
+        } else {
+            // len === 8
+            for (outOff = 0, t = 0; outOff < size; outOff += len, ++t) {
+                const off = bitrev[t];
+                this._singleTransform4(data, out, outOff, off, step, inv);
+            }
+        }
+
+        // Loop through steps in decreasing order
+        for (step >>= 2; step >= 2; step >>= 2) {
+            len = (size / step) << 1;
+            let quarterLen = len >>> 2;
+
+            // Loop through offsets in the data
+            for (outOff = 0; outOff < size; outOff += len) {
+                // Full case
+                let limit = outOff + quarterLen;
+                for (let i = outOff, k = 0; i < limit; i += 2, k += step) {
+                    const A = i;
+                    const B = A + quarterLen;
+                    const C = B + quarterLen;
+                    const D = C + quarterLen;
+
+                    // Original values
+                    const Ar = out[A];
+                    const Ai = out[A + 1];
+                    const Br = out[B];
+                    const Bi = out[B + 1];
+                    const Cr = out[C];
+                    const Ci = out[C + 1];
+                    const Dr = out[D];
+                    const Di = out[D + 1];
+
+                    const tableBr = this.table[k];
+                    const tableBi = inv * this.table[k + 1];
+                    const MBr = Br * tableBr - Bi * tableBi;
+                    const MBi = Br * tableBi + Bi * tableBr;
+
+                    const tableCr = this.table[2 * k];
+                    const tableCi = inv * this.table[2 * k + 1];
+                    const MCr = Cr * tableCr - Ci * tableCi;
+                    const MCi = Cr * tableCi + Ci * tableCr;
+
+                    const tableDr = this.table[3 * k];
+                    const tableDi = inv * this.table[3 * k + 1];
+                    const MDr = Dr * tableDr - Di * tableDi;
+                    const MDi = Dr * tableDi + Di * tableDr;
+
+                    // Pre-Final values
+                    const T0r = Ar + MCr;
+                    const T0i = Ai + MCi;
+                    const T1r = Ar - MCr;
+                    const T1i = Ai - MCi;
+                    const T2r = MBr + MDr;
+                    const T2i = MBi + MDi;
+                    const T3r = inv * (MBr - MDr);
+                    const T3i = inv * (MBi - MDi);
+
+                    // Final values
+                    out[A] = T0r + T2r;
+                    out[A + 1] = T0i + T2i;
+                    out[B] = T1r + T3i;
+                    out[B + 1] = T1i - T3r;
+                    out[C] = T0r - T2r;
+                    out[C + 1] = T0i - T2i;
+                    out[D] = T1r - T3i;
+                    out[D + 1] = T1i + T3r;
+                }
+            }
+        }
+    }
+
+    _singleTransform2(data, out, outOff, off, step) {
+        // radix-2 implementation
+        // NOTE: Only called for len=4
+
+        const evenR = data[off];
+        const evenI = data[off + 1];
+        const oddR = data[off + step];
+        const oddI = data[off + step + 1];
+
+        out[outOff] = evenR + oddR;
+        out[outOff + 1] = evenI + oddI;
+        out[outOff + 2] = evenR - oddR;
+        out[outOff + 3] = evenI - oddI;
+    }
+
+    _singleTransform4(data, out, outOff, off, step, inv) {
+        // radix-4
+        // NOTE: Only called for len=8
+        const step2 = step * 2;
+        const step3 = step * 3;
+
+        // Original values
+        const Ar = data[off];
+        const Ai = data[off + 1];
+        const Br = data[off + step];
+        const Bi = data[off + step + 1];
+        const Cr = data[off + step2];
+        const Ci = data[off + step2 + 1];
+        const Dr = data[off + step3];
+        const Di = data[off + step3 + 1];
+
+        // Pre-Final values
+        const T0r = Ar + Cr;
+        const T0i = Ai + Ci;
+        const T1r = Ar - Cr;
+        const T1i = Ai - Ci;
+        const T2r = Br + Dr;
+        const T2i = Bi + Di;
+        const T3r = inv * (Br - Dr);
+        const T3i = inv * (Bi - Di);
+
+        // Final values
+        out[outOff] = T0r + T2r;
+        out[outOff + 1] = T0i + T2i;
+        out[outOff + 2] = T1r + T3i;
+        out[outOff + 3] = T1i - T3r;
+        out[outOff + 4] = T0r - T2r;
+        out[outOff + 5] = T0i - T2i;
+        out[outOff + 6] = T1r - T3i;
+        out[outOff + 7] = T1i + T3r;
+    }
+
+    _realTransform4(out, data, inv) {
+        // Real input radix-4 implementation
+        const size = this._csize;
+
+        // Initial step (permute and transform)
+        const width = this._width;
+        let step = 1 << width;
+        let len = (size / step) << 1;
+
+        var outOff;
+        var t;
+        var bitrev = this._bitrev;
+        if (len === 4) {
+            for (outOff = 0, t = 0; outOff < size; outOff += len, ++t) {
+                const off = bitrev[t];
+                this._singleRealTransform2(data, out, outOff, off >>> 1, step >>> 1);
+            }
+        } else {
+            // len === 8
+            for (outOff = 0, t = 0; outOff < size; outOff += len, ++t) {
+                const off = bitrev[t];
+                this._singleRealTransform4(data, out, outOff, off >>> 1, step >>> 1, inv);
+            }
+        }
+
+        // Loop through steps in decreasing order
+        for (step >>= 2; step >= 2; step >>= 2) {
+            len = (size / step) << 1;
+            const halfLen = len >>> 1;
+            const quarterLen = halfLen >>> 1;
+            const hquarterLen = quarterLen >>> 1;
+
+            // Loop through offsets in the data
+            for (outOff = 0; outOff < size; outOff += len) {
+                for (let i = 0, k = 0; i <= hquarterLen; i += 2, k += step) {
+                    const A = outOff + i;
+                    const B = A + quarterLen;
+                    const C = B + quarterLen;
+                    const D = C + quarterLen;
+
+                    // Original values
+                    const Ar = out[A];
+                    const Ai = out[A + 1];
+                    const Br = out[B];
+                    const Bi = out[B + 1];
+                    const Cr = out[C];
+                    const Ci = out[C + 1];
+                    const Dr = out[D];
+                    const Di = out[D + 1];
+
+                    const tableBr = this.table[k];
+                    const tableBi = inv * this.table[k + 1];
+                    const MBr = Br * tableBr - Bi * tableBi;
+                    const MBi = Br * tableBi + Bi * tableBr;
+
+                    const tableCr = this.table[2 * k];
+                    const tableCi = inv * this.table[2 * k + 1];
+                    const MCr = Cr * tableCr - Ci * tableCi;
+                    const MCi = Cr * tableCi + Ci * tableCr;
+
+                    const tableDr = this.table[3 * k];
+                    const tableDi = inv * this.table[3 * k + 1];
+                    const MDr = Dr * tableDr - Di * tableDi;
+                    const MDi = Dr * tableDi + Di * tableDr;
+
+                    // Pre-Final values
+                    const T0r = Ar + MCr;
+                    const T0i = Ai + MCi;
+                    const T1r = Ar - MCr;
+                    const T1i = Ai - MCi;
+                    const T2r = MBr + MDr;
+                    const T2i = MBi + MDi;
+                    const T3r = inv * (MBr - MDr);
+                    const T3i = inv * (MBi - MDi);
+
+                    // Final values
+                    out[A] = T0r + T2r;
+                    out[A + 1] = T0i + T2i;
+                    out[B] = T1r + T3i;
+                    out[B + 1] = T1i - T3r;
+
+                    // Output final middle point
+                    if (i === 0) {
+                        out[C] = T0r - T2r;
+                        out[C + 1] = T0i - T2i;
+                        continue;
+                    }
+
+                    // Do not overwrite ourselves
+                    if (i === hquarterLen)
+                        continue;
+
+                    const SA = outOff + quarterLen - i;
+                    const SB = outOff + halfLen - i;
+
+                    out[SA] = T1r + -inv * T3i;
+                    out[SA + 1] = -T1i - inv * T3r;
+                    out[SB] = T0r + -inv * T2r;
+                    out[SB + 1] = -T0i + inv * T2i;
+                }
+            }
+        }
+    }
+
+    _singleRealTransform2(data, out, outOff, off, step) {
+        // radix-2 implementation
+        // NOTE: Only called for len=4
+
+        const evenR = data[off];
+        const oddR = data[off + step];
+
+        out[outOff] = evenR + oddR;
+        out[outOff + 1] = 0;
+        out[outOff + 2] = evenR - oddR;
+        out[outOff + 3] = 0;
+    }
+
+    _singleRealTransform4(data, out, outOff, off, step, inv) {
+        // radix-4
+        // NOTE: Only called for len=8
+        const step2 = step * 2;
+        const step3 = step * 3;
+
+        // Original values
+        const Ar = data[off];
+        const Br = data[off + step];
+        const Cr = data[off + step2];
+        const Dr = data[off + step3];
+
+        // Pre-Final values
+        const T0r = Ar + Cr;
+        const T1r = Ar - Cr;
+        const T2r = Br + Dr;
+        const T3r = inv * (Br - Dr);
+
+        // Final values
+        out[outOff] = T0r + T2r;
+        out[outOff + 1] = 0;
+        out[outOff + 2] = T1r;
+        out[outOff + 3] = -T3r;
+        out[outOff + 4] = T0r - T2r;
+        out[outOff + 5] = 0;
+        out[outOff + 6] = T1r;
+        out[outOff + 7] = T3r;
+    }
+}
+
+module.exports = FFT
+
+
+/***/ }),
+
 /***/ "./src/models.js":
 /*!***********************!*\
   !*** ./src/models.js ***!
@@ -1132,6 +1521,8 @@ class AutoModel {
                 return new BartModel(config, session);
             case 'roberta':
                 return new RobertaModel(config, session);
+            case 'whisper':
+                return new WhisperModel(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -1200,6 +1591,13 @@ class AutoModelForSeq2SeqLM {
                     decoder_session,
                     decoder_with_past_model
                 );
+            case 'whisper':
+                return new WhisperForConditionalGeneration(
+                    config,
+                    session,
+                    decoder_session,
+                    decoder_with_past_model
+                )
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
         }
@@ -1392,11 +1790,11 @@ class PreTrainedModel extends Callable {
         throw Error("forward should be implemented in subclasses.")
     }
 
-    async generate(inputTokenIds, options = {}) {
+    async generate(inputs, options = {}) {
         options = this.prepareGenerationOptions(options);
 
-        if (Array.isArray(inputTokenIds) && Array.isArray(inputTokenIds[0])) { // batched
-            let generations = (await Promise.all(inputTokenIds.map(x => this.generate_single(x, options))));
+        if (Array.isArray(inputs) && Array.isArray(inputs[0])) { // batched
+            let generations = (await Promise.all(inputs.map(x => this.generate_single(x, options))));
 
             // NOTE: we flatten the output arrays, since this
             // mimics how HuggingFace's generate function operates.
@@ -1407,12 +1805,12 @@ class PreTrainedModel extends Callable {
             }
             return generations
         } else {
-            return this.generate_single(inputTokenIds, options)
+            return this.generate_single(inputs, options)
         }
     }
 
-    async generate_single(inputTokenIds, options = {}) {
-        if (inputTokenIds.length === 0) {
+    async generate_single(inputs, options = {}) {
+        if (inputs.length === 0) {
             throw Error("Must supply a non-empty array of input token ids.")
         }
         // TODO implement early_stopping
@@ -1423,7 +1821,7 @@ class PreTrainedModel extends Callable {
 
         let sampler = Sampler.getSampler(options);
 
-        let beams = [this.getStartBeam(inputTokenIds, numOutputTokens)];
+        let beams = [this.getStartBeam(inputs, numOutputTokens)];
 
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
 
@@ -1436,7 +1834,7 @@ class PreTrainedModel extends Callable {
                     continue
                 }
 
-                let output = await this.runBeam(beam, inputTokenIds);
+                let output = await this.runBeam(beam, inputs);
 
                 let sampledTokens = sampler(output.logits);
 
@@ -1483,11 +1881,13 @@ class PreTrainedModel extends Callable {
         return Object.assign({}, this.default_generation_options, options)
     }
 
-    getPastKeyValues(pkvNames, decoderResults) {
+    getPastKeyValues(decoderResults) {
         const pkvs = {};
 
-        for (const name of pkvNames) {
-            pkvs[name.replace('present', 'past_key_values')] = decoderResults[name]
+        for (const name in decoderResults) {
+            if (name.startsWith('present')) {
+                pkvs[name.replace('present', 'past_key_values')] = decoderResults[name]
+            }
         }
         return pkvs;
     }
@@ -1654,14 +2054,14 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         if (pastKeyValues === null) {
             const initDecoderResults = await this.decoder_session.run(decoderFeeds);
             logits = initDecoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_session.outputNames.slice(1), initDecoderResults);
+            pastKeyValues = this.getPastKeyValues(initDecoderResults);
 
         } else {
             Object.assign(decoderFeeds, pastKeyValues)
 
             const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
             logits = decoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_with_past_model.outputNames.slice(1), decoderResults);
+            pastKeyValues = this.getPastKeyValues(decoderResults);
         }
 
         return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
@@ -1737,7 +2137,7 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         let decoderResults = await this.session.run(decoderFeeds);
         let logits = decoderResults.logits;
 
-        past_key_values = this.getPastKeyValues(this.session.outputNames.slice(1), decoderResults);
+        past_key_values = this.getPastKeyValues(decoderResults);
         return { logits, past_key_values };
     }
 
@@ -1849,14 +2249,14 @@ class BartForConditionalGeneration extends BartPretrainedModel {
         if (pastKeyValues === null) {
             const initDecoderResults = await this.decoder_session.run(decoderFeeds);
             logits = initDecoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_session.outputNames.slice(1), initDecoderResults);
+            pastKeyValues = this.getPastKeyValues(initDecoderResults);
 
         } else {
             Object.assign(decoderFeeds, pastKeyValues)
 
             const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
             logits = decoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(this.decoder_with_past_model.outputNames.slice(1), decoderResults);
+            pastKeyValues = this.getPastKeyValues(decoderResults);
         }
 
         return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
@@ -1885,6 +2285,115 @@ class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// T5 models
+class WhisperPreTrainedModel extends PreTrainedModel { };
+
+class WhisperModel extends WhisperPreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (WhisperModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'WhisperForConditionalGeneration'}"
+        )
+    }
+}
+
+class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
+    constructor(config, session, decoder_session, decoder_with_past_model) {
+        super(config, session);
+        this.decoder_session = decoder_session;
+        this.decoder_with_past_model = decoder_with_past_model;
+    }
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+        // TODO optimize? Lots of overlap between decoder and init_decoder
+
+        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        return new this(config, session, decoder_session, decoder_with_past_model);
+    }
+
+    getStartBeam(inputTokenIds, numOutputTokens) {
+        // arguments ignored in this case
+        return {
+            encoder_outputs: null,
+            past_key_values: null,
+
+            // decoder_input_ids == output_token_ids
+            output_token_ids: [this.config.decoder_start_token_id],
+            done: false,
+            score: 0,
+        }
+    }
+
+    async runBeam(beam, inputFeatures) {
+        // 1. Prepare
+        let model_inputs = {
+            input_features: inputFeatures,
+            decoder_input_ids: beam.output_token_ids.slice(-1),
+            encoder_outputs: beam.encoder_outputs,
+            past_key_values: beam.past_key_values,
+        }
+
+        // 2. Run
+        let output = await this.forward(model_inputs);
+
+        // 3. Update
+        beam.past_key_values = output.past_key_values;
+        beam.encoder_outputs = output.encoder_outputs;
+
+        return output;
+    }
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
+    async forward(model_inputs) {
+        model_inputs = this.prepare_inputs(model_inputs)
+
+        let encoderOutputs = model_inputs.encoder_outputs;
+        let pastKeyValues = model_inputs.past_key_values;
+
+        if (encoderOutputs === null) {
+            const encoderFeeds = {
+                input_features: model_inputs.input_features,
+            }
+            const encoderResults = await this.session.run(encoderFeeds);
+            encoderOutputs = encoderResults.last_hidden_state;
+        }
+        let decoderFeeds = {
+            input_ids: model_inputs.decoder_input_ids,
+            encoder_hidden_states: encoderOutputs,
+        };
+
+        let logits;
+        if (pastKeyValues === null) {
+            const initDecoderResults = await this.decoder_session.run(decoderFeeds);
+            logits = initDecoderResults.logits;
+            pastKeyValues = this.getPastKeyValues(initDecoderResults);
+
+        } else {
+            Object.assign(decoderFeeds, pastKeyValues)
+            const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
+            logits = decoderResults.logits;
+            pastKeyValues = this.getPastKeyValues(decoderResults);
+        }
+
+        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
     }
 }
 //////////////////////////////////////////////////
@@ -1954,6 +2463,10 @@ const {
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
 } = __webpack_require__(/*! ./models.js */ "./src/models.js");
+const {
+    AutoProcessor
+} = __webpack_require__(/*! ./processors.js */ "./src/processors.js");
+
 
 const {
     env
@@ -1961,11 +2474,11 @@ const {
 
 
 class Pipeline extends Callable {
-    constructor(tokenizer, model, task) {
+    constructor(task, tokenizer, model) {
         super();
+        this.task = task;
         this.tokenizer = tokenizer;
         this.model = model;
-        this.task = task;
     }
 
     async _call(texts) {
@@ -2188,6 +2701,25 @@ class EmbeddingsPipeline extends Pipeline {
     }
 }
 
+class AutomaticSpeechRecognitionPipeline extends Pipeline {
+
+    constructor(task, tokenizer, model, processor) {
+        super(task, tokenizer, model);
+        this.processor = processor;
+    }
+
+    async _call(audio, generate_kwargs = {}) {
+
+        let input_features = (await this.processor(audio)).input_features
+
+        let output = await this.model.generate(input_features, generate_kwargs)
+
+        return this.tokenizer.batch_decode(output, {
+            skip_special_tokens: true,
+        })
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "pipeline": TextClassificationPipeline,
@@ -2219,7 +2751,7 @@ const SUPPORTED_TASKS = {
         "pipeline": SummarizationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
-            "model": "sshleifer/distilbart-cnn-12-6"
+            "model": "sshleifer/distilbart-cnn-6-6"
         },
         "type": "text",
     },
@@ -2248,6 +2780,16 @@ const SUPPORTED_TASKS = {
         "type": "text",
     },
 
+    "automatic-speech-recognition": {
+        "pipeline": AutomaticSpeechRecognitionPipeline,
+        "model": AutoModelForSeq2SeqLM,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "openai/whisper-tiny.en"
+        },
+        "type": "multimodal",
+    },
+
     // This task is not supported in HuggingFace transformers, but serves as a useful interface
     // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
     "embeddings": {
@@ -2269,6 +2811,8 @@ const TASK_NAME_MAPPING = {
     'text2text-generation': 'seq2seq-lm-with-past',
     'summarization': 'seq2seq-lm-with-past',
     'text-generation': 'causal-lm-with-past',
+
+    'automatic-speech-recognition': 'speech2seq-lm-with-past'
 }
 
 const TASK_PREFIX_MAPPING = {
@@ -2335,14 +2879,21 @@ async function pipeline(
 
     let modelClass = pipelineInfo.model;
     let pipelineClass = pipelineInfo.pipeline;
+    let processorClass = pipelineInfo.processor;
 
-    // Load tokenizer and model
-    let [pipelineTokenizer, pipelineModel] = await Promise.all([
+    let promises = [
         AutoTokenizer.from_pretrained(model, progress_callback),
         modelClass.from_pretrained(model, progress_callback)
-    ])
+    ];
+    if (processorClass) {
+        promises.push(
+            processorClass.from_pretrained(model, progress_callback)
+        )
+    }
 
-    return new pipelineClass(pipelineTokenizer, pipelineModel, task);
+    // Load tokenizer and model
+    let items = await Promise.all(promises)
+    return new pipelineClass(task, ...items);
 
 }
 
@@ -2383,6 +2934,394 @@ function product(...a) {
 module.exports = {
     pipeline
 };
+
+
+/***/ }),
+
+/***/ "./src/processors.js":
+/*!***************************!*\
+  !*** ./src/processors.js ***!
+  \***************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+
+const {
+    Callable,
+    fetchJSON,
+    getFile
+} = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
+
+const { Tensor } = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js")
+
+const FFT = __webpack_require__(/*! ./fft.js */ "./src/fft.js")
+
+
+class AutoProcessor {
+    // Helper class to determine model type from config
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let preprocessorConfig = await fetchJSON(modelPath, 'preprocessor_config.json', progressCallback)
+
+        let processor_class;
+        let feature_extractor;
+
+        switch (preprocessorConfig.feature_extractor_type) {
+            case 'WhisperFeatureExtractor':
+                feature_extractor = new WhisperFeatureExtractor(preprocessorConfig)
+                break;
+
+            default:
+                throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
+        }
+
+        switch (preprocessorConfig.processor_class) {
+            case 'WhisperProcessor':
+                processor_class = WhisperProcessor;
+                break;
+
+            default:
+                throw new Error(`Unknown Processor type: ${preprocessorConfig.processor_class}`);
+
+        }
+
+        return new processor_class(feature_extractor);
+    }
+}
+
+
+class WhisperFeatureExtractor extends Callable {
+    constructor(config) {
+        super();
+        this.config = config
+    }
+
+    calcOffset(i, w) {
+        return Math.abs((i + w) % (2 * w) - w);
+    }
+
+    padReflect(array, left, right) {
+        const padded = new Float32Array(array.length + left + right);
+        const w = array.length - 1;
+
+        for (let i = 0; i < array.length; ++i) {
+            padded[left + i] = array[i];
+        }
+
+        for (let i = 1; i <= left; ++i) {
+            padded[left - i] = array[this.calcOffset(i, w)];
+        }
+
+        for (let i = 1; i <= right; ++i) {
+            padded[w + left + i] = array[this.calcOffset(w - i, w)];
+        }
+
+        return padded;
+    }
+
+    stft(frames, window) {
+        // Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
+        // 
+        // NOTE: Since the window width is not a power of 2, we must 
+        // perform Fast Fourier Transform with chirp-z transform:
+        // https://math.stackexchange.com/questions/77118/non-power-of-2-ffts/77156#77156
+
+        // Helper variables
+        const fft_size = this.config.n_fft;
+        const a = 2 * (fft_size - 1);
+        const b = 2 * (2 * fft_size - 1);
+        const nextP2 = 2 ** (Math.ceil(Math.log2(b)))
+        const num_fft_bins = fft_size + 2;
+
+        // Preallocate array to store output
+        // double since we store complex numbers
+        const data = new Float32Array(num_fft_bins * frames.length);
+
+        // Define buffers
+        // Compute chirp for transform
+        const chirp = new Float32Array(b);
+        const ichirp = new Float32Array(nextP2);
+        const buffer1 = new Float32Array(nextP2);
+        const buffer2 = new Float32Array(nextP2);
+        const outBuffer = new Float32Array(nextP2);
+        const outBuffer2 = new Float32Array(nextP2);
+        const outBuffer3 = new Float32Array(nextP2);
+
+        // Compute complex exponentiation
+        const theta = -2 * Math.PI / fft_size;
+        const baseR = Math.cos(theta);
+        const baseI = Math.sin(theta);
+
+        // Precompute helper for chirp-z transform
+        for (let i = 0; i < b >> 1; ++i) {
+            // Compute complex power:
+            const e = (i + 1 - fft_size) ** 2 / 2.0;
+
+            // Compute the modulus and argument of the result
+            const result_mod = Math.sqrt(baseR ** 2 + baseI ** 2) ** e;
+            const result_arg = e * Math.atan2(baseI, baseR);
+
+            // Convert the result back to rectangular form
+            // and assign to chirp and ichirp
+            let i2 = 2 * i;
+            chirp[i2] = result_mod * Math.cos(result_arg);
+            chirp[i2 + 1] = result_mod * Math.sin(result_arg);
+
+            // conjugate
+            ichirp[i2] = chirp[i2];
+            ichirp[i2 + 1] = - chirp[i2 + 1];
+        }
+        const slicedChirp = chirp.subarray(a, b);
+
+        // create object to perform Fast Fourier Transforms
+        // with `nextP2` complex numbers
+        const f = new FFT(nextP2 >> 1);
+        f.transform(outBuffer, ichirp);
+
+        for (let i in frames) {
+            const frame = frames[i];
+
+            for (let j = 0; j < slicedChirp.length; j += 2) {
+                const j2 = j + 1
+                const j3 = j >> 1;
+
+                const a_real = frame[j3] * window[j3];
+                buffer1[j] = a_real * slicedChirp[j];
+                buffer1[j2] = a_real * slicedChirp[j2];
+            }
+            f.transform(outBuffer2, buffer1);
+
+            for (let j = 0; j < outBuffer.length; j += 2) {
+                const j2 = j + 1;
+
+                buffer2[j] = outBuffer2[j] * outBuffer[j] - outBuffer2[j2] * outBuffer[j2]
+                buffer2[j2] = outBuffer2[j] * outBuffer[j2] + outBuffer2[j2] * outBuffer[j]
+            }
+            f.inverseTransform(outBuffer3, buffer2)
+
+            const offset = i * num_fft_bins;
+            for (let j = 0; j < num_fft_bins; j += 2) {
+                const a_real = outBuffer3[j + a];
+                const a_imag = outBuffer3[j + a + 1];
+                const b_real = slicedChirp[j];
+                const b_imag = slicedChirp[j + 1];
+
+                // TODO write as transpose
+                const o1 = offset + j;
+                data[o1] = a_real * b_real - a_imag * b_imag
+                data[o1 + 1] = a_real * b_imag + a_imag * b_real
+            }
+        }
+
+        return {
+            data: data,
+            dims: [frames.length, num_fft_bins] // [3001, 402]
+        };
+    }
+    fram_wave(waveform, center = true) {
+        const frames = [];
+        const half_window = Math.floor((this.config.n_fft - 1) / 2) + 1;
+        const waveformLength = waveform.length;
+
+        for (let i = 0; i < waveformLength + 1; i += this.config.hop_length) {
+
+            let frame;
+            if (center) {
+
+                let frameStart = i > half_window ? i - half_window : 0;
+                let frameEnd =
+                    i < waveformLength - half_window
+                        ? i + half_window
+                        : waveformLength;
+
+                frame = waveform.subarray(frameStart, frameEnd)
+
+                if (frameStart === 0) {
+                    frame = this.padReflect(
+                        frame,
+                        -i + half_window,
+                        0
+                    )
+
+                } else if (frameEnd === waveformLength) {
+                    frame = this.padReflect(
+                        frame,
+                        0,
+                        i - waveformLength + half_window
+                    )
+                }
+
+            } else {
+                frame = new Float32Array(this.config.n_fft);
+                const frameArray = waveform.subarray(i, i + this.config.n_fft);
+
+                if (frameWidth < this.config.n_fft) {
+                    frame.set(frameArray);
+                    frame.fill(0, frameWidth, this.config.n_fft)
+                } else {
+                    frame = frameArray;
+                }
+
+            }
+            frames.push(frame);
+        }
+
+        return frames;
+    }
+
+    hanning(M) {
+        if (M < 1) {
+            return [];
+        }
+        if (M === 1) {
+            return [1];
+        }
+        const denom = M - 1;
+        const cos_vals = new Float32Array(denom);
+        for (let i = 0; i < denom; ++i) {
+            const n = 2 * i - M + 1;
+            cos_vals[i] = 0.5 + 0.5 * Math.cos(Math.PI * n / denom);
+        }
+        return cos_vals;
+    }
+    _extract_fbank_features(waveform) {
+        // Compute the log-Mel spectrogram of the provided audio
+
+        const buffer = new Float32Array(this.config.n_samples);
+        buffer.set(waveform)
+
+        const window = this.hanning(this.config.n_fft + 1)
+        const frames = this.fram_wave(buffer)
+
+        const stft = this.stft(frames, window)
+
+        const stftData = stft.data;
+        const d1 = stft.dims[0] - 1; // Ignore last row
+        const d2 = stft.dims[1] >> 1; // Only need to store real numbers now
+
+        // compute magnitudes
+        // NOTE: Unlinke the original implementation, we do not
+        // transpose since we perform matrix multiplication later
+        const magnitudes = new Float32Array(d1 * d2);
+        for (let i = 0; i < d1; ++i) {
+            for (let j = 0; j < d2; ++j) {
+                // let outOffset = (j * d1 + i); // transpose
+                let outOffset = i * d2 + j;
+                let inOffset = outOffset << 1; // * 2 since complex
+                let magnitude = stftData[inOffset] ** 2 + stftData[inOffset + 1] ** 2
+                magnitudes[outOffset] = magnitude;
+            }
+        }
+
+        const mel_filters = this.config.mel_filters
+        const num_mel_filters = mel_filters.length;
+
+        const mel_spec = new Float32Array(num_mel_filters * d1);
+        let mIndex = 0;
+
+        // Perform matrix muliplication:
+        // mel_spec = filters @ magnitudes
+        //  - filters.shape=(80, 201)
+        //  - magnitudes.shape=(201, 3000)
+        //  - mel_spec.shape=(80, 3000)
+        for (let i = 0; i < num_mel_filters; ++i) {
+            const mel_filter = mel_filters[i];
+
+            for (let j = 0; j < d1; ++j) {
+                let sum = 0;
+
+                // perform dot product
+                for (let k = 0; k < d2; ++k) {
+                    sum += mel_filter[k] * magnitudes[j * d2 + k];
+                }
+
+                mel_spec[mIndex++] = sum;
+            }
+        }
+
+        const a_min = 1e-10;
+        const log_spec = new Float32Array(mel_spec.length);
+
+        let maxLogSpec = 0;
+        for (let i = 0; i < mel_spec.length; i++) {
+            const clipped = Math.max(a_min, mel_spec[i]);
+            const log10 = Math.log10(clipped);
+            log_spec[i] = log10;
+            maxLogSpec = Math.max(log10, maxLogSpec)
+        }
+
+        for (let i = 0; i < log_spec.length; i++) {
+            log_spec[i] = Math.max(log_spec[i], maxLogSpec - 8);
+            log_spec[i] = (log_spec[i] + 4) / 4;
+        }
+
+        return {
+            data: log_spec,
+            dims: [num_mel_filters, d1]
+        };
+    }
+
+    _call(audio) {
+
+        if (audio.length > this.config.n_samples) {
+            // TODO: https://github.com/openai/whisper/discussions/726
+            // TODO allow multiples
+            console.warn("We currently don't support audio clips longer than 30 seconds. Your audio will be truncated.");
+        }
+        let waveform = audio.slice(0, this.config.n_samples)
+
+        let features = this._extract_fbank_features(waveform);
+
+        return {
+            input_features: new Tensor('float32',
+                features.data,
+                [1, ...features.dims]
+            )
+        };
+    }
+}
+
+class Processor extends Callable {
+    constructor(feature_extractor) {
+        super();
+        this.feature_extractor = feature_extractor;
+        // TODO use tokenizer here?
+    }
+}
+
+
+
+class WhisperProcessor extends Processor {
+
+    async _call(audio) {
+
+        if (typeof audio === 'string' || audio instanceof String) {
+            // Attempting to load from path
+
+            if (typeof AudioContext === 'undefined') {
+                // Running in node or an environment without AudioContext
+                throw Error(
+                    "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
+                    "As a result, audio data must be passed directly to the processor. " +
+                    "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
+                )
+            }
+            const response = await (await getFile(audio)).arrayBuffer()
+            const sampling_rate = this.feature_extractor.config.sampling_rate;
+            const audioCTX = new AudioContext({ sampleRate: sampling_rate })
+            const decoded = await audioCTX.decodeAudioData(response)
+            audio = decoded.getChannelData(0);
+        }
+
+        // TODO use sampling rate?
+        return this.feature_extractor(audio)
+    }
+}
+
+
+module.exports = {
+    AutoProcessor
+}
 
 
 /***/ }),
@@ -3274,6 +4213,9 @@ class AutoTokenizer {
             case 'RobertaTokenizer':
                 return new RobertaTokenizer(tokenizerJSON, tokenizerConfig);
 
+            case 'WhisperTokenizer':
+                return new WhisperTokenizer(tokenizerJSON, tokenizerConfig);
+
             default:
                 console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
                 return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
@@ -3498,6 +4440,10 @@ class PreTrainedTokenizer extends Callable {
         )
     }
 
+    batch_decode(batch, decode_args = {}) {
+        return batch.map(x => this.decode(x, decode_args));
+    }
+
     decode_single(
         token_ids,
         {
@@ -3539,6 +4485,7 @@ class T5Tokenizer extends PreTrainedTokenizer { }
 class GPT2Tokenizer extends PreTrainedTokenizer { }
 class BartTokenizer extends PreTrainedTokenizer { }
 class RobertaTokenizer extends PreTrainedTokenizer { }
+class WhisperTokenizer extends PreTrainedTokenizer { }
 
 class CharTrie {
     constructor() {
@@ -3717,6 +4664,10 @@ const {
     AutoModelForQuestionAnswering,
     T5ForConditionalGeneration
 } = __webpack_require__(/*! ./models.js */ "./src/models.js");
+
+const {
+    AutoProcessor
+} = __webpack_require__(/*! ./processors.js */ "./src/processors.js");
 const {
     pipeline
 } = __webpack_require__(/*! ./pipelines.js */ "./src/pipelines.js");
@@ -3739,6 +4690,9 @@ const moduleExports = {
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     T5ForConditionalGeneration,
+
+    // Processors
+    AutoProcessor,
 
     // other
     pipeline,
@@ -4148,7 +5102,8 @@ module.exports = {
     getTopItems,
     dot,
     cos_sim,
-    magnitude
+    magnitude,
+    getFile
 };
 
 
