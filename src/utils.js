@@ -382,5 +382,6 @@ module.exports = {
     getTopItems,
     dot,
     cos_sim,
-    magnitude
+    magnitude,
+    getFile
 };
