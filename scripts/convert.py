@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
 
-from transformers import AutoTokenizer, HfArgumentParser
+from transformers import AutoTokenizer, AutoProcessor, HfArgumentParser
 
 from optimum.utils import DEFAULT_DUMMY_SHAPES
 from optimum.exporters.tasks import TasksManager
@@ -84,6 +84,10 @@ class ConversionArguments:
 
 
 UNSIGNED_MODEL_TYPES = [
+    'whisper'
+]
+
+MODELS_WITH_PROCESSORS = [
     'whisper'
 ]
 
@@ -182,9 +186,13 @@ def main():
     # Saving the model config
     model.config.save_pretrained(output_model_folder)
 
-    # 2. Save tokenizer
+    # Save tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     tokenizer.save_pretrained(output_model_folder)
+
+    if model.config.model_type in MODELS_WITH_PROCESSORS:
+        processor = AutoProcessor.from_pretrained(model_path)
+        processor.save_pretrained(output_model_folder)
 
     # Create output folder
     os.makedirs(output_model_folder, exist_ok=True)
