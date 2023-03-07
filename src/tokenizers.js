@@ -926,6 +926,10 @@ class PreTrainedTokenizer extends Callable {
         )
     }
 
+    batch_decode(batch, decode_args = {}) {
+        return batch.map(x => this.decode(x, decode_args));
+    }
+
     decode_single(
         token_ids,
         {
