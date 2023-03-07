@@ -19,7 +19,8 @@ const TASK_FUNCTION_MAPPING = {
     'masked-language-modelling': masked_lm,
     'sequence-classification': sequence_classification,
     'question-answering': question_answering,
-    'summarization': summarize
+    'summarization': summarize,
+    'automatic-speech-recognition': speech_to_text
 }
 
 // Listen for messages from UI
@@ -91,6 +92,11 @@ class QuestionAnsweringPipelineFactory extends PipelineFactory {
 class SummarizationPipelineFactory extends PipelineFactory {
     static task = 'summarization';
     static model = 'sshleifer/distilbart-cnn-6-6';
+}
+
+class AutomaticSpeechRecognitionPipelineFactory extends PipelineFactory {
+    static task = 'automatic-speech-recognition';
+    static model = 'openai/whisper-tiny.en';
 }
 
 async function translate(data) {
@@ -227,6 +233,30 @@ async function summarize(data) {
 
     return await pipeline(data.text, {
         ...data.generation,
+        callback_function: function (beams) {
+            const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
+                skip_special_tokens: true,
+            })
+
+            self.postMessage({
+                type: 'update',
+                target: data.elementIdToUpdate,
+                data: decodedText.trim()
+            });
+        }
+    })
+}
+
+async function speech_to_text(data) {
+    let pipeline = await AutomaticSpeechRecognitionPipelineFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'automatic-speech-recognition',
+            data: data
+        });
+    })
+
+    return await pipeline(data.audio, {
         callback_function: function (beams) {
             const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
                 skip_special_tokens: true,

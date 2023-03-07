@@ -36,6 +36,26 @@ const QA_ANSWER_TEXTBOX = document.getElementById('qa-answer-textbox');
 const SUMMARIZATION_INPUT_TEXTBOX = document.getElementById('summarization-input-textbox');
 const SUMMARIZATION_OUTPUT_TEXTBOX = document.getElementById('summarization-output-textbox');
 
+const SPEECH2TEXT_SELECT = document.getElementById('audio-select');
+const SPEECH2TEXT_INPUT = document.getElementById('audio-file');
+const SPEECH2TEXT_AUDIO = document.getElementById('audio-player');
+const SPEECH2TEXT_OUTPUT_TEXTBOX = document.getElementById('speech2text-output-textbox');
+
+SPEECH2TEXT_SELECT.addEventListener('input', (e) => {
+	if (SPEECH2TEXT_SELECT.options[SPEECH2TEXT_SELECT.selectedIndex].hasAttribute('show-custom')) {
+		SPEECH2TEXT_INPUT.style.display = 'block';
+	} else {
+		SPEECH2TEXT_INPUT.style.display = 'none';
+
+		SPEECH2TEXT_AUDIO.src = SPEECH2TEXT_SELECT.value
+	}
+})
+
+SPEECH2TEXT_INPUT.addEventListener("change", () => {
+	const file = SPEECH2TEXT_INPUT.files[0];
+	const url = URL.createObjectURL(file);
+	SPEECH2TEXT_AUDIO.src = url;
+});
 
 // Parameters
 const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
@@ -100,7 +120,7 @@ function parseValue(value, type) {
 			return value
 	}
 }
-GENERATE_BUTTON.addEventListener('click', (e) => {
+GENERATE_BUTTON.addEventListener('click', async (e) => {
 	// Set and pass generation settings to web worker
 	let data = {
 		task: TASK_SELECTOR.value,
@@ -143,6 +163,19 @@ GENERATE_BUTTON.addEventListener('click', (e) => {
 			data.text = SUMMARIZATION_INPUT_TEXTBOX.value
 			data.elementIdToUpdate = SUMMARIZATION_OUTPUT_TEXTBOX.id
 			break;
+
+		case 'automatic-speech-recognition':
+			const sampling_rate = 16000;
+			const audioCTX = new AudioContext({ sampleRate: sampling_rate })
+
+			const response = await (await fetch(SPEECH2TEXT_AUDIO.currentSrc)).arrayBuffer()
+			const decoded = await audioCTX.decodeAudioData(response)
+			audio = decoded.getChannelData(0);
+
+			data.audio = audio
+			data.elementIdToUpdate = SPEECH2TEXT_OUTPUT_TEXTBOX.id
+			break;
+
 		default:
 			return;
 	}
