@@ -109,6 +109,35 @@ SUPPORTED_MODELS = {
         'sentence-transformers/all-distilroberta-v1': [
             'default'
         ]
+    },
+    'whisper': {
+
+        'openai/whisper-tiny': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+        'openai/whisper-tiny.en': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+
+        'openai/whisper-base': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+        'openai/whisper-base.en': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+
+        'openai/whisper-small': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+        'openai/whisper-small.en': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
     }
 }
 
@@ -161,6 +190,10 @@ SUPPORTED_MODELS_AND_TASKS = {
         'multiple-choice',
         'token-classification',
         'question-answering',
+    ],
+    'whisper': [
+        'default',
+        'speech2seq-lm-with-past'
     ]
 }
 
