@@ -312,6 +312,16 @@ async function text2text_generation() {
     )
 }
 
+async function speech2text_generation() {
+    // TODO add test case
+    // let audio = './tests/assets/jfk.wav';
+    // let transcriber = await pipeline('automatic-speech-recognition')
+    // let output = await transcriber(audio);
+    // console.log(output);
+
+    return true;
+}
+
 
 // run tests
 (async () => {
@@ -322,6 +332,7 @@ async function text2text_generation() {
     console.log('Translation:', await translation())
     console.log('Text generation:', await text_generation())
     console.log('Embeddings:', await embeddings())
-    console.log('Text to text generation:', await text2text_generation())
+    console.log('Text-to-text generation:', await text2text_generation())
+    console.log('Speech-to-text generation:', await speech2text_generation())
 
 })();
