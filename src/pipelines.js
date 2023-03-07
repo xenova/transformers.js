@@ -262,11 +262,11 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         this.processor = processor;
     }
 
-    async _call(audio) {
+    async _call(audio, generate_kwargs = {}) {
 
         let input_features = (await this.processor(audio)).input_features
 
-        let output = await this.model.generate(input_features)
+        let output = await this.model.generate(input_features, generate_kwargs)
 
         return this.tokenizer.batch_decode(output, {
             skip_special_tokens: true,
