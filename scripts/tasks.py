@@ -37,6 +37,22 @@ SUPPORTED_MODELS = {
             'default',
         ],
     },
+    'albert': {
+        'albert-base-v2': [
+            'default',
+            'masked-lm',
+        ],
+        'albert-large-v2': [
+            'default',
+            'masked-lm',
+        ],
+        'sentence-transformers/paraphrase-albert-small-v2': [
+            'default',
+        ],
+        'sentence-transformers/paraphrase-albert-base-v2': [
+            'default',
+        ],
+    },
     'distilbert': {
         'distilbert-base-uncased': [
             'default',
@@ -149,6 +165,10 @@ SUPPORTED_MODELS_AND_TASKS = {
         'multiple-choice',
         'token-classification',
         'question-answering'
+    ],
+    'albert': [
+        'default',
+        'masked-lm',
     ],
     'distilbert': [
         'default',

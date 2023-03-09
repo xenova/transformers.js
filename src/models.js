@@ -91,6 +91,8 @@ class AutoModel {
         switch (config.model_type) {
             case 'bert':
                 return new BertModel(config, session);
+            case 'albert':
+                return new AlbertModel(config, session);
             case 'distilbert':
                 return new DistilBertModel(config, session);
             case 't5':
@@ -129,6 +131,8 @@ class AutoModelForSequenceClassification {
         switch (config.model_type) {
             case 'bert':
                 return new BertForSequenceClassification(config, session);
+            case 'albert':
+                return new AlbertForSequenceClassification(config, session);
             case 'distilbert':
                 return new DistilBertForSequenceClassification(config, session);
             case 'roberta':
@@ -224,6 +228,8 @@ class AutoModelForMaskedLM {
         switch (config.model_type) {
             case 'bert':
                 return new BertForMaskedLM(config, session);
+            case 'albert':
+                return new AlbertForMaskedLM(config, session);
             case 'distilbert':
                 return new DistilBertForMaskedLM(config, session);
             case 'roberta':
@@ -255,10 +261,10 @@ class AutoModelForQuestionAnswering {
         switch (config.model_type) {
             case 'bert':
                 return new BertForQuestionAnswering(config, session);
-
+            case 'albert':
+                return new AlbertForQuestionAnswering(config, session);
             case 'distilbert':
                 return new DistilBertForQuestionAnswering(config, session);
-
             case 'roberta':
                 return new RobertaForQuestionAnswering(config, session);
 
@@ -542,6 +548,31 @@ class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
     }
 }
 //////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// DistilBert models
+class AlbertPreTrainedModel extends PreTrainedModel { }
+class AlbertModel extends AlbertPreTrainedModel { }
+class AlbertForSequenceClassification extends AlbertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new SequenceClassifierOutput(logits)
+    }
+}
+class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
+    async _call(model_inputs) {
+        let outputs = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+    }
+}
+class AlbertForMaskedLM extends AlbertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new MaskedLMOutput(logits)
+    }
+}
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // T5 models
