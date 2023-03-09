@@ -27,11 +27,11 @@ class TokenizerModel extends Callable {
         throw Error("encode should be implemented in subclass.")
     }
     convert_tokens_to_ids(tokens) {
-        return tokens.map(t => this.tokens_to_ids[t] ?? this.config.unk_token_id);
+        return tokens.map(t => this.tokens_to_ids[t] ?? this.unk_token_id);
     }
 
     convert_ids_to_tokens(ids) {
-        return ids.map(i => this.vocab[i] ?? this.config.unk_token);
+        return ids.map(i => this.vocab[i] ?? this.unk_token);
     }
 }
 
