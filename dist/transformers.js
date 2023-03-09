@@ -1553,6 +1553,8 @@ class AutoModel {
         switch (config.model_type) {
             case 'bert':
                 return new BertModel(config, session);
+            case 'albert':
+                return new AlbertModel(config, session);
             case 'distilbert':
                 return new DistilBertModel(config, session);
             case 't5':
@@ -1591,6 +1593,8 @@ class AutoModelForSequenceClassification {
         switch (config.model_type) {
             case 'bert':
                 return new BertForSequenceClassification(config, session);
+            case 'albert':
+                return new AlbertForSequenceClassification(config, session);
             case 'distilbert':
                 return new DistilBertForSequenceClassification(config, session);
             case 'roberta':
@@ -1686,6 +1690,8 @@ class AutoModelForMaskedLM {
         switch (config.model_type) {
             case 'bert':
                 return new BertForMaskedLM(config, session);
+            case 'albert':
+                return new AlbertForMaskedLM(config, session);
             case 'distilbert':
                 return new DistilBertForMaskedLM(config, session);
             case 'roberta':
@@ -1717,10 +1723,10 @@ class AutoModelForQuestionAnswering {
         switch (config.model_type) {
             case 'bert':
                 return new BertForQuestionAnswering(config, session);
-
+            case 'albert':
+                return new AlbertForQuestionAnswering(config, session);
             case 'distilbert':
                 return new DistilBertForQuestionAnswering(config, session);
-
             case 'roberta':
                 return new RobertaForQuestionAnswering(config, session);
 
@@ -2004,6 +2010,31 @@ class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
     }
 }
 //////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// DistilBert models
+class AlbertPreTrainedModel extends PreTrainedModel { }
+class AlbertModel extends AlbertPreTrainedModel { }
+class AlbertForSequenceClassification extends AlbertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new SequenceClassifierOutput(logits)
+    }
+}
+class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
+    async _call(model_inputs) {
+        let outputs = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+    }
+}
+class AlbertForMaskedLM extends AlbertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new MaskedLMOutput(logits)
+    }
+}
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // T5 models
@@ -2572,6 +2603,9 @@ class FillMaskPipeline extends Pipeline {
 
         let toReturn = logits.map((batch, i) => {
             let mask_token_index = mask_token_indices[i];
+            if (mask_token_index === -1) {
+                throw Error(`Mask token (${tokenizer.mask_token}) not found in text.`)
+            }
             let itemLogits = batch[mask_token_index];
 
             let scores = getTopItems(softmax(itemLogits), topk);
@@ -2714,7 +2748,7 @@ const SUPPORTED_TASKS = {
         "pipeline": FillMaskPipeline,
         "model": AutoModelForMaskedLM,
         "default": {
-            "model": "distilroberta-base"
+            "model": "bert-base-uncased"
         },
         "type": "text",
     },
@@ -3509,11 +3543,11 @@ class TokenizerModel extends Callable {
         throw Error("encode should be implemented in subclass.")
     }
     convert_tokens_to_ids(tokens) {
-        return tokens.map(t => this.tokens_to_ids[t] ?? this.config.unk_token_id);
+        return tokens.map(t => this.tokens_to_ids[t] ?? this.unk_token_id);
     }
 
     convert_ids_to_tokens(ids) {
-        return ids.map(i => this.vocab[i] ?? this.config.unk_token);
+        return ids.map(i => this.vocab[i] ?? this.unk_token);
     }
 }
 
@@ -3802,6 +3836,12 @@ class Normalizer extends Callable {
                 return new NormalizerSequence(config);
             case 'Replace':
                 return new Replace(config);
+            case 'NFKD':
+                return new NFKD(config);
+            case 'StripAccents':
+                return new StripAccents(config);
+            case 'Lowercase':
+                return new Lowercase(config);
             default:
                 throw new Error(`Unknown Normalizer type: ${config.type}`);
         }
@@ -3820,8 +3860,35 @@ class Normalizer extends Callable {
 class Replace extends Normalizer {
     normalize(text) {
         // TODO: this.config.pattern might not be Regex.
+        if (this.config.pattern.Regex) {
+            text = text.replace(new RegExp(this.config.pattern.Regex, 'g'), this.config.content)
 
-        text = text.replace(new RegExp(this.config.pattern.Regex, 'g'), this.config.content)
+        } else if (this.config.pattern.String) {
+            text = text.replace(this.config.pattern.String, this.config.content)
+
+        } else {
+            console.warn('Unknown pattern type:', this.config.pattern)
+        }
+
+        return text;
+    }
+}
+
+class NFKD extends Normalizer {
+    normalize(text) {
+        text = text.normalize('NFKD')
+        return text;
+    }
+}
+class StripAccents extends Normalizer {
+    normalize(text) {
+        text = text.replace(/[\u0300-\u036f]/g, '');
+        return text;
+    }
+}
+class Lowercase extends Normalizer {
+    normalize(text) {
+        text = text.toLowerCase();
         return text;
     }
 }
@@ -4175,6 +4242,9 @@ class AutoTokenizer {
             case 'BertTokenizer':
                 return new BertTokenizer(tokenizerJSON, tokenizerConfig);
 
+            case 'AlbertTokenizer':
+                return new AlbertTokenizer(tokenizerJSON, tokenizerConfig);
+
             case 'GPT2Tokenizer':
                 return new GPT2Tokenizer(tokenizerJSON, tokenizerConfig);
 
@@ -4215,6 +4285,11 @@ class PreTrainedTokenizer extends Callable {
 
         // Set mask token if present (otherwise will be undefined, which is fine)
         this.mask_token = this.tokenizerConfig.mask_token;
+        if (typeof this.mask_token === 'object') {
+            // sometimes of type: 'AddedToken'
+            this.mask_token = this.mask_token.content
+        }
+
         this.mask_token_id = this.model.tokens_to_ids[this.mask_token];
 
         this.pad_token = this.tokenizerConfig.pad_token ?? this.tokenizerConfig.eos_token;
@@ -4224,6 +4299,8 @@ class PreTrainedTokenizer extends Callable {
         this.sep_token_id = this.model.tokens_to_ids[this.sep_token];
 
         this.model_max_length = this.tokenizerConfig.model_max_length;
+
+        this.remove_space = this.tokenizerConfig.remove_space;
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -4352,6 +4429,10 @@ class PreTrainedTokenizer extends Callable {
                 // Ignore special tokens
                 return x
             } else {
+                if (this.remove_space) {
+                    // remove_space
+                    x = x.trim().split(/\s+/).join(' ')
+                }
                 // Actually perform encoding
                 if (this.normalizer !== null) {
                     x = this.normalizer(x);
@@ -4446,6 +4527,12 @@ class PreTrainedTokenizer extends Callable {
 }
 
 class BertTokenizer extends PreTrainedTokenizer {
+    prepare_model_inputs(inputs) {
+        inputs.token_type_ids = inputs.input_ids.map(x => new Array(x.length).fill(0))
+        return inputs;
+    }
+}
+class AlbertTokenizer extends PreTrainedTokenizer {
     prepare_model_inputs(inputs) {
         inputs.token_type_ids = inputs.input_ids.map(x => new Array(x.length).fill(0))
         return inputs;
