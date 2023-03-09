@@ -322,6 +322,13 @@ async function speech2text_generation() {
     return true;
 }
 
+// hide unused initializer and node arguments warnings
+console._warn = console.warn;
+console.warn = (...data) => {
+    if (!data[0].includes('CleanUnusedInitializersAndNodeArgs')) {
+        console._warn(...data);
+    }
+};
 
 // run tests
 (async () => {
