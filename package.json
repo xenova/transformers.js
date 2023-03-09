@@ -1,7 +1,7 @@
 {
   "name": "@xenova/transformers",
   "version": "1.1.0",
-  "description": "Run 🤗 Transformers in your browser! We currently support BERT, DistilBERT, T5, T5v1.1, FLAN-T5, GPT2, BART, and Whisper models, for a variety of tasks including: masked language modelling, text classification, text-to-text generation, translation, summarization, question answering, and text generation.",
+  "description": "Run 🤗 Transformers in your browser! We currently support BERT, ALBERT, DistilBERT, T5, T5v1.1, FLAN-T5, GPT2, BART, and Whisper models, for a variety of tasks including: masked language modelling, text classification, text-to-text generation, translation, summarization, question answering, and text generation.",
   "main": "./src/transformers.js",
   "directories": {
     "test": "tests"
