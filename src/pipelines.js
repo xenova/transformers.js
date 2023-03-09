@@ -300,7 +300,7 @@ const SUPPORTED_TASKS = {
         "pipeline": FillMaskPipeline,
         "model": AutoModelForMaskedLM,
         "default": {
-            "model": "distilroberta-base"
+            "model": "bert-base-uncased"
         },
         "type": "text",
     },
