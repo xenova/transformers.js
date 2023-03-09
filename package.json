@@ -9,7 +9,7 @@
   "scripts": {
     "build": "webpack",
     "dev": "webpack serve --no-client-overlay",
-    "test": "npm run build && node tests/index.js"
+    "test": "node tests/index.js"
   },
   "repository": {
     "type": "git",
