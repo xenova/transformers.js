@@ -155,6 +155,9 @@ class FillMaskPipeline extends Pipeline {
 
         let toReturn = logits.map((batch, i) => {
             let mask_token_index = mask_token_indices[i];
+            if (mask_token_index === -1) {
+                throw Error(`Mask token (${tokenizer.mask_token}) not found in text.`)
+            }
             let itemLogits = batch[mask_token_index];
 
             let scores = getTopItems(softmax(itemLogits), topk);
