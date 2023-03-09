@@ -30,7 +30,43 @@ function boolTensor(value) {
     return new Tensor('bool', [value], [1]);
 }
 
+// JS doesn't support mixings, so we define some reused functions here, and allow "this" to be passed in
+async function seq2seq_forward(self, model_inputs, {
+    encoder_input_name = 'input_ids',
+    encoder_attention_mask = true
+} = {}) {
+    model_inputs = self.prepare_inputs(model_inputs)
 
+    let encoderOutputs = model_inputs.encoder_outputs;
+    let pastKeyValues = model_inputs.past_key_values;
+
+    if (encoderOutputs === null) {
+        const encoderFeeds = {
+            [encoder_input_name]: model_inputs[encoder_input_name],
+        }
+        if (encoder_attention_mask) {
+            encoderFeeds.attention_mask = model_inputs.attention_mask
+        }
+        const encoderResults = await self.session.run(encoderFeeds);
+        encoderOutputs = encoderResults.last_hidden_state;
+    }
+    let decoderFeeds = {
+        input_ids: model_inputs.decoder_input_ids,
+        encoder_hidden_states: encoderOutputs,
+        use_cache_branch: boolTensor(pastKeyValues !== null)
+    };
+    if (encoder_attention_mask) {
+        decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
+    }
+
+    self.addPastKeyValues(decoderFeeds, pastKeyValues, true);
+
+    const decoderResults = await self.decoder_merged_session.run(decoderFeeds);
+    let logits = decoderResults.logits;
+    pastKeyValues = self.getPastKeyValues(decoderResults);
+
+    return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -588,33 +624,7 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
     }
 
     async forward(model_inputs) {
-        model_inputs = this.prepare_inputs(model_inputs)
-
-        let encoderOutputs = model_inputs.encoder_outputs;
-        let pastKeyValues = model_inputs.past_key_values;
-
-        if (encoderOutputs === null) {
-            const encoderFeeds = {
-                input_ids: model_inputs.input_ids,
-                attention_mask: model_inputs.attention_mask,
-            }
-            const encoderResults = await this.session.run(encoderFeeds);
-            encoderOutputs = encoderResults.last_hidden_state;
-        }
-        let decoderFeeds = {
-            input_ids: model_inputs.decoder_input_ids,
-            encoder_attention_mask: model_inputs.attention_mask,
-            encoder_hidden_states: encoderOutputs,
-            use_cache_branch: boolTensor(pastKeyValues !== null)
-        };
-
-        this.addPastKeyValues(decoderFeeds, pastKeyValues, true);
-
-        const decoderResults = await this.decoder_merged_session.run(decoderFeeds);
-        let logits = decoderResults.logits;
-        pastKeyValues = this.getPastKeyValues(decoderResults);
-
-        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+        return await seq2seq_forward(this, model_inputs);
     }
 }
 //////////////////////////////////////////////////
@@ -681,7 +691,7 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         let decoderFeeds = {
             input_ids: model_inputs.input_ids,
             attention_mask: model_inputs.attention_mask,
-            use_cache_branch: new Tensor('bool', [past_key_values !== null], [1])
+            use_cache_branch: boolTensor(past_key_values !== null)
         }
         this.addPastKeyValues(decoderFeeds, past_key_values)
 
@@ -780,33 +790,7 @@ class BartForConditionalGeneration extends BartPretrainedModel {
     }
 
     async forward(model_inputs) {
-        model_inputs = this.prepare_inputs(model_inputs)
-
-        let encoderOutputs = model_inputs.encoder_outputs;
-        let pastKeyValues = model_inputs.past_key_values;
-
-        if (encoderOutputs === null) {
-            const encoderFeeds = {
-                input_ids: model_inputs.input_ids,
-                attention_mask: model_inputs.attention_mask,
-            }
-            const encoderResults = await this.session.run(encoderFeeds);
-            encoderOutputs = encoderResults.last_hidden_state;
-        }
-        let decoderFeeds = {
-            input_ids: model_inputs.decoder_input_ids,
-            encoder_attention_mask: model_inputs.attention_mask,
-            encoder_hidden_states: encoderOutputs,
-            use_cache_branch: boolTensor(pastKeyValues !== null)
-        };
-
-        this.addPastKeyValues(decoderFeeds, pastKeyValues, true);
-
-        const decoderResults = await this.decoder_merged_session.run(decoderFeeds);
-        let logits = decoderResults.logits;
-        pastKeyValues = this.getPastKeyValues(decoderResults);
-
-        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+        return await seq2seq_forward(this, model_inputs);
     }
 }
 
@@ -915,32 +899,10 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     }
 
     async forward(model_inputs) {
-        model_inputs = this.prepare_inputs(model_inputs)
-
-        let encoderOutputs = model_inputs.encoder_outputs;
-        let pastKeyValues = model_inputs.past_key_values;
-
-        if (encoderOutputs === null) {
-            const encoderFeeds = {
-                input_features: model_inputs.input_features,
-            }
-            const encoderResults = await this.session.run(encoderFeeds);
-            encoderOutputs = encoderResults.last_hidden_state;
-        }
-
-        let decoderFeeds = {
-            input_ids: model_inputs.decoder_input_ids,
-            encoder_hidden_states: encoderOutputs,
-            use_cache_branch: boolTensor(pastKeyValues !== null)
-        };
-
-        this.addPastKeyValues(decoderFeeds, pastKeyValues, true);
-
-        const decoderResults = await this.decoder_merged_session.run(decoderFeeds);
-        let logits = decoderResults.logits;
-        pastKeyValues = this.getPastKeyValues(decoderResults);
-
-        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+        return await seq2seq_forward(this, model_inputs, {
+            encoder_input_name: 'input_features',
+            encoder_attention_mask: false
+        });
     }
 }
 //////////////////////////////////////////////////
