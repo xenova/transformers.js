@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
 
-from transformers import AutoTokenizer, AutoProcessor, HfArgumentParser
+from transformers import AutoTokenizer, HfArgumentParser
 
 from optimum.utils import DEFAULT_DUMMY_SHAPES
 from optimum.exporters.tasks import TasksManager
@@ -15,6 +15,14 @@ from optimum.exporters.onnx.utils import (
 from optimum.exporters.onnx.convert import (
     export,
     export_models
+)
+from optimum.onnx.graph_transformations import merge_decoders
+from optimum.onnxruntime.utils import (
+    ONNX_WEIGHTS_NAME,
+    ONNX_ENCODER_NAME,
+    ONNX_DECODER_NAME,
+    ONNX_DECODER_WITH_PAST_NAME,
+    ONNX_DECODER_MERGED_NAME
 )
 from onnxruntime.quantization import quantize_dynamic, QuantType
 from tqdm import tqdm
@@ -81,13 +89,21 @@ class ConversionArguments:
             "help": "Whether to use local files, or from the HuggingFace Hub."
         }
     )
+    merge_decoders: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether to fuse decoder ONNX model and decoder with past ONNX model into one ONNX model with if logic"
+        }
+    )
+    overwrite: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to overwriting existing models"
+        }
+    )
 
 
 UNSIGNED_MODEL_TYPES = [
-    'whisper'
-]
-
-MODELS_WITH_PROCESSORS = [
     'whisper'
 ]
 
@@ -138,13 +154,14 @@ def main():
     )
     conv_args, = parser.parse_args_into_dataclasses()
 
+    input_model_path = os.path.join(
+        conv_args.input_parent_dir,
+        conv_args.model_id
+    )
     if conv_args.from_hub:
         model_path = conv_args.model_id
     else:
-        model_path = os.path.join(
-            conv_args.input_parent_dir,
-            conv_args.model_id
-        )
+        model_path = input_model_path
 
     # Infer the task
     task = conv_args.task
@@ -164,10 +181,10 @@ def main():
     )
 
     # get the shapes to be used to generate dummy inputs
-    input_shapes = DEFAULT_DUMMY_SHAPES
+    input_shapes = DEFAULT_DUMMY_SHAPES.copy()
 
     model = TasksManager.get_model_from_task(
-        task, model_path
+        task, model_path,
     )
 
     onnx_config_constructor = TasksManager.get_exporter_config_constructor(
@@ -183,6 +200,8 @@ def main():
             f"At least  {onnx_config.DEFAULT_ONNX_OPSET} is required."
         )
 
+    # TODO copy all .json files
+
     # Saving the model config
     model.config.save_pretrained(output_model_folder)
 
@@ -190,12 +209,17 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     tokenizer.save_pretrained(output_model_folder)
 
-    if model.config.model_type in MODELS_WITH_PROCESSORS:
-        processor = AutoProcessor.from_pretrained(model_path)
-        processor.save_pretrained(output_model_folder)
-
     # Create output folder
     os.makedirs(output_model_folder, exist_ok=True)
+
+    # Specify output paths
+    OUTPUT_WEIGHTS_PATH = os.path.join(output_model_folder, ONNX_WEIGHTS_NAME)
+    OUTPUT_ENCODER_PATH = os.path.join(output_model_folder, ONNX_ENCODER_NAME)
+    OUTPUT_DECODER_PATH = os.path.join(output_model_folder, ONNX_DECODER_NAME)
+    OUTPUT_DECODER_WITH_PAST_PATH = os.path.join(
+        output_model_folder, ONNX_DECODER_WITH_PAST_NAME)
+    OUTPUT_DECODER_MERGED_PATH = os.path.join(
+        output_model_folder, ONNX_DECODER_MERGED_NAME)
 
     onnx_model_paths = []
 
@@ -218,35 +242,53 @@ def main():
                 onnx_config
             )
 
-        export_models(
-            models_and_onnx_configs=models_and_onnx_configs,
-            opset=conv_args.opset,
-            output_dir=output_model_folder,
-            input_shapes=input_shapes,
-            device=conv_args.device,
-        )
         onnx_model_paths = [
             os.path.join(output_model_folder, f'{x}.onnx')
             for x in models_and_onnx_configs
         ]
 
+        # Check if at least one model doesn't exist, or user requests to overwrite
+        if any(
+            not os.path.exists(x) for x in onnx_model_paths
+        ) or conv_args.overwrite:
+            export_models(
+                models_and_onnx_configs=models_and_onnx_configs,
+                opset=conv_args.opset,
+                output_dir=output_model_folder,
+                input_shapes=input_shapes,
+                device=conv_args.device,
+            )
+
     else:
-        output_path = Path(os.path.join(output_model_folder, 'model.onnx'))
-        export(
-            model=model,
-            config=onnx_config,
-            output=output_path,
-            opset=conv_args.opset,
-            input_shapes=input_shapes,
-            device=conv_args.device,
-        )
+        output_path = Path(OUTPUT_WEIGHTS_PATH)
+
+        # Check if model doesn't exist, or user requests to overwrite
+        if not os.path.exists(output_path) or conv_args.overwrite:
+            export(
+                model=model,
+                config=onnx_config,
+                output=output_path,
+                opset=conv_args.opset,
+                input_shapes=input_shapes,
+                device=conv_args.device,
+            )
         onnx_model_paths.append(output_path)
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
         quantize(onnx_model_paths, model.config.model_type)
 
-    # TODO copy all other .json files
+    # Step 3. merge decoders.
+    if conv_args.merge_decoders and (
+        os.path.exists(OUTPUT_DECODER_PATH) and os.path.exists(
+            OUTPUT_DECODER_WITH_PAST_PATH)
+    ) and (not os.path.exists(OUTPUT_DECODER_MERGED_PATH) or conv_args.overwrite):
+        print('Merging decoders')
+        merge_decoders(
+            OUTPUT_DECODER_PATH,
+            OUTPUT_DECODER_WITH_PAST_PATH,
+            save_path=OUTPUT_DECODER_MERGED_PATH
+        )
 
 
 if __name__ == '__main__':
