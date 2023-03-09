@@ -25,6 +25,48 @@ async function constructSession(modelPath, fileName, progressCallback = null) {
     return session
 }
 
+function boolTensor(value) {
+    // Create boolean tensor
+    return new Tensor('bool', [value], [1]);
+}
+
+// JS doesn't support mixings, so we define some reused functions here, and allow "this" to be passed in
+async function seq2seq_forward(self, model_inputs, {
+    encoder_input_name = 'input_ids',
+    encoder_attention_mask = true
+} = {}) {
+    model_inputs = self.prepare_inputs(model_inputs)
+
+    let encoderOutputs = model_inputs.encoder_outputs;
+    let pastKeyValues = model_inputs.past_key_values;
+
+    if (encoderOutputs === null) {
+        const encoderFeeds = {
+            [encoder_input_name]: model_inputs[encoder_input_name],
+        }
+        if (encoder_attention_mask) {
+            encoderFeeds.attention_mask = model_inputs.attention_mask
+        }
+        const encoderResults = await self.session.run(encoderFeeds);
+        encoderOutputs = encoderResults.last_hidden_state;
+    }
+    let decoderFeeds = {
+        input_ids: model_inputs.decoder_input_ids,
+        encoder_hidden_states: encoderOutputs,
+        use_cache_branch: boolTensor(pastKeyValues !== null)
+    };
+    if (encoder_attention_mask) {
+        decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
+    }
+
+    self.addPastKeyValues(decoderFeeds, pastKeyValues, true);
+
+    const decoderResults = await self.decoder_merged_session.run(decoderFeeds);
+    let logits = decoderResults.logits;
+    pastKeyValues = self.getPastKeyValues(decoderResults);
+
+    return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -101,11 +143,10 @@ class AutoModelForSequenceClassification {
 class AutoModelForSeq2SeqLM {
     static async from_pretrained(modelPath, progressCallback = null) {
 
-        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
+        let [config, session, decoder_merged_session] = await Promise.all([
             fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
+            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
         ])
 
         // Called when all parts are loaded
@@ -119,22 +160,19 @@ class AutoModelForSeq2SeqLM {
                 return new T5ForConditionalGeneration(
                     config,
                     session,
-                    decoder_session,
-                    decoder_with_past_model
+                    decoder_merged_session
                 );
             case 'bart':
                 return new BartForConditionalGeneration(
                     config,
                     session,
-                    decoder_session,
-                    decoder_with_past_model
+                    decoder_merged_session
                 );
             case 'whisper':
                 return new WhisperForConditionalGeneration(
                     config,
                     session,
-                    decoder_session,
-                    decoder_with_past_model
+                    decoder_merged_session
                 )
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
@@ -144,12 +182,10 @@ class AutoModelForSeq2SeqLM {
 
 class AutoModelForCausalLM {
     static async from_pretrained(modelPath, progressCallback = null) {
-        // , decoder_with_past_model
 
-        // let name = use_past ?  : 'decoder_model.onnx'
         let [config, session] = await Promise.all([
             fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
+            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
         ])
 
         // Called when all parts are loaded
@@ -198,7 +234,6 @@ class AutoModelForMaskedLM {
                 return new PreTrainedModel(config, session);
         }
     }
-
 }
 
 
@@ -429,12 +464,30 @@ class PreTrainedModel extends Callable {
         }
         return pkvs;
     }
-    addPastKeyValues(decoderFeeds, pastKeyValues, suffix = '') {
+    addPastKeyValues(decoderFeeds, pastKeyValues, hasDecoder = false) {
         if (pastKeyValues === null) {
-            for (let i = 0; i < this.num_layers; ++i) {
-                decoderFeeds[`past_key_values.${i}${suffix}.key`] = new Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
-                decoderFeeds[`past_key_values.${i}${suffix}.value`] = new Tensor('float32', [], [1, this.num_heads, 0, this.dim_kv])
+            // TODO support batches (i.e., batch_size > 1)
+            if (hasDecoder) {
+                let encoder_dims = [1, this.num_encoder_heads, 0, this.encoder_dim_kv];
+                for (let i = 0; i < this.num_encoder_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
+                    decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor('float32', [], encoder_dims)
+                }
+
+                let decoder_dims = [1, this.num_decoder_heads, 0, this.decoder_dim_kv];
+                for (let i = 0; i < this.num_decoder_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor('float32', [], decoder_dims)
+                    decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor('float32', [], decoder_dims)
+                }
+
+            } else {
+                let dims = [1, this.num_heads, 0, this.dim_kv]
+                for (let i = 0; i < this.num_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                }
             }
+
         } else {
             Object.assign(decoderFeeds, pastKeyValues)
         }
@@ -503,20 +556,26 @@ class T5Model extends T5PreTrainedModel {
 }
 
 class T5ForConditionalGeneration extends T5PreTrainedModel {
-    constructor(config, session, decoder_session, decoder_with_past_model) {
+    constructor(config, session, decoder_merged_session) {
         super(config, session);
-        this.decoder_session = decoder_session;
-        this.decoder_with_past_model = decoder_with_past_model;
+        this.decoder_merged_session = decoder_merged_session;
+
+
+        this.num_decoder_layers = this.config.num_decoder_layers;
+        this.num_decoder_heads = this.config.num_heads;
+        this.decoder_dim_kv = this.config.d_kv;
+
+        this.num_encoder_layers = this.config.num_layers;
+        this.num_encoder_heads = this.config.num_heads;
+        this.encoder_dim_kv = this.config.d_kv;
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
-        // TODO optimize? Lots of overlap between decoder and init_decoder
 
-        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
+        let [config, session, decoder_merged_session] = await Promise.all([
             fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
+            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback),
         ])
 
         // Called when all parts are loaded
@@ -525,7 +584,7 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
             name: modelPath
         });
 
-        return new this(config, session, decoder_session, decoder_with_past_model);
+        return new this(config, session, decoder_merged_session);
     }
 
     getStartBeam(inputTokenIds, numOutputTokens) {
@@ -565,44 +624,7 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
     }
 
     async forward(model_inputs) {
-        model_inputs = this.prepare_inputs(model_inputs)
-
-        let encoderOutputs = model_inputs.encoder_outputs;
-        let pastKeyValues = model_inputs.past_key_values;
-
-        if (encoderOutputs === null) {
-            const encoderFeeds = {
-                input_ids: model_inputs.input_ids,
-                attention_mask: model_inputs.attention_mask,
-            }
-            const encoderResults = await this.session.run(encoderFeeds);
-            encoderOutputs = encoderResults.last_hidden_state;
-        }
-        let decoderFeeds = {
-            input_ids: model_inputs.decoder_input_ids,
-            encoder_attention_mask: model_inputs.attention_mask,
-            encoder_hidden_states: encoderOutputs,
-        };
-
-        if (pastKeyValues !== null) {
-            delete pastKeyValues['encoder_last_hidden_state'];
-        }
-
-        let logits;
-        if (pastKeyValues === null) {
-            const initDecoderResults = await this.decoder_session.run(decoderFeeds);
-            logits = initDecoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(initDecoderResults);
-
-        } else {
-            Object.assign(decoderFeeds, pastKeyValues)
-
-            const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
-            logits = decoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(decoderResults);
-        }
-
-        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+        return await seq2seq_forward(this, model_inputs);
     }
 }
 //////////////////////////////////////////////////
@@ -669,6 +691,7 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         let decoderFeeds = {
             input_ids: model_inputs.input_ids,
             attention_mask: model_inputs.attention_mask,
+            use_cache_branch: boolTensor(past_key_values !== null)
         }
         this.addPastKeyValues(decoderFeeds, past_key_values)
 
@@ -698,20 +721,27 @@ class BartModel extends BartPretrainedModel {
 }
 
 class BartForConditionalGeneration extends BartPretrainedModel {
-    constructor(config, session, decoder_session, decoder_with_past_model) {
+    constructor(config, session, decoder_merged_session) {
         super(config, session);
-        this.decoder_session = decoder_session;
-        this.decoder_with_past_model = decoder_with_past_model;
+        this.decoder_merged_session = decoder_merged_session;
+
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
         // TODO remove duplication between here and t5
 
-        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
+        let [config, session, decoder_merged_session] = await Promise.all([
             fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
+            constructSession(modelPath, 'decoder_merged_session.onnx', progressCallback),
         ])
 
         // Called when all parts are loaded
@@ -720,7 +750,7 @@ class BartForConditionalGeneration extends BartPretrainedModel {
             name: modelPath
         });
 
-        return new this(config, session, decoder_session, decoder_with_past_model);
+        return new this(config, session, decoder_merged_session);
     }
 
     getStartBeam(inputTokenIds, numOutputTokens) {
@@ -760,44 +790,7 @@ class BartForConditionalGeneration extends BartPretrainedModel {
     }
 
     async forward(model_inputs) {
-        model_inputs = this.prepare_inputs(model_inputs)
-
-        let encoderOutputs = model_inputs.encoder_outputs;
-        let pastKeyValues = model_inputs.past_key_values;
-
-        if (encoderOutputs === null) {
-            const encoderFeeds = {
-                input_ids: model_inputs.input_ids,
-                attention_mask: model_inputs.attention_mask,
-            }
-            const encoderResults = await this.session.run(encoderFeeds);
-            encoderOutputs = encoderResults.last_hidden_state;
-        }
-        let decoderFeeds = {
-            input_ids: model_inputs.decoder_input_ids,
-            encoder_attention_mask: model_inputs.attention_mask,
-            encoder_hidden_states: encoderOutputs,
-        };
-
-        if (pastKeyValues !== null) {
-            delete pastKeyValues['encoder_last_hidden_state'];
-        }
-
-        let logits;
-        if (pastKeyValues === null) {
-            const initDecoderResults = await this.decoder_session.run(decoderFeeds);
-            logits = initDecoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(initDecoderResults);
-
-        } else {
-            Object.assign(decoderFeeds, pastKeyValues)
-
-            const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
-            logits = decoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(decoderResults);
-        }
-
-        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+        return await seq2seq_forward(this, model_inputs);
     }
 }
 
@@ -840,20 +833,25 @@ class WhisperModel extends WhisperPreTrainedModel {
 }
 
 class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
-    constructor(config, session, decoder_session, decoder_with_past_model) {
+    constructor(config, session, decoder_merged_session) {
         super(config, session);
-        this.decoder_session = decoder_session;
-        this.decoder_with_past_model = decoder_with_past_model;
+        this.decoder_merged_session = decoder_merged_session;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
-        // TODO optimize? Lots of overlap between decoder and init_decoder
 
-        let [config, session, decoder_session, decoder_with_past_model] = await Promise.all([
+        let [config, session, decoder_merged_session] = await Promise.all([
             fetchJSON(modelPath, 'config.json', progressCallback),
             constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_with_past_model.onnx', progressCallback)
+            constructSession(modelPath, 'decoder_merged_session.onnx', progressCallback),
         ])
 
         // Called when all parts are loaded
@@ -862,7 +860,7 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             name: modelPath
         });
 
-        return new this(config, session, decoder_session, decoder_with_past_model);
+        return new this(config, session, decoder_merged_session);
     }
 
     getStartBeam(inputTokenIds, numOutputTokens) {
@@ -901,37 +899,10 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     }
 
     async forward(model_inputs) {
-        model_inputs = this.prepare_inputs(model_inputs)
-
-        let encoderOutputs = model_inputs.encoder_outputs;
-        let pastKeyValues = model_inputs.past_key_values;
-
-        if (encoderOutputs === null) {
-            const encoderFeeds = {
-                input_features: model_inputs.input_features,
-            }
-            const encoderResults = await this.session.run(encoderFeeds);
-            encoderOutputs = encoderResults.last_hidden_state;
-        }
-        let decoderFeeds = {
-            input_ids: model_inputs.decoder_input_ids,
-            encoder_hidden_states: encoderOutputs,
-        };
-
-        let logits;
-        if (pastKeyValues === null) {
-            const initDecoderResults = await this.decoder_session.run(decoderFeeds);
-            logits = initDecoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(initDecoderResults);
-
-        } else {
-            Object.assign(decoderFeeds, pastKeyValues)
-            const decoderResults = await this.decoder_with_past_model.run(decoderFeeds);
-            logits = decoderResults.logits;
-            pastKeyValues = this.getPastKeyValues(decoderResults);
-        }
-
-        return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+        return await seq2seq_forward(this, model_inputs, {
+            encoder_input_name: 'input_features',
+            encoder_attention_mask: false
+        });
     }
 }
 //////////////////////////////////////////////////
