@@ -16,6 +16,7 @@ const {
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
+    AutoModelForVision2Seq,
 } = require("./models.js");
 const {
     AutoProcessor
@@ -277,6 +278,33 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
     }
 }
 
+
+class ImageToTextPipeline extends Pipeline {
+    constructor(task, tokenizer, model, processor) {
+        super(task, tokenizer, model);
+        this.processor = processor;
+    }
+
+    async _call(images, generate_kwargs = {}) {
+        let pixel_values = (await this.processor(images)).pixel_values;
+
+        let toReturn = await Promise.all(
+            // For each item in the batch
+            pixel_values.map(async p => {
+                let output = await this.model.generate(p, generate_kwargs);
+                let decoded = this.tokenizer.batch_decode(output, {
+                    skip_special_tokens: true,
+                }).map(x => {
+                    return { generated_text: x.trim() }
+                })
+
+                return decoded;
+            })
+        )
+        return Array.isArray(images) ? toReturn : toReturn[0]
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "pipeline": TextClassificationPipeline,
@@ -347,6 +375,15 @@ const SUPPORTED_TASKS = {
         "type": "multimodal",
     },
 
+    "image-to-text": {
+        "pipeline": ImageToTextPipeline,
+        "model": AutoModelForVision2Seq,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "nlpconnect/vit-gpt2-image-captioning"
+        },
+        "type": "multimodal",
+    },
     // This task is not supported in HuggingFace transformers, but serves as a useful interface
     // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
     "embeddings": {
@@ -369,7 +406,8 @@ const TASK_NAME_MAPPING = {
     'summarization': 'seq2seq-lm-with-past',
     'text-generation': 'causal-lm-with-past',
 
-    'automatic-speech-recognition': 'speech2seq-lm-with-past'
+    'automatic-speech-recognition': 'speech2seq-lm-with-past',
+    'image-to-text': 'vision2seq-lm-with-past',
 }
 
 const TASK_PREFIX_MAPPING = {
