@@ -1,4 +1,6 @@
 # Transformers.js
+![https://www.npmjs.com/package/@xenova/transformers](https://img.shields.io/npm/v/@xenova/transformers) ![https://www.npmjs.com/package/@xenova/transformers](https://img.shields.io/npm/dw/@xenova/transformers)
+![https://github.com/xenova/transformers.js/blob/main/LICENSE](https://img.shields.io/github/license/xenova/transformers.js)
 
 Run 🤗 Transformers in your browser! We currently support [BERT](https://huggingface.co/docs/transformers/model_doc/bert), [ALBERT](https://huggingface.co/docs/transformers/model_doc/albert), [DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert), [T5](https://huggingface.co/docs/transformers/model_doc/t5), [T5v1.1](https://huggingface.co/docs/transformers/model_doc/t5v1.1), [FLAN-T5](https://huggingface.co/docs/transformers/model_doc/flan-t5), [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2), [BART](https://huggingface.co/docs/transformers/model_doc/bart), and [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper) models, for a variety of tasks including: masked language modelling, text classification, text-to-text generation, translation, summarization, question answering, text generation, and automatic speech recognition.
 
@@ -57,7 +59,7 @@ let classifier = await pipeline('sentiment-analysis', 'nlptown/bert-base-multili
 
 
 ### Custom setup
-By default, Transformers.js uses hosted [models](https://huggingface.co/Xenova/transformers.js/tree/main/quantized) precompiled [WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/), which should work out-of-the-box. You can override this behaviour as follows:
+By default, Transformers.js uses [hosted models](https://huggingface.co/Xenova/transformers.js/tree/main/quantized) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/), which should work out-of-the-box. You can override this behaviour as follows:
 ```javascript
 import { env } from "@xenova/transformers";
 
