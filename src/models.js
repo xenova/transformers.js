@@ -33,7 +33,8 @@ function boolTensor(value) {
 // JS doesn't support mixings, so we define some reused functions here, and allow "this" to be passed in
 async function seq2seq_forward(self, model_inputs, {
     encoder_input_name = 'input_ids',
-    encoder_attention_mask = true
+    encoder_attention_mask = true,
+    add_decoder_pkv = true
 } = {}) {
     model_inputs = self.prepare_inputs(model_inputs)
 
@@ -58,14 +59,53 @@ async function seq2seq_forward(self, model_inputs, {
     if (encoder_attention_mask) {
         decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
     }
-
-    self.addPastKeyValues(decoderFeeds, pastKeyValues, true);
+    self.addPastKeyValues(decoderFeeds, pastKeyValues, add_decoder_pkv);
 
     const decoderResults = await self.decoder_merged_session.run(decoderFeeds);
     let logits = decoderResults.logits;
     pastKeyValues = self.getPastKeyValues(decoderResults);
 
     return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+}
+
+function seq2seqStartBeam(self, ...args) {
+    // arguments ignored in this case
+    return {
+        encoder_outputs: null,
+        past_key_values: null,
+
+        // decoder_input_ids == output_token_ids
+        output_token_ids: [self.config.decoder_start_token_id],
+        done: false,
+        score: 0,
+    }
+}
+
+
+async function seq2seqRunBeam(self, beam, inputTokenIds, {
+    input_name = 'input_ids',
+    add_attention_mask = true,
+} = {}
+) {
+    // 1. Prepare
+    let model_inputs = {
+        [input_name]: inputTokenIds,
+        decoder_input_ids: beam.output_token_ids.slice(-1),
+        encoder_outputs: beam.encoder_outputs,
+        past_key_values: beam.past_key_values,
+    }
+    if (add_attention_mask) {
+        model_inputs.attention_mask = new Array(inputTokenIds.length).fill(1)
+    }
+
+    // 2. Run
+    let output = await self.forward(model_inputs);
+
+    // 3. Update
+    beam.past_key_values = output.past_key_values;
+    beam.encoder_outputs = output.encoder_outputs;
+
+    return output;
 }
 //////////////////////////////////////////////////
 
@@ -618,37 +658,12 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         return new this(config, session, decoder_merged_session);
     }
 
-    getStartBeam(inputTokenIds, numOutputTokens) {
-        // arguments ignored in this case
-        return {
-            encoder_outputs: null,
-            past_key_values: null,
-
-            // decoder_input_ids == output_token_ids
-            output_token_ids: [this.config.decoder_start_token_id],
-            done: false,
-            score: 0,
-        }
+    getStartBeam(...args) {
+        return seq2seqStartBeam(this);
     }
 
     async runBeam(beam, inputTokenIds) {
-        // 1. Prepare
-        let model_inputs = {
-            input_ids: inputTokenIds,
-            attention_mask: new Array(inputTokenIds.length).fill(1),
-            decoder_input_ids: beam.output_token_ids.slice(-1),
-            encoder_outputs: beam.encoder_outputs,
-            past_key_values: beam.past_key_values,
-        }
-
-        // 2. Run
-        let output = await this.forward(model_inputs);
-
-        // 3. Update
-        beam.past_key_values = output.past_key_values;
-        beam.encoder_outputs = output.encoder_outputs;
-
-        return output;
+        return await seq2seqRunBeam(this, beam, inputTokenIds);
     }
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -784,37 +799,12 @@ class BartForConditionalGeneration extends BartPretrainedModel {
         return new this(config, session, decoder_merged_session);
     }
 
-    getStartBeam(inputTokenIds, numOutputTokens) {
-        // arguments ignored in this case
-        return {
-            encoder_outputs: null,
-            past_key_values: null,
-
-            // decoder_input_ids == output_token_ids
-            output_token_ids: [this.config.decoder_start_token_id],
-            done: false,
-            score: 0,
-        }
+    getStartBeam(...args) {
+        return seq2seqStartBeam(this);
     }
 
     async runBeam(beam, inputTokenIds) {
-        // 1. Prepare
-        let model_inputs = {
-            input_ids: inputTokenIds,
-            attention_mask: new Array(inputTokenIds.length).fill(1),
-            decoder_input_ids: beam.output_token_ids.slice(-1),
-            encoder_outputs: beam.encoder_outputs,
-            past_key_values: beam.past_key_values,
-        }
-
-        // 2. Run
-        let output = await this.forward(model_inputs);
-
-        // 3. Update
-        beam.past_key_values = output.past_key_values;
-        beam.encoder_outputs = output.encoder_outputs;
-
-        return output;
+        return await seq2seqRunBeam(this, beam, inputTokenIds);
     }
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -894,36 +884,16 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         return new this(config, session, decoder_merged_session);
     }
 
-    getStartBeam(inputTokenIds, numOutputTokens) {
+    getStartBeam(...args) {
         // arguments ignored in this case
-        return {
-            encoder_outputs: null,
-            past_key_values: null,
-
-            // decoder_input_ids == output_token_ids
-            output_token_ids: [this.config.decoder_start_token_id],
-            done: false,
-            score: 0,
-        }
+        return seq2seqStartBeam(this);
     }
 
     async runBeam(beam, inputFeatures) {
-        // 1. Prepare
-        let model_inputs = {
-            input_features: inputFeatures,
-            decoder_input_ids: beam.output_token_ids.slice(-1),
-            encoder_outputs: beam.encoder_outputs,
-            past_key_values: beam.past_key_values,
-        }
-
-        // 2. Run
-        let output = await this.forward(model_inputs);
-
-        // 3. Update
-        beam.past_key_values = output.past_key_values;
-        beam.encoder_outputs = output.encoder_outputs;
-
-        return output;
+        return await seq2seqRunBeam(this, beam, inputFeatures, {
+            input_name: 'input_features',
+            add_attention_mask: false
+        });
     }
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
