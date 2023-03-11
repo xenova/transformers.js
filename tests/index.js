@@ -322,6 +322,69 @@ async function speech2text_generation() {
     return true;
 }
 
+
+async function image_to_text() {
+    let captioner = await pipeline('image-to-text', 'nlpconnect/vit-gpt2-image-captioning')
+
+    let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
+    let urls = [
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg',
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg'
+    ]
+    let output1 = await captioner(url)
+
+    let output2 = await captioner(url, {
+        max_new_tokens: 10,
+        num_beams: 2,
+        num_return_sequences: 2
+    })
+
+    let output3 = await captioner(urls)
+
+    let output4 = await captioner(urls, {
+        max_new_tokens: 10,
+        num_beams: 2,
+        num_return_sequences: 2
+    })
+
+    return isDeepEqual(
+        output1,
+        [{
+            "generated_text": "a herd of giraffes walking across a grassy field"
+        }]
+    ) && isDeepEqual(
+        output2,
+        [{
+            "generated_text": "a herd of giraffes and zebras"
+        }, {
+            "generated_text": "a herd of giraffes walking across a grass"
+        }]
+    ) && isDeepEqual(
+        output3,
+        [
+            [{
+                "generated_text": "a soccer player is kicking a soccer ball"
+            }], [{
+                "generated_text": "a plane is parked at an airport with other planes"
+            }]
+        ]
+    ) && isDeepEqual(
+        output4,
+        [
+            [{
+                "generated_text": "a soccer player is kicking a soccer ball"
+            }, {
+                "generated_text": "a soccer player is kicking a ball"
+            }], [{
+                "generated_text": "airplanes parked at an airport"
+            }, {
+                "generated_text": "airplanes are parked at an airport"
+            }]
+        ]
+    )
+
+}
+
 // hide unused initializer and node arguments warnings
 console._warn = console.warn;
 console.warn = (...data) => {
@@ -341,5 +404,6 @@ console.warn = (...data) => {
     console.log('Embeddings:', await embeddings())
     console.log('Text-to-text generation:', await text2text_generation())
     console.log('Speech-to-text generation:', await speech2text_generation())
+    console.log('Image-to-text:', await image_to_text())
 
 })();
