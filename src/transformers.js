@@ -13,6 +13,7 @@ const {
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
+    AutoModelForVision2Seq,
     T5ForConditionalGeneration
 } = require("./models.js");
 
@@ -40,6 +41,7 @@ const moduleExports = {
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
+    AutoModelForVision2Seq,
     T5ForConditionalGeneration,
 
     // Processors
