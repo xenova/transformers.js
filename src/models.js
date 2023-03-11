@@ -314,6 +314,33 @@ class AutoModelForQuestionAnswering {
     }
 }
 
+class AutoModelForVision2Seq {
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session, decoder_merged_session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'vision-encoder-decoder':
+                return new VisionEncoderDecoderModel(
+                    config,
+                    session,
+                    decoder_merged_session
+                );
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -908,6 +935,58 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+class VisionEncoderDecoderModel extends PreTrainedModel {
+    constructor(config, session, decoder_merged_session) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+
+        this.num_layers = this.config.decoder.n_layer;
+        this.num_heads = this.config.decoder.n_head;
+        this.dim_kv = this.config.decoder.n_embd / this.num_heads;
+    }
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session, decoder_merged_session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_merged_session.onnx', progressCallback),
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        return new this(config, session, decoder_merged_session);
+    }
+
+    getStartBeam(...args) {
+        return seq2seqStartBeam(this);
+    }
+    async runBeam(beam, pixel_values) {
+        return seq2seqRunBeam(this, beam, pixel_values, {
+            input_name: 'pixel_values',
+            add_attention_mask: false
+        });
+    }
+
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
+    async forward(model_inputs) {
+        return await seq2seq_forward(this, model_inputs, {
+            encoder_input_name: 'pixel_values',
+            encoder_attention_mask: false,
+            add_decoder_pkv: false
+        })
+    }
+}
+//////////////////////////////////////////////////
+
 class Seq2SeqLMOutput {
     constructor(logits, past_key_values, encoder_outputs) {
         this.logits = logits;
@@ -942,5 +1021,6 @@ module.exports = {
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
+    AutoModelForVision2Seq,
     T5ForConditionalGeneration
 };
