@@ -955,29 +955,20 @@ class PreTrainedTokenizer extends Callable {
             .replace(/ \'re/g, "'re");
     }
 
+    batch_decode(batch, decode_args = {}) {
+        return batch.map(x => this.decode(x, decode_args));
+    }
     decode(
         token_ids,
-        {
-            skip_special_tokens = false,
-            clean_up_tokenization_spaces = true
-        } = {},
+        decode_args = {},
     ) {
         if (!Array.isArray(token_ids) || token_ids.length === 0 || !Number.isInteger(token_ids[0])) {
             throw Error("token_ids must be a non-empty array of integers.");
         }
 
         return this.decode_single(
-            token_ids,
-            {
-                skip_special_tokens,
-                clean_up_tokenization_spaces
-            }
-
+            token_ids, decode_args
         )
-    }
-
-    batch_decode(batch, decode_args = {}) {
-        return batch.map(x => this.decode(x, decode_args));
     }
 
     decode_single(
