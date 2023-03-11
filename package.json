@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
+    "canvas": "^2.11.0",
     "onnxruntime-web": "^1.14.0"
   },
   "devDependencies": {
