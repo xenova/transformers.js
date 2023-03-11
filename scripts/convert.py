@@ -106,7 +106,8 @@ class ConversionArguments:
 
 
 UNSIGNED_MODEL_TYPES = [
-    'whisper'
+    'whisper',
+    'vision-encoder-decoder'
 ]
 
 

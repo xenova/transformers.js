@@ -154,6 +154,12 @@ SUPPORTED_MODELS = {
             'default',
             'speech2seq-lm-with-past'
         ],
+    },
+    'vision-encoder-decoder': {
+        'nlpconnect/vit-gpt2-image-captioning': [
+            # "vision2seq-lm",
+            "vision2seq-lm-with-past",
+        ]
     }
 }
 
