@@ -10,8 +10,12 @@ const { Tensor } = require('onnxruntime-web');
 const FFT = require('./fft.js');
 const { transpose } = require("./tensor_utils.js");
 
-const { createCanvas, loadImage } = require('canvas');
+// For some reason, Jimp attaches to self, even in Node.
+// https://github.com/jimp-dev/jimp/issues/466
+const _Jimp = require('jimp');
+const Jimp = self.Jimp || _Jimp;
 
+const B64_STRING = /^data:image\/\w+;base64,/;
 
 class AutoProcessor {
     // Helper class to determine model type from config
@@ -76,38 +80,33 @@ class ViTFeatureExtractor extends FeatureExtractor {
         this.size = this.config.size;
     }
 
-    async resize(image, width, height) {
 
-        // Create a canvas element to hold the resized image
-        const canvas = createCanvas(width, height);
+    async preprocess(url) {
 
-        // Draw the resized image onto the canvas
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(image, 0, 0, width, height)
+        let imgToLoad = url;
+        if (B64_STRING.test(url)) {
+            imgToLoad = imgToLoad.replace(B64_STRING, '');
+            if (typeof Buffer !== 'undefined') {
+                imgToLoad = Buffer.from(imgToLoad, 'base64');
 
-        // Get the pixel data for the entire canvas as a typed array
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        return data
-    }
-
-    async preprocess(image) {
-        if (isString(image)) {
-            // loading from path
-            image = await loadImage(image);
+            } else {
+                let bytes = atob(imgToLoad);
+                // create new ArrayBuffer from binary string
+                imgToLoad = new Uint8Array(new ArrayBuffer(bytes.length));
+                for (let i = 0; i < bytes.length; i++) {
+                    imgToLoad[i] = bytes.charCodeAt(i);
+                }
+            }
         }
 
+        let image = await Jimp.read(imgToLoad);
 
         // resize all images
-        let width = image.width;
-        let height = image.height;
         if (this.do_resize) {
-            width = this.size;
-            height = this.size;
+            image = image.resize(this.size, this.size);
         }
 
-        let data = await this.resize(image, width, height)
+        const data = image.bitmap.data;
 
         // Do not include alpha channel
         let convData = new Float32Array(data.length * 3 / 4);
@@ -128,24 +127,24 @@ class ViTFeatureExtractor extends FeatureExtractor {
         if (this.do_normalize) {
             for (let i = 0; i < convData.length; i += 3) {
                 for (let j = 0; j < 3; ++j) {
-                    convData[i + j] = (convData[i + j] - this.image_mean[j]) / this.image_std[j]
+                    convData[i + j] = (convData[i + j] - this.image_mean[j]) / this.image_std[j];
                 }
             }
         }
 
-        let img = new Tensor('float32', convData, [width, height, 3]);
+        let img = new Tensor('float32', convData, [this.size, this.size, 3]);
         let transposed = transpose(img, [2, 0, 1]);
 
         return transposed;
     }
 
-    async _call(images) {
-        if (!Array.isArray(images)) {
-            images = [images];
+    async _call(urls) {
+        if (!Array.isArray(urls)) {
+            urls = [urls];
         }
 
         // Convert any non-images to images
-        images = await Promise.all(images.map(x => this.preprocess(x)));
+        let images = await Promise.all(urls.map(x => this.preprocess(x)));
 
         images.forEach(x => x.dims = [1, ...x.dims]) // add batch dimension
         return {
