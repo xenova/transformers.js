@@ -105,7 +105,7 @@
                 <label>Task: </label>
                 <div class="col-12 mt-1">
                     <select id="task" class="form-select">
-                        <option value="translation">
+                        <option value="translation" selected>
                             Translation w/ t5-small (95 MB)
                         </option>
                         <option value="text-generation">
@@ -126,7 +126,7 @@
                         <option value="automatic-speech-recognition">
                             Speech to text w/ whisper-tiny.en (61 MB)
                         </option>
-                        <option value="image-to-text" selected>
+                        <option value="image-to-text">
                             Image to text w/ vit-gpt2-image-captioning (622 MB)
                         </option>
                     </select>
@@ -557,6 +557,15 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                             <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/whisper">Whisper docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">VisionEncoderDecoderModel</div>
+                            Tasks: Image to text
+                            <pre style="display: inline;">(AutoModelForVision2Seq)</pre>.
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder">Vision Encoder Decoder Models docs</a>.
                         </div>
                     </li>
                 </ol>
