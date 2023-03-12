@@ -391,7 +391,7 @@
                 <pre><code class="language-bash">npm i @xenova/transformers</code></pre>
 
                 Alternatively, you can use it in a
-                <pre style="display: inline;">&lt;script&gt;</pre>
+                <code>&lt;script&gt;</code>
                 tag from a CDN, for example:
                 <pre><code class="language-html">&lt;!-- Using jsDelivr --&gt;
 &lt;script src=&quot;https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js&quot;&gt;&lt;/script&gt;
@@ -465,17 +465,169 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
         <div class="container px-5 my-4">
             <div class="mb-3">
                 <h2 class="fw-bolder">Usage</h2>
-                <p class="lead mb-2">Currently, we support the following models and tasks:</p>
+                <p class="lead mb-2">We currently support the following
+                    <a href="https://huggingface.co/docs/hub/models-tasks">tasks</a> and
+                    <a href="https://huggingface.co/models">models</a>, which can be used with the
+                    <a href="https://huggingface.co/docs/transformers/main_classes/pipelines">pipeline</a>
+                    function.
+                </p>
+                <ol class="list-group list-group-numbered">
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">sentiment-analysis (a.k.a. text-classification)</div>
+                            Supported models: <code>distilbert-base-uncased-finetuned-sst-2-english</code>,
+                            <code>nlptown/bert-base-multilingual-uncased-sentiment</code>,
+                            <code>distilgpt2</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/docs/transformers/tasks/sequence_classification">
+                                Text Classification docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">question-answering</div>
+                            Supported models: <code>distilbert-base-cased-distilled-squad</code>,
+                            <code>distilbert-base-uncased-distilled-squad</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/docs/transformers/tasks/question_answering">
+                                Question Answering docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">fill-mask</div>
+                            Supported models: <code>xlm-roberta-base</code>, <code>albert-large-v2</code>,
+                            <code>albert-base-v2</code>, <code>distilroberta-base</code>, <code>roberta-base</code>,
+                            <code>bert-base-cased</code>, <code>bert-base-uncased</code>,
+                            <code>bert-base-multilingual-uncased</code>, <code>bert-base-multilingual-cased</code>,
+                            <code>distilbert-base-cased</code>, <code>distilbert-base-uncased</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/docs/transformers/tasks/language_modeling">
+                                Language Modelling docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">summarization</div>
+                            Supported models:
+                            <code>t5-small</code>,
+                            <code>t5-base</code>,
+                            <code>t5-v1_1-small</code>,
+                            <code>t5-v1_1-base</code>,
+                            <code>sshleifer/distilbart-cnn-6-6</code>,
+                            <code>sshleifer/distilbart-cnn-12-6</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/docs/transformers/tasks/summarization">
+                                Summarization docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">translation (translation_en_to_de, translation_en_to_fr,
+                                translation_en_to_ro)</div>
+                            Supported models:
+                            <code>t5-small</code>,
+                            <code>t5-base</code>,
+                            <code>t5-v1_1-small</code>,
+                            <code>t5-v1_1-base</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/docs/transformers/tasks/translation">
+                                Translation docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">text2text-generation</div>
+                            Supported models:
+                            <code>google/flan-t5-small</code>,
+                            <code>google/flan-t5-base</code>,
+                            <code>t5-small</code>,
+                            <code>t5-base</code>,
+                            <code>google/t5-v1_1-small</code>,
+                            <code>google/t5-v1_1-base</code>,
+                            <code>sshleifer/distilbart-cnn-6-6</code>,
+                            <code>sshleifer/distilbart-cnn-12-6</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/tasks/text-generation#text-to-text-generation-models">
+                                Text Generation docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">text-generation</div>
+                            Supported models:
+                            <code>gpt2</code>,
+                            <code>distilgpt2</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/tasks/text-generation#completion-generation-models">
+                                Text Generation docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">automatic-speech-recognition</div>
+                            Supported models:
+                            <code>openai/whisper-tiny.en</code>,
+                            <code>openai/whisper-tiny</code>,
+                            <code>openai/whisper-small.en</code>,
+                            <code>openai/whisper-small</code>,
+                            <code>openai/whisper-base.en</code>,
+                            <code>openai/whisper-base</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/docs/transformers/tasks/asr">
+                                Automatic Speech Recognition docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">image-to-text</div>
+                            Supported models:
+                            <code>nlpconnect/vit-gpt2-image-captioning</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/tasks/image-to-text">
+                                Image-to-Text docs
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">embeddings</div>
+                            Supported models:
+                            <code>sentence-transformers/all-MiniLM-L6-v2</code>,
+                            <code>sentence-transformers/all-MiniLM-L12-v2</code>,
+                            <code>sentence-transformers/all-distilroberta-v1</code>,
+                            <code>sentence-transformers/paraphrase-albert-base-v2</code>,
+                            <code>sentence-transformers/paraphrase-albert-small-v2</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/blog/getting-started-with-embeddings">
+                                Embeddings docs
+                            </a>.
+                        </div>
+                    </li>
+                </ol>
+                <br>
+                <p class="lead mb-2">The following
+                    <a href="https://huggingface.co/docs/transformers/model_summary">model types</a>
+                    are supported:
+                </p>
                 <ol class="list-group list-group-numbered">
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">BERT</div>
                             Tasks: Masked language modelling
-                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>,
+                            (<code style="display: inline;">AutoModelForMaskedLM</code>),
                             question answering
-                            <pre style="display: inline;">(AutoModelForQuestionAnswering)</pre>, and
+                            (<code style="display: inline;">AutoModelForQuestionAnswering</code>), and
                             sequence classification
-                            <pre style="display: inline;">(AutoModelForSequenceClassification)</pre>.
+                            (<code style="display: inline;">AutoModelForSequenceClassification</code>)</pre>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/bert">BERT docs</a>.
                         </div>
@@ -484,7 +636,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">ALBERT</div>
                             Tasks: Masked language modelling
-                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>.
+                            <code>(AutoModelForMaskedLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/albert">ALBERT docs</a>.
                         </div>
@@ -493,11 +645,11 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">DistilBERT</div>
                             Tasks: Masked language modelling
-                            <pre style="display: inline;">(AutoModelForMaskedLM)</pre>,
+                            <code>(AutoModelForMaskedLM)</code>,
                             question answering
-                            <pre style="display: inline;">(AutoModelForQuestionAnswering)</pre>, and
+                            <code>(AutoModelForQuestionAnswering)</code>, and
                             sequence classification
-                            <pre style="display: inline;">(AutoModelForSequenceClassification)</pre>.
+                            <code>(AutoModelForSequenceClassification)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/distilbert">DistilBERT
                                 docs</a>.
@@ -508,7 +660,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                             <div class="fw-bold">T5</div>
                             Tasks: Sequence-to-sequence for
                             translation/summarization
-                            <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
+                            <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/t5">T5 docs</a>.
                         </div>
@@ -517,7 +669,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">T5v1.1</div>
                             Tasks: Sequence-to-sequence
-                            <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
+                            <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/t5v1.1">T5v1.1 docs</a>.
                         </div>
@@ -526,7 +678,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">FLAN-T5</div>
                             Tasks: Sequence-to-sequence for over 1000 tasks
-                            <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
+                            <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/flan-t5">FLAN-T5 docs</a>.
                         </div>
@@ -535,7 +687,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">GPT2/DistilGPT2</div>
                             Tasks: Text generation
-                            <pre style="display: inline;">(AutoModelForCausalLM)</pre>.
+                            <code>(AutoModelForCausalLM)</code>.
                             For more information, check out the
                             <a href="https://huggingface.co/docs/transformers/model_doc/gpt2">GPT2 docs</a> or
                             <a href="https://huggingface.co/distilgpt2">DistilGPT2 docs</a>.
@@ -545,7 +697,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">BART</div>
                             Tasks: Sequence-to-sequence for summarization
-                            <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
+                            <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/bart">BART docs</a>.
                         </div>
@@ -554,7 +706,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">Whisper</div>
                             Tasks: Automatic speech recognition
-                            <pre style="display: inline;">(AutoModelForSeq2SeqLM)</pre>.
+                            <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/whisper">Whisper docs</a>.
                         </div>
@@ -563,9 +715,10 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">VisionEncoderDecoderModel</div>
                             Tasks: Image to text
-                            <pre style="display: inline;">(AutoModelForVision2Seq)</pre>.
+                            <code>(AutoModelForVision2Seq)</code>.
                             For more information, check out the <a
-                                href="https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder">Vision Encoder Decoder Models docs</a>.
+                                href="https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder">Vision
+                                Encoder Decoder Models docs</a>.
                         </div>
                     </li>
                 </ol>
