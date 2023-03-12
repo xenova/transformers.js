@@ -20,7 +20,8 @@ const TASK_FUNCTION_MAPPING = {
     'sequence-classification': sequence_classification,
     'question-answering': question_answering,
     'summarization': summarize,
-    'automatic-speech-recognition': speech_to_text
+    'automatic-speech-recognition': speech_to_text,
+    'image-to-text': image_to_text
 }
 
 // Listen for messages from UI
@@ -98,6 +99,12 @@ class AutomaticSpeechRecognitionPipelineFactory extends PipelineFactory {
     static task = 'automatic-speech-recognition';
     static model = 'openai/whisper-tiny.en';
 }
+
+class ImageToTextPipelineFactory extends PipelineFactory {
+    static task = 'image-to-text';
+    static model = 'nlpconnect/vit-gpt2-image-captioning';
+}
+
 
 async function translate(data) {
 
@@ -257,6 +264,32 @@ async function speech_to_text(data) {
     })
 
     return await pipeline(data.audio, {
+        ...data.generation,
+        callback_function: function (beams) {
+            const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
+                skip_special_tokens: true,
+            })
+
+            self.postMessage({
+                type: 'update',
+                target: data.elementIdToUpdate,
+                data: decodedText.trim()
+            });
+        }
+    })
+}
+
+async function image_to_text(data) {
+    let pipeline = await ImageToTextPipelineFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'image-to-text',
+            data: data
+        });
+    })
+
+    return await pipeline(data.image, {
+        ...data.generation,
         callback_function: function (beams) {
             const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
                 skip_special_tokens: true,

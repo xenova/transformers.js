@@ -41,21 +41,43 @@ const SPEECH2TEXT_INPUT = document.getElementById('audio-file');
 const SPEECH2TEXT_AUDIO = document.getElementById('audio-player');
 const SPEECH2TEXT_OUTPUT_TEXTBOX = document.getElementById('speech2text-output-textbox');
 
-SPEECH2TEXT_SELECT.addEventListener('input', (e) => {
-	if (SPEECH2TEXT_SELECT.options[SPEECH2TEXT_SELECT.selectedIndex].hasAttribute('show-custom')) {
-		SPEECH2TEXT_INPUT.style.display = 'block';
-	} else {
-		SPEECH2TEXT_INPUT.style.display = 'none';
 
-		SPEECH2TEXT_AUDIO.src = SPEECH2TEXT_SELECT.value
-	}
-})
+const TEXT2IMAGE_SELECT = document.getElementById('image-select');
+const TEXT2IMAGE_INPUT = document.getElementById('image-file');
+const TEXT2IMAGE_IMG = document.getElementById('image-viewer');
+const TEXT2IMAGE_OUTPUT_TEXTBOX = document.getElementById('image2text-output-textbox');
 
-SPEECH2TEXT_INPUT.addEventListener("change", () => {
-	const file = SPEECH2TEXT_INPUT.files[0];
-	const url = URL.createObjectURL(file);
-	SPEECH2TEXT_AUDIO.src = url;
+[
+	[SPEECH2TEXT_SELECT, SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
+	[TEXT2IMAGE_SELECT, TEXT2IMAGE_INPUT, TEXT2IMAGE_IMG],
+].forEach(x => {
+	let [select, input, media] = x;
+
+	select.addEventListener('input', (e) => {
+		if (select.options[select.selectedIndex].hasAttribute('show-custom')) {
+			input.style.display = 'block';
+		} else {
+			input.style.display = 'none';
+
+			media.src = select.value
+		}
+	})
 });
+
+[
+	[SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
+	[TEXT2IMAGE_INPUT, TEXT2IMAGE_IMG],
+].forEach(x => {
+	const [input, output] = x;
+
+	input.addEventListener("change", () => {
+		const file = input.files[0];
+		const url = URL.createObjectURL(file);
+		output.src = url;
+	});
+});
+
+
 
 // Parameters
 const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
@@ -176,6 +198,10 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 			data.elementIdToUpdate = SPEECH2TEXT_OUTPUT_TEXTBOX.id
 			break;
 
+		case 'image-to-text':
+			data.image = getImageDataFromImage(TEXT2IMAGE_IMG)
+			data.elementIdToUpdate = TEXT2IMAGE_OUTPUT_TEXTBOX.id
+			break;
 		default:
 			return;
 	}
@@ -266,4 +292,22 @@ function formatBytes(bytes, decimals = 0) {
 	const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1000)), 10);
 	const rounded = (bytes / Math.pow(1000, i)).toFixed(decimals);
 	return rounded + " " + sizes[i];
+}
+
+function getImageDataFromImage(original) {
+
+	// Helper function to get image data from image element
+	const canvas = document.createElement('canvas');
+	canvas.width = original.naturalWidth;
+	canvas.height = original.naturalHeight;
+
+	const ctx = canvas.getContext('2d');
+	// TODO play around with ctx options?
+	// ctx.patternQuality = 'bilinear';
+	// ctx.quality = 'bilinear';
+	// ctx.antialias = 'default';
+	// ctx.imageSmoothingQuality = 'high';
+
+	ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
+	return canvas.toDataURL();
 }
