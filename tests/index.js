@@ -331,10 +331,11 @@ async function image_to_text() {
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg',
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg'
     ]
+
     let output1 = await captioner(url)
 
     let output2 = await captioner(url, {
-        max_new_tokens: 10,
+        max_new_tokens: 20,
         num_beams: 2,
         num_return_sequences: 2
     })
@@ -342,7 +343,7 @@ async function image_to_text() {
     let output3 = await captioner(urls)
 
     let output4 = await captioner(urls, {
-        max_new_tokens: 10,
+        max_new_tokens: 20,
         num_beams: 2,
         num_return_sequences: 2
     })
@@ -355,9 +356,9 @@ async function image_to_text() {
     ) && isDeepEqual(
         output2,
         [{
-            "generated_text": "a herd of giraffes and zebras"
+            "generated_text": "a herd of giraffes and zebras standing in a field"
         }, {
-            "generated_text": "a herd of giraffes walking across a grass"
+            "generated_text": "a herd of giraffes and zebras are grazing in a field"
         }]
     ) && isDeepEqual(
         output3,
@@ -365,7 +366,7 @@ async function image_to_text() {
             [{
                 "generated_text": "a soccer player is kicking a soccer ball"
             }], [{
-                "generated_text": "a plane is parked at an airport with other planes"
+                "generated_text": "a plane is sitting on the tarmac with other planes"
             }]
         ]
     ) && isDeepEqual(
