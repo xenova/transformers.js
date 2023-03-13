@@ -310,7 +310,6 @@ async function image_to_text(data) {
 }
 
 async function image_classification(data){
-    console.log('imgclas', data)
     let pipeline = await ImageClassificationPipelineFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
@@ -322,7 +321,6 @@ async function image_classification(data){
     let outputs = await pipeline(data.image, {
         topk: 5 // return all
     })
-    console.log({outputs})
 
     self.postMessage({
         type: 'complete',
