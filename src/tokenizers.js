@@ -744,6 +744,9 @@ class AutoTokenizer {
             case 'WhisperTokenizer':
                 return new WhisperTokenizer(tokenizerJSON, tokenizerConfig);
 
+            case 'CodeGenTokenizer':
+                return new CodeGenTokenizer(tokenizerJSON, tokenizerConfig);
+
             default:
                 console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
                 return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
@@ -1087,6 +1090,7 @@ class GPT2Tokenizer extends PreTrainedTokenizer { }
 class BartTokenizer extends PreTrainedTokenizer { }
 class RobertaTokenizer extends PreTrainedTokenizer { }
 class WhisperTokenizer extends PreTrainedTokenizer { }
+class CodeGenTokenizer extends PreTrainedTokenizer { }
 
 class CharTrie {
     constructor() {

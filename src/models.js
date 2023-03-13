@@ -148,7 +148,6 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
     return beams;
 }
 
-
 async function seq2seqRunBeam(self, beam, {
     input_name = 'input_ids',
 } = {}
@@ -172,6 +171,88 @@ async function seq2seqRunBeam(self, beam, {
     beam.encoder_outputs = output.encoder_outputs;
 
     return output;
+}
+
+async function textgen_forward(self, model_inputs) {
+    let past_key_values = model_inputs.past_key_values;
+    let decoderFeeds = {
+        input_ids: model_inputs.input_ids,
+        attention_mask: model_inputs.attention_mask,
+        use_cache_branch: boolTensor(past_key_values !== null)
+    }
+    self.addPastKeyValues(decoderFeeds, past_key_values)
+
+    let decoderResults = await sessionRun(self.session, decoderFeeds);
+    let logits = decoderResults.logits;
+
+    past_key_values = self.getPastKeyValues(decoderResults);
+    return { logits, past_key_values };
+}
+
+function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attention_mask) {
+    let beams = [];
+
+    let beamId = 0;
+    for (let tokens of inputTokenIds) {
+        // TODO: Improve
+        // Currently, just add back batch dimension.
+        // In future, allow for true parallel execution
+        tokens.dims = [1, ...tokens.dims]
+
+        let attn_mask;
+        if (inputs_attention_mask) {
+            attn_mask = inputs_attention_mask.get(beamId)
+            attn_mask.dims = [1, ...attn_mask.dims]
+
+        } else {
+            attn_mask = _prepare_attention_mask(self, tokens)
+        }
+
+        let start = {
+            input: tokens,
+            model_input_ids: tokens,
+            attention_mask: attn_mask,
+            past_key_values: null,
+
+            output_token_ids: [],
+            num_output_tokens: numOutputTokens,
+
+            done: false,
+            score: 0,
+            id: beamId++ // assign unique id to beams
+        }
+
+        beams.push(start);
+    }
+    return beams;
+}
+
+async function textgenRunBeam(self, beam) {
+    let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
+
+    // 1. Prepare
+    let model_inputs = {
+        input_ids: beam.model_input_ids,
+        attention_mask: new Tensor(
+            'int64',
+            attnMaskData,
+            [1, attnMaskData.length]
+        ),
+        past_key_values: beam.past_key_values,
+    }
+
+    // 2. Run
+    let output = await self.forward(model_inputs);
+
+    // 3. Update
+    beam.past_key_values = output.past_key_values;
+
+    return output;
+}
+
+function textgenUpdatebeam(beam, newTokenId) {
+    beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    beam.model_input_ids = new Tensor('int64', [BigInt(newTokenId)], [1, 1]);
 }
 //////////////////////////////////////////////////
 
@@ -205,6 +286,8 @@ class AutoModel {
                 return new T5Model(config, session);
             case 'gpt2':
                 return new GPT2Model(config, session);
+            case 'codegen':
+                return new CodeGenModel(config, session);
             case 'bart':
                 return new BartModel(config, session);
             case 'roberta':
@@ -310,6 +393,13 @@ class AutoModelForCausalLM {
                     config,
                     session
                 );
+
+            case 'codegen':
+                return new CodeGenForCausalLM(
+                    config,
+                    session
+                )
+
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
         }
@@ -799,119 +889,6 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// GPT2 models
-class GPT2PreTrainedModel extends PreTrainedModel { }
-class GPT2Model extends GPT2PreTrainedModel {
-    async generate(...args) {
-        throw Error(
-            "The current model class (GPT2Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPT2LMHeadModel'}"
-        )
-    }
-}
-
-class GPT2LMHeadModel extends GPT2PreTrainedModel {
-    constructor(config, session) {
-        super(config, session);
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd / this.num_heads;
-    }
-
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        let beams = [];
-
-        let beamId = 0;
-        for (let tokens of inputTokenIds) {
-            // TODO: Improve
-            // Currently, just add back batch dimension.
-            // In future, allow for true parallel execution
-            tokens.dims = [1, ...tokens.dims]
-
-            let attn_mask;
-            if (inputs_attention_mask) {
-                attn_mask = inputs_attention_mask.get(beamId)
-                attn_mask.dims = [1, ...attn_mask.dims]
-
-            } else {
-                attn_mask = _prepare_attention_mask(this, tokens)
-            }
-
-            let start = {
-                input: tokens,
-                model_input_ids: tokens,
-                attention_mask: attn_mask,
-                past_key_values: null,
-
-                output_token_ids: [],
-                num_output_tokens: numOutputTokens,
-
-                done: false,
-                score: 0,
-                id: beamId++ // assign unique id to beams
-            }
-
-            beams.push(start);
-        }
-        return beams;
-    }
-
-
-    async runBeam(beam) {
-        let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
-
-        // 1. Prepare
-        let model_inputs = {
-            input_ids: beam.model_input_ids,
-            attention_mask: new Tensor(
-                'int64',
-                attnMaskData,
-                [1, attnMaskData.length]
-            ),
-            past_key_values: beam.past_key_values,
-        }
-
-        // 2. Run
-        let output = await this.forward(model_inputs);
-
-        // 3. Update
-        beam.past_key_values = output.past_key_values;
-
-        return output;
-    }
-
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
-        beam.model_input_ids = new Tensor('int64', [BigInt(newTokenId)], [1, 1]);
-    }
-
-    async forward(model_inputs) {
-
-        let past_key_values = model_inputs.past_key_values;
-        let decoderFeeds = {
-            input_ids: model_inputs.input_ids,
-            attention_mask: model_inputs.attention_mask,
-            use_cache_branch: boolTensor(past_key_values !== null)
-        }
-        this.addPastKeyValues(decoderFeeds, past_key_values)
-
-        let decoderResults = await sessionRun(this.session, decoderFeeds);
-        let logits = decoderResults.logits;
-
-        past_key_values = this.getPastKeyValues(decoderResults);
-        return { logits, past_key_values };
-    }
-
-}
-// class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
-// TODO
-// }
-//////////////////////////////////////////////////
-
-//////////////////////////////////////////////////
 // Bart models
 class BartPretrainedModel extends PreTrainedModel { };
 
@@ -1112,6 +1089,98 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
             add_decoder_pkv: false
         })
     }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// GPT2 models
+class GPT2PreTrainedModel extends PreTrainedModel { }
+class GPT2Model extends GPT2PreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (GPT2Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPT2LMHeadModel'}"
+        )
+    }
+}
+
+class GPT2LMHeadModel extends GPT2PreTrainedModel {
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.n_embd / this.num_heads;
+    }
+
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+
+    async runBeam(beam) {
+        return await textgenRunBeam(this, beam);
+    }
+
+    updateBeam(beam, newTokenId) {
+        return textgenUpdatebeam(beam, newTokenId);
+    }
+
+    async forward(model_inputs) {
+        return await textgen_forward(this, model_inputs)
+    }
+
+}
+// class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
+// TODO
+// }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// CodeGen models
+class CodeGenPreTrainedModel extends PreTrainedModel { }
+class CodeGenModel extends CodeGenPreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (CodeGenModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'CodeGenForCausalLM'}"
+        )
+    }
+}
+
+class CodeGenForCausalLM extends CodeGenPreTrainedModel {
+    constructor(config, session) {
+        super(config, session);
+
+        console.log({ config })
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.n_embd / this.num_heads;
+    }
+
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    async runBeam(beam) {
+        return await textgenRunBeam(this, beam);
+    }
+
+    updateBeam(beam, newTokenId) {
+        return textgenUpdatebeam(beam, newTokenId);
+    }
+
+    async forward(model_inputs) {
+        return await textgen_forward(this, model_inputs)
+    }
+
 }
 //////////////////////////////////////////////////
 
