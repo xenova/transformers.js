@@ -47,9 +47,16 @@ const TEXT2IMAGE_INPUT = document.getElementById('image-file');
 const TEXT2IMAGE_IMG = document.getElementById('image-viewer');
 const TEXT2IMAGE_OUTPUT_TEXTBOX = document.getElementById('image2text-output-textbox');
 
+const IMAGE_CLASSIFICATION_SELECT = document.getElementById('ic-select');
+const IMAGE_CLASSIFICATION_INPUT = document.getElementById('ic-file');
+const IMAGE_CLASSIFICATION_IMG = document.getElementById('ic-viewer');
+const IMAGE_CLASSIFICATION_OUTPUT_CANVAS = document.getElementById('ic-canvas');
+
+
 [
 	[SPEECH2TEXT_SELECT, SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
 	[TEXT2IMAGE_SELECT, TEXT2IMAGE_INPUT, TEXT2IMAGE_IMG],
+	[IMAGE_CLASSIFICATION_SELECT, IMAGE_CLASSIFICATION_INPUT, IMAGE_CLASSIFICATION_IMG],
 ].forEach(x => {
 	let [select, input, media] = x;
 
@@ -62,26 +69,43 @@ const TEXT2IMAGE_OUTPUT_TEXTBOX = document.getElementById('image2text-output-tex
 			media.src = select.value
 		}
 	})
-});
-
-[
-	[SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
-	[TEXT2IMAGE_INPUT, TEXT2IMAGE_IMG],
-].forEach(x => {
-	const [input, output] = x;
 
 	input.addEventListener("change", () => {
 		const file = input.files[0];
 		const url = URL.createObjectURL(file);
-		output.src = url;
+		media.src = url;
 	});
 });
-
 
 
 // Parameters
 const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
 
+
+const CHART_OPTIONS = {
+	responsive: true,
+	maintainAspectRatio: false,
+	indexAxis: 'y',
+	scales: {
+		y: {
+			beginAtZero: true,
+		},
+		x: {
+			min: 0,
+			max: 1,
+		}
+	},
+	plugins: {
+		legend: {
+			display: false
+		},
+	},
+	layout: {
+		padding: {
+			bottom: -5,
+		}
+	},
+}
 const CHARTS = {
 	'tc-canvas': new Chart(TC_OUTPUT_CANVAS, {
 		type: 'bar',
@@ -91,30 +115,18 @@ const CHARTS = {
 				borderWidth: 1
 			}]
 		},
-		options: {
-			responsive: true,
-			maintainAspectRatio: false,
-			indexAxis: 'y',
-			scales: {
-				y: {
-					beginAtZero: true,
-				},
-				x: {
-					min: 0,
-					max: 1,
-				}
-			},
-			plugins: {
-				legend: {
-					display: false
-				},
-			},
-			layout: {
-				padding: {
-					bottom: -5,
-				}
-			},
-		}
+		options: CHART_OPTIONS,
+
+	}),
+	'ic-canvas': new Chart(IMAGE_CLASSIFICATION_OUTPUT_CANVAS, {
+		type: 'bar',
+		data: {
+			labels: ['label', 'label', 'label', 'label', 'label'],
+			datasets: [{
+				borderWidth: 1
+			}]
+		},
+		options: CHART_OPTIONS
 	})
 }
 
@@ -202,6 +214,14 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 			data.image = getImageDataFromImage(TEXT2IMAGE_IMG)
 			data.elementIdToUpdate = TEXT2IMAGE_OUTPUT_TEXTBOX.id
 			break;
+
+		case 'image-classification':
+			data.image = getImageDataFromImage(IMAGE_CLASSIFICATION_IMG)
+			data.elementIdToUpdate = IMAGE_CLASSIFICATION_OUTPUT_CANVAS.id
+			data.targetType = 'chart'
+			data.updateLabels = true
+			break;
+
 		default:
 			return;
 	}
@@ -257,13 +277,23 @@ worker.addEventListener('message', (event) => {
 				case 'chart':
 					const chartToUpdate = CHARTS[message.target];
 
-					// set data, ensuring labels align correctly
 					let chartData = chartToUpdate.data.datasets[0].data;
-					for (let item of message.data) {
-						chartData[
-							chartToUpdate.data.labels.indexOf(item.label)
-						] = item.score
+
+					if (message.updateLabels) {
+						for (let i = 0; i < message.data.length; ++i) {
+							let item = message.data[i];
+							chartData[i] = item.score;
+							chartToUpdate.data.labels[i] = item.label;
+						}
+					} else {
+						// set data, ensuring labels align correctly
+						for (let item of message.data) {
+							chartData[
+								chartToUpdate.data.labels.indexOf(item.label)
+							] = item.score
+						}
 					}
+
 					chartToUpdate.update(); // update the chart
 					break;
 				default: // is text

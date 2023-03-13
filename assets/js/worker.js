@@ -21,7 +21,8 @@ const TASK_FUNCTION_MAPPING = {
     'question-answering': question_answering,
     'summarization': summarize,
     'automatic-speech-recognition': speech_to_text,
-    'image-to-text': image_to_text
+    'image-to-text': image_to_text,
+    'image-classification': image_classification
 }
 
 // Listen for messages from UI
@@ -105,6 +106,10 @@ class ImageToTextPipelineFactory extends PipelineFactory {
     static model = 'nlpconnect/vit-gpt2-image-captioning';
 }
 
+class ImageClassificationPipelineFactory extends PipelineFactory {
+    static task = 'image-classification';
+    static model = 'google/vit-base-patch16-224';
+}
 
 async function translate(data) {
 
@@ -302,4 +307,29 @@ async function image_to_text(data) {
             });
         }
     })
+}
+
+async function image_classification(data){
+    console.log('imgclas', data)
+    let pipeline = await ImageClassificationPipelineFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'image-classification',
+            data: data
+        });
+    })
+
+    let outputs = await pipeline(data.image, {
+        topk: 5 // return all
+    })
+    console.log({outputs})
+
+    self.postMessage({
+        type: 'complete',
+        target: data.elementIdToUpdate,
+        targetType: data.targetType,
+		updateLabels: data.updateLabels,
+        data: outputs
+    });
+
 }
