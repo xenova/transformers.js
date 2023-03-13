@@ -1,6 +1,58 @@
-const { Tensor } = require('onnxruntime-web');
+const ONNX = require('onnxruntime-web');
 
-// TODO extend Tensor
+class Tensor extends ONNX.Tensor {
+    constructor(...args) {
+        if (args[0] instanceof ONNX.Tensor) {
+            // Create shallow copy
+            super(args[0].type, args[0].data, args[0].dims);
+
+        } else {
+            // Create new
+            super(...args)
+        }
+    }
+
+    *[Symbol.iterator]() {
+        const [iterLength, ...iterDims] = this.dims;
+
+        if (iterDims.length > 0) {
+            const iterSize = iterDims.reduce((a, b) => a * b);
+            for (let i = 0; i < iterLength; ++i) {
+                yield this._subarray(i, iterSize, iterDims);
+            }
+        } else {
+            yield* this.data
+        }
+
+    }
+
+    get(index) {
+        const iterDims = this.dims.slice(1);
+        if (iterDims.length > 0) {
+            const iterSize = iterDims.reduce((a, b) => a * b);
+            return this._subarray(index, iterSize, iterDims);
+        } else {
+            return this.data[index];
+        }
+    }
+
+    indexOf(item) {
+        for (let index = 0; index < this.data.length; ++index) {
+            // Note: == instead of === so we can match Ints with BigInts
+            if (this.data[index] == item) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    _subarray(index, iterSize, iterDims) {
+        let data = this.data.subarray(index * iterSize, (index + 1) * iterSize);
+        return new Tensor(this.type, data, iterDims);
+    }
+
+    // TODO add .slice()
+}
 
 function transpose(tensor, axes) {
     // Calculate the new shape of the transposed array
@@ -32,6 +84,39 @@ function transpose(tensor, axes) {
     return new Tensor(tensor.type, transposedData, shape);
 }
 
+function cat(tensors) {
+    if (tensors.length === 0) {
+        return tensors[0];
+    }
+    // NOTE: tensors must be batched
+    // NOTE: currently only supports dim=0
+    // TODO: add support for dim != 0
+
+
+    let tensorType = tensors[0].type;
+    let tensorShape = [...tensors[0].dims];
+    tensorShape[0] = tensors.length;
+
+    // Calculate total size to allocate
+    let total = 0;
+    for (let t of tensors) {
+        total += t.data.length;
+    }
+
+    // Create output tensor of same type as first
+    let data = new tensors[0].data.constructor(total);
+
+    let offset = 0;
+    for (let t of tensors) {
+        data.set(t.data, offset);
+        offset += t.data.length;
+    }
+
+    return new Tensor(tensorType, data, tensorShape)
+}
+
 module.exports = {
-    transpose
+    Tensor,
+    transpose,
+    cat
 }
