@@ -3,7 +3,7 @@
 // https://github.com/microsoft/onnxruntime/issues/13072
 global.self = global;
 
-const { pipeline, env } = require('..')
+const { pipeline, env } = require('..');
 
 // Disable spawning worker threads for testing.
 // This is done by setting numThreads to 1
@@ -75,6 +75,10 @@ async function embeddings() {
 
     let pairwiseScores = [[output[0], output[1]], [output[0], output[2]], [output[1], output[2]]].map(x => embedder.cos_sim(...x))
 
+
+    // Dispose pipeline
+    await embedder.dispose()
+
     return isDeepEqual(
         pairwiseScores,
         [0.8195198760573937, 0.6200714107649917, 0.5930511190112736]
@@ -100,31 +104,34 @@ async function text_classification() {
         topk: 2
     });
 
+    // Dispose pipeline
+    await classifier.dispose()
+
     return isDeepEqual(
         outputs1,
         [
-            { "label": "NEGATIVE", "score": 0.9997429555167534 }
+            { "label": "NEGATIVE", "score": 0.9997429847717285 }
         ]
     ) && isDeepEqual(
         outputs2,
         [
-            { "label": "NEGATIVE", "score": 0.9997429555167534 },
-            { "label": "POSITIVE", "score": 0.00025704448324659145 }
+            { "label": "NEGATIVE", "score": 0.9997429847717285 },
+            { "label": "POSITIVE", "score": 0.0002570444776210934 }
         ]
     ) && isDeepEqual(
         outputs3,
         [
-            { "label": "POSITIVE", "score": 0.9994557111289131 },
-            { "label": "NEGATIVE", "score": 0.9997253840917294 }
+            { "label": "POSITIVE", "score": 0.9994556903839111 },
+            { "label": "NEGATIVE", "score": 0.9997254014015198 }
         ]
     ) && isDeepEqual(
         outputs4,
         [[
-            { "label": "POSITIVE", "score": 0.9994557111289131 },
-            { "label": "NEGATIVE", "score": 0.0005442888710869216 }
+            { "label": "POSITIVE", "score": 0.9994556903839111 },
+            { "label": "NEGATIVE", "score": 0.000544288894161582 }
         ], [
-            { "label": "NEGATIVE", "score": 0.9997253840917294 },
-            { "label": "POSITIVE", "score": 0.0002746159082707414 }
+            { "label": "NEGATIVE", "score": 0.9997254014015198 },
+            { "label": "POSITIVE", "score": 0.00027461591525934637 }
         ]]
     );
 }
@@ -140,29 +147,108 @@ async function masked_language_modelling() {
         "[MASK] is the capital of England."
     ]);
 
+
+    // Dispose pipeline
+    await unmasker.dispose()
+
     return isDeepEqual(
         outputs1,
         [
-            { "score": 0.9318257314398266, "token": 2051, "token_str": "time", "sequence": "once upon a time." },
-            { "score": 0.009929785838375943, "token": 13342, "token_str": "mattress", "sequence": "once upon a mattress." },
-            { "score": 0.0021786265124432657, "token": 3959, "token_str": "dream", "sequence": "once upon a dream." },
-            { "score": 0.0018818342753219423, "token": 2940, "token_str": "hill", "sequence": "once upon a hill." },
-            { "score": 0.00174248982811121, "token": 2154, "token_str": "day", "sequence": "once upon a day." }
+            {
+                "score": 0.9318257570266724,
+                "token": 2051,
+                "token_str": "time",
+                "sequence": "once upon a time."
+            },
+            {
+                "score": 0.009929785504937172,
+                "token": 13342,
+                "token_str": "mattress",
+                "sequence": "once upon a mattress."
+            },
+            {
+                "score": 0.0021786263678222895,
+                "token": 3959,
+                "token_str": "dream",
+                "sequence": "once upon a dream."
+            },
+            {
+                "score": 0.001881834352388978,
+                "token": 2940,
+                "token_str": "hill",
+                "sequence": "once upon a hill."
+            },
+            {
+                "score": 0.0017424898687750101,
+                "token": 2154,
+                "token_str": "day",
+                "sequence": "once upon a day."
+            }
         ]
     ) && isDeepEqual(
         outputs2,
         [[
-            { "score": 0.9828392675760468, "token": 2051, "token_str": "time", "sequence": "once upon a time." },
-            { "score": 0.0027356224197534066, "token": 13342, "token_str": "mattress", "sequence": "once upon a mattress." },
-            { "score": 0.00038447941793688455, "token": 2504, "token_str": "level", "sequence": "once upon a level." },
-            { "score": 0.0003801222442318874, "token": 2940, "token_str": "hill", "sequence": "once upon a hill." },
-            { "score": 0.00038011046274777236, "token": 6480, "token_str": "lifetime", "sequence": "once upon a lifetime." }
+            {
+                "score": 0.9828392863273621,
+                "token": 2051,
+                "token_str": "time",
+                "sequence": "once upon a time."
+            },
+            {
+                "score": 0.0027356224600225687,
+                "token": 13342,
+                "token_str": "mattress",
+                "sequence": "once upon a mattress."
+            },
+            {
+                "score": 0.00038447941187769175,
+                "token": 2504,
+                "token_str": "level",
+                "sequence": "once upon a level."
+            },
+            {
+                "score": 0.0003801222483161837,
+                "token": 2940,
+                "token_str": "hill",
+                "sequence": "once upon a hill."
+            },
+            {
+                "score": 0.0003801104612648487,
+                "token": 6480,
+                "token_str": "lifetime",
+                "sequence": "once upon a lifetime."
+            }
         ], [
-            { "score": 0.3269098717200096, "token": 2414, "token_str": "london", "sequence": "london is the capital of england." },
-            { "score": 0.0644894252551537, "token": 2009, "token_str": "it", "sequence": "it is the capital of england." },
-            { "score": 0.03533688491081099, "token": 7067, "token_str": "bristol", "sequence": "bristol is the capital of england." },
-            { "score": 0.025355694884844824, "token": 5087, "token_str": "manchester", "sequence": "manchester is the capital of england." },
-            { "score": 0.023570900878368342, "token": 6484, "token_str": "birmingham", "sequence": "birmingham is the capital of england." }
+            {
+                "score": 0.3269098699092865,
+                "token": 2414,
+                "token_str": "london",
+                "sequence": "london is the capital of england."
+            },
+            {
+                "score": 0.06448942422866821,
+                "token": 2009,
+                "token_str": "it",
+                "sequence": "it is the capital of england."
+            },
+            {
+                "score": 0.03533688560128212,
+                "token": 7067,
+                "token_str": "bristol",
+                "sequence": "bristol is the capital of england."
+            },
+            {
+                "score": 0.025355694815516472,
+                "token": 5087,
+                "token_str": "manchester",
+                "sequence": "manchester is the capital of england."
+            },
+            {
+                "score": 0.023570900782942772,
+                "token": 6484,
+                "token_str": "birmingham",
+                "sequence": "birmingham is the capital of england."
+            }
         ]]
     );
 }
@@ -179,15 +265,18 @@ async function question_answering() {
         topk: 3,
     });
 
+    // Dispose pipeline
+    await answerer.dispose()
+
     return isDeepEqual(
         outputs,
-        { answer: 'a nice puppet', score: 0.5664517462147087 }
+        { answer: 'a nice puppet', score: 0.5664517526948352 }
     ) && isDeepEqual(
         outputs2,
         [
-            { answer: 'a nice puppet', score: 0.5664517462147087 },
-            { answer: 'nice puppet', score: 0.1698902311892322 },
-            { answer: 'puppet', score: 0.14046058679856901 }
+            { answer: 'a nice puppet', score: 0.5664517526948352 },
+            { answer: 'nice puppet', score: 0.1698902336448853 },
+            { answer: 'puppet', score: 0.14046057793125577 }
         ]
     );
 }
@@ -200,11 +289,15 @@ async function summarization() {
         `The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.`,
         `The Amazon rainforest (Portuguese: Floresta Amazônica or Amazônia; Spanish: Selva Amazónica, Amazonía or usually Amazonia; French: Forêt amazonienne; Dutch: Amazoneregenwoud), also known in English as Amazonia or the Amazon Jungle, is a moist broadleaf forest that covers most of the Amazon basin of South America. This basin encompasses 7,000,000 square kilometres (2,700,000 sq mi), of which 5,500,000 square kilometres (2,100,000 sq mi) are covered by the rainforest. This region includes territory belonging to nine nations. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%, Colombia with 10%, and with minor amounts in Venezuela, Ecuador, Bolivia, Guyana, Suriname and French Guiana. States or departments in four nations contain "Amazonas" in their names. The Amazon represents over half of the planet's remaining rainforests, and comprises the largest and most biodiverse tract of tropical rainforest in the world, with an estimated 390 billion individual trees divided into 16,000 species.`
     ]
-    let summary = await summarizer(texts)
+    let summary = await summarizer(texts);
+
+    // Dispose pipeline
+    await summarizer.dispose()
+
     return isDeepEqual(
         summary,
         [{
-            summary_text: " The Eiffel Tower is 324 metres tall, about the same height as an 81-storey building. It is the second tallest free-standing structure in France after the Millau Viaduct."
+            summary_text: " The Eiffel Tower is the tallest man-made structure in France. It is the second tallest free-standing structure in France after the Millau Viaduct."
         }, {
             summary_text: " The Amazon rainforest is a moist broadleaf forest that covers most of the Amazon basin of South America. The Amazon represents over half of the planet's remaining rainforests."
         }]
@@ -222,6 +315,9 @@ async function translation() {
     ]
 
     let translation2 = await translator(texts)
+
+    // Dispose pipeline
+    await translator.dispose()
 
     return isDeepEqual(
         translation1,
@@ -251,13 +347,16 @@ async function text_generation() {
     })
 
     let output3 = await generator([
-        'Once upon a time, there was a ',
-        'My favorite food is',
+        'Once upon a time, there was a',
+        'I enjoy walking with my cute dog',
     ], {
         max_new_tokens: 10,
         num_beams: 2,
         num_return_sequences: 2
     })
+
+    // Dispose pipeline
+    await generator.dispose()
 
     return isDeepEqual(
         output1,
@@ -275,10 +374,9 @@ async function text_generation() {
         [[
             { "generated_text": "Once upon a time, there was a lot of discussion about the need for a new," },
             { "generated_text": "Once upon a time, there was a lot of discussion about the need for a new and" }
-        ],
-        [
-            { "generated_text": "My favorite food is the red-and-yellow-and-yellow" },
-            { "generated_text": "My favorite food is the red-and-yellow-and-white" }
+        ], [
+            { "generated_text": "I enjoy walking with my cute dog and I love to play with him.\n\n" },
+            { "generated_text": "I enjoy walking with my cute dog and I love to play with him. I love" }
         ]]
     );
 }
@@ -303,6 +401,9 @@ async function text2text_generation() {
         of the golf balls are blue. How many blue golf balls are there?
     `);
 
+    // Dispose pipelines
+    await Promise.all([generator1.dispose(), generator2.dispose()])
+
     return isDeepEqual(
         output1,
         ['it is not possible to tell']
@@ -326,6 +427,7 @@ async function speech2text_generation() {
 async function image_to_text() {
     let captioner = await pipeline('image-to-text', 'nlpconnect/vit-gpt2-image-captioning')
 
+
     let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
     let urls = [
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg',
@@ -347,6 +449,9 @@ async function image_to_text() {
         num_beams: 2,
         num_return_sequences: 2
     })
+
+    // Dispose pipeline
+    await captioner.dispose()
 
     return isDeepEqual(
         output1,
@@ -401,9 +506,9 @@ console.warn = (...data) => {
     console.log('Question answering:', await question_answering())
     console.log('Summarization:', await summarization())
     console.log('Translation:', await translation())
+    console.log('Text-to-text generation:', await text2text_generation())
     console.log('Text generation:', await text_generation())
     console.log('Embeddings:', await embeddings())
-    console.log('Text-to-text generation:', await text2text_generation())
     console.log('Speech-to-text generation:', await speech2text_generation())
     console.log('Image-to-text:', await image_to_text())
 
