@@ -154,14 +154,22 @@ function parseValue(value, type) {
 			return value
 	}
 }
+
+function isVisible(e) {
+	// https://stackoverflow.com/a/38873788
+	return !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length);
+}
+
 GENERATE_BUTTON.addEventListener('click', async (e) => {
 	// Set and pass generation settings to web worker
 	let data = {
 		task: TASK_SELECTOR.value,
-		generation: Object.fromEntries([...GENERATION_OPTIONS].map(x => {
-			let value = parseValue(x.value, x.getAttribute('datatype'));
-			return [x.getAttribute('param-name'), value]
-		}))
+		generation: Object.fromEntries([...GENERATION_OPTIONS]
+			.filter(isVisible) // Only use parameters that are visible on screen
+			.map(x => {
+				let value = parseValue(x.value, x.getAttribute('datatype'));
+				return [x.getAttribute('param-name'), value]
+			}))
 	};
 	switch (TASK_SELECTOR.value) {
 		case 'translation':
