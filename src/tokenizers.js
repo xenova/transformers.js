@@ -2,8 +2,11 @@ const {
     Callable,
     fetchJSON,
     reverseDictionary,
-    escapeRegExp
+    escapeRegExp,
+    isIntegralNumber
 } = require('./utils.js');
+
+const { Tensor } = require('./tensor_utils.js')
 
 
 class TokenizerModel extends Callable {
@@ -768,23 +771,40 @@ class PreTrainedTokenizer extends Callable {
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
         // Set mask token if present (otherwise will be undefined, which is fine)
-        this.mask_token = this.tokenizerConfig.mask_token;
-        if (typeof this.mask_token === 'object') {
-            // sometimes of type: 'AddedToken'
-            this.mask_token = this.mask_token.content
-        }
-
+        this.mask_token = this.getToken('mask_token');
         this.mask_token_id = this.model.tokens_to_ids[this.mask_token];
 
-        this.pad_token = this.tokenizerConfig.pad_token ?? this.tokenizerConfig.eos_token;
+        this.pad_token = this.getToken('pad_token', 'eos_token');
         this.pad_token_id = this.model.tokens_to_ids[this.pad_token];
 
-        this.sep_token = this.tokenizerConfig.sep_token;
+        this.sep_token = this.getToken('sep_token');
         this.sep_token_id = this.model.tokens_to_ids[this.sep_token];
 
         this.model_max_length = this.tokenizerConfig.model_max_length;
 
         this.remove_space = this.tokenizerConfig.remove_space;
+
+        // TODO allow user to change this
+        this.padding_side = 'right';
+    }
+
+    getToken(...keys) {
+        for (let key of keys) {
+            let item = this.tokenizerConfig[key];
+
+            if (!item) continue;
+
+            if (typeof item === 'object') {
+                if (item.__type === 'AddedToken') {
+                    return item.content;
+                } else {
+                    throw Error(`Unknown token: ${item}`);
+                }
+            } else {
+                return item;
+            }
+        }
+        return null;
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -813,6 +833,7 @@ class PreTrainedTokenizer extends Callable {
             padding = false,
             truncation = null,
             max_length = null,
+            return_tensor = true, // Different to HF
         } = {},
     ) {
         let tokens;
@@ -857,6 +878,7 @@ class PreTrainedTokenizer extends Callable {
         // Ensure it is less than model max length
         max_length = Math.min(max_length, this.model_max_length)
 
+        // TODO convert to tensor here?
         let attention_mask = [];
         if (padding || truncation) {
             // Perform padding and/or truncation
@@ -875,10 +897,19 @@ class PreTrainedTokenizer extends Callable {
                 } else { // t.length < max_length
                     if (padding) {
                         let diff = max_length - tokens[i].length;
-                        attention_mask.push(
-                            (new Array(tokens[i].length).fill(1)).concat(new Array(diff).fill(0))
-                        )
-                        tokens[i].push(...new Array(diff).fill(this.pad_token_id))
+
+                        if (this.padding_side === 'right') {
+                            attention_mask.push(
+                                (new Array(tokens[i].length).fill(1)).concat(new Array(diff).fill(0))
+                            )
+                            tokens[i].push(...new Array(diff).fill(this.pad_token_id))
+                        } else { // left
+                            attention_mask.push(
+                                (new Array(diff).fill(0)).concat(new Array(tokens[i].length).fill(1))
+                            )
+                            tokens[i].unshift(...new Array(diff).fill(this.pad_token_id))
+                        }
+
                     } else {
                         attention_mask.push(new Array(tokens[i].length).fill(1))
                     }
@@ -887,6 +918,35 @@ class PreTrainedTokenizer extends Callable {
         } else {
             attention_mask = tokens.map(x => new Array(x.length).fill(1))
         }
+
+        if (return_tensor) {
+            if (!(padding && truncation)) {
+                // Not, guaranteed that all items have same length, so
+                // we perform additional check
+
+                if (tokens.some(x => x.length !== tokens[0].length)) {
+                    throw Error(
+                        "Unable to create tensor, you should probably activate truncation and/or padding " +
+                        "with 'padding=true' and 'truncation=true' to have batched tensors with the same length."
+                    )
+                }
+            }
+
+            // Now we actually convert to tensor
+            let dims = [tokens.length, tokens[0].length];
+
+            tokens = new Tensor('int64',
+                BigInt64Array.from(tokens.flat().map(BigInt)),
+                dims
+            );
+
+            attention_mask = new Tensor(
+                'int64',
+                BigInt64Array.from(attention_mask.flat().map(BigInt)),
+                dims
+            )
+        }
+
 
         // Finally, add attention mask, and possibly model-specific parameters
         let modelInputs = {
@@ -962,7 +1022,7 @@ class PreTrainedTokenizer extends Callable {
         token_ids,
         decode_args = {},
     ) {
-        if (!Array.isArray(token_ids) || token_ids.length === 0 || !Number.isInteger(token_ids[0])) {
+        if (!Array.isArray(token_ids) || token_ids.length === 0 || !isIntegralNumber(token_ids[0])) {
             throw Error("token_ids must be a non-empty array of integers.");
         }
 
@@ -1003,13 +1063,21 @@ class PreTrainedTokenizer extends Callable {
 
 class BertTokenizer extends PreTrainedTokenizer {
     prepare_model_inputs(inputs) {
-        inputs.token_type_ids = inputs.input_ids.map(x => new Array(x.length).fill(0))
+        inputs.token_type_ids = new Tensor(
+            'int64',
+            new BigInt64Array(inputs.input_ids.data.length),
+            inputs.input_ids.dims
+        )
         return inputs;
     }
 }
 class AlbertTokenizer extends PreTrainedTokenizer {
     prepare_model_inputs(inputs) {
-        inputs.token_type_ids = inputs.input_ids.map(x => new Array(x.length).fill(0))
+        inputs.token_type_ids = new Tensor(
+            'int64',
+            new BigInt64Array(inputs.input_ids.data.length),
+            inputs.input_ids.dims
+        )
         return inputs;
     }
 }
