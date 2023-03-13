@@ -28,8 +28,14 @@ Alternatively, you can use it in a `<script>` tag from a CDN, for example:
 ### Basic example
 It's super easy to translate from existing code!
 
+<table>
+<tr>
+<th width="450px"><b>Python (original)</b></th>
+<th width="450px"><b>Javascript (ours)</b></th>
+</tr>
+<tr>
+<td>
 
-Python (original):
 ```python
 from transformers import pipeline
 
@@ -40,7 +46,9 @@ output = classifier('I love transformers!')
 # [{'label': 'POSITIVE', 'score': 0.9998069405555725}]
 ```
 
-Javascript (ours):
+</td>
+<td>
+
 ```javascript
 import { pipeline } from "@xenova/transformers";
 
@@ -50,6 +58,11 @@ let classifier = await pipeline('sentiment-analysis');
 let output = await classifier('I love transformers!');
 // [{label: 'POSITIVE', score: 0.9998176857266375}]
 ```
+
+</td>
+</tr>
+</table>
+
 
 In the same way as the Python library, you can use a different model by providing its name as the second argument to the pipeline function. For example:
 ```javascript
