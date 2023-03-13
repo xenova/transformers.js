@@ -368,6 +368,10 @@ class Callable extends Function {
     }
 }
 
+function isIntegralNumber(x) {
+    return Number.isInteger(x) || typeof x === 'bigint'
+}
+
 module.exports = {
     Callable,
     getModelFile,
@@ -383,5 +387,6 @@ module.exports = {
     dot,
     cos_sim,
     magnitude,
-    getFile
+    getFile,
+    isIntegralNumber
 };
