@@ -590,7 +590,10 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                             <div class="fw-bold">text-generation</div>
                             Supported models:
                             <code>gpt2</code>,
-                            <code>distilgpt2</code>.
+                            <code>distilgpt2</code>,
+                            <code>Salesforce/codegen-350M-mono</code>,
+                            <code>Salesforce/codegen-350M-multi</code>,
+                            <code>Salesforce/codegen-350M-nl</code>.
                             For more information, check out the
                             <a href="https://huggingface.co/tasks/text-generation#completion-generation-models">
                                 Text Generation docs
@@ -738,6 +741,15 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                             <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/bart">BART docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">CodeGen</div>
+                            Tasks: Text generation
+                            <code>(AutoModelForCausalLM)</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/docs/transformers/model_doc/codegen">CodeGen docs</a>.
                         </div>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
