@@ -75,6 +75,10 @@ SUPPORTED_MODELS = {
         ]
     },
     'gpt2': {
+        'gpt2': [
+            'default',
+            'causal-lm-with-past',
+        ],
         'distilgpt2': [
             'default',
             'causal-lm-with-past',
@@ -114,7 +118,10 @@ SUPPORTED_MODELS = {
         ]
     },
     'roberta': {
-        'roberta-base': [
+        'xlm-roberta-base': [
+            'default',
+            'masked-lm',
+        ], 'roberta-base': [
             'default',
             'masked-lm',
         ],
@@ -160,8 +167,39 @@ SUPPORTED_MODELS = {
             # "vision2seq-lm",
             "vision2seq-lm-with-past",
         ]
+    },
+    'vit': {
+        'google/vit-base-patch16-224-in21k': [
+            'default'
+        ],
+        'google/vit-base-patch16-224': [
+            'default',
+            'image-classification'
+        ]
+    },
+    "blenderbot-small": {
+        'facebook/blenderbot_small-90M': [
+            "default",
+            "causal-lm-with-past",
+            "seq2seq-lm-with-past",
+        ]
+    },
+    'codegen': {
+        'Salesforce/codegen-350M-mono': [
+            "default",
+            "causal-lm-with-past",
+        ],
+        'Salesforce/codegen-350M-multi': [
+            "default",
+            "causal-lm-with-past",
+        ],
+        'Salesforce/codegen-350M-nl': [
+            "default",
+            "causal-lm-with-past",
+        ],
     }
 }
+
 
 SUPPORTED_MODELS_AND_TASKS = {
     'bert': [
@@ -220,6 +258,18 @@ SUPPORTED_MODELS_AND_TASKS = {
     'whisper': [
         'default',
         'speech2seq-lm-with-past'
+    ],
+    'vit': [
+        'default',
+        'image-classification'
+    ],
+    'vision-encoder-decoder': [
+        "vision2seq-lm-with-past"
+    ],
+    'blenderbot-small': [
+        "default",
+        "causal-lm-with-past",
+        "seq2seq-lm-with-past",
     ]
 }
 
