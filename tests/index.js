@@ -491,6 +491,50 @@ async function image_to_text() {
 
 }
 
+
+async function image_classification() {
+    let classifier = await pipeline('image-classification', 'google/vit-base-patch16-224');
+
+
+    let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg';
+    let urls = [
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/palace.jpg',
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/teapot.jpg'
+    ]
+
+    let output1 = await classifier(url)
+
+
+    let output2 = await classifier(url, {
+        topk: 2
+    });
+    let output3 = await classifier(urls)
+    let output4 = await classifier(urls, {
+        topk: 2
+    });
+
+    // Dispose pipeline
+    await classifier.dispose()
+
+    return isDeepEqual(
+        output1,
+        [{ "label": "tiger, Panthera tigris", "score": 0.7844105362892151 }]
+    ) && isDeepEqual(
+        output2,
+        [{ "label": "tiger, Panthera tigris", "score": 0.7844105362892151 }, { "label": "tiger cat", "score": 0.21126100420951843 }]
+    ) && isDeepEqual(
+        output3,
+        [{ "label": "palace", "score": 0.9980684518814087 }, { "label": "teapot", "score": 0.9900187253952026 }]
+    ) && isDeepEqual(
+        output4,
+        [
+            [{ "label": "palace", "score": 0.9980684518814087 }, { "label": "monastery", "score": 0.0006102032493799925 }],
+            [{ "label": "teapot", "score": 0.9900187253952026 }, { "label": "coffeepot", "score": 0.005462237633764744 }]
+        ]
+    )
+
+}
+
 // hide unused initializer and node arguments warnings
 console._warn = console.warn;
 console.warn = (...data) => {
@@ -511,5 +555,6 @@ console.warn = (...data) => {
     console.log('Embeddings:', await embeddings())
     console.log('Speech-to-text generation:', await speech2text_generation())
     console.log('Image-to-text:', await image_to_text())
+    console.log('Image classification:', await image_classification())
 
 })();
