@@ -107,7 +107,8 @@ class ConversionArguments:
 
 UNSIGNED_MODEL_TYPES = [
     'whisper',
-    'vision-encoder-decoder'
+    'vision-encoder-decoder',
+    'vit',
 ]
 
 
@@ -217,12 +218,18 @@ def main():
     copy_if_exists(model_path, 'tokenizer.json', output_model_folder)
     copy_if_exists(model_path, 'preprocessor_config.json', output_model_folder)
 
+    if model.can_generate():
+        copy_if_exists(model_path, 'generation_config.json', output_model_folder)
+
     # Saving the model config
     model.config.save_pretrained(output_model_folder)
 
-    # Save tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    tokenizer.save_pretrained(output_model_folder)
+    try:
+        # Save tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        tokenizer.save_pretrained(output_model_folder)
+    except KeyError:
+        pass  # No Tokenizer
 
     # Specify output paths
     OUTPUT_WEIGHTS_PATH = os.path.join(output_model_folder, ONNX_WEIGHTS_NAME)
