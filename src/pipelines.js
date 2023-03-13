@@ -17,6 +17,7 @@ const {
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
+    AutoModelForImageClassification,
 } = require("./models.js");
 const {
     AutoProcessor
@@ -25,7 +26,7 @@ const {
 
 const {
     env
-} = require('./env.js')
+} = require('./env.js');
 
 
 class Pipeline extends Callable {
@@ -34,6 +35,10 @@ class Pipeline extends Callable {
         this.task = task;
         this.tokenizer = tokenizer;
         this.model = model;
+    }
+
+    async dispose() {
+        return await this.model.dispose();
     }
 
     async _call(texts) {
@@ -55,14 +60,12 @@ class TextClassificationPipeline extends Pipeline {
         topk = 1
     } = {}) {
 
-        let [inputs, outputs] = await super._call(texts)
-
-        let logits = reshape(outputs.logits.data, outputs.logits.dims);
+        let [inputs, outputs] = await super._call(texts);
 
         let id2label = this.model.config.id2label;
         let toReturn = [];
-        for (let batch of logits) {
-            let scores = getTopItems(softmax(batch), topk);
+        for (let batch of outputs.logits) {
+            let scores = getTopItems(softmax(batch.data), topk);
 
             let vals = scores.map(function (x) {
                 return {
@@ -76,6 +79,7 @@ class TextClassificationPipeline extends Pipeline {
                 toReturn.push(vals);
             }
         }
+
         return Array.isArray(texts) || topk === 1 ? toReturn : toReturn[0];
     }
 }
@@ -92,18 +96,17 @@ class QuestionAnsweringPipeline extends Pipeline {
         })
 
         let output = await this.model(inputs);
-        let startLogits = reshape(output.start_logits.data, output.start_logits.dims);
-        let endLogits = reshape(output.end_logits.data, output.end_logits.dims);
 
         let toReturn = [];
-        for (let j = 0; j < startLogits.length; ++j) {
-
-            let ids = inputs.input_ids[j]
+        for (let j = 0; j < output.start_logits.dims[0]; ++j) {
+            let ids = inputs.input_ids.get(j);
             let sepIndex = ids.indexOf(this.tokenizer.sep_token_id);
 
-            let s1 = softmax(startLogits[j]).map((x, i) => [x, i])
+            let s1 = Array.from(softmax(output.start_logits.get(j).data))
+                .map((x, i) => [x, i])
                 .filter(x => x[1] > sepIndex);
-            let e1 = softmax(endLogits[j]).map((x, i) => [x, i])
+            let e1 = Array.from(softmax(output.end_logits.get(j).data))
+                .map((x, i) => [x, i])
                 .filter(x => x[1] > sepIndex);
 
             let options = product(s1, e1)
@@ -114,7 +117,7 @@ class QuestionAnsweringPipeline extends Pipeline {
             for (let k = 0; k < Math.min(options.length, topk); ++k) {
                 let [start, end, score] = options[k];
 
-                let answer_tokens = inputs.input_ids[j].slice(start, end + 1)
+                let answer_tokens = [...ids].slice(start, end + 1)
 
                 let answer = this.tokenizer.decode(answer_tokens, {
                     skip_special_tokens: true,
@@ -129,11 +132,7 @@ class QuestionAnsweringPipeline extends Pipeline {
         }
 
         // Mimic HF's return type based on topk
-        if (topk === 1) {
-            return toReturn[0];
-        } else {
-            return toReturn;
-        }
+        return (topk === 1) ? toReturn[0] : toReturn;
 
     }
 }
@@ -148,23 +147,28 @@ class FillMaskPipeline extends Pipeline {
         let [inputs, outputs] = await super._call(texts);
 
         // Determine indices of mask tokens
-        let mask_token_indices = inputs.input_ids.map(x => x.indexOf(this.tokenizer.mask_token_id))
+        // let mask_token_indices = inputs.input_ids.data.map(x => )
 
-        let logits = reshape(outputs.logits.data, outputs.logits.dims);
+        // let logits = reshape(outputs.logits.data, outputs.logits.dims);
 
         let tokenizer = this.tokenizer;
 
-        let toReturn = logits.map((batch, i) => {
-            let mask_token_index = mask_token_indices[i];
+        let toReturn = [];
+
+        for (let i = 0; i < inputs.input_ids.dims[0]; ++i) {
+            let ids = inputs.input_ids.get(i);
+            let mask_token_index = ids.indexOf(this.tokenizer.mask_token_id)
+
             if (mask_token_index === -1) {
                 throw Error(`Mask token (${tokenizer.mask_token}) not found in text.`)
             }
-            let itemLogits = batch[mask_token_index];
+            let logits = outputs.logits.get(i);
+            let itemLogits = logits.get(mask_token_index);
 
-            let scores = getTopItems(softmax(itemLogits), topk);
+            let scores = getTopItems(softmax(itemLogits.data), topk);
 
-            return scores.map(function (x, j) {
-                let sequence = [...inputs.input_ids[i]];
+            toReturn.push(scores.map(x => {
+                let sequence = [...ids];
                 sequence[mask_token_index] = x[0];
 
                 return {
@@ -173,9 +177,8 @@ class FillMaskPipeline extends Pipeline {
                     token_str: tokenizer.model.vocab[x[0]],
                     sequence: tokenizer.decode(sequence, { skip_special_tokens: true }),
                 }
-            })
-        })
-
+            }));
+        }
         return Array.isArray(texts) ? toReturn : toReturn[0];
     }
 }
@@ -193,15 +196,21 @@ class Text2TextGenerationPipeline extends Pipeline {
             texts = texts.map(x => task_specific_params[this.task].prefix + x)
         }
 
-        let input_ids = this.tokenizer(texts).input_ids
-        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs);
+        let input_ids = this.tokenizer(texts, {
+            padding: true,
+            truncate: true
+        }).input_ids
+        let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
 
-        return outputTokenIds.map(x => {
-            let text = this.tokenizer.decode(x, {
-                skip_special_tokens: true,
-            });
-            return (this._key === null) ? text : { [this._key]: text }
+        let toReturn = this.tokenizer.batch_decode(outputTokenIds, {
+            skip_special_tokens: true,
         });
+        if (this._key !== null) {
+            toReturn = toReturn.map(text => {
+                return (this._key === null) ? text : { [this._key]: text }
+            })
+        }
+        return toReturn
     }
 }
 
@@ -219,24 +228,32 @@ class TextGenerationPipeline extends Pipeline {
         if (stringInput) {
             texts = [texts];
         }
-        let input_ids = this.tokenizer(texts).input_ids;
-        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs);
 
-        let toReturn = outputTokenIds.map((x, i) => {
-            if (Array.isArray(x) && x.length !== 0 && Number.isInteger(x[0])) {
-                x = [x]
-            }
-            let startText = texts[i].trim();
-            return x.map(y => {
-                let text = startText + this.tokenizer.decode(y, {
-                    skip_special_tokens: true,
-                });
-                return {
-                    generated_text: text
-                }
-            })
+        this.tokenizer.padding_side = 'left';
+        let inputs = this.tokenizer(texts, {
+            padding: true,
+            truncate: true,
         });
-        return stringInput ? toReturn[0] : toReturn;
+
+        let input_ids = inputs.input_ids;
+        let attention_mask = inputs.attention_mask;
+
+        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, attention_mask);
+
+        let toReturn = outputTokenIds.map((outTokens, i) => {
+            let startText = texts[i].trim();
+            let decoded = this.tokenizer.batch_decode(outTokens, {
+                skip_special_tokens: true,
+            }).map(x => {
+                return {
+                    generated_text: startText + x
+                }
+            });
+
+            return decoded
+        });
+
+        return (stringInput && toReturn.length === 1) ? toReturn[0] : toReturn;
     }
 }
 
@@ -248,6 +265,8 @@ class EmbeddingsPipeline extends Pipeline {
         // Get embedding from outputs. This is typically indexed with some number.
         delete outputs['last_hidden_state'];
         let embeddingsTensor = Object.values(outputs)[0];
+
+        // TODO - return as tensor?
         let embeddings = reshape(embeddingsTensor.data, embeddingsTensor.dims);
 
         return embeddings
@@ -270,7 +289,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
         let input_features = (await this.processor(audio)).input_features
 
-        let output = await this.model.generate(input_features, generate_kwargs)
+        let output = (await this.model.generate(input_features, generate_kwargs)).flat();
 
         return this.tokenizer.batch_decode(output, {
             skip_special_tokens: true,
@@ -288,25 +307,60 @@ class ImageToTextPipeline extends Pipeline {
     async _call(images, generate_kwargs = {}) {
         let pixel_values = (await this.processor(images)).pixel_values;
 
-        let toReturn = await Promise.all(
-            // For each item in the batch
-            pixel_values.map(async p => {
-                let output = await this.model.generate(p, generate_kwargs);
-                let decoded = this.tokenizer.batch_decode(output, {
-                    skip_special_tokens: true,
-                }).map(x => {
-                    return { generated_text: x.trim() }
-                })
-
-                return decoded;
+        let toReturn = [];
+        for (let batch of pixel_values) {
+            batch.dims = [1, ...batch.dims]
+            let output = (await this.model.generate(batch, generate_kwargs)).flat();
+            let decoded = this.tokenizer.batch_decode(output, {
+                skip_special_tokens: true,
+            }).map(x => {
+                return { generated_text: x.trim() }
             })
-        )
-        return Array.isArray(images) ? toReturn : toReturn[0]
+            toReturn.push(decoded);
+        }
+
+        return Array.isArray(images) ? toReturn : toReturn[0];
     }
+}
+
+class ImageClassificationPipeline extends Pipeline {
+    constructor(task, model, processor) {
+        super(task, null, model); // TODO tokenizer
+        this.processor = processor;
+    }
+
+    async _call(images, {
+        topk = 1
+    } = {}) {
+
+        let inputs = await this.processor(images);
+        let output = await this.model(inputs);
+
+        let id2label = this.model.config.id2label;
+        let toReturn = [];
+        for (let batch of output.logits) {
+            let scores = getTopItems(softmax(batch.data), topk);
+
+            let vals = scores.map(function (x) {
+                return {
+                    label: id2label[x[0]],
+                    score: x[1],
+                }
+            });
+            if (topk === 1) {
+                toReturn.push(...vals);
+            } else {
+                toReturn.push(vals);
+            }
+        }
+        return toReturn
+    }
+
 }
 
 const SUPPORTED_TASKS = {
     "text-classification": {
+        "tokenizer": AutoTokenizer,
         "pipeline": TextClassificationPipeline,
         "model": AutoModelForSequenceClassification,
         "default": {
@@ -316,6 +370,7 @@ const SUPPORTED_TASKS = {
     },
 
     "question-answering": {
+        "tokenizer": AutoTokenizer,
         "pipeline": QuestionAnsweringPipeline,
         "model": AutoModelForQuestionAnswering,
         "default": {
@@ -325,6 +380,7 @@ const SUPPORTED_TASKS = {
     },
 
     "fill-mask": {
+        "tokenizer": AutoTokenizer,
         "pipeline": FillMaskPipeline,
         "model": AutoModelForMaskedLM,
         "default": {
@@ -333,6 +389,7 @@ const SUPPORTED_TASKS = {
         "type": "text",
     },
     "summarization": {
+        "tokenizer": AutoTokenizer,
         "pipeline": SummarizationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
@@ -341,6 +398,7 @@ const SUPPORTED_TASKS = {
         "type": "text",
     },
     "translation": {
+        "tokenizer": AutoTokenizer,
         "pipeline": TranslationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
@@ -349,6 +407,7 @@ const SUPPORTED_TASKS = {
         "type": "text",
     },
     "text2text-generation": {
+        "tokenizer": AutoTokenizer,
         "pipeline": Text2TextGenerationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
@@ -357,6 +416,7 @@ const SUPPORTED_TASKS = {
         "type": "text",
     },
     "text-generation": {
+        "tokenizer": AutoTokenizer,
         "pipeline": TextGenerationPipeline,
         "model": AutoModelForCausalLM,
         "default": {
@@ -366,6 +426,7 @@ const SUPPORTED_TASKS = {
     },
 
     "automatic-speech-recognition": {
+        "tokenizer": AutoTokenizer,
         "pipeline": AutomaticSpeechRecognitionPipeline,
         "model": AutoModelForSeq2SeqLM,
         "processor": AutoProcessor,
@@ -376,6 +437,7 @@ const SUPPORTED_TASKS = {
     },
 
     "image-to-text": {
+        "tokenizer": AutoTokenizer,
         "pipeline": ImageToTextPipeline,
         "model": AutoModelForVision2Seq,
         "processor": AutoProcessor,
@@ -384,9 +446,22 @@ const SUPPORTED_TASKS = {
         },
         "type": "multimodal",
     },
+
+    "image-classification": {
+        // no tokenizer
+        "pipeline": ImageClassificationPipeline,
+        "model": AutoModelForImageClassification,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "google/vit-base-patch16-224-in21k"
+        },
+        "type": "multimodal",
+    },
+
     // This task is not supported in HuggingFace transformers, but serves as a useful interface
     // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
     "embeddings": {
+        "tokenizer": AutoTokenizer,
         "pipeline": EmbeddingsPipeline,
         "model": AutoModel,
         "default": {
@@ -472,14 +547,24 @@ async function pipeline(
         suffix, // task suffix
     )
 
+    let tokenizerClass = pipelineInfo.tokenizer;
     let modelClass = pipelineInfo.model;
     let pipelineClass = pipelineInfo.pipeline;
     let processorClass = pipelineInfo.processor;
 
-    let promises = [
-        AutoTokenizer.from_pretrained(model, progress_callback),
-        modelClass.from_pretrained(model, progress_callback)
-    ];
+    let promises = [];
+
+    if (tokenizerClass) {
+        promises.push(
+            AutoTokenizer.from_pretrained(model, progress_callback),
+        )
+    }
+    if (modelClass) {
+        promises.push(
+            modelClass.from_pretrained(model, progress_callback)
+        )
+    }
+
     if (processorClass) {
         promises.push(
             processorClass.from_pretrained(model, progress_callback)

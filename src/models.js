@@ -3,13 +3,18 @@ const {
     getModelFile,
     fetchJSON,
     dispatchCallback,
+    isIntegralNumber,
 } = require("./utils.js");
 
 const {
     Sampler,
 } = require("./samplers.js");
 
-const { InferenceSession, Tensor } = require('onnxruntime-web');
+const { Tensor } = require('./tensor_utils.js')
+const ONNX = require('onnxruntime-web');
+
+const InferenceSession = ONNX.InferenceSession
+const ONNXTensor = ONNX.Tensor
 
 //////////////////////////////////////////////////
 // Helper functions
@@ -25,6 +30,50 @@ async function constructSession(modelPath, fileName, progressCallback = null) {
     return session
 }
 
+async function sessionRun(session, inputs) {
+    let output = await session.run(inputs);
+    output = replaceTensors(output);
+    return output;
+}
+
+function replaceTensors(obj) {
+    // Convert ONNX Tensors with our custom Tensor class
+    // to support additional functions
+    for (let prop in obj) {
+        if (obj[prop] instanceof ONNXTensor) {
+            obj[prop] = new Tensor(obj[prop]);
+        }
+    }
+    return obj;
+}
+
+function _prepare_attention_mask(self, tokens) {
+
+    // Prepare attention mask
+    let pad_token_id = self.config.pad_token_id ?? null;
+    let eos_token_id = self.config.eos_token_id ?? null;
+    if (isIntegralNumber(eos_token_id)) {
+        eos_token_id = [eos_token_id];
+    }
+
+    let is_pad_token_in_inputs = tokens.indexOf(pad_token_id) !== -1;
+    let is_pad_token_not_equal_to_eos_token_id = (eos_token_id === null) || !eos_token_id.includes(pad_token_id)
+
+    if (is_pad_token_in_inputs && is_pad_token_not_equal_to_eos_token_id) {
+        let data = BigInt64Array.from(
+            // Note: != so that int matches bigint
+            tokens.data.map(x => x != pad_token_id)
+        )
+        return new Tensor('int64', data, tokens.dims)
+    } else {
+        return new Tensor(
+            'int64',
+            new BigInt64Array(tokens.data.length).fill(1n),
+            tokens.dims
+        )
+    }
+}
+
 function boolTensor(value) {
     // Create boolean tensor
     return new Tensor('bool', [value], [1]);
@@ -36,8 +85,6 @@ async function seq2seq_forward(self, model_inputs, {
     encoder_attention_mask = true,
     add_decoder_pkv = true
 } = {}) {
-    model_inputs = self.prepare_inputs(model_inputs)
-
     let encoderOutputs = model_inputs.encoder_outputs;
     let pastKeyValues = model_inputs.past_key_values;
 
@@ -48,7 +95,7 @@ async function seq2seq_forward(self, model_inputs, {
         if (encoder_attention_mask) {
             encoderFeeds.attention_mask = model_inputs.attention_mask
         }
-        const encoderResults = await self.session.run(encoderFeeds);
+        const encoderResults = await sessionRun(self.session, encoderFeeds);
         encoderOutputs = encoderResults.last_hidden_state;
     }
     let decoderFeeds = {
@@ -61,41 +108,60 @@ async function seq2seq_forward(self, model_inputs, {
     }
     self.addPastKeyValues(decoderFeeds, pastKeyValues, add_decoder_pkv);
 
-    const decoderResults = await self.decoder_merged_session.run(decoderFeeds);
+    const decoderResults = await sessionRun(self.decoder_merged_session, decoderFeeds);
     let logits = decoderResults.logits;
     pastKeyValues = self.getPastKeyValues(decoderResults);
 
     return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
 }
 
-function seq2seqStartBeam(self, ...args) {
-    // arguments ignored in this case
-    return {
-        encoder_outputs: null,
-        past_key_values: null,
+function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
+    let beams = [];
 
-        // decoder_input_ids == output_token_ids
-        output_token_ids: [self.config.decoder_start_token_id],
-        done: false,
-        score: 0,
+    let beamId = 0;
+    for (let tokens of inputTokenIds) {
+        // TODO: Improve
+        // Currently, just add back batch dimension.
+        // In future, allow for true parallel execution
+        tokens.dims = [1, ...tokens.dims]
+
+        // Create beam
+        let start = {
+            inputs: tokens,
+            encoder_outputs: null,
+            past_key_values: null,
+
+            // decoder_input_ids == output_token_ids
+            output_token_ids: [self.config.decoder_start_token_id],
+            done: false,
+            score: 0,
+            id: beamId++ // assign unique id to beams
+        }
+
+        if (requires_attention_mask) {
+            start.attention_mask = _prepare_attention_mask(self, tokens);
+        }
+
+        beams.push(start);
     }
+
+    return beams;
 }
 
 
-async function seq2seqRunBeam(self, beam, inputTokenIds, {
+async function seq2seqRunBeam(self, beam, {
     input_name = 'input_ids',
-    add_attention_mask = true,
 } = {}
 ) {
     // 1. Prepare
     let model_inputs = {
-        [input_name]: inputTokenIds,
-        decoder_input_ids: beam.output_token_ids.slice(-1),
+        [input_name]: beam.inputs,
+        decoder_input_ids: self.toI64Tensor(beam.output_token_ids.slice(-1)),
         encoder_outputs: beam.encoder_outputs,
         past_key_values: beam.past_key_values,
     }
-    if (add_attention_mask) {
-        model_inputs.attention_mask = new Array(inputTokenIds.length).fill(1)
+    if (beam.attention_mask) {
+        model_inputs.attention_mask = beam.attention_mask
     }
 
     // 2. Run
@@ -341,7 +407,38 @@ class AutoModelForVision2Seq {
         }
     }
 }
+
+class AutoModelForImageClassification {
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'model.onnx', progressCallback),
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'vit':
+                return new ViTForImageClassification(
+                    config,
+                    session,
+                );
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+
+}
+
 //////////////////////////////////////////////////
+
+
+
 
 //////////////////////////////////////////////////
 // Base class
@@ -361,10 +458,23 @@ class PreTrainedModel extends Callable {
             num_return_sequences: 1,
             early_stopping: false,
             do_sample: false,
-            discount_factor: 1,
 
             callback_function: null
         }
+    }
+
+    async dispose() {
+        // Dispose of all ONNX sessions sessions
+        // TODO use: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
+
+        let promises = [];
+        for (let key of Object.keys(this)) {
+            let item = this[key];
+            if (item instanceof InferenceSession) {
+                promises.push(item.handler.dispose())
+            }
+        }
+        return await Promise.all(promises);
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -385,6 +495,9 @@ class PreTrainedModel extends Callable {
     }
 
     toI64Tensor(items) {
+        if (items instanceof Tensor) {
+            return items;
+        }
         // items is an array
         if (items.length === 0) {
             throw Error("items must be non-empty");
@@ -409,56 +522,22 @@ class PreTrainedModel extends Callable {
         }
     }
 
-    prepare_inputs(model_inputs) {
-        let new_model_inputs = {};
-
-        // TODO improve
-        for (let [key, value] of Object.entries(model_inputs)) {
-            if (Array.isArray(value)) {
-                // convert arrays to tensors
-                // TODO do not assume int64
-                new_model_inputs[key] = this.toI64Tensor(value);
-            } else {
-                new_model_inputs[key] = value;
-            }
-        }
-        return new_model_inputs;
-    }
-
     async _call(model_inputs) {
-        // TODO allow batched inputs
-        // TODO return ModelOutput object?
-
-        model_inputs = this.prepare_inputs(model_inputs)
-        return await this.session.run(model_inputs);
+        return await sessionRun(this.session, model_inputs);
     }
+
     async forward(model_inputs) {
         throw Error("forward should be implemented in subclasses.")
     }
 
-    async generate(inputs, options = {}) {
-        options = this.prepareGenerationOptions(options);
+    async generate(inputs, options = {}, inputs_attention_mask = null) {
 
-        if (Array.isArray(inputs) && Array.isArray(inputs[0])) { // batched
-            let generations = (await Promise.all(inputs.map(x => this.generate_single(x, options))));
-
-            // NOTE: we flatten the output arrays, since this
-            // mimics how HuggingFace's generate function operates.
-            if (options.num_return_sequences > 1) {
-                generations = generations.map(x => x.map(y => y.flat()))
-            } else {
-                generations = generations.map(x => x.flat())
-            }
-            return generations
-        } else {
-            return this.generate_single(inputs, options)
-        }
-    }
-
-    async generate_single(inputs, options = {}) {
         if (inputs.length === 0) {
             throw Error("Must supply a non-empty array of input token ids.")
         }
+
+        options = this.prepareGenerationOptions(options);
+
         // TODO implement early_stopping
         // https://huggingface.co/blog/how-to-generate
 
@@ -467,7 +546,7 @@ class PreTrainedModel extends Callable {
 
         let sampler = Sampler.getSampler(options);
 
-        let beams = [this.getStartBeam(inputs, numOutputTokens)];
+        let beams = this.getStartBeams(inputs, numOutputTokens, inputs_attention_mask);
 
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
 
@@ -480,7 +559,7 @@ class PreTrainedModel extends Callable {
                     continue
                 }
 
-                let output = await this.runBeam(beam, inputs);
+                let output = await this.runBeam(beam);
 
                 let sampledTokens = sampler(output.logits);
 
@@ -489,11 +568,8 @@ class PreTrainedModel extends Callable {
                     let newBeam = { ...beam };
 
                     // update new beam
-                    this.updateBeam(newBeam, newTokenId)
+                    this.updateBeam(newBeam, newTokenId);
 
-                    if (options.discount_factor < 1) {
-                        newBeam.score *= options.discount_factor;
-                    }
                     newBeam.score += logProb;
 
                     if (newTokenId === this.config.eos_token_id) {
@@ -504,12 +580,15 @@ class PreTrainedModel extends Callable {
             }
             ++numOutputTokens;
 
-            // Update beams
-            newest_beams = newest_beams
-                .sort((a, b) => b.score - a.score)  // sort based on score
-                .slice(0, options.num_beams)        // remove outside beam width
+            // Next, we get the best beams, per ID
+            newest_beams = this.groupBeams(newest_beams).map(
+                group => group
+                    .sort((a, b) => b.score - a.score)  // sort based on score
+                    .slice(0, options.num_beams)        // remove outside beam width
+            );
 
-            beams = newest_beams;
+            // Flatten beams
+            beams = newest_beams.flat();
 
             // Run callback
             if (options.callback_function) {
@@ -517,11 +596,28 @@ class PreTrainedModel extends Callable {
             }
         }
 
-        if (options.num_return_sequences > 1) {
-            return beams.slice(0, options.num_return_sequences).map(x => x.output_token_ids);
-        } else {
-            return [beams[0].output_token_ids];
+        return this.groupBeams(beams).map(
+            batch => {
+                if (options.num_return_sequences > 1) {
+                    return batch.slice(0, options.num_return_sequences).map(x => x.output_token_ids);
+                } else {
+                    return [batch[0].output_token_ids];
+                }
+            }
+        )
+    }
+    groupBeams(beams) {
+        // Group beams by their ids
+        const groups = {};
+        for (const obj of beams) {
+            if (groups[obj.id] === undefined) {
+                groups[obj.id] = [obj];
+            } else {
+                groups[obj.id].push(obj);
+            }
         }
+
+        return Object.values(groups);
     }
     prepareGenerationOptions(options) {
         return Object.assign({}, this.default_generation_options, options)
@@ -685,12 +781,12 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         return new this(config, session, decoder_merged_session);
     }
 
-    getStartBeam(...args) {
-        return seq2seqStartBeam(this);
+    getStartBeams(inputs, numOutputTokens, ...args) {
+        return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
 
-    async runBeam(beam, inputTokenIds) {
-        return await seq2seqRunBeam(this, beam, inputTokenIds);
+    async runBeam(beam) {
+        return await seq2seqRunBeam(this, beam);
     }
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -717,29 +813,64 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
     constructor(config, session) {
         super(config, session);
 
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
         this.num_heads = this.config.n_head
         this.num_layers = this.config.n_layer
         this.dim_kv = this.config.n_embd / this.num_heads;
     }
 
-    getStartBeam(inputTokenIds, numOutputTokens) {
-        return {
-            attention_mask: new Array(inputTokenIds.length).fill(1),
-            model_input_ids: [...inputTokenIds],
-            past_key_values: null,
-            output_token_ids: [],
-            num_output_tokens: numOutputTokens,
-            done: false,
-            score: 0,
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        let beams = [];
+
+        let beamId = 0;
+        for (let tokens of inputTokenIds) {
+            // TODO: Improve
+            // Currently, just add back batch dimension.
+            // In future, allow for true parallel execution
+            tokens.dims = [1, ...tokens.dims]
+
+            let attn_mask;
+            if (inputs_attention_mask) {
+                attn_mask = inputs_attention_mask.get(beamId)
+                attn_mask.dims = [1, ...attn_mask.dims]
+
+            } else {
+                attn_mask = _prepare_attention_mask(this, tokens)
+            }
+
+            let start = {
+                input: tokens,
+                model_input_ids: tokens,
+                attention_mask: attn_mask,
+                past_key_values: null,
+
+                output_token_ids: [],
+                num_output_tokens: numOutputTokens,
+
+                done: false,
+                score: 0,
+                id: beamId++ // assign unique id to beams
+            }
+
+            beams.push(start);
         }
+        return beams;
     }
 
 
-    async runBeam(beam, inputTokenIds) {
+    async runBeam(beam) {
+        let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
+
         // 1. Prepare
         let model_inputs = {
             input_ids: beam.model_input_ids,
-            attention_mask: new Array(inputTokenIds.length + beam.output_token_ids.length).fill(1),
+            attention_mask: new Tensor(
+                'int64',
+                attnMaskData,
+                [1, attnMaskData.length]
+            ),
             past_key_values: beam.past_key_values,
         }
 
@@ -753,12 +884,11 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
     }
 
     updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId]
-        beam.model_input_ids = [newTokenId];
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+        beam.model_input_ids = new Tensor('int64', [BigInt(newTokenId)], [1, 1]);
     }
 
     async forward(model_inputs) {
-        model_inputs = this.prepare_inputs(model_inputs)
 
         let past_key_values = model_inputs.past_key_values;
         let decoderFeeds = {
@@ -768,7 +898,7 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         }
         this.addPastKeyValues(decoderFeeds, past_key_values)
 
-        let decoderResults = await this.session.run(decoderFeeds);
+        let decoderResults = await sessionRun(this.session, decoderFeeds);
         let logits = decoderResults.logits;
 
         past_key_values = this.getPastKeyValues(decoderResults);
@@ -826,12 +956,12 @@ class BartForConditionalGeneration extends BartPretrainedModel {
         return new this(config, session, decoder_merged_session);
     }
 
-    getStartBeam(...args) {
-        return seq2seqStartBeam(this);
+    getStartBeams(inputs, numOutputTokens, ...args) {
+        return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
 
-    async runBeam(beam, inputTokenIds) {
-        return await seq2seqRunBeam(this, beam, inputTokenIds);
+    async runBeam(beam) {
+        return await seq2seqRunBeam(this, beam);
     }
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -911,15 +1041,14 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         return new this(config, session, decoder_merged_session);
     }
 
-    getStartBeam(...args) {
+    getStartBeams(inputTokenIds, numOutputTokens, ...args) {
         // arguments ignored in this case
-        return seq2seqStartBeam(this);
+        return seq2seqStartBeams(this, inputTokenIds, numOutputTokens, false);
     }
 
-    async runBeam(beam, inputFeatures) {
-        return await seq2seqRunBeam(this, beam, inputFeatures, {
+    async runBeam(beam) {
+        return await seq2seqRunBeam(this, beam, {
             input_name: 'input_features',
-            add_attention_mask: false
         });
     }
     updateBeam(beam, newTokenId) {
@@ -963,13 +1092,12 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
         return new this(config, session, decoder_merged_session);
     }
 
-    getStartBeam(...args) {
-        return seq2seqStartBeam(this);
+    getStartBeams(inputs, numOutputTokens, ...args) {
+        return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
-    async runBeam(beam, pixel_values) {
-        return seq2seqRunBeam(this, beam, pixel_values, {
+    async runBeam(beam) {
+        return seq2seqRunBeam(this, beam, {
             input_name: 'pixel_values',
-            add_attention_mask: false
         });
     }
 
@@ -986,6 +1114,18 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
     }
 }
 //////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+class ViTForImageClassification extends PreTrainedModel {
+
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new SequenceClassifierOutput(logits)
+    }
+}
+
+//////////////////////////////////////////////////
+
 
 class Seq2SeqLMOutput {
     constructor(logits, past_key_values, encoder_outputs) {
@@ -1022,5 +1162,6 @@ module.exports = {
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     AutoModelForVision2Seq,
+    AutoModelForImageClassification,
     T5ForConditionalGeneration
 };
