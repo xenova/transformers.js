@@ -353,7 +353,8 @@ class ImageClassificationPipeline extends Pipeline {
                 toReturn.push(vals);
             }
         }
-        return toReturn
+
+        return Array.isArray(images) || topk === 1 ? toReturn : toReturn[0];
     }
 
 }
