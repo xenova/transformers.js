@@ -454,7 +454,7 @@ const SUPPORTED_TASKS = {
         "model": AutoModelForImageClassification,
         "processor": AutoProcessor,
         "default": {
-            "model": "google/vit-base-patch16-224-in21k"
+            "model": "google/vit-base-patch16-224"
         },
         "type": "multimodal",
     },
