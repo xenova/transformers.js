@@ -5,10 +5,9 @@ const {
     getFile
 } = require("./utils.js");
 
-const { Tensor } = require('onnxruntime-web');
 
 const FFT = require('./fft.js');
-const { transpose } = require("./tensor_utils.js");
+const { Tensor, transpose, cat } = require("./tensor_utils.js");
 
 // For some reason, Jimp attaches to self, even in Node.
 // https://github.com/jimp-dev/jimp/issues/466
@@ -36,7 +35,14 @@ class AutoProcessor {
                 break;
 
             default:
-                throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
+                if (preprocessorConfig.size !== undefined) {
+                    // Assume VitFeatureExtractor
+                    feature_extractor = new ViTFeatureExtractor(preprocessorConfig)
+
+                } else {
+                    throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
+
+                }
         }
 
         switch (preprocessorConfig.processor_class) {
@@ -147,9 +153,12 @@ class ViTFeatureExtractor extends FeatureExtractor {
         let images = await Promise.all(urls.map(x => this.preprocess(x)));
 
         images.forEach(x => x.dims = [1, ...x.dims]) // add batch dimension
+
+        images = cat(images);
+        // TODO concatenate on dim=0
         return {
             pixel_values: images
-        };
+        }
     }
 
 }
