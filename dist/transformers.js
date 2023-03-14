@@ -1622,7 +1622,6 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
     return beams;
 }
 
-
 async function seq2seqRunBeam(self, beam, {
     input_name = 'input_ids',
 } = {}
@@ -1646,6 +1645,88 @@ async function seq2seqRunBeam(self, beam, {
     beam.encoder_outputs = output.encoder_outputs;
 
     return output;
+}
+
+async function textgen_forward(self, model_inputs) {
+    let past_key_values = model_inputs.past_key_values;
+    let decoderFeeds = {
+        input_ids: model_inputs.input_ids,
+        attention_mask: model_inputs.attention_mask,
+        use_cache_branch: boolTensor(past_key_values !== null)
+    }
+    self.addPastKeyValues(decoderFeeds, past_key_values)
+
+    let decoderResults = await sessionRun(self.session, decoderFeeds);
+    let logits = decoderResults.logits;
+
+    past_key_values = self.getPastKeyValues(decoderResults);
+    return { logits, past_key_values };
+}
+
+function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attention_mask) {
+    let beams = [];
+
+    let beamId = 0;
+    for (let tokens of inputTokenIds) {
+        // TODO: Improve
+        // Currently, just add back batch dimension.
+        // In future, allow for true parallel execution
+        tokens.dims = [1, ...tokens.dims]
+
+        let attn_mask;
+        if (inputs_attention_mask) {
+            attn_mask = inputs_attention_mask.get(beamId)
+            attn_mask.dims = [1, ...attn_mask.dims]
+
+        } else {
+            attn_mask = _prepare_attention_mask(self, tokens)
+        }
+
+        let start = {
+            input: tokens,
+            model_input_ids: tokens,
+            attention_mask: attn_mask,
+            past_key_values: null,
+
+            output_token_ids: [],
+            num_output_tokens: numOutputTokens,
+
+            done: false,
+            score: 0,
+            id: beamId++ // assign unique id to beams
+        }
+
+        beams.push(start);
+    }
+    return beams;
+}
+
+async function textgenRunBeam(self, beam) {
+    let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
+
+    // 1. Prepare
+    let model_inputs = {
+        input_ids: beam.model_input_ids,
+        attention_mask: new Tensor(
+            'int64',
+            attnMaskData,
+            [1, attnMaskData.length]
+        ),
+        past_key_values: beam.past_key_values,
+    }
+
+    // 2. Run
+    let output = await self.forward(model_inputs);
+
+    // 3. Update
+    beam.past_key_values = output.past_key_values;
+
+    return output;
+}
+
+function textgenUpdatebeam(beam, newTokenId) {
+    beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    beam.model_input_ids = new Tensor('int64', [BigInt(newTokenId)], [1, 1]);
 }
 //////////////////////////////////////////////////
 
@@ -1679,6 +1760,8 @@ class AutoModel {
                 return new T5Model(config, session);
             case 'gpt2':
                 return new GPT2Model(config, session);
+            case 'codegen':
+                return new CodeGenModel(config, session);
             case 'bart':
                 return new BartModel(config, session);
             case 'roberta':
@@ -1784,6 +1867,13 @@ class AutoModelForCausalLM {
                     config,
                     session
                 );
+
+            case 'codegen':
+                return new CodeGenForCausalLM(
+                    config,
+                    session
+                )
+
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
         }
@@ -2273,119 +2363,6 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// GPT2 models
-class GPT2PreTrainedModel extends PreTrainedModel { }
-class GPT2Model extends GPT2PreTrainedModel {
-    async generate(...args) {
-        throw Error(
-            "The current model class (GPT2Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPT2LMHeadModel'}"
-        )
-    }
-}
-
-class GPT2LMHeadModel extends GPT2PreTrainedModel {
-    constructor(config, session) {
-        super(config, session);
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd / this.num_heads;
-    }
-
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        let beams = [];
-
-        let beamId = 0;
-        for (let tokens of inputTokenIds) {
-            // TODO: Improve
-            // Currently, just add back batch dimension.
-            // In future, allow for true parallel execution
-            tokens.dims = [1, ...tokens.dims]
-
-            let attn_mask;
-            if (inputs_attention_mask) {
-                attn_mask = inputs_attention_mask.get(beamId)
-                attn_mask.dims = [1, ...attn_mask.dims]
-
-            } else {
-                attn_mask = _prepare_attention_mask(this, tokens)
-            }
-
-            let start = {
-                input: tokens,
-                model_input_ids: tokens,
-                attention_mask: attn_mask,
-                past_key_values: null,
-
-                output_token_ids: [],
-                num_output_tokens: numOutputTokens,
-
-                done: false,
-                score: 0,
-                id: beamId++ // assign unique id to beams
-            }
-
-            beams.push(start);
-        }
-        return beams;
-    }
-
-
-    async runBeam(beam) {
-        let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
-
-        // 1. Prepare
-        let model_inputs = {
-            input_ids: beam.model_input_ids,
-            attention_mask: new Tensor(
-                'int64',
-                attnMaskData,
-                [1, attnMaskData.length]
-            ),
-            past_key_values: beam.past_key_values,
-        }
-
-        // 2. Run
-        let output = await this.forward(model_inputs);
-
-        // 3. Update
-        beam.past_key_values = output.past_key_values;
-
-        return output;
-    }
-
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
-        beam.model_input_ids = new Tensor('int64', [BigInt(newTokenId)], [1, 1]);
-    }
-
-    async forward(model_inputs) {
-
-        let past_key_values = model_inputs.past_key_values;
-        let decoderFeeds = {
-            input_ids: model_inputs.input_ids,
-            attention_mask: model_inputs.attention_mask,
-            use_cache_branch: boolTensor(past_key_values !== null)
-        }
-        this.addPastKeyValues(decoderFeeds, past_key_values)
-
-        let decoderResults = await sessionRun(this.session, decoderFeeds);
-        let logits = decoderResults.logits;
-
-        past_key_values = this.getPastKeyValues(decoderResults);
-        return { logits, past_key_values };
-    }
-
-}
-// class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
-// TODO
-// }
-//////////////////////////////////////////////////
-
-//////////////////////////////////////////////////
 // Bart models
 class BartPretrainedModel extends PreTrainedModel { };
 
@@ -2586,6 +2563,96 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
             add_decoder_pkv: false
         })
     }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// GPT2 models
+class GPT2PreTrainedModel extends PreTrainedModel { }
+class GPT2Model extends GPT2PreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (GPT2Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPT2LMHeadModel'}"
+        )
+    }
+}
+
+class GPT2LMHeadModel extends GPT2PreTrainedModel {
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.n_embd / this.num_heads;
+    }
+
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+
+    async runBeam(beam) {
+        return await textgenRunBeam(this, beam);
+    }
+
+    updateBeam(beam, newTokenId) {
+        return textgenUpdatebeam(beam, newTokenId);
+    }
+
+    async forward(model_inputs) {
+        return await textgen_forward(this, model_inputs)
+    }
+
+}
+// class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
+// TODO
+// }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// CodeGen models
+class CodeGenPreTrainedModel extends PreTrainedModel { }
+class CodeGenModel extends CodeGenPreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (CodeGenModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'CodeGenForCausalLM'}"
+        )
+    }
+}
+
+class CodeGenForCausalLM extends CodeGenPreTrainedModel {
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.n_embd / this.num_heads;
+    }
+
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    async runBeam(beam) {
+        return await textgenRunBeam(this, beam);
+    }
+
+    updateBeam(beam, newTokenId) {
+        return textgenUpdatebeam(beam, newTokenId);
+    }
+
+    async forward(model_inputs) {
+        return await textgen_forward(this, model_inputs)
+    }
+
 }
 //////////////////////////////////////////////////
 
@@ -4104,6 +4171,11 @@ const { Tensor } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_ut
 
 
 class TokenizerModel extends Callable {
+
+    constructor(config) {
+        super();
+        this.config = config;
+    }
     static fromConfig(config, ...args) {
         switch (config.type) {
             case 'WordPiece':
@@ -4134,8 +4206,7 @@ class TokenizerModel extends Callable {
 
 class WordPieceTokenizer extends TokenizerModel {
     constructor(config) {
-        super();
-        this.config = config;
+        super(config);
 
         this.tokens_to_ids = config.vocab;
 
@@ -4200,8 +4271,7 @@ class WordPieceTokenizer extends TokenizerModel {
 
 class Unigram extends TokenizerModel {
     constructor(config, moreConfig) {
-        super();
-        this.config = config;
+        super(config);
 
         this.vocab = config.vocab.map(x => x[0]);
         this.scores = config.vocab.map(x => x[1]);
@@ -4294,9 +4364,8 @@ const BYTES_TO_UNICODE = (() => {
 const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
 
 class BPE extends TokenizerModel {
-    constructor(config, moreConfig) {
-        super();
-        this.config = config;
+    constructor(config) {
+        super(config);
 
         this.tokens_to_ids = config.vocab;
 
@@ -4713,11 +4782,46 @@ class ByteLevelDecoder extends Decoder {
         });
     }
 
-    decode(tokens) {
-        let text = this.convert_tokens_to_string(tokens);
+    convert_tokens_to_string(tokens) {
+        let text = tokens.join('');
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
+    }
+
+    decode(tokens) {
+        // TODO move to base class (like HF)
+        // tokens === filtered_tokens
+
+        // To avoid mixing byte-level and unicode for byte-level BPT
+        // we need to build string separately for added tokens and byte-level tokens
+        // cf. https://github.com/huggingface/transformers/issues/1133
+        let sub_texts = [];
+        let current_sub_text = [];
+        for (let token of tokens) {
+            // tokens sent here are already filtered, so we don't need to do this
+            // if (skip_special_tokens && this.all_special_ids.includes(token)) {
+            //     continue;
+            // }
+
+            if (this.added_tokens.includes(token)) {
+                if (current_sub_text.length > 0) {
+                    sub_texts.push(this.convert_tokens_to_string(current_sub_text));
+                    current_sub_text = [];
+                }
+                sub_texts.push(token);
+            } else {
+                current_sub_text.push(token);
+            }
+        }
+        if (current_sub_text.length > 0) {
+            sub_texts.push(this.convert_tokens_to_string(current_sub_text));
+        }
+
+        // TODO add spaces_between_special_tokens and clean_up_tokenization_spaces options
+        let text = sub_texts.join('');
+
+        return text;
     }
 }
 
@@ -4838,6 +4942,9 @@ class AutoTokenizer {
             case 'WhisperTokenizer':
                 return new WhisperTokenizer(tokenizerJSON, tokenizerConfig);
 
+            case 'CodeGenTokenizer':
+                return new CodeGenTokenizer(tokenizerJSON, tokenizerConfig);
+
             default:
                 console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
                 return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
@@ -4851,11 +4958,6 @@ class PreTrainedTokenizer extends Callable {
         this.tokenizerJSON = tokenizerJSON;
         this.tokenizerConfig = tokenizerConfig;
 
-        this.special_tokens = tokenizerJSON.added_tokens.map(x => x.content);
-        this.special_tokens_regex = new RegExp(
-            '(' + this.special_tokens.map(escapeRegExp).join('|') + ')'
-        );
-
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
@@ -4863,6 +4965,29 @@ class PreTrainedTokenizer extends Callable {
 
         // TODO - maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
+
+        // Slight hack, but it prevents code duplication:
+        // Add added_tokens to this.decoder
+        this.decoder.added_tokens = [];
+
+        // Add added_tokens to model
+        this.special_tokens = [];
+        for (let addedToken of tokenizerJSON.added_tokens) {
+            let id = addedToken.id;
+            let content = addedToken.content;
+            this.decoder.added_tokens.push(content);
+
+            this.model.tokens_to_ids[content] = id;
+            this.model.vocab[id] = content;
+
+            if (addedToken.special) {
+                this.special_tokens.push(content);
+            }
+        }
+        this.special_tokens_regex = new RegExp(
+            '(' + this.special_tokens.map(escapeRegExp).join('|') + ')'
+        );
+
 
         // Set mask token if present (otherwise will be undefined, which is fine)
         this.mask_token = this.getToken('mask_token');
@@ -5132,14 +5257,12 @@ class PreTrainedTokenizer extends Callable {
             clean_up_tokenization_spaces = true,
         }
     ) {
-
         let tokens = this.model.convert_ids_to_tokens(token_ids);
-
         if (skip_special_tokens) {
             tokens = tokens.filter(x => !this.special_tokens.includes(x));
         }
 
-        let decoded = this.decoder(tokens);
+        let decoded = this.decoder(tokens); // tokens === filtered_tokens
 
         if (this.decoder.cleanup !== undefined && this.decoder.cleanup !== clean_up_tokenization_spaces) {
             console.warn(`clean_up_tokenization_spaces disagrees with decoder's cleanup setting. Overriding to use decoder's cleanup setting (${this.decoder.cleanup})`)
@@ -5181,6 +5304,7 @@ class GPT2Tokenizer extends PreTrainedTokenizer { }
 class BartTokenizer extends PreTrainedTokenizer { }
 class RobertaTokenizer extends PreTrainedTokenizer { }
 class WhisperTokenizer extends PreTrainedTokenizer { }
+class CodeGenTokenizer extends PreTrainedTokenizer { }
 
 class CharTrie {
     constructor() {
