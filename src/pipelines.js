@@ -365,12 +365,39 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
         super(task, tokenizer, model);
         this.processor = processor;
     }
-    async _call(images, {
-        candidate_labels = null
+    async _call(images, candidate_labels, {
+        hypothesis_template = "This is a photo of {}"
     } = {}) {
-        // TODO implement
-        // console.log({images})
-        // console.log({candidate_labels})
+
+        // Insert label into hypothesis template 
+        let texts = candidate_labels.map(
+            x => hypothesis_template.replace('{}', x)
+        );
+
+        // Run tokenization
+        let text_inputs = this.tokenizer(texts, {
+            padding: true,
+            truncate: true
+        });
+
+        // Compare each image with each candidate label
+        let image_inputs = await this.processor(images);
+        let output = await this.model({ ...text_inputs, ...image_inputs });
+
+        let toReturn = [];
+        for (let batch of output.logits_per_image) {
+            // Compute softmax per image
+            let probs = softmax(batch.data);
+
+            toReturn.push([...probs].map((x, i) => {
+                return {
+                    score: x,
+                    label: candidate_labels[i]
+                }
+            }));
+        }
+
+        return Array.isArray(images) ? toReturn : toReturn[0];
     }
 }
 
