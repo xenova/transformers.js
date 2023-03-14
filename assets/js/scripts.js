@@ -52,8 +52,8 @@ const IMAGE_CLASSIFICATION_INPUT = document.getElementById('ic-file');
 const IMAGE_CLASSIFICATION_IMG = document.getElementById('ic-viewer');
 const IMAGE_CLASSIFICATION_OUTPUT_CANVAS = document.getElementById('ic-canvas');
 
-const CODE_COMPLETION_TEXTBOX = document.getElementById('code-completion-textbox');
-const CODE_HIGHLIGHT = document.getElementById('highlighting-content');
+const CODE_COMPLETION_CONTAINER = document.getElementById('code-completion-container');
+
 
 [
 	[SPEECH2TEXT_SELECT, SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
@@ -107,7 +107,86 @@ const CHART_OPTIONS = {
 			bottom: -5,
 		}
 	},
+};
+
+
+// Initialise all code blocks
+const CODE_BLOCKS = {};
+
+[...document.querySelectorAll('.code-container')].forEach(element => {
+
+	// Guide to add editable code block:
+	// https://codepen.io/WebCoder49/pen/dyNyraq
+	// https://css-tricks.com/creating-an-editable-textarea-that-supports-syntax-highlighted-code/
+
+	const CODE_HIGHLIGHT = element.querySelector('pre');
+	const CODE_HIGHLIGHT_CONTENT = element.querySelector('code');
+	const CODE_COMPLETION_TEXTBOX = element.querySelector('textarea');
+
+	let sync_scroll = () => {
+		/* Scroll result to scroll coords of event - sync with textarea */
+		CODE_HIGHLIGHT.scrollTop = CODE_COMPLETION_TEXTBOX.scrollTop;
+		CODE_HIGHLIGHT.scrollLeft = CODE_COMPLETION_TEXTBOX.scrollLeft;
+	}
+	let update = (text) => {
+		// Handle final newlines (see article)
+		if (text[text.length - 1] == "\n") {
+			text += " ";
+		}
+		// Update code
+		CODE_HIGHLIGHT_CONTENT.innerHTML = escapeHtml(text);
+
+		// Syntax Highlight
+		Prism.highlightElement(CODE_HIGHLIGHT_CONTENT);
+	}
+
+	// Update code function
+	let updateCode = (text) => {
+		update(text);
+		sync_scroll();
+	};
+
+	CODE_BLOCKS[element.id] = {
+		update: (text) => {
+			CODE_COMPLETION_TEXTBOX.value = text;
+			updateCode(text);
+
+			// When updating, set scroll to bottom
+			// https://stackoverflow.com/a/9170709
+			CODE_COMPLETION_TEXTBOX.scrollTop = CODE_COMPLETION_TEXTBOX.scrollHeight;
+		},
+		text: () => CODE_COMPLETION_TEXTBOX.value
+	};
+
+	CODE_COMPLETION_TEXTBOX.oninput = () => updateCode(CODE_COMPLETION_TEXTBOX.value);
+
+	CODE_COMPLETION_TEXTBOX.onscroll = sync_scroll;
+	CODE_COMPLETION_TEXTBOX.onkeydown = (event) => {
+		let code = CODE_COMPLETION_TEXTBOX.value;
+		if (event.key == "Tab") {
+			/* Tab key pressed */
+			event.preventDefault(); // stop normal
+			let before_tab = code.slice(0, CODE_COMPLETION_TEXTBOX.selectionStart); // text before tab
+			let after_tab = code.slice(CODE_COMPLETION_TEXTBOX.selectionEnd, CODE_COMPLETION_TEXTBOX.value.length); // text after tab
+			let cursor_pos = CODE_COMPLETION_TEXTBOX.selectionStart + 1; // where cursor moves after tab - moving forward by 1 char to after tab
+			CODE_COMPLETION_TEXTBOX.value = before_tab + "\t" + after_tab; // add tab char
+			// move cursor
+			CODE_COMPLETION_TEXTBOX.selectionStart = cursor_pos;
+			CODE_COMPLETION_TEXTBOX.selectionEnd = cursor_pos;
+			update(CODE_COMPLETION_TEXTBOX.value); // Update text to include indent
+		}
+	};
+
+});
+
+
+const escapeHtml = (unsafe) => {
+	return unsafe.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
+
+
+
+
 const CHARTS = {
 	'tc-canvas': new Chart(TC_OUTPUT_CANVAS, {
 		type: 'bar',
@@ -187,8 +266,9 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 			break;
 
 		case 'code-completion':
-			data.text = CODE_HIGHLIGHT.innerText
-			data.elementIdToUpdate = [CODE_COMPLETION_TEXTBOX.id, CODE_HIGHLIGHT.id]
+			data.text = CODE_BLOCKS[CODE_COMPLETION_CONTAINER.id].text();
+			data.elementIdToUpdate = CODE_COMPLETION_CONTAINER.id
+			data.targetType = 'code'
 			break;
 
 		case 'masked-language-modelling':
@@ -284,27 +364,17 @@ worker.addEventListener('message', (event) => {
 
 			break;
 		case 'update': // for generation
-
 			let target = message.target;
-			if (!Array.isArray(target)) {
-				target = [target]
-			}
+			let elem = document.getElementById(target);
 
-			target.forEach(id => {
-				let elem = document.getElementById(id);
-
-				if (elem.tagName === 'CODE') {
-					// Add text
-					elem.innerHTML = message.data;
-
-					// Update code highlighting
-					Prism.highlightElement(elem)
-
-				} else { // elem.tagName === 'TEXTAREA'
+			switch (message.targetType) {
+				case 'code':
+					CODE_BLOCKS[target].update(message.data);
+					break;
+				default: // is textbox
 					elem.value = message.data
-				}
-
-			})
+					break;
+			}
 
 			break;
 
@@ -376,46 +446,4 @@ function getImageDataFromImage(original) {
 
 	ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
 	return canvas.toDataURL();
-}
-
-
-
-// Guide to add editable code block:
-// https://codepen.io/WebCoder49/pen/dyNyraq
-// https://css-tricks.com/creating-an-editable-textarea-that-supports-syntax-highlighted-code/
-
-
-function update(text) {
-	// Handle final newlines (see article)
-	if (text[text.length - 1] == "\n") {
-		text += " ";
-	}
-	// Update code
-	CODE_HIGHLIGHT.innerHTML = text.replace(new RegExp("&", "g"), "&amp;").replace(new RegExp("<", "g"), "&lt;"); /* Global RegExp */
-	// Syntax Highlight
-	Prism.highlightElement(CODE_HIGHLIGHT);
-}
-
-function sync_scroll(element) {
-	/* Scroll result to scroll coords of event - sync with textarea */
-	let result_element = document.querySelector("#highlighting");
-	// Get and set x and y
-	result_element.scrollTop = element.scrollTop;
-	result_element.scrollLeft = element.scrollLeft;
-}
-
-function check_tab(element, event) {
-	let code = element.value;
-	if (event.key == "Tab") {
-		/* Tab key pressed */
-		event.preventDefault(); // stop normal
-		let before_tab = code.slice(0, element.selectionStart); // text before tab
-		let after_tab = code.slice(element.selectionEnd, element.value.length); // text after tab
-		let cursor_pos = element.selectionStart + 1; // where cursor moves after tab - moving forward by 1 char to after tab
-		element.value = before_tab + "\t" + after_tab; // add tab char
-		// move cursor
-		element.selectionStart = cursor_pos;
-		element.selectionEnd = cursor_pos;
-		update(element.value); // Update text to include indent
-	}
 }

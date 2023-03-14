@@ -181,7 +181,7 @@ async function code_completion(data) {
         self.postMessage({
             type: 'download',
             task: 'code-completion',
-            data: data
+            data: data,
         });
     })
 
@@ -197,6 +197,7 @@ async function code_completion(data) {
             self.postMessage({
                 type: 'update',
                 target: data.elementIdToUpdate,
+                targetType: data.targetType,
                 data: text + decodedText
             });
         }
