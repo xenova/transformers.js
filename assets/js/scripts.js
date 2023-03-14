@@ -53,7 +53,7 @@ const IMAGE_CLASSIFICATION_IMG = document.getElementById('ic-viewer');
 const IMAGE_CLASSIFICATION_OUTPUT_CANVAS = document.getElementById('ic-canvas');
 
 const CODE_COMPLETION_TEXTBOX = document.getElementById('code-completion-textbox');
-
+const CODE_HIGHLIGHT = document.getElementById('highlighting-content');
 
 [
 	[SPEECH2TEXT_SELECT, SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
@@ -187,8 +187,8 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 			break;
 
 		case 'code-completion':
-			data.text = CODE_COMPLETION_TEXTBOX.value
-			data.elementIdToUpdate = CODE_COMPLETION_TEXTBOX.id
+			data.text = CODE_HIGHLIGHT.innerText
+			data.elementIdToUpdate = [CODE_COMPLETION_TEXTBOX.id, CODE_HIGHLIGHT.id]
 			break;
 
 		case 'masked-language-modelling':
@@ -284,7 +284,28 @@ worker.addEventListener('message', (event) => {
 
 			break;
 		case 'update': // for generation
-			document.getElementById(message.target).value = message.data
+
+			let target = message.target;
+			if (!Array.isArray(target)) {
+				target = [target]
+			}
+
+			target.forEach(id => {
+				let elem = document.getElementById(id);
+
+				if (elem.tagName === 'CODE') {
+					// Add text
+					elem.innerHTML = message.data;
+
+					// Update code highlighting
+					Prism.highlightElement(elem)
+
+				} else { // elem.tagName === 'TEXTAREA'
+					elem.value = message.data
+				}
+
+			})
+
 			break;
 
 		case 'complete':
@@ -355,4 +376,46 @@ function getImageDataFromImage(original) {
 
 	ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
 	return canvas.toDataURL();
+}
+
+
+
+// Guide to add editable code block:
+// https://codepen.io/WebCoder49/pen/dyNyraq
+// https://css-tricks.com/creating-an-editable-textarea-that-supports-syntax-highlighted-code/
+
+
+function update(text) {
+	// Handle final newlines (see article)
+	if (text[text.length - 1] == "\n") {
+		text += " ";
+	}
+	// Update code
+	CODE_HIGHLIGHT.innerHTML = text.replace(new RegExp("&", "g"), "&amp;").replace(new RegExp("<", "g"), "&lt;"); /* Global RegExp */
+	// Syntax Highlight
+	Prism.highlightElement(CODE_HIGHLIGHT);
+}
+
+function sync_scroll(element) {
+	/* Scroll result to scroll coords of event - sync with textarea */
+	let result_element = document.querySelector("#highlighting");
+	// Get and set x and y
+	result_element.scrollTop = element.scrollTop;
+	result_element.scrollLeft = element.scrollLeft;
+}
+
+function check_tab(element, event) {
+	let code = element.value;
+	if (event.key == "Tab") {
+		/* Tab key pressed */
+		event.preventDefault(); // stop normal
+		let before_tab = code.slice(0, element.selectionStart); // text before tab
+		let after_tab = code.slice(element.selectionEnd, element.value.length); // text after tab
+		let cursor_pos = element.selectionStart + 1; // where cursor moves after tab - moving forward by 1 char to after tab
+		element.value = before_tab + "\t" + after_tab; // add tab char
+		// move cursor
+		element.selectionStart = cursor_pos;
+		element.selectionEnd = cursor_pos;
+		update(element.value); // Update text to include indent
+	}
 }

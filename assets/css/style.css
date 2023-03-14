@@ -28,3 +28,80 @@
     background-color: #0d6efd;
     border-color: #0d6efd;
 }
+
+/* Please see the article */
+.code-container {
+    height: 300px;
+    position: relative;
+}
+
+#code-completion-textbox,
+#highlighting {
+    /* Both elements need the same text and space styling so they are directly on top of each other */
+    margin: 0;
+    padding: 16px;
+    border: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#code-completion-textbox,
+#highlighting,
+#highlighting * {
+    /* Also add text styles to highlighing tokens */
+    font-size: 15pt;
+    font-family: monospace;
+    line-height: 20pt;
+    tab-size: 4;
+}
+
+
+#code-completion-textbox,
+#highlighting {
+    /* In the same place */
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+
+/* Move the textarea in front of the result */
+
+#code-completion-textbox {
+    z-index: 1;
+}
+
+#highlighting {
+    z-index: 0;
+    white-space: pre-wrap;
+
+}
+
+
+/* Make textarea almost completely transparent */
+
+#code-completion-textbox {
+    color: transparent;
+    background: transparent;
+    caret-color: black;
+}
+
+/* Can be scrolled */
+#code-completion-textbox,
+#highlighting {
+    overflow: auto;
+    white-space: nowrap;
+    /* Allows textarea to scroll horizontally */
+}
+
+/* No resize on textarea */
+#code-completion-textbox {
+    resize: none;
+}
+
+
+code#highlighting-content {
+    border-radius: 2px;
+    /* background-color: #eee; */
+    color: #111;
+}

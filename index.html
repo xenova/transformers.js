@@ -105,7 +105,7 @@
                 <label>Task: </label>
                 <div class="col-12 mt-1">
                     <select id="task" class="form-select">
-                        <option value="translation" selected>
+                        <option value="translation">
                             Translation w/ t5-small (95 MB)
                         </option>
                         <option value="text-generation">
@@ -123,7 +123,7 @@
                         <option value="summarization">
                             Summarization w/ distilbart-cnn-6-6 (336 MB)
                         </option>
-                        <option value="code-completion">
+                        <option value="code-completion" selected>
                             Code completion w/ Salesforce/codegen-350M-mono (365 MB)
                         </option>
                         <option value="automatic-speech-recognition">
@@ -179,8 +179,8 @@
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="masked-language-modelling">
                             <div class="input-group mb-2" title="Number of samples">
                                 <span class="input-group-text">No. samples</span>
-                                <input type="number" param-name="topk" datatype="number" min="1"
-                                    max="50" class="form-control generation-option" value="5">
+                                <input type="number" param-name="topk" datatype="number" min="1" max="50"
+                                    class="form-control generation-option" value="5">
                             </div>
                         </div>
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6"
@@ -284,9 +284,16 @@
                 </div>
                 <div task="code-completion" class="task-settings">
                     <div class="row">
+
                         <div class="col-lg-12 mt-3">
-                            <textarea id="code-completion-textbox" class="form-control"
-                                rows="10">def fib(n):</textarea>
+                            <div class="code-container">
+                                <textarea id="code-completion-textbox" spellcheck="false"
+                                    oninput="update(this.value); sync_scroll(this);" onscroll="sync_scroll(this);"
+                                    onkeydown="check_tab(this, event);">def fib(n):</textarea>
+                                <pre id="highlighting" aria-hidden="true">
+                                    <code class="language-python" id="highlighting-content">def fib(n):</code>
+                                </pre>
+                            </div>
                         </div>
                     </div>
                 </div>
