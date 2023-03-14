@@ -29,14 +29,13 @@
     border-color: #0d6efd;
 }
 
-/* Please see the article */
 .code-container {
     height: 300px;
     position: relative;
 }
 
-#code-completion-textbox,
-#highlighting {
+.code-container > textarea,
+.code-container > pre{
     /* Both elements need the same text and space styling so they are directly on top of each other */
     margin: 0;
     padding: 16px;
@@ -45,9 +44,9 @@
     height: 100%;
 }
 
-#code-completion-textbox,
-#highlighting,
-#highlighting * {
+.code-container > textarea,
+.code-container > pre,
+.code-container > pre * {
     /* Also add text styles to highlighing tokens */
     font-size: 15pt;
     font-family: monospace;
@@ -56,8 +55,8 @@
 }
 
 
-#code-completion-textbox,
-#highlighting {
+.code-container > textarea,
+.code-container > pre {
     /* In the same place */
     position: absolute;
     top: 0;
@@ -67,35 +66,35 @@
 
 /* Move the textarea in front of the result */
 
-#code-completion-textbox {
+.code-container > textarea {
     z-index: 1;
 }
 
-#highlighting {
+.code-container > pre {
     z-index: 0;
     white-space: pre-wrap;
-
+    pointer-events: none;
 }
 
 
 /* Make textarea almost completely transparent */
 
-#code-completion-textbox {
+.code-container > textarea {
     color: transparent;
     background: transparent;
     caret-color: black;
 }
 
 /* Can be scrolled */
-#code-completion-textbox,
-#highlighting {
+.code-container > textarea,
+.code-container > pre {
     overflow: auto;
     white-space: nowrap;
     /* Allows textarea to scroll horizontally */
 }
 
 /* No resize on textarea */
-#code-completion-textbox {
+.code-container > textarea{
     resize: none;
 }
 
