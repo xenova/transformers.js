@@ -294,6 +294,8 @@ class AutoModel {
                 return new RobertaModel(config, session);
             case 'whisper':
                 return new WhisperModel(config, session);
+            case 'clip':
+                return new CLIPModel(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -1092,6 +1094,14 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// GPT2 models
+class CLIPPreTrainedModel extends PreTrainedModel { }
+class CLIPModel extends CLIPPreTrainedModel {
+
+}
+
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // GPT2 models
