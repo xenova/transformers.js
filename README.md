@@ -43,7 +43,7 @@ from transformers import pipeline
 pipe = pipeline('sentiment-analysis')
 
 out = pipe('I love transformers!')
-# [{'label': 'POSITIVE', 'score': 0.999806940556}]
+# [{'label': 'POSITIVE', 'score': 0.999806941}]
 ```
 
 </td>
@@ -56,7 +56,7 @@ import { pipeline } from "@xenova/transformers";
 let pipe = await pipeline('sentiment-analysis');
 
 let out = await pipe('I love transformers!');
-// [{'label': 'POSITIVE', 'score': 0.999817685727}]
+// [{'label': 'POSITIVE', 'score': 0.999817686}]
 ```
 
 </td>
