@@ -535,6 +535,27 @@ async function image_classification() {
 
 }
 
+
+async function code_generation() {
+    // Specifically test that `added_tokens` are added correctly
+
+    let generator = await pipeline('text-generation', 'Salesforce/codegen-350M-mono')
+
+    let output1 = await generator('def fib(n):', {
+        max_new_tokens: 45,
+    })
+
+    // Dispose pipeline
+    await generator.dispose()
+
+    return isDeepEqual(
+        output1,
+        [
+            { "generated_text": "def fib(n):\n    if n == 0:\n        return 0\n    elif n == 1:\n        return 1\n    else:\n        return fib(n-1) + fib(n-2)\n\n" }
+        ]
+    )
+}
+
 // hide unused initializer and node arguments warnings
 console._warn = console.warn;
 console.warn = (...data) => {
@@ -556,5 +577,6 @@ console.warn = (...data) => {
     console.log('Speech-to-text generation:', await speech2text_generation())
     console.log('Image-to-text:', await image_to_text())
     console.log('Image classification:', await image_classification())
+    console.log('Code generation:', await code_generation())
 
 })();
