@@ -453,10 +453,10 @@
                         <pre><code class="language-python">from transformers import pipeline
 
 # Allocate a pipeline for sentiment-analysis
-classifier = pipeline('sentiment-analysis')
+pipe = pipeline('sentiment-analysis')
 
-output = classifier('I love transformers!')
-# [{'label': 'POSITIVE', 'score': 0.9998069405555725}]</code></pre>
+out = pipe('I love transformers!')
+# [{'label': 'POSITIVE', 'score': 0.999806941}]</code></pre>
                         <p class="mb-0 text-center">Python (original)</p>
 
                     </div>
@@ -464,10 +464,10 @@ output = classifier('I love transformers!')
                         <pre><code class="language-js">import { pipeline } from "@xenova/transformers";
 
 // Allocate a pipeline for sentiment-analysis
-let classifier = await pipeline('sentiment-analysis');
+let pipe = await pipeline('sentiment-analysis');
 
-let output = await classifier('I love transformers!');
-// [{label: 'POSITIVE', score: 0.9998176857266375}]</code></pre>
+let out = await pipe('I love transformers!');
+// [{'label': 'POSITIVE', 'score': 0.999817686}]</code></pre>
                         <p class="mb-0 text-center">JavaScript (ours)</p>
                     </div>
                 </div>
@@ -475,7 +475,7 @@ let output = await classifier('I love transformers!');
                 In the same way as the Python library, you can use a different model by providing its
                 name as the second argument to the pipeline function. For example:
                 <pre><code class="language-js">// Use a different model for sentiment-analysis
-let classifier = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');</code></pre>
+let pipe = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');</code></pre>
             </div>
 
             <div class="mb-3">
@@ -682,11 +682,11 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">BERT</div>
                             Tasks: Masked language modelling
-                            (<code style="display: inline;">AutoModelForMaskedLM</code>),
+                            (<code>AutoModelForMaskedLM</code>),
                             question answering
-                            (<code style="display: inline;">AutoModelForQuestionAnswering</code>), and
+                            (<code>AutoModelForQuestionAnswering</code>), and
                             sequence classification
-                            (<code style="display: inline;">AutoModelForSequenceClassification</code>)</pre>.
+                            (<code>AutoModelForSequenceClassification</code>).
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/bert">BERT docs</a>.
                         </div>
