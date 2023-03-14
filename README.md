@@ -30,8 +30,8 @@ It's super easy to translate from existing code!
 
 <table>
 <tr>
-<th width="450px"><b>Python (original)</b></th>
-<th width="450px"><b>Javascript (ours)</b></th>
+<th width="440px"><b>Python (original)</b></th>
+<th width="440px"><b>Javascript (ours)</b></th>
 </tr>
 <tr>
 <td>
