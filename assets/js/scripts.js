@@ -7,6 +7,12 @@ const worker = new Worker('./assets/js/worker.js');
 // Define elements
 const TASK_SELECTOR = document.getElementById('task');
 
+let searchParams = new URLSearchParams(location.search);
+let defaultDemo = searchParams.get('demo');
+if (defaultDemo) {
+	TASK_SELECTOR.value = defaultDemo;
+}
+
 // translation inputs
 const LANGUAGE_FROM = document.getElementById('language-from');
 const LANGUAGE_TO = document.getElementById('language-to');
