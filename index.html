@@ -123,6 +123,9 @@
                         <option value="summarization">
                             Summarization w/ distilbart-cnn-6-6 (336 MB)
                         </option>
+                        <option value="code-completion">
+                            Code completion w/ Salesforce/codegen-350M-mono (365 MB)
+                        </option>
                         <option value="automatic-speech-recognition">
                             Speech to text w/ whisper-tiny.en (61 MB)
                         </option>
@@ -154,11 +157,11 @@
                     </div>
                 </div>
                 <div class="task-settings"
-                    task="translation,text-generation,masked-language-modelling,summarization,automatic-speech-recognition,image-to-text">
+                    task="translation,text-generation,code-completion,masked-language-modelling,summarization,automatic-speech-recognition,image-to-text">
                     <label class="mt-2">Parameters: </label>
                     <div class="row">
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6"
-                            task="translation,text-generation,summarization,automatic-speech-recognition,image-to-text">
+                            task="translation,text-generation,code-completion,summarization,automatic-speech-recognition,image-to-text">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Max length</span>
                                 <input type="number" param-name="max_length" datatype="number" min="1"
@@ -166,7 +169,7 @@
                             </div>
                         </div>
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6"
-                            task="translation,text-generation,summarization,automatic-speech-recognition,image-to-text">
+                            task="translation,text-generation,code-completion,summarization,automatic-speech-recognition,image-to-text">
                             <div class="input-group mb-2" title="Number of beams">
                                 <span class="input-group-text">No. beams</span>
                                 <input type="number" param-name="num_beams" datatype="number" min="1" max="50"
@@ -181,7 +184,7 @@
                             </div>
                         </div>
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6"
-                            task="translation,text-generation,summarization,automatic-speech-recognition,image-to-text">
+                            task="translation,text-generation,code-completion,summarization,automatic-speech-recognition,image-to-text">
                             <div class="input-group mb-2" title="Temperature (> 0)">
                                 <span class="input-group-text">Temp.</span>
                                 <input type="number" param-name="temperature" datatype="number" min="0.001" step="1"
@@ -189,7 +192,7 @@
                             </div>
                         </div>
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6"
-                            task="translation,text-generation,summarization,automatic-speech-recognition,image-to-text">
+                            task="translation,text-generation,code-completion,summarization,automatic-speech-recognition,image-to-text">
                             <div class="input-group mb-2">
                                 <span class="input-group-text">Top K</span>
                                 <input type="number" param-name="top_k" datatype="number" min="0"
@@ -197,7 +200,7 @@
                             </div>
                         </div>
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6"
-                            task="translation,text-generation,summarization,automatic-speech-recognition,image-to-text">
+                            task="translation,text-generation,code-completion,summarization,automatic-speech-recognition,image-to-text">
                             <div class="input-group mb-2" title="Perform multinomial sampling">
                                 <label class="input-group-text" for="sample-select">Sample</label>
                                 <select param-name="do_sample" datatype="bool" class="form-select generation-option"
@@ -276,6 +279,14 @@
                         <div class="col-lg-12 mt-3">
                             <textarea id="text-generation-textbox" class="form-control"
                                 rows="10">I enjoy walking with my cute dog,</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div task="code-completion" class="task-settings">
+                    <div class="row">
+                        <div class="col-lg-12 mt-3">
+                            <textarea id="code-completion-textbox" class="form-control"
+                                rows="10">def fib(n):</textarea>
                         </div>
                     </div>
                 </div>

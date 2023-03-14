@@ -16,6 +16,7 @@ env.remoteModels = location.hostname !== '127.0.0.1' && location.hostname !== 'l
 const TASK_FUNCTION_MAPPING = {
     'translation': translate,
     'text-generation': text_generation,
+    'code-completion': code_completion,
     'masked-language-modelling': masked_lm,
     'sequence-classification': sequence_classification,
     'question-answering': question_answering,
@@ -74,6 +75,11 @@ class TranslationPipelineFactory extends PipelineFactory {
 class TextGenerationPipelineFactory extends PipelineFactory {
     static task = 'text-generation';
     static model = 'distilgpt2';
+}
+
+class CodeCompletionPipelineFactory extends PipelineFactory {
+    static task = 'text-generation';
+    static model = 'Salesforce/codegen-350M-mono';
 }
 
 class MaskedLMPipelineFactory extends PipelineFactory {
@@ -169,6 +175,33 @@ async function text_generation(data) {
     })
 }
 
+async function code_completion(data) {
+
+    let pipeline = await CodeCompletionPipelineFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'code-completion',
+            data: data
+        });
+    })
+
+    let text = data.text;
+
+    return await pipeline(text, {
+        ...data.generation,
+        callback_function: function (beams) {
+            const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
+                skip_special_tokens: true,
+            })
+
+            self.postMessage({
+                type: 'update',
+                target: data.elementIdToUpdate,
+                data: text + decodedText
+            });
+        }
+    })
+}
 
 async function masked_lm(data) {
 
@@ -309,7 +342,7 @@ async function image_to_text(data) {
     })
 }
 
-async function image_classification(data){
+async function image_classification(data) {
     let pipeline = await ImageClassificationPipelineFactory.getInstance(data => {
         self.postMessage({
             type: 'download',
@@ -326,7 +359,7 @@ async function image_classification(data){
         type: 'complete',
         target: data.elementIdToUpdate,
         targetType: data.targetType,
-		updateLabels: data.updateLabels,
+        updateLabels: data.updateLabels,
         data: outputs
     });
 

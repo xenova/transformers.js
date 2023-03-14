@@ -52,6 +52,8 @@ const IMAGE_CLASSIFICATION_INPUT = document.getElementById('ic-file');
 const IMAGE_CLASSIFICATION_IMG = document.getElementById('ic-viewer');
 const IMAGE_CLASSIFICATION_OUTPUT_CANVAS = document.getElementById('ic-canvas');
 
+const CODE_COMPLETION_TEXTBOX = document.getElementById('code-completion-textbox');
+
 
 [
 	[SPEECH2TEXT_SELECT, SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
@@ -182,6 +184,11 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 		case 'text-generation':
 			data.text = TEXT_GENERATION_TEXTBOX.value
 			data.elementIdToUpdate = TEXT_GENERATION_TEXTBOX.id
+			break;
+
+		case 'code-completion':
+			data.text = CODE_COMPLETION_TEXTBOX.value
+			data.elementIdToUpdate = CODE_COMPLETION_TEXTBOX.id
 			break;
 
 		case 'masked-language-modelling':
