@@ -10,6 +10,11 @@ const { Tensor } = require('./tensor_utils.js')
 
 
 class TokenizerModel extends Callable {
+
+    constructor(config) {
+        super();
+        this.config = config;
+    }
     static fromConfig(config, ...args) {
         switch (config.type) {
             case 'WordPiece':
@@ -40,8 +45,7 @@ class TokenizerModel extends Callable {
 
 class WordPieceTokenizer extends TokenizerModel {
     constructor(config) {
-        super();
-        this.config = config;
+        super(config);
 
         this.tokens_to_ids = config.vocab;
 
@@ -106,8 +110,7 @@ class WordPieceTokenizer extends TokenizerModel {
 
 class Unigram extends TokenizerModel {
     constructor(config, moreConfig) {
-        super();
-        this.config = config;
+        super(config);
 
         this.vocab = config.vocab.map(x => x[0]);
         this.scores = config.vocab.map(x => x[1]);
@@ -200,9 +203,8 @@ const BYTES_TO_UNICODE = (() => {
 const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
 
 class BPE extends TokenizerModel {
-    constructor(config, moreConfig) {
-        super();
-        this.config = config;
+    constructor(config) {
+        super(config);
 
         this.tokens_to_ids = config.vocab;
 
@@ -619,11 +621,46 @@ class ByteLevelDecoder extends Decoder {
         });
     }
 
-    decode(tokens) {
-        let text = this.convert_tokens_to_string(tokens);
+    convert_tokens_to_string(tokens) {
+        let text = tokens.join('');
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
+    }
+
+    decode(tokens) {
+        // TODO move to base class (like HF)
+        // tokens === filtered_tokens
+
+        // To avoid mixing byte-level and unicode for byte-level BPT
+        // we need to build string separately for added tokens and byte-level tokens
+        // cf. https://github.com/huggingface/transformers/issues/1133
+        let sub_texts = [];
+        let current_sub_text = [];
+        for (let token of tokens) {
+            // tokens sent here are already filtered, so we don't need to do this
+            // if (skip_special_tokens && this.all_special_ids.includes(token)) {
+            //     continue;
+            // }
+
+            if (this.added_tokens.includes(token)) {
+                if (current_sub_text.length > 0) {
+                    sub_texts.push(this.convert_tokens_to_string(current_sub_text));
+                    current_sub_text = [];
+                }
+                sub_texts.push(token);
+            } else {
+                current_sub_text.push(token);
+            }
+        }
+        if (current_sub_text.length > 0) {
+            sub_texts.push(this.convert_tokens_to_string(current_sub_text));
+        }
+
+        // TODO add spaces_between_special_tokens and clean_up_tokenization_spaces options
+        let text = sub_texts.join('');
+
+        return text;
     }
 }
 
@@ -760,11 +797,6 @@ class PreTrainedTokenizer extends Callable {
         this.tokenizerJSON = tokenizerJSON;
         this.tokenizerConfig = tokenizerConfig;
 
-        this.special_tokens = tokenizerJSON.added_tokens.map(x => x.content);
-        this.special_tokens_regex = new RegExp(
-            '(' + this.special_tokens.map(escapeRegExp).join('|') + ')'
-        );
-
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
@@ -772,6 +804,29 @@ class PreTrainedTokenizer extends Callable {
 
         // TODO - maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
+
+        // Slight hack, but it prevents code duplication:
+        // Add added_tokens to this.decoder
+        this.decoder.added_tokens = [];
+
+        // Add added_tokens to model
+        this.special_tokens = [];
+        for (let addedToken of tokenizerJSON.added_tokens) {
+            let id = addedToken.id;
+            let content = addedToken.content;
+            this.decoder.added_tokens.push(content);
+
+            this.model.tokens_to_ids[content] = id;
+            this.model.vocab[id] = content;
+
+            if (addedToken.special) {
+                this.special_tokens.push(content);
+            }
+        }
+        this.special_tokens_regex = new RegExp(
+            '(' + this.special_tokens.map(escapeRegExp).join('|') + ')'
+        );
+
 
         // Set mask token if present (otherwise will be undefined, which is fine)
         this.mask_token = this.getToken('mask_token');
@@ -1041,14 +1096,12 @@ class PreTrainedTokenizer extends Callable {
             clean_up_tokenization_spaces = true,
         }
     ) {
-
         let tokens = this.model.convert_ids_to_tokens(token_ids);
-
         if (skip_special_tokens) {
             tokens = tokens.filter(x => !this.special_tokens.includes(x));
         }
 
-        let decoded = this.decoder(tokens);
+        let decoded = this.decoder(tokens); // tokens === filtered_tokens
 
         if (this.decoder.cleanup !== undefined && this.decoder.cleanup !== clean_up_tokenization_spaces) {
             console.warn(`clean_up_tokenization_spaces disagrees with decoder's cleanup setting. Overriding to use decoder's cleanup setting (${this.decoder.cleanup})`)
