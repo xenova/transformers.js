@@ -1155,8 +1155,6 @@ class CodeGenForCausalLM extends CodeGenPreTrainedModel {
     constructor(config, session) {
         super(config, session);
 
-        console.log({ config })
-
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
         this.config.pad_token_id = this.config.eos_token_id
 
