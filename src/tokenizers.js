@@ -451,8 +451,18 @@ class PreTokenizer extends Callable {
         }
     }
 
+    pre_tokenize_text(text) {
+        throw Error("pre_tokenize_text should be implemented in subclass.")
+    }
+
     pre_tokenize(text) {
-        throw Error("pre_tokenize should be implemented in subclass.")
+        let result = [];
+        if (Array.isArray(text)) {
+            result = text.map(x => this.pre_tokenize_text(x))
+        } else {
+            result = this.pre_tokenize_text(text);
+        }
+        return result.flat();
     }
 
     _call(text) {
@@ -466,7 +476,7 @@ class BertPreTokenizer extends PreTokenizer {
         // TODO use config
         this.pattern = /\b\w+\b|[^\s\w]+/g
     }
-    pre_tokenize(text) {
+    pre_tokenize_text(text) {
         // Split on whitespace and punctuation
         return text.trim().match(this.pattern) || [];
     }
@@ -478,7 +488,7 @@ class ByteLevelPreTokenizer extends PreTokenizer {
         this.pattern = /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
     }
 
-    pre_tokenize(text) {
+    pre_tokenize_text(text) {
         // Split on whitespace and punctuation
         return text.trim().match(this.pattern) || [];
     }
@@ -490,9 +500,18 @@ class SplitPreTokenizer extends PreTokenizer {
         this.config = config;
     }
 
-    pre_tokenize(text) {
-        // TODO implement
-        return text;
+    pre_tokenize_text(text) {
+        if (this.config.pattern.Regex) {
+            return text.match(new RegExp(this.config.pattern.Regex, 'gu')) || [];
+
+        } else if (this.config.pattern.String) {
+            return text.match(this.config.pattern.String) || [];
+
+        } else {
+            console.warn('Unknown pattern type:', this.config.pattern)
+        }
+
+        return [];
     }
 
 }
@@ -752,7 +771,7 @@ class PreTokenizerSequence extends PreTokenizer {
         super();
         this.tokenizers = config.pretokenizers.map(x => PreTokenizer.fromConfig(x));
     }
-    pre_tokenize(text) {
+    pre_tokenize_text(text) {
         // TODO use reduce?
         for (let tokenizer of this.tokenizers) {
             text = tokenizer.pre_tokenize(text);
@@ -764,7 +783,7 @@ class WhitespaceSplit extends PreTokenizer {
     constructor(config) {
         super();
     }
-    pre_tokenize(text) {
+    pre_tokenize_text(text) {
         return text.split(/\s+/);
     }
 }
@@ -807,6 +826,8 @@ class AutoTokenizer {
             case 'CodeGenTokenizer':
                 return new CodeGenTokenizer(tokenizerJSON, tokenizerConfig);
 
+            case 'CLIPTokenizer':
+                return new CLIPTokenizer(tokenizerJSON, tokenizerConfig);
             default:
                 console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
                 return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
@@ -1167,6 +1188,8 @@ class BartTokenizer extends PreTrainedTokenizer { }
 class RobertaTokenizer extends PreTrainedTokenizer { }
 class WhisperTokenizer extends PreTrainedTokenizer { }
 class CodeGenTokenizer extends PreTrainedTokenizer { }
+class CLIPTokenizer extends PreTrainedTokenizer { }
+
 
 class CharTrie {
     constructor() {
