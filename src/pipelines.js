@@ -359,6 +359,21 @@ class ImageClassificationPipeline extends Pipeline {
 
 }
 
+class ZeroShotImageClassificationPipeline extends Pipeline {
+
+    constructor(task, tokenizer, model, processor) {
+        super(task, tokenizer, model);
+        this.processor = processor;
+    }
+    async _call(images, {
+        candidate_labels = null
+    } = {}) {
+        // TODO implement
+        // console.log({images})
+        // console.log({candidate_labels})
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
@@ -459,6 +474,18 @@ const SUPPORTED_TASKS = {
         "type": "multimodal",
     },
 
+    "zero-shot-image-classification": {
+        // no tokenizer
+        "tokenizer": AutoTokenizer,
+        "pipeline": ZeroShotImageClassificationPipeline,
+        "model": AutoModel,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "openai/clip-vit-base-patch32"
+        },
+        "type": "multimodal",
+    },
+
     // This task is not supported in HuggingFace transformers, but serves as a useful interface
     // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
     "embeddings": {
@@ -484,6 +511,8 @@ const TASK_NAME_MAPPING = {
 
     'automatic-speech-recognition': 'speech2seq-lm-with-past',
     'image-to-text': 'vision2seq-lm-with-past',
+
+    'zero-shot-image-classification': 'default',
 }
 
 const TASK_PREFIX_MAPPING = {

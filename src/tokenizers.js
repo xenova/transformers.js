@@ -325,6 +325,8 @@ class Normalizer extends Callable {
                 return new NormalizerSequence(config);
             case 'Replace':
                 return new Replace(config);
+            case 'NFC':
+                return new NFC(config);
             case 'NFKD':
                 return new NFKD(config);
             case 'StripAccents':
@@ -363,6 +365,12 @@ class Replace extends Normalizer {
     }
 }
 
+class NFC extends Normalizer {
+    normalize(text) {
+        text = text.normalize('NFC')
+        return text;
+    }
+}
 class NFKD extends Normalizer {
     normalize(text) {
         text = text.normalize('NFKD')
@@ -435,6 +443,8 @@ class PreTokenizer extends Callable {
 
             case 'ByteLevel':
                 return new ByteLevelPreTokenizer(config);
+            case 'Split':
+                return new SplitPreTokenizer(config);
 
             default:
                 throw new Error(`Unknown PreTokenizer type: ${config.type}`);
@@ -472,6 +482,19 @@ class ByteLevelPreTokenizer extends PreTokenizer {
         // Split on whitespace and punctuation
         return text.trim().match(this.pattern) || [];
     }
+}
+
+class SplitPreTokenizer extends PreTokenizer {
+    constructor(config) {
+        super();
+        this.config = config;
+    }
+
+    pre_tokenize(text) {
+        // TODO implement
+        return text;
+    }
+
 }
 
 class PostProcessor extends Callable {
