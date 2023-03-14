@@ -40,10 +40,10 @@ It's super easy to translate from existing code!
 from transformers import pipeline
 
 # Allocate a pipeline for sentiment-analysis
-classifier = pipeline('sentiment-analysis')
+pipe = pipeline('sentiment-analysis')
 
-output = classifier('I love transformers!')
-# [{'label': 'POSITIVE', 'score': 0.9998069405555725}]
+out = pipe('I love transformers!')
+# [{'label': 'POSITIVE', 'score': 0.999806940556}]
 ```
 
 </td>
@@ -53,10 +53,10 @@ output = classifier('I love transformers!')
 import { pipeline } from "@xenova/transformers";
 
 // Allocate a pipeline for sentiment-analysis
-let classifier = await pipeline('sentiment-analysis');
+let pipe = await pipeline('sentiment-analysis');
 
-let output = await classifier('I love transformers!');
-// [{label: 'POSITIVE', score: 0.9998176857266375}]
+let out = await pipe('I love transformers!');
+// [{'label': 'POSITIVE', 'score': 0.999817685727}]
 ```
 
 </td>
@@ -67,7 +67,7 @@ let output = await classifier('I love transformers!');
 In the same way as the Python library, you can use a different model by providing its name as the second argument to the pipeline function. For example:
 ```javascript
 // Use a different model for sentiment-analysis
-let classifier = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');
+let pipe = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');
 ```
 
 
