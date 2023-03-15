@@ -248,6 +248,7 @@ ZSIC_CLASSES.addEventListener('input', () => {
 	let chartToUpdate = CHARTS[ZSIC_OUTPUT_CANVAS.id];
 
 	chartToUpdate.data.labels = getZSICClasses();
+	chartToUpdate.data.datasets[0].data = new Array(chartToUpdate.data.labels.length).fill(0);
 	chartToUpdate.update();
 })
 
