@@ -244,13 +244,11 @@ function getZSICClasses() {
 
 }
 ZSIC_CLASSES.addEventListener('input', () => {
+	// Update labels of graph
 	let chartToUpdate = CHARTS[ZSIC_OUTPUT_CANVAS.id];
 
 	chartToUpdate.data.labels = getZSICClasses();
 	chartToUpdate.update();
-
-	// Update labels of graph
-
 })
 
 
@@ -265,6 +263,7 @@ function updateVisibility() {
 	}
 }
 updateVisibility();
+
 // Add event listeners
 TASK_SELECTOR.addEventListener('input', updateVisibility);
 
