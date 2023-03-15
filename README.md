@@ -1,6 +1,10 @@
 # Transformers.js
-![https://www.npmjs.com/package/@xenova/transformers](https://img.shields.io/npm/v/@xenova/transformers) ![https://www.npmjs.com/package/@xenova/transformers](https://img.shields.io/npm/dw/@xenova/transformers)
-![https://github.com/xenova/transformers.js/blob/main/LICENSE](https://img.shields.io/github/license/xenova/transformers.js)
+
+
+[![npm](https://img.shields.io/npm/v/@xenova/transformers)](https://www.npmjs.com/package/@xenova/transformers)
+[![downloads](https://img.shields.io/npm/dw/@xenova/transformers)](https://www.npmjs.com/package/@xenova/transformers)
+[![license](https://img.shields.io/github/license/xenova/transformers.js)](https://github.com/xenova/transformers.js/blob/main/LICENSE)
+
 
 Run 🤗 Transformers in your browser! We currently support [BERT](https://huggingface.co/docs/transformers/model_doc/bert), [ALBERT](https://huggingface.co/docs/transformers/model_doc/albert), [DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert), [T5](https://huggingface.co/docs/transformers/model_doc/t5), [T5v1.1](https://huggingface.co/docs/transformers/model_doc/t5v1.1), [FLAN-T5](https://huggingface.co/docs/transformers/model_doc/flan-t5), [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2), [BART](https://huggingface.co/docs/transformers/model_doc/bart), [CodeGen](https://huggingface.co/docs/transformers/model_doc/codegen), [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper), [Vision Transformer](https://huggingface.co/docs/transformers/model_doc/vit), and [VisionEncoderDecoder](https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder) models, for a variety of tasks including: masked language modelling, text classification, text-to-text generation, translation, summarization, question answering, text generation, automatic speech recognition, image classification, and image-to-text.
 
