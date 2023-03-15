@@ -556,6 +556,54 @@ async function code_generation() {
     )
 }
 
+
+async function zero_shot_image_classification() {
+
+    let classifier = await pipeline('zero-shot-image-classification', 'openai/clip-vit-base-patch16');
+
+    let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
+    let urls = [
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg',
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg',
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg'
+    ]
+
+    let classes = ['savanna', 'football', 'airport'];
+
+    let output1 = await classifier(url, classes);
+    let output2 = await classifier(urls, classes);
+
+    // Dispose pipeline
+    await classifier.dispose()
+
+    return isDeepEqual(
+        output1,
+        [
+            { "score": 0.5823153853416443, "label": "savanna" },
+            { "score": 0.21198713779449463, "label": "football" },
+            { "score": 0.20569750666618347, "label": "airport" }
+        ]
+    ) && isDeepEqual(
+        output2,
+        [
+            [
+                { "score": 0.4858620762825012, "label": "savanna" },
+                { "score": 0.21314670145511627, "label": "football" },
+                { "score": 0.3009912371635437, "label": "airport" }
+            ], [
+                { "score": 0.04680883511900902, "label": "savanna" },
+                { "score": 0.9450456500053406, "label": "football" },
+                { "score": 0.008145489729940891, "label": "airport" }
+            ], [
+                { "score": 0.07665885239839554, "label": "savanna" },
+                { "score": 0.06919924914836884, "label": "football" },
+                { "score": 0.854141891002655, "label": "airport" }
+            ]
+        ]
+    )
+}
+
+
 // hide unused initializer and node arguments warnings
 console._warn = console.warn;
 console.warn = (...data) => {
@@ -578,5 +626,6 @@ console.warn = (...data) => {
     console.log('Image-to-text:', await image_to_text())
     console.log('Image classification:', await image_classification())
     console.log('Code generation:', await code_generation())
+    console.log('Zero-shot image classification:', await zero_shot_image_classification())
 
 })();
