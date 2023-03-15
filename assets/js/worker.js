@@ -23,7 +23,8 @@ const TASK_FUNCTION_MAPPING = {
     'summarization': summarize,
     'automatic-speech-recognition': speech_to_text,
     'image-to-text': image_to_text,
-    'image-classification': image_classification
+    'image-classification': image_classification,
+    'zero-shot-image-classification': zero_shot_image_classification,
 }
 
 // Listen for messages from UI
@@ -115,6 +116,12 @@ class ImageToTextPipelineFactory extends PipelineFactory {
 class ImageClassificationPipelineFactory extends PipelineFactory {
     static task = 'image-classification';
     static model = 'google/vit-base-patch16-224';
+}
+
+
+class ZeroShotImageClassificationPipelineFactory extends PipelineFactory {
+    static task = 'zero-shot-image-classification';
+    static model = 'openai/clip-vit-base-patch16';
 }
 
 async function translate(data) {
@@ -365,3 +372,27 @@ async function image_classification(data) {
     });
 
 }
+
+
+async function zero_shot_image_classification(data) {
+    let pipeline = await ZeroShotImageClassificationPipelineFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'image-classification',
+            data: data
+        });
+    })
+
+    let outputs = await pipeline(data.image, data.classes)
+
+    self.postMessage({
+        type: 'complete',
+        target: data.elementIdToUpdate,
+        targetType: data.targetType,
+        updateLabels: data.updateLabels,
+        data: outputs
+    });
+
+}
+
+

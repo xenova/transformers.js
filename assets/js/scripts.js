@@ -61,10 +61,19 @@ const IMAGE_CLASSIFICATION_OUTPUT_CANVAS = document.getElementById('ic-canvas');
 const CODE_COMPLETION_CONTAINER = document.getElementById('code-completion-container');
 
 
+const ZSIC_SELECT = document.getElementById('zsic-select');
+const ZSIC_INPUT = document.getElementById('zsic-file');
+const ZSIC_CLASSES = document.getElementById('zsic-classes');
+const ZSIC_IMG = document.getElementById('zsic-viewer');
+const ZSIC_OUTPUT_CANVAS = document.getElementById('zsic-canvas');
+
+
+
 [
 	[SPEECH2TEXT_SELECT, SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
 	[TEXT2IMAGE_SELECT, TEXT2IMAGE_INPUT, TEXT2IMAGE_IMG],
 	[IMAGE_CLASSIFICATION_SELECT, IMAGE_CLASSIFICATION_INPUT, IMAGE_CLASSIFICATION_IMG],
+	[ZSIC_SELECT, ZSIC_INPUT, ZSIC_IMG],
 ].forEach(x => {
 	let [select, input, media] = x;
 
@@ -214,8 +223,36 @@ const CHARTS = {
 			}]
 		},
 		options: CHART_OPTIONS
-	})
+	}),
+
+	'zsic-canvas': new Chart(ZSIC_OUTPUT_CANVAS, {
+		type: 'bar',
+		data: {
+			labels: ['football', 'airport', 'animals'],
+			datasets: [{
+				borderWidth: 1
+			}]
+		},
+		options: CHART_OPTIONS
+	}),
+
 }
+
+
+function getZSICClasses() {
+	return ZSIC_CLASSES.value.split(/\s*,+\s*/g).filter(x => x)
+
+}
+ZSIC_CLASSES.addEventListener('input', () => {
+	let chartToUpdate = CHARTS[ZSIC_OUTPUT_CANVAS.id];
+
+	chartToUpdate.data.labels = getZSICClasses();
+	chartToUpdate.update();
+
+	// Update labels of graph
+
+})
+
 
 
 function updateVisibility() {
@@ -319,6 +356,15 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 		case 'image-classification':
 			data.image = getImageDataFromImage(IMAGE_CLASSIFICATION_IMG)
 			data.elementIdToUpdate = IMAGE_CLASSIFICATION_OUTPUT_CANVAS.id
+			data.targetType = 'chart'
+			data.updateLabels = true
+			break;
+
+
+		case 'zero-shot-image-classification':
+			data.image = getImageDataFromImage(ZSIC_IMG)
+			data.classes = getZSICClasses()
+			data.elementIdToUpdate = ZSIC_OUTPUT_CANVAS.id
 			data.targetType = 'chart'
 			data.updateLabels = true
 			break;
