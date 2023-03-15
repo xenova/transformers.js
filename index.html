@@ -135,6 +135,10 @@
                         <option value="image-classification">
                             Image classification w/ google/vit-base-patch16-224 (91 MB)
                         </option>
+
+                        <option value="zero-shot-image-classification">
+                            Zero-shot image classification w/ openai/clip-vit-base-patch16 (152 MB)
+                        </option>
                     </select>
                 </div>
 
@@ -324,11 +328,9 @@
                 </div>
                 <div task="image-to-text" class="task-settings">
 
-                    <div class="row">
-
-                        <label class="mt-3">Image: </label>
-
+                    <div class="row pt-2">
                         <div class="col-lg-6">
+                            <label>Image: </label>
                             <select id="image-select" class="form-select">
                                 <option value="./assets/images/football-match.jpg">
                                     Example 1
@@ -356,11 +358,9 @@
                 </div>
                 <div task="image-classification" class="task-settings">
 
-                    <div class="row">
-
-                        <label class="mt-3">Image: </label>
-
+                    <div class="row pt-2">
                         <div class="col-lg-6">
+                            <label>Image: </label>
                             <select id="ic-select" class="form-select">
                                 <option value="./assets/images/tiger.jpg">
                                     Example 1
@@ -384,6 +384,48 @@
                         <div class="col-lg-6" style="max-height:146px">
                             <canvas id="ic-canvas"></canvas>
                         </div>
+                    </div>
+                </div>
+                <div task="zero-shot-image-classification" class="task-settings">
+
+                    <div class="row pt-2">
+
+
+                        <div class="col-lg-6">
+                            <label>Image: </label>
+
+                            <select id="zsic-select" class="form-select">
+                                <option value="./assets/images/football-match.jpg">
+                                    Example 1
+                                </option>
+                                <option value="./assets/images/airport.jpg">
+                                    Example 2
+                                </option>
+                                <option value="./assets/images/savanna.jpg">
+                                    Example 3
+                                </option>
+                                <option show-custom>Custom</option>
+                            </select>
+
+                            <input class="mt-2 form-control" style="display: none;" type="file" id="zsic-file"
+                                name="zsic-file" accept="image/*">
+
+                            <img id="zsic-viewer" class="w-100 p-4" src="./assets/images/football-match.jpg"
+                                crossorigin="anonymous">
+
+                        </div>
+
+                        <div class="col-lg-6 mt-1">
+                            <label for="zsic-classes" class="form-label mb-0">Possible class names
+                                (comma-separated):</label>
+                            <input type="text" class="form-control" id="zsic-classes"
+                                value="football, airport, animals">
+                            <div style="max-height:146px">
+                                <canvas id="zsic-canvas"></canvas>
+                            </div>
+
+                        </div>
+
                     </div>
                 </div>
                 <div class="mt-3 mb-1">
@@ -656,6 +698,18 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
+                            <div class="fw-bold">zero-shot-image-classification</div>
+                            Supported models:
+                            <code>openai/clip-vit-base-patch16</code>,
+                            <code>openai/clip-vit-base-patch32</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/tasks/zero-shot-image-classification">
+                                Zero-Shot Image Classification
+                            </a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
                             <div class="fw-bold">embeddings</div>
                             Supported models:
                             <code>sentence-transformers/all-MiniLM-L6-v2</code>,
@@ -775,6 +829,16 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                             <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/whisper">Whisper docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">CLIP</div>
+                            Tasks: Zero-shot Image classification
+                            <code>(AutoModel)</code>.
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/clip">CLIP
+                                docs</a>.
                         </div>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-start">

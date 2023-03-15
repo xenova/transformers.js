@@ -359,6 +359,48 @@ class ImageClassificationPipeline extends Pipeline {
 
 }
 
+class ZeroShotImageClassificationPipeline extends Pipeline {
+
+    constructor(task, tokenizer, model, processor) {
+        super(task, tokenizer, model);
+        this.processor = processor;
+    }
+    async _call(images, candidate_labels, {
+        hypothesis_template = "This is a photo of {}"
+    } = {}) {
+
+        // Insert label into hypothesis template 
+        let texts = candidate_labels.map(
+            x => hypothesis_template.replace('{}', x)
+        );
+
+        // Run tokenization
+        let text_inputs = this.tokenizer(texts, {
+            padding: true,
+            truncate: true
+        });
+
+        // Compare each image with each candidate label
+        let image_inputs = await this.processor(images);
+        let output = await this.model({ ...text_inputs, ...image_inputs });
+
+        let toReturn = [];
+        for (let batch of output.logits_per_image) {
+            // Compute softmax per image
+            let probs = softmax(batch.data);
+
+            toReturn.push([...probs].map((x, i) => {
+                return {
+                    score: x,
+                    label: candidate_labels[i]
+                }
+            }));
+        }
+
+        return Array.isArray(images) ? toReturn : toReturn[0];
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
@@ -459,6 +501,18 @@ const SUPPORTED_TASKS = {
         "type": "multimodal",
     },
 
+    "zero-shot-image-classification": {
+        // no tokenizer
+        "tokenizer": AutoTokenizer,
+        "pipeline": ZeroShotImageClassificationPipeline,
+        "model": AutoModel,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "openai/clip-vit-base-patch32"
+        },
+        "type": "multimodal",
+    },
+
     // This task is not supported in HuggingFace transformers, but serves as a useful interface
     // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
     "embeddings": {
@@ -484,6 +538,8 @@ const TASK_NAME_MAPPING = {
 
     'automatic-speech-recognition': 'speech2seq-lm-with-past',
     'image-to-text': 'vision2seq-lm-with-past',
+
+    'zero-shot-image-classification': 'default',
 }
 
 const TASK_PREFIX_MAPPING = {

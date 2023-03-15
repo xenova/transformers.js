@@ -109,6 +109,7 @@ UNSIGNED_MODEL_TYPES = [
     'whisper',
     'vision-encoder-decoder',
     'vit',
+    'clip',
 ]
 
 
@@ -142,7 +143,6 @@ def quantize(models_name_or_path, model_type):
             model_output=model,
             per_channel=True,
             reduce_range=True,  # should be the same as per_channel
-            activation_type=QuantType.QUInt8,
 
             weight_type=weight_type,
             optimize_model=False,
