@@ -109,6 +109,7 @@ UNSIGNED_MODEL_TYPES = [
     'whisper',
     'vision-encoder-decoder',
     'vit',
+    'clip',
 ]
 
 
