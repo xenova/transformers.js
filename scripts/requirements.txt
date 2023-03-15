@@ -1,5 +1,5 @@
 torch
 transformers
 optimum[onnxruntime]>=1.7.1
-onnxruntime==1.10.0
+onnxruntime
 tqdm
