@@ -10,6 +10,27 @@ SUPPORTED_TASKS = {
 }
 
 SUPPORTED_MODELS = {
+    'albert': {
+        'albert-base-v2': [
+            'default',
+            'masked-lm',
+        ],
+        'albert-large-v2': [
+            'default',
+            'masked-lm',
+        ],
+        'sentence-transformers/paraphrase-albert-small-v2': [
+            'default',
+        ],
+        'sentence-transformers/paraphrase-albert-base-v2': [
+            'default',
+        ],
+    },
+    'bart': {
+        'sshleifer/distilbart-cnn-6-6': [
+            'seq2seq-lm-with-past'
+        ]
+    },
     'bert': {
         'bert-base-uncased': [
             'default',
@@ -37,20 +58,33 @@ SUPPORTED_MODELS = {
             'default',
         ],
     },
-    'albert': {
-        'albert-base-v2': [
-            'default',
-            'masked-lm',
+    'blenderbot-small': {
+        'facebook/blenderbot_small-90M': [
+            "default",
+            "causal-lm-with-past",
+            "seq2seq-lm-with-past",
+        ]
+    },
+    'clip': {
+        'openai/clip-vit-base-patch16': [
+            'default'
         ],
-        'albert-large-v2': [
-            'default',
-            'masked-lm',
+        'openai/clip-vit-base-patch32': [
+            'default'
         ],
-        'sentence-transformers/paraphrase-albert-small-v2': [
-            'default',
+    },
+    'codegen': {
+        'Salesforce/codegen-350M-mono': [
+            "default",
+            "causal-lm-with-past",
         ],
-        'sentence-transformers/paraphrase-albert-base-v2': [
-            'default',
+        'Salesforce/codegen-350M-multi': [
+            "default",
+            "causal-lm-with-past",
+        ],
+        'Salesforce/codegen-350M-nl': [
+            "default",
+            "causal-lm-with-past",
         ],
     },
     'distilbert': {
@@ -86,6 +120,22 @@ SUPPORTED_MODELS = {
             'token-classification',
         ]
     },
+    'roberta': {
+        'xlm-roberta-base': [
+            'default',
+            'masked-lm',
+        ], 'roberta-base': [
+            'default',
+            'masked-lm',
+        ],
+        'distilroberta-base': [
+            'default',
+            'masked-lm',
+        ],
+        'sentence-transformers/all-distilroberta-v1': [
+            'default'
+        ]
+    },
     't5': {
         't5-small': [
             'default',
@@ -112,56 +162,6 @@ SUPPORTED_MODELS = {
             'seq2seq-lm-with-past',
         ]
     },
-    'bart': {
-        'sshleifer/distilbart-cnn-6-6': [
-            'seq2seq-lm-with-past'
-        ]
-    },
-    'roberta': {
-        'xlm-roberta-base': [
-            'default',
-            'masked-lm',
-        ], 'roberta-base': [
-            'default',
-            'masked-lm',
-        ],
-        'distilroberta-base': [
-            'default',
-            'masked-lm',
-        ],
-        'sentence-transformers/all-distilroberta-v1': [
-            'default'
-        ]
-    },
-    'whisper': {
-
-        'openai/whisper-tiny': [
-            'default',
-            'speech2seq-lm-with-past'
-        ],
-        'openai/whisper-tiny.en': [
-            'default',
-            'speech2seq-lm-with-past'
-        ],
-
-        'openai/whisper-base': [
-            'default',
-            'speech2seq-lm-with-past'
-        ],
-        'openai/whisper-base.en': [
-            'default',
-            'speech2seq-lm-with-past'
-        ],
-
-        'openai/whisper-small': [
-            'default',
-            'speech2seq-lm-with-past'
-        ],
-        'openai/whisper-small.en': [
-            'default',
-            'speech2seq-lm-with-past'
-        ],
-    },
     'vision-encoder-decoder': {
         'nlpconnect/vit-gpt2-image-captioning': [
             # "vision2seq-lm",
@@ -177,105 +177,38 @@ SUPPORTED_MODELS = {
             'image-classification'
         ]
     },
-    "blenderbot-small": {
-        'facebook/blenderbot_small-90M': [
-            "default",
-            "causal-lm-with-past",
-            "seq2seq-lm-with-past",
-        ]
+    'whisper': {
+        'openai/whisper-tiny': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+        'openai/whisper-tiny.en': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+        'openai/whisper-base': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+        'openai/whisper-base.en': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+        'openai/whisper-small': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
+        'openai/whisper-small.en': [
+            'default',
+            'speech2seq-lm-with-past'
+        ],
     },
-    'codegen': {
-        'Salesforce/codegen-350M-mono': [
-            "default",
-            "causal-lm-with-past",
-        ],
-        'Salesforce/codegen-350M-multi': [
-            "default",
-            "causal-lm-with-past",
-        ],
-        'Salesforce/codegen-350M-nl': [
-            "default",
-            "causal-lm-with-past",
-        ],
-    }
-}
-
-
-SUPPORTED_MODELS_AND_TASKS = {
-    'bert': [
-        'default',
-        'masked-lm',
-        'sequence-classification',
-        'multiple-choice',
-        'token-classification',
-        'question-answering'
-    ],
-    'albert': [
-        'default',
-        'masked-lm',
-    ],
-    'distilbert': [
-        'default',
-        'masked-lm',
-        'sequence-classification',
-        'multiple-choice',
-        'token-classification',
-        'question-answering',
-    ],
-    't5': [
-        'default',  # only encoder needed
-        # 'default-with-past',
-        # 'seq2seq-lm',
-        'seq2seq-lm-with-past',
-    ],
-    'gpt2': [
-        'default',
-        # 'default-with-past',
-        # 'causal-lm',
-        'causal-lm-with-past',
-        'sequence-classification',
-        'token-classification',
-    ],
-    'bart': [
-        'default',
-        # 'default-with-past',
-        # 'causal-lm',
-        'causal-lm-with-past',
-        # 'seq2seq-lm',
-        'seq2seq-lm-with-past',
-        'sequence-classification',
-        'question-answering',
-    ],
-    'roberta': [
-        'default',
-        'masked-lm',
-        # 'causal-lm',
-        'sequence-classification',
-        'multiple-choice',
-        'token-classification',
-        'question-answering',
-    ],
-    'whisper': [
-        'default',
-        'speech2seq-lm-with-past'
-    ],
-    'vit': [
-        'default',
-        'image-classification'
-    ],
-    'vision-encoder-decoder': [
-        "vision2seq-lm-with-past"
-    ],
-    'blenderbot-small': [
-        "default",
-        "causal-lm-with-past",
-        "seq2seq-lm-with-past",
-    ]
 }
 
 
 def main():
     for model_type, model_ids in SUPPORTED_MODELS.items():
+        print(f'{model_type:=^80}')
         for model_id, tasks in model_ids.items():
             for task in tasks:
                 print(
