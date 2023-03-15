@@ -561,14 +561,14 @@ async function zero_shot_image_classification() {
 
     let classifier = await pipeline('zero-shot-image-classification', 'openai/clip-vit-base-patch16');
 
-    let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
+    let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg';
     let urls = [
-        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg',
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg',
-        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg'
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg',
+        'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg',
     ]
 
-    let classes = ['savanna', 'football', 'airport'];
+    let classes = ['football', 'airport', 'animals'];
 
     let output1 = await classifier(url, classes);
     let output2 = await classifier(urls, classes);
@@ -579,25 +579,25 @@ async function zero_shot_image_classification() {
     return isDeepEqual(
         output1,
         [
-            { "score": 0.5823153853416443, "label": "savanna" },
-            { "score": 0.21198713779449463, "label": "football" },
-            { "score": 0.20569750666618347, "label": "airport" }
+            { "score": 0.9752006530761719, "label": "football" },
+            { "score": 0.008657160215079784, "label": "airport" },
+            { "score": 0.01614217646420002, "label": "animals" }
         ]
     ) && isDeepEqual(
         output2,
         [
             [
-                { "score": 0.4858620762825012, "label": "savanna" },
-                { "score": 0.21314670145511627, "label": "football" },
-                { "score": 0.3009912371635437, "label": "airport" }
+                { "score": 0.9822530150413513, "label": "football" },
+                { "score": 0.007440905552357435, "label": "airport" },
+                { "score": 0.010306074284017086, "label": "animals" }
             ], [
-                { "score": 0.04680883511900902, "label": "savanna" },
-                { "score": 0.9450456500053406, "label": "football" },
-                { "score": 0.008145489729940891, "label": "airport" }
+                { "score": 0.04688927158713341, "label": "football" },
+                { "score": 0.8052198886871338, "label": "airport" },
+                { "score": 0.1478908210992813, "label": "animals" }
             ], [
-                { "score": 0.07665885239839554, "label": "savanna" },
-                { "score": 0.06919924914836884, "label": "football" },
-                { "score": 0.854141891002655, "label": "airport" }
+                { "score": 0.054577842354774475, "label": "football" },
+                { "score": 0.06229930371046066, "label": "airport" },
+                { "score": 0.8831228613853455, "label": "animals" }
             ]
         ]
     )
