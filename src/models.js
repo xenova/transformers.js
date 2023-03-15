@@ -1095,7 +1095,7 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// GPT2 models
+// CLIP models
 class CLIPPreTrainedModel extends PreTrainedModel { }
 class CLIPModel extends CLIPPreTrainedModel {
 
