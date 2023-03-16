@@ -100,14 +100,13 @@ class FileResponse {
 }
 
 function isValidHttpUrl(string) {
-    // https://stackoverflow.com/a/43467144
-    let url;
-    try {
-        url = new URL(string);
-    } catch (_) {
-        return false;
-    }
-    return url.protocol === "http:" || url.protocol === "https:";
+  // Updated Simplified version of the previous code
+  try {
+    new URL(string);
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 async function getFile(url) {
