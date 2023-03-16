@@ -117,7 +117,6 @@ async function seq2seq_forward(self, model_inputs, {
 
 function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
     let beams = [];
-
     let beamId = 0;
     for (let tokens of inputTokenIds) {
         // TODO: Improve
@@ -553,6 +552,8 @@ class PreTrainedModel extends Callable {
 
             callback_function: null
         }
+
+        this.forced_decoder_ids_mapping = Object.fromEntries(config.forced_decoder_ids ?? []);
     }
 
     async dispose() {
@@ -653,6 +654,19 @@ class PreTrainedModel extends Callable {
 
                 let output = await this.runBeam(beam);
 
+                // Apply logits processor to each item in the batch:
+                for (let batch of output.logits) {
+                    // NOTE: In future, generalise this
+
+                    let map = this.forced_decoder_ids_mapping[beam.output_token_ids.length];
+                    if (map !== undefined) { // There exists a mapping
+                        // NOTE:
+                        //   - modifications affect original data 
+                        //   - logits are of the shape [1, vocabSize]
+                        batch.data.fill(-Infinity)
+                        batch.data[map] = 0;
+                    }
+                }
                 let sampledTokens = sampler(output.logits);
 
                 for (let [newTokenId, logProb] of sampledTokens) {
