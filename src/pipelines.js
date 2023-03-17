@@ -3,7 +3,9 @@ const {
     softmax,
     getTopItems,
     cos_sim,
-    pathJoin
+    pathJoin,
+    isString,
+    getFile
 } = require("./utils.js");
 
 const {
@@ -45,7 +47,7 @@ class Pipeline extends Callable {
         // Run tokenization
         let inputs = this.tokenizer(texts, {
             padding: true,
-            truncate: true
+            truncation: true
         });
 
         // Run model
@@ -198,7 +200,7 @@ class Text2TextGenerationPipeline extends Pipeline {
 
         let input_ids = this.tokenizer(texts, {
             padding: true,
-            truncate: true
+            truncation: true
         }).input_ids
         let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
 
@@ -232,7 +234,7 @@ class TextGenerationPipeline extends Pipeline {
         this.tokenizer.padding_side = 'left';
         let inputs = this.tokenizer(texts, {
             padding: true,
-            truncate: true,
+            truncation: true,
         });
 
         let input_ids = inputs.input_ids;
@@ -285,15 +287,130 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         this.processor = processor;
     }
 
-    async _call(audio, generate_kwargs = {}) {
+    async _preprocess(audio, sampling_rate) {
+        if (isString(audio)) {
+            // Attempting to load from path
 
-        let input_features = (await this.processor(audio)).input_features
+            if (typeof AudioContext === 'undefined') {
+                // Running in node or an environment without AudioContext
+                throw Error(
+                    "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
+                    "As a result, audio data must be passed directly to the processor. " +
+                    "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
+                )
+            }
+            const response = await (await getFile(audio)).arrayBuffer();
+            const audioCTX = new AudioContext({ sampleRate: sampling_rate });
+            const decoded = await audioCTX.decodeAudioData(response);
 
-        let output = (await this.model.generate(input_features, generate_kwargs)).flat();
+            // We now replicate HuggingFace's `ffmpeg_read` method:
+            // 
+            // When downmixing a stereo audio file to mono using the -ac 1 option in FFmpeg,
+            // the audio signal is summed across both channels to create a single mono channel.
+            // However, if the audio is at full scale (i.e. the highest possible volume level),
+            // the summing of the two channels can cause the audio signal to clip or distort.
 
-        return this.tokenizer.batch_decode(output, {
-            skip_special_tokens: true,
-        })
+            // To prevent this clipping, FFmpeg applies a scaling factor of 1/sqrt(2) (~ 0.707)
+            // to the audio signal before summing the two channels. This scaling factor ensures
+            // that the combined audio signal will not exceed the maximum possible level, even
+            // if both channels are at full scale.
+
+            // After applying this scaling factor, the audio signal from both channels is summed
+            // to create a single mono channel. It's worth noting that this scaling factor is
+            // only applied when downmixing stereo audio to mono using the -ac 1 option in FFmpeg.
+            // If you're using a different downmixing method, or if you're not downmixing the
+            // audio at all, this scaling factor may not be needed.
+            const SCALING_FACTOR = Math.sqrt(2);
+
+            let left = decoded.getChannelData(0);
+            let right = decoded.getChannelData(1);
+
+            audio = new Float32Array(left.length);
+            for (let i = 0; i < decoded.length; i++) {
+                audio[i] = SCALING_FACTOR * (left[i] + right[i]) / 2;
+            }
+        }
+
+        return audio;
+    }
+
+    async _call(audio, generate_kwargs = {}, {
+        chunk_length_s = 0,
+        stride_length_s = null,
+    } = {}) {
+        let single = !Array.isArray(audio)
+        if (single) {
+            audio = [audio]
+        }
+
+        let toReturn = [];
+        for (let aud of audio) {
+            const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+
+            aud = await this._preprocess(aud, sampling_rate)
+
+            let chunks = [];
+            if (chunk_length_s > 0) {
+                if (stride_length_s === null) {
+                    stride_length_s = chunk_length_s / 6;
+                } else if (chunk_length_s <= stride_length_s) {
+                    throw Error("`chunk_length_s` must be larger than `stride_length_s`.")
+                }
+
+                // TODO support different stride_length_s (for left and right)
+
+                const window = sampling_rate * chunk_length_s;
+                const stride = sampling_rate * stride_length_s;
+                const jump = window - 2 * stride;
+                let offset = 0;
+
+                // Create subarrays of audio with overlaps
+
+                while (offset < aud.length) {
+                    let subarr = aud.subarray(offset, offset + window);
+                    let feature = await this.processor(subarr);
+
+                    let isFirst = offset === 0;
+                    let isLast = offset + jump >= aud.length;
+                    chunks.push({
+                        stride: [
+                            subarr.length,
+                            isFirst ? 0 : stride,
+                            isLast ? 0 : stride
+                        ],
+                        input_features: feature.input_features,
+                        is_last: isLast
+                    })
+                    offset += jump;
+                }
+
+            } else {
+                chunks = [{
+                    stride: [aud.length, 0, 0],
+                    input_features: (await this.processor(aud)).input_features,
+                    is_last: true
+                }]
+            }
+
+            // Generate for each set of input features
+            for (let chunk of chunks) {
+                // NOTE: doing sequentially for now
+                let data = await this.model.generate(chunk.input_features, generate_kwargs);
+
+                // Get top beam
+                chunk.tokens = data[0].flat()
+            }
+
+            const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
+
+            // Merge text chunks
+            let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
+                time_precision: time_precision
+            });
+
+            toReturn.push({ 'text': full_text, ...optional })
+        }
+        return single ? toReturn[0] : toReturn;
     }
 }
 
@@ -377,7 +494,7 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
         // Run tokenization
         let text_inputs = this.tokenizer(texts, {
             padding: true,
-            truncate: true
+            truncation: true
         });
 
         // Compare each image with each candidate label
