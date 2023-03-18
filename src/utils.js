@@ -288,30 +288,47 @@ function indexOfMax(arr) {
 
 
 function softmax(arr) {
-    // Compute the maximum value in the array
+    //taking the max value
     const max = Math.max(...arr);
-
-    // Compute the exponentials of the array values
-    const exps = arr.map(x => Math.exp(x - max));
-
-    // Compute the sum of the exponentials
-    const sumExps = exps.reduce((acc, val) => acc + val, 0);
-
-    // Compute the softmax values
-    const softmaxArr = exps.map(x => x / sumExps);
-
-    return softmaxArr;
+    
+    //using FLoat64Array to save memory
+    const exps = new Float64Array(arr.length);
+    
+    let sumExps = 0;
+    for (let i = 0; i < arr.length; i++) {
+        const exp = Math.exp(arr[i] - max);
+        exps[i] = exp;
+        sumExps += exp;
+    }
+    
+    for (let i = 0; i < arr.length; i++) {
+        exps[i] /= sumExps;
+    }
+    return exps;
 }
+
 
 function log_softmax(arr) {
-    // Compute the softmax values
-    const softmaxArr = softmax(arr);
-
-    // Apply log formula to each element
-    const logSoftmaxArr = softmaxArr.map(x => Math.log(x));
-
+    //taking the max value
+    const max = Math.max(...arr);
+    
+    //using FLoat64Array to save memory
+    const exps = new Float64Array(arr.length);
+    const logSoftmaxArr = new Float64Array(arr.length);
+    
+    let sumExps = 0;
+    for (let i = 0; i < arr.length; i++) {
+        const exp = Math.exp(arr[i] - max);
+        exps[i] = exp;
+        sumExps += exp;
+    }
+    const logSumExps = Math.log(sumExps);
+    for (let i = 0; i < arr.length; i++) {
+        logSoftmaxArr[i] = arr[i] - max - logSumExps;
+    }
     return logSoftmaxArr;
 }
+
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
