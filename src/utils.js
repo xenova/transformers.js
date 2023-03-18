@@ -378,6 +378,10 @@ function isIntegralNumber(x) {
     return Number.isInteger(x) || typeof x === 'bigint'
 }
 
+function exists(x) {
+    return x !== undefined && x !== null;
+}
+
 module.exports = {
     Callable,
     getModelFile,
@@ -395,5 +399,6 @@ module.exports = {
     magnitude,
     getFile,
     isIntegralNumber,
-    isString
+    isString,
+    exists
 };
