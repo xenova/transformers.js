@@ -29,6 +29,9 @@ SUPPORTED_MODELS = {
     'bart': {
         'sshleifer/distilbart-cnn-6-6': [
             'seq2seq-lm-with-past'
+        ],
+        'facebook/bart-large-cnn': [
+            'seq2seq-lm-with-past'
         ]
     },
     'bert': {
@@ -208,7 +211,7 @@ SUPPORTED_MODELS = {
 
 def main():
     for model_type, model_ids in SUPPORTED_MODELS.items():
-        print(f'{model_type:=^80}')
+        print(f'# {model_type:=^80}')
         for model_id, tasks in model_ids.items():
             for task in tasks:
                 print(
