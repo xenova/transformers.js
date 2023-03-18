@@ -87,7 +87,7 @@ async function seq2seqLoadModel(modelPath, progressCallback) {
         fetchJSON(modelPath, 'config.json', progressCallback),
         constructSession(modelPath, 'encoder_model.onnx', progressCallback),
         constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback),
-        fetchJSON(modelPath, 'generation_config.json', progressCallback),
+        fetchJSON(modelPath, 'generation_config.json', progressCallback, false),
     ])
 
     // Called when all parts are loaded
