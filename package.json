@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "webpack",
+    "typegen": "tsc src/*.js --outDir dist/types --allowJs --declaration --emitDeclarationOnly",
     "dev": "webpack serve --no-client-overlay",
     "test": "node tests/index.js"
   },
@@ -29,7 +30,8 @@
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
     "jimp": "^0.22.7",
-    "onnxruntime-web": "^1.14.0"
+    "onnxruntime-web": "^1.14.0",
+    "typescript": "^5.0.2"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^11.0.0",

@@ -26,6 +26,11 @@ class Tensor extends ONNX.Tensor {
 
     }
 
+    /**
+     * 
+     * @param {number} index 
+     * @returns 
+     */
     get(index) {
         const iterDims = this.dims.slice(1);
         if (iterDims.length > 0) {
@@ -46,6 +51,12 @@ class Tensor extends ONNX.Tensor {
         return -1;
     }
 
+    /**
+     * @param {number} index 
+     * @param {number} iterSize 
+     * @param {number} iterDims 
+     * @returns {this}
+     */
     _subarray(index, iterSize, iterDims) {
         let data = this.data.subarray(index * iterSize, (index + 1) * iterSize);
         return new Tensor(this.type, data, iterDims);
