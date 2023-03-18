@@ -16,10 +16,10 @@ export class TopKSampler extends Sampler {
     sample(logits: any, index?: number): any[][];
 }
 export class BeamSearchSampler extends Sampler {
-    constructor(temperature: any, num_beams: any, do_sample: any, top_k: any);
-    num_beams: any;
-    do_sample: any;
-    top_k: any;
-    sample(logits: any, index?: number): any;
+  constructor(temperature: any, num_beams: any, do_sample: any, top_k: any);
+  num_beams: any;
+  do_sample: any;
+  top_k: any;
+  sample(logits: any, index?: number): any[];
 }
 import { Callable } from "./utils.js";
