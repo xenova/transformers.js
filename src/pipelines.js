@@ -337,16 +337,18 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
     async _call(audio, generate_kwargs = {}, {
         chunk_length_s = 0,
         stride_length_s = null,
+        return_chunks = false // Return chunk data in callback (in addition to beam info)
     } = {}) {
         let single = !Array.isArray(audio)
         if (single) {
             audio = [audio]
         }
 
+        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+        const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
+
         let toReturn = [];
         for (let aud of audio) {
-            const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
-
             aud = await this._preprocess(aud, sampling_rate)
 
             let chunks = [];
@@ -399,9 +401,11 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
                 // Get top beam
                 chunk.tokens = data[0].flat()
-            }
 
-            const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
+                if (return_chunks && generate_kwargs.callback_function) {
+                    generate_kwargs.callback_function(chunk)
+                }
+            }
 
             // Merge text chunks
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
