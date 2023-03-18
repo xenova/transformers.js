@@ -4,6 +4,9 @@ const fs = require('fs');
 const { env } = require('./env.js');
 
 class FileResponse {
+    /**
+     * @param {string} filePath 
+     */
     constructor(filePath) {
         this.filePath = filePath;
         this.headers = {};
