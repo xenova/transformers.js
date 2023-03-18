@@ -2,7 +2,6 @@
 const {
     Callable,
     fetchJSON,
-    getFile
 } = require("./utils.js");
 
 
@@ -12,7 +11,7 @@ const { Tensor, transpose, cat } = require("./tensor_utils.js");
 // For some reason, Jimp attaches to self, even in Node.
 // https://github.com/jimp-dev/jimp/issues/466
 const _Jimp = require('jimp');
-const Jimp = self.Jimp || _Jimp;
+const Jimp = (typeof self !== 'undefined') ? (self.Jimp || _Jimp) : _Jimp;
 
 const B64_STRING = /^data:image\/\w+;base64,/;
 
