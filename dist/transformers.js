@@ -1591,7 +1591,6 @@ async function seq2seq_forward(self, model_inputs, {
 
 function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
     let beams = [];
-
     let beamId = 0;
     for (let tokens of inputTokenIds) {
         // TODO: Improve
@@ -2027,6 +2026,8 @@ class PreTrainedModel extends Callable {
 
             callback_function: null
         }
+
+        this.forced_decoder_ids_mapping = Object.fromEntries(config.forced_decoder_ids ?? []);
     }
 
     async dispose() {
@@ -2127,6 +2128,19 @@ class PreTrainedModel extends Callable {
 
                 let output = await this.runBeam(beam);
 
+                // Apply logits processor to each item in the batch:
+                for (let batch of output.logits) {
+                    // NOTE: In future, generalise this
+
+                    let map = this.forced_decoder_ids_mapping[beam.output_token_ids.length];
+                    if (map !== undefined) { // There exists a mapping
+                        // NOTE:
+                        //   - modifications affect original data 
+                        //   - logits are of the shape [1, vocabSize]
+                        batch.data.fill(-Infinity)
+                        batch.data[map] = 0;
+                    }
+                }
                 let sampledTokens = sampler(output.logits);
 
                 for (let [newTokenId, logProb] of sampledTokens) {
@@ -2731,7 +2745,9 @@ const {
     softmax,
     getTopItems,
     cos_sim,
-    pathJoin
+    pathJoin,
+    isString,
+    getFile
 } = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
 const {
@@ -2773,7 +2789,7 @@ class Pipeline extends Callable {
         // Run tokenization
         let inputs = this.tokenizer(texts, {
             padding: true,
-            truncate: true
+            truncation: true
         });
 
         // Run model
@@ -2926,7 +2942,7 @@ class Text2TextGenerationPipeline extends Pipeline {
 
         let input_ids = this.tokenizer(texts, {
             padding: true,
-            truncate: true
+            truncation: true
         }).input_ids
         let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
 
@@ -2960,7 +2976,7 @@ class TextGenerationPipeline extends Pipeline {
         this.tokenizer.padding_side = 'left';
         let inputs = this.tokenizer(texts, {
             padding: true,
-            truncate: true,
+            truncation: true,
         });
 
         let input_ids = inputs.input_ids;
@@ -3013,15 +3029,130 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         this.processor = processor;
     }
 
-    async _call(audio, generate_kwargs = {}) {
+    async _preprocess(audio, sampling_rate) {
+        if (isString(audio)) {
+            // Attempting to load from path
 
-        let input_features = (await this.processor(audio)).input_features
+            if (typeof AudioContext === 'undefined') {
+                // Running in node or an environment without AudioContext
+                throw Error(
+                    "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
+                    "As a result, audio data must be passed directly to the processor. " +
+                    "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
+                )
+            }
+            const response = await (await getFile(audio)).arrayBuffer();
+            const audioCTX = new AudioContext({ sampleRate: sampling_rate });
+            const decoded = await audioCTX.decodeAudioData(response);
 
-        let output = (await this.model.generate(input_features, generate_kwargs)).flat();
+            // We now replicate HuggingFace's `ffmpeg_read` method:
+            // 
+            // When downmixing a stereo audio file to mono using the -ac 1 option in FFmpeg,
+            // the audio signal is summed across both channels to create a single mono channel.
+            // However, if the audio is at full scale (i.e. the highest possible volume level),
+            // the summing of the two channels can cause the audio signal to clip or distort.
 
-        return this.tokenizer.batch_decode(output, {
-            skip_special_tokens: true,
-        })
+            // To prevent this clipping, FFmpeg applies a scaling factor of 1/sqrt(2) (~ 0.707)
+            // to the audio signal before summing the two channels. This scaling factor ensures
+            // that the combined audio signal will not exceed the maximum possible level, even
+            // if both channels are at full scale.
+
+            // After applying this scaling factor, the audio signal from both channels is summed
+            // to create a single mono channel. It's worth noting that this scaling factor is
+            // only applied when downmixing stereo audio to mono using the -ac 1 option in FFmpeg.
+            // If you're using a different downmixing method, or if you're not downmixing the
+            // audio at all, this scaling factor may not be needed.
+            const SCALING_FACTOR = Math.sqrt(2);
+
+            let left = decoded.getChannelData(0);
+            let right = decoded.getChannelData(1);
+
+            audio = new Float32Array(left.length);
+            for (let i = 0; i < decoded.length; i++) {
+                audio[i] = SCALING_FACTOR * (left[i] + right[i]) / 2;
+            }
+        }
+
+        return audio;
+    }
+
+    async _call(audio, generate_kwargs = {}, {
+        chunk_length_s = 0,
+        stride_length_s = null,
+    } = {}) {
+        let single = !Array.isArray(audio)
+        if (single) {
+            audio = [audio]
+        }
+
+        let toReturn = [];
+        for (let aud of audio) {
+            const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+
+            aud = await this._preprocess(aud, sampling_rate)
+
+            let chunks = [];
+            if (chunk_length_s > 0) {
+                if (stride_length_s === null) {
+                    stride_length_s = chunk_length_s / 6;
+                } else if (chunk_length_s <= stride_length_s) {
+                    throw Error("`chunk_length_s` must be larger than `stride_length_s`.")
+                }
+
+                // TODO support different stride_length_s (for left and right)
+
+                const window = sampling_rate * chunk_length_s;
+                const stride = sampling_rate * stride_length_s;
+                const jump = window - 2 * stride;
+                let offset = 0;
+
+                // Create subarrays of audio with overlaps
+
+                while (offset < aud.length) {
+                    let subarr = aud.subarray(offset, offset + window);
+                    let feature = await this.processor(subarr);
+
+                    let isFirst = offset === 0;
+                    let isLast = offset + jump >= aud.length;
+                    chunks.push({
+                        stride: [
+                            subarr.length,
+                            isFirst ? 0 : stride,
+                            isLast ? 0 : stride
+                        ],
+                        input_features: feature.input_features,
+                        is_last: isLast
+                    })
+                    offset += jump;
+                }
+
+            } else {
+                chunks = [{
+                    stride: [aud.length, 0, 0],
+                    input_features: (await this.processor(aud)).input_features,
+                    is_last: true
+                }]
+            }
+
+            // Generate for each set of input features
+            for (let chunk of chunks) {
+                // NOTE: doing sequentially for now
+                let data = await this.model.generate(chunk.input_features, generate_kwargs);
+
+                // Get top beam
+                chunk.tokens = data[0].flat()
+            }
+
+            const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
+
+            // Merge text chunks
+            let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
+                time_precision: time_precision
+            });
+
+            toReturn.push({ 'text': full_text, ...optional })
+        }
+        return single ? toReturn[0] : toReturn;
     }
 }
 
@@ -3105,7 +3236,7 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
         // Run tokenization
         let text_inputs = this.tokenizer(texts, {
             padding: true,
-            truncate: true
+            truncation: true
         });
 
         // Compare each image with each candidate label
@@ -3841,11 +3972,14 @@ class WhisperFeatureExtractor extends FeatureExtractor {
     }
 
     async _call(audio) {
+        // audio is a float32array
 
         if (audio.length > this.config.n_samples) {
-            // TODO: https://github.com/openai/whisper/discussions/726
-            // TODO allow multiples
-            console.warn("We currently don't support audio clips longer than 30 seconds. Your audio will be truncated.");
+            console.warn(
+                "Attempting to extract features for audio longer than 30 seconds. " +
+                "If using a pipeline to extract transcript from a long audio clip, " +
+                "remember to specify `chunk_length_s` and/or `stride_length_s`."
+            );
         }
         let waveform = audio.slice(0, this.config.n_samples)
 
@@ -3872,32 +4006,8 @@ class Processor extends Callable {
 }
 
 
-function isString(text) {
-    return typeof text === 'string' || text instanceof String
-}
 class WhisperProcessor extends Processor {
-
     async _call(audio) {
-
-        if (isString(audio)) {
-            // Attempting to load from path
-
-            if (typeof AudioContext === 'undefined') {
-                // Running in node or an environment without AudioContext
-                throw Error(
-                    "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
-                    "As a result, audio data must be passed directly to the processor. " +
-                    "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
-                )
-            }
-            const response = await (await getFile(audio)).arrayBuffer()
-            const sampling_rate = this.feature_extractor.config.sampling_rate;
-            const audioCTX = new AudioContext({ sampleRate: sampling_rate })
-            const decoded = await audioCTX.decodeAudioData(response)
-            audio = decoded.getChannelData(0);
-        }
-
-        // TODO use sampling rate?
         return await this.feature_extractor(audio)
     }
 }
@@ -5082,6 +5192,7 @@ class PreTrainedTokenizer extends Callable {
 
         // Add added_tokens to model
         this.special_tokens = [];
+        this.all_special_ids = [];
         for (let addedToken of tokenizerJSON.added_tokens) {
             let id = addedToken.id;
             let content = addedToken.content;
@@ -5092,6 +5203,7 @@ class PreTrainedTokenizer extends Callable {
 
             if (addedToken.special) {
                 this.special_tokens.push(content);
+                this.all_special_ids.push(id);
             }
         }
         this.special_tokens_regex = new RegExp(
@@ -5413,7 +5525,408 @@ class T5Tokenizer extends PreTrainedTokenizer { }
 class GPT2Tokenizer extends PreTrainedTokenizer { }
 class BartTokenizer extends PreTrainedTokenizer { }
 class RobertaTokenizer extends PreTrainedTokenizer { }
-class WhisperTokenizer extends PreTrainedTokenizer { }
+
+
+
+class WhisperTokenizer extends PreTrainedTokenizer {
+    static LANGUAGES = {
+        "en": "english",
+        "zh": "chinese",
+        "de": "german",
+        "es": "spanish",
+        "ru": "russian",
+        "ko": "korean",
+        "fr": "french",
+        "ja": "japanese",
+        "pt": "portuguese",
+        "tr": "turkish",
+        "pl": "polish",
+        "ca": "catalan",
+        "nl": "dutch",
+        "ar": "arabic",
+        "sv": "swedish",
+        "it": "italian",
+        "id": "indonesian",
+        "hi": "hindi",
+        "fi": "finnish",
+        "vi": "vietnamese",
+        "he": "hebrew",
+        "uk": "ukrainian",
+        "el": "greek",
+        "ms": "malay",
+        "cs": "czech",
+        "ro": "romanian",
+        "da": "danish",
+        "hu": "hungarian",
+        "ta": "tamil",
+        "no": "norwegian",
+        "th": "thai",
+        "ur": "urdu",
+        "hr": "croatian",
+        "bg": "bulgarian",
+        "lt": "lithuanian",
+        "la": "latin",
+        "mi": "maori",
+        "ml": "malayalam",
+        "cy": "welsh",
+        "sk": "slovak",
+        "te": "telugu",
+        "fa": "persian",
+        "lv": "latvian",
+        "bn": "bengali",
+        "sr": "serbian",
+        "az": "azerbaijani",
+        "sl": "slovenian",
+        "kn": "kannada",
+        "et": "estonian",
+        "mk": "macedonian",
+        "br": "breton",
+        "eu": "basque",
+        "is": "icelandic",
+        "hy": "armenian",
+        "ne": "nepali",
+        "mn": "mongolian",
+        "bs": "bosnian",
+        "kk": "kazakh",
+        "sq": "albanian",
+        "sw": "swahili",
+        "gl": "galician",
+        "mr": "marathi",
+        "pa": "punjabi",
+        "si": "sinhala",
+        "km": "khmer",
+        "sn": "shona",
+        "yo": "yoruba",
+        "so": "somali",
+        "af": "afrikaans",
+        "oc": "occitan",
+        "ka": "georgian",
+        "be": "belarusian",
+        "tg": "tajik",
+        "sd": "sindhi",
+        "gu": "gujarati",
+        "am": "amharic",
+        "yi": "yiddish",
+        "lo": "lao",
+        "uz": "uzbek",
+        "fo": "faroese",
+        "ht": "haitian creole",
+        "ps": "pashto",
+        "tk": "turkmen",
+        "nn": "nynorsk",
+        "mt": "maltese",
+        "sa": "sanskrit",
+        "lb": "luxembourgish",
+        "my": "myanmar",
+        "bo": "tibetan",
+        "tl": "tagalog",
+        "mg": "malagasy",
+        "as": "assamese",
+        "tt": "tatar",
+        "haw": "hawaiian",
+        "ln": "lingala",
+        "ha": "hausa",
+        "ba": "bashkir",
+        "jw": "javanese",
+        "su": "sundanese",
+    }
+    _decode_asr(sequences, {
+        return_timestamps = false,
+        return_language = false,
+        time_precision = null
+    } = {}) {
+        // TODO add support for `return_timestamps` and `return_language`
+
+        if (time_precision === null) {
+            throw Error("Must specify time_precision")
+        }
+
+
+        // Internal method meant to only be used by asr pipeline.
+        // Handles all the little quirks specific to whisper to handle
+        // the various options not allowed in other seq2seq models
+
+        // =========== Overview ============
+        // - iterate over all outputs
+        // - all tokens within output
+        // - Each token can be
+        //   - language token
+        //   - special token
+        //   - timestamp token
+        //   - text token
+        // - We accumulate the text tokens.
+        // - We split on end timestamps
+        // - Lots of complexity comes from stride and timestamps
+
+        let last_language = null;
+
+        function new_chunk() {
+            return { "language": last_language, "timestamp": [null, null], "text": "" };
+        }
+
+        // Welcome to the state machine!
+        const chunks = [];
+        let chunk = new_chunk();
+        let time_offset = 0.0;
+        const timestamp_begin = this.model.convert_tokens_to_ids(["<|notimestamps|>"])[0] + 1;
+
+        let previous_tokens = [];
+        let skip = false;
+        let right_stride_start = null;
+
+
+        const all_special_ids = new Set(this.all_special_ids);
+
+        for (let output of sequences) {
+            const token_ids = output.tokens;
+
+            // These keep track of timestamps within strides, which need
+            // to be skipped and resolve all tokens in a single chunk.
+            let last_timestamp = null;
+            let first_timestamp = timestamp_begin;
+
+            if ("stride" in output) {
+                const [chunk_len, stride_left, stride_right] = output.stride;
+
+                // Offset the timings to account for the other `model_outputs`.
+                time_offset -= stride_left;
+                right_stride_start = chunk_len - stride_right;
+
+                // Keeping track of timestamps within strides
+                // We're going to NOT split on those, and delay until we're
+                // out of BOTH stride. Otherwise lots of issues occur and
+                // corner cases
+                if (stride_left) {
+                    first_timestamp = stride_left / time_precision + timestamp_begin;
+                }
+
+                if (stride_right) {
+                    for (let i = token_ids.length - 1; i >= 0; i--) {
+                        const token = token_ids[i];
+                        if (token >= timestamp_begin) {
+                            // There can be several token in the right stride
+                            // But the last one is ALWAYS going to be skipped
+                            if (last_timestamp !== null && (token - timestamp_begin) * time_precision < right_stride_start) {
+                                break;
+                            }
+                            last_timestamp = token;
+                        }
+                    }
+                }
+            }
+
+            const current_tokens = [];
+
+            // - all tokens within output
+            for (const token of token_ids) {
+                // 4 possible states for each token
+                // - 1/ Language code
+                // - 2/ all other special tokens (which we ignore)
+                // - 3/ Timestamp
+                // - 4/ Regular text
+
+                if (all_special_ids.has(token)) {
+                    const text = this.decode([token]);
+                    if (text[0] === "[" && text[text.length - 1] === "]") {
+                        const language = this.LANGUAGES[text.slice(1, -1)];
+
+                        if (language !== undefined) {
+                            // 1/ Indeed some language
+                            // TODO Handle when language is different from the previous
+                            // one, and we cannot use timestamped tokens to create chunks
+                            if (last_language !== null && language !== last_language && !return_timestamps) {
+                                previous_tokens.push(current_tokens);
+                                const resolved_tokens = this.findLongestCommonSequence(previous_tokens);
+                                const resolved_text = this.decode(resolved_tokens);
+                                chunk.text = resolved_text;
+                                chunks.push(chunk);
+
+                                // Flush all our temporary context
+                                previous_tokens = [];
+                                current_tokens = [];
+                                chunk = new_chunk();
+                            }
+
+                            last_language = chunk.language = language;
+                        } else {
+                            // 2/ This is a regular special token, ignoring it
+                        }
+                    }
+                } else if (token >= timestamp_begin) {
+                    // 3/ Timestamp token
+                    const time = (token - timestamp_begin) * time_precision + time_offset;
+                    const rounded_time = Math.round(time * 100) / 100;
+
+                    if (last_timestamp !== null && token >= last_timestamp) {
+                        // Whisper outputted a timestamp token, but it falls within
+                        // our stride, so we're going to skip it for the time being
+                        // and resolve this later
+                        // Skip is necessary because timestamp tokens always come
+                        // by pair, so we need to skip the next one too (which would mark the start of another chunk).
+                        skip = true;
+                    } else if (skip || (previous_tokens.length && token < first_timestamp)) {
+                        skip = false;
+                    } else if (chunk.timestamp[0] === null) {
+                        chunk.timestamp[0] = rounded_time;
+                    } else {
+                        // This is the end of the timestamp chunk
+                        if (rounded_time === chunk.timestamp[0]) {
+                            // This is a bug in timestamp token output
+                            // where we're taking the duplicate token
+                            // as a stop where it should be a start.
+                            // This is an issue in the underlying model output
+                            // Let's just skip it so it becomes
+                        } else {
+                            chunk.timestamp[1] = time;
+
+                            // Handling merges
+                            previous_tokens.push(current_tokens)
+                            const resolved_tokens = this.findLongestCommonSequence(previous_tokens)
+                            const resolved_text = this.decode(resolved_tokens)
+                            chunk.text = resolved_text
+                            chunks.push(chunk)
+
+                            // Flush all our temporary context
+                            previous_tokens = []
+                            current_tokens = []
+                            chunk = new_chunk()
+                        }
+                    }
+
+                } else {
+                    // 4/ Regular token
+                    // We just append to the list of all tokens so we can handle
+                    // merges later and decode into text.
+                    current_tokens.push(token)
+
+                }
+            }
+
+            if ('stride' in output) {
+                const [chunk_len, stride_left, stride_right] = output.stride;
+                time_offset += chunk_len - stride_right
+            }
+
+            // Leftover tokens
+            if (current_tokens) {
+                previous_tokens.push(current_tokens)
+            } else if (previous_tokens.all(p => !p)) {
+                // Flushing previous tokens (END)"
+                chunk = new_chunk()
+                previous_tokens = []
+                current_tokens = []
+            }
+
+        }
+
+        if (previous_tokens.length > 0) {
+            if (return_timestamps) {
+                // Last token should always be timestamps, so there shouldn't be
+                // leftover
+                throw new Error("There was an error while processing timestamps, we haven't found a timestamp as last token.");
+            }
+
+            // Happens when we don't use timestamps
+            const resolved_tokens = this.findLongestCommonSequence(previous_tokens);
+
+            // Flushing previous tokens (FINAL)
+            const resolved_text = this.decode(resolved_tokens);
+            chunk.text = resolved_text;
+            chunks.push(chunk);
+        }
+
+        let optional = {};
+
+        // Preparing and cleaning up the pipeline output
+        const full_text = chunks.map(chunk => chunk.text).join('');
+        if (return_timestamps || return_language) {
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                if (!return_timestamps) {
+                    delete chunk["timestamp"];
+                }
+
+                if (!return_language) {
+                    delete chunk["language"];
+                }
+            }
+            optional = { "chunks": chunks };
+        }
+        return [full_text, optional];
+
+    }
+
+    findLongestCommonSequence(sequences) {
+        // It would be much harder to do O(n) because of fault tolerance.
+        // We actually have a really good property which is that the total sequence
+        // MUST be those subsequences in order.
+        let leftSequence = sequences[0];
+        let leftLength = leftSequence.length;
+        let totalSequence = [];
+        for (let i = 1; i < sequences.length; i++) {
+            const rightSequence = sequences[i];
+            let max = 0.0;
+            let maxIndices = [leftLength, leftLength, 0, 0];
+            // Here we're sliding matches
+            // [a, b, c, d]
+            //          [c, d, f]
+            // =        [c] == [d]
+
+            // [a, b, c, d]
+            //       [c, d, f]
+            // =     [c, d] == [c, d]
+
+
+            // [a, b, c, d]
+            //    [c, d, f]
+
+            // =  [b, c, d] == [c, d, f]
+
+            // [a, b, c, d]
+            // [c, d, f]
+
+            // [a, b, c] == [c, d, f]
+
+            // [a, b, c, d]
+            // [d, f]
+
+            // [a, b] == [d, f]
+
+            // [a, b, c, d]
+            // [f]
+
+            // [a] == [f]
+
+            const rightLength = rightSequence.length;
+            for (let j = 1; j < leftLength + rightLength; j++) {
+                const eps = j / 10000.0;
+                const leftStart = Math.max(0, leftLength - j);
+                const leftStop = Math.min(leftLength, leftLength + rightLength - j);
+                const left = leftSequence.slice(leftStart, leftStop);
+                const rightStart = Math.max(0, j - leftLength);
+                const rightStop = Math.min(rightLength, j);
+                const right = rightSequence.slice(rightStart, rightStop);
+                if (left.length !== right.length) {
+                    throw new Error("There is a bug within whisper `decode_asr` function, please report it. Dropping to prevent bad inference.");
+                }
+                const matches = left.filter((elem, idx) => elem === right[idx]).length;
+                const matching = matches / j + eps;
+                if (matches > 1 && matching > max) {
+                    max = matching;
+                    maxIndices = [leftStart, leftStop, rightStart, rightStop];
+                }
+            }
+            const [leftStart, leftStop, rightStart, rightStop] = maxIndices;
+            const leftMid = Math.floor((leftStop + leftStart) / 2);
+            const rightMid = Math.floor((rightStop + rightStart) / 2);
+            totalSequence.push(...leftSequence.slice(0, leftMid));
+            leftSequence = rightSequence.slice(rightMid);
+            leftLength = leftSequence.length;
+        }
+        totalSequence.push(...leftSequence);
+        return totalSequence;
+    }
+}
 class CodeGenTokenizer extends PreTrainedTokenizer { }
 class CLIPTokenizer extends PreTrainedTokenizer { }
 
@@ -6024,6 +6537,12 @@ class Callable extends Function {
     }
 }
 
+
+function isString(text) {
+    return typeof text === 'string' || text instanceof String
+}
+
+
 function isIntegralNumber(x) {
     return Number.isInteger(x) || typeof x === 'bigint'
 }
@@ -6044,7 +6563,8 @@ module.exports = {
     cos_sim,
     magnitude,
     getFile,
-    isIntegralNumber
+    isIntegralNumber,
+    isString
 };
 
 

@@ -322,6 +322,10 @@ async function speech_to_text(data) {
                 data: decodedText.trim()
             });
         }
+    }, {
+        // Choose good defaults for the demo
+        chunk_length_s: 30,
+        stride_length_s: 5,
     })
 }
 

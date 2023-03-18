@@ -67,7 +67,35 @@ const ZSIC_CLASSES = document.getElementById('zsic-classes');
 const ZSIC_IMG = document.getElementById('zsic-viewer');
 const ZSIC_OUTPUT_CANVAS = document.getElementById('zsic-canvas');
 
+const DEFAULT_GREEDY_PARAMS = {
+	max_new_tokens: 50,
+	num_beams: 1,
+	temperature: 1,
+	top_k: 0,
+	do_sample: false
+}
 
+const TASK_DEFAULT_PARAMS = {
+	'translation': DEFAULT_GREEDY_PARAMS,
+	'text-generation': {
+		max_new_tokens: 100,
+		num_beams: 1,
+		temperature: 1,
+		top_k: 20,
+		do_sample: true
+	},
+	'code-completion': DEFAULT_GREEDY_PARAMS,
+	'masked-language-modelling': {
+		topk: 5 // number of samples
+	},
+	'sequence-classification': {},
+	'question-answering': {},
+	'summarization': DEFAULT_GREEDY_PARAMS,
+	'automatic-speech-recognition': DEFAULT_GREEDY_PARAMS,
+	'image-to-text': DEFAULT_GREEDY_PARAMS,
+	'image-classification': {},
+	'zero-shot-image-classification': {},
+};
 
 [
 	[SPEECH2TEXT_SELECT, SPEECH2TEXT_INPUT, SPEECH2TEXT_AUDIO],
@@ -94,6 +122,17 @@ const ZSIC_OUTPUT_CANVAS = document.getElementById('zsic-canvas');
 	});
 });
 
+
+function updateParams(task) {
+	let params = TASK_DEFAULT_PARAMS[task]
+	if (!params) return;
+
+	for (let [key, value] of Object.entries(params)) {
+		let element = document.querySelector(`.generation-option[param-name="${key}"]`)
+		if (!element) continue;
+		element.value = value;
+	}
+}
 
 // Parameters
 const GENERATION_OPTIONS = document.getElementsByClassName('generation-option');
@@ -255,6 +294,10 @@ ZSIC_CLASSES.addEventListener('input', () => {
 
 
 function updateVisibility() {
+
+	// Set default parameters for task
+	updateParams(TASK_SELECTOR.value);
+
 	for (let element of TASKS) {
 		if (element.getAttribute('task').split(',').includes(TASK_SELECTOR.value)) {
 			element.style.display = 'block';

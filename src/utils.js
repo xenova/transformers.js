@@ -384,6 +384,12 @@ class Callable extends Function {
     }
 }
 
+
+function isString(text) {
+    return typeof text === 'string' || text instanceof String
+}
+
+
 function isIntegralNumber(x) {
     return Number.isInteger(x) || typeof x === 'bigint'
 }
@@ -404,5 +410,6 @@ module.exports = {
     cos_sim,
     magnitude,
     getFile,
-    isIntegralNumber
+    isIntegralNumber,
+    isString
 };

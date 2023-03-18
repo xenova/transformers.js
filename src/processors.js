@@ -430,11 +430,14 @@ class WhisperFeatureExtractor extends FeatureExtractor {
     }
 
     async _call(audio) {
+        // audio is a float32array
 
         if (audio.length > this.config.n_samples) {
-            // TODO: https://github.com/openai/whisper/discussions/726
-            // TODO allow multiples
-            console.warn("We currently don't support audio clips longer than 30 seconds. Your audio will be truncated.");
+            console.warn(
+                "Attempting to extract features for audio longer than 30 seconds. " +
+                "If using a pipeline to extract transcript from a long audio clip, " +
+                "remember to specify `chunk_length_s` and/or `stride_length_s`."
+            );
         }
         let waveform = audio.slice(0, this.config.n_samples)
 
@@ -461,32 +464,8 @@ class Processor extends Callable {
 }
 
 
-function isString(text) {
-    return typeof text === 'string' || text instanceof String
-}
 class WhisperProcessor extends Processor {
-
     async _call(audio) {
-
-        if (isString(audio)) {
-            // Attempting to load from path
-
-            if (typeof AudioContext === 'undefined') {
-                // Running in node or an environment without AudioContext
-                throw Error(
-                    "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
-                    "As a result, audio data must be passed directly to the processor. " +
-                    "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
-                )
-            }
-            const response = await (await getFile(audio)).arrayBuffer()
-            const sampling_rate = this.feature_extractor.config.sampling_rate;
-            const audioCTX = new AudioContext({ sampleRate: sampling_rate })
-            const decoded = await audioCTX.decodeAudioData(response)
-            audio = decoded.getChannelData(0);
-        }
-
-        // TODO use sampling rate?
         return await this.feature_extractor(audio)
     }
 }
