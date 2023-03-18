@@ -288,10 +288,10 @@ function indexOfMax(arr) {
 
 
 function softmax(arr) {
-    //taking the max value
+    // Taking the max value
     const max = Math.max(...arr);
     
-    //using FLoat64Array to save memory
+    // Using FLoat64Array to save memory
     const exps = new Float64Array(arr.length);
     
     let sumExps = 0;
@@ -309,10 +309,10 @@ function softmax(arr) {
 
 
 function log_softmax(arr) {
-    //taking the max value
+    // Taking the max value
     const max = Math.max(...arr);
     
-    //using FLoat64Array to save memory
+    // Using FLoat64Array to save memory
     const exps = new Float64Array(arr.length);
     const logSoftmaxArr = new Float64Array(arr.length);
     
