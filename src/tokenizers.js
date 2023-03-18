@@ -1378,7 +1378,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                 }
             }
 
-            const current_tokens = [];
+            let current_tokens = [];
 
             // - all tokens within output
             for (const token of token_ids) {
