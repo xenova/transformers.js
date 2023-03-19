@@ -310,6 +310,10 @@ async function speech_to_text(data) {
     })
 
     return await pipeline(data.audio, {
+        // Choose good defaults for the demo
+        chunk_length_s: 30,
+        stride_length_s: 5,
+
         ...data.generation,
         callback_function: function (beams) {
             const decodedText = pipeline.tokenizer.decode(beams[0].output_token_ids, {
@@ -322,10 +326,6 @@ async function speech_to_text(data) {
                 data: decodedText.trim()
             });
         }
-    }, {
-        // Choose good defaults for the demo
-        chunk_length_s: 30,
-        stride_length_s: 5,
     })
 }
 
