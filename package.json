@@ -30,14 +30,14 @@
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
     "jimp": "^0.22.7",
-    "onnxruntime-web": "^1.14.0",
-    "typescript": "^5.0.2"
+    "onnxruntime-web": "^1.14.0"
   },
   "optionalDependencies": {
     "onnxruntime-node": "^1.14.0"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^11.0.0",
+    "typescript": "^5.0.2",
     "webpack": "^5.76.0",
     "webpack-cli": "^5.0.1",
     "webpack-dev-server": "^4.11.1"
