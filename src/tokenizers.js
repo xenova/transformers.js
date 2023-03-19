@@ -490,7 +490,7 @@ class ByteLevelPreTokenizer extends PreTokenizer {
 
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
-        return text.trim().match(this.pattern) || [];
+        return text.match(this.pattern) || [];
     }
 }
 
@@ -665,6 +665,13 @@ class ByteLevelDecoder extends Decoder {
 
     convert_tokens_to_string(tokens) {
         let text = tokens.join('');
+
+        if (this.config.trim_offsets) {
+            text = text.trim();
+        } else if (this.config.add_prefix_space) {
+            text = ' ' + text;
+        }
+
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
@@ -1077,7 +1084,7 @@ class PreTrainedTokenizer extends Callable {
                 // Ignore special tokens
                 return x
             } else {
-                if (this.remove_space) {
+                if (this.remove_space === true) {
                     // remove_space
                     x = x.trim().split(/\s+/).join(' ')
                 }
