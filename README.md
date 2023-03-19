@@ -81,7 +81,7 @@ By default, Transformers.js uses [hosted models](https://huggingface.co/Xenova/t
 import { env } from "@xenova/transformers";
 
 // Use a different host for models.
-// - `remoteURL` defaults to use the HuggingFace Hub
+// - `remoteURL` defaults to use the Hugging Face Hub
 // - `localURL` defaults to '/models/onnx/quantized/'
 env.remoteURL = 'https://www.example.com/';
 env.localURL = '/path/to/models/';
