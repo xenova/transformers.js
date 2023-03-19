@@ -1478,6 +1478,7 @@ const {
     fetchJSON,
     dispatchCallback,
     isIntegralNumber,
+    exists,
 } = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
 const {
@@ -1554,9 +1555,25 @@ function boolTensor(value) {
 }
 
 // JS doesn't support mixings, so we define some reused functions here, and allow "this" to be passed in
+
+async function seq2seqLoadModel(modelPath, progressCallback) {
+    let info = await Promise.all([
+        fetchJSON(modelPath, 'config.json', progressCallback),
+        constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+        constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback),
+        fetchJSON(modelPath, 'generation_config.json', progressCallback, false),
+    ])
+
+    // Called when all parts are loaded
+    dispatchCallback(progressCallback, {
+        status: 'loaded',
+        name: modelPath
+    });
+
+    return info;
+}
 async function seq2seq_forward(self, model_inputs, {
     encoder_input_name = 'input_ids',
-    encoder_attention_mask = true,
     add_decoder_pkv = true
 } = {}) {
     let encoderOutputs = model_inputs.encoder_outputs;
@@ -1566,7 +1583,8 @@ async function seq2seq_forward(self, model_inputs, {
         const encoderFeeds = {
             [encoder_input_name]: model_inputs[encoder_input_name],
         }
-        if (encoder_attention_mask) {
+
+        if (self.session.inputNames.includes('attention_mask')) {
             encoderFeeds.attention_mask = model_inputs.attention_mask
         }
         const encoderResults = await sessionRun(self.session, encoderFeeds);
@@ -1577,7 +1595,8 @@ async function seq2seq_forward(self, model_inputs, {
         encoder_hidden_states: encoderOutputs,
         use_cache_branch: boolTensor(pastKeyValues !== null)
     };
-    if (encoder_attention_mask) {
+
+    if (self.decoder_merged_session.inputNames.includes('encoder_attention_mask')) {
         decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
     }
     self.addPastKeyValues(decoderFeeds, pastKeyValues, add_decoder_pkv);
@@ -1730,282 +1749,6 @@ function textgenUpdatebeam(beam, newTokenId) {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// AutoModels, used to simplify construction of PreTrainedModels
-// (uses config to instantiate correct class)
-class AutoModel {
-    // Helper class to determine model type from config
-
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
-        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
-
-        let session = await constructSession(modelPath, modelName, progressCallback);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        switch (config.model_type) {
-            case 'bert':
-                return new BertModel(config, session);
-            case 'albert':
-                return new AlbertModel(config, session);
-            case 'distilbert':
-                return new DistilBertModel(config, session);
-            case 't5':
-                return new T5Model(config, session);
-            case 'gpt2':
-                return new GPT2Model(config, session);
-            case 'codegen':
-                return new CodeGenModel(config, session);
-            case 'bart':
-                return new BartModel(config, session);
-            case 'roberta':
-                return new RobertaModel(config, session);
-            case 'whisper':
-                return new WhisperModel(config, session);
-            case 'clip':
-                return new CLIPModel(config, session);
-
-            default:
-                console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
-                return new PreTrainedModel(config, session);
-        }
-    }
-}
-
-class AutoModelForSequenceClassification {
-
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback)
-        ]);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        switch (config.model_type) {
-            case 'bert':
-                return new BertForSequenceClassification(config, session);
-            case 'albert':
-                return new AlbertForSequenceClassification(config, session);
-            case 'distilbert':
-                return new DistilBertForSequenceClassification(config, session);
-            case 'roberta':
-                return new RobertaForSequenceClassification(config, session);
-
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-    }
-}
-
-class AutoModelForSeq2SeqLM {
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session, decoder_merged_session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        switch (config.model_type) {
-            case 't5':
-                return new T5ForConditionalGeneration(
-                    config,
-                    session,
-                    decoder_merged_session
-                );
-            case 'bart':
-                return new BartForConditionalGeneration(
-                    config,
-                    session,
-                    decoder_merged_session
-                );
-            case 'whisper':
-                return new WhisperForConditionalGeneration(
-                    config,
-                    session,
-                    decoder_merged_session
-                )
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-    }
-}
-
-class AutoModelForCausalLM {
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        switch (config.model_type) {
-            case 'gpt2':
-                return new GPT2LMHeadModel(
-                    config,
-                    session
-                );
-
-            case 'codegen':
-                return new CodeGenForCausalLM(
-                    config,
-                    session
-                )
-
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-    }
-}
-
-class AutoModelForMaskedLM {
-
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
-        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
-
-        let session = await constructSession(modelPath, modelName, progressCallback);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        switch (config.model_type) {
-            case 'bert':
-                return new BertForMaskedLM(config, session);
-            case 'albert':
-                return new AlbertForMaskedLM(config, session);
-            case 'distilbert':
-                return new DistilBertForMaskedLM(config, session);
-            case 'roberta':
-                return new RobertaForMaskedLM(config, session);
-
-            default:
-                console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
-                return new PreTrainedModel(config, session);
-        }
-    }
-}
-
-
-class AutoModelForQuestionAnswering {
-
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback)
-        ]);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        switch (config.model_type) {
-            case 'bert':
-                return new BertForQuestionAnswering(config, session);
-            case 'albert':
-                return new AlbertForQuestionAnswering(config, session);
-            case 'distilbert':
-                return new DistilBertForQuestionAnswering(config, session);
-            case 'roberta':
-                return new RobertaForQuestionAnswering(config, session);
-
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-    }
-}
-
-class AutoModelForVision2Seq {
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session, decoder_merged_session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        switch (config.model_type) {
-            case 'vision-encoder-decoder':
-                return new VisionEncoderDecoderModel(
-                    config,
-                    session,
-                    decoder_merged_session
-                );
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-    }
-}
-
-class AutoModelForImageClassification {
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback),
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        switch (config.model_type) {
-            case 'vit':
-                return new ViTForImageClassification(
-                    config,
-                    session,
-                );
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-    }
-
-}
-
-//////////////////////////////////////////////////
-
-
-
-
-//////////////////////////////////////////////////
 // Base class
 class PreTrainedModel extends Callable {
     constructor(config, session) {
@@ -2127,20 +1870,8 @@ class PreTrainedModel extends Callable {
                 }
 
                 let output = await this.runBeam(beam);
+                this.applyLogitsProcessors(output.logits, beam.output_token_ids.length);
 
-                // Apply logits processor to each item in the batch:
-                for (let batch of output.logits) {
-                    // NOTE: In future, generalise this
-
-                    let map = this.forced_decoder_ids_mapping[beam.output_token_ids.length];
-                    if (map !== undefined) { // There exists a mapping
-                        // NOTE:
-                        //   - modifications affect original data 
-                        //   - logits are of the shape [1, vocabSize]
-                        batch.data.fill(-Infinity)
-                        batch.data[map] = 0;
-                    }
-                }
                 let sampledTokens = sampler(output.logits);
 
                 for (let [newTokenId, logProb] of sampledTokens) {
@@ -2242,6 +1973,27 @@ class PreTrainedModel extends Callable {
         }
     }
 
+    applyLogitsProcessors(logits, index) {
+        // Apply logits processor to each item in the batch:
+        for (let batch of logits) {
+            // NOTE: In future, generalise this
+            //   - modifications affect original data 
+            //   - logits are of the shape [1, vocabSize]
+            let map = this.forced_decoder_ids_mapping[index];
+            if (exists(map)) { // There exists a mapping
+                batch.data.fill(-Infinity)
+                batch.data[map] = 0;
+            }
+
+            if (exists(this.generation_config) && exists(this.generation_config.forced_bos_token_id) && index === 1) {
+                batch.data.fill(-Infinity)
+                batch.data[this.generation_config.forced_bos_token_id] = 0;
+            }
+
+        }
+    }
+
+
 }
 //////////////////////////////////////////////////
 
@@ -2330,10 +2082,10 @@ class T5Model extends T5PreTrainedModel {
 }
 
 class T5ForConditionalGeneration extends T5PreTrainedModel {
-    constructor(config, session, decoder_merged_session) {
+    constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
         this.decoder_merged_session = decoder_merged_session;
-
+        this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.num_decoder_layers;
         this.num_decoder_heads = this.config.num_heads;
@@ -2345,20 +2097,8 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session, decoder_merged_session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback),
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        return new this(config, session, decoder_merged_session);
+        let info = await seq2seqLoadModel(modelPath, progressCallback);
+        return new this(...info);
     }
 
     getStartBeams(inputs, numOutputTokens, ...args) {
@@ -2391,10 +2131,10 @@ class BartModel extends BartPretrainedModel {
 }
 
 class BartForConditionalGeneration extends BartPretrainedModel {
-    constructor(config, session, decoder_merged_session) {
+    constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
         this.decoder_merged_session = decoder_merged_session;
-
+        this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
         this.num_decoder_heads = this.config.decoder_attention_heads;
@@ -2406,21 +2146,8 @@ class BartForConditionalGeneration extends BartPretrainedModel {
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
-        // TODO remove duplication between here and t5
-
-        let [config, session, decoder_merged_session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_merged_session.onnx', progressCallback),
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        return new this(config, session, decoder_merged_session);
+        let info = await seq2seqLoadModel(modelPath, progressCallback);
+        return new this(...info);
     }
 
     getStartBeams(inputs, numOutputTokens, ...args) {
@@ -2478,9 +2205,10 @@ class WhisperModel extends WhisperPreTrainedModel {
 }
 
 class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
-    constructor(config, session, decoder_merged_session) {
+    constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
         this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
         this.num_decoder_heads = this.config.decoder_attention_heads;
@@ -2492,20 +2220,8 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session, decoder_merged_session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_merged_session.onnx', progressCallback),
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        return new this(config, session, decoder_merged_session);
+        let info = await seq2seqLoadModel(modelPath, progressCallback);
+        return new this(...info);
     }
 
     getStartBeams(inputTokenIds, numOutputTokens, ...args) {
@@ -2525,7 +2241,6 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     async forward(model_inputs) {
         return await seq2seq_forward(this, model_inputs, {
             encoder_input_name: 'input_features',
-            encoder_attention_mask: false
         });
     }
 }
@@ -2575,7 +2290,6 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
     async forward(model_inputs) {
         return await seq2seq_forward(this, model_inputs, {
             encoder_input_name: 'pixel_values',
-            encoder_attention_mask: false,
             add_decoder_pkv: false
         })
     }
@@ -2692,6 +2406,255 @@ class ViTForImageClassification extends PreTrainedModel {
 //////////////////////////////////////////////////
 
 
+//////////////////////////////////////////////////
+// AutoModels, used to simplify construction of PreTrainedModels
+// (uses config to instantiate correct class)
+class AutoModel {
+    // Helper class to determine model type from config
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
+        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
+
+        let session = await constructSession(modelPath, modelName, progressCallback);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'bert':
+                return new BertModel(config, session);
+            case 'albert':
+                return new AlbertModel(config, session);
+            case 'distilbert':
+                return new DistilBertModel(config, session);
+            case 't5':
+                return new T5Model(config, session);
+            case 'gpt2':
+                return new GPT2Model(config, session);
+            case 'codegen':
+                return new CodeGenModel(config, session);
+            case 'bart':
+                return new BartModel(config, session);
+            case 'roberta':
+                return new RobertaModel(config, session);
+            case 'whisper':
+                return new WhisperModel(config, session);
+            case 'clip':
+                return new CLIPModel(config, session);
+
+            default:
+                console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
+                return new PreTrainedModel(config, session);
+        }
+    }
+}
+
+class AutoModelForSequenceClassification {
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'model.onnx', progressCallback)
+        ]);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'bert':
+                return new BertForSequenceClassification(config, session);
+            case 'albert':
+                return new AlbertForSequenceClassification(config, session);
+            case 'distilbert':
+                return new DistilBertForSequenceClassification(config, session);
+            case 'roberta':
+                return new RobertaForSequenceClassification(config, session);
+
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+}
+
+class AutoModelForSeq2SeqLM {
+    static modelClassMapping = {
+        't5': T5ForConditionalGeneration,
+        'bart': BartForConditionalGeneration,
+        'whisper': WhisperForConditionalGeneration,
+    }
+    static async from_pretrained(modelPath, progressCallback = null) {
+        let info = await seq2seqLoadModel(modelPath, progressCallback);
+        let config = info[0];
+        let cls = this.modelClassMapping[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+        return new cls(...info)
+    }
+}
+
+class AutoModelForCausalLM {
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'gpt2':
+                return new GPT2LMHeadModel(
+                    config,
+                    session
+                );
+
+            case 'codegen':
+                return new CodeGenForCausalLM(
+                    config,
+                    session
+                )
+
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+}
+
+class AutoModelForMaskedLM {
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
+        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
+
+        let session = await constructSession(modelPath, modelName, progressCallback);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'bert':
+                return new BertForMaskedLM(config, session);
+            case 'albert':
+                return new AlbertForMaskedLM(config, session);
+            case 'distilbert':
+                return new DistilBertForMaskedLM(config, session);
+            case 'roberta':
+                return new RobertaForMaskedLM(config, session);
+
+            default:
+                console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
+                return new PreTrainedModel(config, session);
+        }
+    }
+}
+
+class AutoModelForQuestionAnswering {
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'model.onnx', progressCallback)
+        ]);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'bert':
+                return new BertForQuestionAnswering(config, session);
+            case 'albert':
+                return new AlbertForQuestionAnswering(config, session);
+            case 'distilbert':
+                return new DistilBertForQuestionAnswering(config, session);
+            case 'roberta':
+                return new RobertaForQuestionAnswering(config, session);
+
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+}
+
+class AutoModelForVision2Seq {
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session, decoder_merged_session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
+            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'vision-encoder-decoder':
+                return new VisionEncoderDecoderModel(
+                    config,
+                    session,
+                    decoder_merged_session
+                );
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+}
+
+class AutoModelForImageClassification {
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'model.onnx', progressCallback),
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'vit':
+                return new ViTForImageClassification(
+                    config,
+                    session,
+                );
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 class Seq2SeqLMOutput {
     constructor(logits, past_key_values, encoder_outputs) {
         this.logits = logits;
@@ -3079,16 +3042,18 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
     async _call(audio, generate_kwargs = {}, {
         chunk_length_s = 0,
         stride_length_s = null,
+        return_chunks = false // Return chunk data in callback (in addition to beam info)
     } = {}) {
         let single = !Array.isArray(audio)
         if (single) {
             audio = [audio]
         }
 
+        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+        const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
+
         let toReturn = [];
         for (let aud of audio) {
-            const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
-
             aud = await this._preprocess(aud, sampling_rate)
 
             let chunks = [];
@@ -3141,9 +3106,11 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
                 // Get top beam
                 chunk.tokens = data[0].flat()
-            }
 
-            const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
+                if (return_chunks && generate_kwargs.callback_function) {
+                    generate_kwargs.callback_function(chunk)
+                }
+            }
 
             // Merge text chunks
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
@@ -3544,7 +3511,6 @@ module.exports = {
 const {
     Callable,
     fetchJSON,
-    getFile
 } = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
 
@@ -3554,7 +3520,7 @@ const { Tensor, transpose, cat } = __webpack_require__(/*! ./tensor_utils.js */ 
 // For some reason, Jimp attaches to self, even in Node.
 // https://github.com/jimp-dev/jimp/issues/466
 const _Jimp = __webpack_require__(/*! jimp */ "./node_modules/jimp/browser/lib/jimp.js");
-const Jimp = self.Jimp || _Jimp;
+const Jimp = (typeof self !== 'undefined') ? (self.Jimp || _Jimp) : _Jimp;
 
 const B64_STRING = /^data:image\/\w+;base64,/;
 
@@ -5715,7 +5681,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                 }
             }
 
-            const current_tokens = [];
+            let current_tokens = [];
 
             // - all tokens within output
             for (const token of token_ids) {
@@ -6294,7 +6260,7 @@ function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
 }
 
-async function getModelFile(modelPath, fileName, progressCallback = null) {
+async function getModelFile(modelPath, fileName, progressCallback = null, fatal = true) {
 
     // Initiate session
     dispatchCallback(progressCallback, {
@@ -6318,7 +6284,13 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
         response = await getFile(request);
 
         if (response.status === 404) {
-            throw Error(`File not found. Could not locate "${request}".`)
+            if (fatal) {
+                throw Error(`File not found. Could not locate "${request}".`)
+            } else {
+                // File not found, but this file is optional.
+                // TODO in future, cache the response
+                return null;
+            }
         }
 
         if (env.useCache) {
@@ -6357,8 +6329,12 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
     return buffer;
 }
 
-async function fetchJSON(modelPath, fileName, progressCallback = null) {
-    let buffer = await getModelFile(modelPath, fileName, progressCallback);
+async function fetchJSON(modelPath, fileName, progressCallback = null, fatal = true) {
+    let buffer = await getModelFile(modelPath, fileName, progressCallback, fatal);
+    if (buffer === null) {
+        // Return empty object
+        return {}
+    }
 
     let decoder = new TextDecoder('utf-8');
     let jsonData = decoder.decode(buffer);
@@ -6547,6 +6523,10 @@ function isIntegralNumber(x) {
     return Number.isInteger(x) || typeof x === 'bigint'
 }
 
+function exists(x) {
+    return x !== undefined && x !== null;
+}
+
 module.exports = {
     Callable,
     getModelFile,
@@ -6564,7 +6544,8 @@ module.exports = {
     magnitude,
     getFile,
     isIntegralNumber,
-    isString
+    isString,
+    exists
 };
 
 

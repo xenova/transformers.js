@@ -294,6 +294,14 @@ async function summarization() {
     // Dispose pipeline
     await summarizer.dispose()
 
+
+    // This case also tests `forced_bos_token_id`
+    let summarizer2 = await pipeline('summarization', 'facebook/bart-large-cnn')
+    let summary2 = await summarizer2(texts[0]);
+
+    // Dispose pipeline
+    await summarizer2.dispose()
+
     return isDeepEqual(
         summary,
         [{
@@ -301,6 +309,11 @@ async function summarization() {
         }, {
             summary_text: " The Amazon rainforest is a moist broadleaf forest that covers most of the Amazon basin of South America. The Amazon represents over half of the planet's remaining rainforests."
         }]
+    ) && isDeepEqual(
+        summary2,
+        [
+            { summary_text: "The Eiffel Tower is the tallest structure in Paris. It is 324 metres (1,063 ft) tall, about the same height as an 81-storey building." }
+        ]
     )
 }
 

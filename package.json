@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Run 🤗 Transformers in your browser! We currently support BERT, ALBERT, DistilBERT, T5, T5v1.1, FLAN-T5, GPT2, BART, CodeGen, Whisper, CLIP, Vision Transformer, and VisionEncoderDecoder models, for a variety of tasks including: masked language modelling, text classification, text-to-text generation, translation, summarization, question answering, text generation, automatic speech recognition, image classification, zero-shot image classification, and image-to-text.",
   "main": "./src/transformers.js",
   "directories": {

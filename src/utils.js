@@ -128,7 +128,7 @@ function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
 }
 
-async function getModelFile(modelPath, fileName, progressCallback = null) {
+async function getModelFile(modelPath, fileName, progressCallback = null, fatal = true) {
 
     // Initiate session
     dispatchCallback(progressCallback, {
@@ -152,7 +152,13 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
         response = await getFile(request);
 
         if (response.status === 404) {
-            throw Error(`File not found. Could not locate "${request}".`)
+            if (fatal) {
+                throw Error(`File not found. Could not locate "${request}".`)
+            } else {
+                // File not found, but this file is optional.
+                // TODO in future, cache the response
+                return null;
+            }
         }
 
         if (env.useCache) {
@@ -191,8 +197,12 @@ async function getModelFile(modelPath, fileName, progressCallback = null) {
     return buffer;
 }
 
-async function fetchJSON(modelPath, fileName, progressCallback = null) {
-    let buffer = await getModelFile(modelPath, fileName, progressCallback);
+async function fetchJSON(modelPath, fileName, progressCallback = null, fatal = true) {
+    let buffer = await getModelFile(modelPath, fileName, progressCallback, fatal);
+    if (buffer === null) {
+        // Return empty object
+        return {}
+    }
 
     let decoder = new TextDecoder('utf-8');
     let jsonData = decoder.decode(buffer);
@@ -381,6 +391,10 @@ function isIntegralNumber(x) {
     return Number.isInteger(x) || typeof x === 'bigint'
 }
 
+function exists(x) {
+    return x !== undefined && x !== null;
+}
+
 module.exports = {
     Callable,
     getModelFile,
@@ -398,5 +412,6 @@ module.exports = {
     magnitude,
     getFile,
     isIntegralNumber,
-    isString
+    isString,
+    exists
 };
