@@ -1,6 +1,19 @@
+/**
+ * Helper class to determine tokenizer type from tokenizer.json
+ */
 export class AutoTokenizer {
-    static from_pretrained(modelPath: any, progressCallback?: any): Promise<PreTrainedTokenizer>;
+    /**
+     * Creates an instance of the appropriate tokenizer based on the tokenizer class specified in the tokenizer config.
+     * @param {string} modelPath - The path to the tokenizer files.
+     * @param {function} [progressCallback=null] - A callback function to track download progress.
+     * @returns {Promise} A promise that resolves to an instance of the appropriate tokenizer.
+     */
+    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<any>;
 }
+/**
+ * BertTokenizer is a class used to tokenize text for BERT models.
+ * @extends PreTrainedTokenizer
+ */
 export class BertTokenizer extends PreTrainedTokenizer {
 }
 export class DistilBertTokenizer extends PreTrainedTokenizer {
@@ -9,29 +22,57 @@ export class T5Tokenizer extends PreTrainedTokenizer {
 }
 export class GPT2Tokenizer extends PreTrainedTokenizer {
 }
+/**
+ * A callable class that wraps a HuggingFace tokenizer.
+ * @extends Callable
+ */
 declare class PreTrainedTokenizer extends Callable {
-    static from_pretrained(modelPath: any, progressCallback?: any): Promise<PreTrainedTokenizer>;
+    /**
+     * Creates a new Tokenizer instance with the tokenizer configuration and files
+     * downloaded from a pretrained model located at the given model path.
+     *
+     * @param {string} modelPath - The path to the pretrained model.
+     * @param {function} [progressCallback=null] - Optional callback function that will be called with the current
+     * progress percentage (0 to 100) each time a file is downloaded.
+     * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the modelPath.
+     */
+    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedTokenizer>;
+    /**
+   * Create a new PreTrainedTokenizer instance.
+   * @param {Object} tokenizerJSON - The JSON of the tokenizer.
+   * @param {Object} tokenizerConfig - The config of the tokenizer.
+   */
     constructor(tokenizerJSON: any, tokenizerConfig: any);
     tokenizerJSON: any;
     tokenizerConfig: any;
-    normalizer: BertNormalizer | Precompiled | NormalizerSequence | Replace | NFC | NFKD | StripAccents | Lowercase;
-    pre_tokenizer: BertPreTokenizer | PreTokenizerSequence | WhitespaceSplit | MetaspacePreTokenizer | ByteLevelPreTokenizer | SplitPreTokenizer;
-    model: WordPieceTokenizer | Unigram | BPE;
-    post_processor: TemplateProcessing | ByteLevelPostProcessor | RobertaProcessing;
-    decoder: WordPieceDecoder | MetaspaceDecoder | ByteLevelDecoder;
+    normalizer: Normalizer;
+    pre_tokenizer: PreTokenizer;
+    model: TokenizerModel;
+    post_processor: PostProcessor;
+    decoder: Decoder;
     special_tokens: any[];
     all_special_ids: any[];
     special_tokens_regex: RegExp;
-    mask_token: any;
+    mask_token: string;
     mask_token_id: any;
-    pad_token: any;
+    pad_token: string;
     pad_token_id: any;
-    sep_token: any;
+    sep_token: string;
     sep_token_id: any;
     model_max_length: any;
     remove_space: any;
     padding_side: string;
-    getToken(...keys: any[]): any;
+    /**
+     * Returns the value of the first matching key in the tokenizer config object.
+     * @param {...string} keys - One or more keys to search for in the tokenizer config object.
+     * @returns {string|null} - The value associated with the first matching key, or null if no match is found.
+     * @throws {Error} - If an object is found for a matching key and its __type property is not "AddedToken".
+     */
+    getToken(...keys: string[]): string | null;
+    /**
+     * @param {any} inputs
+     * @return {any}
+     */
     prepare_model_inputs(inputs: any): any;
     _call(text: any, { text_pair, padding, truncation, max_length, return_tensor, }?: {
         text_pair?: any;
@@ -40,198 +81,250 @@ declare class PreTrainedTokenizer extends Callable {
         max_length?: any;
         return_tensor?: boolean;
     }): {
-        input_ids: any[] | Tensor;
+        input_ids: Tensor | number[][];
         attention_mask: any[];
     };
-    _encode_text(text: any): any;
-    encode(text: any, text_pair?: any): any;
-    clean_up_tokenization(text: any): any;
-    batch_decode(batch: any, decode_args?: {}): any;
-    decode(token_ids: any, decode_args?: {}): any;
-    decode_single(token_ids: any, { skip_special_tokens, clean_up_tokenization_spaces, }: {
+    /**
+     * Encodes a single text using the preprocessor pipeline of the tokenizer.
+     *
+     * @param {string|null} text - The text to encode.
+     * @returns {Array} The encoded tokens.
+     */
+    _encode_text(text: string | null): any[];
+    /**
+     * Encodes a single text or a pair of texts using the model's tokenizer.
+     *
+     * @param {string} text - The text to encode.
+     * @param {string|null} text_pair - The optional second text to encode.
+     * @returns {number[]} An array of token IDs representing the encoded text(s).
+     */
+    encode(text: string, text_pair?: string | null): number[];
+    /**
+     * Clean up a list of simple English tokenization artifacts like spaces before punctuations and abbreviated forms
+     * @param {string} text - The text to clean up.
+     * @returns {string} - The cleaned up text.
+     */
+    clean_up_tokenization(text: string): string;
+    /**
+     * Decode a batch of tokenized sequences.
+     * @param {Array<Array<number>>} batch - List of tokenized input sequences.
+     * @param {Object} decode_args - (Optional) Object with decoding arguments.
+     * @returns {Array<string>} List of decoded sequences.
+     */
+    batch_decode(batch: Array<Array<number>>, decode_args?: any): Array<string>;
+    /**
+     * Decodes a sequence of token IDs back to a string.
+     *
+     * @param {Array<number>} token_ids - List of token IDs to decode.
+     * @param {Object} [decode_args={}]
+     * @param {boolean} [decode_args.skip_special_tokens=false] - If true, special tokens are removed from the output string.
+     * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] - If true, spaces before punctuations and abbreviated forms are removed.
+     *
+     * @returns {string} The decoded string.
+     * @throws {Error} If `token_ids` is not a non-empty array of integers.
+     */
+    decode(token_ids: Array<number>, decode_args?: {
         skip_special_tokens?: boolean;
         clean_up_tokenization_spaces?: boolean;
-    }): any;
+    }): string;
+    /**
+     * Decode a single list of token ids to a string.
+     * @param {number[]} token_ids - List of token ids to decode
+     * @param {object} decode_args - Optional arguments for decoding
+     * @param {boolean} [decode_args.skip_special_tokens=false] - Whether to skip special tokens during decoding
+     * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] - Whether to clean up tokenization spaces during decoding
+     * @returns {string} - The decoded string
+     */
+    decode_single(token_ids: number[], { skip_special_tokens, clean_up_tokenization_spaces, }: {
+        skip_special_tokens?: boolean;
+        clean_up_tokenization_spaces?: boolean;
+    }): string;
 }
 import { Callable } from "./utils.js";
-declare class BertNormalizer extends Normalizer {
-    stripAccents(text: any): any;
-    normalize(text: any): any;
+/**
+ * A base class for text normalization.
+ * @abstract
+ */
+declare class Normalizer extends Callable {
+    /**
+     * Factory method for creating normalizers from config objects.
+     * @static
+     * @param {object} config - The configuration object for the normalizer.
+     * @returns {Normalizer} - A Normalizer object.
+     * @throws {Error} - If an unknown Normalizer type is specified in the config.
+     */
+    static fromConfig(config: object): Normalizer;
+    /**
+     * @param {object} config - The configuration object for the normalizer.
+     */
+    constructor(config: object);
+    config: any;
+    /**
+     * Normalize the input text.
+     * @abstract
+     * @param {string} text - The text to normalize.
+     * @returns {string} - The normalized text.
+     * @throws {Error} - If this method is not implemented in a subclass.
+     */
+    normalize(text: string): string;
+    /**
+     * Alias for normalize method. Allows normalization to be called as a function.
+     * @param {string} text - The text to normalize.
+     * @returns {string} - The normalized text.
+     */
+    _call(text: string): string;
 }
-declare class Precompiled extends Normalizer {
-    charsmap: any;
-    normalize(text: any): any;
+/**
+ * A callable class representing a pre-tokenizer used in tokenization. Subclasses
+ * should implement the `pre_tokenize_text` method to define the specific pre-tokenization logic.
+ *
+ * @class
+ * @extends Callable
+ */
+declare class PreTokenizer extends Callable {
+    /**
+   * Factory method that returns an instance of a subclass of `PreTokenizer` based on the provided configuration.
+   *
+   * @static
+   * @param {Object} config - A configuration object for the pre-tokenizer.
+   * @returns {PreTokenizer} An instance of a subclass of `PreTokenizer`.
+   * @throws {Error} If the provided configuration object does not correspond to any known pre-tokenizer.
+   */
+    static fromConfig(config: any): PreTokenizer;
+    /**
+   * Method that should be implemented by subclasses to define the specific pre-tokenization logic.
+   *
+   * @abstract
+   * @param {string} text - The text to pre-tokenize.
+   * @returns {Array<string>} The pre-tokenized text.
+   * @throws {Error} If the method is not implemented in the subclass.
+   */
+    pre_tokenize_text(text: string): Array<string>;
+    /**
+     * Tokenizes the given text into pre-tokens.
+     * @param {string|Array<string>} text - The text or array of texts to pre-tokenize.
+     * @returns {Array<string>} An array of pre-tokens.
+     */
+    pre_tokenize(text: string | Array<string>): Array<string>;
+    /**
+     * Alias for {@link PreTokenizer#pre_tokenize}.
+     * @param {string|Array<string>} text - The text or array of texts to pre-tokenize.
+     * @returns {Array<string>} An array of pre-tokens.
+     */
+    _call(text: string | Array<string>): Array<string>;
 }
-declare class NormalizerSequence extends Normalizer {
-    normalizers: any;
-    normalize(text: any): any;
+/**
+ * Abstract base class for tokenizer models.
+ *
+ * @extends Callable
+ */
+declare class TokenizerModel extends Callable {
+    /**
+     * Instantiates a new TokenizerModel instance based on the configuration object provided.
+     * @param {object} config - The configuration object for the TokenizerModel.
+     * @param {...*} args - Optional arguments to pass to the specific TokenizerModel constructor.
+     * @returns {TokenizerModel} A new instance of a TokenizerModel.
+     * @throws Will throw an error if the TokenizerModel type in the config is not recognized.
+     */
+    static fromConfig(config: object, ...args: any[]): TokenizerModel;
+    /**
+     * Creates a new instance of TokenizerModel.
+     * @param {object} config - The configuration object for the TokenizerModel.
+     */
+    constructor(config: object);
+    config: any;
+    /**
+     * Internal function to call the TokenizerModel instance.
+     * @param {string[]} tokens - The tokens to encode.
+     * @returns {number[]} The encoded token IDs.
+     */
+    _call(tokens: string[]): number[];
+    /**
+     * Encodes a list of tokens into a list of token IDs.
+     * @param {string[]} tokens - The tokens to encode.
+     * @returns {number[]} The encoded token IDs.
+     * @throws Will throw an error if not implemented in a subclass.
+     */
+    encode(tokens: string[]): number[];
+    /**
+     * Converts a list of tokens into a list of token IDs.
+     * @param {string[]} tokens - The tokens to convert.
+     * @returns {number[]} The converted token IDs.
+     */
+    convert_tokens_to_ids(tokens: string[]): number[];
+    /**
+     * Converts a list of token IDs into a list of tokens.
+     * @param {number[]} ids - The token IDs to convert.
+     * @returns {string[]} The converted tokens.
+     */
+    convert_ids_to_tokens(ids: number[]): string[];
 }
-declare class Replace extends Normalizer {
-    normalize(text: any): any;
+/**
+ * @class
+ * @extends Callable
+ */
+declare class PostProcessor extends Callable {
+    /**
+     * Factory method to create a PostProcessor object from a configuration object.
+     *
+     * @param {Object} config - Configuration object representing a PostProcessor.
+     * @returns {PostProcessor} A PostProcessor object created from the given configuration.
+     * @throws {Error} If an unknown PostProcessor type is encountered.
+     */
+    static fromConfig(config: any): PostProcessor;
+    /**
+     * Method to be implemented in subclass to apply post-processing on the given tokens.
+     *
+     * @param {Array} tokens - The input tokens to be post-processed.
+     * @param {...*} args - Additional arguments required by the post-processing logic.
+     * @returns {Array} The post-processed tokens.
+     * @throws {Error} If the method is not implemented in subclass.
+     */
+    post_process(tokens: any[], ...args: any[]): any[];
+    _call(tokens: any, ...args: any[]): any[];
 }
-declare class NFC extends Normalizer {
-    normalize(text: any): any;
-}
-declare class NFKD extends Normalizer {
-    normalize(text: any): any;
-}
-declare class StripAccents extends Normalizer {
-    normalize(text: any): any;
-}
-declare class Lowercase extends Normalizer {
-    normalize(text: any): any;
-}
-declare class BertPreTokenizer extends PreTokenizer {
-    constructor(config: any);
-    pattern: RegExp;
-    pre_tokenize_text(text: any): any;
-}
-declare class PreTokenizerSequence extends PreTokenizer {
-    constructor(config: any);
-    tokenizers: any;
-    pre_tokenize_text(text: any): any;
-}
-declare class WhitespaceSplit extends PreTokenizer {
-    constructor(config: any);
-    pre_tokenize_text(text: any): any;
-}
-declare class MetaspacePreTokenizer extends PreTokenizer {
-    constructor(config: any);
-    addPrefixSpace: any;
-    replacement: any;
-    strRep: any;
-}
-declare class ByteLevelPreTokenizer extends PreTokenizer {
-    constructor(config: any);
-    pattern: RegExp;
-    pre_tokenize_text(text: any): any;
-}
-declare class SplitPreTokenizer extends PreTokenizer {
+/**
+ * The base class for token decoders.
+ * @class
+ * @extends Callable
+ */
+declare class Decoder extends Callable {
+    /**
+   * Creates a decoder instance based on the provided configuration.
+   *
+   * @param {Object} config - The configuration object.
+   * @returns {Decoder} A decoder instance.
+   * @throws {Error} If an unknown decoder type is provided.
+   */
+    static fromConfig(config: any): Decoder;
+    /**
+    * Creates an instance of `Decoder`.
+    *
+    * @param {Object} config - The configuration object.
+    */
     constructor(config: any);
     config: any;
-    pre_tokenize_text(text: any): any;
-}
-declare class WordPieceTokenizer extends TokenizerModel {
-    tokens_to_ids: any;
-    unk_token_id: any;
-    unk_token: any;
-    vocab: any[];
-    encode(tokens: any): any[];
-}
-declare class Unigram extends TokenizerModel {
-    constructor(config: any, moreConfig: any);
-    vocab: any;
-    scores: any;
-    unk_token_id: any;
-    unk_token: any;
-    tokens_to_ids: {
-        [k: string]: any;
-    };
-    bosToken: string;
-    bosTokenId: any;
-    eosToken: any;
-    eosTokenId: any;
-    unkToken: any;
-    minScore: number;
-    unkScore: number;
-    trie: CharTrie;
-    populateNodes(lattice: any): void;
-    tokenize(normalized: any): any[];
-    encode(tokens: any): any[];
-}
-declare class BPE extends TokenizerModel {
-    tokens_to_ids: any;
-    unk_token_id: any;
-    unk_token: any;
-    vocab: any[];
-    bpe_ranks: {
-        [k: string]: any;
-    };
-    merges: any;
-    byte_encoder: {
-        [k: string]: number;
-    };
-    text_encoder: TextEncoder;
-    cache: {};
-    get_pairs(word: any): any[];
-    bpe(token: any): any;
-    encode(tokens: any): any[];
-}
-declare class TemplateProcessing extends PostProcessor {
-    constructor(config: any);
-    config: any;
-    post_process(tokens: any, tokens_pair?: any): any[];
-}
-declare class ByteLevelPostProcessor extends PostProcessor {
-    constructor(config: any);
-    config: any;
-    post_process(tokens: any): any;
-}
-declare class RobertaProcessing extends PostProcessor {
-    constructor(config: any);
-    config: any;
-    post_process(tokens: any, tokens_pair?: any): any;
-}
-declare class WordPieceDecoder extends Decoder {
-    convertRegex: RegExp;
-    decode(tokens: any): any;
-}
-declare class MetaspaceDecoder extends Decoder {
-    addPrefixSpace: any;
-    replacement: any;
-    decode(tokens: any): any;
-}
-declare class ByteLevelDecoder extends Decoder {
-    byte_decoder: any;
-    text_decoder: TextDecoder;
-    convert_tokens_to_string(tokens: any): string;
-    decode(tokens: any): string;
+    /**
+    * Converts a list of tokens to a string.
+    *
+    * @param {string[]} tokens - The list of tokens.
+    * @returns {string} The decoded string.
+    */
+    convert_tokens_to_string(tokens: string[]): string;
+    /**
+    * Calls the `decode` method.
+    *
+    * @param {string[]} tokens - The list of tokens.
+    * @returns {string} The decoded string.
+    */
+    _call(tokens: string[]): string;
+    /**
+    * Decodes a list of tokens.
+    * @param {string[]} tokens - The list of tokens.
+    * @returns {string} The decoded string.
+    * @throws {Error} If the `decode` method is not implemented in the subclass.
+    */
+    decode(tokens: string[]): string;
 }
 import { Tensor } from "./tensor_utils.js";
-declare class Normalizer extends Callable {
-    static fromConfig(config: any): BertNormalizer | Precompiled | NormalizerSequence | Replace | NFC | NFKD | StripAccents | Lowercase;
-    constructor(config: any);
-    config: any;
-    normalize(text: any): void;
-    _call(text: any): void;
-}
-declare class PreTokenizer extends Callable {
-    static fromConfig(config: any): BertPreTokenizer | PreTokenizerSequence | WhitespaceSplit | MetaspacePreTokenizer | ByteLevelPreTokenizer | SplitPreTokenizer;
-    pre_tokenize_text(text: any): void;
-    pre_tokenize(text: any): any[];
-    _call(text: any): any[];
-}
-declare class TokenizerModel extends Callable {
-    static fromConfig(config: any, ...args: any[]): WordPieceTokenizer | Unigram | BPE;
-    constructor(config: any);
-    config: any;
-    _call(tokens: any): void;
-    encode(tokens: any): void;
-    convert_tokens_to_ids(tokens: any): any;
-    convert_ids_to_tokens(ids: any): any;
-}
-declare class CharTrie {
-    root: CharTrieNode;
-    push(...texts: any[]): void;
-    commonPrefixSearch(text: any): Generator<string, void, unknown>;
-}
-declare class PostProcessor extends Callable {
-    static fromConfig(config: any): TemplateProcessing | ByteLevelPostProcessor | RobertaProcessing;
-    post_process(tokens: any, ...args: any[]): void;
-    _call(tokens: any, ...args: any[]): void;
-}
-declare class Decoder extends Callable {
-    static fromConfig(config: any): WordPieceDecoder | MetaspaceDecoder | ByteLevelDecoder;
-    constructor(config: any);
-    config: any;
-    convert_tokens_to_string(tokens: any): any;
-    _call(tokens: any): void;
-    decode(tokens: any): void;
-}
-declare class CharTrieNode {
-    static default(): CharTrieNode;
-    constructor(isLeaf: any, children: any);
-    isLeaf: any;
-    children: any;
-}
 export {};
