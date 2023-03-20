@@ -97,7 +97,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';
 
 #### Node.js
 
-This project uses `onnxruntime-web` as default backend. However if you add the `onnxruntime-node` dependency in your project it will preferred over the web backend. `onnxruntime-node` is nearly 5X faster than WASM executor provider probably due to [this issue](https://github.com/microsoft/onnxruntime/issues/10311).
+This project uses `onnxruntime-web` as default backend. However if you add the `onnxruntime-node` dependancy in your project it will preferred over the web backend. `onnxruntime-node` is nearly 5X faster than WASM executor provider probably due to [this issue](https://github.com/microsoft/onnxruntime/issues/10311).
 
 ## Usage
 
