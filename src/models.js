@@ -21,22 +21,15 @@ const {
     WhisperTimeStampLogitsProcessor
 } = require("./generation.js");
 
-const { Tensor } = require('./tensor_utils.js')
-const ONNX = require('onnxruntime-web');
-
-const InferenceSession = ONNX.InferenceSession
-const ONNXTensor = ONNX.Tensor
+const { Tensor, ONNX, executionProviders } = require('./tensor_utils');
+const { InferenceSession, Tensor: ONNXTensor }  = ONNX;
 
 //////////////////////////////////////////////////
 // Helper functions
 
 async function constructSession(modelPath, fileName, progressCallback = null) {
     let buffer = await getModelFile(modelPath, fileName, progressCallback);
-
-    let session = await InferenceSession.create(buffer, {
-        // executionProviders: ["webgl"]
-        executionProviders: ["wasm"]
-    });
+    let session = await InferenceSession.create(buffer, { executionProviders });
 
     return session
 }

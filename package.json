@@ -37,6 +37,9 @@
     "webpack-cli": "^5.0.1",
     "webpack-dev-server": "^4.11.1"
   },
+  "peerDependencies": {
+    "onnxruntime-node": "^1.14.0"
+  },
   "files": [
     "src",
     "dist",
