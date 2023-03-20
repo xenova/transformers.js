@@ -6,16 +6,33 @@ export class Tensor extends ONNX.TypedTensor<"string"> {
      * @returns
      */
     get(index: number): string | Tensor;
+    /**
+     * @param {any} item
+     * @returns {number}
+     */
     indexOf(item: any): number;
     /**
      * @param {number} index
      * @param {number} iterSize
-     * @param {number} iterDims
+     * @param {any} iterDims
      * @returns {this}
      */
-    _subarray(index: number, iterSize: number, iterDims: number): this;
+    _subarray(index: number, iterSize: number, iterDims: any): this;
+    tolist(): any[];
     [Symbol.iterator](): Generator<string | Tensor, void, undefined>;
 }
-export function transpose(tensor: any, axes: any): Tensor;
-export function cat(tensors: any): any;
+/**
+ * Transposes a tensor according to the provided axes.
+ * @param {any} tensor - The input tensor to transpose.
+ * @param {Array} axes - The axes to transpose the tensor along.
+ * @returns {Tensor} The transposed tensor.
+ */
+export function transpose(tensor: any, axes: any[]): Tensor;
+/**
+ * Concatenates an array of tensors along the 0th dimension.
+ *
+ * @param {any} tensors - The array of tensors to concatenate.
+ * @returns {Tensor} - The concatenated tensor.
+ */
+export function cat(tensors: any): Tensor;
 import ONNX = require("onnxruntime-web");

@@ -41,6 +41,10 @@ class Tensor extends ONNX.Tensor {
         }
     }
 
+    /**
+     * @param {any} item 
+     * @returns {number}
+     */
     indexOf(item) {
         for (let index = 0; index < this.data.length; ++index) {
             // Note: == instead of === so we can match Ints with BigInts
@@ -54,7 +58,7 @@ class Tensor extends ONNX.Tensor {
     /**
      * @param {number} index 
      * @param {number} iterSize 
-     * @param {number} iterDims 
+     * @param {any} iterDims 
      * @returns {this}
      */
     _subarray(index, iterSize, iterDims) {
@@ -70,7 +74,15 @@ class Tensor extends ONNX.Tensor {
     // TODO add .slice()
 }
 
-
+/**
+ * Reshapes the input array to the given dimensions.
+ *
+ * @param {Array} data - The input array to reshape.
+ * @param {Array} dimensions - An array representing the dimensions of the reshaped array.
+ * @returns {Array} - The reshaped array.
+ * @throws {Error} - If the total number of elements in the input array does not match the product of the
+ *                    dimensions in the `dimensions` parameter.
+ */
 function reshape(data, dimensions) {
 
     const totalElements = data.length;
@@ -99,6 +111,12 @@ function reshape(data, dimensions) {
     return reshapedArray[0];
 }
 
+/**
+ * Transposes a tensor according to the provided axes.
+ * @param {any} tensor - The input tensor to transpose.
+ * @param {Array} axes - The axes to transpose the tensor along.
+ * @returns {Tensor} The transposed tensor.
+ */
 function transpose(tensor, axes) {
     // Calculate the new shape of the transposed array
     // and the stride of the original array
@@ -129,6 +147,12 @@ function transpose(tensor, axes) {
     return new Tensor(tensor.type, transposedData, shape);
 }
 
+/**
+ * Concatenates an array of tensors along the 0th dimension.
+ *
+ * @param {any} tensors - The array of tensors to concatenate.
+ * @returns {Tensor} - The concatenated tensor.
+ */
 function cat(tensors) {
     if (tensors.length === 0) {
         return tensors[0];
