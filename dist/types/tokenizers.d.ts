@@ -177,8 +177,6 @@ declare class Normalizer extends Callable {
 /**
  * A callable class representing a pre-tokenizer used in tokenization. Subclasses
  * should implement the `pre_tokenize_text` method to define the specific pre-tokenization logic.
- *
- * @class
  * @extends Callable
  */
 declare class PreTokenizer extends Callable {
@@ -260,7 +258,6 @@ declare class TokenizerModel extends Callable {
     convert_ids_to_tokens(ids: number[]): string[];
 }
 /**
- * @class
  * @extends Callable
  */
 declare class PostProcessor extends Callable {
@@ -285,7 +282,6 @@ declare class PostProcessor extends Callable {
 }
 /**
  * The base class for token decoders.
- * @class
  * @extends Callable
  */
 declare class Decoder extends Callable {

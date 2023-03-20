@@ -191,7 +191,6 @@ class TopKSampler extends Sampler {
 class BeamSearchSampler extends Sampler {
     /**
    * Create a BeamSearchSampler.
-   * @constructor
    * @param {number} temperature
    * @param {number} num_beams
    * @param {boolean} do_sample

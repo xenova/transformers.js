@@ -1,7 +1,6 @@
 /**
  * A base class for creating callable objects.
  *
- * @class Callable
  * @extends Function
  */
 export class Callable extends Function {

@@ -515,7 +515,6 @@ function magnitude(arr) {
 /**
  * A base class for creating callable objects.
  *
- * @class Callable
  * @extends Function
  */
 class Callable extends Function {

@@ -725,8 +725,6 @@ class BertNormalizer extends Normalizer {
 /**
  * A callable class representing a pre-tokenizer used in tokenization. Subclasses
  * should implement the `pre_tokenize_text` method to define the specific pre-tokenization logic.
- *
- * @class
  * @extends Callable
  */
 class PreTokenizer extends Callable {
@@ -797,7 +795,6 @@ class PreTokenizer extends Callable {
 }
 
 /**
- * @class
  * @extends PreTokenizer
  */
 class BertPreTokenizer extends PreTokenizer {
@@ -826,7 +823,6 @@ class BertPreTokenizer extends PreTokenizer {
 
 /**
  * A pre-tokenizer that splits text into Byte-Pair-Encoding (BPE) subwords.
- * @class
  * @extends PreTokenizer
  */
 class ByteLevelPreTokenizer extends PreTokenizer {
@@ -853,7 +849,6 @@ class ByteLevelPreTokenizer extends PreTokenizer {
 
 /**
  * Splits text using a given pattern.
- * @class
  * @extends PreTokenizer
  */
 class SplitPreTokenizer extends PreTokenizer {
@@ -888,7 +883,6 @@ class SplitPreTokenizer extends PreTokenizer {
 }
 
 /**
- * @class
  * @extends Callable
  */
 class PostProcessor extends Callable {
@@ -935,7 +929,6 @@ class PostProcessor extends Callable {
 
 /**
  * A post-processor that adds special tokens to the beginning and end of the input.
- * @class
  * @extends PostProcessor
  */
 class RobertaProcessing extends PostProcessor {
@@ -973,7 +966,6 @@ class RobertaProcessing extends PostProcessor {
 
 /**
  * Post processor that replaces special tokens in a template with actual tokens.
- * @class
  * @extends PostProcessor
  */
 class TemplateProcessing extends PostProcessor {
@@ -1017,7 +1009,6 @@ class TemplateProcessing extends PostProcessor {
 
 /**
  * A PostProcessor that returns the given tokens as is.
- * @class
  * @extends PostProcessor
  */
 class ByteLevelPostProcessor extends PostProcessor {
@@ -1042,7 +1033,6 @@ class ByteLevelPostProcessor extends PostProcessor {
 
 /**
  * The base class for token decoders.
- * @class
  * @extends Callable
  */
 class Decoder extends Callable {
@@ -1118,7 +1108,6 @@ class WordPieceDecoder extends Decoder {
 
     /**
      * Creates a new instance of WordPieceDecoder.
-     * @constructor
      * @param {Object} config - The configuration object.
      * @param {string} config.prefix - The prefix used for WordPiece encoding.
      */
@@ -2319,7 +2308,6 @@ class CharTrie {
 
 /**
  * Represents a node in a character trie.
- * @constructor
  * @param {boolean} isLeaf - Whether the node is a leaf node or not.
  * @param {Map<string, CharTrieNode>} children - A map containing the node's children, where the key is a character and the value is a `CharTrieNode`.
  */
