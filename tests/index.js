@@ -289,7 +289,10 @@ async function summarization() {
         `The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.`,
         `The Amazon rainforest (Portuguese: Floresta Amazônica or Amazônia; Spanish: Selva Amazónica, Amazonía or usually Amazonia; French: Forêt amazonienne; Dutch: Amazoneregenwoud), also known in English as Amazonia or the Amazon Jungle, is a moist broadleaf forest that covers most of the Amazon basin of South America. This basin encompasses 7,000,000 square kilometres (2,700,000 sq mi), of which 5,500,000 square kilometres (2,100,000 sq mi) are covered by the rainforest. This region includes territory belonging to nine nations. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%, Colombia with 10%, and with minor amounts in Venezuela, Ecuador, Bolivia, Guyana, Suriname and French Guiana. States or departments in four nations contain "Amazonas" in their names. The Amazon represents over half of the planet's remaining rainforests, and comprises the largest and most biodiverse tract of tropical rainforest in the world, with an estimated 390 billion individual trees divided into 16,000 species.`
     ]
-    let summary = await summarizer(texts);
+    let summary = await summarizer(texts, {
+        top_k: 0,
+        do_sample: false
+    });
 
     // Dispose pipeline
     await summarizer.dispose()
@@ -297,7 +300,10 @@ async function summarization() {
 
     // This case also tests `forced_bos_token_id`
     let summarizer2 = await pipeline('summarization', 'facebook/bart-large-cnn')
-    let summary2 = await summarizer2(texts[0]);
+    let summary2 = await summarizer2(texts[0], {
+        top_k: 0,
+        do_sample: false
+    });
 
     // Dispose pipeline
     await summarizer2.dispose()
@@ -305,14 +311,14 @@ async function summarization() {
     return isDeepEqual(
         summary,
         [{
-            summary_text: " The Eiffel Tower is the tallest man-made structure in France. It is the second tallest free-standing structure in France after the Millau Viaduct."
+            summary_text: " The Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct. The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building."
         }, {
-            summary_text: " The Amazon rainforest is a moist broadleaf forest that covers most of the Amazon basin of South America. The Amazon represents over half of the planet's remaining rainforests."
+            summary_text: " The Amazon is a moist broadleaf forest that covers most of the Amazon basin of South America. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%."
         }]
     ) && isDeepEqual(
         summary2,
         [
-            { summary_text: "The Eiffel Tower is the tallest structure in Paris. It is 324 metres (1,063 ft) tall, about the same height as an 81-storey building." }
+            { summary_text: "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. Its base is square, measuring 125 metres (410 ft) on each side." }
         ]
     )
 }
@@ -321,13 +327,19 @@ async function translation() {
 
     let translator = await pipeline('translation_en_to_de', 't5-small')
 
-    let translation1 = await translator('Hello, how are you?')
+    let translation1 = await translator('Hello, how are you?', {
+        top_k: 0,
+        do_sample: false
+    })
     let texts = [
         'Hello, how are you?',
         'My name is Maria.',
     ]
 
-    let translation2 = await translator(texts)
+    let translation2 = await translator(texts, {
+        top_k: 0,
+        do_sample: false
+    })
 
     // Dispose pipeline
     await translator.dispose()
@@ -351,12 +363,16 @@ async function text_generation() {
 
     let output1 = await generator('Once upon a time, there was a', {
         max_new_tokens: 10,
+        top_k: 0,
+        do_sample: false
     })
 
     let output2 = await generator('Once upon a time, there was a', {
         max_new_tokens: 10,
         num_beams: 2,
-        num_return_sequences: 2
+        num_return_sequences: 2,
+        top_k: 0,
+        do_sample: false
     })
 
     let output3 = await generator([
@@ -365,7 +381,9 @@ async function text_generation() {
     ], {
         max_new_tokens: 10,
         num_beams: 2,
-        num_return_sequences: 2
+        num_return_sequences: 2,
+        top_k: 0,
+        do_sample: false
     })
 
     // Dispose pipeline
@@ -400,7 +418,10 @@ async function text2text_generation() {
     let output1 = await generator1(
         "Premise:  At my age you will probably have learnt one lesson. " +
         "Hypothesis:  It's not certain how many lessons you'll learn by your thirties. " +
-        "Does the premise entail the hypothesis?"
+        "Does the premise entail the hypothesis?", {
+        top_k: 0,
+        do_sample: false
+    }
     )
 
     let generator2 = await pipeline('text2text-generation', 'google/flan-t5-base')
@@ -412,7 +433,10 @@ async function text2text_generation() {
 
         Q: A juggler can juggle 16 balls. Half of the balls are golf balls, and half
         of the golf balls are blue. How many blue golf balls are there?
-    `);
+    `, {
+        top_k: 0,
+        do_sample: false
+    });
 
     // Dispose pipelines
     await Promise.all([generator1.dispose(), generator2.dispose()])
@@ -447,20 +471,30 @@ async function image_to_text() {
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg'
     ]
 
-    let output1 = await captioner(url)
+    let output1 = await captioner(url, {
+        top_k: 0,
+        do_sample: false
+    })
 
     let output2 = await captioner(url, {
         max_new_tokens: 20,
         num_beams: 2,
-        num_return_sequences: 2
+        num_return_sequences: 2,
+        top_k: 0,
+        do_sample: false
     })
 
-    let output3 = await captioner(urls)
+    let output3 = await captioner(urls, {
+        top_k: 0,
+        do_sample: false
+    })
 
     let output4 = await captioner(urls, {
         max_new_tokens: 20,
         num_beams: 2,
-        num_return_sequences: 2
+        num_return_sequences: 2,
+        top_k: 0,
+        do_sample: false
     })
 
     // Dispose pipeline
@@ -556,6 +590,8 @@ async function code_generation() {
 
     let output1 = await generator('def fib(n):', {
         max_new_tokens: 45,
+        top_k: 0,
+        do_sample: false
     })
 
     // Dispose pipeline

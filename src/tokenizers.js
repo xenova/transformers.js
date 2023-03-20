@@ -490,7 +490,7 @@ class ByteLevelPreTokenizer extends PreTokenizer {
 
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
-        return text.trim().match(this.pattern) || [];
+        return text.match(this.pattern) || [];
     }
 }
 
@@ -665,6 +665,13 @@ class ByteLevelDecoder extends Decoder {
 
     convert_tokens_to_string(tokens) {
         let text = tokens.join('');
+
+        if (this.config.trim_offsets) {
+            text = text.trim();
+        } else if (this.config.add_prefix_space) {
+            text = ' ' + text;
+        }
+
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
@@ -1077,7 +1084,7 @@ class PreTrainedTokenizer extends Callable {
                 // Ignore special tokens
                 return x
             } else {
-                if (this.remove_space) {
+                if (this.remove_space === true) {
                     // remove_space
                     x = x.trim().split(/\s+/).join(' ')
                 }
@@ -1296,14 +1303,11 @@ class WhisperTokenizer extends PreTrainedTokenizer {
     _decode_asr(sequences, {
         return_timestamps = false,
         return_language = false,
-        time_precision = null
+        time_precision = null,
+        force_full_sequences = true
     } = {}) {
-        // TODO add support for `return_timestamps` and `return_language`
-
-        if (time_precision === null) {
-            throw Error("Must specify time_precision")
-        }
-
+        // Set force_full_sequences=false if you want streaming
+        // TODO add support for `return_language`
 
         // Internal method meant to only be used by asr pipeline.
         // Handles all the little quirks specific to whisper to handle
@@ -1321,6 +1325,9 @@ class WhisperTokenizer extends PreTrainedTokenizer {
         // - We split on end timestamps
         // - Lots of complexity comes from stride and timestamps
 
+        if (time_precision === null) {
+            throw Error("Must specify time_precision")
+        }
         let last_language = null;
 
         function new_chunk() {
@@ -1341,6 +1348,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
         const all_special_ids = new Set(this.all_special_ids);
 
         for (let output of sequences) {
+            // NOTE: python version has batches, so it uses [0]
             const token_ids = output.tokens;
 
             // These keep track of timestamps within strides, which need
@@ -1364,7 +1372,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                 }
 
                 if (stride_right) {
-                    for (let i = token_ids.length - 1; i >= 0; i--) {
+                    for (let i = token_ids.length - 1; i >= 0; --i) {
                         const token = token_ids[i];
                         if (token >= timestamp_begin) {
                             // There can be several token in the right stride
@@ -1427,7 +1435,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                         // Skip is necessary because timestamp tokens always come
                         // by pair, so we need to skip the next one too (which would mark the start of another chunk).
                         skip = true;
-                    } else if (skip || (previous_tokens.length && token < first_timestamp)) {
+                    } else if (skip || (previous_tokens.length > 0 && token < first_timestamp)) {
                         skip = false;
                     } else if (chunk.timestamp[0] === null) {
                         chunk.timestamp[0] = rounded_time;
@@ -1471,9 +1479,9 @@ class WhisperTokenizer extends PreTrainedTokenizer {
             }
 
             // Leftover tokens
-            if (current_tokens) {
+            if (current_tokens.length > 0) {
                 previous_tokens.push(current_tokens)
-            } else if (previous_tokens.all(p => !p)) {
+            } else if (previous_tokens.every(p => p.length === 0)) {
                 // Flushing previous tokens (END)"
                 chunk = new_chunk()
                 previous_tokens = []
@@ -1483,7 +1491,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
         }
 
         if (previous_tokens.length > 0) {
-            if (return_timestamps) {
+            if (force_full_sequences && return_timestamps) {
                 // Last token should always be timestamps, so there shouldn't be
                 // leftover
                 throw new Error("There was an error while processing timestamps, we haven't found a timestamp as last token.");

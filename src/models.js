@@ -11,6 +11,16 @@ const {
     Sampler,
 } = require("./samplers.js");
 
+
+const {
+    LogitsProcessorList,
+    GenerationConfig,
+    ForceTokensLogitsProcessor,
+    ForcedBOSTokenLogitsProcessor,
+    ForcedEOSTokenLogitsProcessor,
+    WhisperTimeStampLogitsProcessor
+} = require("./generation.js");
+
 const { Tensor } = require('./tensor_utils.js')
 const ONNX = require('onnxruntime-web');
 
@@ -283,20 +293,6 @@ class PreTrainedModel extends Callable {
         this.config = config;
         this.session = session;
 
-
-        this.default_generation_options = {
-            max_new_tokens: 50,
-            top_k: 0,
-            num_beams: 1,
-            temperature: 1,
-            num_return_sequences: 1,
-            early_stopping: false,
-            do_sample: false,
-
-            callback_function: null
-        }
-
-        this.forced_decoder_ids_mapping = Object.fromEntries(config.forced_decoder_ids ?? []);
     }
 
     async dispose() {
@@ -366,21 +362,179 @@ class PreTrainedModel extends Callable {
         throw Error("forward should be implemented in subclasses.")
     }
 
-    async generate(inputs, options = {}, inputs_attention_mask = null) {
+    /**
+     * @param {GenerationConfig} generation_config 
+     * @param {number} input_ids_seq_length 
+     * @returns {LogitsProcessorList}
+     */
+    _get_logits_processor(
+        generation_config,
+        input_ids_seq_length,
+        // encoder_input_ids, TODO
+        // prefix_allowed_tokens_fn, TODO
+        logits_processor = null
+    ) {
+        const processors = new LogitsProcessorList();
+
+        // if (generation_config.diversity_penalty !== null && generation_config.diversity_penalty > 0.0) {
+        //     processors.push(new HammingDiversityLogitsProcessor(
+        //         generation_config.diversity_penalty,
+        //         generation_config.num_beams,
+        //         generation_config.num_beam_groups
+        //     ));
+        // }
+
+        // if (generation_config.encoder_repetition_penalty !== null && generation_config.encoder_repetition_penalty !== 1.0) {
+        //     processors.push(new EncoderRepetitionPenaltyLogitsProcessor(
+        //         generation_config.encoder_repetition_penalty,
+        //         encoder_input_ids
+        //     ));
+        // }
+
+        // if (generation_config.repetition_penalty !== null && generation_config.repetition_penalty !== 1.0) {
+        //     processors.push(new RepetitionPenaltyLogitsProcessor(generation_config.repetition_penalty));
+        // }
+
+        // if (generation_config.no_repeat_ngram_size !== null && generation_config.no_repeat_ngram_size > 0) {
+        //     processors.push(new NoRepeatNGramLogitsProcessor(generation_config.no_repeat_ngram_size));
+        // }
+
+        // if (generation_config.encoder_no_repeat_ngram_size !== null && generation_config.encoder_no_repeat_ngram_size > 0) {
+        //     if (this.config.is_encoder_decoder) {
+        //         processors.push(new EncoderNoRepeatNGramLogitsProcessor(
+        //             generation_config.encoder_no_repeat_ngram_size,
+        //             encoder_input_ids
+        //         ));
+        //     } else {
+        //         throw new Error("It's impossible to use `encoder_no_repeat_ngram_size` with decoder-only architecture");
+        //     }
+        // }
+
+        // if (generation_config.bad_words_ids !== null) {
+        //     processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
+        // }
+
+        // if (generation_config.min_length !== null && generation_config.eos_token_id !== null && generation_config.min_length > 0) {
+        //     processors.push(new MinLengthLogitsProcessor(generation_config.min_length, generation_config.eos_token_id));
+        // }
+
+        // if (generation_config.min_new_tokens !== null && generation_config.eos_token_id !== null && generation_config.min_new_tokens > 0) {
+        //     processors.push(new MinNewTokensLengthLogitsProcessor(
+        //         input_ids_seq_length,
+        //         generation_config.min_new_tokens,
+        //         generation_config.eos_token_id
+        //     ));
+        // }
+
+        // if (prefix_allowed_tokens_fn !== null) {
+        //     processors.push(new PrefixConstrainedLogitsProcessor(
+        //         prefix_allowed_tokens_fn,
+        //         generation_config.num_beams / generation_config.num_beam_groups
+        //     ));
+        // }
+
+
+        if (generation_config.forced_bos_token_id !== null) {
+            processors.push(new ForcedBOSTokenLogitsProcessor(generation_config.forced_bos_token_id));
+        }
+
+        if (generation_config.forced_eos_token_id !== null) {
+            processors.push(new ForcedEOSTokenLogitsProcessor(
+                generation_config.max_length,
+                generation_config.forced_eos_token_id
+            ));
+        }
+
+        // if (generation_config.remove_invalid_values === true) {
+        //     processors.push(new InfNanRemoveLogitsProcessor());
+        // }
+
+        // if (generation_config.exponential_decay_length_penalty !== null) {
+        //     processors.push(new ExponentialDecayLengthPenalty(
+        //         generation_config.exponential_decay_length_penalty,
+        //         generation_config.eos_token_id,
+        //         input_ids_seq_length
+        //     ));
+        // }
+
+        // if (generation_config.suppress_tokens !== null) {
+        //     processors.push(new SuppressTokensLogitsProcessor(generation_config.suppress_tokens));
+        // }
+
+        // if (generation_config.begin_suppress_tokens !== null) {
+        //     let begin_index = input_ids_seq_length;
+        //     begin_index = (input_ids_seq_length > 1 || generation_config.forced_bos_token_id === null) ? begin_index : begin_index + 1;
+        //     if (generation_config.forced_decoder_ids !== null) {
+        //         begin_index += generation_config.forced_decoder_ids[generation_config.forced_decoder_ids.length - 1][0];
+        //     }
+        //     processors.push(new SuppressTokensAtBeginLogitsProcessor(generation_config.begin_suppress_tokens, begin_index));
+        // }
+
+        if (generation_config.forced_decoder_ids !== null) {
+            processors.push(new ForceTokensLogitsProcessor(generation_config.forced_decoder_ids));
+        }
+
+        if (logits_processor !== null) {
+            processors.extend(logits_processor)
+        }
+
+        // `LogitNormalization` should always be the last logit processor, when present
+        // if (generation_config.renormalize_logits === true) {
+        //     processors.push(new LogitNormalization());
+        // }
+
+        return processors;
+    }
+
+    _get_generation_config(generation_config) {
+        // Create empty generation config (contains defaults)
+        let gen_config = new GenerationConfig();
+
+        // Apply model's generation config
+        Object.assign(gen_config, this.generation_config);
+
+        // Finally, use any generation config specified by the user
+        // when calling `generate`
+        if (generation_config !== null) {
+            Object.assign(gen_config, generation_config);
+        }
+        return gen_config;
+    }
+    async generate(
+        inputs,
+        generation_config = null,
+        logits_processor = null,
+        {
+            inputs_attention_mask = null
+        } = {},
+    ) {
 
         if (inputs.length === 0) {
             throw Error("Must supply a non-empty array of input token ids.")
         }
 
-        options = this.prepareGenerationOptions(options);
+        // Update generation config with defaults
+        generation_config = this._get_generation_config(generation_config);
+
+        logits_processor = logits_processor ?? new LogitsProcessorList()
+
+        // TODO Update generation config
+        // this.generation_config
+
+        // Update logits processor
+        logits_processor = this._get_logits_processor(
+            generation_config,
+            inputs.length,
+            logits_processor
+        )
 
         // TODO implement early_stopping
         // https://huggingface.co/blog/how-to-generate
 
         let numOutputTokens = 1;
-        const maxOutputTokens = numOutputTokens + options.max_new_tokens;
+        const maxOutputTokens = numOutputTokens + (generation_config.max_new_tokens ?? Infinity);
 
-        let sampler = Sampler.getSampler(options);
+        let sampler = Sampler.getSampler(generation_config);
 
         let beams = this.getStartBeams(inputs, numOutputTokens, inputs_attention_mask);
 
@@ -396,7 +550,7 @@ class PreTrainedModel extends Callable {
                 }
 
                 let output = await this.runBeam(beam);
-                this.applyLogitsProcessors(output.logits, beam.output_token_ids.length);
+                logits_processor(beam.output_token_ids, output.logits)
 
                 let sampledTokens = sampler(output.logits);
 
@@ -421,22 +575,22 @@ class PreTrainedModel extends Callable {
             newest_beams = this.groupBeams(newest_beams).map(
                 group => group
                     .sort((a, b) => b.score - a.score)  // sort based on score
-                    .slice(0, options.num_beams)        // remove outside beam width
+                    .slice(0, generation_config.num_beams)        // remove outside beam width
             );
 
             // Flatten beams
             beams = newest_beams.flat();
 
             // Run callback
-            if (options.callback_function) {
-                options.callback_function(beams);
+            if (generation_config.callback_function) {
+                generation_config.callback_function(beams);
             }
         }
 
         return this.groupBeams(beams).map(
             batch => {
-                if (options.num_return_sequences > 1) {
-                    return batch.slice(0, options.num_return_sequences).map(x => x.output_token_ids);
+                if (generation_config.num_return_sequences > 1) {
+                    return batch.slice(0, generation_config.num_return_sequences).map(x => x.output_token_ids);
                 } else {
                     return [batch[0].output_token_ids];
                 }
@@ -456,10 +610,6 @@ class PreTrainedModel extends Callable {
 
         return Object.values(groups);
     }
-    prepareGenerationOptions(options) {
-        return Object.assign({}, this.default_generation_options, options)
-    }
-
     getPastKeyValues(decoderResults) {
         const pkvs = {};
 
@@ -498,28 +648,6 @@ class PreTrainedModel extends Callable {
             Object.assign(decoderFeeds, pastKeyValues)
         }
     }
-
-    applyLogitsProcessors(logits, index) {
-        // Apply logits processor to each item in the batch:
-        for (let batch of logits) {
-            // NOTE: In future, generalise this
-            //   - modifications affect original data 
-            //   - logits are of the shape [1, vocabSize]
-            let map = this.forced_decoder_ids_mapping[index];
-            if (exists(map)) { // There exists a mapping
-                batch.data.fill(-Infinity)
-                batch.data[map] = 0;
-            }
-
-            if (exists(this.generation_config) && exists(this.generation_config.forced_bos_token_id) && index === 1) {
-                batch.data.fill(-Infinity)
-                batch.data[this.generation_config.forced_bos_token_id] = 0;
-            }
-
-        }
-    }
-
-
 }
 //////////////////////////////////////////////////
 
@@ -743,6 +871,36 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         this.num_encoder_layers = this.config.encoder_layers;
         this.num_encoder_heads = this.config.encoder_attention_heads;
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+
+
+    }
+
+    async generate(
+        inputs,
+        generation_config = null,
+        logits_processor = null,
+    ) {
+        // Create generation config object
+        generation_config = this._get_generation_config(generation_config);
+
+
+        // Whisper has additional options for returning timestamps
+        generation_config.return_timestamps ??= false;
+
+        // TODO add language and task
+
+        if (generation_config.return_timestamps) {
+            logits_processor = [new WhisperTimeStampLogitsProcessor(generation_config)]
+        }
+
+
+
+        // Modify forced_decoder_ids_mapping. This is the way HF also does it,
+        // but it would probably be best to not modify the class' mapping, and
+        // rather create a copy?
+
+
+        return super.generate(inputs, generation_config, logits_processor)
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {

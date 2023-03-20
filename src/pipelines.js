@@ -192,16 +192,28 @@ class Text2TextGenerationPipeline extends Pipeline {
         if (!Array.isArray(texts)) {
             texts = [texts];
         }
-        // Add prefixes, if present
+
+        // Add global prefix, if present
+        if (this.model.config.prefix) {
+            texts = texts.map(x => this.model.config.prefix + x)
+        }
+
+        // Handle task specific params:
         let task_specific_params = this.model.config.task_specific_params
-        if (task_specific_params && task_specific_params[this.task] && task_specific_params[this.task].prefix) {
-            texts = texts.map(x => task_specific_params[this.task].prefix + x)
+        if (task_specific_params && task_specific_params[this.task]) {
+            // Add prefixes, if present
+            if (task_specific_params[this.task].prefix) {
+                texts = texts.map(x => task_specific_params[this.task].prefix + x)
+            }
+
+            // TODO update generation config
         }
 
         let input_ids = this.tokenizer(texts, {
             padding: true,
             truncation: true
         }).input_ids
+
         let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
 
         let toReturn = this.tokenizer.batch_decode(outputTokenIds, {
@@ -240,7 +252,9 @@ class TextGenerationPipeline extends Pipeline {
         let input_ids = inputs.input_ids;
         let attention_mask = inputs.attention_mask;
 
-        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, attention_mask);
+        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, null, {
+            inputs_attention_mask: attention_mask
+        });
 
         let toReturn = outputTokenIds.map((outTokens, i) => {
             let startText = texts[i].trim();
@@ -334,11 +348,16 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         return audio;
     }
 
-    async _call(audio, generate_kwargs = {}, {
-        chunk_length_s = 0,
-        stride_length_s = null,
-        return_chunks = false // Return chunk data in callback (in addition to beam info)
-    } = {}) {
+    async _call(audio, kwargs = {}) {
+        let return_timestamps = kwargs.return_timestamps ?? false;
+        let chunk_length_s = kwargs.chunk_length_s ?? 0;
+        let stride_length_s = kwargs.stride_length_s ?? null;
+        let return_chunks = kwargs.return_chunks ?? false; // Return chunk data in callback (in addition to beam info)
+
+        // TODO
+        // task = 'transcribe',
+        // language = 'en',
+
         let single = !Array.isArray(audio)
         if (single) {
             audio = [audio]
@@ -394,22 +413,29 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 }]
             }
 
+
+
             // Generate for each set of input features
             for (let chunk of chunks) {
                 // NOTE: doing sequentially for now
-                let data = await this.model.generate(chunk.input_features, generate_kwargs);
+                let data = await this.model.generate(chunk.input_features, kwargs);
+
 
                 // Get top beam
                 chunk.tokens = data[0].flat()
 
-                if (return_chunks && generate_kwargs.callback_function) {
-                    generate_kwargs.callback_function(chunk)
+                // convert stride to seconds
+                chunk.stride = chunk.stride.map(x => x / sampling_rate);
+
+                if (return_chunks && kwargs.callback_function) {
+                    kwargs.callback_function(chunk)
                 }
             }
 
             // Merge text chunks
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
-                time_precision: time_precision
+                time_precision: time_precision,
+                return_timestamps: return_timestamps
             });
 
             toReturn.push({ 'text': full_text, ...optional })

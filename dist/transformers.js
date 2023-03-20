@@ -1466,6 +1466,224 @@ module.exports = FFT
 
 /***/ }),
 
+/***/ "./src/generation.js":
+/*!***************************!*\
+  !*** ./src/generation.js ***!
+  \***************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+const {
+    Callable,
+    exists,
+    log_softmax
+} = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
+
+
+class LogitsProcessorList extends Callable {
+
+    constructor() {
+        super();
+        this.processors = [];
+    }
+
+    push(item) {
+        this.processors.push(item);
+    }
+
+    extend(items) {
+        this.processors.push(...items);
+    }
+
+    _call(input_ids, batchedLogits) {
+        // Apply logits processor to each item in the batch:
+        for (let logits of batchedLogits) {
+            // Modifies logits inplace
+            this.processors.forEach(
+                func => func(input_ids, logits)
+            )
+        }
+    }
+
+    [Symbol.iterator]() {
+        return this.processors.values();
+    }
+}
+
+class LogitsProcessor extends Callable {
+    _call(input_ids, logits) {
+        throw Error("`_call` should be implemented in a subclass")
+    }
+}
+
+class ForceTokensLogitsProcessor extends LogitsProcessor {
+    constructor(forced_decoder_ids) {
+        super();
+        this.force_token_map = Object.fromEntries(forced_decoder_ids ?? []);
+    }
+
+    _call(input_ids, logits) {
+        let map = this.force_token_map[input_ids.length];
+        if (exists(map)) { // There exists a mapping
+            logits.data.fill(-Infinity)
+            logits.data[map] = 0;
+        }
+        return logits;
+    }
+}
+class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
+    constructor(bos_token_id) {
+        super();
+        this.bos_token_id = bos_token_id;
+    }
+
+    _call(input_ids, logits) {
+        if (input_ids.length === 1) {
+            logits.data.fill(-Infinity)
+            logits.data[this.bos_token_id] = 0;
+        }
+    }
+}
+
+class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
+    _call(input_ids, logits) {
+        // console.log('call ForcedEOSTokenLogitsProcessor')
+        // TODO
+    }
+}
+
+class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
+    constructor(generate_config) {
+        super();
+        this.eos_token_id = generate_config.eos_token_id;
+        this.no_timestamps_token_id = generate_config.no_timestamps_token_id;
+        this.timestamp_begin = this.no_timestamps_token_id + 1;
+
+        this.begin_index = (generate_config.forced_decoder_ids || []).length + 2;
+        if (generate_config.forced_decoder_ids.slice(-1)[0][1] === this.no_timestamps_token_id) {
+            this.begin_index -= 1;
+        }
+        this.max_initial_timestamp_index = generate_config.max_initial_timestamp_index;
+
+    }
+
+    _call(input_ids, logits) {
+        // suppress <|notimestamps|> which is handled by without_timestamps
+        logits.data[this.no_timestamps_token_id] = -Infinity;
+
+        if (input_ids.length === this.begin_index - 1) {
+            logits.data.fill(-Infinity);
+            logits.data[this.timestamp_begin] = 0;
+            return logits;
+        }
+
+        // TODO support batched inputs
+
+        // timestamps have to appear in pairs, except directly before eos_token; mask logits accordingly
+        const seq = input_ids.slice(this.begin_index);
+        const last_was_timestamp = seq.length >= 1 && seq[seq.length - 1] >= this.timestamp_begin;
+        const penultimate_was_timestamp = seq.length < 2 || seq[seq.length - 2] >= this.timestamp_begin;
+
+        if (last_was_timestamp) {
+            if (penultimate_was_timestamp) { // has to be non-timestamp
+                logits.data.subarray(this.timestamp_begin).fill(-Infinity);
+            } else { // cannot be normal text tokens
+                logits.data.subarray(0, this.eos_token_id).fill(-Infinity);
+            }
+        }
+
+        // apply the `max_initial_timestamp` option
+        if (input_ids.length === this.begin_index && this.max_initial_timestamp_index !== null) {
+            const last_allowed = this.timestamp_begin + this.max_initial_timestamp_index;
+            logits.data.subarray(last_allowed + 1).fill(-Infinity);
+        }
+
+        // if sum of probability over timestamps is above any other token, sample timestamp
+        const logprobs = log_softmax(logits.data);
+        const timestamp_logprob = Math.log(logprobs.subarray(this.timestamp_begin).map(Math.exp).reduce((a, b) => a + b));
+        const max_text_token_logprob = Math.max(...logprobs.subarray(0, this.timestamp_begin));
+        if (timestamp_logprob > max_text_token_logprob) {
+            logits.data.subarray(0, this.timestamp_begin).fill(-Infinity);
+        }
+
+        return logits;
+    }
+}
+
+class GenerationConfig {
+    constructor(kwargs = {}) {
+        // Parameters that control the length of the output
+        this.max_length = kwargs.max_length ?? 20;
+        this.max_new_tokens = kwargs.max_new_tokens ?? null;
+        this.min_length = kwargs.min_length ?? 0;
+        this.min_new_tokens = kwargs.min_new_tokens ?? null;
+        this.early_stopping = kwargs.early_stopping ?? false;
+        this.max_time = kwargs.max_time ?? null;
+
+        // Parameters that control the generation strategy used
+        this.do_sample = kwargs.do_sample ?? false;
+        this.num_beams = kwargs.num_beams ?? 1;
+        this.num_beam_groups = kwargs.num_beam_groups ?? 1;
+        this.penalty_alpha = kwargs.penalty_alpha ?? null;
+        this.use_cache = kwargs.use_cache ?? true;
+
+        // Parameters for manipulation of the model output logits
+        this.temperature = kwargs.temperature ?? 1.0;
+        this.top_k = kwargs.top_k ?? 50;
+        this.top_p = kwargs.top_p ?? 1.0;
+        this.typical_p = kwargs.typical_p ?? 1.0;
+        this.epsilon_cutoff = kwargs.epsilon_cutoff ?? 0.0;
+        this.eta_cutoff = kwargs.eta_cutoff ?? 0.0;
+        this.diversity_penalty = kwargs.diversity_penalty ?? 0.0;
+        this.repetition_penalty = kwargs.repetition_penalty ?? 1.0;
+        this.encoder_repetition_penalty = kwargs.encoder_repetition_penalty ?? 1.0;
+        this.length_penalty = kwargs.length_penalty ?? 1.0;
+        this.no_repeat_ngram_size = kwargs.no_repeat_ngram_size ?? 0;
+        this.bad_words_ids = kwargs.bad_words_ids ?? null;
+        this.force_words_ids = kwargs.force_words_ids ?? null;
+        this.renormalize_logits = kwargs.renormalize_logits ?? false;
+        this.constraints = kwargs.constraints ?? null;
+        this.forced_bos_token_id = kwargs.forced_bos_token_id ?? null;
+        this.forced_eos_token_id = kwargs.forced_eos_token_id ?? null;
+        this.remove_invalid_values = kwargs.remove_invalid_values ?? false;
+        this.exponential_decay_length_penalty = kwargs.exponential_decay_length_penalty ?? null;
+        this.suppress_tokens = kwargs.suppress_tokens ?? null;
+        this.begin_suppress_tokens = kwargs.begin_suppress_tokens ?? null;
+        this.forced_decoder_ids = kwargs.forced_decoder_ids ?? null;
+
+        // Parameters that define the output variables of `generate`
+        this.num_return_sequences = kwargs.num_return_sequences ?? 1;
+        this.output_attentions = kwargs.output_attentions ?? false;
+        this.output_hidden_states = kwargs.output_hidden_states ?? false;
+        this.output_scores = kwargs.output_scores ?? false;
+        this.return_dict_in_generate = kwargs.return_dict_in_generate ?? false;
+
+        // Special tokens that can be used at generation time
+        this.pad_token_id = kwargs.pad_token_id ?? null;
+        this.bos_token_id = kwargs.bos_token_id ?? null;
+        this.eos_token_id = kwargs.eos_token_id ?? null;
+
+        // Generation parameters exclusive to encoder-decoder models
+        this.encoder_no_repeat_ngram_size = kwargs.encoder_no_repeat_ngram_size ?? 0;
+        this.decoder_start_token_id = kwargs.decoder_start_token_id ?? null;
+
+        // Wild card
+        this.generation_kwargs = kwargs.generation_kwargs ?? {};
+    }
+}
+
+module.exports = {
+    LogitsProcessor,
+    LogitsProcessorList,
+    GenerationConfig,
+    ForcedBOSTokenLogitsProcessor,
+    ForcedEOSTokenLogitsProcessor,
+    WhisperTimeStampLogitsProcessor,
+    ForceTokensLogitsProcessor,
+};
+
+
+/***/ }),
+
 /***/ "./src/models.js":
 /*!***********************!*\
   !*** ./src/models.js ***!
@@ -1484,6 +1702,16 @@ const {
 const {
     Sampler,
 } = __webpack_require__(/*! ./samplers.js */ "./src/samplers.js");
+
+
+const {
+    LogitsProcessorList,
+    GenerationConfig,
+    ForceTokensLogitsProcessor,
+    ForcedBOSTokenLogitsProcessor,
+    ForcedEOSTokenLogitsProcessor,
+    WhisperTimeStampLogitsProcessor
+} = __webpack_require__(/*! ./generation.js */ "./src/generation.js");
 
 const { Tensor } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js")
 const ONNX = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
@@ -1757,20 +1985,6 @@ class PreTrainedModel extends Callable {
         this.config = config;
         this.session = session;
 
-
-        this.default_generation_options = {
-            max_new_tokens: 50,
-            top_k: 0,
-            num_beams: 1,
-            temperature: 1,
-            num_return_sequences: 1,
-            early_stopping: false,
-            do_sample: false,
-
-            callback_function: null
-        }
-
-        this.forced_decoder_ids_mapping = Object.fromEntries(config.forced_decoder_ids ?? []);
     }
 
     async dispose() {
@@ -1840,21 +2054,179 @@ class PreTrainedModel extends Callable {
         throw Error("forward should be implemented in subclasses.")
     }
 
-    async generate(inputs, options = {}, inputs_attention_mask = null) {
+    /**
+     * @param {GenerationConfig} generation_config 
+     * @param {number} input_ids_seq_length 
+     * @returns {LogitsProcessorList}
+     */
+    _get_logits_processor(
+        generation_config,
+        input_ids_seq_length,
+        // encoder_input_ids, TODO
+        // prefix_allowed_tokens_fn, TODO
+        logits_processor = null
+    ) {
+        const processors = new LogitsProcessorList();
+
+        // if (generation_config.diversity_penalty !== null && generation_config.diversity_penalty > 0.0) {
+        //     processors.push(new HammingDiversityLogitsProcessor(
+        //         generation_config.diversity_penalty,
+        //         generation_config.num_beams,
+        //         generation_config.num_beam_groups
+        //     ));
+        // }
+
+        // if (generation_config.encoder_repetition_penalty !== null && generation_config.encoder_repetition_penalty !== 1.0) {
+        //     processors.push(new EncoderRepetitionPenaltyLogitsProcessor(
+        //         generation_config.encoder_repetition_penalty,
+        //         encoder_input_ids
+        //     ));
+        // }
+
+        // if (generation_config.repetition_penalty !== null && generation_config.repetition_penalty !== 1.0) {
+        //     processors.push(new RepetitionPenaltyLogitsProcessor(generation_config.repetition_penalty));
+        // }
+
+        // if (generation_config.no_repeat_ngram_size !== null && generation_config.no_repeat_ngram_size > 0) {
+        //     processors.push(new NoRepeatNGramLogitsProcessor(generation_config.no_repeat_ngram_size));
+        // }
+
+        // if (generation_config.encoder_no_repeat_ngram_size !== null && generation_config.encoder_no_repeat_ngram_size > 0) {
+        //     if (this.config.is_encoder_decoder) {
+        //         processors.push(new EncoderNoRepeatNGramLogitsProcessor(
+        //             generation_config.encoder_no_repeat_ngram_size,
+        //             encoder_input_ids
+        //         ));
+        //     } else {
+        //         throw new Error("It's impossible to use `encoder_no_repeat_ngram_size` with decoder-only architecture");
+        //     }
+        // }
+
+        // if (generation_config.bad_words_ids !== null) {
+        //     processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
+        // }
+
+        // if (generation_config.min_length !== null && generation_config.eos_token_id !== null && generation_config.min_length > 0) {
+        //     processors.push(new MinLengthLogitsProcessor(generation_config.min_length, generation_config.eos_token_id));
+        // }
+
+        // if (generation_config.min_new_tokens !== null && generation_config.eos_token_id !== null && generation_config.min_new_tokens > 0) {
+        //     processors.push(new MinNewTokensLengthLogitsProcessor(
+        //         input_ids_seq_length,
+        //         generation_config.min_new_tokens,
+        //         generation_config.eos_token_id
+        //     ));
+        // }
+
+        // if (prefix_allowed_tokens_fn !== null) {
+        //     processors.push(new PrefixConstrainedLogitsProcessor(
+        //         prefix_allowed_tokens_fn,
+        //         generation_config.num_beams / generation_config.num_beam_groups
+        //     ));
+        // }
+
+
+        if (generation_config.forced_bos_token_id !== null) {
+            processors.push(new ForcedBOSTokenLogitsProcessor(generation_config.forced_bos_token_id));
+        }
+
+        if (generation_config.forced_eos_token_id !== null) {
+            processors.push(new ForcedEOSTokenLogitsProcessor(
+                generation_config.max_length,
+                generation_config.forced_eos_token_id
+            ));
+        }
+
+        // if (generation_config.remove_invalid_values === true) {
+        //     processors.push(new InfNanRemoveLogitsProcessor());
+        // }
+
+        // if (generation_config.exponential_decay_length_penalty !== null) {
+        //     processors.push(new ExponentialDecayLengthPenalty(
+        //         generation_config.exponential_decay_length_penalty,
+        //         generation_config.eos_token_id,
+        //         input_ids_seq_length
+        //     ));
+        // }
+
+        // if (generation_config.suppress_tokens !== null) {
+        //     processors.push(new SuppressTokensLogitsProcessor(generation_config.suppress_tokens));
+        // }
+
+        // if (generation_config.begin_suppress_tokens !== null) {
+        //     let begin_index = input_ids_seq_length;
+        //     begin_index = (input_ids_seq_length > 1 || generation_config.forced_bos_token_id === null) ? begin_index : begin_index + 1;
+        //     if (generation_config.forced_decoder_ids !== null) {
+        //         begin_index += generation_config.forced_decoder_ids[generation_config.forced_decoder_ids.length - 1][0];
+        //     }
+        //     processors.push(new SuppressTokensAtBeginLogitsProcessor(generation_config.begin_suppress_tokens, begin_index));
+        // }
+
+        if (generation_config.forced_decoder_ids !== null) {
+            processors.push(new ForceTokensLogitsProcessor(generation_config.forced_decoder_ids));
+        }
+
+        if (logits_processor !== null) {
+            processors.extend(logits_processor)
+        }
+
+        // `LogitNormalization` should always be the last logit processor, when present
+        // if (generation_config.renormalize_logits === true) {
+        //     processors.push(new LogitNormalization());
+        // }
+
+        return processors;
+    }
+
+    _get_generation_config(generation_config) {
+        // Create empty generation config (contains defaults)
+        let gen_config = new GenerationConfig();
+
+        // Apply model's generation config
+        Object.assign(gen_config, this.generation_config);
+
+        // Finally, use any generation config specified by the user
+        // when calling `generate`
+        if (generation_config !== null) {
+            Object.assign(gen_config, generation_config);
+        }
+        return gen_config;
+    }
+    async generate(
+        inputs,
+        generation_config = null,
+        logits_processor = null,
+        {
+            inputs_attention_mask = null
+        } = {},
+    ) {
 
         if (inputs.length === 0) {
             throw Error("Must supply a non-empty array of input token ids.")
         }
 
-        options = this.prepareGenerationOptions(options);
+        // Update generation config with defaults
+        generation_config = this._get_generation_config(generation_config);
+
+        logits_processor = logits_processor ?? new LogitsProcessorList()
+
+        // TODO Update generation config
+        // this.generation_config
+
+        // Update logits processor
+        logits_processor = this._get_logits_processor(
+            generation_config,
+            inputs.length,
+            logits_processor
+        )
 
         // TODO implement early_stopping
         // https://huggingface.co/blog/how-to-generate
 
         let numOutputTokens = 1;
-        const maxOutputTokens = numOutputTokens + options.max_new_tokens;
+        const maxOutputTokens = numOutputTokens + (generation_config.max_new_tokens ?? Infinity);
 
-        let sampler = Sampler.getSampler(options);
+        let sampler = Sampler.getSampler(generation_config);
 
         let beams = this.getStartBeams(inputs, numOutputTokens, inputs_attention_mask);
 
@@ -1870,7 +2242,7 @@ class PreTrainedModel extends Callable {
                 }
 
                 let output = await this.runBeam(beam);
-                this.applyLogitsProcessors(output.logits, beam.output_token_ids.length);
+                logits_processor(beam.output_token_ids, output.logits)
 
                 let sampledTokens = sampler(output.logits);
 
@@ -1895,22 +2267,22 @@ class PreTrainedModel extends Callable {
             newest_beams = this.groupBeams(newest_beams).map(
                 group => group
                     .sort((a, b) => b.score - a.score)  // sort based on score
-                    .slice(0, options.num_beams)        // remove outside beam width
+                    .slice(0, generation_config.num_beams)        // remove outside beam width
             );
 
             // Flatten beams
             beams = newest_beams.flat();
 
             // Run callback
-            if (options.callback_function) {
-                options.callback_function(beams);
+            if (generation_config.callback_function) {
+                generation_config.callback_function(beams);
             }
         }
 
         return this.groupBeams(beams).map(
             batch => {
-                if (options.num_return_sequences > 1) {
-                    return batch.slice(0, options.num_return_sequences).map(x => x.output_token_ids);
+                if (generation_config.num_return_sequences > 1) {
+                    return batch.slice(0, generation_config.num_return_sequences).map(x => x.output_token_ids);
                 } else {
                     return [batch[0].output_token_ids];
                 }
@@ -1930,10 +2302,6 @@ class PreTrainedModel extends Callable {
 
         return Object.values(groups);
     }
-    prepareGenerationOptions(options) {
-        return Object.assign({}, this.default_generation_options, options)
-    }
-
     getPastKeyValues(decoderResults) {
         const pkvs = {};
 
@@ -1972,28 +2340,6 @@ class PreTrainedModel extends Callable {
             Object.assign(decoderFeeds, pastKeyValues)
         }
     }
-
-    applyLogitsProcessors(logits, index) {
-        // Apply logits processor to each item in the batch:
-        for (let batch of logits) {
-            // NOTE: In future, generalise this
-            //   - modifications affect original data 
-            //   - logits are of the shape [1, vocabSize]
-            let map = this.forced_decoder_ids_mapping[index];
-            if (exists(map)) { // There exists a mapping
-                batch.data.fill(-Infinity)
-                batch.data[map] = 0;
-            }
-
-            if (exists(this.generation_config) && exists(this.generation_config.forced_bos_token_id) && index === 1) {
-                batch.data.fill(-Infinity)
-                batch.data[this.generation_config.forced_bos_token_id] = 0;
-            }
-
-        }
-    }
-
-
 }
 //////////////////////////////////////////////////
 
@@ -2217,6 +2563,36 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         this.num_encoder_layers = this.config.encoder_layers;
         this.num_encoder_heads = this.config.encoder_attention_heads;
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+
+
+    }
+
+    async generate(
+        inputs,
+        generation_config = null,
+        logits_processor = null,
+    ) {
+        // Create generation config object
+        generation_config = this._get_generation_config(generation_config);
+
+
+        // Whisper has additional options for returning timestamps
+        generation_config.return_timestamps ??= false;
+
+        // TODO add language and task
+
+        if (generation_config.return_timestamps) {
+            logits_processor = [new WhisperTimeStampLogitsProcessor(generation_config)]
+        }
+
+
+
+        // Modify forced_decoder_ids_mapping. This is the way HF also does it,
+        // but it would probably be best to not modify the class' mapping, and
+        // rather create a copy?
+
+
+        return super.generate(inputs, generation_config, logits_processor)
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -2897,16 +3273,28 @@ class Text2TextGenerationPipeline extends Pipeline {
         if (!Array.isArray(texts)) {
             texts = [texts];
         }
-        // Add prefixes, if present
+
+        // Add global prefix, if present
+        if (this.model.config.prefix) {
+            texts = texts.map(x => this.model.config.prefix + x)
+        }
+
+        // Handle task specific params:
         let task_specific_params = this.model.config.task_specific_params
-        if (task_specific_params && task_specific_params[this.task] && task_specific_params[this.task].prefix) {
-            texts = texts.map(x => task_specific_params[this.task].prefix + x)
+        if (task_specific_params && task_specific_params[this.task]) {
+            // Add prefixes, if present
+            if (task_specific_params[this.task].prefix) {
+                texts = texts.map(x => task_specific_params[this.task].prefix + x)
+            }
+
+            // TODO update generation config
         }
 
         let input_ids = this.tokenizer(texts, {
             padding: true,
             truncation: true
         }).input_ids
+
         let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
 
         let toReturn = this.tokenizer.batch_decode(outputTokenIds, {
@@ -2945,7 +3333,9 @@ class TextGenerationPipeline extends Pipeline {
         let input_ids = inputs.input_ids;
         let attention_mask = inputs.attention_mask;
 
-        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, attention_mask);
+        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, null, {
+            inputs_attention_mask: attention_mask
+        });
 
         let toReturn = outputTokenIds.map((outTokens, i) => {
             let startText = texts[i].trim();
@@ -3039,11 +3429,16 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         return audio;
     }
 
-    async _call(audio, generate_kwargs = {}, {
-        chunk_length_s = 0,
-        stride_length_s = null,
-        return_chunks = false // Return chunk data in callback (in addition to beam info)
-    } = {}) {
+    async _call(audio, kwargs = {}) {
+        let return_timestamps = kwargs.return_timestamps ?? false;
+        let chunk_length_s = kwargs.chunk_length_s ?? 0;
+        let stride_length_s = kwargs.stride_length_s ?? null;
+        let return_chunks = kwargs.return_chunks ?? false; // Return chunk data in callback (in addition to beam info)
+
+        // TODO
+        // task = 'transcribe',
+        // language = 'en',
+
         let single = !Array.isArray(audio)
         if (single) {
             audio = [audio]
@@ -3099,22 +3494,29 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 }]
             }
 
+
+
             // Generate for each set of input features
             for (let chunk of chunks) {
                 // NOTE: doing sequentially for now
-                let data = await this.model.generate(chunk.input_features, generate_kwargs);
+                let data = await this.model.generate(chunk.input_features, kwargs);
+
 
                 // Get top beam
                 chunk.tokens = data[0].flat()
 
-                if (return_chunks && generate_kwargs.callback_function) {
-                    generate_kwargs.callback_function(chunk)
+                // convert stride to seconds
+                chunk.stride = chunk.stride.map(x => x / sampling_rate);
+
+                if (return_chunks && kwargs.callback_function) {
+                    kwargs.callback_function(chunk)
                 }
             }
 
             // Merge text chunks
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
-                time_precision: time_precision
+                time_precision: time_precision,
+                return_timestamps: return_timestamps
             });
 
             toReturn.push({ 'text': full_text, ...optional })
@@ -4793,7 +5195,7 @@ class ByteLevelPreTokenizer extends PreTokenizer {
 
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
-        return text.trim().match(this.pattern) || [];
+        return text.match(this.pattern) || [];
     }
 }
 
@@ -4968,6 +5370,13 @@ class ByteLevelDecoder extends Decoder {
 
     convert_tokens_to_string(tokens) {
         let text = tokens.join('');
+
+        if (this.config.trim_offsets) {
+            text = text.trim();
+        } else if (this.config.add_prefix_space) {
+            text = ' ' + text;
+        }
+
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
@@ -5380,7 +5789,7 @@ class PreTrainedTokenizer extends Callable {
                 // Ignore special tokens
                 return x
             } else {
-                if (this.remove_space) {
+                if (this.remove_space === true) {
                     // remove_space
                     x = x.trim().split(/\s+/).join(' ')
                 }
@@ -5599,14 +6008,11 @@ class WhisperTokenizer extends PreTrainedTokenizer {
     _decode_asr(sequences, {
         return_timestamps = false,
         return_language = false,
-        time_precision = null
+        time_precision = null,
+        force_full_sequences = true
     } = {}) {
-        // TODO add support for `return_timestamps` and `return_language`
-
-        if (time_precision === null) {
-            throw Error("Must specify time_precision")
-        }
-
+        // Set force_full_sequences=false if you want streaming
+        // TODO add support for `return_language`
 
         // Internal method meant to only be used by asr pipeline.
         // Handles all the little quirks specific to whisper to handle
@@ -5624,6 +6030,9 @@ class WhisperTokenizer extends PreTrainedTokenizer {
         // - We split on end timestamps
         // - Lots of complexity comes from stride and timestamps
 
+        if (time_precision === null) {
+            throw Error("Must specify time_precision")
+        }
         let last_language = null;
 
         function new_chunk() {
@@ -5644,6 +6053,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
         const all_special_ids = new Set(this.all_special_ids);
 
         for (let output of sequences) {
+            // NOTE: python version has batches, so it uses [0]
             const token_ids = output.tokens;
 
             // These keep track of timestamps within strides, which need
@@ -5667,7 +6077,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                 }
 
                 if (stride_right) {
-                    for (let i = token_ids.length - 1; i >= 0; i--) {
+                    for (let i = token_ids.length - 1; i >= 0; --i) {
                         const token = token_ids[i];
                         if (token >= timestamp_begin) {
                             // There can be several token in the right stride
@@ -5730,7 +6140,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                         // Skip is necessary because timestamp tokens always come
                         // by pair, so we need to skip the next one too (which would mark the start of another chunk).
                         skip = true;
-                    } else if (skip || (previous_tokens.length && token < first_timestamp)) {
+                    } else if (skip || (previous_tokens.length > 0 && token < first_timestamp)) {
                         skip = false;
                     } else if (chunk.timestamp[0] === null) {
                         chunk.timestamp[0] = rounded_time;
@@ -5774,9 +6184,9 @@ class WhisperTokenizer extends PreTrainedTokenizer {
             }
 
             // Leftover tokens
-            if (current_tokens) {
+            if (current_tokens.length > 0) {
                 previous_tokens.push(current_tokens)
-            } else if (previous_tokens.all(p => !p)) {
+            } else if (previous_tokens.every(p => p.length === 0)) {
                 // Flushing previous tokens (END)"
                 chunk = new_chunk()
                 previous_tokens = []
@@ -5786,7 +6196,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
         }
 
         if (previous_tokens.length > 0) {
-            if (return_timestamps) {
+            if (force_full_sequences && return_timestamps) {
                 // Last token should always be timestamps, so there shouldn't be
                 // leftover
                 throw new Error("There was an error while processing timestamps, we haven't found a timestamp as last token.");
