@@ -460,7 +460,7 @@ function getTopItems(items, top_k = 0) {
   // if top == 0, return all
 
   items = Array.from(items)
-    .map((x, i) => [i, x]) // Get indices ([index, score])
+    .map((x, i) => [i, x])        // Get indices ([index, score])
     .sort((a, b) => b[1] - a[1]); // Sort by log probabilities
 
   if (top_k > 0) {
@@ -521,8 +521,6 @@ function magnitude(arr) {
 class Callable extends Function {
   /**
    * Creates a new instance of the Callable class.
-   *
-   * @constructor
    */
   constructor() {
     let closure = function (...args) {
@@ -535,8 +533,8 @@ class Callable extends Function {
    * This method should be implemented in subclasses to provide the
    * functionality of the callable object.
    *
-   * @method _call
    * @throws {Error} Must implement _call method in subclass
+   * @param {...*} args
    */
   _call(...args) {
     throw Error("Must implement _call method in subclass");

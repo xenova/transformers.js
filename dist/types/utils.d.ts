@@ -5,20 +5,18 @@
  * @extends Function
  */
 export class Callable extends Function {
-  /**
-   * Creates a new instance of the Callable class.
-   *
-   * @constructor
-   */
-  constructor();
-  /**
-   * This method should be implemented in subclasses to provide the
-   * functionality of the callable object.
-   *
-   * @method _call
-   * @throws {Error} Must implement _call method in subclass
-   */
-  _call(...args: any[]): void;
+    /**
+     * Creates a new instance of the Callable class.
+     */
+    constructor();
+    /**
+     * This method should be implemented in subclasses to provide the
+     * functionality of the callable object.
+     *
+     * @throws {Error} Must implement _call method in subclass
+     * @param {...*} args
+     */
+    _call(...args: any[]): void;
 }
 /**
  * Retrieves a file from either a remote URL using the Fetch API or from the local file system using the FileSystem API.
@@ -31,11 +29,7 @@ export class Callable extends Function {
  * @returns {Promise} A Promise that resolves with the file content as a buffer.
  * @throws Will throw an error if the file is not found.
  */
-export function getModelFile(
-  modelPath: string,
-  fileName: string,
-  progressCallback?: Function
-): Promise<any>;
+export function getModelFile(modelPath: string, fileName: string, progressCallback?: Function, fatal?: boolean): Promise<any>;
 /**
  * Helper function to dispatch progress callbacks.
  *
@@ -53,11 +47,7 @@ export function dispatchCallback(progressCallback: Function, data: any): void;
  * @param {function} progressCallback - A callback function to receive progress updates. Optional.
  * @returns {Promise<object>} - The JSON data parsed into a JavaScript object.
  */
-export function fetchJSON(
-  modelPath: string,
-  fileName: string,
-  progressCallback?: Function
-): Promise<object>;
+export function fetchJSON(modelPath: string, fileName: string, progressCallback?: Function, fatal?: boolean): Promise<object>;
 /**
  * Joins multiple parts of a path into a single path, while handling leading and trailing slashes.
  *
@@ -150,60 +140,61 @@ export function isIntegralNumber(x: any): boolean;
  * @returns {boolean} - True if the value is a string, false otherwise.
  */
 export function isString(text: any): boolean;
+export function exists(x: any): boolean;
 declare class FileResponse {
-  /**
-   * @param {string} filePath
-   */
-  constructor(filePath: string);
-  filePath: string;
-  headers: {};
-  exists: boolean;
-  status: number;
-  statusText: string;
-  body: ReadableStream<any>;
-  /**
-   * Updates the 'content-type' header property of the HTTP response based on the file extension of
-   * the file specified by the filePath property of the current object.
-   * @function
-   * @returns {void}
-   */
-  updateContentType(): void;
-  clone(): FileResponse;
-  /**
-   * Reads the contents of the file specified by the filePath property and returns a Promise that
-   * resolves with an ArrayBuffer containing the file's contents.
-   * @async
-   * @function
-   * @returns {Promise<ArrayBuffer>} - A Promise that resolves with an ArrayBuffer containing the file's contents.
-   * @throws {Error} - If the file cannot be read.
-   */
-  arrayBuffer(): Promise<ArrayBuffer>;
-  /**
-   * Reads the contents of the file specified by the filePath property and returns a Promise that
-   * resolves with a Blob containing the file's contents.
-   * @async
-   * @function
-   * @returns {Promise<Blob>} - A Promise that resolves with a Blob containing the file's contents.
-   * @throws {Error} - If the file cannot be read.
-   */
-  blob(): Promise<Blob>;
-  /**
-   * Reads the contents of the file specified by the filePath property and returns a Promise that
-   * resolves with a string containing the file's contents.
-   * @async
-   * @function
-   * @returns {Promise<string>} - A Promise that resolves with a string containing the file's contents.
-   * @throws {Error} - If the file cannot be read.
-   */
-  text(): Promise<string>;
-  /**
-   * Reads the contents of the file specified by the filePath property and returns a Promise that
-   * resolves with a parsed JavaScript object containing the file's contents.
-   * @async
-   * @function
-   * @returns {Promise<object>} - A Promise that resolves with a parsed JavaScript object containing the file's contents.
-   * @throws {Error} - If the file cannot be read.
-   */
-  json(): Promise<object>;
+    /**
+     * @param {string} filePath
+     */
+    constructor(filePath: string);
+    filePath: string;
+    headers: {};
+    exists: boolean;
+    status: number;
+    statusText: string;
+    body: ReadableStream<any>;
+    /**
+     * Updates the 'content-type' header property of the HTTP response based on the file extension of
+     * the file specified by the filePath property of the current object.
+     * @function
+     * @returns {void}
+     */
+    updateContentType(): void;
+    clone(): FileResponse;
+    /**
+     * Reads the contents of the file specified by the filePath property and returns a Promise that
+     * resolves with an ArrayBuffer containing the file's contents.
+     * @async
+     * @function
+     * @returns {Promise<ArrayBuffer>} - A Promise that resolves with an ArrayBuffer containing the file's contents.
+     * @throws {Error} - If the file cannot be read.
+     */
+    arrayBuffer(): Promise<ArrayBuffer>;
+    /**
+     * Reads the contents of the file specified by the filePath property and returns a Promise that
+     * resolves with a Blob containing the file's contents.
+     * @async
+     * @function
+     * @returns {Promise<Blob>} - A Promise that resolves with a Blob containing the file's contents.
+     * @throws {Error} - If the file cannot be read.
+     */
+    blob(): Promise<Blob>;
+    /**
+     * Reads the contents of the file specified by the filePath property and returns a Promise that
+     * resolves with a string containing the file's contents.
+     * @async
+     * @function
+     * @returns {Promise<string>} - A Promise that resolves with a string containing the file's contents.
+     * @throws {Error} - If the file cannot be read.
+     */
+    text(): Promise<string>;
+    /**
+     * Reads the contents of the file specified by the filePath property and returns a Promise that
+     * resolves with a parsed JavaScript object containing the file's contents.
+     * @async
+     * @function
+     * @returns {Promise<object>} - A Promise that resolves with a parsed JavaScript object containing the file's contents.
+     * @throws {Error} - If the file cannot be read.
+     */
+    json(): Promise<object>;
 }
 export {};
