@@ -2,9 +2,9 @@ export class Callable extends Function {
     constructor();
     _call(...args: any[]): void;
 }
-export function getModelFile(modelPath: any, fileName: any, progressCallback?: any): Promise<Uint8Array>;
+export function getModelFile(modelPath: any, fileName: any, progressCallback?: any, fatal?: boolean): Promise<Uint8Array>;
 export function dispatchCallback(progressCallback: any, data: any): void;
-export function fetchJSON(modelPath: any, fileName: any, progressCallback?: any): Promise<any>;
+export function fetchJSON(modelPath: any, fileName: any, progressCallback?: any, fatal?: boolean): Promise<any>;
 export function pathJoin(...parts: any[]): string;
 export function reverseDictionary(data: any): any;
 export function indexOfMax(arr: any): number;
@@ -18,6 +18,7 @@ export function magnitude(arr: any): number;
 export function getFile(url: any): Promise<Response | FileResponse>;
 export function isIntegralNumber(x: any): boolean;
 export function isString(text: any): boolean;
+export function exists(x: any): boolean;
 declare class FileResponse {
     /**
      * @param {string} filePath

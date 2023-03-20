@@ -1,11 +1,16 @@
 export class AutoModel {
-    static from_pretrained(modelPath: any, progressCallback?: any): Promise<PreTrainedModel | T5Model | GPT2Model | CodeGenModel | BartModel | WhisperModel>;
+    static from_pretrained(modelPath: any, progressCallback?: any): Promise<PreTrainedModel | T5Model | BartModel | WhisperModel | GPT2Model | CodeGenModel>;
 }
 export class AutoModelForSeq2SeqLM {
-    static from_pretrained(modelPath: any, progressCallback?: any): Promise<T5ForConditionalGeneration | BartForConditionalGeneration | WhisperForConditionalGeneration>;
+    static modelClassMapping: {
+        t5: typeof T5ForConditionalGeneration;
+        bart: typeof BartForConditionalGeneration;
+        whisper: typeof WhisperForConditionalGeneration;
+    };
+    static from_pretrained(modelPath: any, progressCallback?: any): Promise<any>;
 }
 export class AutoModelForSequenceClassification {
-    static from_pretrained(modelPath: any, progressCallback?: any): Promise<BertForSequenceClassification | AlbertForSequenceClassification | DistilBertForSequenceClassification | RobertaForSequenceClassification>;
+    static from_pretrained(modelPath: any, progressCallback?: any): Promise<BertForSequenceClassification | DistilBertForSequenceClassification | AlbertForSequenceClassification | RobertaForSequenceClassification>;
 }
 export class AutoModelForCausalLM {
     static from_pretrained(modelPath: any, progressCallback?: any): Promise<GPT2LMHeadModel | CodeGenForCausalLM>;
@@ -14,7 +19,7 @@ export class AutoModelForMaskedLM {
     static from_pretrained(modelPath: any, progressCallback?: any): Promise<PreTrainedModel>;
 }
 export class AutoModelForQuestionAnswering {
-    static from_pretrained(modelPath: any, progressCallback?: any): Promise<BertForQuestionAnswering | AlbertForQuestionAnswering | DistilBertForQuestionAnswering | RobertaForQuestionAnswering>;
+    static from_pretrained(modelPath: any, progressCallback?: any): Promise<BertForQuestionAnswering | DistilBertForQuestionAnswering | AlbertForQuestionAnswering | RobertaForQuestionAnswering>;
 }
 export class AutoModelForVision2Seq {
     static from_pretrained(modelPath: any, progressCallback?: any): Promise<VisionEncoderDecoderModel>;
@@ -24,8 +29,9 @@ export class AutoModelForImageClassification {
 }
 export class T5ForConditionalGeneration extends T5PreTrainedModel {
     static from_pretrained(modelPath: any, progressCallback?: any): Promise<T5ForConditionalGeneration>;
-    constructor(config: any, session: any, decoder_merged_session: any);
+    constructor(config: any, session: any, decoder_merged_session: any, generation_config: any);
     decoder_merged_session: any;
+    generation_config: any;
     num_decoder_layers: any;
     num_decoder_heads: any;
     decoder_dim_kv: any;
@@ -50,36 +56,25 @@ declare class PreTrainedModel extends Callable {
     constructor(config: any, session: any);
     config: any;
     session: any;
-    default_generation_options: {
-        max_new_tokens: number;
-        top_k: number;
-        num_beams: number;
-        temperature: number;
-        num_return_sequences: number;
-        early_stopping: boolean;
-        do_sample: boolean;
-        callback_function: any;
-    };
-    forced_decoder_ids_mapping: {
-        [k: string]: any;
-    };
     dispose(): Promise<any[]>;
     toI64Tensor(items: any): Tensor;
     _call(model_inputs: any): Promise<any>;
     forward(model_inputs: any): Promise<void>;
-    generate(inputs: any, options?: {}, inputs_attention_mask?: any): Promise<any[]>;
+    /**
+     * @param {GenerationConfig} generation_config
+     * @param {number} input_ids_seq_length
+     * @returns {LogitsProcessorList}
+     */
+    _get_logits_processor(generation_config: GenerationConfig, input_ids_seq_length: number, logits_processor?: any): LogitsProcessorList;
+    _get_generation_config(generation_config: any): GenerationConfig;
+    generate(inputs: any, generation_config?: any, logits_processor?: any, { inputs_attention_mask }?: {
+        inputs_attention_mask?: any;
+    }): Promise<any[]>;
     groupBeams(beams: any): any[];
-    prepareGenerationOptions(options: any): any;
     getPastKeyValues(decoderResults: any): {};
     addPastKeyValues(decoderFeeds: any, pastKeyValues: any, hasDecoder?: boolean): void;
 }
 declare class T5Model extends T5PreTrainedModel {
-    generate(...args: any[]): Promise<void>;
-}
-declare class GPT2Model extends GPT2PreTrainedModel {
-    generate(...args: any[]): Promise<void>;
-}
-declare class CodeGenModel extends CodeGenPreTrainedModel {
     generate(...args: any[]): Promise<void>;
 }
 declare class BartModel extends BartPretrainedModel {
@@ -88,10 +83,17 @@ declare class BartModel extends BartPretrainedModel {
 declare class WhisperModel extends WhisperPreTrainedModel {
     generate(...args: any[]): Promise<void>;
 }
+declare class GPT2Model extends GPT2PreTrainedModel {
+    generate(...args: any[]): Promise<void>;
+}
+declare class CodeGenModel extends CodeGenPreTrainedModel {
+    generate(...args: any[]): Promise<void>;
+}
 declare class BartForConditionalGeneration extends BartPretrainedModel {
     static from_pretrained(modelPath: any, progressCallback?: any): Promise<BartForConditionalGeneration>;
-    constructor(config: any, session: any, decoder_merged_session: any);
+    constructor(config: any, session: any, decoder_merged_session: any, generation_config: any);
     decoder_merged_session: any;
+    generation_config: any;
     num_decoder_layers: any;
     num_decoder_heads: any;
     decoder_dim_kv: number;
@@ -113,14 +115,16 @@ declare class BartForConditionalGeneration extends BartPretrainedModel {
 }
 declare class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     static from_pretrained(modelPath: any, progressCallback?: any): Promise<WhisperForConditionalGeneration>;
-    constructor(config: any, session: any, decoder_merged_session: any);
+    constructor(config: any, session: any, decoder_merged_session: any, generation_config: any);
     decoder_merged_session: any;
+    generation_config: any;
     num_decoder_layers: any;
     num_decoder_heads: any;
     decoder_dim_kv: number;
     num_encoder_layers: any;
     num_encoder_heads: any;
     encoder_dim_kv: number;
+    generate(inputs: any, generation_config?: any, logits_processor?: any): Promise<any[]>;
     getStartBeams(inputTokenIds: any, numOutputTokens: any, ...args: any[]): {
         inputs: any;
         encoder_outputs: any;
@@ -137,10 +141,10 @@ declare class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 declare class BertForSequenceClassification extends BertPreTrainedModel {
     _call(model_inputs: any): Promise<SequenceClassifierOutput>;
 }
-declare class AlbertForSequenceClassification extends AlbertPreTrainedModel {
+declare class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
     _call(model_inputs: any): Promise<SequenceClassifierOutput>;
 }
-declare class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
+declare class AlbertForSequenceClassification extends AlbertPreTrainedModel {
     _call(model_inputs: any): Promise<SequenceClassifierOutput>;
 }
 declare class RobertaForSequenceClassification extends RobertaPreTrainedModel {
@@ -193,10 +197,10 @@ declare class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 declare class BertForQuestionAnswering extends BertPreTrainedModel {
     _call(model_inputs: any): Promise<QuestionAnsweringModelOutput>;
 }
-declare class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
+declare class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
     _call(model_inputs: any): Promise<QuestionAnsweringModelOutput>;
 }
-declare class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
+declare class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
     _call(model_inputs: any): Promise<QuestionAnsweringModelOutput>;
 }
 declare class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
@@ -235,13 +239,15 @@ declare class Seq2SeqLMOutput {
 }
 import { Callable } from "./utils.js";
 import { Tensor } from "./tensor_utils.js";
-declare class GPT2PreTrainedModel extends PreTrainedModel {
-}
-declare class CodeGenPreTrainedModel extends PreTrainedModel {
-}
+import { GenerationConfig } from "./generation.js";
+import { LogitsProcessorList } from "./generation.js";
 declare class BartPretrainedModel extends PreTrainedModel {
 }
 declare class WhisperPreTrainedModel extends PreTrainedModel {
+}
+declare class GPT2PreTrainedModel extends PreTrainedModel {
+}
+declare class CodeGenPreTrainedModel extends PreTrainedModel {
 }
 declare class BertPreTrainedModel extends PreTrainedModel {
 }
@@ -249,9 +255,9 @@ declare class SequenceClassifierOutput {
     constructor(logits: any);
     logits: any;
 }
-declare class AlbertPreTrainedModel extends PreTrainedModel {
-}
 declare class DistilBertPreTrainedModel extends PreTrainedModel {
+}
+declare class AlbertPreTrainedModel extends PreTrainedModel {
 }
 declare class RobertaPreTrainedModel extends PreTrainedModel {
 }
