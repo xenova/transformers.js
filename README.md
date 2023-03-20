@@ -93,6 +93,10 @@ env.remoteModels = false;
 
 // Set parent path of .wasm files. Defaults to use a CDN.
 env.onnx.wasm.wasmPaths = '/path/to/files/';
+
+#### Node.js
+
+This project uses `onnxruntime-web` as default backend. However if you add the `onnxruntime-node` dependency it will preferred over the web backend. `onnxruntime-node` is nearly 5X faster than WASM executor provider probably due to [this issue](https://github.com/microsoft/onnxruntime/issues/10311).
 ```
 
 ## Usage
