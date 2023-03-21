@@ -406,6 +406,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         let chunk_length_s = kwargs.chunk_length_s ?? 0;
         let stride_length_s = kwargs.stride_length_s ?? null;
         let return_chunks = kwargs.return_chunks ?? false; // Return chunk data in callback (in addition to beam info)
+        let force_full_sequences = kwargs.force_full_sequences ?? false;
 
         // TODO
         // task = 'transcribe',
@@ -488,10 +489,11 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
             // Merge text chunks
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
                 time_precision: time_precision,
-                return_timestamps: return_timestamps
+                return_timestamps: return_timestamps,
+                force_full_sequences: force_full_sequences
             });
 
-            toReturn.push({ 'text': full_text, ...optional })
+            toReturn.push({ text: full_text, ...optional })
         }
         return single ? toReturn[0] : toReturn;
     }
