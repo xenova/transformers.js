@@ -81,7 +81,7 @@ declare class PreTrainedTokenizer extends Callable {
         max_length?: any;
         return_tensor?: boolean;
     }): {
-        input_ids: Tensor | number[][];
+        input_ids: number[][] | Tensor;
         attention_mask: any[];
     };
     /**

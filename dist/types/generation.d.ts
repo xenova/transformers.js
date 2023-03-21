@@ -1,15 +1,82 @@
+/**
+ * Base class for processing logits.
+ * @extends Callable
+ */
 export class LogitsProcessor extends Callable {
-    _call(input_ids: any, logits: any): void;
+    /**
+     * Apply the processor to the input logits.
+     *
+     * @abstract
+     * @param {Array} input_ids The input ids.
+     * @param {Array} logits The logits to process.
+     * @throws {Error} Throws an error if `_call` is not implemented in the subclass.
+     */
+    _call(input_ids: any[], logits: any[]): void;
 }
+/**
+ * A class representing a list of logits processors. A logits processor is a function that modifies the logits
+ * output of a language model. This class provides methods for adding new processors and applying all processors to a
+ * batch of logits.
+ *
+ * @extends Callable
+ */
 export class LogitsProcessorList extends Callable {
     processors: any[];
-    push(item: any): void;
-    extend(items: any): void;
-    _call(input_ids: any, batchedLogits: any): void;
+    /**
+     * Adds a new logits processor to the list.
+     *
+     * @param {function} item - The logits processor function to add.
+     */
+    push(item: Function): void;
+    /**
+     * Adds multiple logits processors to the list.
+     *
+     * @param {Array<function>} items - The logits processor functions to add.
+     */
+    extend(items: Array<Function>): void;
+    /**
+     * Applies all logits processors in the list to a batch of logits, modifying them in-place.
+     *
+     * @param {Array<number>} input_ids - The input IDs for the language model.
+     * @param {Array<Array<number>>} batchedLogits - A 2D array of logits, where each row corresponds to a single
+     *                                                input sequence in the batch.
+     */
+    _call(input_ids: Array<number>, batchedLogits: Array<Array<number>>): void;
     [Symbol.iterator](): IterableIterator<any>;
 }
 export class GenerationConfig {
     constructor(kwargs?: {});
+    /**
+     * Create a GenerationConfig object
+     * @constructor
+     * @param {Object} [kwargs={}] - The configuration parameters
+     * @param {number} [kwargs.max_length=20] - The maximum length of the generated text
+     * @param {number} [kwargs.max_new_tokens=null] - The maximum number of new tokens to generate
+     * @param {number} [kwargs.min_length=0] - The minimum length of the generated text
+     * @param {number} [kwargs.min_new_tokens=null] - The minimum number of new tokens to generate
+     * @param {boolean} [kwargs.early_stopping=false] - Whether to stop generation early if a stop token is encountered
+     * @param {number} [kwargs.max_time=null] - The maximum amount of time to spend generating text
+     * @param {boolean} [kwargs.do_sample=false] - Whether to use sampling when generating text
+     * @param {number} [kwargs.num_beams=1] - The number of beams to use when generating text
+     * @param {number} [kwargs.num_beam_groups=1] - The number of beam groups to use when generating text
+     * @param {number} [kwargs.penalty_alpha=null] - The value of the alpha penalty to use when generating text
+     * @param {boolean} [kwargs.use_cache=true] - Whether to use cache when generating text
+     * @param {number} [kwargs.temperature=1.0] - The temperature to use when generating text
+     * @param {number} [kwargs.top_k=50] - The value of k to use when generating text
+     * @param {number} [kwargs.top_p=1.0] - The value of p to use when generating text
+     * @param {number} [kwargs.typical_p=1.0] - The typical value of p to use when generating text
+     * @param {number} [kwargs.epsilon_cutoff=0.0] - The value of epsilon cutoff to use when generating text
+     * @param {number} [kwargs.eta_cutoff=0.0] - The value of eta cutoff to use when generating text
+     * @param {number} [kwargs.diversity_penalty=0.0] - The value of diversity penalty to use when generating text
+     * @param {number} [kwargs.repetition_penalty=1.0] - The value of repetition penalty to use when generating text
+     * @param {number} [kwargs.encoder_repetition_penalty=1.0] - The value of encoder repetition penalty to use when generating text
+     * @param {number} [kwargs.length_penalty=1.0] - The value of length
+     * @param {number} [kwargs.no_repeat_ngram_size=0] - The size of the n-grams to avoid repeating in the generated output.
+     * @param {?Array<number>} [kwargs.bad_words_ids=null] - An array of IDs representing tokens that should not be generated.
+     * @param {?Array<number>} [kwargs.force_words_ids=null] - An array of IDs representing tokens that must be generated.
+     * @param {boolean} [kwargs.renormalize_logits=false] - Whether or not to renormalize the logits before generating new tokens.
+     * @param {?Array<Object>} [kwargs.constraints=null] - An array of constraint objects to apply during generation.
+     */
     max_length: any;
     max_new_tokens: any;
     min_length: any;
@@ -55,26 +122,93 @@ export class GenerationConfig {
     decoder_start_token_id: any;
     generation_kwargs: any;
 }
+/**
+ * A LogitsProcessor that forces a BOS token at the beginning of the generated sequence.
+ * @extends LogitsProcessor
+ */
 export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
-    constructor(bos_token_id: any);
-    bos_token_id: any;
+    /**
+     * Create a ForcedBOSTokenLogitsProcessor.
+     * @param {number} bos_token_id - The ID of the beginning-of-sequence token to be forced.
+     */
+    constructor(bos_token_id: number);
+    bos_token_id: number;
+    /**
+     * Apply the BOS token forcing to the logits.
+     * @param {Array} input_ids - The input IDs.
+     * @param {Object} logits - The logits.
+     * @returns {Object} The logits with BOS token forcing.
+     */
+    _call(input_ids: any[], logits: any): any;
 }
+/**
+ * A logits processor that forces end-of-sequence token probability to 1.
+ *
+ * @extends LogitsProcessor
+ */
 export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
+    /**
+     * Apply the processor to input_ids and logits.
+     *
+     * @param {number[]} input_ids - The input ids.
+     * @param {any} logits - The logits tensor.
+     */
+    _call(input_ids: number[], logits: any): void;
 }
+/**
+ * A LogitsProcessor that handles adding timestamps to generated text.
+ * @extends LogitsProcessor
+ */
 export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
-    constructor(generate_config: any);
-    eos_token_id: any;
-    no_timestamps_token_id: any;
-    timestamp_begin: any;
-    begin_index: any;
-    max_initial_timestamp_index: any;
-    _call(input_ids: any, logits: any): any;
+    /**
+     * Constructs a new WhisperTimeStampLogitsProcessor.
+     * @param {object} generate_config - The config object passed to the `generate()` method of a transformer model.
+     * @param {number} generate_config.eos_token_id - The ID of the end-of-sequence token.
+     * @param {number} generate_config.no_timestamps_token_id - The ID of the token used to indicate that a token should not have a timestamp.
+     * @param {Array<Array<number>>} [generate_config.forced_decoder_ids] - An array of two-element arrays representing decoder IDs that are forced to appear in the output. The second element of each array indicates whether the token is a timestamp.
+     * @param {number} [generate_config.max_initial_timestamp_index] - The maximum index at which an initial timestamp can appear.
+     */
+    constructor(generate_config: {
+        eos_token_id: number;
+        no_timestamps_token_id: number;
+        forced_decoder_ids?: Array<Array<number>>;
+        max_initial_timestamp_index?: number;
+    });
+    eos_token_id: number;
+    no_timestamps_token_id: number;
+    timestamp_begin: number;
+    begin_index: number;
+    max_initial_timestamp_index: number;
+    /**
+     * Modify the logits to handle timestamp tokens.
+     * @param {Array} input_ids - The input sequence of tokens.
+     * @param {any} logits - The logits output by the model.
+     * @returns {Array} - The modified logits.
+     */
+    _call(input_ids: any[], logits: any): any[];
 }
+/**
+ * A logits processor that forces a specific token to be generated by the decoder.
+ *
+ * @extends LogitsProcessor
+ */
 export class ForceTokensLogitsProcessor extends LogitsProcessor {
-    constructor(forced_decoder_ids: any);
+    /**
+     * Constructs a new instance of `ForceTokensLogitsProcessor`.
+     *
+     * @param {Array} forced_decoder_ids The ids of tokens that should be forced.
+     */
+    constructor(forced_decoder_ids: any[]);
     force_token_map: {
         [k: string]: any;
     };
-    _call(input_ids: any, logits: any): any;
+    /**
+     * Apply the processor to the input logits.
+     *
+     * @param {Array} input_ids The input ids.
+     * @param {any} logits The logits to process.
+     * @returns {Array} The processed logits.
+     */
+    _call(input_ids: any[], logits: any): any[];
 }
 import { Callable } from "./utils.js";
