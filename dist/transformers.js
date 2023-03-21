@@ -3111,6 +3111,8 @@ const {
     env
 } = __webpack_require__(/*! ./env.js */ "./src/env.js");
 
+const { Tensor } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js");
+
 
 class Pipeline extends Callable {
     constructor(task, tokenizer, model) {
@@ -3356,17 +3358,68 @@ class TextGenerationPipeline extends Pipeline {
 
 
 class EmbeddingsPipeline extends Pipeline {
+    // Should only be used with sentence-transformers
+    // If you want to get the raw outputs from the model,
+    // use `AutoModel.from_pretrained(...)`
+
+    _mean_pooling(last_hidden_state, attention_mask) {
+        // last_hidden_state: [batchSize, seqLength, embedDim]
+        // attention_mask:    [batchSize, seqLength]
+
+        let shape = [last_hidden_state.dims[0], last_hidden_state.dims[2]];
+        let returnedData = new last_hidden_state.data.constructor(shape[0] * shape[1])
+        let [batchSize, seqLength, embedDim] = last_hidden_state.dims;
+
+        let outIndex = 0;
+        for (let i = 0; i < batchSize; ++i) {
+            let offset = i * embedDim * seqLength;
+
+            for (let k = 0; k < embedDim; ++k) {
+                let sum = 0;
+                let count = 0;
+
+                let attnMaskOffset = i * seqLength;
+                let offset2 = offset + k;
+                // Pool over all words in sequence
+                for (let j = 0; j < seqLength; ++j) {
+                    // index into attention mask
+                    let attn = Number(attention_mask.data[attnMaskOffset + j]);
+
+                    count += attn;
+                    sum += last_hidden_state.data[offset2 + j * embedDim] * attn;
+                }
+
+                let avg = sum / count;
+                returnedData[outIndex++] = avg;
+            }
+        }
+
+        return new Tensor(
+            last_hidden_state.type,
+            returnedData,
+            shape
+        )
+    }
+
+    _normalize(tensor) {
+        // Normalise tensors along dim=1
+        // NOTE: only works for tensors of shape [batchSize, embedDim]
+        // Operates in-place
+        for (let batch of tensor) {
+            let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b))
+
+            for (let i = 0; i < batch.data.length; ++i) {
+                batch.data[i] /= norm;
+            }
+        }
+        return tensor;
+    }
+
     async _call(texts) {
         let [inputs, outputs] = await super._call(texts);
 
-        // Get embedding from outputs. This is typically indexed with some number.
-        delete outputs['last_hidden_state'];
-        let embeddingsTensor = Object.values(outputs)[0];
-
-        // TODO - return as tensor?
-        let embeddings = reshape(embeddingsTensor.data, embeddingsTensor.dims);
-
-        return embeddings
+        // Perform mean pooling, followed by a normalization step
+        return this._normalize(this._mean_pooling(outputs.last_hidden_state, inputs.attention_mask));
     }
 
     cos_sim(arr1, arr2) {
@@ -3862,33 +3915,6 @@ async function pipeline(
 
 }
 
-function reshape(data, dimensions) {
-
-    const totalElements = data.length;
-    const dimensionSize = dimensions.reduce((a, b) => a * b);
-
-    if (totalElements !== dimensionSize) {
-        throw Error(`cannot reshape array of size ${totalElements} into shape (${dimensions})`);
-    }
-
-    let reshapedArray = data;
-
-    for (let i = dimensions.length - 1; i >= 0; i--) {
-        reshapedArray = reshapedArray.reduce((acc, val) => {
-            let lastArray = acc[acc.length - 1];
-
-            if (lastArray.length < dimensions[i]) {
-                lastArray.push(val);
-            } else {
-                acc.push([val]);
-            }
-
-            return acc;
-        }, [[]]);
-    }
-
-    return reshapedArray[0];
-}
 
 function product(...a) {
     // Cartesian product of items
@@ -4624,7 +4650,41 @@ class Tensor extends ONNX.Tensor {
         return new Tensor(this.type, data, iterDims);
     }
 
+    tolist() {
+        // Convert tensor data to a n-dimensional JS list
+        return reshape(this.data, this.dims)
+    }
+
     // TODO add .slice()
+}
+
+
+function reshape(data, dimensions) {
+
+    const totalElements = data.length;
+    const dimensionSize = dimensions.reduce((a, b) => a * b);
+
+    if (totalElements !== dimensionSize) {
+        throw Error(`cannot reshape array of size ${totalElements} into shape (${dimensions})`);
+    }
+
+    let reshapedArray = data;
+
+    for (let i = dimensions.length - 1; i >= 0; i--) {
+        reshapedArray = reshapedArray.reduce((acc, val) => {
+            let lastArray = acc[acc.length - 1];
+
+            if (lastArray.length < dimensions[i]) {
+                lastArray.push(val);
+            } else {
+                acc.push([val]);
+            }
+
+            return acc;
+        }, [[]]);
+    }
+
+    return reshapedArray[0];
 }
 
 function transpose(tensor, axes) {
@@ -4687,6 +4747,8 @@ function cat(tensors) {
 
     return new Tensor(tensorType, data, tensorShape)
 }
+
+
 
 module.exports = {
     Tensor,
