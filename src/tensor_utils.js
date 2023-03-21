@@ -75,13 +75,33 @@ class Tensor extends ONNX.Tensor {
 }
 
 /**
- * Reshapes the input array to the given dimensions.
+ * This creates a nested array of a given type and depth (see examples).
+ * 
+ * @example
+ *   NestArray<string, 1>; // string[]
+ * @example
+ *   NestArray<number, 2>; // number[][]
+ * @example
+ *   NestArray<string, 3>; // string[][][] etc.
+ * @template T
+ * @template {number} Depth
+ * @template {never[]} [Acc=[]]
+ * @typedef {Acc['length'] extends Depth ? T : NestArray<T[], Depth, [...Acc, never]>} NestArray
+ */
+
+/**
+ * Reshapes a 1-dimensional array into an n-dimensional array, according to the provided dimensions.
  *
- * @param {Array} data - The input array to reshape.
- * @param {Array} dimensions - An array representing the dimensions of the reshaped array.
- * @returns {Array} - The reshaped array.
- * @throws {Error} - If the total number of elements in the input array does not match the product of the
- *                    dimensions in the `dimensions` parameter.
+ * @example
+ *   reshape([10                    ], [1      ]); // Type: number[]      Value: [10]
+ *   reshape([1, 2, 3, 4            ], [2, 2   ]); // Type: number[][]    Value: [[1, 2], [3, 4]]
+ *   reshape([1, 2, 3, 4, 5, 6, 7, 8], [2, 2, 2]); // Type: number[][][]  Value: [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+ *   reshape([1, 2, 3, 4, 5, 6, 7, 8], [4, 2   ]); // Type: number[][]    Value: [[1, 2], [3, 4], [5, 6], [7, 8]]
+ * @param {T[]} data - The input array to reshape.
+ * @param {DIM} dimensions - The target shape/dimensions.
+ * @template T
+ * @template {[number]|[number, number]|[number, number, number]|[number, number, number, number]} DIM
+ * @returns {NestArray<T, DIM["length"]>} The reshaped array.
  */
 function reshape(data, dimensions) {
 

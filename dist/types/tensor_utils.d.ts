@@ -1,3 +1,7 @@
+/**
+ * This creates a nested array of a given type and depth (see examples).
+ */
+export type NestArray<T, Depth extends number, Acc extends never[] = []> = Acc['length'] extends Depth ? T : NestArray<T[], Depth, [...Acc, never]>;
 export class Tensor extends ONNX.TypedTensor<"string"> {
     constructor(...args: any[]);
     /**
@@ -18,7 +22,7 @@ export class Tensor extends ONNX.TypedTensor<"string"> {
      * @returns {this}
      */
     _subarray(index: number, iterSize: number, iterDims: any): this;
-    tolist(): any[];
+    tolist(): string[];
     [Symbol.iterator](): Generator<string | Tensor, void, undefined>;
 }
 /**
