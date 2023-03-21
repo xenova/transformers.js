@@ -405,7 +405,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         let return_timestamps = kwargs.return_timestamps ?? false;
         let chunk_length_s = kwargs.chunk_length_s ?? 0;
         let stride_length_s = kwargs.stride_length_s ?? null;
-        let return_chunks = kwargs.return_chunks ?? false; // Return chunk data in callback (in addition to beam info)
+        let chunk_callback = kwargs.chunk_callback ?? null;
         let force_full_sequences = kwargs.force_full_sequences ?? false;
 
         // TODO
@@ -481,8 +481,8 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 // convert stride to seconds
                 chunk.stride = chunk.stride.map(x => x / sampling_rate);
 
-                if (return_chunks && kwargs.callback_function) {
-                    kwargs.callback_function(chunk)
+                if (chunk_callback !== null) {
+                    chunk_callback(chunk)
                 }
             }
 
