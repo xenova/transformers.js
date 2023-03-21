@@ -6,7 +6,7 @@ try {
     executionProviders = [ 'cuda', 'cpu' ];
 } catch (err) {
     ONNX = require('onnxruntime-web');
-    if (typeof window === 'undefined') {
+    if(typeof process === 'object') {
         // https://github.com/microsoft/onnxruntime/issues/10311
         ONNX.env.wasm.numThreads = 1;
         executionProviders = [ 'cpu', 'wasm' ];

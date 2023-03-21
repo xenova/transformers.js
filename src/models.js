@@ -29,9 +29,15 @@ const { InferenceSession, Tensor: ONNXTensor }  = ONNX;
 
 async function constructSession(modelPath, fileName, progressCallback = null) {
     let buffer = await getModelFile(modelPath, fileName, progressCallback);
-    let session = await InferenceSession.create(buffer, { executionProviders });
-
-    return session
+    try {
+        return await InferenceSession.create(buffer, { 
+            executionProviders 
+        });
+    } catch (err) {
+        return await InferenceSession.create(buffer, { 
+            executionProviders: ['wasm'] 
+        });
+    }
 }
 
 async function sessionRun(session, inputs) {
