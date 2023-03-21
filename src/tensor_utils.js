@@ -64,7 +64,41 @@ class Tensor extends ONNX.Tensor {
         return new Tensor(this.type, data, iterDims);
     }
 
+    tolist() {
+        // Convert tensor data to a n-dimensional JS list
+        return reshape(this.data, this.dims)
+    }
+
     // TODO add .slice()
+}
+
+
+function reshape(data, dimensions) {
+
+    const totalElements = data.length;
+    const dimensionSize = dimensions.reduce((a, b) => a * b);
+
+    if (totalElements !== dimensionSize) {
+        throw Error(`cannot reshape array of size ${totalElements} into shape (${dimensions})`);
+    }
+
+    let reshapedArray = data;
+
+    for (let i = dimensions.length - 1; i >= 0; i--) {
+        reshapedArray = reshapedArray.reduce((acc, val) => {
+            let lastArray = acc[acc.length - 1];
+
+            if (lastArray.length < dimensions[i]) {
+                lastArray.push(val);
+            } else {
+                acc.push([val]);
+            }
+
+            return acc;
+        }, [[]]);
+    }
+
+    return reshapedArray[0];
 }
 
 function transpose(tensor, axes) {
@@ -127,6 +161,8 @@ function cat(tensors) {
 
     return new Tensor(tensorType, data, tensorShape)
 }
+
+
 
 module.exports = {
     ONNX,

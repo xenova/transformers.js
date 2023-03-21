@@ -66,6 +66,9 @@ async function embeddings() {
     // Run sentences through embedder
     let output = await embedder(sentences)
 
+    // Convert Tensor to JS list
+    output = output.tolist();
+
     // Compute pairwise cosine similarity
     // for (let i = 0; i < sentences.length; ++i) {
     //     for (let j = i + 1; j < sentences.length; ++j) {
@@ -81,7 +84,7 @@ async function embeddings() {
 
     return isDeepEqual(
         pairwiseScores,
-        [0.8195198760573937, 0.6200714107649917, 0.5930511190112736]
+        [0.5022028979523243, 0.11238511059270409, 0.09594821582314679]
     )
 }
 

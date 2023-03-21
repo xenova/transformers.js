@@ -404,6 +404,45 @@ class NormalizerSequence extends Normalizer {
 }
 class BertNormalizer extends Normalizer {
 
+    _tokenize_chinese_chars(text) {
+        /* Adds whitespace around any CJK character. */
+        let output = [];
+        for (let i = 0; i < text.length; ++i) {
+            let char = text[i];
+            let cp = char.charCodeAt(0);
+            if (this._is_chinese_char(cp)) {
+                output.push(" ");
+                output.push(char);
+                output.push(" ");
+            } else {
+                output.push(char);
+            }
+        }
+        return output.join("");
+    }
+
+    _is_chinese_char(cp) {
+        // Checks whether CP is the codepoint of a CJK character.
+        //
+        // This defines a "chinese character" as anything in the CJK Unicode block:
+        //   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
+        //
+        // Note that the CJK Unicode block is NOT all Japanese and Korean characters,
+        // despite its name. The modern Korean Hangul alphabet is a different block,
+        // as is Japanese Hiragana and Katakana. Those alphabets are used to write
+        // space-separated words, so they are not treated specially and handled
+        // like the all of the other languages.
+        return (
+            (cp >= 0x4E00 && cp <= 0x9FFF)
+            || (cp >= 0x3400 && cp <= 0x4DBF)
+            || (cp >= 0x20000 && cp <= 0x2A6DF)
+            || (cp >= 0x2A700 && cp <= 0x2B73F)
+            || (cp >= 0x2B740 && cp <= 0x2B81F)
+            || (cp >= 0x2B820 && cp <= 0x2CEAF)
+            || (cp >= 0xF900 && cp <= 0xFAFF)
+            || (cp >= 0x2F800 && cp <= 0x2FA1F)
+        )
+    }
     stripAccents(text) {
         return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
@@ -413,6 +452,10 @@ class BertNormalizer extends Normalizer {
         // config.handle_chinese_chars,
         // config.strip_accents,
         // config.lowercase,
+
+        if (this.config.handle_chinese_chars) {
+            text = this._tokenize_chinese_chars(text);
+        }
 
         if (this.config.lowercase) {
             text = text.toLowerCase();
