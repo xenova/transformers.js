@@ -23,7 +23,12 @@ export class Tensor extends ONNX.TypedTensor<"string"> {
      */
     _subarray(index: number, iterSize: number, iterDims: any): this;
     tolist(): string[];
-    [Symbol.iterator](): Generator<string | Tensor, void, undefined>;
+    /**
+     * Returns an iterator object for iterating over the tensor data in row-major order.
+     * If the tensor has more than one dimension, the iterator will yield subarrays.
+     * @returns {Iterator} An iterator object for iterating over the tensor data in row-major order.
+     */
+    [Symbol.iterator](): Iterator<any, any, undefined>;
 }
 /**
  * Transposes a tensor according to the provided axes.

@@ -12,6 +12,11 @@ class Tensor extends ONNX.Tensor {
         }
     }
 
+    /**
+     * Returns an iterator object for iterating over the tensor data in row-major order.
+     * If the tensor has more than one dimension, the iterator will yield subarrays.
+     * @returns {Iterator} An iterator object for iterating over the tensor data in row-major order.
+     */
     *[Symbol.iterator]() {
         const [iterLength, ...iterDims] = this.dims;
 
