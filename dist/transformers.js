@@ -1011,6 +1011,57 @@ const Tensor = _tensor_impl__WEBPACK_IMPORTED_MODULE_0__.Tensor;
 
 /***/ }),
 
+/***/ "./src/backends/onnx.js":
+/*!******************************!*\
+  !*** ./src/backends/onnx.js ***!
+  \******************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+let ONNX;
+
+// TODO support 
+const executionProviders = ['wasm'];
+
+if (typeof process !== 'undefined') {
+    // Running in a node-like environment.
+    // Try to import onnxruntime-node, using onnxruntime-web as a fallback
+    try {
+        ONNX = __webpack_require__(Object(function webpackMissingModule() { var e = new Error("Cannot find module 'onnxruntime-node'"); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
+    } catch (err) {
+        console.warn(
+            "Node.js environment detected, but `onnxruntime-node` was not found. " +
+            "Using `onnxruntime-web` as a fallback. We recommend installing `onnxruntime-node` " +
+            "as it generally improves performance (up to 5X)."
+        )
+
+        // Fix "ReferenceError: self is not defined" bug when running directly with node
+        // https://github.com/microsoft/onnxruntime/issues/13072
+        __webpack_require__.g.self = __webpack_require__.g;
+
+        ONNX = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
+
+        // Disable spawning worker threads for testing.
+        // This is done by setting numThreads to 1
+        // https://github.com/microsoft/onnxruntime/issues/10311
+        ONNX.env.wasm.numThreads = 1;
+    }
+
+    // Add `cpu` execution provider, with higher precedence that `wasm`.
+    executionProviders.unshift('cpu');
+
+} else {
+    // Running in a browser-environment, so we just import `onnxruntime-web`
+    ONNX = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
+}
+
+module.exports = {
+    ONNX,
+    executionProviders,
+}
+
+
+/***/ }),
+
 /***/ "./src/env.js":
 /*!********************!*\
   !*** ./src/env.js ***!
@@ -1020,7 +1071,8 @@ const Tensor = _tensor_impl__WEBPACK_IMPORTED_MODULE_0__.Tensor;
 var __dirname = "/";
 const fs = __webpack_require__(/*! fs */ "?569f");
 const path = __webpack_require__(/*! path */ "?3f59");
-const onnx_env = (__webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js").env);
+
+const { env: onnx_env } = (__webpack_require__(/*! ./backends/onnx.js */ "./src/backends/onnx.js").ONNX);
 
 // check if various APIs are available (depends on environment)
 const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
@@ -1713,11 +1765,9 @@ const {
     WhisperTimeStampLogitsProcessor
 } = __webpack_require__(/*! ./generation.js */ "./src/generation.js");
 
-const { Tensor } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js")
-const ONNX = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
-
-const InferenceSession = ONNX.InferenceSession
-const ONNXTensor = ONNX.Tensor
+const { executionProviders, ONNX } = __webpack_require__(/*! ./backends/onnx.js */ "./src/backends/onnx.js");
+const { Tensor } = __webpack_require__(/*! ./tensor_utils */ "./src/tensor_utils.js");
+const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 //////////////////////////////////////////////////
 // Helper functions
@@ -1725,12 +1775,21 @@ const ONNXTensor = ONNX.Tensor
 async function constructSession(modelPath, fileName, progressCallback = null) {
     let buffer = await getModelFile(modelPath, fileName, progressCallback);
 
-    let session = await InferenceSession.create(buffer, {
-        // executionProviders: ["webgl"]
-        executionProviders: ["wasm"]
-    });
-
-    return session
+    // TODO add option for user to force specify their desired execution provider
+    try {
+        return await InferenceSession.create(buffer, {
+            executionProviders,
+        });
+    } catch (err) {
+        console.warn(err);
+        console.warn(
+            'Something went wrong during model construction (most likely a missing operation). ' +
+            'Using `wasm` as a fallback. '
+        )
+        return await InferenceSession.create(buffer, {
+            executionProviders: ['wasm']
+        });
+    }
 }
 
 async function sessionRun(session, inputs) {
@@ -2231,7 +2290,6 @@ class PreTrainedModel extends Callable {
         let beams = this.getStartBeams(inputs, numOutputTokens, inputs_attention_mask);
 
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
-
             let newest_beams = [];
             for (let beam of beams) {
                 if (beam.done) {
@@ -3486,7 +3544,8 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         let return_timestamps = kwargs.return_timestamps ?? false;
         let chunk_length_s = kwargs.chunk_length_s ?? 0;
         let stride_length_s = kwargs.stride_length_s ?? null;
-        let return_chunks = kwargs.return_chunks ?? false; // Return chunk data in callback (in addition to beam info)
+        let chunk_callback = kwargs.chunk_callback ?? null;
+        let force_full_sequences = kwargs.force_full_sequences ?? false;
 
         // TODO
         // task = 'transcribe',
@@ -3561,18 +3620,19 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 // convert stride to seconds
                 chunk.stride = chunk.stride.map(x => x / sampling_rate);
 
-                if (return_chunks && kwargs.callback_function) {
-                    kwargs.callback_function(chunk)
+                if (chunk_callback !== null) {
+                    chunk_callback(chunk)
                 }
             }
 
             // Merge text chunks
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
                 time_precision: time_precision,
-                return_timestamps: return_timestamps
+                return_timestamps: return_timestamps,
+                force_full_sequences: force_full_sequences
             });
 
-            toReturn.push({ 'text': full_text, ...optional })
+            toReturn.push({ text: full_text, ...optional })
         }
         return single ? toReturn[0] : toReturn;
     }
@@ -4597,7 +4657,7 @@ module.exports = {
   \*****************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-const ONNX = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
+const { ONNX } = __webpack_require__(/*! ./backends/onnx.js */ "./src/backends/onnx.js");
 
 class Tensor extends ONNX.Tensor {
     constructor(...args) {
@@ -5171,6 +5231,45 @@ class NormalizerSequence extends Normalizer {
 }
 class BertNormalizer extends Normalizer {
 
+    _tokenize_chinese_chars(text) {
+        /* Adds whitespace around any CJK character. */
+        let output = [];
+        for (let i = 0; i < text.length; ++i) {
+            let char = text[i];
+            let cp = char.charCodeAt(0);
+            if (this._is_chinese_char(cp)) {
+                output.push(" ");
+                output.push(char);
+                output.push(" ");
+            } else {
+                output.push(char);
+            }
+        }
+        return output.join("");
+    }
+
+    _is_chinese_char(cp) {
+        // Checks whether CP is the codepoint of a CJK character.
+        //
+        // This defines a "chinese character" as anything in the CJK Unicode block:
+        //   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
+        //
+        // Note that the CJK Unicode block is NOT all Japanese and Korean characters,
+        // despite its name. The modern Korean Hangul alphabet is a different block,
+        // as is Japanese Hiragana and Katakana. Those alphabets are used to write
+        // space-separated words, so they are not treated specially and handled
+        // like the all of the other languages.
+        return (
+            (cp >= 0x4E00 && cp <= 0x9FFF)
+            || (cp >= 0x3400 && cp <= 0x4DBF)
+            || (cp >= 0x20000 && cp <= 0x2A6DF)
+            || (cp >= 0x2A700 && cp <= 0x2B73F)
+            || (cp >= 0x2B740 && cp <= 0x2B81F)
+            || (cp >= 0x2B820 && cp <= 0x2CEAF)
+            || (cp >= 0xF900 && cp <= 0xFAFF)
+            || (cp >= 0x2F800 && cp <= 0x2FA1F)
+        )
+    }
     stripAccents(text) {
         return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
@@ -5180,6 +5279,10 @@ class BertNormalizer extends Normalizer {
         // config.handle_chinese_chars,
         // config.strip_accents,
         // config.lowercase,
+
+        if (this.config.handle_chinese_chars) {
+            text = this._tokenize_chinese_chars(text);
+        }
 
         if (this.config.lowercase) {
             text = text.toLowerCase();
@@ -7080,6 +7183,18 @@ module.exports = {
 /******/ 				}
 /******/ 			}
 /******/ 		};
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/global */
+/******/ 	(() => {
+/******/ 		__webpack_require__.g = (function() {
+/******/ 			if (typeof globalThis === 'object') return globalThis;
+/******/ 			try {
+/******/ 				return this || new Function('return this')();
+/******/ 			} catch (e) {
+/******/ 				if (typeof window === 'object') return window;
+/******/ 			}
+/******/ 		})();
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */
