@@ -63,8 +63,13 @@ async function embeddings() {
         'The quick brown fox jumps over the lazy dog.'
     ]
 
+    let start = performance.now();
+
     // Run sentences through embedder
     let output = await embedder(sentences)
+
+
+    let duration = performance.now() - start;
 
     // Convert Tensor to JS list
     output = output.tolist();
@@ -82,35 +87,38 @@ async function embeddings() {
     // Dispose pipeline
     await embedder.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         pairwiseScores,
         [0.502872309810269, 0.11088411026413121, 0.09602621986931259]
-    )
+    ), duration];
 }
 
 
 async function text_classification() {
     let classifier = await pipeline('text-classification', 'distilbert-base-uncased-finetuned-sst-2-english');
 
-    let outputs1 = await classifier("I hated the movie");
-
-    let outputs2 = await classifier("I hated the movie", {
-        topk: 2
-    });
-
     let texts = [
         "This was a masterpiece. Not completely faithful to the books, but enthralling from beginning to end. Might be my favorite of the three.",
         "I hated the movie"
     ];
+
+    let start = performance.now();
+
+    let outputs1 = await classifier("I hated the movie");
+    let outputs2 = await classifier("I hated the movie", {
+        topk: 2
+    });
     let outputs3 = await classifier(texts);
     let outputs4 = await classifier(texts, {
         topk: 2
     });
 
+    let duration = performance.now() - start;
+
     // Dispose pipeline
     await classifier.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         outputs1,
         [
             { "label": "NEGATIVE", "score": 0.9997429847717285 }
@@ -136,25 +144,27 @@ async function text_classification() {
             { "label": "NEGATIVE", "score": 0.9997275471687317 },
             { "label": "POSITIVE", "score": 0.00027245949604548514 }
         ]]
-    );
+    ), duration];
 }
 
 async function masked_language_modelling() {
 
     let unmasker = await pipeline('fill-mask', 'bert-base-uncased');
 
-    let outputs1 = await unmasker("Once upon a [MASK].");
+    let start = performance.now();
 
+    let outputs1 = await unmasker("Once upon a [MASK].");
     let outputs2 = await unmasker([
         "Once upon a [MASK].",
         "[MASK] is the capital of England."
     ]);
 
+    let duration = performance.now() - start;
 
     // Dispose pipeline
     await unmasker.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         outputs1,
         [
             {
@@ -253,7 +263,7 @@ async function masked_language_modelling() {
                 "sequence": "birmingham is the capital of england."
             }
         ]]
-    );
+    ), duration];
 }
 
 async function question_answering() {
@@ -262,16 +272,20 @@ async function question_answering() {
     let context = 'Jim Henson was a nice puppet.'
 
     let answerer = await pipeline('question-answering', 'distilbert-base-uncased-distilled-squad');
-    let outputs = await answerer(question, context);
 
+    let start = performance.now();
+
+    let outputs = await answerer(question, context);
     let outputs2 = await answerer(question, context, {
         topk: 3,
     });
 
+    let duration = performance.now() - start;
+
     // Dispose pipeline
     await answerer.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         outputs,
         { answer: 'a nice puppet', score: 0.5664517526948352 }
     ) && isDeepEqual(
@@ -281,7 +295,7 @@ async function question_answering() {
             { answer: 'nice puppet', score: 0.1698902336448853 },
             { answer: 'puppet', score: 0.14046057793125577 }
         ]
-    );
+    ), duration];
 }
 
 async function summarization() {
@@ -292,26 +306,37 @@ async function summarization() {
         `The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.`,
         `The Amazon rainforest (Portuguese: Floresta Amazônica or Amazônia; Spanish: Selva Amazónica, Amazonía or usually Amazonia; French: Forêt amazonienne; Dutch: Amazoneregenwoud), also known in English as Amazonia or the Amazon Jungle, is a moist broadleaf forest that covers most of the Amazon basin of South America. This basin encompasses 7,000,000 square kilometres (2,700,000 sq mi), of which 5,500,000 square kilometres (2,100,000 sq mi) are covered by the rainforest. This region includes territory belonging to nine nations. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%, Colombia with 10%, and with minor amounts in Venezuela, Ecuador, Bolivia, Guyana, Suriname and French Guiana. States or departments in four nations contain "Amazonas" in their names. The Amazon represents over half of the planet's remaining rainforests, and comprises the largest and most biodiverse tract of tropical rainforest in the world, with an estimated 390 billion individual trees divided into 16,000 species.`
     ]
+
+    let start1 = performance.now();
+
     let summary = await summarizer(texts, {
         top_k: 0,
         do_sample: false,
     });
+
+    let duration1 = performance.now() - start1;
 
     // Dispose pipeline
     await summarizer.dispose()
 
 
     // This case also tests `forced_bos_token_id`
-    let summarizer2 = await pipeline('summarization', 'facebook/bart-large-cnn')
+    let summarizer2 = await pipeline('summarization', 'facebook/bart-large-cnn');
+
+
+    let start2 = performance.now();
+
     let summary2 = await summarizer2(texts[0], {
         top_k: 0,
         do_sample: false,
     });
 
+    let duration2 = performance.now() - start2;
+
     // Dispose pipeline
     await summarizer2.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         summary,
         [{
             "summary_text": " The Eiffel Tower is 324 metres tall, and the tallest structure in Paris. It is the second tallest free-standing structure in France after the Millau Viaduct."
@@ -324,31 +349,35 @@ async function summarization() {
         [
             { summary_text: "During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world. The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building." }
         ]
-    )
+    ), duration1 + duration2];
 }
 
 async function translation() {
 
     let translator = await pipeline('translation_en_to_de', 't5-small')
 
-    let translation1 = await translator('Hello, how are you?', {
-        top_k: 0,
-        do_sample: false
-    })
     let texts = [
         'Hello, how are you?',
         'My name is Maria.',
     ]
 
+    let start = performance.now();
+
+    let translation1 = await translator('Hello, how are you?', {
+        top_k: 0,
+        do_sample: false
+    })
     let translation2 = await translator(texts, {
         top_k: 0,
         do_sample: false
     })
 
+    let duration = performance.now() - start;
+
     // Dispose pipeline
     await translator.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         translation1,
         [{ "translation_text": "Hallo, wie sind Sie?" }]
 
@@ -358,12 +387,14 @@ async function translation() {
             { 'translation_text': 'Hallo, wie sind Sie?' },
             { 'translation_text': 'Mein Name ist Maria.' }
         ]
-    )
+    ), duration];
 }
 
 async function text_generation() {
 
     let generator = await pipeline('text-generation', 'distilgpt2')
+
+    let start = performance.now();
 
     let output1 = await generator('Once upon a time, there was a', {
         max_new_tokens: 10,
@@ -390,10 +421,12 @@ async function text_generation() {
         do_sample: false
     })
 
+    let duration = performance.now() - start;
+
     // Dispose pipeline
     await generator.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         output1,
         [
             { "generated_text": "Once upon a time, there was a time when the world was not the same.\n" }
@@ -413,22 +446,31 @@ async function text_generation() {
             { "generated_text": "I enjoy walking with my cute dog and I love to play with him. I love" },
             { "generated_text": "I enjoy walking with my cute dog and I love to play with her. I love" }
         ]]
-    );
+    ), duration];
 }
 
 
 async function text2text_generation() {
-    let generator1 = await pipeline('text2text-generation', 'google/flan-t5-small')
+    let generator1 = await pipeline('text2text-generation', 'google/flan-t5-small');
+
+    let start1 = performance.now();
+
     let output1 = await generator1(
         "Premise:  At my age you will probably have learnt one lesson. " +
         "Hypothesis:  It's not certain how many lessons you'll learn by your thirties. " +
-        "Does the premise entail the hypothesis?", {
-        top_k: 0,
-        do_sample: false
-    }
+        "Does the premise entail the hypothesis?",
+        {
+            top_k: 0,
+            do_sample: false
+        }
     )
 
-    let generator2 = await pipeline('text2text-generation', 'google/flan-t5-base')
+    let duration1 = performance.now() - start1;
+
+
+    let generator2 = await pipeline('text2text-generation', 'google/flan-t5-base');
+
+    let start2 = performance.now();
     let output2 = await generator2(`
         Q: Roger has 5 tennis balls. He buys 2 more cans of tennis balls. Each can
         has 3 tennis balls. How many tennis balls does he have now?
@@ -442,16 +484,18 @@ async function text2text_generation() {
         do_sample: false
     });
 
+    let duration2 = performance.now() - start2;
+
     // Dispose pipelines
     await Promise.all([generator1.dispose(), generator2.dispose()])
 
-    return isDeepEqual(
+    return [isDeepEqual(
         output1,
         ['it is not possible to tell']
     ) && isDeepEqual(
         output2,
         ['There are 16 / 2 = 8 golf balls. There are 8 / 2 = 4 blue golf balls. The answer is 4.']
-    )
+    ), duration1 + duration2];
 }
 
 async function speech2text_generation() {
@@ -461,7 +505,7 @@ async function speech2text_generation() {
     // let output = await transcriber(audio);
     // console.log(output);
 
-    return true;
+    return [true, 0];
 }
 
 
@@ -474,6 +518,8 @@ async function image_to_text() {
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg',
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg'
     ]
+
+    let start = performance.now();
 
     let output1 = await captioner(url, {
         top_k: 0,
@@ -501,10 +547,12 @@ async function image_to_text() {
         do_sample: false
     })
 
+    let duration = performance.now() - start;
+
     // Dispose pipeline
     await captioner.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         output1,
         [{
             "generated_text": "a herd of giraffes walking across a grassy field"
@@ -538,7 +586,7 @@ async function image_to_text() {
                 "generated_text": "airplanes are parked at an airport"
             }]
         ]
-    )
+    ), duration];
 
 }
 
@@ -553,9 +601,8 @@ async function image_classification() {
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/teapot.jpg'
     ]
 
+    let start = performance.now();
     let output1 = await classifier(url)
-
-
     let output2 = await classifier(url, {
         topk: 2
     });
@@ -563,11 +610,12 @@ async function image_classification() {
     let output4 = await classifier(urls, {
         topk: 2
     });
+    let duration = performance.now() - start;
 
     // Dispose pipeline
     await classifier.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         output1,
         [{ "label": "tiger, Panthera tigris", "score": 0.7521011829376221 }]
     ) && isDeepEqual(
@@ -582,7 +630,7 @@ async function image_classification() {
             [{ "label": "palace", "score": 0.9980287551879883 }, { "label": "monastery", "score": 0.0006073643453419209 }],
             [{ "label": "teapot", "score": 0.9890381693840027 }, { "label": "coffeepot", "score": 0.0057989382185041904 }]
         ]
-    )
+    ), duration];
 
 }
 
@@ -592,21 +640,25 @@ async function code_generation() {
 
     let generator = await pipeline('text-generation', 'Salesforce/codegen-350M-mono')
 
+    let start = performance.now();
+
     let output1 = await generator('def fib(n):', {
         max_new_tokens: 45,
         top_k: 0,
         do_sample: false
-    })
+    });
+
+    let duration = performance.now() - start;
 
     // Dispose pipeline
     await generator.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         output1,
         [
             { "generated_text": "def fib(n):\n    if n == 0:\n        return 0\n    elif n == 1:\n        return 1\n    else:\n        return fib(n-1) + fib(n-2)\n\n" }
         ]
-    )
+    ), duration];
 }
 
 
@@ -623,13 +675,17 @@ async function zero_shot_image_classification() {
 
     let classes = ['football', 'airport', 'animals'];
 
+    let start = performance.now();
+
     let output1 = await classifier(url, classes);
     let output2 = await classifier(urls, classes);
+
+    let duration = performance.now() - start;
 
     // Dispose pipeline
     await classifier.dispose()
 
-    return isDeepEqual(
+    return [isDeepEqual(
         output1,
         [
             { "score": 0.9872211813926697, "label": "football" },
@@ -653,7 +709,7 @@ async function zero_shot_image_classification() {
                 { "score": 0.9017502665519714, "label": "animals" }
             ]
         ]
-    )
+    ), duration];
 }
 
 
