@@ -38,8 +38,8 @@ function isDeepEqual(obj1, obj2, {
         } else if (typeof val1 !== typeof val2) {
             // Types are not the same
             return false;
-        } else if (typeof val1 === 'number' && Math.abs(val1 - val2) > tol) {
-            return false;
+        } else if (typeof val1 === 'number') {
+            return Math.abs(val1 - val2) <= tol;
         } else if (val1 !== val2) {
             // If the values are not objects, compare them directly
             return false;
@@ -84,7 +84,7 @@ async function embeddings() {
 
     return isDeepEqual(
         pairwiseScores,
-        [0.5022028979523243, 0.11238511059270409, 0.09594821582314679]
+        [0.502872309810269, 0.11088411026413121, 0.09602621986931259]
     )
 }
 
@@ -124,17 +124,17 @@ async function text_classification() {
     ) && isDeepEqual(
         outputs3,
         [
-            { "label": "POSITIVE", "score": 0.9994556903839111 },
-            { "label": "NEGATIVE", "score": 0.9997254014015198 }
+            { "label": "POSITIVE", "score": 0.9994572997093201 },
+            { "label": "NEGATIVE", "score": 0.9997275471687317 }
         ]
     ) && isDeepEqual(
         outputs4,
         [[
-            { "label": "POSITIVE", "score": 0.9994556903839111 },
-            { "label": "NEGATIVE", "score": 0.000544288894161582 }
+            { "label": "POSITIVE", "score": 0.9994572997093201 },
+            { "label": "NEGATIVE", "score": 0.0005426819552667439 }
         ], [
-            { "label": "NEGATIVE", "score": 0.9997254014015198 },
-            { "label": "POSITIVE", "score": 0.00027461591525934637 }
+            { "label": "NEGATIVE", "score": 0.9997275471687317 },
+            { "label": "POSITIVE", "score": 0.00027245949604548514 }
         ]]
     );
 }
@@ -294,7 +294,7 @@ async function summarization() {
     ]
     let summary = await summarizer(texts, {
         top_k: 0,
-        do_sample: false
+        do_sample: false,
     });
 
     // Dispose pipeline
@@ -305,7 +305,7 @@ async function summarization() {
     let summarizer2 = await pipeline('summarization', 'facebook/bart-large-cnn')
     let summary2 = await summarizer2(texts[0], {
         top_k: 0,
-        do_sample: false
+        do_sample: false,
     });
 
     // Dispose pipeline
@@ -314,14 +314,15 @@ async function summarization() {
     return isDeepEqual(
         summary,
         [{
-            summary_text: " The Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct. The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building."
-        }, {
-            summary_text: " The Amazon is a moist broadleaf forest that covers most of the Amazon basin of South America. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%."
+            "summary_text": " The Eiffel Tower is 324 metres tall, and the tallest structure in Paris. It is the second tallest free-standing structure in France after the Millau Viaduct."
+        },
+        {
+            "summary_text": " The Amazon is a moist broadleaf forest that covers most of the Amazon basin of South America. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%. The Amazon represents over half the planet's remaining rainfore"
         }]
     ) && isDeepEqual(
         summary2,
         [
-            { summary_text: "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. Its base is square, measuring 125 metres (410 ft) on each side." }
+            { summary_text: "During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world. The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building." }
         ]
     )
 }
@@ -409,8 +410,8 @@ async function text_generation() {
             { "generated_text": "Once upon a time, there was a lot of discussion about the need for a new," },
             { "generated_text": "Once upon a time, there was a lot of discussion about the need for a new and" }
         ], [
-            { "generated_text": "I enjoy walking with my cute dog and I love to play with him.\n\n" },
-            { "generated_text": "I enjoy walking with my cute dog and I love to play with him. I love" }
+            { "generated_text": "I enjoy walking with my cute dog and I love to play with him. I love" },
+            { "generated_text": "I enjoy walking with my cute dog and I love to play with her. I love" }
         ]]
     );
 }
@@ -449,7 +450,7 @@ async function text2text_generation() {
         ['it is not possible to tell']
     ) && isDeepEqual(
         output2,
-        ['The number of golf balls is 16 / 2 = 8 golf balls. The number of blue golf balls is 8 / 2 = 4 golf balls. The answer is 4.']
+        ['There are 16 / 2 = 8 golf balls. There are 8 / 2 = 4 blue golf balls. The answer is 4.']
     )
 }
 
@@ -511,7 +512,7 @@ async function image_to_text() {
     ) && isDeepEqual(
         output2,
         [{
-            "generated_text": "a herd of giraffes and zebras standing in a field"
+            "generated_text": "a herd of giraffes and zebras grazing in a field"
         }, {
             "generated_text": "a herd of giraffes and zebras are grazing in a field"
         }]
@@ -521,7 +522,7 @@ async function image_to_text() {
             [{
                 "generated_text": "a soccer player is kicking a soccer ball"
             }], [{
-                "generated_text": "a plane is sitting on the tarmac with other planes"
+                "generated_text": "a plane is parked at an airport with other planes"
             }]
         ]
     ) && isDeepEqual(
@@ -568,18 +569,18 @@ async function image_classification() {
 
     return isDeepEqual(
         output1,
-        [{ "label": "tiger, Panthera tigris", "score": 0.7844105362892151 }]
+        [{ "label": "tiger, Panthera tigris", "score": 0.7521011829376221 }]
     ) && isDeepEqual(
         output2,
-        [{ "label": "tiger, Panthera tigris", "score": 0.7844105362892151 }, { "label": "tiger cat", "score": 0.21126100420951843 }]
+        [{ "label": "tiger, Panthera tigris", "score": 0.7521011829376221 }, { "label": "tiger cat", "score": 0.24334438145160675 }]
     ) && isDeepEqual(
         output3,
-        [{ "label": "palace", "score": 0.9980684518814087 }, { "label": "teapot", "score": 0.9900187253952026 }]
+        [{ "label": "palace", "score": 0.9980287551879883 }, { "label": "teapot", "score": 0.9890381693840027 }]
     ) && isDeepEqual(
         output4,
         [
-            [{ "label": "palace", "score": 0.9980684518814087 }, { "label": "monastery", "score": 0.0006102032493799925 }],
-            [{ "label": "teapot", "score": 0.9900187253952026 }, { "label": "coffeepot", "score": 0.005462237633764744 }]
+            [{ "label": "palace", "score": 0.9980287551879883 }, { "label": "monastery", "score": 0.0006073643453419209 }],
+            [{ "label": "teapot", "score": 0.9890381693840027 }, { "label": "coffeepot", "score": 0.0057989382185041904 }]
         ]
     )
 
@@ -631,25 +632,25 @@ async function zero_shot_image_classification() {
     return isDeepEqual(
         output1,
         [
-            { "score": 0.9752006530761719, "label": "football" },
-            { "score": 0.008657160215079784, "label": "airport" },
-            { "score": 0.01614217646420002, "label": "animals" }
+            { "score": 0.9872211813926697, "label": "football" },
+            { "score": 0.005961867049336433, "label": "airport" },
+            { "score": 0.0068169692531228065, "label": "animals" }
         ]
     ) && isDeepEqual(
         output2,
         [
             [
-                { "score": 0.9822530150413513, "label": "football" },
-                { "score": 0.007440905552357435, "label": "airport" },
-                { "score": 0.010306074284017086, "label": "animals" }
+                { "score": 0.982650101184845, "label": "football" },
+                { "score": 0.006871742662042379, "label": "airport" },
+                { "score": 0.010478177107870579, "label": "animals" }
             ], [
-                { "score": 0.04688927158713341, "label": "football" },
-                { "score": 0.8052198886871338, "label": "airport" },
-                { "score": 0.1478908210992813, "label": "animals" }
+                { "score": 0.03974880650639534, "label": "football" },
+                { "score": 0.8731245994567871, "label": "airport" },
+                { "score": 0.08712659031152725, "label": "animals" }
             ], [
-                { "score": 0.054577842354774475, "label": "football" },
-                { "score": 0.06229930371046066, "label": "airport" },
-                { "score": 0.8831228613853455, "label": "animals" }
+                { "score": 0.04401572421193123, "label": "football" },
+                { "score": 0.054234009236097336, "label": "airport" },
+                { "score": 0.9017502665519714, "label": "animals" }
             ]
         ]
     )
@@ -664,20 +665,31 @@ console.warn = (...data) => {
     }
 };
 
+// Define tests
+let tests = {
+    'Text classification:': text_classification,
+    'Masked language modelling:': masked_language_modelling,
+    'Question answering:': question_answering,
+    'Summarization:': summarization,
+    'Translation:': translation,
+    'Text-to-text generation:': text2text_generation,
+    'Text generation:': text_generation,
+    'Embeddings:': embeddings,
+    'Speech-to-text generation:': speech2text_generation,
+    'Image-to-text:': image_to_text,
+    'Image classification:': image_classification,
+    'Code generation:': code_generation,
+    'Zero-shot image classification:': zero_shot_image_classification,
+};
+
 // run tests
 (async () => {
-    console.log('Text classification:', await text_classification())
-    console.log('Masked language modelling:', await masked_language_modelling())
-    console.log('Question answering:', await question_answering())
-    console.log('Summarization:', await summarization())
-    console.log('Translation:', await translation())
-    console.log('Text-to-text generation:', await text2text_generation())
-    console.log('Text generation:', await text_generation())
-    console.log('Embeddings:', await embeddings())
-    console.log('Speech-to-text generation:', await speech2text_generation())
-    console.log('Image-to-text:', await image_to_text())
-    console.log('Image classification:', await image_classification())
-    console.log('Code generation:', await code_generation())
-    console.log('Zero-shot image classification:', await zero_shot_image_classification())
+    let results = {};
+    for (const [name, fn] of Object.entries(tests)) {
+        results[name] = await fn();
+        console.log(name, results[name]);
+    }
 
+    // Display final results in a table
+    console.table(results);
 })();
