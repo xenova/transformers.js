@@ -21,11 +21,9 @@ const {
     WhisperTimeStampLogitsProcessor
 } = require("./generation.js");
 
-const { Tensor } = require('./tensor_utils.js')
-const ONNX = require('onnxruntime-web');
-
-const InferenceSession = ONNX.InferenceSession
-const ONNXTensor = ONNX.Tensor
+const { executionProviders, ONNX } = require('./backends/onnx.js');
+const { Tensor } = require('./tensor_utils');
+const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 //////////////////////////////////////////////////
 // Helper functions
@@ -33,12 +31,21 @@ const ONNXTensor = ONNX.Tensor
 async function constructSession(modelPath, fileName, progressCallback = null) {
     let buffer = await getModelFile(modelPath, fileName, progressCallback);
 
-    let session = await InferenceSession.create(buffer, {
-        // executionProviders: ["webgl"]
-        executionProviders: ["wasm"]
-    });
-
-    return session
+    // TODO add option for user to force specify their desired execution provider
+    try {
+        return await InferenceSession.create(buffer, {
+            executionProviders,
+        });
+    } catch (err) {
+        console.warn(err);
+        console.warn(
+            'Something went wrong during model construction (most likely a missing operation). ' +
+            'Using `wasm` as a fallback. '
+        )
+        return await InferenceSession.create(buffer, {
+            executionProviders: ['wasm']
+        });
+    }
 }
 
 async function sessionRun(session, inputs) {
@@ -539,7 +546,6 @@ class PreTrainedModel extends Callable {
         let beams = this.getStartBeams(inputs, numOutputTokens, inputs_attention_mask);
 
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
-
             let newest_beams = [];
             for (let beam of beams) {
                 if (beam.done) {

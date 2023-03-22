@@ -95,6 +95,11 @@ env.remoteModels = false;
 env.onnx.wasm.wasmPaths = '/path/to/files/';
 ```
 
+#### Node.js
+
+This library uses `onnxruntime-web` as its default backend. However, if your application runs with Node.js, you can install `onnxruntime-node` in your project (using `npm i onnxruntime-node`) to obtain a massive boost in performance (>5x in some cases). The CPU execution provider is much faster than WASM executor provider, most likely due to [this issue](https://github.com/microsoft/onnxruntime/issues/10311).
+
+
 ## Usage
 
 ### Convert your PyTorch models to ONNX

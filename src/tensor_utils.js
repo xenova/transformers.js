@@ -1,4 +1,4 @@
-const ONNX = require('onnxruntime-web');
+const { ONNX } = require('./backends/onnx.js');
 
 class Tensor extends ONNX.Tensor {
     constructor(...args) {
