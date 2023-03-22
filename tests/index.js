@@ -1,13 +1,5 @@
 
-// Fix "ReferenceError: self is not defined" bug when running directly with node
-// https://github.com/microsoft/onnxruntime/issues/13072
-global.self = global;
-
 const { pipeline, env } = require('..');
-
-// Disable spawning worker threads for testing.
-// This is done by setting numThreads to 1
-env.onnx.wasm.numThreads = 1
 
 // Only use local models
 env.remoteModels = false;
