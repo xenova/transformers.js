@@ -1,17 +1,4 @@
-let ONNX;
-let executionProviders = [ 'webgl', 'wasm' ];
-
-try {
-    ONNX = require('onnxruntime-node');
-    executionProviders = [ 'cuda', 'cpu' ];
-} catch (err) {
-    ONNX = require('onnxruntime-web');
-    if(typeof process === 'object') {
-        // https://github.com/microsoft/onnxruntime/issues/10311
-        ONNX.env.wasm.numThreads = 1;
-        executionProviders = [ 'cpu', 'wasm' ];
-    }
-}
+const { ONNX } = require('./backends/onnx.js');
 
 class Tensor extends ONNX.Tensor {
     constructor(...args) {
@@ -165,8 +152,6 @@ function cat(tensors) {
 
 
 module.exports = {
-    ONNX,
-    executionProviders,
     Tensor,
     transpose,
     cat

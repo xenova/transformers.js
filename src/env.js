@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { env: onnx_env } = require('./tensor_utils').ONNX;
+
+const { env: onnx_env } = require('./backends/onnx.js').ONNX;
 
 // check if various APIs are available (depends on environment)
 const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
