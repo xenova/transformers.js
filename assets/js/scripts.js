@@ -67,6 +67,14 @@ const ZSIC_CLASSES = document.getElementById('zsic-classes');
 const ZSIC_IMG = document.getElementById('zsic-viewer');
 const ZSIC_OUTPUT_CANVAS = document.getElementById('zsic-canvas');
 
+
+const OD_SELECT = document.getElementById('od-select');
+const OD_INPUT = document.getElementById('od-file');
+const OD_IMG = document.getElementById('od-viewer');
+const OD_OUTPUT_OVERLAY = document.getElementById('od-overlay');
+const OD_OUTPUT_CANVAS = document.getElementById('od-canvas');
+
+
 const DEFAULT_GREEDY_PARAMS = {
 	max_new_tokens: 50,
 	num_beams: 1,
@@ -95,6 +103,7 @@ const TASK_DEFAULT_PARAMS = {
 	'image-to-text': DEFAULT_GREEDY_PARAMS,
 	'image-classification': {},
 	'zero-shot-image-classification': {},
+	'object-detection': {},
 };
 
 [
@@ -102,6 +111,7 @@ const TASK_DEFAULT_PARAMS = {
 	[TEXT2IMAGE_SELECT, TEXT2IMAGE_INPUT, TEXT2IMAGE_IMG],
 	[IMAGE_CLASSIFICATION_SELECT, IMAGE_CLASSIFICATION_INPUT, IMAGE_CLASSIFICATION_IMG],
 	[ZSIC_SELECT, ZSIC_INPUT, ZSIC_IMG],
+	[OD_SELECT, OD_INPUT, OD_IMG],
 ].forEach(x => {
 	let [select, input, media] = x;
 
@@ -122,6 +132,68 @@ const TASK_DEFAULT_PARAMS = {
 	});
 });
 
+// Predefined list of unique colours
+const COLOURS = [
+	'255, 99, 132',
+	'54, 162, 235',
+	'255, 206, 86',
+	'75, 192, 192',
+	'153, 102, 255',
+	'255, 159, 64',
+]
+
+
+
+OD_SELECT.addEventListener('change', () => {
+	// Clear overlay and chart data on change
+	OD_OUTPUT_OVERLAY.innerHTML = '';
+
+	const chart = CHARTS[OD_OUTPUT_CANVAS.id];
+	chart.data = structuredClone(DEFAULT_DATA);
+	chart.update();
+});
+
+OD_OUTPUT_OVERLAY.addEventListener('mousemove', (e) => {
+	let rects = OD_OUTPUT_OVERLAY.querySelectorAll('rect')
+
+	let colours = [];
+	let borderColours = [];
+
+
+	rects.forEach((rect, i) => {
+		let colour = COLOURS[i % COLOURS.length];
+
+		// Display if hovering over background (tagName === 'svg')
+		let toDisplay = e.target.tagName !== 'rect';
+		if (!toDisplay) {
+			// Perform additional check
+			let bb = rect.getBoundingClientRect()
+
+			// Check if box intersects with current mouse positition
+			toDisplay = e.clientX >= bb.left && e.clientX <= bb.right && e.clientY >= bb.top && e.clientY <= bb.bottom
+		}
+
+		if (toDisplay) {
+			// Set back to original
+			rect.style.fillOpacity = 0.1;
+			rect.style.opacity = 1;
+			colours.push(`rgba(${colour}, 0.5)`);
+			borderColours.push(`rgba(${colour}, 1)`);
+		} else {
+			// Hovering over a rect, so set all other rects to 0 opacity
+			rect.style.fillOpacity = 0;
+			rect.style.opacity = 0;
+			colours.push(`rgba(${colour}, 0.05)`);
+			borderColours.push(`rgba(${colour}, 0.5)`);
+		}
+
+	})
+
+	const chart = CHARTS['od-canvas'];
+	chart.data.datasets[0].backgroundColor = colours;
+	chart.data.datasets[0].borderColor = borderColours;
+	chart.update();
+})
 
 function updateParams(task) {
 	let params = TASK_DEFAULT_PARAMS[task]
@@ -239,6 +311,12 @@ const escapeHtml = (unsafe) => {
 }
 
 
+const DEFAULT_DATA = {
+	labels: ['label', 'label', 'label', 'label', 'label'],
+	datasets: [{
+		borderWidth: 1
+	}]
+}
 
 
 const CHARTS = {
@@ -255,12 +333,7 @@ const CHARTS = {
 	}),
 	'ic-canvas': new Chart(IMAGE_CLASSIFICATION_OUTPUT_CANVAS, {
 		type: 'bar',
-		data: {
-			labels: ['label', 'label', 'label', 'label', 'label'],
-			datasets: [{
-				borderWidth: 1
-			}]
-		},
+		data: structuredClone(DEFAULT_DATA),
 		options: CHART_OPTIONS
 	}),
 
@@ -275,8 +348,12 @@ const CHARTS = {
 		options: CHART_OPTIONS
 	}),
 
+	'od-canvas': new Chart(OD_OUTPUT_CANVAS, {
+		type: 'bar',
+		data: structuredClone(DEFAULT_DATA),
+		options: CHART_OPTIONS
+	}),
 }
-
 
 function getZSICClasses() {
 	return ZSIC_CLASSES.value.split(/\s*,+\s*/g).filter(x => x)
@@ -412,6 +489,13 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 			data.updateLabels = true
 			break;
 
+		case 'object-detection':
+			data.image = getImageDataFromImage(OD_IMG)
+			data.targetType = 'overlay'
+			data.chartId = OD_OUTPUT_CANVAS.id
+			data.elementIdToUpdate = OD_OUTPUT_OVERLAY.id
+			break;
+
 		default:
 			return;
 	}
@@ -496,6 +580,47 @@ worker.addEventListener('message', (event) => {
 					}
 
 					chartToUpdate.update(); // update the chart
+					break;
+
+
+				case 'overlay':
+					let parent = document.getElementById(message.target);
+
+					// Clear previous output, just in case
+					parent.innerHTML = '';
+
+					let viewbox = parent.viewBox.baseVal;
+
+					let colours = [];
+					let borderColours = [];
+
+					let items = message.data;
+					for (let i = 0; i < items.boxes.length; ++i) {
+						let svgns = "http://www.w3.org/2000/svg";
+						let rect = document.createElementNS(svgns, 'rect');
+
+						rect.setAttribute('x', viewbox.width * items.boxes[i][0]);
+						rect.setAttribute('y', viewbox.height * items.boxes[i][1]);
+						rect.setAttribute('width', viewbox.width * (items.boxes[i][2] - items.boxes[i][0]));
+						rect.setAttribute('height', viewbox.height * (items.boxes[i][3] - items.boxes[i][1]));
+
+						const colour = COLOURS[i % COLOURS.length];
+						rect.style.stroke = rect.style.fill = `rgba(${colour}, 1)`;
+
+						colours.push(`rgba(${colour}, 0.5)`);
+						borderColours.push(`rgba(${colour}, 1)`);
+						parent.appendChild(rect);
+					}
+
+					// Update chart label and data
+					const chart = CHARTS[message.chartId];
+					chart.data.labels = items.labels;
+					chart.data.datasets[0] = {
+						data: items.scores,
+						backgroundColor: colours,
+						borderColor: borderColours
+					};
+					chart.update()
 					break;
 				default: // is text
 					document.getElementById(message.target).value = message.data

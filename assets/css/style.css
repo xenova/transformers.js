@@ -34,8 +34,8 @@
     position: relative;
 }
 
-.code-container > textarea,
-.code-container > pre{
+.code-container>textarea,
+.code-container>pre {
     /* Both elements need the same text and space styling so they are directly on top of each other */
     margin: 0;
     padding: 16px;
@@ -44,9 +44,9 @@
     height: 100%;
 }
 
-.code-container > textarea,
-.code-container > pre,
-.code-container > pre * {
+.code-container>textarea,
+.code-container>pre,
+.code-container>pre * {
     /* Also add text styles to highlighing tokens */
     font-size: 15pt;
     font-family: monospace;
@@ -55,8 +55,8 @@
 }
 
 
-.code-container > textarea,
-.code-container > pre {
+.code-container>textarea,
+.code-container>pre {
     /* In the same place */
     position: absolute;
     top: 0;
@@ -66,11 +66,11 @@
 
 /* Move the textarea in front of the result */
 
-.code-container > textarea {
+.code-container>textarea {
     z-index: 1;
 }
 
-.code-container > pre {
+.code-container>pre {
     z-index: 0;
     white-space: pre-wrap;
     pointer-events: none;
@@ -79,22 +79,22 @@
 
 /* Make textarea almost completely transparent */
 
-.code-container > textarea {
+.code-container>textarea {
     color: transparent;
     background: transparent;
     caret-color: black;
 }
 
 /* Can be scrolled */
-.code-container > textarea,
-.code-container > pre {
+.code-container>textarea,
+.code-container>pre {
     overflow: auto;
     white-space: nowrap;
     /* Allows textarea to scroll horizontally */
 }
 
 /* No resize on textarea */
-.code-container > textarea{
+.code-container>textarea {
     resize: none;
 }
 
@@ -103,4 +103,12 @@ code#highlighting-content {
     border-radius: 2px;
     /* background-color: #eee; */
     color: #111;
+}
+
+#od-overlay>rect {
+    fill-opacity: 0.1;
+    opacity: 1;
+    transition: all 0.2s ease-in-out;
+    stroke-width: 2px;
+    stroke: white;
 }

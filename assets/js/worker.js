@@ -25,6 +25,7 @@ const TASK_FUNCTION_MAPPING = {
     'image-to-text': image_to_text,
     'image-classification': image_classification,
     'zero-shot-image-classification': zero_shot_image_classification,
+    'object-detection': object_detection,
 }
 
 // Listen for messages from UI
@@ -122,6 +123,11 @@ class ImageClassificationPipelineFactory extends PipelineFactory {
 class ZeroShotImageClassificationPipelineFactory extends PipelineFactory {
     static task = 'zero-shot-image-classification';
     static model = 'openai/clip-vit-base-patch16';
+}
+
+class ObjectDetectionPipelineFactory extends PipelineFactory {
+    static task = 'object-detection';
+    static model = 'facebook/detr-resnet-50';
 }
 
 async function translate(data) {
@@ -399,4 +405,28 @@ async function zero_shot_image_classification(data) {
 
 }
 
+
+async function object_detection(data) {
+
+    let pipeline = await ObjectDetectionPipelineFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'object-detection',
+            data: data
+        });
+    })
+
+    let outputs = await pipeline(data.image, {
+        threshold: 0.9,
+        percentage: true
+    })
+
+    self.postMessage({
+        type: 'complete',
+        target: data.elementIdToUpdate,
+        targetType: data.targetType,
+        chartId: data.chartId,
+        data: outputs
+    });
+}
 

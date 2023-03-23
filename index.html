@@ -135,9 +135,11 @@
                         <option value="image-classification">
                             Image classification w/ google/vit-base-patch16-224 (91 MB)
                         </option>
-
                         <option value="zero-shot-image-classification">
                             Zero-shot image classification w/ openai/clip-vit-base-patch16 (152 MB)
+                        </option>
+                        <option value="object-detection">
+                            Object detection w/ facebook/detr-resnet-50 (43 MB)
                         </option>
                     </select>
                 </div>
@@ -427,6 +429,45 @@
 
                         </div>
 
+                    </div>
+                </div>
+                <div task="object-detection" class="task-settings">
+                    <div class="row pt-2">
+                        <div class="col-lg-6">
+                            <label>Image: </label>
+                            <select id="od-select" class="form-select">
+                                <option value="./assets/images/cats.jpg">
+                                    Example 1
+                                </option>
+                                <option value="./assets/images/football-match.jpg">
+                                    Example 2
+                                </option>
+                                <option value="./assets/images/airport.jpg">
+                                    Example 3
+                                </option>
+                                <option value="./assets/images/savanna.jpg">
+                                    Example 4
+                                </option>
+                                <option show-custom>Custom</option>
+                            </select>
+
+                            <input class="mt-2 form-control" style="display: none;" type="file" id="od-file"
+                                name="od-file" accept="image/*">
+
+                            <div class="position-relative">
+                                <img id="od-viewer" class="w-100 h-100 p-4" src="./assets/images/cats.jpg"
+                                    crossorigin="anonymous">
+                                <svg id="od-overlay" preserveAspectRatio="none"
+                                    class="position-absolute w-100 h-100 left-0 start-0 p-4" style="z-index: 1;"
+                                    viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg">
+                                </svg>
+                            </div>
+
+                        </div>
+
+                        <div class="col-lg-6 mt-lg-5" style="max-height:250px">
+                            <canvas id="od-canvas" style="height:250px"></canvas>
+                        </div>
                     </div>
                 </div>
                 <div class="mt-3 mb-1">
