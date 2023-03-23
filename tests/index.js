@@ -490,6 +490,33 @@ async function text2text_generation() {
     ), duration1 + duration2];
 }
 
+async function code_generation() {
+    // Specifically test that `added_tokens` are added correctly
+
+    let generator = await pipeline('text-generation', 'Salesforce/codegen-350M-mono')
+
+    let start = performance.now();
+
+    let output1 = await generator('def fib(n):', {
+        max_new_tokens: 45,
+        top_k: 0,
+        do_sample: false
+    });
+
+    let duration = performance.now() - start;
+
+    // Dispose pipeline
+    await generator.dispose()
+
+    return [isDeepEqual(
+        output1,
+        [
+            { "generated_text": "def fib(n):\n    if n == 0:\n        return 0\n    elif n == 1:\n        return 1\n    else:\n        return fib(n-1) + fib(n-2)\n\n" }
+        ]
+    ), duration];
+}
+
+
 async function speech2text_generation() {
     // TODO add test case
     // let audio = './tests/assets/jfk.wav';
@@ -627,33 +654,6 @@ async function image_classification() {
 }
 
 
-async function code_generation() {
-    // Specifically test that `added_tokens` are added correctly
-
-    let generator = await pipeline('text-generation', 'Salesforce/codegen-350M-mono')
-
-    let start = performance.now();
-
-    let output1 = await generator('def fib(n):', {
-        max_new_tokens: 45,
-        top_k: 0,
-        do_sample: false
-    });
-
-    let duration = performance.now() - start;
-
-    // Dispose pipeline
-    await generator.dispose()
-
-    return [isDeepEqual(
-        output1,
-        [
-            { "generated_text": "def fib(n):\n    if n == 0:\n        return 0\n    elif n == 1:\n        return 1\n    else:\n        return fib(n-1) + fib(n-2)\n\n" }
-        ]
-    ), duration];
-}
-
-
 async function zero_shot_image_classification() {
 
     let classifier = await pipeline('zero-shot-image-classification', 'openai/clip-vit-base-patch16');
@@ -705,6 +705,64 @@ async function zero_shot_image_classification() {
 }
 
 
+async function object_detection() {
+    let detector = await pipeline('object-detection', 'facebook/detr-resnet-50')
+
+    let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
+    let urls = ['https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg']
+
+    // TODO add batched test cases when supported
+
+    let start = performance.now();
+
+    let output1 = await detector(url, {
+        threshold: 0.9,
+    });
+
+    let output2 = await detector(urls, {
+        threshold: 0.9,
+        percentage: true
+    });
+
+    let duration = performance.now() - start;
+
+    // Dispose pipeline
+    await detector.dispose()
+
+    return [isDeepEqual(
+        output1,
+        {
+            boxes: [
+                [359.76656198501587, 247.15871572494507, 402.9358148574829, 315.704562664032],
+                [109.06712919473648, 237.22267627716064, 234.6556493639946, 324.0059995651245],
+                [2.541865110397339, 148.06851625442505, 221.13489389419556, 255.35571813583374],
+                [186.80795073509216, 230.4118824005127, 322.8719401359558, 305.1347064971924],
+                [349.60298001766205, 95.32436728477478, 547.5894981622696, 311.53558373451233]
+            ],
+            classes: [24, 24, 25, 24, 25],
+            labels: ["zebra", "zebra", "giraffe", "zebra", "giraffe"],
+            scores: [0.9990037083625793, 0.9987165331840515, 0.93809574842453, 0.9977785348892212, 0.9987764358520508],
+        }
+    ) && isDeepEqual(
+        output2,
+        [{
+            boxes: [
+                [0.11961111426353455, 0.8362486660480499, 0.22848913073539734, 0.9653392732143402],
+                [0.12597772479057312, 0.02483522891998291, 0.62779501080513, 0.9831656217575073],
+                [-0.014880642294883728, 0.08133217692375183, 0.21618883311748505, 0.7050653994083405],
+                [0.12513580918312073, 0.022572606801986694, 0.7006023824214935, 0.9825432598590851],
+                [0.6693135350942612, 0.053024232387542725, 0.8096815496683121, 0.6173807978630066],
+                [0.527036190032959, 0.1286628246307373, 0.8026435375213623, 0.9251552820205688]
+            ],
+            classes: [37, 1, 1, 1, 1, 1],
+            labels: ["sports ball", "person", "person", "person", "person", "person"],
+            scores: [0.9995566010475159, 0.9635121822357178, 0.9992444515228271, 0.9051326513290405, 0.9229124188423157, 0.9993530511856079],
+        }]
+    ), duration];
+
+}
+
+
 // hide unused initializer and node arguments warnings
 console._warn = console.warn;
 console.warn = (...data) => {
@@ -722,12 +780,13 @@ let tests = {
     'Translation:': translation,
     'Text-to-text generation:': text2text_generation,
     'Text generation:': text_generation,
+    'Code generation:': code_generation,
     'Embeddings:': embeddings,
     'Speech-to-text generation:': speech2text_generation,
     'Image-to-text:': image_to_text,
     'Image classification:': image_classification,
-    'Code generation:': code_generation,
     'Zero-shot image classification:': zero_shot_image_classification,
+    'Object detection:': object_detection,
 };
 
 // run tests
