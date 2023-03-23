@@ -656,7 +656,11 @@ class PreTrainedModel extends Callable {
     }
 }
 //////////////////////////////////////////////////
+// Base model output class
+class ModelOutput { }
 
+
+//////////////////////////////////////////////////
 // Bert models
 class BertPreTrainedModel extends PreTrainedModel { }
 class BertModel extends BertPreTrainedModel { }
@@ -705,7 +709,7 @@ class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// DistilBert models
+// Albert models
 class AlbertPreTrainedModel extends PreTrainedModel { }
 class AlbertModel extends AlbertPreTrainedModel { }
 class AlbertForSequenceClassification extends AlbertPreTrainedModel {
@@ -1085,16 +1089,32 @@ class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-class ViTForImageClassification extends PreTrainedModel {
-
+class ViTPreTrainedModel extends PreTrainedModel { }
+class ViTForImageClassification extends ViTPreTrainedModel {
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
-
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+class DetrPreTrainedModel extends PreTrainedModel { }
+class DetrForObjectDetection extends DetrPreTrainedModel {
+    async _call(model_inputs) {
+        let output = (await super._call(model_inputs));
+        return new DetrObjectDetectionOutput(output.logits, output.pred_boxes)
+    }
+}
+
+class DetrObjectDetectionOutput extends ModelOutput {
+    constructor(logits, pred_boxes) {
+        super();
+        this.logits = logits;
+        this.pred_boxes = pred_boxes;
+    }
+}
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -1345,28 +1365,61 @@ class AutoModelForImageClassification {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-class Seq2SeqLMOutput {
+class AutoModelForObjectDetection {
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'model.onnx', progressCallback),
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'detr':
+                return new DetrForObjectDetection(
+                    config,
+                    session,
+                );
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+class Seq2SeqLMOutput extends ModelOutput {
     constructor(logits, past_key_values, encoder_outputs) {
+        super();
         this.logits = logits;
         this.past_key_values = past_key_values;
         this.encoder_outputs = encoder_outputs;
     }
 }
 
-class SequenceClassifierOutput {
+class SequenceClassifierOutput extends ModelOutput {
     constructor(logits) {
+        super();
         this.logits = logits;
     }
 }
 
-class MaskedLMOutput {
+class MaskedLMOutput extends ModelOutput {
     constructor(logits) {
+        super();
         this.logits = logits;
     }
 }
 
-class QuestionAnsweringModelOutput {
+class QuestionAnsweringModelOutput extends ModelOutput {
     constructor(start_logits, end_logits) {
+        super();
         this.start_logits = start_logits;
         this.end_logits = end_logits;
     }
@@ -1381,5 +1434,5 @@ module.exports = {
     AutoModelForQuestionAnswering,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
-    T5ForConditionalGeneration
+    AutoModelForObjectDetection,
 };

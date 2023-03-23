@@ -20,6 +20,7 @@ const {
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
+    AutoModelForObjectDetection
 } = require("./models.js");
 const {
     AutoProcessor
@@ -32,6 +33,18 @@ const {
 
 const { Tensor } = require("./tensor_utils.js");
 
+const { loadImage } = require("./image_utils.js");
+
+async function prepareImages(images) {
+    if (!Array.isArray(images)) {
+        images = [images];
+    }
+
+    // Possibly convert any non-images to images
+    images = await Promise.all(images.map(loadImage));
+
+    return images;
+}
 
 class Pipeline extends Callable {
     constructor(task, tokenizer, model) {
@@ -507,6 +520,10 @@ class ImageToTextPipeline extends Pipeline {
     }
 
     async _call(images, generate_kwargs = {}) {
+        let isBatched = Array.isArray(images);
+
+        images = await prepareImages(images);
+
         let pixel_values = (await this.processor(images)).pixel_values;
 
         let toReturn = [];
@@ -521,7 +538,7 @@ class ImageToTextPipeline extends Pipeline {
             toReturn.push(decoded);
         }
 
-        return Array.isArray(images) ? toReturn : toReturn[0];
+        return isBatched ? toReturn : toReturn[0];
     }
 }
 
@@ -534,6 +551,8 @@ class ImageClassificationPipeline extends Pipeline {
     async _call(images, {
         topk = 1
     } = {}) {
+        let isBatched = Array.isArray(images);
+        images = await prepareImages(images);
 
         let inputs = await this.processor(images);
         let output = await this.model(inputs);
@@ -556,7 +575,7 @@ class ImageClassificationPipeline extends Pipeline {
             }
         }
 
-        return Array.isArray(images) || topk === 1 ? toReturn : toReturn[0];
+        return isBatched || topk === 1 ? toReturn : toReturn[0];
     }
 
 }
@@ -570,6 +589,8 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
+        let isBatched = Array.isArray(images);
+        images = await prepareImages(images);
 
         // Insert label into hypothesis template 
         let texts = candidate_labels.map(
@@ -599,7 +620,40 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
             }));
         }
 
-        return Array.isArray(images) ? toReturn : toReturn[0];
+        return isBatched ? toReturn : toReturn[0];
+    }
+}
+
+
+class ObjectDetectionPipeline extends Pipeline {
+    constructor(task, model, processor) {
+        super(task, null, model); // TODO tokenizer
+        this.processor = processor;
+    }
+
+    async _call(images, {
+        threshold = 0.5,
+        percentage = false, // get in percentage (true) or in pixels (false)
+    } = {}) {
+        let isBatched = Array.isArray(images);
+
+        if (isBatched && images.length !== 1) {
+            throw Error("Object detection pipeline currently only supports a batch size of 1.");
+        }
+        images = await prepareImages(images);
+
+        let imageSizes = percentage ? null : images.map(x => [x.bitmap.width, x.bitmap.height]);
+
+        let inputs = await this.processor(images);
+        let output = await this.model(inputs);
+
+        let processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSizes);
+
+        // Add labels
+        let id2label = this.model.config.id2label;
+        processed.forEach(x => x.labels = x.classes.map(y => id2label[y]));
+
+        return isBatched ? processed : processed[0];
     }
 }
 
@@ -711,6 +765,17 @@ const SUPPORTED_TASKS = {
         "processor": AutoProcessor,
         "default": {
             "model": "openai/clip-vit-base-patch32"
+        },
+        "type": "multimodal",
+    },
+
+    "object-detection": {
+        // no tokenizer
+        "pipeline": ObjectDetectionPipeline,
+        "model": AutoModelForObjectDetection,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "facebook/detr-resnet-50"
         },
         "type": "multimodal",
     },

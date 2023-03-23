@@ -2,18 +2,13 @@
 const {
     Callable,
     fetchJSON,
+    indexOfMax,
+    softmax,
 } = require("./utils.js");
 
 
 const FFT = require('./fft.js');
 const { Tensor, transpose, cat } = require("./tensor_utils.js");
-
-// For some reason, Jimp attaches to self, even in Node.
-// https://github.com/jimp-dev/jimp/issues/466
-const _Jimp = require('jimp');
-const Jimp = (typeof self !== 'undefined') ? (self.Jimp || _Jimp) : _Jimp;
-
-const B64_STRING = /^data:image\/\w+;base64,/;
 
 class AutoProcessor {
     // Helper class to determine model type from config
@@ -32,11 +27,14 @@ class AutoProcessor {
             case 'ViTFeatureExtractor':
                 feature_extractor = new ViTFeatureExtractor(preprocessorConfig)
                 break;
-
+            case 'DetrFeatureExtractor':
+                feature_extractor = new DetrFeatureExtractor(preprocessorConfig)
+                break;
             default:
                 if (preprocessorConfig.size !== undefined) {
-                    // Assume VitFeatureExtractor
-                    feature_extractor = new ViTFeatureExtractor(preprocessorConfig)
+                    // Assume ImageFeatureExtractor
+                    console.warn('Feature extractor type not specified, assuming ImageFeatureExtractor due to size parameter in config.')
+                    feature_extractor = new ImageFeatureExtractor(preprocessorConfig)
 
                 } else {
                     throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
@@ -63,7 +61,8 @@ class FeatureExtractor extends Callable {
         this.config = config
     }
 }
-class ViTFeatureExtractor extends FeatureExtractor {
+
+class ImageFeatureExtractor extends FeatureExtractor {
 
     constructor(config) {
         super(config);
@@ -83,32 +82,41 @@ class ViTFeatureExtractor extends FeatureExtractor {
 
         this.do_resize = this.config.do_resize;
         this.size = this.config.size;
+
+        this.max_size = this.config.max_size;
+
+        // TODO use these
+        this.do_center_crop = this.config.do_center_crop;
+        this.crop_size = this.config.crop_size;
     }
 
+    async preprocess(image) {
+        // image is a Jimp image
 
-    async preprocess(url) {
-
-        let imgToLoad = url;
-        if (B64_STRING.test(url)) {
-            imgToLoad = imgToLoad.replace(B64_STRING, '');
-            if (typeof Buffer !== 'undefined') {
-                imgToLoad = Buffer.from(imgToLoad, 'base64');
-
-            } else {
-                let bytes = atob(imgToLoad);
-                // create new ArrayBuffer from binary string
-                imgToLoad = new Uint8Array(new ArrayBuffer(bytes.length));
-                for (let i = 0; i < bytes.length; i++) {
-                    imgToLoad[i] = bytes.charCodeAt(i);
-                }
-            }
-        }
-
-        let image = await Jimp.read(imgToLoad);
+        const srcWidth = image.bitmap.width;   // original width
+        const srcHeight = image.bitmap.height; // original height
 
         // resize all images
         if (this.do_resize) {
-            image = image.resize(this.size, this.size);
+            // If `max_size` is set, maintain aspect ratio and resize to `size`
+            // while keeping the largest dimension <= `max_size`
+            if (this.max_size !== undefined) {
+                // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
+                // Try resize so that shortest edge is `this.size` (target)
+                const ratio = Math.max(this.size / srcWidth, this.size / srcHeight);
+                const newWidth = srcWidth * ratio;
+                const newHeight = srcHeight * ratio;
+
+                // The new width and height might be greater than `this.max_size`, so
+                // we downscale again to ensure the largest dimension is `this.max_size` 
+                const downscaleFactor = Math.min(this.max_size / newWidth, this.max_size / newHeight, 1);
+
+                // Perform resize
+                image = image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor));
+
+            } else {
+                image = image.resize(this.size, this.size);
+            }
         }
 
         const data = image.bitmap.data;
@@ -137,21 +145,20 @@ class ViTFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        let img = new Tensor('float32', convData, [this.size, this.size, 3]);
-        let transposed = transpose(img, [2, 0, 1]);
+        let imgDims = [image.bitmap.height, image.bitmap.width, 3];
+        let img = new Tensor('float32', convData, imgDims);
+        let transposed = transpose(img, [2, 0, 1]); // hwc -> chw
 
         return transposed;
     }
 
-    async _call(urls) {
-        if (!Array.isArray(urls)) {
-            urls = [urls];
+    async _call(images) {
+        if (!Array.isArray(images)) {
+            images = [images];
         }
+        images = await Promise.all(images.map(x => this.preprocess(x)));
 
-        // Convert any non-images to images
-        let images = await Promise.all(urls.map(x => this.preprocess(x)));
-
-        images.forEach(x => x.dims = [1, ...x.dims]) // add batch dimension
+        images.forEach(x => x.dims = [1, ...x.dims]); // add batch dimension
 
         images = cat(images);
         // TODO concatenate on dim=0
@@ -161,6 +168,90 @@ class ViTFeatureExtractor extends FeatureExtractor {
     }
 
 }
+
+class ViTFeatureExtractor extends ImageFeatureExtractor { }
+class DetrFeatureExtractor extends ImageFeatureExtractor {
+    async _call(urls) {
+        let result = await super._call(urls);
+
+        // TODO support differently-sized images, for now assume all images are the same size.
+        // TODO support different mask sizes (not just 64x64)
+        // Currently, just fill pixel mask with 1s
+        let maskSize = [result.pixel_values.dims[0], 64, 64];
+        result.pixel_mask = new Tensor(
+            'int64',
+            new BigInt64Array(maskSize.reduce((a, b) => a * b)).fill(1n),
+            maskSize
+        );
+
+        return result;
+    }
+
+    center_to_corners_format([centerX, centerY, width, height]) {
+        return [
+            centerX - width / 2,
+            centerY - height / 2,
+            centerX + width / 2,
+            centerY + height / 2
+        ];
+    }
+
+    post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
+        const out_logits = outputs.logits;
+        const out_bbox = outputs.pred_boxes;
+        const [batch_size, num_boxes, num_classes] = out_logits.dims;
+
+        if (target_sizes !== null && target_sizes.length !== batch_size) {
+            throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
+        }
+        let toReturn = [];
+        for (let i = 0; i < batch_size; ++i) {
+            let target_size = target_sizes !== null ? target_sizes[i] : null;
+            let info = {
+                boxes: [],
+                classes: [],
+                scores: []
+            }
+            let logits = out_logits.get(i);
+            let bbox = out_bbox.get(i);
+
+            for (let j = 0; j < num_boxes; ++j) {
+                let logit = logits.get(j);
+
+                // Get most probable class
+                let maxIndex = indexOfMax(logit.data);
+
+                if (maxIndex === num_classes - 1) {
+                    // This is the background class, skip it
+                    continue;
+                }
+
+                // Compute softmax over classes
+                let probs = softmax(logit.data);
+
+                let score = probs[maxIndex];
+                if (score > threshold) {
+                    // Some class has a high enough probability
+                    let box = bbox.get(j);
+
+                    // convert to [x0, y0, x1, y1] format
+                    box = this.center_to_corners_format(box)
+                    if (target_size !== null) {
+                        box = box.map((x, i) => x * target_size[i % 2])
+                    }
+
+                    info.boxes.push(box);
+                    info.classes.push(maxIndex);
+                    info.scores.push(score);
+                }
+            }
+            toReturn.push(info);
+        }
+        return toReturn;
+    }
+}
+
+
 class WhisperFeatureExtractor extends FeatureExtractor {
 
     calcOffset(i, w) {
