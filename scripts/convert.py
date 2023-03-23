@@ -110,6 +110,7 @@ UNSIGNED_MODEL_TYPES = [
     'vision-encoder-decoder',
     'vit',
     'clip',
+    'detr',
 ]
 
 
@@ -219,7 +220,8 @@ def main():
     copy_if_exists(model_path, 'preprocessor_config.json', output_model_folder)
 
     if model.can_generate():
-        copy_if_exists(model_path, 'generation_config.json', output_model_folder)
+        copy_if_exists(model_path, 'generation_config.json',
+                       output_model_folder)
 
     # Saving the model config
     model.config.save_pretrained(output_model_folder)
@@ -240,58 +242,43 @@ def main():
     OUTPUT_DECODER_MERGED_PATH = os.path.join(
         output_model_folder, ONNX_DECODER_MERGED_NAME)
 
-    onnx_model_paths = []
-
     # Step 1. convert huggingface model to onnx
-    if model.config.is_encoder_decoder or task.startswith("causal-lm"):
-        if model.config.is_encoder_decoder and task.startswith("causal-lm"):
-            raise ValueError(
-                f"model.config.is_encoder_decoder is True and task is `{task}`, which are incompatible. If the task was auto-inferred, please fill a bug report"
-                f"at https://github.com/huggingface/optimum, if --task was explicitely passed, make sure you selected the right task for the model,"
-                f" referring to `optimum.exporters.tasks.TaskManager`'s `_TASKS_TO_AUTOMODELS`."
-            )
-        if model.config.is_encoder_decoder:
-            models_and_onnx_configs = get_encoder_decoder_models_for_export(
-                model,
-                onnx_config
-            )
-        else:
-            models_and_onnx_configs = get_decoder_models_for_export(
-                model,
-                onnx_config
-            )
+    if model.config.is_encoder_decoder and task.startswith("causal-lm"):
+        raise ValueError(
+            f"model.config.is_encoder_decoder is True and task is `{task}`, which are incompatible. If the task was auto-inferred, please fill a bug report"
+            f"at https://github.com/huggingface/optimum, if --task was explicitely passed, make sure you selected the right task for the model,"
+            f" referring to `optimum.exporters.tasks.TaskManager`'s `_TASKS_TO_AUTOMODELS`."
+        )
 
-        onnx_model_paths = [
-            os.path.join(output_model_folder, f'{x}.onnx')
-            for x in models_and_onnx_configs
-        ]
-
-        # Check if at least one model doesn't exist, or user requests to overwrite
-        if any(
-            not os.path.exists(x) for x in onnx_model_paths
-        ) or conv_args.overwrite:
-            export_models(
-                models_and_onnx_configs=models_and_onnx_configs,
-                opset=conv_args.opset,
-                output_dir=output_model_folder,
-                input_shapes=input_shapes,
-                device=conv_args.device,
-            )
-
+    if (
+        model.config.is_encoder_decoder
+        and task.startswith(("seq2seq-lm", "speech2seq-lm", "vision2seq-lm", "default-with-past"))
+    ):
+        models_and_onnx_configs = get_encoder_decoder_models_for_export(
+            model, onnx_config)
+    elif task.startswith("causal-lm"):
+        models_and_onnx_configs = get_decoder_models_for_export(
+            model, onnx_config)
     else:
-        output_path = Path(OUTPUT_WEIGHTS_PATH)
+        models_and_onnx_configs = {"model": (model, onnx_config)}
 
-        # Check if model doesn't exist, or user requests to overwrite
-        if not os.path.exists(output_path) or conv_args.overwrite:
-            export(
-                model=model,
-                config=onnx_config,
-                output=output_path,
-                opset=conv_args.opset,
-                input_shapes=input_shapes,
-                device=conv_args.device,
-            )
-        onnx_model_paths.append(output_path)
+    onnx_model_paths = [
+        os.path.join(output_model_folder, f'{x}.onnx')
+        for x in models_and_onnx_configs
+    ]
+
+    # Check if at least one model doesn't exist, or user requests to overwrite
+    if any(
+        not os.path.exists(x) for x in onnx_model_paths
+    ) or conv_args.overwrite:
+        _, onnx_outputs = export_models(
+            models_and_onnx_configs=models_and_onnx_configs,
+            opset=conv_args.opset,
+            output_dir=output_model_folder,
+            input_shapes=input_shapes,
+            device=conv_args.device,
+            # dtype="fp16" if fp16 is True else None, # TODO
+        )
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
@@ -299,8 +286,8 @@ def main():
 
     # Step 3. merge decoders.
     if conv_args.merge_decoders and (
-        os.path.exists(OUTPUT_DECODER_PATH) and os.path.exists(
-            OUTPUT_DECODER_WITH_PAST_PATH)
+        os.path.exists(OUTPUT_DECODER_PATH) and
+        os.path.exists(OUTPUT_DECODER_WITH_PAST_PATH)
     ) and (not os.path.exists(OUTPUT_DECODER_MERGED_PATH) or conv_args.overwrite):
         print('Merging decoders')
         merge_decoders(
