@@ -5,7 +5,7 @@ const { env: onnx_env } = require('./backends/onnx.js').ONNX;
 
 // check if various APIs are available (depends on environment)
 const CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
-const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
+const FS_AVAILABLE = !isEmpty(fs) && typeof fs.existsSync === 'function'; // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
