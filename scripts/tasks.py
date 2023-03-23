@@ -63,9 +63,9 @@ SUPPORTED_MODELS = {
     },
     'blenderbot-small': {
         'facebook/blenderbot_small-90M': [
-            "default",
-            "causal-lm-with-past",
-            "seq2seq-lm-with-past",
+            'default',
+            'causal-lm-with-past',
+            'seq2seq-lm-with-past',
         ]
     },
     'clip': {
@@ -78,16 +78,28 @@ SUPPORTED_MODELS = {
     },
     'codegen': {
         'Salesforce/codegen-350M-mono': [
-            "default",
-            "causal-lm-with-past",
+            'default',
+            'causal-lm-with-past',
         ],
         'Salesforce/codegen-350M-multi': [
-            "default",
-            "causal-lm-with-past",
+            'default',
+            'causal-lm-with-past',
         ],
         'Salesforce/codegen-350M-nl': [
-            "default",
-            "causal-lm-with-past",
+            'default',
+            'causal-lm-with-past',
+        ],
+    },
+    'detr': {
+        'facebook/detr-resnet-50': [
+            'default',
+            'object-detection',
+            # 'image-segmentation',
+        ],
+        'facebook/detr-resnet-101': [
+            'default',
+            'object-detection',
+            # 'image-segmentation',
         ],
     },
     'distilbert': {
@@ -121,6 +133,12 @@ SUPPORTED_MODELS = {
             'causal-lm-with-past',
             'sequence-classification',
             'token-classification',
+        ]
+    },
+    'mt5': {
+        'google/mt5-small': [
+            'default',
+            # 'seq2seq-lm-with-past',
         ]
     },
     'roberta': {
@@ -167,8 +185,8 @@ SUPPORTED_MODELS = {
     },
     'vision-encoder-decoder': {
         'nlpconnect/vit-gpt2-image-captioning': [
-            # "vision2seq-lm",
-            "vision2seq-lm-with-past",
+            # 'vision2seq-lm',
+            'vision2seq-lm-with-past',
         ]
     },
     'vit': {
