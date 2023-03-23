@@ -1736,6 +1736,50 @@ module.exports = {
 
 /***/ }),
 
+/***/ "./src/image_utils.js":
+/*!****************************!*\
+  !*** ./src/image_utils.js ***!
+  \****************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+
+// For some reason, Jimp attaches to self, even in Node.
+// https://github.com/jimp-dev/jimp/issues/466
+const _Jimp = __webpack_require__(/*! jimp */ "./node_modules/jimp/browser/lib/jimp.js");
+const Jimp = (typeof self !== 'undefined') ? (self.Jimp || _Jimp) : _Jimp;
+
+const B64_STRING = /^data:image\/\w+;base64,/;
+
+
+async function loadImage(url) {
+    // TODO if already is a Jimp image, return it
+
+    let imgToLoad = url;
+    if (B64_STRING.test(url)) {
+        imgToLoad = imgToLoad.replace(B64_STRING, '');
+        if (typeof Buffer !== 'undefined') {
+            imgToLoad = Buffer.from(imgToLoad, 'base64');
+
+        } else {
+            let bytes = atob(imgToLoad);
+            // create new ArrayBuffer from binary string
+            imgToLoad = new Uint8Array(new ArrayBuffer(bytes.length));
+            for (let i = 0; i < bytes.length; i++) {
+                imgToLoad[i] = bytes.charCodeAt(i);
+            }
+        }
+    }
+    return await Jimp.read(imgToLoad);
+}
+
+module.exports = {
+    loadImage,
+    Jimp
+};
+
+
+/***/ }),
+
 /***/ "./src/models.js":
 /*!***********************!*\
   !*** ./src/models.js ***!
@@ -2400,7 +2444,11 @@ class PreTrainedModel extends Callable {
     }
 }
 //////////////////////////////////////////////////
+// Base model output class
+class ModelOutput { }
 
+
+//////////////////////////////////////////////////
 // Bert models
 class BertPreTrainedModel extends PreTrainedModel { }
 class BertModel extends BertPreTrainedModel { }
@@ -2449,7 +2497,7 @@ class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// DistilBert models
+// Albert models
 class AlbertPreTrainedModel extends PreTrainedModel { }
 class AlbertModel extends AlbertPreTrainedModel { }
 class AlbertForSequenceClassification extends AlbertPreTrainedModel {
@@ -2829,16 +2877,32 @@ class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-class ViTForImageClassification extends PreTrainedModel {
-
+class ViTPreTrainedModel extends PreTrainedModel { }
+class ViTForImageClassification extends ViTPreTrainedModel {
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
-
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+class DetrPreTrainedModel extends PreTrainedModel { }
+class DetrForObjectDetection extends DetrPreTrainedModel {
+    async _call(model_inputs) {
+        let output = (await super._call(model_inputs));
+        return new DetrObjectDetectionOutput(output.logits, output.pred_boxes)
+    }
+}
+
+class DetrObjectDetectionOutput extends ModelOutput {
+    constructor(logits, pred_boxes) {
+        super();
+        this.logits = logits;
+        this.pred_boxes = pred_boxes;
+    }
+}
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -3089,28 +3153,61 @@ class AutoModelForImageClassification {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-class Seq2SeqLMOutput {
+class AutoModelForObjectDetection {
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'model.onnx', progressCallback),
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        switch (config.model_type) {
+            case 'detr':
+                return new DetrForObjectDetection(
+                    config,
+                    session,
+                );
+            default:
+                throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+class Seq2SeqLMOutput extends ModelOutput {
     constructor(logits, past_key_values, encoder_outputs) {
+        super();
         this.logits = logits;
         this.past_key_values = past_key_values;
         this.encoder_outputs = encoder_outputs;
     }
 }
 
-class SequenceClassifierOutput {
+class SequenceClassifierOutput extends ModelOutput {
     constructor(logits) {
+        super();
         this.logits = logits;
     }
 }
 
-class MaskedLMOutput {
+class MaskedLMOutput extends ModelOutput {
     constructor(logits) {
+        super();
         this.logits = logits;
     }
 }
 
-class QuestionAnsweringModelOutput {
+class QuestionAnsweringModelOutput extends ModelOutput {
     constructor(start_logits, end_logits) {
+        super();
         this.start_logits = start_logits;
         this.end_logits = end_logits;
     }
@@ -3125,7 +3222,7 @@ module.exports = {
     AutoModelForQuestionAnswering,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
-    T5ForConditionalGeneration
+    AutoModelForObjectDetection,
 };
 
 
@@ -3159,6 +3256,7 @@ const {
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
+    AutoModelForObjectDetection
 } = __webpack_require__(/*! ./models.js */ "./src/models.js");
 const {
     AutoProcessor
@@ -3171,6 +3269,18 @@ const {
 
 const { Tensor } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js");
 
+const { loadImage } = __webpack_require__(/*! ./image_utils.js */ "./src/image_utils.js");
+
+async function prepareImages(images) {
+    if (!Array.isArray(images)) {
+        images = [images];
+    }
+
+    // Possibly convert any non-images to images
+    images = await Promise.all(images.map(loadImage));
+
+    return images;
+}
 
 class Pipeline extends Callable {
     constructor(task, tokenizer, model) {
@@ -3646,6 +3756,10 @@ class ImageToTextPipeline extends Pipeline {
     }
 
     async _call(images, generate_kwargs = {}) {
+        let isBatched = Array.isArray(images);
+
+        images = await prepareImages(images);
+
         let pixel_values = (await this.processor(images)).pixel_values;
 
         let toReturn = [];
@@ -3660,7 +3774,7 @@ class ImageToTextPipeline extends Pipeline {
             toReturn.push(decoded);
         }
 
-        return Array.isArray(images) ? toReturn : toReturn[0];
+        return isBatched ? toReturn : toReturn[0];
     }
 }
 
@@ -3673,6 +3787,8 @@ class ImageClassificationPipeline extends Pipeline {
     async _call(images, {
         topk = 1
     } = {}) {
+        let isBatched = Array.isArray(images);
+        images = await prepareImages(images);
 
         let inputs = await this.processor(images);
         let output = await this.model(inputs);
@@ -3695,7 +3811,7 @@ class ImageClassificationPipeline extends Pipeline {
             }
         }
 
-        return Array.isArray(images) || topk === 1 ? toReturn : toReturn[0];
+        return isBatched || topk === 1 ? toReturn : toReturn[0];
     }
 
 }
@@ -3709,6 +3825,8 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
+        let isBatched = Array.isArray(images);
+        images = await prepareImages(images);
 
         // Insert label into hypothesis template 
         let texts = candidate_labels.map(
@@ -3738,7 +3856,40 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
             }));
         }
 
-        return Array.isArray(images) ? toReturn : toReturn[0];
+        return isBatched ? toReturn : toReturn[0];
+    }
+}
+
+
+class ObjectDetectionPipeline extends Pipeline {
+    constructor(task, model, processor) {
+        super(task, null, model); // TODO tokenizer
+        this.processor = processor;
+    }
+
+    async _call(images, {
+        threshold = 0.5,
+        percentage = false, // get in percentage (true) or in pixels (false)
+    } = {}) {
+        let isBatched = Array.isArray(images);
+
+        if (isBatched && images.length !== 1) {
+            throw Error("Object detection pipeline currently only supports a batch size of 1.");
+        }
+        images = await prepareImages(images);
+
+        let imageSizes = percentage ? null : images.map(x => [x.bitmap.width, x.bitmap.height]);
+
+        let inputs = await this.processor(images);
+        let output = await this.model(inputs);
+
+        let processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSizes);
+
+        // Add labels
+        let id2label = this.model.config.id2label;
+        processed.forEach(x => x.labels = x.classes.map(y => id2label[y]));
+
+        return isBatched ? processed : processed[0];
     }
 }
 
@@ -3850,6 +4001,17 @@ const SUPPORTED_TASKS = {
         "processor": AutoProcessor,
         "default": {
             "model": "openai/clip-vit-base-patch32"
+        },
+        "type": "multimodal",
+    },
+
+    "object-detection": {
+        // no tokenizer
+        "pipeline": ObjectDetectionPipeline,
+        "model": AutoModelForObjectDetection,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "facebook/detr-resnet-50"
         },
         "type": "multimodal",
     },
@@ -3999,18 +4161,13 @@ module.exports = {
 const {
     Callable,
     fetchJSON,
+    indexOfMax,
+    softmax,
 } = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
 
 const FFT = __webpack_require__(/*! ./fft.js */ "./src/fft.js");
 const { Tensor, transpose, cat } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js");
-
-// For some reason, Jimp attaches to self, even in Node.
-// https://github.com/jimp-dev/jimp/issues/466
-const _Jimp = __webpack_require__(/*! jimp */ "./node_modules/jimp/browser/lib/jimp.js");
-const Jimp = (typeof self !== 'undefined') ? (self.Jimp || _Jimp) : _Jimp;
-
-const B64_STRING = /^data:image\/\w+;base64,/;
 
 class AutoProcessor {
     // Helper class to determine model type from config
@@ -4029,11 +4186,14 @@ class AutoProcessor {
             case 'ViTFeatureExtractor':
                 feature_extractor = new ViTFeatureExtractor(preprocessorConfig)
                 break;
-
+            case 'DetrFeatureExtractor':
+                feature_extractor = new DetrFeatureExtractor(preprocessorConfig)
+                break;
             default:
                 if (preprocessorConfig.size !== undefined) {
-                    // Assume VitFeatureExtractor
-                    feature_extractor = new ViTFeatureExtractor(preprocessorConfig)
+                    // Assume ImageFeatureExtractor
+                    console.warn('Feature extractor type not specified, assuming ImageFeatureExtractor due to size parameter in config.')
+                    feature_extractor = new ImageFeatureExtractor(preprocessorConfig)
 
                 } else {
                     throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
@@ -4060,7 +4220,8 @@ class FeatureExtractor extends Callable {
         this.config = config
     }
 }
-class ViTFeatureExtractor extends FeatureExtractor {
+
+class ImageFeatureExtractor extends FeatureExtractor {
 
     constructor(config) {
         super(config);
@@ -4080,32 +4241,41 @@ class ViTFeatureExtractor extends FeatureExtractor {
 
         this.do_resize = this.config.do_resize;
         this.size = this.config.size;
+
+        this.max_size = this.config.max_size;
+
+        // TODO use these
+        this.do_center_crop = this.config.do_center_crop;
+        this.crop_size = this.config.crop_size;
     }
 
+    async preprocess(image) {
+        // image is a Jimp image
 
-    async preprocess(url) {
-
-        let imgToLoad = url;
-        if (B64_STRING.test(url)) {
-            imgToLoad = imgToLoad.replace(B64_STRING, '');
-            if (typeof Buffer !== 'undefined') {
-                imgToLoad = Buffer.from(imgToLoad, 'base64');
-
-            } else {
-                let bytes = atob(imgToLoad);
-                // create new ArrayBuffer from binary string
-                imgToLoad = new Uint8Array(new ArrayBuffer(bytes.length));
-                for (let i = 0; i < bytes.length; i++) {
-                    imgToLoad[i] = bytes.charCodeAt(i);
-                }
-            }
-        }
-
-        let image = await Jimp.read(imgToLoad);
+        const srcWidth = image.bitmap.width;   // original width
+        const srcHeight = image.bitmap.height; // original height
 
         // resize all images
         if (this.do_resize) {
-            image = image.resize(this.size, this.size);
+            // If `max_size` is set, maintain aspect ratio and resize to `size`
+            // while keeping the largest dimension <= `max_size`
+            if (this.max_size !== undefined) {
+                // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
+                // Try resize so that shortest edge is `this.size` (target)
+                const ratio = Math.max(this.size / srcWidth, this.size / srcHeight);
+                const newWidth = srcWidth * ratio;
+                const newHeight = srcHeight * ratio;
+
+                // The new width and height might be greater than `this.max_size`, so
+                // we downscale again to ensure the largest dimension is `this.max_size` 
+                const downscaleFactor = Math.min(this.max_size / newWidth, this.max_size / newHeight, 1);
+
+                // Perform resize
+                image = image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor));
+
+            } else {
+                image = image.resize(this.size, this.size);
+            }
         }
 
         const data = image.bitmap.data;
@@ -4134,21 +4304,20 @@ class ViTFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        let img = new Tensor('float32', convData, [this.size, this.size, 3]);
-        let transposed = transpose(img, [2, 0, 1]);
+        let imgDims = [image.bitmap.height, image.bitmap.width, 3];
+        let img = new Tensor('float32', convData, imgDims);
+        let transposed = transpose(img, [2, 0, 1]); // hwc -> chw
 
         return transposed;
     }
 
-    async _call(urls) {
-        if (!Array.isArray(urls)) {
-            urls = [urls];
+    async _call(images) {
+        if (!Array.isArray(images)) {
+            images = [images];
         }
+        images = await Promise.all(images.map(x => this.preprocess(x)));
 
-        // Convert any non-images to images
-        let images = await Promise.all(urls.map(x => this.preprocess(x)));
-
-        images.forEach(x => x.dims = [1, ...x.dims]) // add batch dimension
+        images.forEach(x => x.dims = [1, ...x.dims]); // add batch dimension
 
         images = cat(images);
         // TODO concatenate on dim=0
@@ -4158,6 +4327,90 @@ class ViTFeatureExtractor extends FeatureExtractor {
     }
 
 }
+
+class ViTFeatureExtractor extends ImageFeatureExtractor { }
+class DetrFeatureExtractor extends ImageFeatureExtractor {
+    async _call(urls) {
+        let result = await super._call(urls);
+
+        // TODO support differently-sized images, for now assume all images are the same size.
+        // TODO support different mask sizes (not just 64x64)
+        // Currently, just fill pixel mask with 1s
+        let maskSize = [result.pixel_values.dims[0], 64, 64];
+        result.pixel_mask = new Tensor(
+            'int64',
+            new BigInt64Array(maskSize.reduce((a, b) => a * b)).fill(1n),
+            maskSize
+        );
+
+        return result;
+    }
+
+    center_to_corners_format([centerX, centerY, width, height]) {
+        return [
+            centerX - width / 2,
+            centerY - height / 2,
+            centerX + width / 2,
+            centerY + height / 2
+        ];
+    }
+
+    post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
+        const out_logits = outputs.logits;
+        const out_bbox = outputs.pred_boxes;
+        const [batch_size, num_boxes, num_classes] = out_logits.dims;
+
+        if (target_sizes !== null && target_sizes.length !== batch_size) {
+            throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
+        }
+        let toReturn = [];
+        for (let i = 0; i < batch_size; ++i) {
+            let target_size = target_sizes !== null ? target_sizes[i] : null;
+            let info = {
+                boxes: [],
+                classes: [],
+                scores: []
+            }
+            let logits = out_logits.get(i);
+            let bbox = out_bbox.get(i);
+
+            for (let j = 0; j < num_boxes; ++j) {
+                let logit = logits.get(j);
+
+                // Get most probable class
+                let maxIndex = indexOfMax(logit.data);
+
+                if (maxIndex === num_classes - 1) {
+                    // This is the background class, skip it
+                    continue;
+                }
+
+                // Compute softmax over classes
+                let probs = softmax(logit.data);
+
+                let score = probs[maxIndex];
+                if (score > threshold) {
+                    // Some class has a high enough probability
+                    let box = bbox.get(j);
+
+                    // convert to [x0, y0, x1, y1] format
+                    box = this.center_to_corners_format(box)
+                    if (target_size !== null) {
+                        box = box.map((x, i) => x * target_size[i % 2])
+                    }
+
+                    info.boxes.push(box);
+                    info.classes.push(maxIndex);
+                    info.scores.push(score);
+                }
+            }
+            toReturn.push(info);
+        }
+        return toReturn;
+    }
+}
+
+
 class WhisperFeatureExtractor extends FeatureExtractor {
 
     calcOffset(i, w) {
