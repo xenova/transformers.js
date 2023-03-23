@@ -123,6 +123,12 @@ SUPPORTED_MODELS = {
             'sequence-classification',
         ]
     },
+    'gpt-neo': {
+        'EleutherAI/gpt-neo-125M': [
+            'default',
+            'causal-lm-with-past',
+        ],
+    },
     'gpt2': {
         'gpt2': [
             'default',

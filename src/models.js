@@ -1044,7 +1044,43 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
 // TODO
 // }
 //////////////////////////////////////////////////
+class GPTNeoPreTrainedModel extends PreTrainedModel { }
+class GPTNeoModel extends GPTNeoPreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (GPTNeoModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPTNeoForCausalLM'}"
+        )
+    }
+}
 
+class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_heads;
+        this.num_layers = this.config.num_layers;
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    async runBeam(beam) {
+        return await textgenRunBeam(this, beam);
+    }
+
+    updateBeam(beam, newTokenId) {
+        return textgenUpdatebeam(beam, newTokenId);
+    }
+
+    async forward(model_inputs) {
+        return await textgen_forward(this, model_inputs)
+    }
+}
 
 //////////////////////////////////////////////////
 // CodeGen models
@@ -1144,6 +1180,8 @@ class AutoModel {
                 return new DistilBertModel(config, session);
             case 't5':
                 return new T5Model(config, session);
+            case 'gpt_neo':
+                return new GPTNeoModel(config, session);
             case 'gpt2':
                 return new GPT2Model(config, session);
             case 'codegen':
@@ -1229,6 +1267,12 @@ class AutoModelForCausalLM {
         switch (config.model_type) {
             case 'gpt2':
                 return new GPT2LMHeadModel(
+                    config,
+                    session
+                );
+
+            case 'gpt_neo':
+                return new GPTNeoForCausalLM(
                     config,
                     session
                 );
