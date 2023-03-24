@@ -207,13 +207,38 @@ class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
     );
     for (const [hypo, bannedTokens] of bannedBatchTokens.entries()) {
       for (const token of bannedTokens) {
-        console.log("banned token", token);
         logits.data[hypo * logits.dims[1] + token] = -Infinity;``
       }
     }
     return logits;
   }
 }
+
+
+class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
+  constructor(penalty) {
+    super();
+    this.penalty = penalty;
+  }
+
+  _call(input_ids, logits) {
+      const numBatches = logits.dims[0]
+      const batchSize = logits.dims[1]
+      for (let batch = 0; batch < numBatches; ++batch) {
+          for (const inputId of input_ids) {
+              const index = batch * batchSize + inputId
+              const currentScore = logits.data[index]
+              if (currentScore < 0) {
+                  logits.data[index] = currentScore * this.penalty
+              } else {
+                  logits.data[index] = currentScore / this.penalty
+              }
+          }
+      }
+      return logits
+    }
+}
+
 
 class GenerationConfig {
     constructor(kwargs = {}) {
@@ -286,4 +311,5 @@ module.exports = {
     WhisperTimeStampLogitsProcessor,
     ForceTokensLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
+    RepetitionPenaltyLogitsProcessor
 };
