@@ -379,6 +379,17 @@ class Callable extends Function {
 }
 
 
+function min(arr) {
+    if (arr.length === 0) throw Error('Array must not be empty');
+    let min = arr[0];
+    for (let i = 1; i < arr.length; ++i) {
+        if (arr[i] < min) {
+            min = arr[i];
+        }
+    }
+    return min;
+}
+
 function isString(text) {
     return typeof text === 'string' || text instanceof String
 }
@@ -410,5 +421,6 @@ module.exports = {
     getFile,
     isIntegralNumber,
     isString,
-    exists
+    exists,
+    min
 };

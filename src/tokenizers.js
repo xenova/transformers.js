@@ -3,7 +3,8 @@ const {
     fetchJSON,
     reverseDictionary,
     escapeRegExp,
-    isIntegralNumber
+    isIntegralNumber,
+    min,
 } = require('./utils.js');
 
 const { Tensor } = require('./tensor_utils.js')
@@ -127,13 +128,13 @@ class Unigram extends TokenizerModel {
         this.eosTokenId = this.tokens_to_ids[this.eosToken];
         this.unkToken = this.vocab[this.unk_token_id];
 
-        this.minScore = Math.min(...this.scores);
+        this.minScore = min(this.scores);
 
         this.unkScore = this.minScore - 10.0;
         this.scores[this.unk_token_id] = this.unkScore;
 
         this.trie = new CharTrie();
-        this.trie.push(...this.vocab)
+        this.trie.extend(this.vocab)
     }
 
 
@@ -1649,21 +1650,24 @@ class CharTrie {
     constructor() {
         this.root = CharTrieNode.default();
     }
-    push(...texts) {
+    extend(texts) {
         for (let text of texts) {
-            let node = this.root;
-            for (let ch of text) {
-                let child = node.children.get(ch);
-                if (child === undefined) {
-                    child = CharTrieNode.default();
-                    node.children.set(ch, child);
-                }
-                node = child;
-            }
-            node.isLeaf = true;
+            this.push(text);
         }
-
     }
+    push(text) {
+        let node = this.root;
+        for (let ch of text) {
+            let child = node.children.get(ch);
+            if (child === undefined) {
+                child = CharTrieNode.default();
+                node.children.set(ch, child);
+            }
+            node = child;
+        }
+        node.isLeaf = true;
+    }
+
     *commonPrefixSearch(text) {
         let node = this.root;
         let prefix = "";
