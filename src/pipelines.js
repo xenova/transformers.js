@@ -5,12 +5,10 @@ const {
     cos_sim,
     pathJoin,
     isString,
-    getFile
-} = require("./utils.js");
+    getFile,
+} = require('./utils.js');
 
-const {
-    AutoTokenizer
-} = require("./tokenizers.js");
+const { AutoTokenizer } = require('./tokenizers.js');
 const {
     AutoModel,
     AutoModelForSequenceClassification,
@@ -20,20 +18,15 @@ const {
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
-    AutoModelForObjectDetection
-} = require("./models.js");
-const {
-    AutoProcessor
-} = require("./processors.js");
+    AutoModelForObjectDetection,
+} = require('./models.js');
+const { AutoProcessor } = require('./processors.js');
 
+const { env } = require('./env.js');
 
-const {
-    env
-} = require('./env.js');
+const { Tensor } = require('./tensor_utils.js');
 
-const { Tensor } = require("./tensor_utils.js");
-
-const { loadImage } = require("./image_utils.js");
+const { loadImage } = require('./image_utils.js');
 
 async function prepareImages(images) {
     if (!Array.isArray(images)) {
@@ -62,21 +55,19 @@ class Pipeline extends Callable {
         // Run tokenization
         let inputs = this.tokenizer(texts, {
             padding: true,
-            truncation: true
+            truncation: true,
         });
 
         // Run model
-        let outputs = await this.model(inputs)
+        let outputs = await this.model(inputs);
 
         return [inputs, outputs];
     }
 }
 
 class TextClassificationPipeline extends Pipeline {
-    async _call(texts, {
-        topk = 1
-    } = {}) {
-
+    async _call(texts, { topk = 1 } = {}) {
+        // eslint-disable-next-line no-unused-vars
         let [inputs, outputs] = await super._call(texts);
 
         let id2label = this.model.config.id2label;
@@ -88,7 +79,7 @@ class TextClassificationPipeline extends Pipeline {
                 return {
                     label: id2label[x[0]],
                     score: x[1],
-                }
+                };
             });
             if (topk === 1) {
                 toReturn.push(...vals);
@@ -102,15 +93,10 @@ class TextClassificationPipeline extends Pipeline {
 }
 
 class QuestionAnsweringPipeline extends Pipeline {
-    async _call(question, context,
-        {
-            topk = 1
-        } = {}
-    ) {
-
+    async _call(question, context, { topk = 1 } = {}) {
         let inputs = this.tokenizer(question, {
-            text_pair: context
-        })
+            text_pair: context,
+        });
 
         let output = await this.model(inputs);
 
@@ -121,20 +107,20 @@ class QuestionAnsweringPipeline extends Pipeline {
 
             let s1 = Array.from(softmax(output.start_logits.get(j).data))
                 .map((x, i) => [x, i])
-                .filter(x => x[1] > sepIndex);
+                .filter((x) => x[1] > sepIndex);
             let e1 = Array.from(softmax(output.end_logits.get(j).data))
                 .map((x, i) => [x, i])
-                .filter(x => x[1] > sepIndex);
+                .filter((x) => x[1] > sepIndex);
 
             let options = product(s1, e1)
-                .filter(x => x[0][1] <= x[1][1])
-                .map(x => [x[0][1], x[1][1], x[0][0] * x[1][0]])
+                .filter((x) => x[0][1] <= x[1][1])
+                .map((x) => [x[0][1], x[1][1], x[0][0] * x[1][0]])
                 .sort((a, b) => b[2] - a[2]);
 
             for (let k = 0; k < Math.min(options.length, topk); ++k) {
                 let [start, end, score] = options[k];
 
-                let answer_tokens = [...ids].slice(start, end + 1)
+                let answer_tokens = [...ids].slice(start, end + 1);
 
                 let answer = this.tokenizer.decode(answer_tokens, {
                     skip_special_tokens: true,
@@ -143,21 +129,19 @@ class QuestionAnsweringPipeline extends Pipeline {
                 // TODO add start and end?
                 // NOTE: HF returns character index
                 toReturn.push({
-                    answer, score
+                    answer,
+                    score,
                 });
             }
         }
 
         // Mimic HF's return type based on topk
-        return (topk === 1) ? toReturn[0] : toReturn;
-
+        return topk === 1 ? toReturn[0] : toReturn;
     }
 }
 
 class FillMaskPipeline extends Pipeline {
-    async _call(texts, {
-        topk = 5
-    } = {}) {
+    async _call(texts, { topk = 5 } = {}) {
         // Fill the masked token in the text(s) given as inputs.
 
         // Run tokenization
@@ -174,27 +158,33 @@ class FillMaskPipeline extends Pipeline {
 
         for (let i = 0; i < inputs.input_ids.dims[0]; ++i) {
             let ids = inputs.input_ids.get(i);
-            let mask_token_index = ids.indexOf(this.tokenizer.mask_token_id)
+            let mask_token_index = ids.indexOf(this.tokenizer.mask_token_id);
 
             if (mask_token_index === -1) {
-                throw Error(`Mask token (${tokenizer.mask_token}) not found in text.`)
+                throw Error(
+                    `Mask token (${tokenizer.mask_token}) not found in text.`,
+                );
             }
             let logits = outputs.logits.get(i);
             let itemLogits = logits.get(mask_token_index);
 
             let scores = getTopItems(softmax(itemLogits.data), topk);
 
-            toReturn.push(scores.map(x => {
-                let sequence = [...ids];
-                sequence[mask_token_index] = x[0];
+            toReturn.push(
+                scores.map((x) => {
+                    let sequence = [...ids];
+                    sequence[mask_token_index] = x[0];
 
-                return {
-                    score: x[1],
-                    token: x[0],
-                    token_str: tokenizer.model.vocab[x[0]],
-                    sequence: tokenizer.decode(sequence, { skip_special_tokens: true }),
-                }
-            }));
+                    return {
+                        score: x[1],
+                        token: x[0],
+                        token_str: tokenizer.model.vocab[x[0]],
+                        sequence: tokenizer.decode(sequence, {
+                            skip_special_tokens: true,
+                        }),
+                    };
+                }),
+            );
         }
         return Array.isArray(texts) ? toReturn : toReturn[0];
     }
@@ -210,15 +200,17 @@ class Text2TextGenerationPipeline extends Pipeline {
 
         // Add global prefix, if present
         if (this.model.config.prefix) {
-            texts = texts.map(x => this.model.config.prefix + x)
+            texts = texts.map((x) => this.model.config.prefix + x);
         }
 
         // Handle task specific params:
-        let task_specific_params = this.model.config.task_specific_params
+        let task_specific_params = this.model.config.task_specific_params;
         if (task_specific_params && task_specific_params[this.task]) {
             // Add prefixes, if present
             if (task_specific_params[this.task].prefix) {
-                texts = texts.map(x => task_specific_params[this.task].prefix + x)
+                texts = texts.map(
+                    (x) => task_specific_params[this.task].prefix + x,
+                );
             }
 
             // TODO update generation config
@@ -226,20 +218,22 @@ class Text2TextGenerationPipeline extends Pipeline {
 
         let input_ids = this.tokenizer(texts, {
             padding: true,
-            truncation: true
-        }).input_ids
+            truncation: true,
+        }).input_ids;
 
-        let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
+        let outputTokenIds = (
+            await this.model.generate(input_ids, generate_kwargs)
+        ).flat();
 
         let toReturn = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
         if (this._key !== null) {
-            toReturn = toReturn.map(text => {
-                return (this._key === null) ? text : { [this._key]: text }
-            })
+            toReturn = toReturn.map((text) => {
+                return this._key === null ? text : { [this._key]: text };
+            });
         }
-        return toReturn
+        return toReturn;
     }
 }
 
@@ -267,27 +261,33 @@ class TextGenerationPipeline extends Pipeline {
         let input_ids = inputs.input_ids;
         let attention_mask = inputs.attention_mask;
 
-        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, null, {
-            inputs_attention_mask: attention_mask
-        });
+        let outputTokenIds = await this.model.generate(
+            input_ids,
+            generate_kwargs,
+            null,
+            {
+                inputs_attention_mask: attention_mask,
+            },
+        );
 
         let toReturn = outputTokenIds.map((outTokens, i) => {
             let startText = texts[i].trim();
-            let decoded = this.tokenizer.batch_decode(outTokens, {
-                skip_special_tokens: true,
-            }).map(x => {
-                return {
-                    generated_text: startText + x
-                }
-            });
+            let decoded = this.tokenizer
+                .batch_decode(outTokens, {
+                    skip_special_tokens: true,
+                })
+                .map((x) => {
+                    return {
+                        generated_text: startText + x,
+                    };
+                });
 
-            return decoded
+            return decoded;
         });
 
-        return (stringInput && toReturn.length === 1) ? toReturn[0] : toReturn;
+        return stringInput && toReturn.length === 1 ? toReturn[0] : toReturn;
     }
 }
-
 
 class EmbeddingsPipeline extends Pipeline {
     // Should only be used with sentence-transformers
@@ -299,7 +299,9 @@ class EmbeddingsPipeline extends Pipeline {
         // attention_mask:    [batchSize, seqLength]
 
         let shape = [last_hidden_state.dims[0], last_hidden_state.dims[2]];
-        let returnedData = new last_hidden_state.data.constructor(shape[0] * shape[1])
+        let returnedData = new last_hidden_state.data.constructor(
+            shape[0] * shape[1],
+        );
         let [batchSize, seqLength, embedDim] = last_hidden_state.dims;
 
         let outIndex = 0;
@@ -318,7 +320,8 @@ class EmbeddingsPipeline extends Pipeline {
                     let attn = Number(attention_mask.data[attnMaskOffset + j]);
 
                     count += attn;
-                    sum += last_hidden_state.data[offset2 + j * embedDim] * attn;
+                    sum +=
+                        last_hidden_state.data[offset2 + j * embedDim] * attn;
                 }
 
                 let avg = sum / count;
@@ -326,11 +329,7 @@ class EmbeddingsPipeline extends Pipeline {
             }
         }
 
-        return new Tensor(
-            last_hidden_state.type,
-            returnedData,
-            shape
-        )
+        return new Tensor(last_hidden_state.type, returnedData, shape);
     }
 
     _normalize(tensor) {
@@ -338,7 +337,7 @@ class EmbeddingsPipeline extends Pipeline {
         // NOTE: only works for tensors of shape [batchSize, embedDim]
         // Operates in-place
         for (let batch of tensor) {
-            let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b))
+            let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b));
 
             for (let i = 0; i < batch.data.length; ++i) {
                 batch.data[i] /= norm;
@@ -351,17 +350,21 @@ class EmbeddingsPipeline extends Pipeline {
         let [inputs, outputs] = await super._call(texts);
 
         // Perform mean pooling, followed by a normalization step
-        return this._normalize(this._mean_pooling(outputs.last_hidden_state, inputs.attention_mask));
+        return this._normalize(
+            this._mean_pooling(
+                outputs.last_hidden_state,
+                inputs.attention_mask,
+            ),
+        );
     }
 
     cos_sim(arr1, arr2) {
         // Compute cosine similarity
-        return cos_sim(arr1, arr2)
+        return cos_sim(arr1, arr2);
     }
 }
 
 class AutomaticSpeechRecognitionPipeline extends Pipeline {
-
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
         this.processor = processor;
@@ -374,17 +377,17 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
             if (typeof AudioContext === 'undefined') {
                 // Running in node or an environment without AudioContext
                 throw Error(
-                    "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
-                    "As a result, audio data must be passed directly to the processor. " +
-                    "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
-                )
+                    'Unable to load audio from path/URL since `AudioContext` is not available in your environment. ' +
+                        'As a result, audio data must be passed directly to the processor. ' +
+                        'If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this.',
+                );
             }
             const response = await (await getFile(audio)).arrayBuffer();
             const audioCTX = new AudioContext({ sampleRate: sampling_rate });
             const decoded = await audioCTX.decodeAudioData(response);
 
             // We now replicate HuggingFace's `ffmpeg_read` method:
-            // 
+            //
             // When downmixing a stereo audio file to mono using the -ac 1 option in FFmpeg,
             // the audio signal is summed across both channels to create a single mono channel.
             // However, if the audio is at full scale (i.e. the highest possible volume level),
@@ -407,7 +410,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
             audio = new Float32Array(left.length);
             for (let i = 0; i < decoded.length; i++) {
-                audio[i] = SCALING_FACTOR * (left[i] + right[i]) / 2;
+                audio[i] = (SCALING_FACTOR * (left[i] + right[i])) / 2;
             }
         }
 
@@ -425,24 +428,29 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         // task = 'transcribe',
         // language = 'en',
 
-        let single = !Array.isArray(audio)
+        let single = !Array.isArray(audio);
         if (single) {
-            audio = [audio]
+            audio = [audio];
         }
 
-        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
-        const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
+        const sampling_rate =
+            this.processor.feature_extractor.config.sampling_rate;
+        const time_precision =
+            this.processor.feature_extractor.config.chunk_length /
+            this.model.config.max_source_positions;
 
         let toReturn = [];
         for (let aud of audio) {
-            aud = await this._preprocess(aud, sampling_rate)
+            aud = await this._preprocess(aud, sampling_rate);
 
             let chunks = [];
             if (chunk_length_s > 0) {
                 if (stride_length_s === null) {
                     stride_length_s = chunk_length_s / 6;
                 } else if (chunk_length_s <= stride_length_s) {
-                    throw Error("`chunk_length_s` must be larger than `stride_length_s`.")
+                    throw Error(
+                        '`chunk_length_s` must be larger than `stride_length_s`.',
+                    );
                 }
 
                 // TODO support different stride_length_s (for left and right)
@@ -464,38 +472,40 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
                         stride: [
                             subarr.length,
                             isFirst ? 0 : stride,
-                            isLast ? 0 : stride
+                            isLast ? 0 : stride,
                         ],
                         input_features: feature.input_features,
-                        is_last: isLast
-                    })
+                        is_last: isLast,
+                    });
                     offset += jump;
                 }
-
             } else {
-                chunks = [{
-                    stride: [aud.length, 0, 0],
-                    input_features: (await this.processor(aud)).input_features,
-                    is_last: true
-                }]
+                chunks = [
+                    {
+                        stride: [aud.length, 0, 0],
+                        input_features: (await this.processor(aud))
+                            .input_features,
+                        is_last: true,
+                    },
+                ];
             }
-
-
 
             // Generate for each set of input features
             for (let chunk of chunks) {
                 // NOTE: doing sequentially for now
-                let data = await this.model.generate(chunk.input_features, kwargs);
-
+                let data = await this.model.generate(
+                    chunk.input_features,
+                    kwargs,
+                );
 
                 // Get top beam
-                chunk.tokens = data[0].flat()
+                chunk.tokens = data[0].flat();
 
                 // convert stride to seconds
-                chunk.stride = chunk.stride.map(x => x / sampling_rate);
+                chunk.stride = chunk.stride.map((x) => x / sampling_rate);
 
                 if (chunk_callback !== null) {
-                    chunk_callback(chunk)
+                    chunk_callback(chunk);
                 }
             }
 
@@ -503,15 +513,14 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
                 time_precision: time_precision,
                 return_timestamps: return_timestamps,
-                force_full_sequences: force_full_sequences
+                force_full_sequences: force_full_sequences,
             });
 
-            toReturn.push({ text: full_text, ...optional })
+            toReturn.push({ text: full_text, ...optional });
         }
         return single ? toReturn[0] : toReturn;
     }
 }
-
 
 class ImageToTextPipeline extends Pipeline {
     constructor(task, tokenizer, model, processor) {
@@ -528,13 +537,17 @@ class ImageToTextPipeline extends Pipeline {
 
         let toReturn = [];
         for (let batch of pixel_values) {
-            batch.dims = [1, ...batch.dims]
-            let output = (await this.model.generate(batch, generate_kwargs)).flat();
-            let decoded = this.tokenizer.batch_decode(output, {
-                skip_special_tokens: true,
-            }).map(x => {
-                return { generated_text: x.trim() }
-            })
+            batch.dims = [1, ...batch.dims];
+            let output = (
+                await this.model.generate(batch, generate_kwargs)
+            ).flat();
+            let decoded = this.tokenizer
+                .batch_decode(output, {
+                    skip_special_tokens: true,
+                })
+                .map((x) => {
+                    return { generated_text: x.trim() };
+                });
             toReturn.push(decoded);
         }
 
@@ -548,9 +561,7 @@ class ImageClassificationPipeline extends Pipeline {
         this.processor = processor;
     }
 
-    async _call(images, {
-        topk = 1
-    } = {}) {
+    async _call(images, { topk = 1 } = {}) {
         let isBatched = Array.isArray(images);
         images = await prepareImages(images);
 
@@ -566,7 +577,7 @@ class ImageClassificationPipeline extends Pipeline {
                 return {
                     label: id2label[x[0]],
                     score: x[1],
-                }
+                };
             });
             if (topk === 1) {
                 toReturn.push(...vals);
@@ -577,30 +588,30 @@ class ImageClassificationPipeline extends Pipeline {
 
         return isBatched || topk === 1 ? toReturn : toReturn[0];
     }
-
 }
 
 class ZeroShotImageClassificationPipeline extends Pipeline {
-
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
         this.processor = processor;
     }
-    async _call(images, candidate_labels, {
-        hypothesis_template = "This is a photo of {}"
-    } = {}) {
+    async _call(
+        images,
+        candidate_labels,
+        { hypothesis_template = 'This is a photo of {}' } = {},
+    ) {
         let isBatched = Array.isArray(images);
         images = await prepareImages(images);
 
-        // Insert label into hypothesis template 
-        let texts = candidate_labels.map(
-            x => hypothesis_template.replace('{}', x)
+        // Insert label into hypothesis template
+        let texts = candidate_labels.map((x) =>
+            hypothesis_template.replace('{}', x),
         );
 
         // Run tokenization
         let text_inputs = this.tokenizer(texts, {
             padding: true,
-            truncation: true
+            truncation: true,
         });
 
         // Compare each image with each candidate label
@@ -612,18 +623,19 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
             // Compute softmax per image
             let probs = softmax(batch.data);
 
-            toReturn.push([...probs].map((x, i) => {
-                return {
-                    score: x,
-                    label: candidate_labels[i]
-                }
-            }));
+            toReturn.push(
+                [...probs].map((x, i) => {
+                    return {
+                        score: x,
+                        label: candidate_labels[i],
+                    };
+                }),
+            );
         }
 
         return isBatched ? toReturn : toReturn[0];
     }
 }
-
 
 class ObjectDetectionPipeline extends Pipeline {
     constructor(task, model, processor) {
@@ -631,204 +643,210 @@ class ObjectDetectionPipeline extends Pipeline {
         this.processor = processor;
     }
 
-    async _call(images, {
-        threshold = 0.5,
-        percentage = false, // get in percentage (true) or in pixels (false)
-    } = {}) {
+    async _call(
+        images,
+        {
+            threshold = 0.5,
+            percentage = false, // get in percentage (true) or in pixels (false)
+        } = {},
+    ) {
         let isBatched = Array.isArray(images);
 
         if (isBatched && images.length !== 1) {
-            throw Error("Object detection pipeline currently only supports a batch size of 1.");
+            throw Error(
+                'Object detection pipeline currently only supports a batch size of 1.',
+            );
         }
         images = await prepareImages(images);
 
-        let imageSizes = percentage ? null : images.map(x => [x.bitmap.width, x.bitmap.height]);
+        let imageSizes = percentage
+            ? null
+            : images.map((x) => [x.bitmap.width, x.bitmap.height]);
 
         let inputs = await this.processor(images);
         let output = await this.model(inputs);
 
-        let processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSizes);
+        let processed =
+            this.processor.feature_extractor.post_process_object_detection(
+                output,
+                threshold,
+                imageSizes,
+            );
 
         // Add labels
         let id2label = this.model.config.id2label;
-        processed.forEach(x => x.labels = x.classes.map(y => id2label[y]));
+        processed.forEach(
+            (x) => (x.labels = x.classes.map((y) => id2label[y])),
+        );
 
         return isBatched ? processed : processed[0];
     }
 }
 
 const SUPPORTED_TASKS = {
-    "text-classification": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": TextClassificationPipeline,
-        "model": AutoModelForSequenceClassification,
-        "default": {
-            "model": "distilbert-base-uncased-finetuned-sst-2-english",
+    'text-classification': {
+        tokenizer: AutoTokenizer,
+        pipeline: TextClassificationPipeline,
+        model: AutoModelForSequenceClassification,
+        default: {
+            model: 'distilbert-base-uncased-finetuned-sst-2-english',
         },
-        "type": "text",
+        type: 'text',
     },
 
-    "question-answering": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": QuestionAnsweringPipeline,
-        "model": AutoModelForQuestionAnswering,
-        "default": {
-            "model": "distilbert-base-cased-distilled-squad"
+    'question-answering': {
+        tokenizer: AutoTokenizer,
+        pipeline: QuestionAnsweringPipeline,
+        model: AutoModelForQuestionAnswering,
+        default: {
+            model: 'distilbert-base-cased-distilled-squad',
         },
-        "type": "text",
+        type: 'text',
     },
 
-    "fill-mask": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": FillMaskPipeline,
-        "model": AutoModelForMaskedLM,
-        "default": {
-            "model": "bert-base-uncased"
+    'fill-mask': {
+        tokenizer: AutoTokenizer,
+        pipeline: FillMaskPipeline,
+        model: AutoModelForMaskedLM,
+        default: {
+            model: 'bert-base-uncased',
         },
-        "type": "text",
+        type: 'text',
     },
-    "summarization": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": SummarizationPipeline,
-        "model": AutoModelForSeq2SeqLM,
-        "default": {
-            "model": "sshleifer/distilbart-cnn-6-6"
+    summarization: {
+        tokenizer: AutoTokenizer,
+        pipeline: SummarizationPipeline,
+        model: AutoModelForSeq2SeqLM,
+        default: {
+            model: 'sshleifer/distilbart-cnn-6-6',
         },
-        "type": "text",
+        type: 'text',
     },
-    "translation": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": TranslationPipeline,
-        "model": AutoModelForSeq2SeqLM,
-        "default": {
-            "model": "t5-small"
+    translation: {
+        tokenizer: AutoTokenizer,
+        pipeline: TranslationPipeline,
+        model: AutoModelForSeq2SeqLM,
+        default: {
+            model: 't5-small',
         },
-        "type": "text",
+        type: 'text',
     },
-    "text2text-generation": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": Text2TextGenerationPipeline,
-        "model": AutoModelForSeq2SeqLM,
-        "default": {
-            "model": "google/flan-t5-small"
+    'text2text-generation': {
+        tokenizer: AutoTokenizer,
+        pipeline: Text2TextGenerationPipeline,
+        model: AutoModelForSeq2SeqLM,
+        default: {
+            model: 'google/flan-t5-small',
         },
-        "type": "text",
+        type: 'text',
     },
-    "text-generation": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": TextGenerationPipeline,
-        "model": AutoModelForCausalLM,
-        "default": {
-            "model": "gpt2"
+    'text-generation': {
+        tokenizer: AutoTokenizer,
+        pipeline: TextGenerationPipeline,
+        model: AutoModelForCausalLM,
+        default: {
+            model: 'gpt2',
         },
-        "type": "text",
-    },
-
-    "automatic-speech-recognition": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": AutomaticSpeechRecognitionPipeline,
-        "model": AutoModelForSeq2SeqLM,
-        "processor": AutoProcessor,
-        "default": {
-            "model": "openai/whisper-tiny.en"
-        },
-        "type": "multimodal",
+        type: 'text',
     },
 
-    "image-to-text": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": ImageToTextPipeline,
-        "model": AutoModelForVision2Seq,
-        "processor": AutoProcessor,
-        "default": {
-            "model": "nlpconnect/vit-gpt2-image-captioning"
+    'automatic-speech-recognition': {
+        tokenizer: AutoTokenizer,
+        pipeline: AutomaticSpeechRecognitionPipeline,
+        model: AutoModelForSeq2SeqLM,
+        processor: AutoProcessor,
+        default: {
+            model: 'openai/whisper-tiny.en',
         },
-        "type": "multimodal",
+        type: 'multimodal',
     },
 
-    "image-classification": {
+    'image-to-text': {
+        tokenizer: AutoTokenizer,
+        pipeline: ImageToTextPipeline,
+        model: AutoModelForVision2Seq,
+        processor: AutoProcessor,
+        default: {
+            model: 'nlpconnect/vit-gpt2-image-captioning',
+        },
+        type: 'multimodal',
+    },
+
+    'image-classification': {
         // no tokenizer
-        "pipeline": ImageClassificationPipeline,
-        "model": AutoModelForImageClassification,
-        "processor": AutoProcessor,
-        "default": {
-            "model": "google/vit-base-patch16-224"
+        pipeline: ImageClassificationPipeline,
+        model: AutoModelForImageClassification,
+        processor: AutoProcessor,
+        default: {
+            model: 'google/vit-base-patch16-224',
         },
-        "type": "multimodal",
+        type: 'multimodal',
     },
 
-    "zero-shot-image-classification": {
+    'zero-shot-image-classification': {
         // no tokenizer
-        "tokenizer": AutoTokenizer,
-        "pipeline": ZeroShotImageClassificationPipeline,
-        "model": AutoModel,
-        "processor": AutoProcessor,
-        "default": {
-            "model": "openai/clip-vit-base-patch32"
+        tokenizer: AutoTokenizer,
+        pipeline: ZeroShotImageClassificationPipeline,
+        model: AutoModel,
+        processor: AutoProcessor,
+        default: {
+            model: 'openai/clip-vit-base-patch32',
         },
-        "type": "multimodal",
+        type: 'multimodal',
     },
 
-    "object-detection": {
+    'object-detection': {
         // no tokenizer
-        "pipeline": ObjectDetectionPipeline,
-        "model": AutoModelForObjectDetection,
-        "processor": AutoProcessor,
-        "default": {
-            "model": "facebook/detr-resnet-50"
+        pipeline: ObjectDetectionPipeline,
+        model: AutoModelForObjectDetection,
+        processor: AutoProcessor,
+        default: {
+            model: 'facebook/detr-resnet-50',
         },
-        "type": "multimodal",
+        type: 'multimodal',
     },
 
     // This task is not supported in HuggingFace transformers, but serves as a useful interface
     // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
-    "embeddings": {
-        "tokenizer": AutoTokenizer,
-        "pipeline": EmbeddingsPipeline,
-        "model": AutoModel,
-        "default": {
-            "model": "sentence-transformers/all-MiniLM-L6-v2"
+    embeddings: {
+        tokenizer: AutoTokenizer,
+        pipeline: EmbeddingsPipeline,
+        model: AutoModel,
+        default: {
+            model: 'sentence-transformers/all-MiniLM-L6-v2',
         },
-        "type": "text",
+        type: 'text',
     },
-}
+};
 
 const TASK_NAME_MAPPING = {
     // Fix mismatch between pipeline's task name and exports (folder name)
     'text-classification': 'sequence-classification',
-    'embeddings': 'default',
+    embeddings: 'default',
     'fill-mask': 'masked-lm',
 
     'text2text-generation': 'seq2seq-lm-with-past',
-    'summarization': 'seq2seq-lm-with-past',
+    summarization: 'seq2seq-lm-with-past',
     'text-generation': 'causal-lm-with-past',
 
     'automatic-speech-recognition': 'speech2seq-lm-with-past',
     'image-to-text': 'vision2seq-lm-with-past',
 
     'zero-shot-image-classification': 'default',
-}
+};
 
 const TASK_PREFIX_MAPPING = {
     // if task starts with one of these, set the corresponding folder name
-    'translation': 'seq2seq-lm-with-past',
-}
-
+    translation: 'seq2seq-lm-with-past',
+};
 
 const TASK_ALIASES = {
-    "sentiment-analysis": "text-classification",
-    "ner": "token-classification",
-    "vqa": "visual-question-answering",
-}
+    'sentiment-analysis': 'text-classification',
+    ner: 'token-classification',
+    vqa: 'visual-question-answering',
+};
 
-
-async function pipeline(
-    task,
-    model = null,
-    {
-        progress_callback = null
-    } = {}
-) {
+async function pipeline(task, model = null, { progress_callback = null } = {}) {
     // Helper method to construct pipeline
 
     // Apply aliases
@@ -837,13 +855,16 @@ async function pipeline(
     // Get pipeline info
     let pipelineInfo = SUPPORTED_TASKS[task.split('_', 1)[0]];
     if (!pipelineInfo) {
-        throw Error(`Unsupported pipeline: ${task}. Must be one of [${Object.keys(SUPPORTED_TASKS)}]`)
+        throw Error(
+            `Unsupported pipeline: ${task}. Must be one of [${Object.keys(
+                SUPPORTED_TASKS,
+            )}]`,
+        );
     }
-
 
     // Use model if specified, otherwise, use default
     if (!model) {
-        model = pipelineInfo.default.model
+        model = pipelineInfo.default.model;
         console.log(`No model specified. Using default model: "${model}".`);
     }
 
@@ -866,10 +887,10 @@ async function pipeline(
 
     // Construct model path
     model = pathJoin(
-        (env.remoteModels) ? env.remoteURL : env.localURL, // host prefix
+        env.remoteModels ? env.remoteURL : env.localURL, // host prefix
         model, // model name
         suffix, // task suffix
-    )
+    );
 
     let tokenizerClass = pipelineInfo.tokenizer;
     let modelClass = pipelineInfo.model;
@@ -879,35 +900,27 @@ async function pipeline(
     let promises = [];
 
     if (tokenizerClass) {
-        promises.push(
-            AutoTokenizer.from_pretrained(model, progress_callback),
-        )
+        promises.push(AutoTokenizer.from_pretrained(model, progress_callback));
     }
     if (modelClass) {
-        promises.push(
-            modelClass.from_pretrained(model, progress_callback)
-        )
+        promises.push(modelClass.from_pretrained(model, progress_callback));
     }
 
     if (processorClass) {
-        promises.push(
-            processorClass.from_pretrained(model, progress_callback)
-        )
+        promises.push(processorClass.from_pretrained(model, progress_callback));
     }
 
     // Load tokenizer and model
-    let items = await Promise.all(promises)
+    let items = await Promise.all(promises);
     return new pipelineClass(task, ...items);
-
 }
-
 
 function product(...a) {
     // Cartesian product of items
     // Adapted from https://stackoverflow.com/a/43053803
-    return a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e])));
+    return a.reduce((a, b) => a.flatMap((d) => b.map((e) => [d, e])));
 }
 
 module.exports = {
-    pipeline
+    pipeline,
 };

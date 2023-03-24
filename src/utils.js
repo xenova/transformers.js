@@ -1,4 +1,3 @@
-
 const fs = require('fs');
 
 const { env } = require('./env.js');
@@ -7,13 +6,12 @@ class FileResponse {
     constructor(filePath) {
         this.filePath = filePath;
         this.headers = {};
-        this.headers.get = (x) => this.headers[x]
+        this.headers.get = (x) => this.headers[x];
 
         this.exists = fs.existsSync(filePath);
         if (this.exists) {
             this.status = 200;
             this.statusText = 'OK';
-
 
             let stats = fs.statSync(filePath);
             this.headers['content-length'] = stats.size;
@@ -23,11 +21,11 @@ class FileResponse {
             let self = this;
             this.body = new ReadableStream({
                 start(controller) {
-                    self.arrayBuffer().then(buffer => {
+                    self.arrayBuffer().then((buffer) => {
                         controller.enqueue(new Uint8Array(buffer));
                         controller.close();
-                    })
-                }
+                    });
+                },
             });
         } else {
             this.status = 404;
@@ -107,17 +105,16 @@ function isValidHttpUrl(string) {
     } catch (_) {
         return false;
     }
-    return url.protocol === "http:" || url.protocol === "https:";
+    return url.protocol === 'http:' || url.protocol === 'https:';
 }
 
 async function getFile(url) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
     if (env.useFS && !isValidHttpUrl(url)) {
-        return new FileResponse(url)
-
+        return new FileResponse(url);
     } else {
-        return fetch(url)
+        return fetch(url);
     }
 }
 
@@ -125,14 +122,18 @@ function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
 }
 
-async function getModelFile(modelPath, fileName, progressCallback = null, fatal = true) {
-
+async function getModelFile(
+    modelPath,
+    fileName,
+    progressCallback = null,
+    fatal = true,
+) {
     // Initiate session
     dispatchCallback(progressCallback, {
         status: 'initiate',
         name: modelPath,
-        file: fileName
-    })
+        file: fileName,
+    });
 
     let cache;
     if (env.useCache) {
@@ -144,13 +145,16 @@ async function getModelFile(modelPath, fileName, progressCallback = null, fatal 
     let response;
     let responseToCache;
 
-    if (!env.useCache || (response = await cache.match(request)) === undefined) {
+    if (
+        !env.useCache ||
+        (response = await cache.match(request)) === undefined
+    ) {
         // Caching not available, or model is not cached, so we perform the request
         response = await getFile(request);
 
         if (response.status === 404) {
             if (fatal) {
-                throw Error(`File not found. Could not locate "${request}".`)
+                throw Error(`File not found. Could not locate "${request}".`);
             } else {
                 // File not found, but this file is optional.
                 // TODO in future, cache the response
@@ -168,37 +172,50 @@ async function getModelFile(modelPath, fileName, progressCallback = null, fatal 
     dispatchCallback(progressCallback, {
         status: 'download',
         name: modelPath,
-        file: fileName
-    })
+        file: fileName,
+    });
 
-    const buffer = await readResponse(response, data => {
+    const buffer = await readResponse(response, (data) => {
         dispatchCallback(progressCallback, {
             status: 'progress',
             ...data,
             name: modelPath,
-            file: fileName
-        })
-    })
+            file: fileName,
+        });
+    });
 
     // Check again whether request is in cache. If not, we add the response to the cache
-    if (responseToCache !== undefined && await cache.match(request) === undefined) {
+    if (
+        responseToCache !== undefined &&
+        (await cache.match(request)) === undefined
+    ) {
         cache.put(request, responseToCache);
     }
 
     dispatchCallback(progressCallback, {
         status: 'done',
         name: modelPath,
-        file: fileName
+        file: fileName,
     });
 
     return buffer;
 }
 
-async function fetchJSON(modelPath, fileName, progressCallback = null, fatal = true) {
-    let buffer = await getModelFile(modelPath, fileName, progressCallback, fatal);
+async function fetchJSON(
+    modelPath,
+    fileName,
+    progressCallback = null,
+    fatal = true,
+) {
+    let buffer = await getModelFile(
+        modelPath,
+        fileName,
+        progressCallback,
+        fatal,
+    );
     if (buffer === null) {
         // Return empty object
-        return {}
+        return {};
     }
 
     let decoder = new TextDecoder('utf-8');
@@ -207,13 +224,14 @@ async function fetchJSON(modelPath, fileName, progressCallback = null, fatal = t
     return JSON.parse(jsonData);
 }
 
-
 async function readResponse(response, progressCallback) {
     // Read and track progress when reading a Response object
 
     const contentLength = response.headers.get('Content-Length');
     if (contentLength === null) {
-        console.warn('Unable to determine content-length from response headers. Will expand buffer when needed.')
+        console.warn(
+            'Unable to determine content-length from response headers. Will expand buffer when needed.',
+        );
     }
     let total = parseInt(contentLength ?? '0');
     let buffer = new Uint8Array(total);
@@ -237,7 +255,7 @@ async function readResponse(response, progressCallback) {
 
             buffer = newBuffer;
         }
-        buffer.set(value, loaded)
+        buffer.set(value, loaded);
         loaded = newLoaded;
 
         const progress = (loaded / total) * 100;
@@ -247,7 +265,7 @@ async function readResponse(response, progressCallback) {
             progress: progress,
             loaded: loaded,
             total: total,
-        })
+        });
 
         return read();
     }
@@ -268,13 +286,15 @@ function pathJoin(...parts) {
             part = part.replace(new RegExp('/$'), '');
         }
         return part;
-    })
+    });
     return parts.join('/');
 }
 
 function reverseDictionary(data) {
     // https://ultimatecourses.com/blog/reverse-object-keys-and-values-in-javascript
-    return Object.fromEntries(Object.entries(data).map(([key, value]) => [value, key]));
+    return Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [value, key]),
+    );
 }
 
 function indexOfMax(arr) {
@@ -297,19 +317,18 @@ function indexOfMax(arr) {
     return maxIndex;
 }
 
-
 function softmax(arr) {
     // Compute the maximum value in the array
     const max = Math.max(...arr);
 
     // Compute the exponentials of the array values
-    const exps = arr.map(x => Math.exp(x - max));
+    const exps = arr.map((x) => Math.exp(x - max));
 
     // Compute the sum of the exponentials
     const sumExps = exps.reduce((acc, val) => acc + val, 0);
 
     // Compute the softmax values
-    const softmaxArr = exps.map(x => x / sumExps);
+    const softmaxArr = exps.map((x) => x / sumExps);
 
     return softmaxArr;
 }
@@ -319,7 +338,7 @@ function log_softmax(arr) {
     const softmaxArr = softmax(arr);
 
     // Apply log formula to each element
-    const logSoftmaxArr = softmaxArr.map(x => Math.log(x));
+    const logSoftmaxArr = softmaxArr.map((x) => Math.log(x));
 
     return logSoftmaxArr;
 }
@@ -332,14 +351,14 @@ function getTopItems(items, top_k = 0) {
     // if top == 0, return all
 
     items = Array.from(items)
-        .map((x, i) => [i, x])            // Get indices ([index, score])
-        .sort((a, b) => b[1] - a[1])      // Sort by log probabilities
+        .map((x, i) => [i, x]) // Get indices ([index, score])
+        .sort((a, b) => b[1] - a[1]); // Sort by log probabilities
 
     if (top_k > 0) {
-        items = items.slice(0, top_k);    // Get top k items
+        items = items.slice(0, top_k); // Get top k items
     }
 
-    return items
+    return items;
 }
 
 function dot(arr1, arr2) {
@@ -366,26 +385,25 @@ function magnitude(arr) {
     return Math.sqrt(arr.reduce((acc, val) => acc + val * val, 0));
 }
 
-
 class Callable extends Function {
     constructor() {
-        let closure = function (...args) { return closure._call(...args) }
-        return Object.setPrototypeOf(closure, new.target.prototype)
+        let closure = function (...args) {
+            return closure._call(...args);
+        };
+        return Object.setPrototypeOf(closure, new.target.prototype);
     }
 
-    _call(...args) {
-        throw Error('Must implement _call method in subclass')
+    _call() {
+        throw Error('Must implement _call method in subclass');
     }
 }
-
 
 function isString(text) {
-    return typeof text === 'string' || text instanceof String
+    return typeof text === 'string' || text instanceof String;
 }
 
-
 function isIntegralNumber(x) {
-    return Number.isInteger(x) || typeof x === 'bigint'
+    return Number.isInteger(x) || typeof x === 'bigint';
 }
 
 function exists(x) {
@@ -410,5 +428,5 @@ module.exports = {
     getFile,
     isIntegralNumber,
     isString,
-    exists
+    exists,
 };

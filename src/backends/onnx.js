@@ -1,6 +1,6 @@
 let ONNX;
 
-// TODO support 
+// TODO support
 const executionProviders = ['wasm'];
 
 if (typeof process !== 'undefined') {
@@ -10,10 +10,10 @@ if (typeof process !== 'undefined') {
         ONNX = require('onnxruntime-node');
     } catch (err) {
         console.warn(
-            "Node.js environment detected, but `onnxruntime-node` was not found. " +
-            "Using `onnxruntime-web` as a fallback. We recommend installing `onnxruntime-node` " +
-            "as it generally improves performance (up to 5X)."
-        )
+            'Node.js environment detected, but `onnxruntime-node` was not found. ' +
+                'Using `onnxruntime-web` as a fallback. We recommend installing `onnxruntime-node` ' +
+                'as it generally improves performance (up to 5X).',
+        );
 
         // Fix "ReferenceError: self is not defined" bug when running directly with node
         // https://github.com/microsoft/onnxruntime/issues/13072
@@ -29,7 +29,6 @@ if (typeof process !== 'undefined') {
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
     executionProviders.unshift('cpu');
-
 } else {
     // Running in a browser-environment, so we just import `onnxruntime-web`
     ONNX = require('onnxruntime-web');
@@ -38,4 +37,4 @@ if (typeof process !== 'undefined') {
 module.exports = {
     ONNX,
     executionProviders,
-}
+};

@@ -5,10 +5,9 @@ class Tensor extends ONNX.Tensor {
         if (args[0] instanceof ONNX.Tensor) {
             // Create shallow copy
             super(args[0].type, args[0].data, args[0].dims);
-
         } else {
             // Create new
-            super(...args)
+            super(...args);
         }
     }
 
@@ -21,9 +20,8 @@ class Tensor extends ONNX.Tensor {
                 yield this._subarray(i, iterSize, iterDims);
             }
         } else {
-            yield* this.data
+            yield* this.data;
         }
-
     }
 
     get(index) {
@@ -39,6 +37,7 @@ class Tensor extends ONNX.Tensor {
     indexOf(item) {
         for (let index = 0; index < this.data.length; ++index) {
             // Note: == instead of === so we can match Ints with BigInts
+            // eslint-disable-next-line eqeqeq
             if (this.data[index] == item) {
                 return index;
             }
@@ -53,36 +52,39 @@ class Tensor extends ONNX.Tensor {
 
     tolist() {
         // Convert tensor data to a n-dimensional JS list
-        return reshape(this.data, this.dims)
+        return reshape(this.data, this.dims);
     }
 
     // TODO add .slice()
 }
 
-
 function reshape(data, dimensions) {
-
     const totalElements = data.length;
     const dimensionSize = dimensions.reduce((a, b) => a * b);
 
     if (totalElements !== dimensionSize) {
-        throw Error(`cannot reshape array of size ${totalElements} into shape (${dimensions})`);
+        throw Error(
+            `cannot reshape array of size ${totalElements} into shape (${dimensions})`,
+        );
     }
 
     let reshapedArray = data;
 
     for (let i = dimensions.length - 1; i >= 0; i--) {
-        reshapedArray = reshapedArray.reduce((acc, val) => {
-            let lastArray = acc[acc.length - 1];
+        reshapedArray = reshapedArray.reduce(
+            (acc, val) => {
+                let lastArray = acc[acc.length - 1];
 
-            if (lastArray.length < dimensions[i]) {
-                lastArray.push(val);
-            } else {
-                acc.push([val]);
-            }
+                if (lastArray.length < dimensions[i]) {
+                    lastArray.push(val);
+                } else {
+                    acc.push([val]);
+                }
 
-            return acc;
-        }, [[]]);
+                return acc;
+            },
+            [[]],
+        );
     }
 
     return reshapedArray[0];
@@ -126,7 +128,6 @@ function cat(tensors) {
     // NOTE: currently only supports dim=0
     // TODO: add support for dim != 0
 
-
     let tensorType = tensors[0].type;
     let tensorShape = [...tensors[0].dims];
     tensorShape[0] = tensors.length;
@@ -146,13 +147,11 @@ function cat(tensors) {
         offset += t.data.length;
     }
 
-    return new Tensor(tensorType, data, tensorShape)
+    return new Tensor(tensorType, data, tensorShape);
 }
-
-
 
 module.exports = {
     Tensor,
     transpose,
-    cat
-}
+    cat,
+};

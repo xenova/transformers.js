@@ -24,7 +24,6 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
     ? path.join(path.dirname(__dirname), '/dist/')
     : 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/';
 
-
 // Global variable used to control exection, with suitable defaults
 const env = {
     // access onnxruntime-web's environment variables
@@ -34,7 +33,8 @@ const env = {
     remoteModels: true,
 
     // URL to load models from
-    remoteURL: 'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/',
+    remoteURL:
+        'https://huggingface.co/Xenova/transformers.js/resolve/main/quantized/',
 
     // Local URL to load models from.
     localURL: localURL,
@@ -44,13 +44,12 @@ const env = {
 
     // Whether to use the file system to load files. By default, it is true available.
     useFS: FS_AVAILABLE,
-}
-
+};
 
 function isEmpty(obj) {
     return Object.keys(obj).length === 0;
 }
 
 module.exports = {
-    env
-}
+    env,
+};

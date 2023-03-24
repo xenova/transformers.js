@@ -1,25 +1,26 @@
 // Code adapted from https://www.npmjs.com/package/fft.js
 
 class FFT {
-
     constructor(size) {
         this.size = size | 0; // convert to a 32-bit signed integer
-        if (this.size <= 1 || (this.size & (this.size - 1)) !== 0)
-            throw new Error('FFT size must be a power of two and bigger than 1');
+        if (this.size <= 1 || (this.size & (this.size - 1)) !== 0) {
+            throw new Error(
+                'FFT size must be a power of two and bigger than 1',
+            );
+        }
 
         this._csize = size << 1;
 
         this.table = new Float64Array(this.size * 2);
         for (let i = 0; i < this.table.length; i += 2) {
-            const angle = Math.PI * i / this.size;
+            const angle = (Math.PI * i) / this.size;
             this.table[i] = Math.cos(angle);
             this.table[i + 1] = -Math.sin(angle);
         }
 
         // Find size's power of two
         let power = 0;
-        for (let t = 1; this.size > t; t <<= 1)
-            ++power;
+        for (let t = 1; this.size > t; t <<= 1) ++power;
 
         // Calculate initial step's width:
         //   * If we are full radix-4 - it is 2x smaller to give inital len=8
@@ -42,8 +43,7 @@ class FFT {
     }
     fromComplexArray(complex, storage) {
         const res = storage || new Array(complex.length >>> 1);
-        for (let i = 0; i < complex.length; i += 2)
-            res[i >>> 1] = complex[i];
+        for (let i = 0; i < complex.length; i += 2) res[i >>> 1] = complex[i];
         return res;
     }
 
@@ -66,26 +66,28 @@ class FFT {
     }
 
     transform(out, data) {
-        if (out === data)
+        if (out === data) {
             throw new Error('Input and output buffers must be different');
+        }
 
         this._transform4(out, data, 1 /* DONE */);
     }
 
     realTransform(out, data) {
-        if (out === data)
+        if (out === data) {
             throw new Error('Input and output buffers must be different');
+        }
 
-        this._realTransform4(out, data, 1/* DONE */);
+        this._realTransform4(out, data, 1 /* DONE */);
     }
 
     inverseTransform(out, data) {
-        if (out === data)
+        if (out === data) {
             throw new Error('Input and output buffers must be different');
+        }
 
         this._transform4(out, data, -1 /* DONE */);
-        for (let i = 0; i < out.length; ++i)
-            out[i] /= this.size;
+        for (let i = 0; i < out.length; ++i) out[i] /= this.size;
     }
     _transform4(out, data, inv) {
         // radix-4 implementation
@@ -244,13 +246,26 @@ class FFT {
         if (len === 4) {
             for (outOff = 0, t = 0; outOff < size; outOff += len, ++t) {
                 const off = bitrev[t];
-                this._singleRealTransform2(data, out, outOff, off >>> 1, step >>> 1);
+                this._singleRealTransform2(
+                    data,
+                    out,
+                    outOff,
+                    off >>> 1,
+                    step >>> 1,
+                );
             }
         } else {
             // len === 8
             for (outOff = 0, t = 0; outOff < size; outOff += len, ++t) {
                 const off = bitrev[t];
-                this._singleRealTransform4(data, out, outOff, off >>> 1, step >>> 1, inv);
+                this._singleRealTransform4(
+                    data,
+                    out,
+                    outOff,
+                    off >>> 1,
+                    step >>> 1,
+                    inv,
+                );
             }
         }
 
@@ -318,8 +333,7 @@ class FFT {
                     }
 
                     // Do not overwrite ourselves
-                    if (i === hquarterLen)
-                        continue;
+                    if (i === hquarterLen) continue;
 
                     const SA = outOff + quarterLen - i;
                     const SB = outOff + halfLen - i;
@@ -376,4 +390,4 @@ class FFT {
     }
 }
 
-module.exports = FFT
+module.exports = FFT;

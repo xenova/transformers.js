@@ -1,11 +1,10 @@
-
 const {
     AutoTokenizer,
     BertTokenizer,
     DistilBertTokenizer,
     T5Tokenizer,
-    GPT2Tokenizer
-} = require("./tokenizers.js");
+    GPT2Tokenizer,
+} = require('./tokenizers.js');
 const {
     AutoModel,
     AutoModelForSequenceClassification,
@@ -15,17 +14,12 @@ const {
     AutoModelForQuestionAnswering,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
-    T5ForConditionalGeneration
-} = require("./models.js");
+    T5ForConditionalGeneration,
+} = require('./models.js');
 
-const {
-    AutoProcessor
-} = require("./processors.js");
-const {
-    pipeline
-} = require("./pipelines.js");
+const { AutoProcessor } = require('./processors.js');
+const { pipeline } = require('./pipelines.js');
 const { env } = require('./env.js');
-
 
 const moduleExports = {
     // Tokenizers
@@ -54,7 +48,7 @@ const moduleExports = {
     pipeline,
 
     // environment variables
-    env
+    env,
 };
 
 // Allow global access to these variables
@@ -64,4 +58,4 @@ if (typeof self !== 'undefined') {
 }
 
 // Used by other modules
-module.exports = moduleExports
+module.exports = moduleExports;

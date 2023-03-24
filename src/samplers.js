@@ -3,8 +3,8 @@ const {
     indexOfMax,
     softmax,
     log_softmax,
-    getTopItems
-} = require("./utils.js");
+    getTopItems,
+} = require('./utils.js');
 
 class Sampler extends Callable {
     constructor(temperature) {
@@ -12,13 +12,14 @@ class Sampler extends Callable {
         this.temperature = temperature;
     }
 
-    _call(logits, index=-1) {
+    _call(logits, index = -1) {
         // Sample from logits, of dims [batch, sequence_length, vocab_size].
         // If index is specified, sample from [batch, index, vocab_size].
         return this.sample(logits, index);
     }
+    // eslint-disable-next-line no-unused-vars
     sample(logits, index) {
-        throw Error("sample should be implemented in subclasses.")
+        throw Error('sample should be implemented in subclasses.');
     }
     getLogits(logits, index) {
         let vocabSize = logits.dims[2];
@@ -34,14 +35,17 @@ class Sampler extends Callable {
 
         // add temperature
         if (this.temperature > 0) {
-            logs = logs.map(x => x / this.temperature)
+            logs = logs.map((x) => x / this.temperature);
         }
         return logs;
     }
 
     randomSelect(probabilities) {
         // Return index of chosen item
-        let sumProbabilities = probabilities.reduce((acc, curr) => acc + curr, 0);
+        let sumProbabilities = probabilities.reduce(
+            (acc, curr) => acc + curr,
+            0,
+        );
 
         let r = Math.random() * sumProbabilities;
         for (let i = 0; i < probabilities.length; ++i) {
@@ -61,15 +65,11 @@ class Sampler extends Callable {
                 options.num_beams,
                 options.do_sample,
                 options.top_k,
-            )
-
+            );
         } else if (options.top_k > 0 || options.do_sample) {
-            return new TopKSampler(
-                options.temperature,
-                options.top_k,
-            )
+            return new TopKSampler(options.temperature, options.top_k);
         } else {
-            return new GreedySampler(options.temperature)
+            return new GreedySampler(options.temperature);
         }
     }
 }
@@ -82,9 +82,7 @@ class GreedySampler extends Sampler {
 
         // Note: score is meaningless in this context, since we are performing
         // greedy search (p = 1 => log(p) = 0)
-        return [
-            [argmax, 0]
-        ];
+        return [[argmax, 0]];
     }
 }
 
@@ -95,6 +93,7 @@ class TopKSampler extends Sampler {
     }
 
     sample(logits, index = -1) {
+        // eslint-disable-next-line no-unused-vars
         let [batchSize, seqLength, vocabSize] = logits.dims;
         let k = vocabSize;
         if (this.k > 0) {
@@ -107,15 +106,13 @@ class TopKSampler extends Sampler {
         let topLogits = getTopItems(logs, k);
 
         // Compute softmax over logits
-        let probabilities = softmax(topLogits.map(x => x[1]));
+        let probabilities = softmax(topLogits.map((x) => x[1]));
 
         let sampledIndex = this.randomSelect(probabilities);
 
         let tokenId = topLogits[sampledIndex][0];
         let score = Math.log(probabilities[sampledIndex]);
-        return [
-            [tokenId, score]
-        ];
+        return [[tokenId, score]];
     }
 }
 
@@ -129,10 +126,10 @@ class BeamSearchSampler extends Sampler {
     }
 
     sample(logits, index = -1) {
-
         let logs = this.getLogits(logits, index);
 
         if (this.do_sample || this.top_k > 0) {
+            // eslint-disable-next-line no-unused-vars
             const [batchSize, seqLength, vocabSize] = logits.dims;
 
             let k = vocabSize;
@@ -142,14 +139,13 @@ class BeamSearchSampler extends Sampler {
             const topLogits = getTopItems(logs, k);
 
             // Compute softmax over top k logits
-            const probabilities = softmax(topLogits.map(x => x[1]));
+            const probabilities = softmax(topLogits.map((x) => x[1]));
 
             return Array.from({ length: this.num_beams }, () => {
                 const sampledIndex = this.randomSelect(probabilities);
                 const tokenId = topLogits[sampledIndex][0];
                 return [tokenId, Math.log(probabilities[sampledIndex])];
             });
-
         } else {
             // first perform log softmax to get scores over whole distribution
             const logProbabilities = log_softmax(logs);
@@ -163,5 +159,5 @@ module.exports = {
     Sampler,
     GreedySampler,
     TopKSampler,
-    BeamSearchSampler
-}
+    BeamSearchSampler,
+};

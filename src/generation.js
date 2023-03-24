@@ -1,12 +1,6 @@
-const {
-    Callable,
-    exists,
-    log_softmax
-} = require("./utils.js");
-
+const { Callable, exists, log_softmax } = require('./utils.js');
 
 class LogitsProcessorList extends Callable {
-
     constructor() {
         super();
         this.processors = [];
@@ -24,9 +18,7 @@ class LogitsProcessorList extends Callable {
         // Apply logits processor to each item in the batch:
         for (let logits of batchedLogits) {
             // Modifies logits inplace
-            this.processors.forEach(
-                func => func(input_ids, logits)
-            )
+            this.processors.forEach((func) => func(input_ids, logits));
         }
     }
 
@@ -36,8 +28,9 @@ class LogitsProcessorList extends Callable {
 }
 
 class LogitsProcessor extends Callable {
+    // eslint-disable-next-line no-unused-vars
     _call(input_ids, logits) {
-        throw Error("`_call` should be implemented in a subclass")
+        throw Error('`_call` should be implemented in a subclass');
     }
 }
 
@@ -49,8 +42,9 @@ class ForceTokensLogitsProcessor extends LogitsProcessor {
 
     _call(input_ids, logits) {
         let map = this.force_token_map[input_ids.length];
-        if (exists(map)) { // There exists a mapping
-            logits.data.fill(-Infinity)
+        if (exists(map)) {
+            // There exists a mapping
+            logits.data.fill(-Infinity);
             logits.data[map] = 0;
         }
         return logits;
@@ -64,13 +58,14 @@ class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
 
     _call(input_ids, logits) {
         if (input_ids.length === 1) {
-            logits.data.fill(-Infinity)
+            logits.data.fill(-Infinity);
             logits.data[this.bos_token_id] = 0;
         }
     }
 }
 
 class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
+    // eslint-disable-next-line no-unused-vars
     _call(input_ids, logits) {
         // console.log('call ForcedEOSTokenLogitsProcessor')
         // TODO
@@ -84,12 +79,16 @@ class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
         this.no_timestamps_token_id = generate_config.no_timestamps_token_id;
         this.timestamp_begin = this.no_timestamps_token_id + 1;
 
-        this.begin_index = (generate_config.forced_decoder_ids || []).length + 2;
-        if (generate_config.forced_decoder_ids.slice(-1)[0][1] === this.no_timestamps_token_id) {
+        this.begin_index =
+            (generate_config.forced_decoder_ids || []).length + 2;
+        if (
+            generate_config.forced_decoder_ids.slice(-1)[0][1] ===
+            this.no_timestamps_token_id
+        ) {
             this.begin_index -= 1;
         }
-        this.max_initial_timestamp_index = generate_config.max_initial_timestamp_index;
-
+        this.max_initial_timestamp_index =
+            generate_config.max_initial_timestamp_index;
     }
 
     _call(input_ids, logits) {
@@ -106,27 +105,42 @@ class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 
         // timestamps have to appear in pairs, except directly before eos_token; mask logits accordingly
         const seq = input_ids.slice(this.begin_index);
-        const last_was_timestamp = seq.length >= 1 && seq[seq.length - 1] >= this.timestamp_begin;
-        const penultimate_was_timestamp = seq.length < 2 || seq[seq.length - 2] >= this.timestamp_begin;
+        const last_was_timestamp =
+            seq.length >= 1 && seq[seq.length - 1] >= this.timestamp_begin;
+        const penultimate_was_timestamp =
+            seq.length < 2 || seq[seq.length - 2] >= this.timestamp_begin;
 
         if (last_was_timestamp) {
-            if (penultimate_was_timestamp) { // has to be non-timestamp
+            if (penultimate_was_timestamp) {
+                // has to be non-timestamp
                 logits.data.subarray(this.timestamp_begin).fill(-Infinity);
-            } else { // cannot be normal text tokens
+            } else {
+                // cannot be normal text tokens
                 logits.data.subarray(0, this.eos_token_id).fill(-Infinity);
             }
         }
 
         // apply the `max_initial_timestamp` option
-        if (input_ids.length === this.begin_index && this.max_initial_timestamp_index !== null) {
-            const last_allowed = this.timestamp_begin + this.max_initial_timestamp_index;
+        if (
+            input_ids.length === this.begin_index &&
+            this.max_initial_timestamp_index !== null
+        ) {
+            const last_allowed =
+                this.timestamp_begin + this.max_initial_timestamp_index;
             logits.data.subarray(last_allowed + 1).fill(-Infinity);
         }
 
         // if sum of probability over timestamps is above any other token, sample timestamp
         const logprobs = log_softmax(logits.data);
-        const timestamp_logprob = Math.log(logprobs.subarray(this.timestamp_begin).map(Math.exp).reduce((a, b) => a + b));
-        const max_text_token_logprob = Math.max(...logprobs.subarray(0, this.timestamp_begin));
+        const timestamp_logprob = Math.log(
+            logprobs
+                .subarray(this.timestamp_begin)
+                .map(Math.exp)
+                .reduce((a, b) => a + b),
+        );
+        const max_text_token_logprob = Math.max(
+            ...logprobs.subarray(0, this.timestamp_begin),
+        );
         if (timestamp_logprob > max_text_token_logprob) {
             logits.data.subarray(0, this.timestamp_begin).fill(-Infinity);
         }
@@ -161,7 +175,8 @@ class GenerationConfig {
         this.eta_cutoff = kwargs.eta_cutoff ?? 0.0;
         this.diversity_penalty = kwargs.diversity_penalty ?? 0.0;
         this.repetition_penalty = kwargs.repetition_penalty ?? 1.0;
-        this.encoder_repetition_penalty = kwargs.encoder_repetition_penalty ?? 1.0;
+        this.encoder_repetition_penalty =
+            kwargs.encoder_repetition_penalty ?? 1.0;
         this.length_penalty = kwargs.length_penalty ?? 1.0;
         this.no_repeat_ngram_size = kwargs.no_repeat_ngram_size ?? 0;
         this.bad_words_ids = kwargs.bad_words_ids ?? null;
@@ -171,7 +186,8 @@ class GenerationConfig {
         this.forced_bos_token_id = kwargs.forced_bos_token_id ?? null;
         this.forced_eos_token_id = kwargs.forced_eos_token_id ?? null;
         this.remove_invalid_values = kwargs.remove_invalid_values ?? false;
-        this.exponential_decay_length_penalty = kwargs.exponential_decay_length_penalty ?? null;
+        this.exponential_decay_length_penalty =
+            kwargs.exponential_decay_length_penalty ?? null;
         this.suppress_tokens = kwargs.suppress_tokens ?? null;
         this.begin_suppress_tokens = kwargs.begin_suppress_tokens ?? null;
         this.forced_decoder_ids = kwargs.forced_decoder_ids ?? null;
@@ -189,7 +205,8 @@ class GenerationConfig {
         this.eos_token_id = kwargs.eos_token_id ?? null;
 
         // Generation parameters exclusive to encoder-decoder models
-        this.encoder_no_repeat_ngram_size = kwargs.encoder_no_repeat_ngram_size ?? 0;
+        this.encoder_no_repeat_ngram_size =
+            kwargs.encoder_no_repeat_ngram_size ?? 0;
         this.decoder_start_token_id = kwargs.decoder_start_token_id ?? null;
 
         // Wild card
