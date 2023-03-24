@@ -783,6 +783,55 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// MT5 models
+class MT5PreTrainedModel extends PreTrainedModel { };
+
+class MT5Model extends MT5PreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (MT5Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'MT5ForConditionalGeneration'}"
+        )
+    }
+}
+
+class MT5ForConditionalGeneration extends MT5PreTrainedModel {
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.num_decoder_layers;
+        this.num_decoder_heads = this.config.num_heads;
+        this.decoder_dim_kv = this.config.d_kv;
+
+        this.num_encoder_layers = this.config.num_layers;
+        this.num_encoder_heads = this.config.num_heads;
+        this.encoder_dim_kv = this.config.d_kv;
+    }
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+        let info = await seq2seqLoadModel(modelPath, progressCallback);
+        return new this(...info);
+    }
+
+    getStartBeams(inputs, numOutputTokens, ...args) {
+        return seq2seqStartBeams(this, inputs, numOutputTokens);
+    }
+
+    async runBeam(beam) {
+        return await seq2seqRunBeam(this, beam);
+    }
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
+    async forward(model_inputs) {
+        return await seq2seq_forward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Bart models
 class BartPretrainedModel extends PreTrainedModel { };
 
@@ -1236,6 +1285,7 @@ class AutoModelForSequenceClassification {
 class AutoModelForSeq2SeqLM {
     static modelClassMapping = {
         't5': T5ForConditionalGeneration,
+        'mt5': MT5ForConditionalGeneration,
         'bart': BartForConditionalGeneration,
         'whisper': WhisperForConditionalGeneration,
     }
