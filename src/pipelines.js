@@ -288,6 +288,73 @@ class TextGenerationPipeline extends Pipeline {
     }
 }
 
+class ZeroShotClassificationPipeline extends Pipeline {
+    async _call(texts, candidate_labels, {
+        hypothesis_template = "This example is {}.",
+        multi_label = false,
+    } = {}) {
+
+        let isBatched = Array.isArray(texts);
+
+        if (!isBatched) {
+            texts = [texts];
+        }
+        if (!Array.isArray(candidate_labels)) {
+            candidate_labels = [candidate_labels];
+        }
+
+        // Insert labels into hypothesis template
+        let hypotheses = candidate_labels.map(
+            x => hypothesis_template.replace('{}', x)
+        );
+
+        // How to perform the softmax over the logits:
+        //  - true:  softmax over the entailment vs. contradiction dim for each label independently
+        //  - false: softmax the "entailment" logits over all candidate labels
+        let softmaxEach = multi_label || candidate_labels.length === 1;
+
+        let toReturn = [];
+        for (let premise of texts) {
+            let entails_logits = [];
+
+            for (let hypothesis of hypotheses) {
+                let inputs = this.tokenizer(premise, {
+                    text_pair: hypothesis,
+                })
+                let outputs = await this.model(inputs)
+
+                // TODO do not assume (2) is entailment. Better to use model.id2label
+                if (softmaxEach) {
+                    entails_logits.push([outputs.logits.data[0], outputs.logits.data[2]])
+                } else {
+                    entails_logits.push(outputs.logits.data[2])
+                }
+            }
+
+            let scores;
+            if (softmaxEach) {
+                scores = entails_logits.map(x => softmax(x)[1]);
+            } else {
+                scores = softmax(entails_logits);
+            }
+
+            // Sort by scores (desc) and return scores with indices
+            let scores_sorted = scores
+                .map((x, i) => [x, i])
+                .sort((a, b) => {
+                    return b[0] - a[0];
+                });
+
+            toReturn.push({
+                sequence: premise,
+                labels: scores_sorted.map(x => candidate_labels[x[1]]),
+                scores: scores_sorted.map(x => x[0]),
+            });
+        }
+        return isBatched ? toReturn : toReturn[0];
+    }
+}
+
 
 class EmbeddingsPipeline extends Pipeline {
     // Should only be used with sentence-transformers
@@ -723,6 +790,15 @@ const SUPPORTED_TASKS = {
         },
         "type": "text",
     },
+    "zero-shot-classification": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": ZeroShotClassificationPipeline,
+        "model": AutoModelForSequenceClassification,
+        "default": {
+            "model": "facebook/bart-large-mnli",
+        },
+        "type": "text",
+    },
 
     "automatic-speech-recognition": {
         "tokenizer": AutoTokenizer,
@@ -807,6 +883,7 @@ const TASK_NAME_MAPPING = {
     'image-to-text': 'vision2seq-lm-with-past',
 
     'zero-shot-image-classification': 'default',
+    'zero-shot-classification': 'sequence-classification'
 }
 
 const TASK_PREFIX_MAPPING = {

@@ -879,6 +879,13 @@ class BartForConditionalGeneration extends BartPretrainedModel {
     }
 }
 
+class BartForSequenceClassification extends BartPretrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new SequenceClassifierOutput(logits)
+    }
+}
+
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -1275,6 +1282,8 @@ class AutoModelForSequenceClassification {
                 return new DistilBertForSequenceClassification(config, session);
             case 'roberta':
                 return new RobertaForSequenceClassification(config, session);
+            case 'bart':
+                return new BartForSequenceClassification(config, session);
 
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)

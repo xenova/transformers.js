@@ -32,7 +32,11 @@ SUPPORTED_MODELS = {
         ],
         'facebook/bart-large-cnn': [
             'seq2seq-lm-with-past'
-        ]
+        ],
+        'facebook/bart-large-mnli': [
+            'default',
+            'sequence-classification',
+        ],
     },
     'bert': {
         'bert-base-uncased': [

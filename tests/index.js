@@ -139,6 +139,60 @@ async function text_classification() {
     ), duration];
 }
 
+
+async function zero_shot_classification() {
+    let classifier = await pipeline('zero-shot-classification', 'facebook/bart-large-mnli');
+
+
+    let sequences_to_classify = ['one day I will see the world', 'I love making pizza'];
+    let candidate_labels = ['travel', 'cooking', 'dancing'];
+
+    let start = performance.now();
+
+    let outputs1 = await classifier(sequences_to_classify[0], candidate_labels);
+    let outputs2 = await classifier(sequences_to_classify, candidate_labels);
+    let outputs3 = await classifier(sequences_to_classify, candidate_labels, {
+        multi_label: true
+    })
+
+    let duration = performance.now() - start;
+
+    // Dispose pipeline
+    await classifier.dispose()
+
+    return [isDeepEqual(
+        outputs1,
+        {
+            sequence: "one day I will see the world",
+            labels: ["travel", "dancing", "cooking"],
+            scores: [0.4261703487477968, 0.2903585771517135, 0.28347107410048983]
+        }
+    ) && isDeepEqual(
+        outputs2,
+        [{
+            sequence: "one day I will see the world",
+            labels: ["travel", "dancing", "cooking"],
+            scores: [0.4261703487477968, 0.2903585771517135, 0.28347107410048983]
+        }, {
+            sequence: "I love making pizza",
+            labels: ["cooking", "travel", "dancing"],
+            scores: [0.4660367922118968, 0.2756005926506238, 0.2583626151374795]
+        }]
+    ) && isDeepEqual(
+        outputs3,
+        [{
+            sequence: "one day I will see the world",
+            labels: ["travel", "dancing", "cooking"],
+            scores: [0.7108286792234982, 0.5763787804099745, 0.44303326070949994]
+        }, {
+            sequence: "I love making pizza",
+            labels: ["cooking", "travel", "dancing"],
+            scores: [0.8527619536354446, 0.7899589317978243, 0.5838912691496106]
+        }]
+    ), duration];
+
+}
+
 async function masked_language_modelling() {
 
     let unmasker = await pipeline('fill-mask', 'bert-base-uncased');
@@ -774,6 +828,7 @@ console.warn = (...data) => {
 // Define tests
 let tests = {
     'Text classification:': text_classification,
+    'Zero-shot classification': zero_shot_classification,
     'Masked language modelling:': masked_language_modelling,
     'Question answering:': question_answering,
     'Summarization:': summarization,
