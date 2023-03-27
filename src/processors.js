@@ -528,7 +528,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
      * Generates a Hanning window of length M.
      *
      * @param {number} M - The length of the Hanning window to generate.
-     * @returns {Float32Array} - The generated Hanning window.
+     * @returns {Float32Array | number[]} - The generated Hanning window.
      */
     hanning(M) {
         if (M < 1) {
