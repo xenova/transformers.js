@@ -290,6 +290,20 @@ class TextGenerationPipeline extends Pipeline {
 }
 
 class ZeroShotClassificationPipeline extends Pipeline {
+
+    constructor(task, tokenizer, model) {
+        super(task, tokenizer, model);
+
+        // Use model config to get label2id mapping
+        this.label2id = Object.fromEntries(
+            Object.entries(this.model.config.label2id).map(
+                ([k, v]) => [k.toLowerCase(), v]
+            )
+        );
+
+        this.entailment_id = this.label2id['entailment'];
+        this.contradiction_id = this.label2id['contradiction'];
+    }
     async _call(texts, candidate_labels, {
         hypothesis_template = "This example is {}.",
         multi_label = false,
@@ -324,11 +338,13 @@ class ZeroShotClassificationPipeline extends Pipeline {
                 })
                 let outputs = await this.model(inputs)
 
-                // TODO do not assume (2) is entailment. Better to use model.id2label
                 if (softmaxEach) {
-                    entails_logits.push([outputs.logits.data[0], outputs.logits.data[2]])
+                    entails_logits.push([
+                        outputs.logits.data[this.contradiction_id],
+                        outputs.logits.data[this.entailment_id]
+                    ])
                 } else {
-                    entails_logits.push(outputs.logits.data[2])
+                    entails_logits.push(outputs.logits.data[this.entailment_id])
                 }
             }
 
