@@ -5,7 +5,8 @@ const {
     cos_sim,
     pathJoin,
     isString,
-    getFile
+    getFile,
+    dot
 } = require("./utils.js");
 
 const {
@@ -421,9 +422,10 @@ class EmbeddingsPipeline extends Pipeline {
         return this._normalize(this._mean_pooling(outputs.last_hidden_state, inputs.attention_mask));
     }
 
-    cos_sim(arr1, arr2) {
-        // Compute cosine similarity
-        return cos_sim(arr1, arr2)
+    cos_sim(arr1, arr2, is_normalised = false) {
+        // Compute cosine similarity. If `is_normalised`, then
+        // use the dot product instead of the cosine similarity
+        return is_normalised ? dot(arr1, arr2) : cos_sim(arr1, arr2);
     }
 }
 
