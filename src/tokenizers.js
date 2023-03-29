@@ -859,6 +859,8 @@ class AutoTokenizer {
                 return new BertTokenizer(tokenizerJSON, tokenizerConfig);
             case 'MobileBertTokenizer':
                 return new MobileBertTokenizer(tokenizerJSON, tokenizerConfig);
+            case 'SqueezeBertTokenizer':
+                return new SqueezeBertTokenizer(tokenizerJSON, tokenizerConfig);
 
             case 'AlbertTokenizer':
                 return new AlbertTokenizer(tokenizerJSON, tokenizerConfig);
@@ -1215,34 +1217,33 @@ class PreTrainedTokenizer extends Callable {
 
 }
 
+function bert_prepare_model_inputs(inputs) {
+    // Helper method for preparing token_type_ids for bert models
+    inputs.token_type_ids = new Tensor(
+        'int64',
+        new BigInt64Array(inputs.input_ids.data.length),
+        inputs.input_ids.dims
+    )
+    return inputs;
+}
 class BertTokenizer extends PreTrainedTokenizer {
     prepare_model_inputs(inputs) {
-        inputs.token_type_ids = new Tensor(
-            'int64',
-            new BigInt64Array(inputs.input_ids.data.length),
-            inputs.input_ids.dims
-        )
-        return inputs;
+        return bert_prepare_model_inputs(inputs);
     }
 }
 class AlbertTokenizer extends PreTrainedTokenizer {
     prepare_model_inputs(inputs) {
-        inputs.token_type_ids = new Tensor(
-            'int64',
-            new BigInt64Array(inputs.input_ids.data.length),
-            inputs.input_ids.dims
-        )
-        return inputs;
+        return bert_prepare_model_inputs(inputs);
     }
 }
 class MobileBertTokenizer extends PreTrainedTokenizer {
     prepare_model_inputs(inputs) {
-        inputs.token_type_ids = new Tensor(
-            'int64',
-            new BigInt64Array(inputs.input_ids.data.length),
-            inputs.input_ids.dims
-        )
-        return inputs;
+        return bert_prepare_model_inputs(inputs);
+    }
+}
+class SqueezeBertTokenizer extends PreTrainedTokenizer {
+    prepare_model_inputs(inputs) {
+        return bert_prepare_model_inputs(inputs);
     }
 }
 class DistilBertTokenizer extends PreTrainedTokenizer { }
