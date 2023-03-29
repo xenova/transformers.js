@@ -708,6 +708,31 @@ class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// MobileBert models
+class MobileBertPreTrainedModel extends PreTrainedModel { }
+class MobileBertModel extends MobileBertPreTrainedModel { }
+class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new MaskedLMOutput(logits)
+    }
+}
+class MobileBertForSequenceClassification extends MobileBertPreTrainedModel {
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new SequenceClassifierOutput(logits)
+    }
+}
+class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
+    async _call(model_inputs) {
+        let outputs = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+    }
+}
+//////////////////////////////////////////////////
+
 //////////////////////////////////////////////////
 // Albert models
 class AlbertPreTrainedModel extends PreTrainedModel { }
@@ -1250,6 +1275,8 @@ class AutoModel {
                 return new WhisperModel(config, session);
             case 'clip':
                 return new CLIPModel(config, session);
+            case 'mobilebert':
+                return new MobileBertModel(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -1284,6 +1311,8 @@ class AutoModelForSequenceClassification {
                 return new RobertaForSequenceClassification(config, session);
             case 'bart':
                 return new BartForSequenceClassification(config, session);
+            case 'mobilebert':
+                return new MobileBertForSequenceClassification(config, session);
 
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)
@@ -1372,6 +1401,8 @@ class AutoModelForMaskedLM {
                 return new DistilBertForMaskedLM(config, session);
             case 'roberta':
                 return new RobertaForMaskedLM(config, session);
+            case 'mobilebert':
+                return new MobileBertForMaskedLM(config, session);
 
             default:
                 console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
@@ -1404,6 +1435,8 @@ class AutoModelForQuestionAnswering {
                 return new DistilBertForQuestionAnswering(config, session);
             case 'roberta':
                 return new RobertaForQuestionAnswering(config, session);
+            case 'mobilebert':
+                return new MobileBertForQuestionAnswering(config, session);
 
             default:
                 throw Error(`Unsupported model type: ${config.model_type}`)

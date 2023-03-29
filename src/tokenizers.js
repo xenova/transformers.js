@@ -855,9 +855,10 @@ class AutoTokenizer {
 
             case 'DistilBertTokenizer':
                 return new DistilBertTokenizer(tokenizerJSON, tokenizerConfig);
-
             case 'BertTokenizer':
                 return new BertTokenizer(tokenizerJSON, tokenizerConfig);
+            case 'MobileBertTokenizer':
+                return new MobileBertTokenizer(tokenizerJSON, tokenizerConfig);
 
             case 'AlbertTokenizer':
                 return new AlbertTokenizer(tokenizerJSON, tokenizerConfig);
@@ -1225,6 +1226,16 @@ class BertTokenizer extends PreTrainedTokenizer {
     }
 }
 class AlbertTokenizer extends PreTrainedTokenizer {
+    prepare_model_inputs(inputs) {
+        inputs.token_type_ids = new Tensor(
+            'int64',
+            new BigInt64Array(inputs.input_ids.data.length),
+            inputs.input_ids.dims
+        )
+        return inputs;
+    }
+}
+class MobileBertTokenizer extends PreTrainedTokenizer {
     prepare_model_inputs(inputs) {
         inputs.token_type_ids = new Tensor(
             'int64',
