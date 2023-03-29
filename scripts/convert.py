@@ -3,10 +3,10 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from typing import Optional
-from pathlib import Path
 
 from transformers import AutoTokenizer, HfArgumentParser
 from transformers.utils import cached_file
+from tqdm import tqdm
 
 from optimum.utils import DEFAULT_DUMMY_SHAPES
 from optimum.exporters.tasks import TasksManager
@@ -14,10 +14,7 @@ from optimum.exporters.onnx.utils import (
     get_decoder_models_for_export,
     get_encoder_decoder_models_for_export
 )
-from optimum.exporters.onnx.convert import (
-    export,
-    export_models
-)
+from optimum.exporters.onnx.convert import export_models
 from optimum.onnx.graph_transformations import merge_decoders
 from optimum.onnxruntime.utils import (
     ONNX_WEIGHTS_NAME,
@@ -26,8 +23,10 @@ from optimum.onnxruntime.utils import (
     ONNX_DECODER_WITH_PAST_NAME,
     ONNX_DECODER_MERGED_NAME
 )
-from onnxruntime.quantization import quantize_dynamic, QuantType
-from tqdm import tqdm
+from onnxruntime.quantization import (
+    quantize_dynamic,
+    QuantType
+)
 
 
 @dataclass
@@ -111,6 +110,7 @@ UNSIGNED_MODEL_TYPES = [
     'vit',
     'clip',
     'detr',
+    'squeezebert',
 ]
 
 
