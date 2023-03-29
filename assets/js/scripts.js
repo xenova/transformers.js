@@ -75,6 +75,11 @@ const OD_OUTPUT_OVERLAY = document.getElementById('od-overlay');
 const OD_OUTPUT_CANVAS = document.getElementById('od-canvas');
 
 
+const ZSC_INPUT_TEXTBOX = document.getElementById('zsc-input-textbox');
+const ZSC_CLASSES = document.getElementById('zsc-classes');
+const ZSC_OUTPUT_CANVAS = document.getElementById('zsc-canvas');
+
+
 const DEFAULT_GREEDY_PARAMS = {
 	max_new_tokens: 50,
 	num_beams: 1,
@@ -97,6 +102,9 @@ const TASK_DEFAULT_PARAMS = {
 		topk: 5 // number of samples
 	},
 	'sequence-classification': {},
+	'zero-shot-classification': {
+		multi_label: false
+	},
 	'question-answering': {},
 	'summarization': DEFAULT_GREEDY_PARAMS,
 	'automatic-speech-recognition': DEFAULT_GREEDY_PARAMS,
@@ -353,20 +361,41 @@ const CHARTS = {
 		data: structuredClone(DEFAULT_DATA),
 		options: CHART_OPTIONS
 	}),
+
+	'zsc-canvas': new Chart(ZSC_OUTPUT_CANVAS, {
+		type: 'bar',
+		data: {
+			labels: ['urgent', 'not urgent', 'phone', 'tablet', 'microwave'],
+			datasets: [{
+				borderWidth: 1
+			}]
+		},
+		options: CHART_OPTIONS
+	}),
+};
+
+
+[
+	[ZSIC_CLASSES, ZSIC_OUTPUT_CANVAS],
+	[ZSC_CLASSES, ZSC_OUTPUT_CANVAS],
+].forEach(x => {
+	let [input, chart] = x;
+
+	input.addEventListener('input', () => {
+		// Update labels of graph
+		let chartToUpdate = CHARTS[chart.id];
+
+		chartToUpdate.data.labels = getZSClasses(input);
+		chartToUpdate.data.datasets[0].data = new Array(chartToUpdate.data.labels.length).fill(0);
+		chartToUpdate.update();
+	})
+});
+
+
+function getZSClasses(elem) {
+	return elem.value.split(/\s*,+\s*/g).filter(x => x)
 }
 
-function getZSICClasses() {
-	return ZSIC_CLASSES.value.split(/\s*,+\s*/g).filter(x => x)
-
-}
-ZSIC_CLASSES.addEventListener('input', () => {
-	// Update labels of graph
-	let chartToUpdate = CHARTS[ZSIC_OUTPUT_CANVAS.id];
-
-	chartToUpdate.data.labels = getZSICClasses();
-	chartToUpdate.data.datasets[0].data = new Array(chartToUpdate.data.labels.length).fill(0);
-	chartToUpdate.update();
-})
 
 
 
@@ -445,6 +474,14 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 			data.targetType = 'chart'
 			break;
 
+		case 'zero-shot-classification':
+			data.text = ZSC_INPUT_TEXTBOX.value
+			data.classes = getZSClasses(ZSC_CLASSES);
+			data.elementIdToUpdate = ZSC_OUTPUT_CANVAS.id
+			data.targetType = 'chart'
+			data.updateLabels = true
+			break;
+
 		case 'question-answering':
 			data.context = QA_CONTEXT_TEXTBOX.value
 			data.question = QA_QUESTION_TEXTBOX.value
@@ -483,7 +520,7 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 
 		case 'zero-shot-image-classification':
 			data.image = getImageDataFromImage(ZSIC_IMG)
-			data.classes = getZSICClasses()
+			data.classes = getZSClasses(ZSIC_CLASSES);
 			data.elementIdToUpdate = ZSIC_OUTPUT_CANVAS.id
 			data.targetType = 'chart'
 			data.updateLabels = true

@@ -19,6 +19,7 @@ const TASK_FUNCTION_MAPPING = {
     'code-completion': code_completion,
     'masked-language-modelling': masked_lm,
     'sequence-classification': sequence_classification,
+    'zero-shot-classification': zero_shot_classification,
     'question-answering': question_answering,
     'summarization': summarize,
     'automatic-speech-recognition': speech_to_text,
@@ -92,6 +93,11 @@ class MaskedLMPipelineFactory extends PipelineFactory {
 class SequenceClassificationPipelineFactory extends PipelineFactory {
     static task = 'text-classification';
     static model = 'nlptown/bert-base-multilingual-uncased-sentiment';
+}
+
+class ZeroShotClassificationPipelineFactory extends PipelineFactory {
+    static task = 'zero-shot-classification';
+    static model = 'typeform/distilbert-base-uncased-mnli';
 }
 
 class QuestionAnsweringPipelineFactory extends PipelineFactory {
@@ -260,7 +266,31 @@ async function sequence_classification(data) {
     });
 }
 
+async function zero_shot_classification(data) {
 
+    let pipeline = await ZeroShotClassificationPipelineFactory.getInstance(data => {
+        self.postMessage({
+            type: 'download',
+            task: 'zero-shot-classification',
+            data: data
+        });
+    });
+
+    let outputs = await pipeline(data.text, data.classes, data.generation);
+    let formattedOutputs = outputs.labels.map((x, i) => {
+        return {
+            label: x,
+            score: outputs.scores[i],
+        }
+    });
+
+    self.postMessage({
+        type: 'complete',
+        target: data.elementIdToUpdate,
+        targetType: data.targetType,
+        data: formattedOutputs
+    });
+}
 async function question_answering(data) {
 
     let pipeline = await QuestionAnsweringPipelineFactory.getInstance(data => {

@@ -117,6 +117,9 @@
                         <option value="sequence-classification">
                             Text classification w/ bert-base-multilingual-uncased-sentiment (170 MB)
                         </option>
+                        <option value="zero-shot-classification">
+                            Zero-shot classification w/ typeform/distilbert-base-uncased-mnli (68 MB)
+                        </option>
                         <option value="question-answering">
                             Question answering w/ distilbert-base-uncased-distilled-squad (66 MB)
                         </option>
@@ -163,7 +166,7 @@
                     </div>
                 </div>
                 <div class="task-settings"
-                    task="translation,text-generation,code-completion,masked-language-modelling,summarization,automatic-speech-recognition,image-to-text">
+                    task="translation,text-generation,code-completion,masked-language-modelling,summarization,automatic-speech-recognition,image-to-text,zero-shot-classification">
                     <label class="mt-2">Parameters: </label>
                     <div class="row">
                         <div class="task-settings col-xl-2 col-md-4 col-sm-6"
@@ -216,6 +219,17 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6"
+                            task="zero-shot-classification">
+                            <div class="input-group mb-2" title="Allow multiple true classes">
+                                <label class="input-group-text" for="multi-label-select">Multi label</label>
+                                <select param-name="multi_label" datatype="bool" class="form-select generation-option"
+                                    id="multi-label-select">
+                                    <option value="true">Yes</option>
+                                    <option value="false" selected>No</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div task="sequence-classification" class="task-settings">
@@ -226,6 +240,24 @@
                         </div>
                         <div class="col-lg-6 mt-1" style="max-height:146px">
                             <canvas id="tc-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div task="zero-shot-classification" class="task-settings">
+                    <div class="row">
+                        <div class="col-lg-6 mt-1">
+                            <label>Text: </label>
+                            <textarea id="zsc-input-textbox" class="form-control"
+                                rows="5">I have a problem with my iphone that needs to be resolved asap!</textarea>
+                        </div>
+                        <div class="col-lg-6 mt-1">
+                            <label for="zsc-classes" class="form-label mb-0">Possible class names
+                                (comma-separated):</label>
+                            <input type="text" class="form-control" id="zsc-classes"
+                                value="urgent, not urgent, phone, tablet, microwave">
+                            <div style="max-height:146px">
+                                <canvas id="zsc-canvas"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -612,6 +644,19 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
+                            <div class="fw-bold">zero-shot-classification</div>
+                            Supported models:
+                            <code>roberta-large-mnli</code>,
+                            <code>typeform/distilbert-base-uncased-mnli</code>,
+                            <code>typeform/mobilebert-uncased-mnli</code>,
+                            <code>squeezebert/squeezebert-mnli</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/tasks/zero-shot-classification">
+                                Zero-shot classification docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
                             <div class="fw-bold">question-answering</div>
                             Supported models: <code>distilbert-base-cased-distilled-squad</code>,
                             <code>distilbert-base-uncased-distilled-squad</code>.
@@ -627,7 +672,10 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                             <code>albert-base-v2</code>, <code>distilroberta-base</code>, <code>roberta-base</code>,
                             <code>bert-base-cased</code>, <code>bert-base-uncased</code>,
                             <code>bert-base-multilingual-uncased</code>, <code>bert-base-multilingual-cased</code>,
-                            <code>distilbert-base-cased</code>, <code>distilbert-base-uncased</code>.
+                            <code>distilbert-base-cased</code>,
+                            <code>distilbert-base-uncased</code>,
+                            <code>google/mobilebert-uncased</code>,
+                            <code>squeezebert/squeezebert-uncased</code>.
                             For more information, check out the
                             <a href="https://huggingface.co/docs/transformers/tasks/language_modeling">
                                 Language Modelling docs</a>.
@@ -807,6 +855,32 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                             <code>(AutoModelForSequenceClassification)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/distilbert">DistilBERT
+                                docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">MobileBERT</div>
+                            Tasks: Masked language modelling
+                            <code>(AutoModelForMaskedLM)</code>,
+                            question answering
+                            <code>(AutoModelForQuestionAnswering)</code>, and
+                            sequence classification
+                            <code>(AutoModelForSequenceClassification)</code>.
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/mobilebert">MobileBERT
+                                docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">SqueezeBERT</div>
+                            Tasks: Masked language modelling
+                            <code>(AutoModelForMaskedLM)</code> and
+                            sequence classification
+                            <code>(AutoModelForSequenceClassification)</code>.
+                            For more information, check out the <a
+                                href="https://huggingface.co/docs/transformers/model_doc/squeezebert">SqueezeBERT
                                 docs</a>.
                         </div>
                     </li>
