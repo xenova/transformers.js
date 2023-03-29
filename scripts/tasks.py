@@ -125,6 +125,10 @@ SUPPORTED_MODELS = {
         ],
         'distilbert-base-uncased-finetuned-sst-2-english': [
             'sequence-classification',
+        ],
+        'typeform/distilbert-base-uncased-mnli': [
+            'default',
+            'sequence-classification',
         ]
     },
     'gpt-neo': {
@@ -144,6 +148,16 @@ SUPPORTED_MODELS = {
             'sequence-classification',
             'token-classification',
         ]
+    },
+    'mobilebert': {
+        'google/mobilebert-uncased': [
+            'default',
+            'masked-lm',
+        ],
+        'typeform/mobilebert-uncased-mnli': [
+            'default',
+            'sequence-classification',
+        ],
     },
     'mt5': {
         'google/mt5-small': [
@@ -165,6 +179,20 @@ SUPPORTED_MODELS = {
         ],
         'sentence-transformers/all-distilroberta-v1': [
             'default'
+        ],
+        'roberta-large-mnli': [
+            'default',
+            'sequence-classification',
+        ]
+    },
+    'squeezebert': {
+        'squeezebert/squeezebert-uncased': [
+            'default',
+            'masked-lm',
+        ],
+        'squeezebert/squeezebert-mnli': [
+            'default',
+            'sequence-classification',
         ]
     },
     't5': {
