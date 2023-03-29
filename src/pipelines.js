@@ -302,7 +302,16 @@ class ZeroShotClassificationPipeline extends Pipeline {
         );
 
         this.entailment_id = this.label2id['entailment'];
+        if (this.entailment_id === undefined) {
+            console.warn("Could not find 'entailment' in label2id mapping. Using 2 as entailment_id.");
+            this.entailment_id = 2;
+        }
+
         this.contradiction_id = this.label2id['contradiction'];
+        if (this.contradiction_id === undefined) {
+            console.warn("Could not find 'contradiction' in label2id mapping. Using 0 as contradiction_id.");
+            this.contradiction_id = 0;
+        }
     }
     async _call(texts, candidate_labels, {
         hypothesis_template = "This example is {}.",
