@@ -822,7 +822,7 @@ const SUPPORTED_TASKS = {
         "pipeline": ZeroShotClassificationPipeline,
         "model": AutoModelForSequenceClassification,
         "default": {
-            "model": "facebook/bart-large-mnli",
+            "model": "typeform/distilbert-base-uncased-mnli",
         },
         "type": "text",
     },
