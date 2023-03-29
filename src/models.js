@@ -1264,7 +1264,20 @@ class DetrObjectDetectionOutput extends ModelOutput {
 // (uses config to instantiate correct class)
 class AutoModel {
     // Helper class to determine model type from config
-
+    static MODEL_CLASS_MAPPING = {
+        'bert': BertModel,
+        'albert': AlbertModel,
+        'distilbert': DistilBertModel,
+        't5': T5Model,
+        'gpt_neo': GPTNeoModel,
+        'codegen': CodeGenModel,
+        'bart': BartModel,
+        'roberta': RobertaModel,
+        'whisper': WhisperModel,
+        'clip': CLIPModel,
+        'mobilebert': MobileBertModel,
+        'squeezebert': SqueezeBertModel,
+    }
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let config = await fetchJSON(modelPath, 'config.json', progressCallback);
@@ -1278,42 +1291,26 @@ class AutoModel {
             name: modelPath
         });
 
-        switch (config.model_type) {
-            case 'bert':
-                return new BertModel(config, session);
-            case 'albert':
-                return new AlbertModel(config, session);
-            case 'distilbert':
-                return new DistilBertModel(config, session);
-            case 't5':
-                return new T5Model(config, session);
-            case 'gpt_neo':
-                return new GPTNeoModel(config, session);
-            case 'gpt2':
-                return new GPT2Model(config, session);
-            case 'codegen':
-                return new CodeGenModel(config, session);
-            case 'bart':
-                return new BartModel(config, session);
-            case 'roberta':
-                return new RobertaModel(config, session);
-            case 'whisper':
-                return new WhisperModel(config, session);
-            case 'clip':
-                return new CLIPModel(config, session);
-            case 'mobilebert':
-                return new MobileBertModel(config, session);
-            case 'squeezebert':
-                return new SqueezeBertModel(config, session);
-
-            default:
-                console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
-                return new PreTrainedModel(config, session);
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
+            cls = PreTrainedModel;
         }
+        return new cls(config, session)
     }
 }
 
 class AutoModelForSequenceClassification {
+
+    static MODEL_CLASS_MAPPING = {
+        'bert': BertForSequenceClassification,
+        'albert': AlbertForSequenceClassification,
+        'distilbert': DistilBertForSequenceClassification,
+        'roberta': RobertaForSequenceClassification,
+        'bart': BartForSequenceClassification,
+        'mobilebert': MobileBertForSequenceClassification,
+        'squeezebert': SqueezeBertForSequenceClassification,
+    }
 
     static async from_pretrained(modelPath, progressCallback = null) {
 
@@ -1328,29 +1325,16 @@ class AutoModelForSequenceClassification {
             name: modelPath
         });
 
-        switch (config.model_type) {
-            case 'bert':
-                return new BertForSequenceClassification(config, session);
-            case 'albert':
-                return new AlbertForSequenceClassification(config, session);
-            case 'distilbert':
-                return new DistilBertForSequenceClassification(config, session);
-            case 'roberta':
-                return new RobertaForSequenceClassification(config, session);
-            case 'bart':
-                return new BartForSequenceClassification(config, session);
-            case 'mobilebert':
-                return new MobileBertForSequenceClassification(config, session);
-            case 'squeezebert':
-                return new SqueezeBertForSequenceClassification(config, session);
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
         }
+        return new cls(config, session);
     }
 }
 
 class AutoModelForSeq2SeqLM {
-    static modelClassMapping = {
+    static MODEL_CLASS_MAPPING = {
         't5': T5ForConditionalGeneration,
         'mt5': MT5ForConditionalGeneration,
         'bart': BartForConditionalGeneration,
@@ -1359,7 +1343,7 @@ class AutoModelForSeq2SeqLM {
     static async from_pretrained(modelPath, progressCallback = null) {
         let info = await seq2seqLoadModel(modelPath, progressCallback);
         let config = info[0];
-        let cls = this.modelClassMapping[config.model_type];
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
         if (!cls) {
             throw Error(`Unsupported model type: ${config.model_type}`)
         }
@@ -1368,6 +1352,11 @@ class AutoModelForSeq2SeqLM {
 }
 
 class AutoModelForCausalLM {
+    static MODEL_CLASS_MAPPING = {
+        'gpt2': GPT2LMHeadModel,
+        'gpt_neo': GPTNeoForCausalLM,
+        'codegen': CodeGenForCausalLM,
+    }
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -1381,33 +1370,24 @@ class AutoModelForCausalLM {
             name: modelPath
         });
 
-        switch (config.model_type) {
-            case 'gpt2':
-                return new GPT2LMHeadModel(
-                    config,
-                    session
-                );
-
-            case 'gpt_neo':
-                return new GPTNeoForCausalLM(
-                    config,
-                    session
-                );
-
-            case 'codegen':
-                return new CodeGenForCausalLM(
-                    config,
-                    session
-                )
-
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
         }
+        return new cls(config, session);
+
     }
 }
 
 class AutoModelForMaskedLM {
-
+    static MODEL_CLASS_MAPPING = {
+        'bert': BertForMaskedLM,
+        'albert': AlbertForMaskedLM,
+        'distilbert': DistilBertForMaskedLM,
+        'roberta': RobertaForMaskedLM,
+        'mobilebert': MobileBertForMaskedLM,
+        'squeezebert': SqueezeBertForMaskedLM,
+    }
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let config = await fetchJSON(modelPath, 'config.json', progressCallback);
@@ -1421,29 +1401,23 @@ class AutoModelForMaskedLM {
             name: modelPath
         });
 
-        switch (config.model_type) {
-            case 'bert':
-                return new BertForMaskedLM(config, session);
-            case 'albert':
-                return new AlbertForMaskedLM(config, session);
-            case 'distilbert':
-                return new DistilBertForMaskedLM(config, session);
-            case 'roberta':
-                return new RobertaForMaskedLM(config, session);
-            case 'mobilebert':
-                return new MobileBertForMaskedLM(config, session);
-            case 'squeezebert':
-                return new SqueezeBertForMaskedLM(config, session);
-
-            default:
-                console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
-                return new PreTrainedModel(config, session);
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
         }
+        return new cls(config, session);
     }
 }
 
 class AutoModelForQuestionAnswering {
-
+    static MODEL_CLASS_MAPPING = {
+        'bert': BertForQuestionAnswering,
+        'albert': AlbertForQuestionAnswering,
+        'distilbert': DistilBertForQuestionAnswering,
+        'roberta': RobertaForQuestionAnswering,
+        'mobilebert': MobileBertForQuestionAnswering,
+        'squeezebert': SqueezeBertForQuestionAnswering,
+    }
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -1457,27 +1431,18 @@ class AutoModelForQuestionAnswering {
             name: modelPath
         });
 
-        switch (config.model_type) {
-            case 'bert':
-                return new BertForQuestionAnswering(config, session);
-            case 'albert':
-                return new AlbertForQuestionAnswering(config, session);
-            case 'distilbert':
-                return new DistilBertForQuestionAnswering(config, session);
-            case 'roberta':
-                return new RobertaForQuestionAnswering(config, session);
-            case 'mobilebert':
-                return new MobileBertForQuestionAnswering(config, session);
-            case 'squeezebert':
-                return new SqueezeBertForQuestionAnswering(config, session);
-
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
         }
+        return new cls(config, session);
     }
 }
 
 class AutoModelForVision2Seq {
+    static MODEL_CLASS_MAPPING = {
+        'vision-encoder-decoder': VisionEncoderDecoderModel
+    }
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session, decoder_merged_session] = await Promise.all([
@@ -1492,20 +1457,19 @@ class AutoModelForVision2Seq {
             name: modelPath
         });
 
-        switch (config.model_type) {
-            case 'vision-encoder-decoder':
-                return new VisionEncoderDecoderModel(
-                    config,
-                    session,
-                    decoder_merged_session
-                );
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
         }
+        return new cls(config, session, decoder_merged_session);
+
     }
 }
 
 class AutoModelForImageClassification {
+    static MODEL_CLASS_MAPPING = {
+        'vit': ViTForImageClassification,
+    }
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -1519,22 +1483,20 @@ class AutoModelForImageClassification {
             name: modelPath
         });
 
-        switch (config.model_type) {
-            case 'vit':
-                return new ViTForImageClassification(
-                    config,
-                    session,
-                );
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
         }
+        return new cls(config, session);
     }
-
 }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 class AutoModelForObjectDetection {
+    static MODEL_CLASS_MAPPING = {
+        'detr': DetrForObjectDetection,
+    }
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -1548,17 +1510,12 @@ class AutoModelForObjectDetection {
             name: modelPath
         });
 
-        switch (config.model_type) {
-            case 'detr':
-                return new DetrForObjectDetection(
-                    config,
-                    session,
-                );
-            default:
-                throw Error(`Unsupported model type: ${config.model_type}`)
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
         }
+        return new cls(config, session);
     }
-
 }
 //////////////////////////////////////////////////
 
