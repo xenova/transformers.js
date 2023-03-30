@@ -145,14 +145,25 @@ class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
  */
 class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     /**
+     * Create a ForcedEOSTokenLogitsProcessor.
+     * @param {number} max_length - Max length of the sequence.
+     * @param {number} forced_eos_token_id - The ID of the end-of-sequence token to be forced.
+     */
+    constructor(max_length, forced_eos_token_id) {
+        super();
+        this.max_length = max_length;
+        this.forced_eos_token_id = forced_eos_token_id;
+    }
+
+    /**
      * Apply the processor to input_ids and logits.
      * 
      * @param {number[]} input_ids - The input ids.
      * @param {any} logits - The logits tensor.
      */
     _call(input_ids, logits) {
-        // console.log('call ForcedEOSTokenLogitsProcessor')
-        // TODO
+        // TODO - 
+        throw Error("Not yet implemented");
     }
 }
 
