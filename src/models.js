@@ -592,12 +592,12 @@ class PreTrainedModel extends Callable {
             processors.push(new ForcedBOSTokenLogitsProcessor(generation_config.forced_bos_token_id));
         }
 
-        if (generation_config.forced_eos_token_id !== null) {
-            processors.push(new ForcedEOSTokenLogitsProcessor(
-                generation_config.max_length,
-                generation_config.forced_eos_token_id
-            ));
-        }
+        // if (generation_config.forced_eos_token_id !== null) {
+        //     processors.push(new ForcedEOSTokenLogitsProcessor(
+        //         generation_config.max_length,
+        //         generation_config.forced_eos_token_id
+        //     ));
+        // }
 
         // if (generation_config.remove_invalid_values === true) {
         //     processors.push(new InfNanRemoveLogitsProcessor());
