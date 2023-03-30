@@ -510,9 +510,9 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 frame = new Float32Array(this.config.n_fft);
                 const frameArray = waveform.subarray(i, i + this.config.n_fft);
 
-                if (frameWidth < this.config.n_fft) {
+                if (frameArray.length < this.config.n_fft) {
                     frame.set(frameArray);
-                    frame.fill(0, frameWidth, this.config.n_fft)
+                    frame.fill(0, frameArray.length, this.config.n_fft)
                 } else {
                     frame = frameArray;
                 }
