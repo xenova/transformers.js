@@ -2043,7 +2043,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                 if (all_special_ids.has(token)) {
                     const text = this.decode([token]);
                     if (text[0] === "[" && text[text.length - 1] === "]") {
-                        const language = this.LANGUAGES[text.slice(1, -1)];
+                        const language = WhisperTokenizer.LANGUAGES[text.slice(1, -1)];
 
                         if (language !== undefined) {
                             // 1/ Indeed some language
