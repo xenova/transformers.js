@@ -106,7 +106,7 @@ class TextClassificationPipeline extends Pipeline {
      * Executes the text classification task.
      * @param {any} texts - The input texts to be classified.
      * @param {object} options - An optional object containing the following properties:
-     * @param {number} options.topk - The number of top predictions to be returned.
+     * @param {number} [options.topk=1] - The number of top predictions to be returned.
      * @returns {Promise<object[]|object>} - A promise that resolves to an array or object containing the predicted labels and scores.
      */
     async _call(texts, {
@@ -147,7 +147,7 @@ class QuestionAnsweringPipeline extends Pipeline {
      * @param {string} question - The question to be answered.
      * @param {string} context - The context where the answer can be found.
      * @param {object} options - An optional object containing the following properties:
-     * @param {number} options.topk - The number of top answer predictions to be returned.
+     * @param {number} [options.topk=1] - The number of top answer predictions to be returned.
      * @returns {Promise<object[]|object>} - A promise that resolves to an array or object containing the predicted answers and scores.
      */
     async _call(question, context,
