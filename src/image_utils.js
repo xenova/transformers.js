@@ -28,7 +28,10 @@ async function loadImage(url) {
     return await Jimp.read(imgToLoad);
 }
 
+const ImageType = Jimp.JimpType;
+
 module.exports = {
     loadImage,
-    Jimp
+    Jimp,
+    ImageType
 };
