@@ -144,17 +144,15 @@ class TextClassificationPipeline extends Pipeline {
 class QuestionAnsweringPipeline extends Pipeline {
     /**
      * Executes the question answering task.
-     * @param {string} question - The question to be answered.
-     * @param {string} context - The context where the answer can be found.
+     * @param {string|string[]} question - The question(s) to be answered.
+     * @param {string|string[]} context - The context(s) where the answer(s) can be found.
      * @param {object} options - An optional object containing the following properties:
      * @param {number} [options.topk=1] - The number of top answer predictions to be returned.
      * @returns {Promise<object[]|object>} - A promise that resolves to an array or object containing the predicted answers and scores.
      */
-    async _call(question, context,
-        {
-            topk = 1
-        } = {}
-    ) {
+    async _call(question, context, {
+        topk = 1
+    } = {}) {
 
         let inputs = this.tokenizer(question, {
             text_pair: context
@@ -887,7 +885,7 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
      * @param {Array} images - The input images.
      * @param {Array} candidate_labels - The candidate labels.
      * @param {Object} options - The options for the classification.
-     * @param {string} options.hypothesis_template - The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
+     * @param {string} [options.hypothesis_template] - The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
      * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
      */
     async _call(images, candidate_labels, {
@@ -1150,7 +1148,7 @@ const TASK_ALIASES = {
  * @function
  * @param {string} task - The task to perform, e.g. "text-generation".
  * @param {string} [model=null] - The name of the pre-trained model to use. If not specified, the default model for the task will be used.
- * @param {object} [options={}] - Optional parameters for the pipeline.
+ * @param {object} [options] - Optional parameters for the pipeline.
  * @param {function} [options.progress_callback=null] - A function to call with progress updates.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
