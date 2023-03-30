@@ -168,7 +168,7 @@ class WordPieceTokenizer extends TokenizerModel {
                 start = end;
             }
             if (isUnknown) {
-                outputTokens.push(this.unknownToken);
+                outputTokens.push(this.unk_token);
             } else {
                 outputTokens.push(...subTokens);
             }
@@ -248,7 +248,7 @@ class Unigram extends TokenizerModel {
     /**
      * Encodes an array of tokens into an array of subtokens using the unigram model.
      *
-     * @param {string[]} tokens - The array of tokens to encode.
+     * @param {string} normalized - The normalized string.
      * @returns {string[]} An array of subtokens obtained by encoding the input tokens using the unigram model.
      */
     tokenize(normalized) {
@@ -297,8 +297,8 @@ const BYTES_TO_UNICODE = (() => {
             n += 1;
         }
     }
-    cs = cs.map(n => String.fromCharCode(n));
-    return Object.fromEntries(bs.map((b, i) => [b, cs[i]]));
+    let ccs = cs.map(n => String.fromCharCode(n));
+    return Object.fromEntries(bs.map((b, i) => [b, ccs[i]]));
 })();
 
 const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
@@ -1152,7 +1152,6 @@ class ByteLevelDecoder extends Decoder {
         this.text_decoder = new TextDecoder("utf-8", {
             fatal: false,
             ignoreBOM: true,
-            ignoreEncoding: false
         });
     }
 
@@ -1339,15 +1338,17 @@ class PreTokenizerSequence extends PreTokenizer {
 
     /**
      * Applies each pre-tokenizer in the sequence to the input text in turn.
-     * @param {string} text - The text to pre-tokenize.
+     * @param {string|string[]} text - The text(s) to pre-tokenize.
      * @returns {Array<string>} The pre-tokenized text.
      */
     pre_tokenize_text(text) {
-        // TODO use reduce?
-        for (let tokenizer of this.tokenizers) {
-            text = tokenizer.pre_tokenize(text);
+        if (typeof text === 'string') {
+            text = [text];
         }
-        return text;
+        // Use reduce to apply each tokenizer to the text
+        return this.tokenizers.reduce((preTokenizedText, tokenizer) => {
+            return tokenizer.pre_tokenize(preTokenizedText);
+        }, text);
     }
 }
 
@@ -1942,7 +1943,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
      * Decodes automatic speech recognition (ASR) sequences.
      * @param {Array.<{tokens: Array.<number>, stride: [number, number, number]}>} sequences The sequences to decode.
      * @param {Object} options - The options to use for decoding.
-     * @returns {Array.<{language: string|null, timestamp: [number|null, number|null], text: string}>} The decoded sequences.
+     * @returns {[string, {chunks?:Array.<{language: string|null, timestamp: [number|null, number|null], text: string}>}]} The decoded sequences.
      */
     _decode_asr(sequences, {
         return_timestamps = false,
@@ -2173,8 +2174,8 @@ class WhisperTokenizer extends PreTrainedTokenizer {
 
     /**
      * Finds the longest common sequence among the provided sequences.
-     * @param {Array<string>} sequences - An array of sequences to compare.
-     * @returns {Array<string>} - The longest common sequence found.
+     * @param {Array<Array<number>>} sequences - An array of sequences of token ids to compare.
+     * @returns {Array<number>} - The longest common sequence found.
      * @throws {Error} - If there is a bug within the function.
      */
     findLongestCommonSequence(sequences) {
