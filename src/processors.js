@@ -425,7 +425,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         const f = new FFT(nextP2 >> 1);
         f.transform(outBuffer, ichirp);
 
-        for (let i in frames) {
+        for (let i = 0; i < frames.length; ++i) {
             const frame = frames[i];
 
             for (let j = 0; j < slicedChirp.length; j += 2) {
