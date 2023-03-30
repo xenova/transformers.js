@@ -1,3 +1,4 @@
+const { Tensor } = require("./tensor_utils.js");
 const {
     Callable,
     exists,
@@ -197,8 +198,8 @@ class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
     /**
      * Modify the logits to handle timestamp tokens.
      * @param {Array} input_ids - The input sequence of tokens.
-     * @param {any} logits - The logits output by the model.
-     * @returns {Array} - The modified logits.
+     * @param {Tensor} logits - The logits output by the model.
+     * @returns {Tensor} - The modified logits.
      */
     _call(input_ids, logits) {
         // suppress <|notimestamps|> which is handled by without_timestamps
