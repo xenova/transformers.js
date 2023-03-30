@@ -70,7 +70,7 @@ class LogitsProcessor extends Callable {
      *
      * @abstract
      * @param {Array} input_ids The input ids.
-     * @param {Array} logits The logits to process.
+     * @param {Tensor} logits The logits to process.
      * @throws {Error} Throws an error if `_call` is not implemented in the subclass.
      */
     _call(input_ids, logits) {
