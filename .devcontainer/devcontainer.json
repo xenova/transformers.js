@@ -2,5 +2,10 @@
   "image": "mcr.microsoft.com/devcontainers/javascript-node",
   "features": {
     "ghcr.io/devcontainers/features/python": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["esbenp.prettier-vscode", "ms-python.python"]
+    }
   }
 }
