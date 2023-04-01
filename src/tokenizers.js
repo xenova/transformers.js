@@ -1607,6 +1607,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
 }
 class CodeGenTokenizer extends PreTrainedTokenizer { }
 class CLIPTokenizer extends PreTrainedTokenizer { }
+class MarianTokenizer extends PreTrainedTokenizer { }
 
 
 class CharTrie {
@@ -1771,6 +1772,7 @@ class AutoTokenizer {
         'WhisperTokenizer': WhisperTokenizer,
         'CodeGenTokenizer': CodeGenTokenizer,
         'CLIPTokenizer': CLIPTokenizer,
+        'MarianTokenizer': MarianTokenizer,
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
