@@ -4,7 +4,6 @@ const {
     fetchJSON,
     dispatchCallback,
     isIntegralNumber,
-    exists,
 } = require("./utils.js");
 
 const {
@@ -1259,6 +1258,57 @@ class DetrObjectDetectionOutput extends ModelOutput {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// MarianMT models
+class MarianPreTrainedModel extends PreTrainedModel { };
+
+class MarianModel extends MarianPreTrainedModel {
+    async generate(...args) {
+        throw Error(
+            "The current model class (T5Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'T5ForConditionalGeneration'}"
+        )
+    }
+}
+
+class MarianMTModel extends MarianPreTrainedModel {
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+    }
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+        let info = await seq2seqLoadModel(modelPath, progressCallback);
+        return new this(...info);
+    }
+
+    getStartBeams(inputs, numOutputTokens, ...args) {
+        return seq2seqStartBeams(this, inputs, numOutputTokens);
+    }
+
+    async runBeam(beam) {
+        return await seq2seqRunBeam(this, beam);
+    }
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
+    async forward(model_inputs) {
+        return await seq2seq_forward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
@@ -1269,6 +1319,8 @@ class AutoModel {
         'albert': AlbertModel,
         'distilbert': DistilBertModel,
         't5': T5Model,
+        'mt5': MT5Model,
+        'gpt2': GPT2Model,
         'gpt_neo': GPTNeoModel,
         'codegen': CodeGenModel,
         'bart': BartModel,
@@ -1339,6 +1391,7 @@ class AutoModelForSeq2SeqLM {
         'mt5': MT5ForConditionalGeneration,
         'bart': BartForConditionalGeneration,
         'whisper': WhisperForConditionalGeneration,
+        'marian': MarianMTModel,
     }
     static async from_pretrained(modelPath, progressCallback = null) {
         let info = await seq2seqLoadModel(modelPath, progressCallback);
