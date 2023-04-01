@@ -1,5 +1,5 @@
 torch
 transformers
-optimum[onnxruntime]>=1.7.1
 onnxruntime
+git+https://github.com/huggingface/optimum.git#egg=optimum[onnxruntime]
 tqdm
