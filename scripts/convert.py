@@ -303,7 +303,8 @@ def main():
         merge_decoders(
             OUTPUT_DECODER_PATH,
             OUTPUT_DECODER_WITH_PAST_PATH,
-            save_path=OUTPUT_DECODER_MERGED_PATH
+            save_path=OUTPUT_DECODER_MERGED_PATH,
+            strict=False
         )
 
 
