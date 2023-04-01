@@ -839,55 +839,6 @@ class WhitespaceSplit extends PreTokenizer {
     }
 }
 
-class AutoTokenizer {
-    // Helper class to determine tokenizer type from tokenizer.json
-
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [tokenizerJSON, tokenizerConfig] = await Promise.all([
-            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
-            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
-        ])
-
-        switch (tokenizerConfig.tokenizer_class) {
-            case 'T5Tokenizer':
-                return new T5Tokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'DistilBertTokenizer':
-                return new DistilBertTokenizer(tokenizerJSON, tokenizerConfig);
-            case 'BertTokenizer':
-                return new BertTokenizer(tokenizerJSON, tokenizerConfig);
-            case 'MobileBertTokenizer':
-                return new MobileBertTokenizer(tokenizerJSON, tokenizerConfig);
-            case 'SqueezeBertTokenizer':
-                return new SqueezeBertTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'AlbertTokenizer':
-                return new AlbertTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'GPT2Tokenizer':
-                return new GPT2Tokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'BartTokenizer':
-                return new BartTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'RobertaTokenizer':
-                return new RobertaTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'WhisperTokenizer':
-                return new WhisperTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'CodeGenTokenizer':
-                return new CodeGenTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'CLIPTokenizer':
-                return new CLIPTokenizer(tokenizerJSON, tokenizerConfig);
-            default:
-                console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
-                return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
-        }
-    }
-}
 class PreTrainedTokenizer extends Callable {
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
@@ -1804,6 +1755,39 @@ class TokenLatticeNode {
     }
 }
 
+
+class AutoTokenizer {
+    // Helper class to determine tokenizer type from tokenizer.json
+    static TOKENIZER_CLASS_MAPPING = {
+        'T5Tokenizer': T5Tokenizer,
+        'DistilBertTokenizer': DistilBertTokenizer,
+        'BertTokenizer': BertTokenizer,
+        'MobileBertTokenizer': MobileBertTokenizer,
+        'SqueezeBertTokenizer': SqueezeBertTokenizer,
+        'AlbertTokenizer': AlbertTokenizer,
+        'GPT2Tokenizer': GPT2Tokenizer,
+        'BartTokenizer': BartTokenizer,
+        'RobertaTokenizer': RobertaTokenizer,
+        'WhisperTokenizer': WhisperTokenizer,
+        'CodeGenTokenizer': CodeGenTokenizer,
+        'CLIPTokenizer': CLIPTokenizer,
+    }
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [tokenizerJSON, tokenizerConfig] = await Promise.all([
+            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
+            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
+        ])
+
+        let cls = this.TOKENIZER_CLASS_MAPPING[tokenizerConfig.tokenizer_class];
+        if (!cls) {
+            console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
+            cls = PreTrainedTokenizer;
+        }
+        return new cls(tokenizerJSON, tokenizerConfig);
+    }
+}
 
 module.exports = {
     AutoTokenizer,
