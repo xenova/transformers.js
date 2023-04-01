@@ -105,12 +105,12 @@ This library uses `onnxruntime-web` as its default backend. However, if your app
 ### Convert your PyTorch models to ONNX
 We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using our conversion script). In general, the command will look something like this:
 ```
-python ./scripts/convert.py --model_id <hf_model_id> --from_hub --quantize --task <task>
+python -m scripts.convert --model_id <hf_model_id> --from_hub --quantize --task <task>
 ```
 
 For example, to use `bert-base-uncased` for masked language modelling, you can use the command:
 ```
-python ./scripts/convert.py --model_id bert-base-uncased --from_hub --quantize --task masked-lm
+python -m scripts.convert --model_id bert-base-uncased --from_hub --quantize --task masked-lm
 ```
 
 If you want to use a local model, remove the `--from_hub` flag from above and place your PyTorch model in the `./models/pytorch/` folder. You can also choose a different location by specifying the parent input folder with `--input_parent_dir /path/to/parent_dir/` (note: without the model id). 
