@@ -149,6 +149,106 @@ SUPPORTED_MODELS = {
             'token-classification',
         ]
     },
+    'marian': {
+        'Helsinki-NLP/opus-mt-en-es': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-es-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-fr': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-fr-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-hi': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-hi-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-de': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-de-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-ru': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-ru-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-it': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-it-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-ar': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-ar-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-zh': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-zh-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-sv': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-sv-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-mul': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-mul-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-nl': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-nl-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-en-fi': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+        'Helsinki-NLP/opus-mt-fi-en': [
+            'default',
+            'seq2seq-lm-with-past',
+        ],
+
+        # TODO add more models, or dynamically generate this list
+    },
     'mobilebert': {
         'google/mobilebert-uncased': [
             'default',
@@ -271,7 +371,7 @@ def main():
         for model_id, tasks in model_ids.items():
             for task in tasks:
                 print(
-                    f'python ./scripts/convert.py --model_id {model_id} --from_hub --quantize --task {task}')
+                    f'python -m scripts.convert --model_id {model_id} --from_hub --quantize --task {task}')
         print()
 
 
