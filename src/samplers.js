@@ -12,7 +12,7 @@ class Sampler extends Callable {
         this.temperature = temperature;
     }
 
-    _call(logits, index=-1) {
+    _call(logits, index = -1) {
         // Sample from logits, of dims [batch, sequence_length, vocab_size].
         // If index is specified, sample from [batch, index, vocab_size].
         return this.sample(logits, index);
@@ -53,23 +53,26 @@ class Sampler extends Callable {
         return 0; // return first (most probable) as a fallback
     }
 
-    static getSampler(options) {
-        // TODO add beam
-        if (options.num_beams > 1) {
+    static getSampler(generation_config) {
+        if (generation_config.num_beams > 1) {
             return new BeamSearchSampler(
-                options.temperature,
-                options.num_beams,
-                options.do_sample,
-                options.top_k,
-            )
+                generation_config.temperature,
+                generation_config.num_beams,
+                generation_config.do_sample,
+                generation_config.top_k,
+            );
 
-        } else if (options.top_k > 0 || options.do_sample) {
+        } else if (generation_config.do_sample) {
             return new TopKSampler(
-                options.temperature,
-                options.top_k,
-            )
+                generation_config.temperature,
+                generation_config.top_k,
+            );
+
         } else {
-            return new GreedySampler(options.temperature)
+            if (generation_config.num_return_sequences > 1) {
+                throw Error(`num_return_sequences has to be 1 when doing greedy search, but is ${generation_config.num_return_sequences}.`)
+            }
+            return new GreedySampler(generation_config.temperature);
         }
     }
 }
