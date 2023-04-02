@@ -23,7 +23,10 @@ const {
 } = require("./generation.js");
 
 const { executionProviders, ONNX } = require('./backends/onnx.js');
-const { Tensor } = require('./tensor_utils');
+const {
+    Tensor,
+    cat
+} = require('./tensor_utils');
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 //////////////////////////////////////////////////
@@ -563,10 +566,24 @@ class PreTrainedModel extends Callable {
                 }
 
                 let output = await this.runBeam(beam);
-                logits_processor(beam.output_token_ids, output.logits)
 
-                let sampledTokens = sampler(output.logits);
+                // Logits are of the form [batch_size, out_seq_length, vocab_size]
+                // In most cases, this will be [batch_size, 1, vocab_size]
+                // So, we select the last token's logits:
+                // (equivalent to `logits = outputs.logits[:, -1, :]`)
+                let extractedLogits = [];
+                for (const batch of output.logits) {
+                    // Extract logits corresponding to the last token
+                    let lastLogits = batch.get(batch.dims[0] - 1);
 
+                    // Add back batch dimension (needed for `cat`)
+                    lastLogits.dims = [1, ...lastLogits.dims];
+                    extractedLogits.push(lastLogits)
+                }
+                let logits = cat(extractedLogits);
+                logits_processor(beam.output_token_ids, logits)
+
+                let sampledTokens = sampler(logits);
                 for (let [newTokenId, logProb] of sampledTokens) {
                     // use previous beam as a starting point
                     let newBeam = { ...beam };
