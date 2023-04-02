@@ -4,10 +4,10 @@
 export class Sampler extends Callable {
     /**
      * Returns a Sampler object based on the specified options.
-     * @param {object} options - An object containing options for the sampler.
+     * @param {object} generation_config - An object containing options for the sampler.
      * @returns {Sampler} A Sampler object.
      */
-    static getSampler(options: object): Sampler;
+    static getSampler(generation_config: object): Sampler;
     /**
      * Creates a new Sampler object with the specified temperature.
      * @param {number} temperature - The temperature to use when sampling. Higher values result in more random samples.

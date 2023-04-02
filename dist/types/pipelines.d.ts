@@ -5,7 +5,7 @@
  * @function
  * @param {string} task - The task to perform, e.g. "text-generation".
  * @param {string} [model=null] - The name of the pre-trained model to use. If not specified, the default model for the task will be used.
- * @param {object} [options={}] - Optional parameters for the pipeline.
+ * @param {object} [options] - Optional parameters for the pipeline.
  * @param {function} [options.progress_callback=null] - A function to call with progress updates.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
@@ -36,9 +36,9 @@ declare class Pipeline extends Callable {
     /**
      * Executes the natural language processing task.
      * @param {any} texts - The input texts to be processed.
-     * @returns {Promise<[object, object]>} - A promise that resolves to an array containing the inputs and outputs of the task.
+     * @returns {Promise<any>} - A promise that resolves to an array containing the inputs and outputs of the task.
      */
-    _call(texts: any): Promise<[object, object]>;
+    _call(texts: any): Promise<any>;
 }
 import { Callable } from "./utils.js";
 export {};

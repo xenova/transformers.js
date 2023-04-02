@@ -74,7 +74,8 @@ class LogitsProcessor extends Callable {
      * @throws {Error} Throws an error if `_call` is not implemented in the subclass.
      */
     _call(input_ids, logits) {
-        throw Error("`_call` should be implemented in a subclass")
+        // console.log('call ForcedEOSTokenLogitsProcessor')
+        // TODO
     }
 }
 

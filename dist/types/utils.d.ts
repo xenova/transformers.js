@@ -79,9 +79,9 @@ export function softmax(arr: number[]): number[];
 /**
  * Calculates the logarithm of the softmax function for the input array.
  * @param {number[]} arr - The input array to calculate the log_softmax function for.
- * @returns {number[]} - The resulting log_softmax array.
+ * @returns {any} - The resulting log_softmax array.
  */
-export function log_softmax(arr: number[]): number[];
+export function log_softmax(arr: number[]): any;
 /**
  * Escapes regular expression special characters from a string by replacing them with their escaped counterparts.
  *
@@ -140,6 +140,13 @@ export function isIntegralNumber(x: any): boolean;
  */
 export function isString(text: any): boolean;
 export function exists(x: any): boolean;
+/**
+ * Returns the minimum item.
+ * @param {number[]} arr - array of numbers.
+ * @returns {number} - the minimum number.
+ * @throws {Error} If array is empty.
+ */
+export function min(arr: number[]): number;
 declare class FileResponse {
     /**
      * @param {string} filePath

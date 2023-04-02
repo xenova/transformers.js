@@ -1,14 +1,20 @@
-/**
- * Helper class to determine tokenizer type from tokenizer.json
- */
 export class AutoTokenizer {
-    /**
-     * Creates an instance of the appropriate tokenizer based on the tokenizer class specified in the tokenizer config.
-     * @param {string} modelPath - The path to the tokenizer files.
-     * @param {function} [progressCallback=null] - A callback function to track download progress.
-     * @returns {Promise} A promise that resolves to an instance of the appropriate tokenizer.
-     */
-    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<any>;
+    static TOKENIZER_CLASS_MAPPING: {
+        T5Tokenizer: typeof T5Tokenizer;
+        DistilBertTokenizer: typeof DistilBertTokenizer;
+        BertTokenizer: typeof BertTokenizer;
+        MobileBertTokenizer: typeof MobileBertTokenizer;
+        SqueezeBertTokenizer: typeof SqueezeBertTokenizer;
+        AlbertTokenizer: typeof AlbertTokenizer;
+        GPT2Tokenizer: typeof GPT2Tokenizer;
+        BartTokenizer: typeof BartTokenizer;
+        RobertaTokenizer: typeof RobertaTokenizer;
+        WhisperTokenizer: typeof WhisperTokenizer;
+        CodeGenTokenizer: typeof CodeGenTokenizer;
+        CLIPTokenizer: typeof CLIPTokenizer;
+        MarianTokenizer: typeof MarianTokenizer;
+    };
+    static from_pretrained(modelPath: any, progressCallback?: any): Promise<any>;
 }
 /**
  * BertTokenizer is a class used to tokenize text for BERT models.
@@ -22,10 +28,158 @@ export class T5Tokenizer extends PreTrainedTokenizer {
 }
 export class GPT2Tokenizer extends PreTrainedTokenizer {
 }
+declare class MobileBertTokenizer extends PreTrainedTokenizer {
+    prepare_model_inputs(inputs: any): any;
+}
+declare class SqueezeBertTokenizer extends PreTrainedTokenizer {
+    prepare_model_inputs(inputs: any): any;
+}
 /**
- * A callable class that wraps a HuggingFace tokenizer.
- * @extends Callable
+ * Albert tokenizer
+ * @extends PreTrainedTokenizer
  */
+declare class AlbertTokenizer extends PreTrainedTokenizer {
+}
+declare class BartTokenizer extends PreTrainedTokenizer {
+}
+declare class RobertaTokenizer extends PreTrainedTokenizer {
+}
+/**
+ * WhisperTokenizer tokenizer
+ * @extends PreTrainedTokenizer
+ */
+declare class WhisperTokenizer extends PreTrainedTokenizer {
+    static LANGUAGES: {
+        en: string;
+        zh: string;
+        de: string;
+        es: string;
+        ru: string;
+        ko: string;
+        fr: string;
+        ja: string;
+        pt: string;
+        tr: string;
+        pl: string;
+        ca: string;
+        nl: string;
+        ar: string;
+        sv: string;
+        it: string;
+        id: string;
+        hi: string;
+        fi: string;
+        vi: string;
+        he: string;
+        uk: string;
+        el: string;
+        ms: string;
+        cs: string;
+        ro: string;
+        da: string;
+        hu: string;
+        ta: string;
+        no: string;
+        th: string;
+        ur: string;
+        hr: string;
+        bg: string;
+        lt: string;
+        la: string;
+        mi: string;
+        ml: string;
+        cy: string;
+        sk: string;
+        te: string;
+        fa: string;
+        lv: string;
+        bn: string;
+        sr: string;
+        az: string;
+        sl: string;
+        kn: string;
+        et: string;
+        mk: string;
+        br: string;
+        eu: string;
+        is: string;
+        hy: string;
+        ne: string;
+        mn: string;
+        bs: string;
+        kk: string;
+        sq: string;
+        sw: string;
+        gl: string;
+        mr: string;
+        pa: string;
+        si: string;
+        km: string;
+        sn: string;
+        yo: string;
+        so: string;
+        af: string;
+        oc: string;
+        ka: string;
+        be: string;
+        tg: string;
+        sd: string;
+        gu: string;
+        am: string;
+        yi: string;
+        lo: string;
+        uz: string;
+        fo: string;
+        ht: string;
+        ps: string;
+        tk: string;
+        nn: string;
+        mt: string;
+        sa: string;
+        lb: string;
+        my: string;
+        bo: string;
+        tl: string;
+        mg: string;
+        as: string;
+        tt: string;
+        haw: string;
+        ln: string;
+        ha: string;
+        ba: string;
+        jw: string;
+        su: string;
+    };
+    /**
+     * Decodes automatic speech recognition (ASR) sequences.
+     * @param {Array.<{tokens: Array.<number>, stride: [number, number, number]}>} sequences The sequences to decode.
+     * @param {Object} options - The options to use for decoding.
+     * @returns {[string, {chunks?:Array.<{language: string|null, timestamp: [number|null, number|null], text: string}>}]} The decoded sequences.
+     */
+    _decode_asr(sequences: Array<{
+        tokens: Array<number>;
+        stride: [number, number, number];
+    }>, { return_timestamps, return_language, time_precision, force_full_sequences }?: any): [string, {
+        chunks?: Array<{
+            language: string | null;
+            timestamp: [number | null, number | null];
+            text: string;
+        }>;
+    }];
+    /**
+     * Finds the longest common sequence among the provided sequences.
+     * @param {Array<Array<number>>} sequences - An array of sequences of token ids to compare.
+     * @returns {Array<number>} - The longest common sequence found.
+     * @throws {Error} - If there is a bug within the function.
+     */
+    findLongestCommonSequence(sequences: Array<Array<number>>): Array<number>;
+}
+declare class CodeGenTokenizer extends PreTrainedTokenizer {
+}
+declare class CLIPTokenizer extends PreTrainedTokenizer {
+}
+declare class MarianTokenizer extends PreTrainedTokenizer {
+}
 declare class PreTrainedTokenizer extends Callable {
     /**
      * Creates a new Tokenizer instance with the tokenizer configuration and files
@@ -81,8 +235,8 @@ declare class PreTrainedTokenizer extends Callable {
         max_length?: any;
         return_tensor?: boolean;
     }): {
-        input_ids: number[][] | Tensor;
-        attention_mask: any[];
+        input_ids: Tensor | number[][];
+        attention_mask: any;
     };
     /**
      * Encodes a single text using the preprocessor pipeline of the tokenizer.
@@ -231,6 +385,9 @@ declare class TokenizerModel extends Callable {
      */
     constructor(config: object);
     config: any;
+    tokens_to_ids: any;
+    unk_token_id: any;
+    vocab: any;
     /**
      * Internal function to call the TokenizerModel instance.
      * @param {string[]} tokens - The tokens to encode.
@@ -300,6 +457,8 @@ declare class Decoder extends Callable {
     */
     constructor(config: any);
     config: any;
+    added_tokens: any;
+    cleanup: any;
     /**
     * Converts a list of tokens to a string.
     *
