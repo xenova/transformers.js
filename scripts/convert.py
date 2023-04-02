@@ -81,7 +81,7 @@ class ConversionArguments:
     device: str = field(
         default='cpu',
         metadata={
-            "help": 'The device to use to do the export. Defaults to "cpu".'
+            "help": 'The device to use to do the export.'
         }
     )
     from_hub: bool = field(

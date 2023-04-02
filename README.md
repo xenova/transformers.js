@@ -118,7 +118,7 @@ If you want to use a local model, remove the `--from_hub` flag from above and pl
 
 Alternatively, you can find some of the models we have already converted [here](https://huggingface.co/Xenova/transformers.js). For example, to use `bert-base-uncased` for masked language modelling, you can use the model found at [https://huggingface.co/Xenova/transformers.js/tree/main/quantized/bert-base-uncased/masked-lm](https://huggingface.co/Xenova/transformers.js/tree/main/quantized/bert-base-uncased/masked-lm).
 
-*Note:* We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy). For more information, run the help command: `python ./scripts/convert.py -h`.
+*Note:* We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy). For more information, run the help command: `python -m scripts.convert -h`.
 
 
 ### Options
