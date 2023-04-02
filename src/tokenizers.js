@@ -83,7 +83,7 @@ class TokenizerModel extends Callable {
      * @returns {string[]} The converted tokens.
      */
     convert_ids_to_tokens(ids) {
-        return ids.map(i => this.vocab[i] ?? this.unk_token_id);
+        return ids.map(i => this.vocab[i] ?? this.unk_token);
     }
 }
 
@@ -173,7 +173,7 @@ class WordPieceTokenizer extends TokenizerModel {
                 start = end;
             }
             if (isUnknown) {
-                outputTokens.push(this.unk_token);
+                outputTokens.push(this.unknownToken);
             } else {
                 outputTokens.push(...subTokens);
             }

@@ -74,8 +74,7 @@ class LogitsProcessor extends Callable {
      * @throws {Error} Throws an error if `_call` is not implemented in the subclass.
      */
     _call(input_ids, logits) {
-        // console.log('call ForcedEOSTokenLogitsProcessor')
-        // TODO
+        throw Error("`_call` should be implemented in a subclass")
     }
 }
 
@@ -164,8 +163,8 @@ class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
      * @param {any} logits - The logits tensor.
      */
     _call(input_ids, logits) {
-        // TODO - 
-        throw Error("Not yet implemented");
+        // console.log('call ForcedEOSTokenLogitsProcessor')
+        // TODO
     }
 }
 
