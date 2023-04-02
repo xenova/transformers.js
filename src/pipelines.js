@@ -81,7 +81,7 @@ class Pipeline extends Callable {
     /**
      * Executes the natural language processing task.
      * @param {any} texts - The input texts to be processed.
-     * @returns {Promise<[object, object]>} - A promise that resolves to an array containing the inputs and outputs of the task.
+     * @returns {Promise<any>} - A promise that resolves to an array containing the inputs and outputs of the task.
      */
     async _call(texts) {
         // Run tokenization
@@ -148,8 +148,9 @@ class QuestionAnsweringPipeline extends Pipeline {
      * @param {string|string[]} context - The context(s) where the answer(s) can be found.
      * @param {object} options - An optional object containing the following properties:
      * @param {number} [options.topk=1] - The number of top answer predictions to be returned.
-     * @returns {Promise<object[]|object>} - A promise that resolves to an array or object containing the predicted answers and scores.
+     * @returns {Promise<any>} - A promise that resolves to an array or object containing the predicted answers and scores.
      */
+    // TODO: fix error below
     async _call(question, context, {
         topk = 1
     } = {}) {
@@ -414,6 +415,7 @@ class ZeroShotClassificationPipeline extends Pipeline {
      * @param {any[]} candidate_labels
      * @return {Promise<*>}
      */
+    // TODO: fix error below
     async _call(texts, candidate_labels, {
         hypothesis_template = "This example is {}.",
         multi_label = false,
@@ -541,8 +543,8 @@ class EmbeddingsPipeline extends Pipeline {
     /**
      * Private method to normalize the input tensor along dim=1. 
      * NOTE: only works for tensors of shape [batchSize, embedDim]. Operates in-place.
-     * @param {Tensor} tensor - Tensor of shape [batchSize, embedDim]
-     * @returns {Tensor} Returns the same Tensor object after performing normalization.
+     * @param {any} tensor - Tensor of shape [batchSize, embedDim]
+     * @returns {any} Returns the same Tensor object after performing normalization.
      * @private
      */
     _normalize(tensor) {
@@ -602,7 +604,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
     /**
      * Preprocesses the input audio for the AutomaticSpeechRecognitionPipeline.
-     * @param {ArrayBuffer|string} audio - The audio to be preprocessed.
+     * @param {any} audio - The audio to be preprocessed.
      * @param {number} sampling_rate - The sampling rate of the audio.
      * @returns {Promise<string | ArrayBuffer>} - A promise that resolves to the preprocessed audio data.
      * @private
@@ -688,6 +690,9 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         for (let aud of audio) {
             aud = await this._preprocess(aud, sampling_rate)
 
+            /**
+             * @type {any}
+             */
             let chunks = [];
             if (chunk_length_s > 0) {
                 if (stride_length_s === null) {
@@ -888,6 +893,7 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
      * @param {string} [options.hypothesis_template] - The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
      * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
      */
+    // TODO: fix error below
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
@@ -1153,6 +1159,7 @@ const TASK_ALIASES = {
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
  */
+// TODO: fix error below
 async function pipeline(
     task,
     model = null,
@@ -1228,6 +1235,7 @@ async function pipeline(
 
     // Load tokenizer and model
     let items = await Promise.all(promises)
+    // TODO: fix error below
     return new pipelineClass(task, ...items);
 
 }

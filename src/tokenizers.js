@@ -22,6 +22,9 @@ class TokenizerModel extends Callable {
     constructor(config) {
         super();
         this.config = config;
+        this.tokens_to_ids = undefined;
+        this.unk_token_id = undefined;
+        this.vocab = undefined;
     }
     /**
      * Instantiates a new TokenizerModel instance based on the configuration object provided.
@@ -35,9 +38,11 @@ class TokenizerModel extends Callable {
             case 'WordPiece':
                 return new WordPieceTokenizer(config);
             case 'Unigram':
+                // TODO: fix error below
                 return new Unigram(config, ...args);
 
             case 'BPE':
+                // TODO: fix error below
                 return new BPE(config, ...args);
             default:
                 throw new Error(`Unknown TokenizerModel type: ${config.type}`);
@@ -78,7 +83,7 @@ class TokenizerModel extends Callable {
      * @returns {string[]} The converted tokens.
      */
     convert_ids_to_tokens(ids) {
-        return ids.map(i => this.vocab[i] ?? this.unk_token);
+        return ids.map(i => this.vocab[i] ?? this.unk_token_id);
     }
 }
 
@@ -228,6 +233,7 @@ class Unigram extends TokenizerModel {
             const mblen = 1;
             let hasSingleNode = false;
             const tokens = [];
+            // TODO: fix error below
             for (let token of this.trie.commonPrefixSearch(sentence.slice(beginPos))) {
                 tokens.push(token);
                 const tokenId = this.tokens_to_ids[token];
@@ -352,6 +358,7 @@ class BPE extends TokenizerModel {
             pairs.add(`${prev_char} ${char}`);
             prev_char = char;
         }
+        // TODO: fix error below
         return [...pairs];
     }
 
@@ -1045,6 +1052,8 @@ class Decoder extends Callable {
     constructor(config) {
         super();
         this.config = config;
+        this.added_tokens = undefined;
+        this.cleanup = undefined;
     }
 
     /**
@@ -1169,6 +1178,7 @@ class ByteLevelDecoder extends Decoder {
             text = ' ' + text;
         }
 
+        // TODO: fix error below
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
@@ -1546,7 +1556,10 @@ class PreTrainedTokenizer extends Callable {
         // Ensure it is less than model max length
         max_length = Math.min(max_length, this.model_max_length)
 
-        // TODO convert to tensor here?
+        // TODO: convert to tensor here?
+        /**
+         * @type {any}
+         */
         let attention_mask = [];
         if (padding || truncation) {
             // Perform padding and/or truncation

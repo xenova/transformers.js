@@ -47,6 +47,9 @@ const env = {
 }
 
 
+/**
+ * @param {object} obj
+ */
 function isEmpty(obj) {
     return Object.keys(obj).length === 0;
 }

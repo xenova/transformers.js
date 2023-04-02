@@ -239,6 +239,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
         let maskSize = [result.pixel_values.dims[0], 64, 64];
         result.pixel_mask = new Tensor(
             'int64',
+            // TODO: fix error below
             new BigInt64Array(maskSize.reduce((a, b) => a * b)).fill(1n),
             maskSize
         );
@@ -423,6 +424,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         // create object to perform Fast Fourier Transforms
         // with `nextP2` complex numbers
         const f = new FFT(nextP2 >> 1);
+        // TODO: decide between Float32Array and Float64Array
         f.transform(outBuffer, ichirp);
 
         for (let i = 0; i < frames.length; ++i) {
@@ -436,6 +438,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 buffer1[j] = a_real * slicedChirp[j];
                 buffer1[j2] = a_real * slicedChirp[j2];
             }
+            // TODO: decide between Float32Array and Float64Array
             f.transform(outBuffer2, buffer1);
 
             for (let j = 0; j < outBuffer.length; j += 2) {
@@ -444,6 +447,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 buffer2[j] = outBuffer2[j] * outBuffer[j] - outBuffer2[j2] * outBuffer[j2]
                 buffer2[j2] = outBuffer2[j] * outBuffer[j2] + outBuffer2[j2] * outBuffer[j]
             }
+            // TODO: decide between Float32Array and Float64Array
             f.inverseTransform(outBuffer3, buffer2)
 
             const offset = i * num_fft_bins;
@@ -528,7 +532,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
      * Generates a Hanning window of length M.
      *
      * @param {number} M - The length of the Hanning window to generate.
-     * @returns {Float32Array | number[]} - The generated Hanning window.
+     * @returns {*} - The generated Hanning window.
      */
     hanning(M) {
         if (M < 1) {

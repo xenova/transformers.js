@@ -6,26 +6,31 @@ const Jimp = (typeof self !== 'undefined') ? (self.Jimp || _Jimp) : _Jimp;
 
 const B64_STRING = /^data:image\/\w+;base64,/;
 
-
+/**
+ * 
+ * @param {string} url 
+ * @returns {Promise<any>}
+ */
 async function loadImage(url) {
-    // TODO if already is a Jimp image, return it
-
-    let imgToLoad = url;
-    if (B64_STRING.test(url)) {
-        imgToLoad = imgToLoad.replace(B64_STRING, '');
-        if (typeof Buffer !== 'undefined') {
-            imgToLoad = Buffer.from(imgToLoad, 'base64');
-
-        } else {
-            let bytes = atob(imgToLoad);
-            // create new ArrayBuffer from binary string
-            imgToLoad = new Uint8Array(new ArrayBuffer(bytes.length));
-            for (let i = 0; i < bytes.length; i++) {
-                imgToLoad[i] = bytes.charCodeAt(i);
-            }
-        }
+  // TODO if already is a Jimp image, return it
+  /**
+   * @type {any}
+   */
+  let imgToLoad = url;
+  if (B64_STRING.test(url)) {
+    imgToLoad = imgToLoad.replace(B64_STRING, "");
+    if (typeof Buffer !== "undefined") {
+      imgToLoad = Buffer.from(imgToLoad, "base64");
+    } else {
+      let bytes = atob(imgToLoad);
+      // create new ArrayBuffer from binary string
+      imgToLoad = new Uint8Array(new ArrayBuffer(bytes.length));
+      for (let i = 0; i < bytes.length; i++) {
+        imgToLoad[i] = bytes.charCodeAt(i);
+      }
     }
-    return await Jimp.read(imgToLoad);
+  }
+  return await Jimp.read(imgToLoad);
 }
 
 const ImageType = Jimp.JimpType;

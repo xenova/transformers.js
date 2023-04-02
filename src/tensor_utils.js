@@ -1,5 +1,6 @@
 const { ONNX } = require('./backends/onnx.js');
 
+// TODO: fix error below
 class Tensor extends ONNX.Tensor {
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
@@ -64,7 +65,7 @@ class Tensor extends ONNX.Tensor {
      * @param {number} index 
      * @param {number} iterSize 
      * @param {any} iterDims 
-     * @returns {this}
+     * @returns {Tensor}
      */
     _subarray(index, iterSize, iterDims) {
         let data = this.data.subarray(index * iterSize, (index + 1) * iterSize);
@@ -117,6 +118,9 @@ function reshape(data, dimensions) {
         throw Error(`cannot reshape array of size ${totalElements} into shape (${dimensions})`);
     }
 
+    /**
+     * @type {any}
+     */
     let reshapedArray = data;
 
     for (let i = dimensions.length - 1; i >= 0; i--) {
