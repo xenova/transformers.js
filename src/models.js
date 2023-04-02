@@ -50,9 +50,15 @@ async function constructSession(modelPath, fileName, progressCallback = null) {
 }
 
 async function sessionRun(session, inputs) {
-    let output = await session.run(inputs);
-    output = replaceTensors(output);
-    return output;
+    try {
+        let output = await session.run(inputs);
+        output = replaceTensors(output);
+        return output;
+    } catch (e) {
+        console.error(`An error occurred during model execution: "${e}".`);
+        console.error('Inputs given to model:', inputs);
+        throw e;
+    }
 }
 
 function replaceTensors(obj) {
