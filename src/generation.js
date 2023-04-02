@@ -135,6 +135,111 @@ class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
     }
 }
 
+const getNgrams = (ngramSize, prevInputIds, numHypos) => {
+  const curLen = prevInputIds.length / numHypos;
+  const generatedNgrams = [];
+  for (let i = 0; i < numHypos; ++i) {
+    const genTokens = prevInputIds.slice(i * curLen, (i + 1) * curLen);
+    const ngrams = [];
+    for (let j = 0; j < curLen + 1 - ngramSize; j++) {
+      const ngram = [];
+      for (let k = 0; k < ngramSize; ++k) {
+        ngram.push(genTokens[j + k]);
+      }
+      ngrams.push(ngram);
+    }
+    const generatedNgram = new Map();
+    for (const ngram of ngrams) {
+      const prevNgram = ngram.slice(0, ngram.length - 1);
+      const prevNgramKey = JSON.stringify(prevNgram);
+      const prevNgramValue = generatedNgram.get(prevNgramKey) ?? [];
+      prevNgramValue.push(ngram[ngram.length - 1]);
+      generatedNgram.set(prevNgramKey, prevNgramValue);
+    }
+    generatedNgrams.push(generatedNgram);
+  }
+  return generatedNgrams;
+};
+
+const getGeneratedNgrams = (bannedNgrams, prevInputIds, ngramSize, curLen) => {
+  const ngramIdx = prevInputIds.slice(curLen + 1 - ngramSize, curLen);
+  const banned = bannedNgrams.get(JSON.stringify(ngramIdx)) ?? [];
+  return banned;
+};
+
+const calcBannedNgramTokens = (ngramSize, prevInputIds, numHypos, curLen) => {
+  const batchBannedTokens = [];
+  if (curLen + 1 < ngramSize) {
+    for (let i = 0; i < numHypos; ++i) {
+      batchBannedTokens.push([]);
+    }
+  } else {
+    const generatedNgrams = getNgrams(ngramSize, prevInputIds, numHypos);
+
+    for (let i = 0; i < numHypos; ++i) {
+      const hypoPrevInputIds = prevInputIds.slice(i * curLen, (i + 1) * curLen);
+      const bannedTokens = getGeneratedNgrams(
+        generatedNgrams[i],
+        hypoPrevInputIds,
+        ngramSize,
+        curLen
+      );
+      batchBannedTokens.push(bannedTokens);
+    }
+  }
+  return batchBannedTokens;
+};
+
+class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
+  constructor(no_repeat_ngram_size) {
+    super();
+    this.no_repeat_ngram_size = no_repeat_ngram_size;
+  }
+
+  _call(input_ids, logits) {
+    const numBatchHypotheses = logits.dims[0];
+    const curLen = input_ids.length / numBatchHypotheses;
+    const bannedBatchTokens = calcBannedNgramTokens(
+      this.no_repeat_ngram_size,
+      input_ids,
+      numBatchHypotheses,
+      curLen
+    );
+    for (const [hypo, bannedTokens] of bannedBatchTokens.entries()) {
+      for (const token of bannedTokens) {
+        logits.data[hypo * logits.dims[1] + token] = -Infinity;``
+      }
+    }
+    return logits;
+  }
+}
+
+
+class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
+  constructor(penalty) {
+    super();
+    this.penalty = penalty;
+  }
+
+  _call(input_ids, logits) {
+      const numBatches = logits.dims[0]
+      const batchSize = logits.dims[1]
+      for (let batch = 0; batch < numBatches; ++batch) {
+          for (const inputId of input_ids) {
+              const index = batch * batchSize + inputId
+              const currentScore = logits.data[index]
+              if (currentScore < 0) {
+                  logits.data[index] = currentScore * this.penalty
+              } else {
+                  logits.data[index] = currentScore / this.penalty
+              }
+          }
+      }
+      return logits
+    }
+}
+
+
 class GenerationConfig {
     constructor(kwargs = {}) {
         // Parameters that control the length of the output
@@ -205,4 +310,6 @@ module.exports = {
     ForcedEOSTokenLogitsProcessor,
     WhisperTimeStampLogitsProcessor,
     ForceTokensLogitsProcessor,
+    NoRepeatNGramLogitsProcessor,
+    RepetitionPenaltyLogitsProcessor
 };

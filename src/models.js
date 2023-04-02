@@ -17,7 +17,9 @@ const {
     ForceTokensLogitsProcessor,
     ForcedBOSTokenLogitsProcessor,
     ForcedEOSTokenLogitsProcessor,
-    WhisperTimeStampLogitsProcessor
+    WhisperTimeStampLogitsProcessor,
+    NoRepeatNGramLogitsProcessor,
+    RepetitionPenaltyLogitsProcessor
 } = require("./generation.js");
 
 const { executionProviders, ONNX } = require('./backends/onnx.js');
@@ -397,13 +399,13 @@ class PreTrainedModel extends Callable {
         //     ));
         // }
 
-        // if (generation_config.repetition_penalty !== null && generation_config.repetition_penalty !== 1.0) {
-        //     processors.push(new RepetitionPenaltyLogitsProcessor(generation_config.repetition_penalty));
-        // }
+        if (generation_config.repetition_penalty !== null && generation_config.repetition_penalty !== 1.0) {
+            processors.push(new RepetitionPenaltyLogitsProcessor(generation_config.repetition_penalty));
+        }
 
-        // if (generation_config.no_repeat_ngram_size !== null && generation_config.no_repeat_ngram_size > 0) {
-        //     processors.push(new NoRepeatNGramLogitsProcessor(generation_config.no_repeat_ngram_size));
-        // }
+        if (generation_config.no_repeat_ngram_size !== null && generation_config.no_repeat_ngram_size > 0) {
+            processors.push(new NoRepeatNGramLogitsProcessor(generation_config.no_repeat_ngram_size));
+        }
 
         // if (generation_config.encoder_no_repeat_ngram_size !== null && generation_config.encoder_no_repeat_ngram_size > 0) {
         //     if (this.config.is_encoder_decoder) {
