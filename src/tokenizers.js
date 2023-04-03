@@ -173,7 +173,7 @@ class WordPieceTokenizer extends TokenizerModel {
                 start = end;
             }
             if (isUnknown) {
-                outputTokens.push(this.unk_token);
+                outputTokens.push(this.unknownToken);
             } else {
                 outputTokens.push(...subTokens);
             }
@@ -303,8 +303,8 @@ const BYTES_TO_UNICODE = (() => {
             n += 1;
         }
     }
-    let ccs = cs.map(n => String.fromCharCode(n));
-    return Object.fromEntries(bs.map((b, i) => [b, ccs[i]]));
+    cs = cs.map(n => String.fromCharCode(n));
+    return Object.fromEntries(bs.map((b, i) => [b, cs[i]]));
 })();
 
 const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
@@ -1161,6 +1161,7 @@ class ByteLevelDecoder extends Decoder {
         this.text_decoder = new TextDecoder("utf-8", {
             fatal: false,
             ignoreBOM: true,
+            ignoreEncoding: false
         });
     }
 
@@ -1352,13 +1353,11 @@ class PreTokenizerSequence extends PreTokenizer {
      * @returns {Array<string>} The pre-tokenized text.
      */
     pre_tokenize_text(text) {
-        if (typeof text === 'string') {
-            text = [text];
+        // TODO use reduce?
+        for (let tokenizer of this.tokenizers) {
+            text = tokenizer.pre_tokenize(text);
         }
-        // Use reduce to apply each tokenizer to the text
-        return this.tokenizers.reduce((preTokenizedText, tokenizer) => {
-            return tokenizer.pre_tokenize(preTokenizedText);
-        }, text);
+        return text;
     }
 }
 
@@ -2057,7 +2056,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                 if (all_special_ids.has(token)) {
                     const text = this.decode([token]);
                     if (text[0] === "[" && text[text.length - 1] === "]") {
-                        const language = WhisperTokenizer.LANGUAGES[text.slice(1, -1)];
+                        const language = this.LANGUAGES[text.slice(1, -1)];
 
                         if (language !== undefined) {
                             // 1/ Indeed some language
