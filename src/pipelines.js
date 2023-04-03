@@ -693,7 +693,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
             aud = await this._preprocess(aud, sampling_rate)
 
             /**
-             * @type {any}
+             * @type {any[]}
              */
             let chunks = [];
             if (chunk_length_s > 0) {
