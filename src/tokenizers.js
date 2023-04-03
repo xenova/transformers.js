@@ -173,7 +173,7 @@ class WordPieceTokenizer extends TokenizerModel {
                 start = end;
             }
             if (isUnknown) {
-                outputTokens.push(this.unknownToken);
+                outputTokens.push(this.unk_token);
             } else {
                 outputTokens.push(...subTokens);
             }
