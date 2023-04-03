@@ -5,8 +5,8 @@
  */
 export class Callable extends Function {
     /**
-     * Creates a new instance of the Callable class.
-     */
+   * Creates a new instance of the Callable class.
+   */
     constructor();
     /**
      * This method should be implemented in subclasses to provide the
@@ -139,6 +139,11 @@ export function isIntegralNumber(x: any): boolean;
  * @returns {boolean} - True if the value is a string, false otherwise.
  */
 export function isString(text: any): boolean;
+/**
+ * Check if a value is exists.
+ * @param {*} x - The value to check.
+ * @returns {boolean} - True if the value exists, false otherwise.
+ */
 export function exists(x: any): boolean;
 /**
  * Returns the minimum item.
@@ -165,6 +170,10 @@ declare class FileResponse {
      * @returns {void}
      */
     updateContentType(): void;
+    /**
+     * @function
+     * @returns {FileResponse}
+     */
     clone(): FileResponse;
     /**
      * Reads the contents of the file specified by the filePath property and returns a Promise that

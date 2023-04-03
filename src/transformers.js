@@ -14,7 +14,8 @@ const {
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     AutoModelForVision2Seq,
-    AutoModelForImageClassification
+    AutoModelForImageClassification,
+    T5ForConditionalGeneration
 } = require("./models.js");
 
 const {
@@ -43,6 +44,7 @@ const moduleExports = {
     AutoModelForQuestionAnswering,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
+    T5ForConditionalGeneration,
 
     // Processors
     AutoProcessor,
