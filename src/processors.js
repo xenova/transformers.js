@@ -202,9 +202,9 @@ class ImageFeatureExtractor extends FeatureExtractor {
         if (!Array.isArray(images)) {
             images = [images];
         }
-        images = await Promise.all(images.map((x) => this.preprocess(x)));
+        images = await Promise.all(images.map(x => this.preprocess(x)));
 
-        images.forEach((x) => x.dims = [1, ...x.dims]); // add batch dimension
+        images.forEach(x => x.dims = [1, ...x.dims]); // add batch dimension
 
         images = cat(images);
         // TODO concatenate on dim=0
@@ -430,7 +430,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         // TODO: decide between Float32Array and Float64Array
         f.transform(outBuffer, ichirp);
 
-        for (let i = 0; i < frames.length; ++i) {
+        for (let i in frames) {
             const frame = frames[i];
 
             for (let j = 0; j < slicedChirp.length; j += 2) {
