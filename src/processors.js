@@ -202,9 +202,9 @@ class ImageFeatureExtractor extends FeatureExtractor {
         if (!Array.isArray(images)) {
             images = [images];
         }
-        images = await Promise.all(images.map((/** @type {any} */ x) => this.preprocess(x)));
+        images = await Promise.all(images.map((x) => this.preprocess(x)));
 
-        images.forEach((/** @type {{ dims: any[]; }} */ x) => x.dims = [1, ...x.dims]); // add batch dimension
+        images.forEach((x) => x.dims = [1, ...x.dims]); // add batch dimension
 
         images = cat(images);
         // TODO concatenate on dim=0
@@ -300,12 +300,15 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
                 let score = probs[maxIndex];
                 if (score > threshold) {
                     // Some class has a high enough probability
+                    /**
+                     * @type {number[]}
+                     */
                     let box = bbox.get(j);
 
                     // convert to [x0, y0, x1, y1] format
                     box = this.center_to_corners_format(box)
                     if (target_size !== null) {
-                        box = box.map((/** @type {number} */ x, /** @type {number} */ i) => x * target_size[i % 2])
+                        box = box.map((x, i) => x * target_size[i % 2])
                     }
 
                     info.boxes.push(box);
@@ -361,8 +364,8 @@ class WhisperFeatureExtractor extends FeatureExtractor {
     /**
      * Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
      * 
-     * @param {Array<Array<number>>} frames - A 2D array representing the signal frames.
-     * @param {Array<number>} window - A 1D array representing the window to be applied to the frames.
+     * @param {number[][]} frames - A 2D array representing the signal frames.
+     * @param {number[]} window - A 1D array representing the window to be applied to the frames.
      * @returns {Object} An object with the following properties:
      * - data: A 1D array representing the complex STFT of the signal.
      * - dims: An array representing the dimensions of the STFT data, i.e. [num_frames, num_fft_bins].

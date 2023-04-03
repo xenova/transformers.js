@@ -8,6 +8,7 @@
  * @param {object} [options] - Optional parameters for the pipeline.
  * @param {function} [options.progress_callback=null] - A function to call with progress updates.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
+ * @todo fix error below
  * @throws {Error} If an unsupported pipeline is requested.
  */
 export function pipeline(task: string, model?: string, { progress_callback }?: {

@@ -302,9 +302,9 @@ declare class PreTrainedModel extends Callable {
     num_layers: any;
     /**
     * Disposes of all the ONNX sessions that were created during inference.
-    * @returns {Promise<Array<unknown>>} - An array of promises, one for each ONNX session that is being disposed.
+    * @returns {Promise<unknown[]>} - An array of promises, one for each ONNX session that is being disposed.
     */
-    dispose(): Promise<Array<unknown>>;
+    dispose(): Promise<unknown[]>;
     /**
      * Converts an array or Tensor of integers to an int64 Tensor.
      * @param {Array|Tensor} items - The input integers to be converted.

@@ -769,7 +769,7 @@ class PreTokenizer extends Callable {
    *
    * @abstract
    * @param {string} text - The text to pre-tokenize.
-   * @returns {Array<string>} The pre-tokenized text.
+   * @returns {string[]} The pre-tokenized text.
    * @throws {Error} If the method is not implemented in the subclass.
    */
     pre_tokenize_text(text) {
@@ -778,8 +778,8 @@ class PreTokenizer extends Callable {
 
     /**
      * Tokenizes the given text into pre-tokens.
-     * @param {string|Array<string>} text - The text or array of texts to pre-tokenize.
-     * @returns {Array<string>} An array of pre-tokens.
+     * @param {string|string[]} text - The text or array of texts to pre-tokenize.
+     * @returns {string[]} An array of pre-tokens.
      */
     pre_tokenize(text) {
         let result = [];
@@ -793,8 +793,8 @@ class PreTokenizer extends Callable {
 
     /**
      * Alias for {@link PreTokenizer#pre_tokenize}.
-     * @param {string|Array<string>} text - The text or array of texts to pre-tokenize.
-     * @returns {Array<string>} An array of pre-tokens.
+     * @param {string|string[]} text - The text or array of texts to pre-tokenize.
+     * @returns {string[]} An array of pre-tokens.
      */
     _call(text) {
         return this.pre_tokenize(text);
@@ -846,7 +846,7 @@ class ByteLevelPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes a single piece of text using byte-level tokenization.
      * @param {string} text - The text to tokenize.
-     * @returns {Array<string>} - An array of tokens.
+     * @returns {string[]} - An array of tokens.
      */
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
@@ -1350,7 +1350,7 @@ class PreTokenizerSequence extends PreTokenizer {
     /**
      * Applies each pre-tokenizer in the sequence to the input text in turn.
      * @param {string|string[]} text - The text(s) to pre-tokenize.
-     * @returns {Array<string>} The pre-tokenized text.
+     * @returns {string[]} The pre-tokenized text.
      */
     pre_tokenize_text(text) {
         // TODO use reduce?
@@ -1715,9 +1715,9 @@ class PreTrainedTokenizer extends Callable {
 
     /**
      * Decode a batch of tokenized sequences.
-     * @param {Array<Array<number>>} batch - List of tokenized input sequences.
+     * @param {number[][]} batch - List of tokenized input sequences.
      * @param {Object} decode_args - (Optional) Object with decoding arguments.
-     * @returns {Array<string>} List of decoded sequences.
+     * @returns {string[]} List of decoded sequences.
      */
     batch_decode(batch, decode_args = {}) {
         return batch.map(x => this.decode(x, decode_args));
@@ -1726,7 +1726,7 @@ class PreTrainedTokenizer extends Callable {
     /**
      * Decodes a sequence of token IDs back to a string.
      *
-     * @param {Array<number>} token_ids - List of token IDs to decode.
+     * @param {number[]} token_ids - List of token IDs to decode.
      * @param {Object} [decode_args={}]
      * @param {boolean} [decode_args.skip_special_tokens=false] - If true, special tokens are removed from the output string.
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] - If true, spaces before punctuations and abbreviated forms are removed.
@@ -2186,8 +2186,8 @@ class WhisperTokenizer extends PreTrainedTokenizer {
 
     /**
      * Finds the longest common sequence among the provided sequences.
-     * @param {Array<Array<number>>} sequences - An array of sequences of token ids to compare.
-     * @returns {Array<number>} - The longest common sequence found.
+     * @param {number[][]} sequences - An array of sequences of token ids to compare.
+     * @returns {number[]} - The longest common sequence found.
      * @throws {Error} - If there is a bug within the function.
      */
     findLongestCommonSequence(sequences) {

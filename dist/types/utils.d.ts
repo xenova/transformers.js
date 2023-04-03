@@ -99,19 +99,19 @@ export function escapeRegExp(string: string): string;
 export function getTopItems(items: any[], top_k?: number): any[];
 /**
  * Calculates the dot product of two arrays.
- * @param {Array<number>} arr1 - The first array.
- * @param {Array<number>} arr2 - The second array.
+ * @param {number[]} arr1 - The first array.
+ * @param {number[]} arr2 - The second array.
  * @returns {number} - The dot product of arr1 and arr2.
  */
-export function dot(arr1: Array<number>, arr2: Array<number>): number;
+export function dot(arr1: number[], arr2: number[]): number;
 /**
  * Computes the cosine similarity between two arrays.
  *
- * @param {Array<number>} arr1 - The first array.
- * @param {Array<number>} arr2 - The second array.
+ * @param {number[]} arr1 - The first array.
+ * @param {number[]} arr2 - The second array.
  * @returns {number} The cosine similarity between the two arrays.
  */
-export function cos_sim(arr1: Array<number>, arr2: Array<number>): number;
+export function cos_sim(arr1: number[], arr2: number[]): number;
 /**
  * Calculates the magnitude of a given array.
  * @param {number[]} arr - The array to calculate the magnitude of.

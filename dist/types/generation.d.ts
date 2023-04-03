@@ -31,17 +31,17 @@ export class LogitsProcessorList extends Callable {
     /**
      * Adds multiple logits processors to the list.
      *
-     * @param {Array<function>} items - The logits processor functions to add.
+     * @param {function[]} items - The logits processor functions to add.
      */
-    extend(items: Array<Function>): void;
+    extend(items: Function[]): void;
     /**
      * Applies all logits processors in the list to a batch of logits, modifying them in-place.
      *
-     * @param {Array<number>} input_ids - The input IDs for the language model.
-     * @param {Array<Array<number>>} batchedLogits - A 2D array of logits, where each row corresponds to a single
+     * @param {number[]} input_ids - The input IDs for the language model.
+     * @param {number[][]} batchedLogits - A 2D array of logits, where each row corresponds to a single
      *                                                input sequence in the batch.
      */
-    _call(input_ids: Array<number>, batchedLogits: Array<Array<number>>): void;
+    _call(input_ids: number[], batchedLogits: number[][]): void;
     [Symbol.iterator](): IterableIterator<any>;
 }
 export class GenerationConfig {
@@ -72,10 +72,10 @@ export class GenerationConfig {
      * @param {number} [kwargs.encoder_repetition_penalty=1.0] - The value of encoder repetition penalty to use when generating text
      * @param {number} [kwargs.length_penalty=1.0] - The value of length
      * @param {number} [kwargs.no_repeat_ngram_size=0] - The size of the n-grams to avoid repeating in the generated output.
-     * @param {?Array<number>} [kwargs.bad_words_ids=null] - An array of IDs representing tokens that should not be generated.
-     * @param {?Array<number>} [kwargs.force_words_ids=null] - An array of IDs representing tokens that must be generated.
+     * @param {?number[]} [kwargs.bad_words_ids=null] - An array of IDs representing tokens that should not be generated.
+     * @param {?number[]} [kwargs.force_words_ids=null] - An array of IDs representing tokens that must be generated.
      * @param {boolean} [kwargs.renormalize_logits=false] - Whether or not to renormalize the logits before generating new tokens.
-     * @param {?Array<Object>} [kwargs.constraints=null] - An array of constraint objects to apply during generation.
+     * @param {?Object[]} [kwargs.constraints=null] - An array of constraint objects to apply during generation.
      */
     max_length: any;
     max_new_tokens: any;
@@ -173,13 +173,13 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
      * @param {object} generate_config - The config object passed to the `generate()` method of a transformer model.
      * @param {number} generate_config.eos_token_id - The ID of the end-of-sequence token.
      * @param {number} generate_config.no_timestamps_token_id - The ID of the token used to indicate that a token should not have a timestamp.
-     * @param {Array<Array<number>>} [generate_config.forced_decoder_ids] - An array of two-element arrays representing decoder IDs that are forced to appear in the output. The second element of each array indicates whether the token is a timestamp.
+     * @param {number[][]} [generate_config.forced_decoder_ids] - An array of two-element arrays representing decoder IDs that are forced to appear in the output. The second element of each array indicates whether the token is a timestamp.
      * @param {number} [generate_config.max_initial_timestamp_index] - The maximum index at which an initial timestamp can appear.
      */
     constructor(generate_config: {
         eos_token_id: number;
         no_timestamps_token_id: number;
-        forced_decoder_ids?: Array<Array<number>>;
+        forced_decoder_ids?: number[][];
         max_initial_timestamp_index?: number;
     });
     eos_token_id: number;

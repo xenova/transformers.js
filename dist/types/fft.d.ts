@@ -23,10 +23,10 @@ declare class FFT {
      * Converts a complex number representation stored in a Float64Array to an array of real numbers.
      *
      * @param {Float64Array} complex - The complex number representation to be converted.
-     * @param {Array} [storage] - An optional array to store the result in.
-     * @returns {Array} An array of real numbers representing the input complex number representation.
+     * @param {number[]} [storage] - An optional array to store the result in.
+     * @returns {number[]} An array of real numbers representing the input complex number representation.
      */
-    fromComplexArray(complex: Float64Array, storage?: any[]): any[];
+    fromComplexArray(complex: Float64Array, storage?: number[]): number[];
     /**
      * Convert a real-valued input array to a complex-valued output array.
      * @param {Float64Array} input - The real-valued input array.

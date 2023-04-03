@@ -210,10 +210,10 @@ async function seq2seq_forward(self, model_inputs, {
  * Start the beam search process for the seq2seq model.
  * @function
  * @param {Object} self - The seq2seq model object.
- * @param {Array<Object>} inputTokenIds - Array of input token ids for each input sequence.
+ * @param {Object[]} inputTokenIds - Array of input token ids for each input sequence.
  * @param {number} numOutputTokens - The maximum number of output tokens for the model.
  * @param {boolean} [requires_attention_mask=true] - Flag to indicate if the model requires an attention mask.
- * @returns {Array<Object>} - Array of beam search objects.
+ * @returns {Object[]} - Array of beam search objects.
  */
 function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
     let beams = [];
@@ -424,7 +424,7 @@ class PreTrainedModel extends Callable {
 
     /**
     * Disposes of all the ONNX sessions that were created during inference.
-    * @returns {Promise<Array<unknown>>} - An array of promises, one for each ONNX session that is being disposed.
+    * @returns {Promise<unknown[]>} - An array of promises, one for each ONNX session that is being disposed.
     */
     async dispose() {
         // Dispose of all ONNX sessions sessions

@@ -148,9 +148,9 @@ class QuestionAnsweringPipeline extends Pipeline {
      * @param {string|string[]} context - The context(s) where the answer(s) can be found.
      * @param {object} options - An optional object containing the following properties:
      * @param {number} [options.topk=1] - The number of top answer predictions to be returned.
+     * @todo fix error below
      * @returns {Promise<any>} - A promise that resolves to an array or object containing the predicted answers and scores.
      */
-    // TODO: fix error below
     async _call(question, context,
         {
             topk = 1
@@ -302,11 +302,14 @@ class Text2TextGenerationPipeline extends Pipeline {
 
         let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
 
+        /**
+         * @type {any[]}
+         */
         let toReturn = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
         if (this._key !== null) {
-            toReturn = toReturn.map((/** @type {any} */ text) => {
+            toReturn = toReturn.map((text) => {
                 return (this._key === null) ? text : { [this._key]: text }
             })
         }
@@ -341,6 +344,7 @@ class TextGenerationPipeline extends Pipeline {
      * @async
      * @param {any} texts - The input prompt or prompts to generate text from.
      * @param {object} [generate_kwargs={}] - Additional arguments for text generation.
+     * @param {() => } tokenizer.batch_decode
      * @returns {Promise<any>} - The generated text or texts.
      */
     async _call(texts, generate_kwargs = {}) {
@@ -358,15 +362,18 @@ class TextGenerationPipeline extends Pipeline {
         let input_ids = inputs.input_ids;
         let attention_mask = inputs.attention_mask;
 
+        /**
+         * @type {any[]}
+         */
         let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, null, {
             inputs_attention_mask: attention_mask
         });
 
-        let toReturn = outputTokenIds.map((/** @type {any} */ outTokens, /** @type {string | number} */ i) => {
+        let toReturn = outputTokenIds.map((outTokens, i) => {
             let startText = texts[i].trim();
             let decoded = this.tokenizer.batch_decode(outTokens, {
                 skip_special_tokens: true,
-            }).map((/** @type {any} */ x) => {
+            }).map((x) => {
                 return {
                     generated_text: startText + x
                 }
@@ -414,10 +421,10 @@ class ZeroShotClassificationPipeline extends Pipeline {
     }
     /**
      * @param {any[]} texts
-     * @param {any[]} candidate_labels
+     * @param {string[]} candidate_labels
+     * @todo fix error below
      * @return {Promise<*>}
      */
-    // TODO: fix error below
     async _call(texts, candidate_labels, {
         hypothesis_template = "This example is {}.",
         multi_label = false,
@@ -434,7 +441,7 @@ class ZeroShotClassificationPipeline extends Pipeline {
 
         // Insert labels into hypothesis template
         let hypotheses = candidate_labels.map(
-            (            /** @type {string} */ x) => hypothesis_template.replace('{}', x)
+            (x) => hypothesis_template.replace('{}', x)
         );
 
         // How to perform the softmax over the logits:
@@ -554,7 +561,7 @@ class EmbeddingsPipeline extends Pipeline {
         // NOTE: only works for tensors of shape [batchSize, embedDim]
         // Operates in-place
         for (let batch of tensor) {
-            let norm = Math.sqrt(batch.data.reduce((/** @type {number} */ a, /** @type {number} */ b) => a + b * b))
+            let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b))
 
             for (let i = 0; i < batch.data.length; ++i) {
                 batch.data[i] /= norm;
@@ -803,7 +810,7 @@ class ImageToTextPipeline extends Pipeline {
             let output = (await this.model.generate(batch, generate_kwargs)).flat();
             let decoded = this.tokenizer.batch_decode(output, {
                 skip_special_tokens: true,
-            }).map((/** @type {string} */ x) => {
+            }).map((x) => {
                 return { generated_text: x.trim() }
             })
             toReturn.push(decoded);
@@ -893,9 +900,9 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
      * @param {Array} candidate_labels - The candidate labels.
      * @param {Object} options - The options for the classification.
      * @param {string} [options.hypothesis_template] - The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
+     * @todo fix error below
      * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
      */
-    // TODO: fix error below
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
@@ -960,7 +967,7 @@ class ObjectDetectionPipeline extends Pipeline {
         }
         images = await prepareImages(images);
 
-        let imageSizes = percentage ? null : images.map((/** @type {{ bitmap: { width: any; height: any; }; }} */ x) => [x.bitmap.width, x.bitmap.height]);
+        let imageSizes = percentage ? null : images.map((x) => [x.bitmap.width, x.bitmap.height]);
 
         let inputs = await this.processor(images);
         let output = await this.model(inputs);
@@ -969,7 +976,7 @@ class ObjectDetectionPipeline extends Pipeline {
 
         // Add labels
         let id2label = this.model.config.id2label;
-        processed.forEach((/** @type {{ labels: any; classes: any[]; }} */ x) => x.labels = x.classes.map((/** @type {string | number} */ y) => id2label[y]));
+        processed.forEach((x) => x.labels = x.classes.map((y) => id2label[y]));
 
         return isBatched ? processed : processed[0];
     }
@@ -1159,9 +1166,9 @@ const TASK_ALIASES = {
  * @param {object} [options] - Optional parameters for the pipeline.
  * @param {function} [options.progress_callback=null] - A function to call with progress updates.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
+ * @todo fix error below
  * @throws {Error} If an unsupported pipeline is requested.
  */
-// TODO: fix error below
 async function pipeline(
     task,
     model = null,

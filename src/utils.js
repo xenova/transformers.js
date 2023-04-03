@@ -484,8 +484,8 @@ function getTopItems(items, top_k = 0) {
 
 /**
  * Calculates the dot product of two arrays.
- * @param {Array<number>} arr1 - The first array.
- * @param {Array<number>} arr2 - The second array.
+ * @param {number[]} arr1 - The first array.
+ * @param {number[]} arr2 - The second array.
  * @returns {number} - The dot product of arr1 and arr2.
  */
 function dot(arr1, arr2) {
@@ -495,8 +495,8 @@ function dot(arr1, arr2) {
 /**
  * Computes the cosine similarity between two arrays.
  *
- * @param {Array<number>} arr1 - The first array.
- * @param {Array<number>} arr2 - The second array.
+ * @param {number[]} arr1 - The first array.
+ * @param {number[]} arr2 - The second array.
  * @returns {number} The cosine similarity between the two arrays.
  */
 function cos_sim(arr1, arr2) {

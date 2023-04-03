@@ -168,11 +168,11 @@ declare class WhisperTokenizer extends PreTrainedTokenizer {
     }];
     /**
      * Finds the longest common sequence among the provided sequences.
-     * @param {Array<Array<number>>} sequences - An array of sequences of token ids to compare.
-     * @returns {Array<number>} - The longest common sequence found.
+     * @param {number[][]} sequences - An array of sequences of token ids to compare.
+     * @returns {number[]} - The longest common sequence found.
      * @throws {Error} - If there is a bug within the function.
      */
-    findLongestCommonSequence(sequences: Array<Array<number>>): Array<number>;
+    findLongestCommonSequence(sequences: number[][]): number[];
 }
 declare class CodeGenTokenizer extends PreTrainedTokenizer {
 }
@@ -261,15 +261,15 @@ declare class PreTrainedTokenizer extends Callable {
     clean_up_tokenization(text: string): string;
     /**
      * Decode a batch of tokenized sequences.
-     * @param {Array<Array<number>>} batch - List of tokenized input sequences.
+     * @param {number[][]} batch - List of tokenized input sequences.
      * @param {Object} decode_args - (Optional) Object with decoding arguments.
-     * @returns {Array<string>} List of decoded sequences.
+     * @returns {string[]} List of decoded sequences.
      */
-    batch_decode(batch: Array<Array<number>>, decode_args?: any): Array<string>;
+    batch_decode(batch: number[][], decode_args?: any): string[];
     /**
      * Decodes a sequence of token IDs back to a string.
      *
-     * @param {Array<number>} token_ids - List of token IDs to decode.
+     * @param {number[]} token_ids - List of token IDs to decode.
      * @param {Object} [decode_args={}]
      * @param {boolean} [decode_args.skip_special_tokens=false] - If true, special tokens are removed from the output string.
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] - If true, spaces before punctuations and abbreviated forms are removed.
@@ -277,7 +277,7 @@ declare class PreTrainedTokenizer extends Callable {
      * @returns {string} The decoded string.
      * @throws {Error} If `token_ids` is not a non-empty array of integers.
      */
-    decode(token_ids: Array<number>, decode_args?: {
+    decode(token_ids: number[], decode_args?: {
         skip_special_tokens?: boolean;
         clean_up_tokenization_spaces?: boolean;
     }): string;
@@ -348,22 +348,22 @@ declare class PreTokenizer extends Callable {
    *
    * @abstract
    * @param {string} text - The text to pre-tokenize.
-   * @returns {Array<string>} The pre-tokenized text.
+   * @returns {string[]} The pre-tokenized text.
    * @throws {Error} If the method is not implemented in the subclass.
    */
-    pre_tokenize_text(text: string): Array<string>;
+    pre_tokenize_text(text: string): string[];
     /**
      * Tokenizes the given text into pre-tokens.
-     * @param {string|Array<string>} text - The text or array of texts to pre-tokenize.
-     * @returns {Array<string>} An array of pre-tokens.
+     * @param {string|string[]} text - The text or array of texts to pre-tokenize.
+     * @returns {string[]} An array of pre-tokens.
      */
-    pre_tokenize(text: string | Array<string>): Array<string>;
+    pre_tokenize(text: string | string[]): string[];
     /**
      * Alias for {@link PreTokenizer#pre_tokenize}.
-     * @param {string|Array<string>} text - The text or array of texts to pre-tokenize.
-     * @returns {Array<string>} An array of pre-tokens.
+     * @param {string|string[]} text - The text or array of texts to pre-tokenize.
+     * @returns {string[]} An array of pre-tokens.
      */
-    _call(text: string | Array<string>): Array<string>;
+    _call(text: string | string[]): string[];
 }
 /**
  * Abstract base class for tokenizer models.
