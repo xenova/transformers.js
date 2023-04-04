@@ -1114,10 +1114,12 @@ class WordPieceDecoder extends Decoder {
      * Creates a new instance of WordPieceDecoder.
      * @param {Object} config - The configuration object.
      * @param {string} config.prefix - The prefix used for WordPiece encoding.
+     * @param {boolean} config.cleanup - Whether to cleanup the decoded string.
      */
     constructor(config) {
         super(config);
         this.convertRegex = new RegExp(` ${config.prefix}`, 'g');
+        this.cleanup = config.cleanup;
     }
 
     /**
@@ -1763,8 +1765,9 @@ class PreTrainedTokenizer extends Callable {
 
         let decoded = this.decoder(tokens); // tokens === filtered_tokens
 
-        if (this.decoder.cleanup !== undefined && this.decoder.cleanup !== clean_up_tokenization_spaces) {
+        if ('cleanup' in this.decoder && this.decoder.cleanup !== clean_up_tokenization_spaces) {
             console.warn(`clean_up_tokenization_spaces disagrees with decoder's cleanup setting. Overriding to use decoder's cleanup setting (${this.decoder.cleanup})`)
+            // @ts-ignore
             clean_up_tokenization_spaces = this.decoder.cleanup;
         }
 
