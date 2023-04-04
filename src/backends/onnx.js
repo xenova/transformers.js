@@ -1,6 +1,6 @@
 let ONNX;
 
-// TODO support 
+// TODO support more execution providers (e.g., webgpu)
 const executionProviders = ['wasm'];
 
 if (typeof process !== 'undefined') {
@@ -17,6 +17,7 @@ if (typeof process !== 'undefined') {
 
         // Fix "ReferenceError: self is not defined" bug when running directly with node
         // https://github.com/microsoft/onnxruntime/issues/13072
+        // @ts-ignore
         global.self = global;
 
         ONNX = require('onnxruntime-web');

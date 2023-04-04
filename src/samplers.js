@@ -6,20 +6,47 @@ const {
     getTopItems
 } = require("./utils.js");
 
+/**
+ * Sampler is a base class for all sampling methods used for text generation.
+ */
 class Sampler extends Callable {
+    /**
+     * Creates a new Sampler object with the specified temperature.
+     * @param {number} temperature - The temperature to use when sampling. Higher values result in more random samples.
+     */
     constructor(temperature) {
         super();
         this.temperature = temperature;
     }
 
+    /**
+     * Executes the sampler, using the specified logits.
+     * @param {any} logits
+     * @param {number} index
+     * @returns {void}
+     */
     _call(logits, index = -1) {
         // Sample from logits, of dims [batch, sequence_length, vocab_size].
         // If index is specified, sample from [batch, index, vocab_size].
         return this.sample(logits, index);
     }
+
+    /**
+     * Abstract method for sampling the logits.
+     * @param {any} logits
+     * @param {number} index
+     * @throws {Error}
+     */
     sample(logits, index) {
         throw Error("sample should be implemented in subclasses.")
     }
+
+    /**
+     * Returns the specified logits as an array, with temperature applied.
+     * @param {any} logits
+     * @param {number} index
+     * @returns {Array}
+     */
     getLogits(logits, index) {
         let vocabSize = logits.dims[2];
 
@@ -39,6 +66,11 @@ class Sampler extends Callable {
         return logs;
     }
 
+    /**
+     * Selects an item randomly based on the specified probabilities.
+     * @param {Array} probabilities - An array of probabilities to use for selection.
+     * @returns {number} The index of the selected item.
+     */
     randomSelect(probabilities) {
         // Return index of chosen item
         let sumProbabilities = probabilities.reduce((acc, curr) => acc + curr, 0);
@@ -53,6 +85,11 @@ class Sampler extends Callable {
         return 0; // return first (most probable) as a fallback
     }
 
+    /**
+     * Returns a Sampler object based on the specified options.
+     * @param {object} generation_config - An object containing options for the sampler.
+     * @returns {Sampler} A Sampler object.
+     */
     static getSampler(generation_config) {
         if (generation_config.num_beams > 1) {
             return new BeamSearchSampler(
@@ -77,7 +114,17 @@ class Sampler extends Callable {
     }
 }
 
+/**
+ * Class representing a Greedy Sampler.
+ * @extends Sampler
+ */
 class GreedySampler extends Sampler {
+    /**
+     * Sample the maximum probability of a given logits tensor.
+     * @param {any} logits
+     * @param {number} [index=-1]
+     * @returns {Array} - An array with a single tuple, containing the index of the maximum value and a meaningless score (since this is a greedy search).
+     */
     sample(logits, index = -1) {
         // NOTE: no need to do log_softmax here since we only take the maximum
         let logs = this.getLogits(logits, index);
@@ -91,12 +138,27 @@ class GreedySampler extends Sampler {
     }
 }
 
+/**
+ * Class representing a TopKSampler.
+ * @extends Sampler
+ */
 class TopKSampler extends Sampler {
+    /**
+     * Create a TopKSampler.
+     * @param {number} temperature
+     * @param {number} k
+     */
     constructor(temperature, k) {
         super(temperature);
         this.k = k;
     }
 
+    /**
+     * Sample from the logits using the top-k sampling strategy.
+     * @param {any} logits
+     * @param {number} index
+     * @returns {Array}
+     */
     sample(logits, index = -1) {
         let [batchSize, seqLength, vocabSize] = logits.dims;
         let k = vocabSize;
@@ -122,7 +184,18 @@ class TopKSampler extends Sampler {
     }
 }
 
+/**
+ * Class representing a beam search sampler for generating sequences.
+ * @extends Sampler
+ */
 class BeamSearchSampler extends Sampler {
+    /**
+   * Create a BeamSearchSampler.
+   * @param {number} temperature
+   * @param {number} num_beams
+   * @param {boolean} do_sample
+   * @param {number} top_k
+   */
     constructor(temperature, num_beams, do_sample, top_k) {
         super(temperature);
         this.num_beams = num_beams; // maximum number of beams
@@ -131,6 +204,12 @@ class BeamSearchSampler extends Sampler {
         this.top_k = top_k; // if do_sample, sample from top k items
     }
 
+    /**
+   * Samples from the logits to generate a sequence using beam search.
+   * @param {any} logits - The logits to sample from.
+   * @param {number} [index=-1] - The index to sample from, if applicable.
+   * @returns {Array} - An array of arrays containing tokens and scores.
+   */
     sample(logits, index = -1) {
 
         let logs = this.getLogits(logits, index);

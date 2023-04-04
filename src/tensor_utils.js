@@ -1,5 +1,6 @@
 const { ONNX } = require('./backends/onnx.js');
 
+// TODO: fix error below
 class Tensor extends ONNX.Tensor {
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
@@ -12,6 +13,11 @@ class Tensor extends ONNX.Tensor {
         }
     }
 
+    /**
+     * Returns an iterator object for iterating over the tensor data in row-major order.
+     * If the tensor has more than one dimension, the iterator will yield subarrays.
+     * @returns {Iterator} An iterator object for iterating over the tensor data in row-major order.
+     */
     *[Symbol.iterator]() {
         const [iterLength, ...iterDims] = this.dims;
 
@@ -26,6 +32,11 @@ class Tensor extends ONNX.Tensor {
 
     }
 
+    /**
+     * 
+     * @param {number} index 
+     * @returns 
+     */
     get(index) {
         const iterDims = this.dims.slice(1);
         if (iterDims.length > 0) {
@@ -36,6 +47,10 @@ class Tensor extends ONNX.Tensor {
         }
     }
 
+    /**
+     * @param {any} item 
+     * @returns {number}
+     */
     indexOf(item) {
         for (let index = 0; index < this.data.length; ++index) {
             // Note: == instead of === so we can match Ints with BigInts
@@ -46,6 +61,12 @@ class Tensor extends ONNX.Tensor {
         return -1;
     }
 
+    /**
+     * @param {number} index 
+     * @param {number} iterSize 
+     * @param {any} iterDims 
+     * @returns {Tensor}
+     */
     _subarray(index, iterSize, iterDims) {
         let data = this.data.subarray(index * iterSize, (index + 1) * iterSize);
         return new Tensor(this.type, data, iterDims);
@@ -59,7 +80,35 @@ class Tensor extends ONNX.Tensor {
     // TODO add .slice()
 }
 
+/**
+ * This creates a nested array of a given type and depth (see examples).
+ * 
+ * @example
+ *   NestArray<string, 1>; // string[]
+ * @example
+ *   NestArray<number, 2>; // number[][]
+ * @example
+ *   NestArray<string, 3>; // string[][][] etc.
+ * @template T
+ * @template {number} Depth
+ * @template {never[]} [Acc=[]]
+ * @typedef {Acc['length'] extends Depth ? T : NestArray<T[], Depth, [...Acc, never]>} NestArray
+ */
 
+/**
+ * Reshapes a 1-dimensional array into an n-dimensional array, according to the provided dimensions.
+ *
+ * @example
+ *   reshape([10                    ], [1      ]); // Type: number[]      Value: [10]
+ *   reshape([1, 2, 3, 4            ], [2, 2   ]); // Type: number[][]    Value: [[1, 2], [3, 4]]
+ *   reshape([1, 2, 3, 4, 5, 6, 7, 8], [2, 2, 2]); // Type: number[][][]  Value: [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+ *   reshape([1, 2, 3, 4, 5, 6, 7, 8], [4, 2   ]); // Type: number[][]    Value: [[1, 2], [3, 4], [5, 6], [7, 8]]
+ * @param {T[]} data - The input array to reshape.
+ * @param {DIM} dimensions - The target shape/dimensions.
+ * @template T
+ * @template {[number]|[number, number]|[number, number, number]|[number, number, number, number]} DIM
+ * @returns {NestArray<T, DIM["length"]>} The reshaped array.
+ */
 function reshape(data, dimensions) {
 
     const totalElements = data.length;
@@ -69,6 +118,7 @@ function reshape(data, dimensions) {
         throw Error(`cannot reshape array of size ${totalElements} into shape (${dimensions})`);
     }
 
+    /** @type {any} */
     let reshapedArray = data;
 
     for (let i = dimensions.length - 1; i >= 0; i--) {
@@ -88,6 +138,12 @@ function reshape(data, dimensions) {
     return reshapedArray[0];
 }
 
+/**
+ * Transposes a tensor according to the provided axes.
+ * @param {any} tensor - The input tensor to transpose.
+ * @param {Array} axes - The axes to transpose the tensor along.
+ * @returns {Tensor} The transposed tensor.
+ */
 function transpose(tensor, axes) {
     // Calculate the new shape of the transposed array
     // and the stride of the original array
@@ -118,6 +174,12 @@ function transpose(tensor, axes) {
     return new Tensor(tensor.type, transposedData, shape);
 }
 
+/**
+ * Concatenates an array of tensors along the 0th dimension.
+ *
+ * @param {any} tensors - The array of tensors to concatenate.
+ * @returns {Tensor} - The concatenated tensor.
+ */
 function cat(tensors) {
     if (tensors.length === 0) {
         return tensors[0];

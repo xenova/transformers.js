@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "webpack",
+    "typegen": "tsc src/*.js --outDir dist/types --allowJs --declaration --emitDeclarationOnly",
     "dev": "webpack serve --no-client-overlay",
     "test": "node tests/index.js"
   },
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "copy-webpack-plugin": "^11.0.0",
+    "typescript": "^5.0.2",
     "webpack": "^5.76.0",
     "webpack-cli": "^5.0.1",
     "webpack-dev-server": "^4.11.1"

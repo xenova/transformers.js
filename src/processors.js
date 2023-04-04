@@ -10,9 +10,19 @@ const {
 const FFT = require('./fft.js');
 const { Tensor, transpose, cat } = require("./tensor_utils.js");
 
+/**
+ * Helper class to determine model type from config
+ */
 class AutoProcessor {
-    // Helper class to determine model type from config
-
+    /**
+     * Returns a new instance of a Processor with a feature extractor
+     * based on the configuration file located at `modelPath`.
+     *
+     * @param {string} modelPath - The path to the model directory.
+     * @param {function} progressCallback - A callback function to track the loading progress (optional).
+     * @returns {Promise<Processor>} A Promise that resolves with a new instance of a Processor.
+     * @throws {Error} If the feature extractor type specified in the configuration file is unknown.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let preprocessorConfig = await fetchJSON(modelPath, 'preprocessor_config.json', progressCallback)
@@ -55,15 +65,41 @@ class AutoProcessor {
     }
 }
 
+/**
+ * Base class for feature extractors.
+ *
+ * @extends Callable
+ */
 class FeatureExtractor extends Callable {
+    /**
+     * Constructs a new FeatureExtractor instance.
+     *
+     * @param {object} config - The configuration for the feature extractor.
+     */
     constructor(config) {
         super();
         this.config = config
     }
 }
 
+/**
+ * Feature extractor for Vision Transformer (ViT) models.
+ *
+ * @extends FeatureExtractor
+ */
 class ImageFeatureExtractor extends FeatureExtractor {
 
+    /**
+     * Constructs a new ViTFeatureExtractor instance.
+     *
+     * @param {object} config - The configuration for the feature extractor.
+     * @param {number[]} config.image_mean - The mean values for image normalization.
+     * @param {number[]} config.image_std - The standard deviation values for image normalization.
+     * @param {boolean} config.do_rescale - Whether to rescale the image pixel values to the [0,1] range.
+     * @param {boolean} config.do_normalize - Whether to normalize the image pixel values.
+     * @param {boolean} config.do_resize - Whether to resize the image.
+     * @param {number} config.size - The size to resize the image to.
+     */
     constructor(config) {
         super(config);
 
@@ -90,6 +126,12 @@ class ImageFeatureExtractor extends FeatureExtractor {
         this.crop_size = this.config.crop_size;
     }
 
+    /**
+     * Preprocesses the given image.
+     *
+     * @param {any} image - The URL of the image to preprocess.
+     * @returns {Promise<any>} The preprocessed image as a Tensor.
+     */
     async preprocess(image) {
         // image is a Jimp image
 
@@ -152,6 +194,13 @@ class ImageFeatureExtractor extends FeatureExtractor {
         return transposed;
     }
 
+    /**
+     * Calls the feature extraction process on an array of image
+     * URLs, preprocesses each image, and concatenates the resulting
+     * features into a single Tensor.
+     * @param {any} images - The URL(s) of the image(s) to extract features from.
+     * @returns {Promise<Object>} An object containing the concatenated pixel values of the preprocessed images.
+     */
     async _call(images) {
         if (!Array.isArray(images)) {
             images = [images];
@@ -170,7 +219,20 @@ class ImageFeatureExtractor extends FeatureExtractor {
 }
 
 class ViTFeatureExtractor extends ImageFeatureExtractor { }
+
+/**
+ * Detr Feature Extractor.
+ *
+ * @extends ImageFeatureExtractor
+ */
 class DetrFeatureExtractor extends ImageFeatureExtractor {
+    /**
+     * Calls the feature extraction process on an array of image
+     * URLs, preprocesses each image, and concatenates the resulting
+     * features into a single Tensor.
+     * @param {any} urls - The URL(s) of the image(s) to extract features from.
+     * @returns {Promise<Object>} An object containing the concatenated pixel values of the preprocessed images.
+     */
     async _call(urls) {
         let result = await super._call(urls);
 
@@ -180,6 +242,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
         let maskSize = [result.pixel_values.dims[0], 64, 64];
         result.pixel_mask = new Tensor(
             'int64',
+            // TODO: fix error below
             new BigInt64Array(maskSize.reduce((a, b) => a * b)).fill(1n),
             maskSize
         );
@@ -187,6 +250,10 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
         return result;
     }
 
+    /**
+     * @param {number[]} arr - The URL(s) of the image(s) to extract features from.
+     * @returns {number[]} An object containing the concatenated pixel values of the preprocessed images.
+     */
     center_to_corners_format([centerX, centerY, width, height]) {
         return [
             centerX - width / 2,
@@ -196,6 +263,10 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
         ];
     }
 
+    /**
+     * @param {{ logits: any; pred_boxes: any; }} outputs
+     * @return {any}
+     */
     post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
         const out_logits = outputs.logits;
         const out_bbox = outputs.pred_boxes;
@@ -232,6 +303,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
                 let score = probs[maxIndex];
                 if (score > threshold) {
                     // Some class has a high enough probability
+                    /** @type {number[]} */
                     let box = bbox.get(j);
 
                     // convert to [x0, y0, x1, y1] format
@@ -254,10 +326,23 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
 
 class WhisperFeatureExtractor extends FeatureExtractor {
 
+    /**
+     * Calculates the index offset for a given index and window size.
+     * @param {number} i - The index.
+     * @param {number} w - The window size.
+     * @returns {number} The index offset.
+     */
     calcOffset(i, w) {
         return Math.abs((i + w) % (2 * w) - w);
     }
 
+    /**
+     * Pads an array with a reflected version of itself on both ends.
+     * @param {Float32Array} array - The array to pad.
+     * @param {number} left - The amount of padding to add to the left.
+     * @param {number} right - The amount of padding to add to the right.
+     * @returns {Float32Array} The padded array.
+     */
     padReflect(array, left, right) {
         const padded = new Float32Array(array.length + left + right);
         const w = array.length - 1;
@@ -277,6 +362,15 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         return padded;
     }
 
+    /**
+     * Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
+     * 
+     * @param {number[][]} frames - A 2D array representing the signal frames.
+     * @param {number[]} window - A 1D array representing the window to be applied to the frames.
+     * @returns {Object} An object with the following properties:
+     * - data: A 1D array representing the complex STFT of the signal.
+     * - dims: An array representing the dimensions of the STFT data, i.e. [num_frames, num_fft_bins].
+     */
     stft(frames, window) {
         // Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
         // 
@@ -334,9 +428,10 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         // create object to perform Fast Fourier Transforms
         // with `nextP2` complex numbers
         const f = new FFT(nextP2 >> 1);
+        // TODO: decide between Float32Array and Float64Array
         f.transform(outBuffer, ichirp);
 
-        for (let i in frames) {
+        for (let i = 0; i < frames.length; ++i) {
             const frame = frames[i];
 
             for (let j = 0; j < slicedChirp.length; j += 2) {
@@ -347,6 +442,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 buffer1[j] = a_real * slicedChirp[j];
                 buffer1[j2] = a_real * slicedChirp[j2];
             }
+            // TODO: decide between Float32Array and Float64Array
             f.transform(outBuffer2, buffer1);
 
             for (let j = 0; j < outBuffer.length; j += 2) {
@@ -355,6 +451,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 buffer2[j] = outBuffer2[j] * outBuffer[j] - outBuffer2[j2] * outBuffer[j2]
                 buffer2[j2] = outBuffer2[j] * outBuffer[j2] + outBuffer2[j2] * outBuffer[j]
             }
+            // TODO: decide between Float32Array and Float64Array
             f.inverseTransform(outBuffer3, buffer2)
 
             const offset = i * num_fft_bins;
@@ -376,6 +473,14 @@ class WhisperFeatureExtractor extends FeatureExtractor {
             dims: [frames.length, num_fft_bins] // [3001, 402]
         };
     }
+
+    /**
+     * Creates an array of frames from a given waveform.
+     *
+     * @param {Float32Array} waveform - The waveform to create frames from.
+     * @param {boolean} [center=true] - Whether to center the frames on their corresponding positions in the waveform. Defaults to true.
+     * @returns {Array} An array of frames.
+     */
     fram_wave(waveform, center = true) {
         const frames = [];
         const half_window = Math.floor((this.config.n_fft - 1) / 2) + 1;
@@ -413,9 +518,9 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 frame = new Float32Array(this.config.n_fft);
                 const frameArray = waveform.subarray(i, i + this.config.n_fft);
 
-                if (frameWidth < this.config.n_fft) {
+                if (frameArray.length < this.config.n_fft) {
                     frame.set(frameArray);
-                    frame.fill(0, frameWidth, this.config.n_fft)
+                    frame.fill(0, frameArray.length, this.config.n_fft)
                 } else {
                     frame = frameArray;
                 }
@@ -427,6 +532,12 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         return frames;
     }
 
+    /**
+     * Generates a Hanning window of length M.
+     *
+     * @param {number} M - The length of the Hanning window to generate.
+     * @returns {*} - The generated Hanning window.
+     */
     hanning(M) {
         if (M < 1) {
             return [];
@@ -442,6 +553,12 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         }
         return cos_vals;
     }
+
+    /**
+     * Computes the log-Mel spectrogram of the provided audio waveform.
+     * @param {Float32Array} waveform - The audio waveform to process.
+     * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     */
     _extract_fbank_features(waveform) {
         // Compute the log-Mel spectrogram of the provided audio
 
@@ -519,6 +636,12 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         };
     }
 
+    /**
+     * Asynchronously extracts features from a given audio using the provided configuration.
+     * @param {Float32Array} audio - The audio data as a Float32Array.
+     * @returns {Promise<{ input_features: Tensor }>} - A Promise resolving to an object containing the extracted input features as a Tensor.
+     * @async
+    */
     async _call(audio) {
         // audio is a float32array
 
@@ -542,19 +665,43 @@ class WhisperFeatureExtractor extends FeatureExtractor {
     }
 }
 
+/**
+ * Represents a Processor that extracts features from an input.
+ * @extends Callable
+ */
 class Processor extends Callable {
+    /**
+     * Creates a new Processor with the given feature extractor.
+     * @param {function} feature_extractor - The function used to extract features from the input.
+     */
     constructor(feature_extractor) {
         super();
         this.feature_extractor = feature_extractor;
         // TODO use tokenizer here?
     }
+
+    /**
+     * Calls the feature_extractor function with the given input.
+     * @param {any} input - The input to extract features from.
+     * @returns {Promise<any>} A Promise that resolves with the extracted features.
+     * @async
+     */
     async _call(input) {
         return await this.feature_extractor(input);
     }
 }
 
-
+/**
+ * Represents a WhisperProcessor that extracts features from an audio input.
+ * @extends Processor
+ */
 class WhisperProcessor extends Processor {
+    /**
+     * Calls the feature_extractor function with the given audio input.
+     * @param {any} audio - The audio input to extract features from.
+     * @returns {Promise<any>} A Promise that resolves with the extracted features.
+     * @async
+     */
     async _call(audio) {
         return await this.feature_extractor(audio)
     }

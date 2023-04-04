@@ -2,14 +2,21 @@
 // For some reason, Jimp attaches to self, even in Node.
 // https://github.com/jimp-dev/jimp/issues/466
 const _Jimp = require('jimp');
+
+// @ts-ignore
 const Jimp = (typeof self !== 'undefined') ? (self.Jimp || _Jimp) : _Jimp;
 
 const B64_STRING = /^data:image\/\w+;base64,/;
 
-
+/**
+ * 
+ * @param {string} url 
+ * @returns {Promise<any>}
+ */
 async function loadImage(url) {
     // TODO if already is a Jimp image, return it
 
+    /** @type {any} */
     let imgToLoad = url;
     if (B64_STRING.test(url)) {
         imgToLoad = imgToLoad.replace(B64_STRING, '');
@@ -28,7 +35,10 @@ async function loadImage(url) {
     return await Jimp.read(imgToLoad);
 }
 
+const ImageType = Jimp.JimpType;
+
 module.exports = {
     loadImage,
-    Jimp
+    Jimp,
+    ImageType
 };
