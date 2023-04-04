@@ -926,6 +926,12 @@ class PostProcessor extends Callable {
         throw Error("post_process should be implemented in subclass.")
     }
 
+    /**
+     * Alias for {@link PostProcessor#post_process}.
+     * @param {Array} tokens - The text or array of texts to post-process.
+     * @param {...*} args - Additional arguments required by the post-processing logic.
+     * @returns {Array} An array of post-processed tokens.
+     */
     _call(tokens, ...args) {
         return this.post_process(tokens, ...args);
     }
@@ -1498,6 +1504,17 @@ class PreTrainedTokenizer extends Callable {
         return inputs;
     }
 
+    /**
+     * Encode/tokenize the given text(s).
+     * @param {string|string[]} text - The text to tokenize.
+     * @param {object} options - An optional object containing the following properties:
+     * @param {string|string[]} [options.text_pair=null] - Optional second sequence to be encoded. If set, must be the same type as text.
+     * @param {boolean} [options.padding=false] - Whether to pad the input sequences.
+     * @param {boolean} [options.truncation=null] - Whether to truncate the input sequences.
+     * @param {number} [options.max_length=null] - Maximum length of the returned list and optionally padding length.
+     * @param {boolean} [options.return_tensor=true] - Whether to return the results as Tensors or arrays.
+     * @returns {{ input_ids: number[]|number[][]|Tensor; attention_mask: any[]|Tensor; }} Object to be passed to the model.
+     */
     _call(
         // Required positional arguments
         text,
@@ -1512,6 +1529,7 @@ class PreTrainedTokenizer extends Callable {
             return_tensor = true, // Different to HF
         } = {},
     ) {
+        /** @type {number[]|number[][]|Tensor} */
         let tokens;
 
         if (Array.isArray(text)) {
