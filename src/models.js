@@ -402,7 +402,7 @@ function textgenUpdatebeam(beam, newTokenId) {
 //////////////////////////////////////////////////
 // Base class
 /**
- * A base class for pre-trained models that provides the model configuration and a TensorFlow session.
+ * A base class for pre-trained models that provides the model configuration and an ONNX session.
  * @extends Callable
  */
 class PreTrainedModel extends Callable {
