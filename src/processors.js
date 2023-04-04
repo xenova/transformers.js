@@ -428,7 +428,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         // TODO: decide between Float32Array and Float64Array
         f.transform(outBuffer, ichirp);
 
-        for (let i in frames) {
+        for (let i = 0; i < frames.length; ++i) {
             const frame = frames[i];
 
             for (let j = 0; j < slicedChirp.length; j += 2) {
