@@ -7,10 +7,11 @@
     "test": "tests"
   },
   "scripts": {
-    "build": "webpack",
-    "typegen": "tsc src/*.js --outDir dist/types --allowJs --declaration --emitDeclarationOnly",
+    "webpack": "webpack",
+    "typegen": "tsc ./src/transformers.js --outDir dist/types --allowJs --declaration --emitDeclarationOnly",
     "dev": "webpack serve --no-client-overlay",
-    "test": "node tests/index.js"
+    "test": "node tests/index.js",
+    "build": "npm run webpack && npm run typegen"
   },
   "repository": {
     "type": "git",
