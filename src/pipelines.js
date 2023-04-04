@@ -976,7 +976,7 @@ class ObjectDetectionPipeline extends Pipeline {
 
         // Add labels
         let id2label = this.model.config.id2label;
-        processed.forEach((x) => x.labels = x.classes.map((y) => id2label[y]));
+        processed.forEach(x => x.labels = x.classes.map(y => id2label[y]));
 
         return isBatched ? processed : processed[0];
     }
