@@ -535,13 +535,13 @@ class Callable extends Function {
    * Creates a new instance of the Callable class.
    */
     constructor() {
+        super();
         /**
          * Creates a closure that delegates to a private method '_call' with the given arguments.
          *
          * @param {...any} args - Zero or more arguments to pass to the '_call' method.
          * @returns {*} - The result of calling the '_call' method.
          */
-        super();
         let closure = function (...args) { return closure._call(...args) }
         return Object.setPrototypeOf(closure, new.target.prototype)
     }
