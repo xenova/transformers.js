@@ -85,11 +85,12 @@ class FileResponse {
      * @returns {FileResponse}
      */
     clone() {
-        return new FileResponse(this.filePath, {
-            status: this.status,
-            statusText: this.statusText,
-            headers: this.headers,
-        });
+        let response = new FileResponse(this.filePath);
+        response.exists = this.exists;
+        response.status = this.status;
+        response.statusText = this.statusText;
+        response.headers = this.headers;
+        return response;
     }
 
     /**
@@ -266,7 +267,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null, fatal 
 
     // Check again whether request is in cache. If not, we add the response to the cache
     if (responseToCache !== undefined && await cache.match(request) === undefined) {
-        cache.put(request, /** @type {Response} */ (/** @type {unknown} */ (responseToCache)));
+        cache.put(request, /** @type {Response} */(/** @type {unknown} */ (responseToCache)));
     }
 
     dispatchCallback(progressCallback, {
