@@ -532,8 +532,8 @@ function magnitude(arr) {
  */
 class Callable extends Function {
     /**
-   * Creates a new instance of the Callable class.
-   */
+    * Creates a new instance of the Callable class.
+    */
     constructor() {
         super();
         /**
