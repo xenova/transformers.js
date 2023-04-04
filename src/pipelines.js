@@ -342,7 +342,6 @@ class TextGenerationPipeline extends Pipeline {
      * @async
      * @param {any} texts - The input prompt or prompts to generate text from.
      * @param {object} [generate_kwargs={}] - Additional arguments for text generation.
-     * @param {() => any[]} tokenizer.batch_decode
      * @returns {Promise<any>} - The generated text or texts.
      */
     async _call(texts, generate_kwargs = {}) {
