@@ -542,7 +542,10 @@ class Callable extends Function {
          * @param {...any} args - Zero or more arguments to pass to the '_call' method.
          * @returns {*} - The result of calling the '_call' method.
          */
-        let closure = function (...args) { return closure._call(...args) }
+        let closure = function (...args) {
+            // @ts-ignore
+            return closure._call(...args)
+        }
         return Object.setPrototypeOf(closure, new.target.prototype)
     }
 
