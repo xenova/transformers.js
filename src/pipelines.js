@@ -967,7 +967,7 @@ class ObjectDetectionPipeline extends Pipeline {
         }
         images = await prepareImages(images);
 
-        let imageSizes = percentage ? null : images.map((x) => [x.bitmap.width, x.bitmap.height]);
+        let imageSizes = percentage ? null : images.map(x => [x.bitmap.width, x.bitmap.height]);
 
         let inputs = await this.processor(images);
         let output = await this.model(inputs);
