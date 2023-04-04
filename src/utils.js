@@ -5,6 +5,7 @@ const { env } = require('./env.js');
 
 class FileResponse {
     /**
+     * Creates a new `FileResponse` object.
      * @param {string} filePath
      */
     constructor(filePath) {
@@ -16,7 +17,6 @@ class FileResponse {
         if (this.exists) {
             this.status = 200;
             this.statusText = 'OK';
-
 
             let stats = fs.statSync(filePath);
             this.headers['content-length'] = stats.size;
@@ -40,7 +40,7 @@ class FileResponse {
     }
 
     /**
-     * Updates the 'content-type' header property of the HTTP response based on the file extension of
+     * Updates the 'content-type' header property of the response based on the extension of
      * the file specified by the filePath property of the current object.
      * @function
      * @returns {void}
@@ -220,13 +220,10 @@ async function getModelFile(modelPath, fileName, progressCallback = null, fatal 
 
     const request = pathJoin(modelPath, fileName);
 
-    /**
-     * @type {Response | FileResponse}
-     */
+    /** @type {Response | FileResponse} */
     let response;
-    /**
-     * @type {Response | FileResponse}
-     */
+
+    /** @type {Response | FileResponse} */
     let responseToCache;
 
     if (!env.useCache || (response = await cache.match(request)) === undefined) {

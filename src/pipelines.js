@@ -693,9 +693,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         for (let aud of audio) {
             aud = await this._preprocess(aud, sampling_rate)
 
-            /**
-             * @type {any[]}
-             */
+            /** @type {any[]} */
             let chunks = [];
             if (chunk_length_s > 0) {
                 if (stride_length_s === null) {
@@ -739,13 +737,10 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 }]
             }
 
-
-
             // Generate for each set of input features
             for (let chunk of chunks) {
                 // NOTE: doing sequentially for now
                 let data = await this.model.generate(chunk.input_features, kwargs);
-
 
                 // Get top beam
                 chunk.tokens = data[0].flat()

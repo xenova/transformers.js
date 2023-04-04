@@ -9,8 +9,11 @@ const {
 
 const FFT = require('./fft.js');
 const { Tensor, transpose, cat } = require("./tensor_utils.js");
+
+/**
+ * Helper class to determine model type from config
+ */
 class AutoProcessor {
-    // Helper class to determine model type from config
     /**
      * Returns a new instance of a Processor with a feature extractor
      * based on the configuration file located at `modelPath`.

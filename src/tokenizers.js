@@ -495,7 +495,7 @@ class Normalizer extends Callable {
     }
 
     /**
-     * Alias for normalize method. Allows normalization to be called as a function.
+     * Alias for {@link Normalizer#normalize}.
      * @param {string} text - The text to normalize.
      * @returns {string} - The normalized text.
      */
@@ -666,16 +666,6 @@ class BertNormalizer extends Normalizer {
      * @returns {boolean} - True if the codepoint represents a CJK character, false otherwise.
      */
     _is_chinese_char(cp) {
-        // Checks whether CP is the codepoint of a CJK character.
-        //
-        // This defines a "chinese character" as anything in the CJK Unicode block:
-        //   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
-        //
-        // Note that the CJK Unicode block is NOT all Japanese and Korean characters,
-        // despite its name. The modern Korean Hangul alphabet is a different block,
-        // as is Japanese Hiragana and Katakana. Those alphabets are used to write
-        // space-separated words, so they are not treated specially and handled
-        // like the all of the other languages.
         return (
             (cp >= 0x4E00 && cp <= 0x9FFF)
             || (cp >= 0x3400 && cp <= 0x4DBF)
@@ -1312,13 +1302,18 @@ class MetaspaceDecoder extends Decoder {
 }
 
 /**
- * A normalizer that does not perform any normalization, but instead applies a precompiled charsmap.
+ * A normalizer that applies a precompiled charsmap.
  * This is useful for applying complex normalizations in C++ and exposing them to JavaScript.
  * @extends Normalizer
  * @param {Object} config - The configuration object for the Precompiled normalizer.
  * @param {Object} config.precompiled_charsmap - The precompiled charsmap object.
  */
 class Precompiled extends Normalizer {
+    /**
+     * Create a new instance of Precompiled normalizer.
+     * @param {object} config - The configuration object.
+     * @param {any} config.precompiled_charsmap - Precompiled chars mapping.
+     */
     constructor(config) {
         super(config);
         this.charsmap = config.precompiled_charsmap;
@@ -1330,6 +1325,7 @@ class Precompiled extends Normalizer {
      * @returns {string} - The normalized text.
      */
     normalize(text) {
+        // TODO use this.charsmap
         return text;
     }
 }
@@ -1496,9 +1492,10 @@ class PreTrainedTokenizer extends Callable {
     }
 
     /**
-     * @param {T} inputs
-     * @template T
-     * @return {T}
+     * This function can be overridden by a subclass to apply additional preprocessing
+     * to a model's input data.
+     * @param {Object} inputs - An object containing input data as properties.
+     * @returns {Object} The modified inputs object.
      */
     prepare_model_inputs(inputs) {
         return inputs;
@@ -1803,10 +1800,10 @@ class PreTrainedTokenizer extends Callable {
 }
 
 /**
- * Decode a single list of token ids to a string.
- * @param {*} inputs - List of token ids to decode
- * @returns {*} - The decoded string
- */
+* Prepare model inputs for a BERT model.
+* @param {Object} inputs - An object containing the input ids and attention mask.
+* @returns {Object} The prepared inputs object.
+*/
 function bert_prepare_model_inputs(inputs) {
     // Helper method for preparing token_type_ids for bert models
     inputs.token_type_ids = new Tensor(
@@ -1823,10 +1820,8 @@ function bert_prepare_model_inputs(inputs) {
  */
 class BertTokenizer extends PreTrainedTokenizer {
     /**
-    * Prepare model inputs for a BERT model.
-    * @param {Object} inputs - An object containing the input ids and attention mask.
-    * @returns {Object} The prepared inputs object.
-    */
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
@@ -1837,21 +1832,24 @@ class BertTokenizer extends PreTrainedTokenizer {
  */
 class AlbertTokenizer extends PreTrainedTokenizer {
     /**
-     * Prepare a sequence of input data so that it can be passed to a model.
-     * Adds input_ids and token_type_ids to the inputs object.
-     * @param {Object} inputs - An object containing input data as properties.
-     * @returns {Object} The modified inputs object.
+     * @see {@link bert_prepare_model_inputs}
      */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
 }
 class MobileBertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
 }
 class SqueezeBertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
