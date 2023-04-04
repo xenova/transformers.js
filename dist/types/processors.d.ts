@@ -1,3 +1,6 @@
+/**
+ * Helper class to determine model type from config
+ */
 export class AutoProcessor {
     /**
      * Returns a new instance of a Processor with a feature extractor

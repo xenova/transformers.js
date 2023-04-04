@@ -17,6 +17,7 @@ export class AutoModel {
         clip: typeof CLIPModel;
         mobilebert: typeof MobileBertModel;
         squeezebert: typeof SqueezeBertModel;
+        marian: typeof MarianModel;
     };
     /**
      * Instantiates a pre-trained model based on the given model path and config.
@@ -275,8 +276,17 @@ declare class MobileBertModel extends MobileBertPreTrainedModel {
 }
 declare class SqueezeBertModel extends SqueezeBertPreTrainedModel {
 }
+declare class MarianModel extends MarianPreTrainedModel {
+    /**
+     *
+     * @param  {...any} args
+     * @throws {Error}
+     * @returns {Promise<any>}
+     */
+    generate(...args: any[]): Promise<any>;
+}
 /**
- * A base class for pre-trained models that provides the model configuration and a TensorFlow session.
+ * A base class for pre-trained models that provides the model configuration and an ONNX session.
  * @extends Callable
  */
 declare class PreTrainedModel extends Callable {
@@ -289,17 +299,14 @@ declare class PreTrainedModel extends Callable {
      * @returns {Promise<PreTrainedModel>} A new instance of the PreTrainedModel class.
      */
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
-    constructor(config: any, session: any);
+    /**
+     * Creates a new instance of the `PreTrainedModel` class.
+     * @param {object} config - The model configuration.
+     * @param {any} session - session for the model.
+     */
+    constructor(config: object, session: any);
     config: any;
     session: any;
-    num_encoder_heads: any;
-    encoder_dim_kv: any;
-    num_decoder_heads: any;
-    decoder_dim_kv: any;
-    num_decoder_layers: any;
-    num_heads: any;
-    dim_kv: any;
-    num_layers: any;
     /**
     * Disposes of all the ONNX sessions that were created during inference.
     * @returns {Promise<unknown[]>} - An array of promises, one for each ONNX session that is being disposed.
@@ -364,9 +371,10 @@ declare class PreTrainedModel extends Callable {
      * Returns an object containing past key values from the given decoder results object.
      *
      * @param {Object} decoderResults - The decoder results object.
+     * @param {Object} pastKeyValues - The previous past key values.
      * @returns {Object} - An object containing past key values.
      */
-    getPastKeyValues(decoderResults: any): any;
+    getPastKeyValues(decoderResults: any, pastKeyValues: any): any;
     /**
      * Adds past key values to the decoder feeds object. If pastKeyValues is null, creates new tensors for past key values.
      *
@@ -390,6 +398,7 @@ declare class T5ForConditionalGeneration extends T5PreTrainedModel {
      */
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<T5ForConditionalGeneration>;
     /**
+     * Creates a new instance of the `T5ForConditionalGeneration` class.
      * @param {object} config - The model configuration.
      * @param {any} session - session for the model.
      * @param {any} decoder_merged_session - session for the decoder.
@@ -398,7 +407,12 @@ declare class T5ForConditionalGeneration extends T5PreTrainedModel {
     constructor(config: object, session: any, decoder_merged_session: any, generation_config: GenerationConfig);
     decoder_merged_session: any;
     generation_config: GenerationConfig;
+    num_decoder_layers: any;
+    num_decoder_heads: any;
+    decoder_dim_kv: any;
     num_encoder_layers: any;
+    num_encoder_heads: any;
+    encoder_dim_kv: any;
     /**
      * Generates the start beams for a given set of inputs and output length.
      * @param {number[][]} inputs - The input token IDs.
@@ -437,16 +451,20 @@ declare class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<any>;
     /**
      * Creates a new instance of the `MT5ForConditionalGeneration` class.
-     *
      * @param {any} config - The model configuration.
-     * @param {any} session - The TensorFlow.js session containing the encoder weights.
-     * @param {any} decoder_merged_session - The TensorFlow.js session containing the merged decoder weights.
+     * @param {any} session - The ONNX session containing the encoder weights.
+     * @param {any} decoder_merged_session - The ONNX session containing the merged decoder weights.
      * @param {GenerationConfig} generation_config - The generation configuration.
      */
     constructor(config: any, session: any, decoder_merged_session: any, generation_config: GenerationConfig);
     decoder_merged_session: any;
     generation_config: GenerationConfig;
+    num_decoder_layers: any;
+    num_decoder_heads: any;
+    decoder_dim_kv: any;
     num_encoder_layers: any;
+    num_encoder_heads: any;
+    encoder_dim_kv: any;
     /**
    * Generates the start beams for the given input tokens and output sequence length.
    *
@@ -483,17 +501,20 @@ declare class BartForConditionalGeneration extends BartPretrainedModel {
      */
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<BartForConditionalGeneration>;
     /**
-     * Create a new BartForConditionalGeneration instance.
+     * Creates a new instance of the `BartForConditionalGeneration` class.
      * @param {object} config - The configuration object for the Bart model.
-     * @param {object} session - The TensorFlow.js session used to execute the model.
-     * @param {object} decoder_merged_session - The TensorFlow.js session used to execute the decoder.
+     * @param {object} session - The ONNX session used to execute the model.
+     * @param {object} decoder_merged_session - The ONNX session used to execute the decoder.
      * @param {object} generation_config - The generation configuration object.
      */
     constructor(config: object, session: object, decoder_merged_session: object, generation_config: object);
     decoder_merged_session: any;
     generation_config: any;
+    num_decoder_layers: any;
+    num_decoder_heads: any;
     decoder_dim_kv: number;
     num_encoder_layers: any;
+    num_encoder_heads: any;
     encoder_dim_kv: number;
     /**
      * Returns the initial beam for generating output text.
@@ -529,17 +550,20 @@ declare class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      */
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<WhisperForConditionalGeneration>;
     /**
-     * Initializes the WhisperForConditionalGeneration object.
+     * Creates a new instance of the `WhisperForConditionalGeneration` class.
      * @param {Object} config - Configuration object for the model.
-     * @param {Object} session - TensorFlow.js Session object for the model.
-     * @param {Object} decoder_merged_session - TensorFlow.js Session object for the decoder.
+     * @param {Object} session - ONNX Session object for the model.
+     * @param {Object} decoder_merged_session - ONNX Session object for the decoder.
      * @param {Object} generation_config - Configuration object for the generation process.
      */
     constructor(config: any, session: any, decoder_merged_session: any, generation_config: any);
     decoder_merged_session: any;
     generation_config: any;
+    num_decoder_layers: any;
+    num_decoder_heads: any;
     decoder_dim_kv: number;
     num_encoder_layers: any;
+    num_encoder_heads: any;
     encoder_dim_kv: number;
     /**
      * Generates outputs based on input and generation configuration.
@@ -575,6 +599,7 @@ declare class MarianMTModel extends MarianPreTrainedModel {
      */
     static from_pretrained(modelPath: string, progressCallback?: any): Promise<MarianMTModel>;
     /**
+     * Creates a new instance of the `MarianMTModel` class.
     * @param {object} config The model configuration object.
     * @param {object} session The ONNX session object.
     * @param {any} decoder_merged_session
@@ -583,8 +608,11 @@ declare class MarianMTModel extends MarianPreTrainedModel {
     constructor(config: object, session: object, decoder_merged_session: any, generation_config: any);
     decoder_merged_session: any;
     generation_config: any;
+    num_decoder_layers: any;
+    num_decoder_heads: any;
     decoder_dim_kv: number;
     num_encoder_layers: any;
+    num_encoder_heads: any;
     encoder_dim_kv: number;
     /**
      * Initializes and returns the beam for text generation task
@@ -659,6 +687,12 @@ declare class RobertaForSequenceClassification extends RobertaPreTrainedModel {
     _call(model_inputs: any): Promise<SequenceClassifierOutput>;
 }
 declare class BartForSequenceClassification extends BartPretrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
+     */
     _call(model_inputs: any): Promise<SequenceClassifierOutput>;
 }
 /**
@@ -687,11 +721,8 @@ declare class SqueezeBertForSequenceClassification extends SqueezeBertPreTrained
  * @extends GPT2PreTrainedModel
  */
 declare class GPT2LMHeadModel extends GPT2PreTrainedModel {
-    /**
-     * @param {object} config - The configuration of the model.
-     * @param {any} session - The ONNX session containing the model weights.
-     */
-    constructor(config: object, session: any);
+    num_heads: any;
+    num_layers: any;
     dim_kv: number;
     /**
      * Initializes and returns the beam for text generation task
@@ -715,11 +746,8 @@ declare class GPT2LMHeadModel extends GPT2PreTrainedModel {
     updateBeam(beam: any, newTokenId: number): void;
 }
 declare class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
-    /**
-     * @param {object} config - The configuration of the model.
-     * @param {any} session - The ONNX session containing the model weights.
-     */
-    constructor(config: object, session: any);
+    num_heads: any;
+    num_layers: any;
     dim_kv: number;
     /**
      * Initializes and returns the beam for text generation task
@@ -747,11 +775,8 @@ declare class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
  * @extends CodeGenPreTrainedModel
  */
 declare class CodeGenForCausalLM extends CodeGenPreTrainedModel {
-    /**
-    * @param {object} config The model configuration object.
-    * @param {object} session The ONNX session object.
-    */
-    constructor(config: object, session: object);
+    num_heads: any;
+    num_layers: any;
     dim_kv: number;
     /**
      * Initializes and returns the beam for text generation task
@@ -927,12 +952,15 @@ declare class VisionEncoderDecoderModel extends PreTrainedModel {
      */
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<VisionEncoderDecoderModel>;
     /**
+     * Creates a new instance of the `VisionEncoderDecoderModel` class.
      * @param {object} config - The configuration object specifying the hyperparameters and other model settings.
-     * @param {object} session - The TensorFlow.js session containing the encoder model.
-     * @param {any} decoder_merged_session - The TensorFlow.js session containing the merged decoder model.
+     * @param {object} session - The ONNX session containing the encoder model.
+     * @param {any} decoder_merged_session - The ONNX session containing the merged decoder model.
      */
     constructor(config: object, session: object, decoder_merged_session: any);
     decoder_merged_session: any;
+    num_layers: any;
+    num_heads: any;
     dim_kv: number;
     /**
      * Generate beam search outputs for the given input pixels and number of output tokens.
@@ -998,12 +1026,12 @@ declare class MobileBertPreTrainedModel extends PreTrainedModel {
 }
 declare class SqueezeBertPreTrainedModel extends PreTrainedModel {
 }
+declare class MarianPreTrainedModel extends PreTrainedModel {
+}
 import { Callable } from "./utils.js";
 import { Tensor } from "./tensor_utils";
 import { GenerationConfig } from "./generation.js";
 import { LogitsProcessorList } from "./generation.js";
-declare class MarianPreTrainedModel extends PreTrainedModel {
-}
 declare class Seq2SeqLMOutput extends ModelOutput {
     /**
      * @param {Tensor} logits - The output logits of the model.

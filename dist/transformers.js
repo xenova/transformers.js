@@ -1019,7 +1019,7 @@ const Tensor = _tensor_impl__WEBPACK_IMPORTED_MODULE_0__.Tensor;
 
 let ONNX;
 
-// TODO support 
+// TODO support more execution providers (e.g., webgpu)
 const executionProviders = ['wasm'];
 
 if (typeof process !== 'undefined') {
@@ -1036,6 +1036,7 @@ if (typeof process !== 'undefined') {
 
         // Fix "ReferenceError: self is not defined" bug when running directly with node
         // https://github.com/microsoft/onnxruntime/issues/13072
+        // @ts-ignore
         __webpack_require__.g.self = __webpack_require__.g;
 
         ONNX = __webpack_require__(/*! onnxruntime-web */ "./node_modules/onnxruntime-web/dist/ort-web.min.js");
@@ -1090,7 +1091,7 @@ const localURL = RUNNING_LOCALLY
 // First, set path to wasm files. This is needed when running in a web worker.
 // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
 // We use remote wasm files by default to make it easier for newer users.
-// In practice, user's should probably self-host the necessary .wasm files.
+// In practice, users should probably self-host the necessary .wasm files.
 onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
     ? path.join(path.dirname(__dirname), '/dist/')
     : 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/';
@@ -1118,6 +1119,9 @@ const env = {
 }
 
 
+/**
+ * @param {object} obj
+ */
 function isEmpty(obj) {
     return Object.keys(obj).length === 0;
 }
@@ -1135,10 +1139,16 @@ module.exports = {
   \********************/
 /***/ ((module) => {
 
-// Code adapted from https://www.npmjs.com/package/fft.js
 
+/**
+ * FFT class provides functionality for performing Fast Fourier Transform on arrays
+ * Code adapted from https://www.npmjs.com/package/fft.js
+ */
 class FFT {
-
+    /**
+     * @param {number} size - The size of the input array. Must be a power of two and bigger than 1.
+     * @throws {Error} FFT size must be a power of two and bigger than 1.
+     */
     constructor(size) {
         this.size = size | 0; // convert to a 32-bit signed integer
         if (this.size <= 1 || (this.size & (this.size - 1)) !== 0)
@@ -1174,9 +1184,22 @@ class FFT {
         }
     }
 
+    /**
+     * Create a complex number array with size `2 * size`
+     *
+     * @returns {Float64Array} - A complex number array with size `2 * size`
+     */
     createComplexArray() {
         return new Float64Array(this._csize);
     }
+
+    /**
+     * Converts a complex number representation stored in a Float64Array to an array of real numbers.
+     * 
+     * @param {Float64Array} complex - The complex number representation to be converted.
+     * @param {number[]} [storage] - An optional array to store the result in.
+     * @returns {number[]} An array of real numbers representing the input complex number representation.
+     */
     fromComplexArray(complex, storage) {
         const res = storage || new Array(complex.length >>> 1);
         for (let i = 0; i < complex.length; i += 2)
@@ -1184,6 +1207,12 @@ class FFT {
         return res;
     }
 
+    /**
+     * Convert a real-valued input array to a complex-valued output array.
+     * @param {Float64Array} input - The real-valued input array.
+     * @param {Float64Array} [storage] - Optional buffer to store the output array.
+     * @returns {Float64Array} The complex-valued output array.
+     */
     toComplexArray(input, storage) {
         const res = storage || this.createComplexArray();
         for (let i = 0; i < res.length; i += 2) {
@@ -1193,6 +1222,11 @@ class FFT {
         return res;
     }
 
+    /**
+     * Completes the spectrum by adding its mirrored negative frequency components.
+     * @param {Float64Array} spectrum - The input spectrum.
+     * @returns {void}
+     */
     completeSpectrum(spectrum) {
         const size = this._csize;
         const half = size >>> 1;
@@ -1202,6 +1236,16 @@ class FFT {
         }
     }
 
+    /**
+     * Performs a Fast Fourier Transform (FFT) on the given input data and stores the result in the output buffer.
+     * 
+     * @param {Float64Array} out - The output buffer to store the result.
+     * @param {Float64Array} data - The input data to transform.
+     * 
+     * @throws {Error} Input and output buffers must be different.
+     * 
+     * @returns {void}
+     */
     transform(out, data) {
         if (out === data)
             throw new Error('Input and output buffers must be different');
@@ -1209,13 +1253,33 @@ class FFT {
         this._transform4(out, data, 1 /* DONE */);
     }
 
+    /**
+     * Performs a real-valued forward FFT on the given input buffer and stores the result in the given output buffer.
+     * The input buffer must contain real values only, while the output buffer will contain complex values. The input and
+     * output buffers must be different.
+     *
+     * @param {Float64Array} out - The output buffer.
+     * @param {Float64Array} data - The input buffer containing real values.
+     *
+     * @throws {Error} If the input and output buffers are the same.
+     */
     realTransform(out, data) {
         if (out === data)
             throw new Error('Input and output buffers must be different');
 
-        this._realTransform4(out, data, 1/* DONE */);
+        this._realTransform4(out, data, 1 /* DONE */);
     }
 
+    /**
+     * Performs an inverse FFT transformation on the given `data` array, and stores the result in `out`.
+     * The `out` array must be a different buffer than the `data` array. The `out` array will contain the
+     * result of the transformation. The `data` array will not be modified.
+     * 
+     * @param {Float64Array} out - The output buffer for the transformed data.
+     * @param {Float64Array} data - The input data to transform.
+     * @throws {Error} If `out` and `data` refer to the same buffer.
+     * @returns {void}
+     */
     inverseTransform(out, data) {
         if (out === data)
             throw new Error('Input and output buffers must be different');
@@ -1224,6 +1288,15 @@ class FFT {
         for (let i = 0; i < out.length; ++i)
             out[i] /= this.size;
     }
+
+    /**
+     * Performs a radix-4 implementation of a discrete Fourier transform on a given set of data.
+     *
+     * @param {Float64Array} out - The output buffer for the transformed data.
+     * @param {Float64Array} data - The input buffer of data to be transformed.
+     * @param {number} inv - A scaling factor to apply to the transform.
+     * @returns {void}
+     */
     _transform4(out, data, inv) {
         // radix-4 implementation
 
@@ -1314,6 +1387,16 @@ class FFT {
         }
     }
 
+    /**
+     * Performs a radix-2 implementation of a discrete Fourier transform on a given set of data.
+     *
+     * @param {Float64Array} data - The input buffer of data to be transformed.
+     * @param {Float64Array} out - The output buffer for the transformed data.
+     * @param {number} outOff - The offset at which to write the output data.
+     * @param {number} off - The offset at which to begin reading the input data.
+     * @param {number} step - The step size for indexing the input data.
+     * @returns {void}
+     */
     _singleTransform2(data, out, outOff, off, step) {
         // radix-2 implementation
         // NOTE: Only called for len=4
@@ -1329,6 +1412,18 @@ class FFT {
         out[outOff + 3] = evenI - oddI;
     }
 
+    /**
+     * Performs radix-4 transformation on input data of length 8
+     *
+     * @param {Float64Array} data - Input data array of length 8
+     * @param {Float64Array} out - Output data array of length 8
+     * @param {number} outOff - Index of output array to start writing from
+     * @param {number} off - Index of input array to start reading from
+     * @param {number} step - Step size between elements in input array
+     * @param {number} inv - Scaling factor for inverse transform
+     * 
+     * @returns {void}
+     */
     _singleTransform4(data, out, outOff, off, step, inv) {
         // radix-4
         // NOTE: Only called for len=8
@@ -1366,6 +1461,12 @@ class FFT {
         out[outOff + 7] = T1i + T3r;
     }
 
+    /**
+     * Real input radix-4 implementation
+     * @param {Float64Array} out - Output array for the transformed data
+     * @param {Float64Array} data - Input array of real data to be transformed
+     * @param {number} inv - The scale factor used to normalize the inverse transform
+     */
     _realTransform4(out, data, inv) {
         // Real input radix-4 implementation
         const size = this._csize;
@@ -1470,6 +1571,17 @@ class FFT {
         }
     }
 
+    /**
+     * Performs a single real input radix-2 transformation on the provided data
+     * 
+     * @param {Float64Array} data - The input data array
+     * @param {Float64Array} out - The output data array
+     * @param {number} outOff - The output offset
+     * @param {number} off - The input offset
+     * @param {number} step - The step
+     * 
+     * @returns {void}
+     */
     _singleRealTransform2(data, out, outOff, off, step) {
         // radix-2 implementation
         // NOTE: Only called for len=4
@@ -1483,6 +1595,17 @@ class FFT {
         out[outOff + 3] = 0;
     }
 
+    /**
+     * Computes a single real-valued transform using radix-4 algorithm.
+     * This method is only called for len=8.
+     *
+     * @param {Float64Array} data - The input data array.
+     * @param {Float64Array} out - The output data array.
+     * @param {number} outOff - The offset into the output array.
+     * @param {number} off - The offset into the input array.
+     * @param {number} step - The step size for the input array.
+     * @param {number} inv - The value of inverse.
+     */
     _singleRealTransform4(data, out, outOff, off, step, inv) {
         // radix-4
         // NOTE: Only called for len=8
@@ -1524,30 +1647,57 @@ module.exports = FFT
   \***************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
+const { Tensor } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js");
 const {
     Callable,
     exists,
     log_softmax
 } = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
-
+/**
+ * A class representing a list of logits processors. A logits processor is a function that modifies the logits
+ * output of a language model. This class provides methods for adding new processors and applying all processors to a
+ * batch of logits.
+ *
+ * @extends Callable
+ */
 class LogitsProcessorList extends Callable {
-
+    /**
+     * Constructs a new instance of `LogitsProcessorList`.
+     */
     constructor() {
         super();
         this.processors = [];
     }
 
+    /**
+     * Adds a new logits processor to the list.
+     *
+     * @param {function} item - The logits processor function to add.
+     */
     push(item) {
         this.processors.push(item);
     }
 
+    /**
+     * Adds multiple logits processors to the list.
+     *
+     * @param {function[]} items - The logits processor functions to add.
+     */
     extend(items) {
         this.processors.push(...items);
     }
 
+    /**
+     * Applies all logits processors in the list to a batch of logits, modifying them in-place.
+     *
+     * @param {number[]} input_ids - The input IDs for the language model.
+     * @param {number[][]} batchedLogits - A 2D array of logits, where each row corresponds to a single
+     *                                                input sequence in the batch.
+     */
     _call(input_ids, batchedLogits) {
-        // Apply logits processor to each item in the batch:
+        // NOTE: This is different from the Python code, since vanilla JS does not support vectorized operations. 
+        // As a result, we apply each processor to each item in the batch.
         for (let logits of batchedLogits) {
             // Modifies logits inplace
             this.processors.forEach(
@@ -1561,18 +1711,47 @@ class LogitsProcessorList extends Callable {
     }
 }
 
+/**
+ * Base class for processing logits.
+ * @extends Callable
+ */
 class LogitsProcessor extends Callable {
+    /**
+     * Apply the processor to the input logits.
+     *
+     * @abstract
+     * @param {Array} input_ids The input ids.
+     * @param {Tensor} logits The logits to process.
+     * @throws {Error} Throws an error if `_call` is not implemented in the subclass.
+     */
     _call(input_ids, logits) {
         throw Error("`_call` should be implemented in a subclass")
     }
 }
 
+/**
+ * A logits processor that forces a specific token to be generated by the decoder.
+ * 
+ * @extends LogitsProcessor
+ */
 class ForceTokensLogitsProcessor extends LogitsProcessor {
+    /**
+     * Constructs a new instance of `ForceTokensLogitsProcessor`.
+     * 
+     * @param {Array} forced_decoder_ids The ids of tokens that should be forced.
+     */
     constructor(forced_decoder_ids) {
         super();
         this.force_token_map = Object.fromEntries(forced_decoder_ids ?? []);
     }
 
+    /**
+     * Apply the processor to the input logits.
+     *
+     * @param {Array} input_ids The input ids.
+     * @param {any} logits The logits to process.
+     * @returns {Array} The processed logits.
+     */
     _call(input_ids, logits) {
         let map = this.force_token_map[input_ids.length];
         if (exists(map)) { // There exists a mapping
@@ -1582,12 +1761,27 @@ class ForceTokensLogitsProcessor extends LogitsProcessor {
         return logits;
     }
 }
+
+/**
+ * A LogitsProcessor that forces a BOS token at the beginning of the generated sequence.
+ * @extends LogitsProcessor
+ */
 class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a ForcedBOSTokenLogitsProcessor.
+     * @param {number} bos_token_id - The ID of the beginning-of-sequence token to be forced.
+     */
     constructor(bos_token_id) {
         super();
         this.bos_token_id = bos_token_id;
     }
 
+    /**
+     * Apply the BOS token forcing to the logits.
+     * @param {Array} input_ids - The input IDs.
+     * @param {Object} logits - The logits.
+     * @returns {Object} The logits with BOS token forcing.
+     */
     _call(input_ids, logits) {
         if (input_ids.length === 1) {
             logits.data.fill(-Infinity)
@@ -1596,14 +1790,48 @@ class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
     }
 }
 
+/**
+ * A logits processor that forces end-of-sequence token probability to 1.
+ * 
+ * @extends LogitsProcessor
+ */
 class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a ForcedEOSTokenLogitsProcessor.
+     * @param {number} max_length - Max length of the sequence.
+     * @param {number} forced_eos_token_id - The ID of the end-of-sequence token to be forced.
+     */
+    constructor(max_length, forced_eos_token_id) {
+        super();
+        this.max_length = max_length;
+        this.forced_eos_token_id = forced_eos_token_id;
+    }
+
+    /**
+     * Apply the processor to input_ids and logits.
+     * 
+     * @param {number[]} input_ids - The input ids.
+     * @param {any} logits - The logits tensor.
+     */
     _call(input_ids, logits) {
         // console.log('call ForcedEOSTokenLogitsProcessor')
         // TODO
     }
 }
 
+/**
+ * A LogitsProcessor that handles adding timestamps to generated text.
+ * @extends LogitsProcessor
+ */
 class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
+    /**
+     * Constructs a new WhisperTimeStampLogitsProcessor.
+     * @param {object} generate_config - The config object passed to the `generate()` method of a transformer model.
+     * @param {number} generate_config.eos_token_id - The ID of the end-of-sequence token.
+     * @param {number} generate_config.no_timestamps_token_id - The ID of the token used to indicate that a token should not have a timestamp.
+     * @param {number[][]} [generate_config.forced_decoder_ids] - An array of two-element arrays representing decoder IDs that are forced to appear in the output. The second element of each array indicates whether the token is a timestamp.
+     * @param {number} [generate_config.max_initial_timestamp_index] - The maximum index at which an initial timestamp can appear.
+     */
     constructor(generate_config) {
         super();
         this.eos_token_id = generate_config.eos_token_id;
@@ -1618,6 +1846,12 @@ class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 
     }
 
+    /**
+     * Modify the logits to handle timestamp tokens.
+     * @param {Array} input_ids - The input sequence of tokens.
+     * @param {Tensor} logits - The logits output by the model.
+     * @returns {Tensor} - The modified logits.
+     */
     _call(input_ids, logits) {
         // suppress <|notimestamps|> which is handled by without_timestamps
         logits.data[this.no_timestamps_token_id] = -Infinity;
@@ -1627,8 +1861,6 @@ class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
             logits.data[this.timestamp_begin] = 0;
             return logits;
         }
-
-        // TODO support batched inputs
 
         // timestamps have to appear in pairs, except directly before eos_token; mask logits accordingly
         const seq = input_ids.slice(this.begin_index);
@@ -1661,9 +1893,169 @@ class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
     }
 }
 
+/**
+ * A logits processor that disallows ngrams of a certain size to be repeated.
+ * 
+ * @extends LogitsProcessor
+ */
+class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a NoRepeatNGramLogitsProcessor.
+     * @param {number} no_repeat_ngram_size - The no-repeat-ngram size. All ngrams of this size can only occur once.
+     */
+    constructor(no_repeat_ngram_size) {
+        super();
+        this.no_repeat_ngram_size = no_repeat_ngram_size;
+    }
+
+    /**
+     * Generate n-grams from a sequence of token ids.
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {Map<string, number[]>} - Map of generated n-grams
+     */
+    getNgrams(prevInputIds) {
+        const curLen = prevInputIds.length;
+
+        /**@type {number[][]} */
+        const ngrams = [];
+        for (let j = 0; j < curLen + 1 - this.no_repeat_ngram_size; ++j) {
+            const ngram = [];
+            for (let k = 0; k < this.no_repeat_ngram_size; ++k) {
+                ngram.push(prevInputIds[j + k]);
+            }
+            ngrams.push(ngram);
+        }
+
+        /** @type {Map<string, number[]>} */
+        const generatedNgram = new Map();
+        for (const ngram of ngrams) {
+            const prevNgram = ngram.slice(0, ngram.length - 1);
+            const prevNgramKey = JSON.stringify(prevNgram);
+            const prevNgramValue = generatedNgram.get(prevNgramKey) ?? [];
+            prevNgramValue.push(ngram[ngram.length - 1]);
+            generatedNgram.set(prevNgramKey, prevNgramValue);
+        }
+        return generatedNgram;
+    }
+
+    /**
+     * Generate n-grams from a sequence of token ids.
+     * @param {Map<string, number[]>} bannedNgrams - Map of banned n-grams
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {number[]} - Map of generated n-grams
+     */
+    getGeneratedNgrams(bannedNgrams, prevInputIds) {
+        const ngramIdx = prevInputIds.slice(prevInputIds.length + 1 - this.no_repeat_ngram_size, prevInputIds.length);
+        const banned = bannedNgrams.get(JSON.stringify(ngramIdx)) ?? [];
+        return banned;
+    }
+
+    /**
+     * Calculate banned n-gram tokens
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {number[]} - Map of generated n-grams
+     */
+    calcBannedNgramTokens(prevInputIds) {
+        const bannedTokens = [];
+        if (prevInputIds.length + 1 < this.no_repeat_ngram_size) {
+            // return no banned tokens if we haven't generated no_repeat_ngram_size tokens yet
+            return bannedTokens;
+
+        } else {
+            const generatedNgrams = this.getNgrams(prevInputIds);
+            const bannedTokens = this.getGeneratedNgrams(generatedNgrams, prevInputIds);
+            return bannedTokens;
+        }
+    }
+
+    /**
+     * Apply the no-repeat-ngram processor to the logits.
+     * @param {Array} input_ids - The input IDs.
+     * @param {Object} logits - The logits.
+     * @returns {Object} The logits with no-repeat-ngram processing.
+     */
+    _call(input_ids, logits) {
+        const bannedTokens = this.calcBannedNgramTokens(input_ids);
+
+        for (const token of bannedTokens) {
+            logits.data[token] = -Infinity;
+        }
+        return logits;
+    }
+}
+
+/**
+ * A logits processor that penalises repeated output tokens.
+ * 
+ * @extends LogitsProcessor
+ */
+class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a RepetitionPenaltyLogitsProcessor.
+     * @param {number} penalty - The penalty to apply for repeated tokens.
+     */
+    constructor(penalty) {
+        super();
+        this.penalty = penalty;
+    }
+
+    /**
+     * Apply the repetition penalty to the logits.
+     * @param {Array} input_ids - The input IDs.
+     * @param {Object} logits - The logits.
+     * @returns {Object} The logits with repetition penalty processing.
+     */
+    _call(input_ids, logits) {
+        // Modify the logits corresponding to each element in `input_ids`.
+        // As a consequence, the logits corresponding to tokens that appear
+        // many times in the output will be penalised more.
+        for (const input_id of input_ids) {
+            if (logits.data[input_id] < 0) {
+                logits.data[input_id] *= this.penalty;
+            } else {
+                logits.data[input_id] /= this.penalty;
+            }
+        }
+        return logits
+    }
+}
+
+
 class GenerationConfig {
     constructor(kwargs = {}) {
         // Parameters that control the length of the output
+        // TODO: extend the configuration with correct types
+        /**
+         * Create a GenerationConfig object
+         * @constructor
+         * @param {Object} [kwargs={}] - The configuration parameters
+         * @param {number} [kwargs.max_length=20] - The maximum length of the generated text
+         * @param {number} [kwargs.max_new_tokens=null] - The maximum number of new tokens to generate
+         * @param {number} [kwargs.min_length=0] - The minimum length of the generated text
+         * @param {number} [kwargs.min_new_tokens=null] - The minimum number of new tokens to generate
+         * @param {boolean} [kwargs.early_stopping=false] - Whether to stop generation early if a stop token is encountered
+         * @param {number} [kwargs.max_time=null] - The maximum amount of time to spend generating text
+         * @param {boolean} [kwargs.do_sample=false] - Whether to use sampling when generating text
+         * @param {number} [kwargs.num_beams=1] - The number of beams to use when generating text
+         * @param {number} [kwargs.num_beam_groups=1] - The number of beam groups to use when generating text
+         * @param {number} [kwargs.penalty_alpha=null] - The value of the alpha penalty to use when generating text
+         * @param {boolean} [kwargs.use_cache=true] - Whether to use cache when generating text
+         * @param {number} [kwargs.temperature=1.0] - The temperature to use when generating text
+         * @param {number} [kwargs.top_k=50] - The value of k to use when generating text
+         * @param {number} [kwargs.top_p=1.0] - The value of p to use when generating text
+         * @param {number} [kwargs.typical_p=1.0] - The typical value of p to use when generating text
+         * @param {number} [kwargs.epsilon_cutoff=0.0] - The value of epsilon cutoff to use when generating text
+         * @param {number} [kwargs.eta_cutoff=0.0] - The value of eta cutoff to use when generating text
+         * @param {number} [kwargs.diversity_penalty=0.0] - The value of diversity penalty to use when generating text
+         * @param {number} [kwargs.repetition_penalty=1.0] - The value of repetition penalty to use when generating text
+         * @param {number} [kwargs.encoder_repetition_penalty=1.0] - The value of encoder repetition penalty to use when generating text
+         * @param {number} [kwargs.length_penalty=1.0] - The value of length
+         * @param {number} [kwargs.no_repeat_ngram_size=0] - The size of the n-grams to avoid repeating in the generated output.
+         * @param {?number[]} [kwargs.bad_words_ids=null] - An array of IDs representing tokens that should not be generated.
+         * @param {?number[]} [kwargs.force_words_ids=null] - An array of IDs representing tokens that must be generated.
+         * @param {boolean} [kwargs.renormalize_logits=false] - Whether or not to renormalize the logits before generating new tokens.
+         * @param {?Object[]} [kwargs.constraints=null] - An array of constraint objects to apply during generation.
+         */
         this.max_length = kwargs.max_length ?? 20;
         this.max_new_tokens = kwargs.max_new_tokens ?? null;
         this.min_length = kwargs.min_length ?? 0;
@@ -1731,6 +2123,8 @@ module.exports = {
     ForcedEOSTokenLogitsProcessor,
     WhisperTimeStampLogitsProcessor,
     ForceTokensLogitsProcessor,
+    NoRepeatNGramLogitsProcessor,
+    RepetitionPenaltyLogitsProcessor
 };
 
 
@@ -1746,14 +2140,21 @@ module.exports = {
 // For some reason, Jimp attaches to self, even in Node.
 // https://github.com/jimp-dev/jimp/issues/466
 const _Jimp = __webpack_require__(/*! jimp */ "./node_modules/jimp/browser/lib/jimp.js");
+
+// @ts-ignore
 const Jimp = (typeof self !== 'undefined') ? (self.Jimp || _Jimp) : _Jimp;
 
 const B64_STRING = /^data:image\/\w+;base64,/;
 
-
+/**
+ * 
+ * @param {string} url 
+ * @returns {Promise<any>}
+ */
 async function loadImage(url) {
     // TODO if already is a Jimp image, return it
 
+    /** @type {any} */
     let imgToLoad = url;
     if (B64_STRING.test(url)) {
         imgToLoad = imgToLoad.replace(B64_STRING, '');
@@ -1772,9 +2173,12 @@ async function loadImage(url) {
     return await Jimp.read(imgToLoad);
 }
 
+const ImageType = Jimp.JimpType;
+
 module.exports = {
     loadImage,
-    Jimp
+    Jimp,
+    ImageType
 };
 
 
@@ -1792,7 +2196,6 @@ const {
     fetchJSON,
     dispatchCallback,
     isIntegralNumber,
-    exists,
 } = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
 const {
@@ -1806,16 +2209,27 @@ const {
     ForceTokensLogitsProcessor,
     ForcedBOSTokenLogitsProcessor,
     ForcedEOSTokenLogitsProcessor,
-    WhisperTimeStampLogitsProcessor
+    WhisperTimeStampLogitsProcessor,
+    NoRepeatNGramLogitsProcessor,
+    RepetitionPenaltyLogitsProcessor
 } = __webpack_require__(/*! ./generation.js */ "./src/generation.js");
 
 const { executionProviders, ONNX } = __webpack_require__(/*! ./backends/onnx.js */ "./src/backends/onnx.js");
-const { Tensor } = __webpack_require__(/*! ./tensor_utils */ "./src/tensor_utils.js");
+const {
+    Tensor,
+    cat
+} = __webpack_require__(/*! ./tensor_utils */ "./src/tensor_utils.js");
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 //////////////////////////////////////////////////
 // Helper functions
-
+/**
+ * Constructs an InferenceSession using a model file located at the specified path.
+ * @param {string} modelPath - The path to the directory containing the model file.
+ * @param {string} fileName - The name of the model file.
+ * @param {function} [progressCallback=null] - An optional function to track progress during the creation of the session.
+ * @returns {Promise<InferenceSession>} - A Promise that resolves to an InferenceSession object.
+ */
 async function constructSession(modelPath, fileName, progressCallback = null) {
     let buffer = await getModelFile(modelPath, fileName, progressCallback);
 
@@ -1836,12 +2250,29 @@ async function constructSession(modelPath, fileName, progressCallback = null) {
     }
 }
 
+/**
+ * Executes an InferenceSession using the specified inputs.
+ * @param {InferenceSession} session - The InferenceSession object to run.
+ * @param {Object} inputs - An object that maps input names to input tensors.
+ * @returns {Promise<Object>} - A Promise that resolves to an object that maps output names to output tensors.
+ */
 async function sessionRun(session, inputs) {
-    let output = await session.run(inputs);
-    output = replaceTensors(output);
-    return output;
+    try {
+        let output = await session.run(inputs);
+        output = replaceTensors(output);
+        return output;
+    } catch (e) {
+        console.error(`An error occurred during model execution: "${e}".`);
+        console.error('Inputs given to model:', inputs);
+        throw e;
+    }
 }
 
+/**
+ * Replaces ONNX Tensor objects with custom Tensor objects to support additional functions.
+ * @param {Object} obj - The object to replace tensor objects in.
+ * @returns {Object} - The object with tensor objects replaced by custom Tensor objects.
+ */
 function replaceTensors(obj) {
     // Convert ONNX Tensors with our custom Tensor class
     // to support additional functions
@@ -1853,6 +2284,12 @@ function replaceTensors(obj) {
     return obj;
 }
 
+/**
+ * Prepares an attention mask for a sequence of tokens based on configuration options.
+ * @param {Object} self - The calling object instance.
+ * @param {Tensor} tokens - The input tokens.
+ * @returns {Tensor} - The attention mask tensor.
+ */
 function _prepare_attention_mask(self, tokens) {
 
     // Prepare attention mask
@@ -1880,13 +2317,23 @@ function _prepare_attention_mask(self, tokens) {
     }
 }
 
+/**
+ * Creates a boolean tensor with a single value.
+ * @param {boolean} value - The value of the tensor.
+ * @returns {Tensor} - The boolean tensor.
+ */
 function boolTensor(value) {
     // Create boolean tensor
     return new Tensor('bool', [value], [1]);
 }
 
-// JS doesn't support mixings, so we define some reused functions here, and allow "this" to be passed in
-
+// JS doesn't support mixins, so we define some reused functions here, and allow "this" to be passed in
+/**
+ * Loads a sequence-to-sequence model from the specified path.
+ * @param {string} modelPath - The path to the model directory.
+ * @param {function} progressCallback - The optional progress callback function.
+ * @returns {Promise<[any, any, any, any]>} - A promise that resolves with information about the loaded model.
+ */
 async function seq2seqLoadModel(modelPath, progressCallback) {
     let info = await Promise.all([
         fetchJSON(modelPath, 'config.json', progressCallback),
@@ -1903,6 +2350,18 @@ async function seq2seqLoadModel(modelPath, progressCallback) {
 
     return info;
 }
+
+/**
+ * Perform forward pass on the seq2seq model.
+ * @async
+ * @function
+ * @param {Object} self - The seq2seq model object.
+ * @param {Object} model_inputs - The input object for the model containing encoder and decoder inputs.
+ * @param {Object} options - The options
+ * @param {string} [options.encoder_input_name='input_ids'] - The name of the input tensor for the encoder.
+ * @param {boolean} [options.add_decoder_pkv=true] - Flag to add the decoder past key values.
+ * @returns {Promise<Seq2SeqLMOutput>} - Promise that resolves with the output of the seq2seq model.
+ */
 async function seq2seq_forward(self, model_inputs, {
     encoder_input_name = 'input_ids',
     add_decoder_pkv = true
@@ -1934,11 +2393,19 @@ async function seq2seq_forward(self, model_inputs, {
 
     const decoderResults = await sessionRun(self.decoder_merged_session, decoderFeeds);
     let logits = decoderResults.logits;
-    pastKeyValues = self.getPastKeyValues(decoderResults);
-
+    pastKeyValues = self.getPastKeyValues(decoderResults, pastKeyValues);
     return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
 }
 
+/**
+ * Start the beam search process for the seq2seq model.
+ * @function
+ * @param {Object} self - The seq2seq model object.
+ * @param {Object[]} inputTokenIds - Array of input token ids for each input sequence.
+ * @param {number} numOutputTokens - The maximum number of output tokens for the model.
+ * @param {boolean} [requires_attention_mask=true] - Flag to indicate if the model requires an attention mask.
+ * @returns {Object[]} - Array of beam search objects.
+ */
 function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
     let beams = [];
     let beamId = 0;
@@ -1971,6 +2438,16 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
     return beams;
 }
 
+/**
+ * Run beam search on the seq2seq model for a single beam.
+ * @async
+ * @function
+ * @param {Object} self - The seq2seq model object.
+ * @param {Object} beam - The beam search object for which to run the model.
+ * @param {Object} options - options
+ * @param {string} [options.input_name='input_ids'] - The name of the input tensor for the encoder.
+ * @returns {Promise<Object>} - Promise that resolves with the output of the seq2seq model for the given beam.
+ */
 async function seq2seqRunBeam(self, beam, {
     input_name = 'input_ids',
 } = {}
@@ -1996,6 +2473,14 @@ async function seq2seqRunBeam(self, beam, {
     return output;
 }
 
+/**
+ * Forward pass of the text generation model.
+ * @async
+ * @function
+ * @param {Object} self - The text generation model object.
+ * @param {Object} model_inputs - The input data to be used for the forward pass.
+ * @returns {Promise<Object>} - Promise that resolves with an object containing the logits and past key values.
+ */
 async function textgen_forward(self, model_inputs) {
     let past_key_values = model_inputs.past_key_values;
     let decoderFeeds = {
@@ -2008,10 +2493,18 @@ async function textgen_forward(self, model_inputs) {
     let decoderResults = await sessionRun(self.session, decoderFeeds);
     let logits = decoderResults.logits;
 
-    past_key_values = self.getPastKeyValues(decoderResults);
+    past_key_values = self.getPastKeyValues(decoderResults, past_key_values);
     return { logits, past_key_values };
 }
 
+/**
+ * Starts the generation of text by initializing the beams for the given input token IDs.
+ * @param {Object} self - The text generation model object.
+ * @param {any} inputTokenIds - An array of input token IDs to generate text from.
+ * @param {number} numOutputTokens - The maximum number of tokens to generate for each beam.
+ * @param {Tensor} [inputs_attention_mask] - The attention mask tensor for the input token IDs.
+ * @returns {Object[]} An array of beams initialized with the given inputs and parameters.
+ */
 function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attention_mask) {
     let beams = [];
 
@@ -2050,6 +2543,20 @@ function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
     return beams;
 }
 
+/**
+ * Runs a single step of the text generation process for a given beam.
+ *
+ * @async
+ * @function textgenRunBeam
+ * @param {Object} self - The textgen object.
+ * @param {Object} beam - The beam to run.
+ * @param {Tensor} beam.input - The input tensor.
+ * @param {Tensor} beam.model_input_ids - The input ids to the model.
+ * @param {Tensor} beam.attention_mask - The attention mask.
+ * @param {Object} beam.past_key_values - The past key values.
+ * @param {number[]} beam.output_token_ids - The output token ids.
+ * @returns {Promise<Object>} The output of the generation step.
+ */
 async function textgenRunBeam(self, beam) {
     let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
 
@@ -2073,6 +2580,11 @@ async function textgenRunBeam(self, beam) {
     return output;
 }
 
+/**
+ * Update a beam with a new token ID.
+ * @param {object} beam - The beam to update.
+ * @param {number} newTokenId - The new token ID to add to the beam's output.
+ */
 function textgenUpdatebeam(beam, newTokenId) {
     beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     beam.model_input_ids = new Tensor('int64', [BigInt(newTokenId)], [1, 1]);
@@ -2081,15 +2593,27 @@ function textgenUpdatebeam(beam, newTokenId) {
 
 //////////////////////////////////////////////////
 // Base class
+/**
+ * A base class for pre-trained models that provides the model configuration and an ONNX session.
+ * @extends Callable
+ */
 class PreTrainedModel extends Callable {
+    /**
+     * Creates a new instance of the `PreTrainedModel` class.
+     * @param {object} config - The model configuration.
+     * @param {any} session - session for the model.
+     */
     constructor(config, session) {
         super();
 
         this.config = config;
         this.session = session;
-
     }
 
+    /**
+    * Disposes of all the ONNX sessions that were created during inference.
+    * @returns {Promise<unknown[]>} - An array of promises, one for each ONNX session that is being disposed.
+    */
     async dispose() {
         // Dispose of all ONNX sessions sessions
         // TODO use: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
@@ -2104,6 +2628,14 @@ class PreTrainedModel extends Callable {
         return await Promise.all(promises);
     }
 
+    /**
+     * Loads a pre-trained model from the given modelPath.
+     * @static
+     * @async
+     * @param {string} modelPath - The path to the pre-trained model.
+     * @param {function} progressCallback - A function to be called with progress updates.
+     * @returns {Promise<PreTrainedModel>} A new instance of the PreTrainedModel class.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let config = await fetchJSON(modelPath, 'config.json', progressCallback);
@@ -2121,6 +2653,12 @@ class PreTrainedModel extends Callable {
         return new this(config, session);
     }
 
+    /**
+     * Converts an array or Tensor of integers to an int64 Tensor.
+     * @param {Array|Tensor} items - The input integers to be converted.
+     * @returns {Tensor} The int64 Tensor with the converted values.
+     * @throws {Error} If the input array is empty or the input is a batched Tensor and not all sequences have the same length.
+     */
     toI64Tensor(items) {
         if (items instanceof Tensor) {
             return items;
@@ -2149,10 +2687,22 @@ class PreTrainedModel extends Callable {
         }
     }
 
+    /**
+     * Runs the model with the provided inputs
+     * @param {Object} model_inputs - Object containing input tensors
+     * @returns {Promise<Object>} - Object containing output tensors
+     */
     async _call(model_inputs) {
         return await sessionRun(this.session, model_inputs);
     }
 
+    /**
+     * Forward method should be implemented in subclasses.
+     * @abstract
+     * @param {object} model_inputs - The input data to the model in the format specified in the ONNX model.
+     * @returns {Promise<object>} - The output data from the model in the format specified in the ONNX model.
+     * @throws {Error} - This method must be implemented in subclasses.
+     */
     async forward(model_inputs) {
         throw Error("forward should be implemented in subclasses.")
     }
@@ -2186,13 +2736,13 @@ class PreTrainedModel extends Callable {
         //     ));
         // }
 
-        // if (generation_config.repetition_penalty !== null && generation_config.repetition_penalty !== 1.0) {
-        //     processors.push(new RepetitionPenaltyLogitsProcessor(generation_config.repetition_penalty));
-        // }
+        if (generation_config.repetition_penalty !== null && generation_config.repetition_penalty !== 1.0) {
+            processors.push(new RepetitionPenaltyLogitsProcessor(generation_config.repetition_penalty));
+        }
 
-        // if (generation_config.no_repeat_ngram_size !== null && generation_config.no_repeat_ngram_size > 0) {
-        //     processors.push(new NoRepeatNGramLogitsProcessor(generation_config.no_repeat_ngram_size));
-        // }
+        if (generation_config.no_repeat_ngram_size !== null && generation_config.no_repeat_ngram_size > 0) {
+            processors.push(new NoRepeatNGramLogitsProcessor(generation_config.no_repeat_ngram_size));
+        }
 
         // if (generation_config.encoder_no_repeat_ngram_size !== null && generation_config.encoder_no_repeat_ngram_size > 0) {
         //     if (this.config.is_encoder_decoder) {
@@ -2281,12 +2831,21 @@ class PreTrainedModel extends Callable {
         return processors;
     }
 
+    /**
+   * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
+   * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
+   *
+   * @param {GenerationConfig} generation_config - A `GenerationConfig` object containing generation parameters.
+   * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
+   */
     _get_generation_config(generation_config) {
         // Create empty generation config (contains defaults)
         let gen_config = new GenerationConfig();
 
-        // Apply model's generation config
-        Object.assign(gen_config, this.generation_config);
+        // Apply model's generation config, if it exists
+        if ('generation_config' in this) {
+            Object.assign(gen_config, this.generation_config);
+        }
 
         // Finally, use any generation config specified by the user
         // when calling `generate`
@@ -2295,6 +2854,17 @@ class PreTrainedModel extends Callable {
         }
         return gen_config;
     }
+
+    /**
+   * Generates text based on the given inputs and generation configuration using the model.
+   * @param {Array} inputs - An array of input token IDs.
+   * @param {Object|null} generation_config - The generation configuration to use. If null, default configuration will be used.
+   * @param {Object|null} logits_processor - An optional logits processor to use. If null, a new LogitsProcessorList instance will be created.
+   * @param {Object} options - options
+   * @param {Object} [options.inputs_attention_mask=null] - An optional attention mask for the inputs.
+   * @returns {Promise<Array>} An array of generated output sequences, where each sequence is an array of token IDs.
+   * @throws {Error} Throws an error if the inputs array is empty.
+   */
     async generate(
         inputs,
         generation_config = null,
@@ -2344,10 +2914,24 @@ class PreTrainedModel extends Callable {
                 }
 
                 let output = await this.runBeam(beam);
-                logits_processor(beam.output_token_ids, output.logits)
 
-                let sampledTokens = sampler(output.logits);
+                // Logits are of the form [batch_size, out_seq_length, vocab_size]
+                // In most cases, this will be [batch_size, 1, vocab_size]
+                // So, we select the last token's logits:
+                // (equivalent to `logits = outputs.logits[:, -1, :]`)
+                let extractedLogits = [];
+                for (const batch of output.logits) {
+                    // Extract logits corresponding to the last token
+                    let lastLogits = batch.get(batch.dims[0] - 1);
 
+                    // Add back batch dimension (needed for `cat`)
+                    lastLogits.dims = [1, ...lastLogits.dims];
+                    extractedLogits.push(lastLogits)
+                }
+                let logits = cat(extractedLogits);
+                logits_processor(beam.output_token_ids, logits)
+
+                let sampledTokens = sampler(logits);
                 for (let [newTokenId, logProb] of sampledTokens) {
                     // use previous beam as a starting point
                     let newBeam = { ...beam };
@@ -2391,6 +2975,13 @@ class PreTrainedModel extends Callable {
             }
         )
     }
+
+    /**
+     * Groups an array of beam objects by their ids.
+     *
+     * @param {Array} beams - The array of beam objects to group.
+     * @returns {Array} - An array of arrays, where each inner array contains beam objects with the same id.
+     */
     groupBeams(beams) {
         // Group beams by their ids
         const groups = {};
@@ -2404,16 +2995,42 @@ class PreTrainedModel extends Callable {
 
         return Object.values(groups);
     }
-    getPastKeyValues(decoderResults) {
+
+    /**
+     * Returns an object containing past key values from the given decoder results object.
+     *
+     * @param {Object} decoderResults - The decoder results object.
+     * @param {Object} pastKeyValues - The previous past key values.
+     * @returns {Object} - An object containing past key values.
+     */
+    getPastKeyValues(decoderResults, pastKeyValues) {
+
         const pkvs = {};
 
         for (const name in decoderResults) {
             if (name.startsWith('present')) {
-                pkvs[name.replace('present', 'past_key_values')] = decoderResults[name]
+                let newName = name.replace('present', 'past_key_values');
+
+                if (pastKeyValues !== null && name.includes('encoder')) {
+                    // Optimization introduced by optimum to reuse past key values. So, we just replace the constant
+                    // outputs with the previous past key values.
+                    // https://github.com/huggingface/optimum/blob/0bf2c05fb7e1182b52d21b703cfc95fd9e4ea3dc/optimum/onnxruntime/base.py#L677-L704
+                    pkvs[newName] = pastKeyValues[newName];
+                } else {
+                    pkvs[newName] = decoderResults[name];
+                }
             }
         }
         return pkvs;
     }
+
+    /**
+     * Adds past key values to the decoder feeds object. If pastKeyValues is null, creates new tensors for past key values.
+     *
+     * @param {Object} decoderFeeds - The decoder feeds object to add past key values to.
+     * @param {Object} pastKeyValues - An object containing past key values.
+     * @param {boolean} [hasDecoder=false] - Whether the model has a decoder.
+     */
     addPastKeyValues(decoderFeeds, pastKeyValues, hasDecoder = false) {
         if (pastKeyValues === null) {
             // TODO support batches (i.e., batch_size > 1)
@@ -2452,19 +3069,52 @@ class ModelOutput { }
 // Bert models
 class BertPreTrainedModel extends PreTrainedModel { }
 class BertModel extends BertPreTrainedModel { }
+
+/**
+ * BertForMaskedLM is a class representing a BERT model for masked language modeling.
+ * @extends BertPreTrainedModel
+ */
 class BertForMaskedLM extends BertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} - An object containing the model's output logits for masked language modeling.
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new MaskedLMOutput(logits)
     }
 }
+
+/**
+ * BertForSequenceClassification is a class representing a BERT model for sequence classification.
+ * @extends BertPreTrainedModel
+ */
 class BertForSequenceClassification extends BertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
+
+/**
+ * BertForQuestionAnswering is a class representing a BERT model for question answering.
+ * @extends BertPreTrainedModel
+ */
 class BertForQuestionAnswering extends BertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} - An object containing the model's output logits for question answering.
+     */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
@@ -2476,19 +3126,52 @@ class BertForQuestionAnswering extends BertPreTrainedModel {
 // DistilBert models
 class DistilBertPreTrainedModel extends PreTrainedModel { }
 class DistilBertModel extends DistilBertPreTrainedModel { }
+
+/**
+ * DistilBertForSequenceClassification is a class representing a DistilBERT model for sequence classification.
+ * @extends DistilBertPreTrainedModel
+ */
 class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for question answering.
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
+
+/**
+ * DistilBertForQuestionAnswering is a class representing a DistilBERT model for question answering.
+ * @extends DistilBertPreTrainedModel
+ */
 class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} - An object containing the model's output logits for question answering.
+     */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
     }
 }
+
+/**
+ * DistilBertForMaskedLM is a class representing a DistilBERT model for masking task.
+ * @extends DistilBertPreTrainedModel
+ */
 class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new MaskedLMOutput(logits)
@@ -2501,19 +3184,50 @@ class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
 // MobileBert models
 class MobileBertPreTrainedModel extends PreTrainedModel { }
 class MobileBertModel extends MobileBertPreTrainedModel { }
+
+/**
+ * MobileBertForMaskedLM is a class representing a MobileBERT model for masking task.
+ * @extends MobileBertPreTrainedModel
+ */
 class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new MaskedLMOutput(logits)
     }
 }
+
+/**
+ * @extends MobileBertPreTrainedModel
+ */
 class MobileBertForSequenceClassification extends MobileBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
+
+/**
+ * @extends MobileBertPreTrainedModel
+ */
 class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} - returned object
+     */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
@@ -2527,18 +3241,36 @@ class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
 class SqueezeBertPreTrainedModel extends PreTrainedModel { }
 class SqueezeBertModel extends SqueezeBertPreTrainedModel { }
 class SqueezeBertForMaskedLM extends SqueezeBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new MaskedLMOutput(logits)
     }
 }
 class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
 class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} - returned object
+     */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
@@ -2552,18 +3284,36 @@ class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel {
 class AlbertPreTrainedModel extends PreTrainedModel { }
 class AlbertModel extends AlbertPreTrainedModel { }
 class AlbertForSequenceClassification extends AlbertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
 class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} - returned object
+     */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
     }
 }
 class AlbertForMaskedLM extends AlbertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new MaskedLMOutput(logits)
@@ -2577,6 +3327,12 @@ class AlbertForMaskedLM extends AlbertPreTrainedModel {
 class T5PreTrainedModel extends PreTrainedModel { };
 
 class T5Model extends T5PreTrainedModel {
+    /**
+     * Generates text based on the provided arguments.
+     * @throws {Error} - Throws an error as the current model class (T5Model) is not compatible with `.generate()`.
+     * @returns {Promise<any>}
+     * @param {any[]} args
+     */
     async generate(...args) {
         throw Error(
             "The current model class (T5Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'T5ForConditionalGeneration'}"
@@ -2584,7 +3340,18 @@ class T5Model extends T5PreTrainedModel {
     }
 }
 
+/**
+ * T5Model is a class representing a T5 model for conditional generation.
+ * @extends T5PreTrainedModel
+ */
 class T5ForConditionalGeneration extends T5PreTrainedModel {
+    /**
+     * Creates a new instance of the `T5ForConditionalGeneration` class.
+     * @param {object} config - The model configuration.
+     * @param {any} session - session for the model.
+     * @param {any} decoder_merged_session - session for the decoder.
+     * @param {GenerationConfig} generation_config - The generation configuration.
+     */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
         this.decoder_merged_session = decoder_merged_session;
@@ -2599,22 +3366,53 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
         this.encoder_dim_kv = this.config.d_kv;
     }
 
+    /**
+     * Loads the pre-trained model from a given path.
+     * @async
+     * @param {string} modelPath - The path to the pre-trained model.
+     * @param {function} progressCallback - A function to call with progress updates (optional).
+     * @returns {Promise<T5ForConditionalGeneration>} The loaded model instance.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
         let info = await seq2seqLoadModel(modelPath, progressCallback);
         return new this(...info);
     }
 
+    /**
+     * Generates the start beams for a given set of inputs and output length.
+     * @param {number[][]} inputs - The input token IDs.
+     * @param {number} numOutputTokens - The desired output length.
+     * @returns {Array} The start beams.
+     */
     getStartBeams(inputs, numOutputTokens, ...args) {
         return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
 
+    /**
+     * Runs the beam search for a given beam.
+     * @async
+     * @param {any} beam - The current beam.
+     * @returns {Promise<any>} The model output.
+     */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
     }
+
+    /**
+     * Updates the given beam with a new token ID.
+     * @param {any} beam - The current beam.
+     * @param {number} newTokenId - The new token ID to add to the output sequence.
+     */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     }
 
+    /**
+     * Runs the forward pass of the model for a given set of inputs.
+     * @async
+     * @param {Object} model_inputs - The model inputs.
+     * @returns {Promise<Object>} The model output.
+     */
     async forward(model_inputs) {
         return await seq2seq_forward(this, model_inputs);
     }
@@ -2626,6 +3424,12 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
 class MT5PreTrainedModel extends PreTrainedModel { };
 
 class MT5Model extends MT5PreTrainedModel {
+    /**
+     * 
+     * @param  {...any} args
+     * @returns {Promise<any>}
+     * @throws {Error}
+     */
     async generate(...args) {
         throw Error(
             "The current model class (MT5Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'MT5ForConditionalGeneration'}"
@@ -2633,7 +3437,19 @@ class MT5Model extends MT5PreTrainedModel {
     }
 }
 
+/**
+ * A class representing a conditional sequence-to-sequence model based on the MT5 architecture.
+ *
+ * @extends MT5PreTrainedModel
+ */
 class MT5ForConditionalGeneration extends MT5PreTrainedModel {
+    /**
+     * Creates a new instance of the `MT5ForConditionalGeneration` class.
+     * @param {any} config - The model configuration.
+     * @param {any} session - The ONNX session containing the encoder weights.
+     * @param {any} decoder_merged_session - The ONNX session containing the merged decoder weights.
+     * @param {GenerationConfig} generation_config - The generation configuration.
+     */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
         this.decoder_merged_session = decoder_merged_session;
@@ -2648,22 +3464,55 @@ class MT5ForConditionalGeneration extends MT5PreTrainedModel {
         this.encoder_dim_kv = this.config.d_kv;
     }
 
+    /**
+     * Loads a pre-trained model from the given path.
+     *
+     * @param {string} modelPath - The path to the pre-trained model.
+     * @param {function} [progressCallback=null] - A callback function that is called with the download progress percentage (0-100).
+     * @returns {Promise<any>} - A Promise that resolves to a new `MT5ForConditionalGeneration` instance.
+     * @static
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
         let info = await seq2seqLoadModel(modelPath, progressCallback);
         return new this(...info);
     }
 
+    /**
+   * Generates the start beams for the given input tokens and output sequence length.
+   *
+   * @param {any[]} inputs - The input sequence.
+   * @param {number} numOutputTokens - The desired length of the output sequence.
+   * @param {...*} args - Additional arguments to pass to the `seq2seqStartBeams` function.
+   * @returns {any[]} - An array of `Beam` objects representing the start beams.
+   */
     getStartBeams(inputs, numOutputTokens, ...args) {
         return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
 
+    /**
+    * Runs the given beam through
+    * the model and returns the next token prediction.
+    * @param {any} beam - The beam to run.
+    * @returns {Promise<number>} - A Promise that resolves to the index of the predicted token.
+    */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
     }
+
+    /**
+     * Updates the given beam with the new predicted token.
+     * @param {any} beam - The beam to update.
+     * @param {number} newTokenId - The index of the predicted token.
+    */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     }
 
+    /**
+    * Runs the forward pass of the model on the given inputs.
+    * @param {any} model_inputs - The model inputs.
+    * @returns {Promise<any>} - A Promise that resolves to the model outputs.
+    */
     async forward(model_inputs) {
         return await seq2seq_forward(this, model_inputs);
     }
@@ -2674,7 +3523,20 @@ class MT5ForConditionalGeneration extends MT5PreTrainedModel {
 // Bart models
 class BartPretrainedModel extends PreTrainedModel { };
 
+/**
+ * BART encoder and decoder model.
+ * 
+ * @hideconstructor
+ * @extends BartPretrainedModel
+ */
 class BartModel extends BartPretrainedModel {
+    /**
+     * Throws an error because the current model class (BartModel) is not compatible with `.generate()`.
+     * 
+     * @async
+     * @throws {Error} The current model class (BartModel) is not compatible with `.generate()`.
+     * @returns {Promise<any>}
+     */
     async generate(...args) {
         throw Error(
             "The current model class (BartModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'BartForConditionalGeneration'}"
@@ -2682,7 +3544,18 @@ class BartModel extends BartPretrainedModel {
     }
 }
 
+/**
+ * BART model with a language model head for conditional generation.
+ * @extends BartPretrainedModel
+ */
 class BartForConditionalGeneration extends BartPretrainedModel {
+    /**
+     * Creates a new instance of the `BartForConditionalGeneration` class.
+     * @param {object} config - The configuration object for the Bart model.
+     * @param {object} session - The ONNX session used to execute the model.
+     * @param {object} decoder_merged_session - The ONNX session used to execute the decoder.
+     * @param {object} generation_config - The generation configuration object.
+     */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
         this.decoder_merged_session = decoder_merged_session;
@@ -2697,28 +3570,64 @@ class BartForConditionalGeneration extends BartPretrainedModel {
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 
+    /**
+     * Loads a BartForConditionalGeneration instance from a pretrained model stored on disk.
+     * @param {string} modelPath - The path to the directory containing the pretrained model.
+     * @param {function} [progressCallback=null] - An optional callback function to track the download progress.
+     * @returns {Promise<BartForConditionalGeneration>} - The pretrained BartForConditionalGeneration instance.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
         let info = await seq2seqLoadModel(modelPath, progressCallback);
         return new this(...info);
     }
 
+    /**
+     * Returns the initial beam for generating output text.
+     * @param {object} inputs - The input object containing the encoded input text.
+     * @param {number} numOutputTokens - The maximum number of output tokens to generate.
+     * @param  {...any} args - Additional arguments to pass to the sequence-to-sequence generation function.
+     * @returns {any} - The initial beam for generating output text.
+     */
     getStartBeams(inputs, numOutputTokens, ...args) {
         return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
 
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
+     */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
     }
+
+    /**
+     * Updates the beam by appending the newly generated token ID to the list of output token IDs.
+     * @param {any} beam - The current beam being generated.
+     * @param {number} newTokenId - The ID of the newly generated token to append to the list of output token IDs.
+     */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     }
 
+    /**
+     * Runs the forward pass of the model for a given set of inputs.
+     * @async
+     * @param {Object} model_inputs - The model inputs.
+     * @returns {Promise<Object>} The model output.
+     */
     async forward(model_inputs) {
         return await seq2seq_forward(this, model_inputs);
     }
 }
 
 class BartForSequenceClassification extends BartPretrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
@@ -2731,19 +3640,52 @@ class BartForSequenceClassification extends BartPretrainedModel {
 // Roberta models
 class RobertaPreTrainedModel extends PreTrainedModel { }
 class RobertaModel extends RobertaPreTrainedModel { }
+
+/**
+ * RobertaForMaskedLM class for performing masked language modeling on Roberta models.
+ * @extends RobertaPreTrainedModel
+ */
 class RobertaForMaskedLM extends RobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new MaskedLMOutput(logits)
     }
 }
+
+/**
+ * RobertaForSequenceClassification class for performing sequence classification on Roberta models.
+ * @extends RobertaPreTrainedModel
+ */
 class RobertaForSequenceClassification extends RobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - returned object
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
+
+/**
+ * RobertaForQuestionAnswering class for performing question answering on Roberta models.
+ * @extends RobertaPreTrainedModel
+ */
 class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} - returned object
+     */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
@@ -2755,7 +3697,17 @@ class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
 // T5 models
 class WhisperPreTrainedModel extends PreTrainedModel { };
 
+/**
+ * WhisperModel class for training Whisper models without a language model head.
+ * @extends WhisperPreTrainedModel
+ */
 class WhisperModel extends WhisperPreTrainedModel {
+    /**
+     * Throws an error when attempting to generate output since this model doesn't have a language model head.
+     * @throws Error
+     * @returns {Promise<any>}
+     * @param {any[]} args
+     */
     async generate(...args) {
         throw Error(
             "The current model class (WhisperModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'WhisperForConditionalGeneration'}"
@@ -2763,7 +3715,18 @@ class WhisperModel extends WhisperPreTrainedModel {
     }
 }
 
+/**
+ * WhisperForConditionalGeneration class for generating conditional outputs from Whisper models.
+ * @extends WhisperPreTrainedModel
+ */
 class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
+    /**
+     * Creates a new instance of the `WhisperForConditionalGeneration` class.
+     * @param {Object} config - Configuration object for the model.
+     * @param {Object} session - ONNX Session object for the model.
+     * @param {Object} decoder_merged_session - ONNX Session object for the decoder.
+     * @param {Object} generation_config - Configuration object for the generation process.
+     */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
         this.decoder_merged_session = decoder_merged_session;
@@ -2780,6 +3743,13 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
     }
 
+    /**
+     * Generates outputs based on input and generation configuration.
+     * @param {Object} inputs - Input data for the model.
+     * @param {Object} generation_config - Configuration object for the generation process.
+     * @param {Object} logits_processor - Optional logits processor object.
+     * @returns {Promise<Object>} Promise object represents the generated outputs.
+     */
     async generate(
         inputs,
         generation_config = null,
@@ -2798,35 +3768,57 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             logits_processor = [new WhisperTimeStampLogitsProcessor(generation_config)]
         }
 
-
-
-        // Modify forced_decoder_ids_mapping. This is the way HF also does it,
-        // but it would probably be best to not modify the class' mapping, and
-        // rather create a copy?
-
-
         return super.generate(inputs, generation_config, logits_processor)
     }
 
+    /**
+     * Loads a pre-trained model from a saved model directory.
+     * @param {string} modelPath - Path to the saved model directory.
+     * @param {function} progressCallback - Optional function for tracking loading progress.
+     * @returns {Promise<WhisperForConditionalGeneration>} Promise object represents the loaded model.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
         let info = await seq2seqLoadModel(modelPath, progressCallback);
         return new this(...info);
     }
 
+    /**
+     * Gets the start beams for generating outputs.
+     * @param {Array} inputTokenIds - Array of input token IDs.
+     * @param {number} numOutputTokens - Number of output tokens to generate.
+     * @returns {Array} Array of start beams.
+     */
     getStartBeams(inputTokenIds, numOutputTokens, ...args) {
         // arguments ignored in this case
         return seq2seqStartBeams(this, inputTokenIds, numOutputTokens, false);
     }
 
+    /**
+     * Runs a beam for generating outputs.
+     * @param {Object} beam - Beam object.
+     * @returns {Promise<Object>} Promise object represents the generated outputs for the beam.
+     */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam, {
             input_name: 'input_features',
         });
     }
+
+    /**
+     * Updates the beam by appending the newly generated token ID to the list of output token IDs.
+     * @param {any} beam - The current beam being generated.
+     * @param {number} newTokenId - The ID of the newly generated token to append to the list of output token IDs.
+     */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     }
 
+    /**
+     * Runs the forward pass of the model for a given set of inputs.
+     * @async
+     * @param {Object} model_inputs - The model inputs.
+     * @returns {Promise<Object>} The model output.
+     */
     async forward(model_inputs) {
         return await seq2seq_forward(this, model_inputs, {
             encoder_input_name: 'input_features',
@@ -2836,7 +3828,17 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+/**
+ * Vision Encoder-Decoder model based on OpenAI's GPT architecture for image captioning and other vision tasks
+ * @extends PreTrainedModel
+ */
 class VisionEncoderDecoderModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `VisionEncoderDecoderModel` class.
+     * @param {object} config - The configuration object specifying the hyperparameters and other model settings.
+     * @param {object} session - The ONNX session containing the encoder model.
+     * @param {any} decoder_merged_session - The ONNX session containing the merged decoder model.
+     */
     constructor(config, session, decoder_merged_session) {
         super(config, session);
         this.decoder_merged_session = decoder_merged_session;
@@ -2846,6 +3848,13 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
         this.dim_kv = this.config.decoder.n_embd / this.num_heads;
     }
 
+    /**
+     * Loads a VisionEncoderDecoderModel from the given path.
+     *
+     * @param {string} modelPath - The path to the folder containing the saved model files.
+     * @param {function} [progressCallback=null] - Optional callback function to track the progress of model loading.
+     * @returns {Promise<VisionEncoderDecoderModel>} A Promise that resolves with the loaded VisionEncoderDecoderModel instance.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session, decoder_merged_session] = await Promise.all([
@@ -2863,19 +3872,46 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
         return new this(config, session, decoder_merged_session);
     }
 
+    /**
+     * Generate beam search outputs for the given input pixels and number of output tokens.
+     *
+     * @param {array} inputs - The input pixels as a Tensor.
+     * @param {number} numOutputTokens - The number of output tokens to generate.
+     * @param {...*} args - Optional additional arguments to pass to seq2seqStartBeams.
+     * @returns {any} An array of Beam objects representing the top-K output sequences.
+     */
     getStartBeams(inputs, numOutputTokens, ...args) {
         return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
+
+    /**
+     * Generate the next beam step for the given beam.
+     *
+     * @param {any} beam - The current beam.
+     * @returns {Promise<any>} The updated beam with the additional predicted token ID.
+     */
     async runBeam(beam) {
         return seq2seqRunBeam(this, beam, {
             input_name: 'pixel_values',
         });
     }
 
+    /**
+     * Update the given beam with the additional predicted token ID.
+     *
+     * @param {any} beam - The current beam.
+     * @param {number} newTokenId - The new predicted token ID to add to the beam's output sequence.
+     */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     }
 
+    /**
+     * Compute the forward pass of the model on the given input tensors.
+     *
+     * @param {object} model_inputs - The input tensors as an object with keys 'pixel_values' and 'decoder_input_ids'.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
     async forward(model_inputs) {
         return await seq2seq_forward(this, model_inputs, {
             encoder_input_name: 'pixel_values',
@@ -2897,7 +3933,17 @@ class CLIPModel extends CLIPPreTrainedModel {
 //////////////////////////////////////////////////
 // GPT2 models
 class GPT2PreTrainedModel extends PreTrainedModel { }
+/**
+ * GPT2Model is not compatible with `.generate()`, as it doesn't have a language model head.
+ * @extends GPT2PreTrainedModel
+ */
 class GPT2Model extends GPT2PreTrainedModel {
+    /**
+     * 
+     * @param  {...any} args 
+     * @throws {Error}
+     * @returns {Promise<any>}
+     */
     async generate(...args) {
         throw Error(
             "The current model class (GPT2Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPT2LMHeadModel'}"
@@ -2905,7 +3951,16 @@ class GPT2Model extends GPT2PreTrainedModel {
     }
 }
 
+/**
+ * GPT-2 language model head on top of the GPT-2 base model. This model is suitable for text generation tasks.
+ * @extends GPT2PreTrainedModel
+ */
 class GPT2LMHeadModel extends GPT2PreTrainedModel {
+    /**
+     * Creates a new instance of the `GPT2LMHeadModel` class.
+     * @param {object} config - The configuration of the model.
+     * @param {any} session - The ONNX session containing the model weights.
+     */
     constructor(config, session) {
         super(config, session);
 
@@ -2917,19 +3972,40 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
         this.dim_kv = this.config.n_embd / this.num_heads;
     }
 
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds - The input token ids.
+     * @param {number} numOutputTokens - The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask - Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
         return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
     }
 
-
+    /**
+     * Runs beam search for text generation given a beam.
+     * @param {any} beam - The Beam object representing the beam.
+     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
     }
 
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam - The Beam object representing the beam.
+     * @param {number} newTokenId - The new generated token id to be added to the beam.
+     */
     updateBeam(beam, newTokenId) {
         return textgenUpdatebeam(beam, newTokenId);
     }
 
+    /**
+     * Forward pass for the model.
+     * @param {object} model_inputs - The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
     async forward(model_inputs) {
         return await textgen_forward(this, model_inputs)
     }
@@ -2941,6 +4017,12 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
 //////////////////////////////////////////////////
 class GPTNeoPreTrainedModel extends PreTrainedModel { }
 class GPTNeoModel extends GPTNeoPreTrainedModel {
+    /**
+     * 
+     * @param  {...any} args 
+     * @throws {Error}
+     * @returns {Promise<any>}
+     */
     async generate(...args) {
         throw Error(
             "The current model class (GPTNeoModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPTNeoForCausalLM'}"
@@ -2949,6 +4031,11 @@ class GPTNeoModel extends GPTNeoPreTrainedModel {
 }
 
 class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
+    /**
+     * Creates a new instance of the `GPTNeoForCausalLM` class.
+     * @param {object} config - The configuration of the model.
+     * @param {any} session - The ONNX session containing the model weights.
+     */
     constructor(config, session) {
         super(config, session);
 
@@ -2960,18 +4047,40 @@ class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
         this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds - The input token ids.
+     * @param {number} numOutputTokens - The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask - Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
         return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
     }
 
+    /**
+     * Runs beam search for text generation given a beam.
+     * @param {any} beam - The Beam object representing the beam.
+     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
     }
 
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam - The Beam object representing the beam.
+     * @param {number} newTokenId - The new generated token id to be added to the beam.
+     */
     updateBeam(beam, newTokenId) {
         return textgenUpdatebeam(beam, newTokenId);
     }
 
+    /**
+     * Forward pass for the model.
+     * @param {object} model_inputs - The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
     async forward(model_inputs) {
         return await textgen_forward(this, model_inputs)
     }
@@ -2980,7 +4089,21 @@ class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 //////////////////////////////////////////////////
 // CodeGen models
 class CodeGenPreTrainedModel extends PreTrainedModel { }
+/**
+ * CodeGenModel is a class representing a code generation model without a language model head.
+ * 
+ * @extends CodeGenPreTrainedModel
+ */
 class CodeGenModel extends CodeGenPreTrainedModel {
+    /**
+     * Throws an error indicating that the current model class is not compatible with `.generate()`,
+     * as it doesn't have a language model head.
+     * 
+     * @throws {Error} The current model class is not compatible with `.generate()`
+     * 
+     * @param  {...any} args - Arguments passed to the generate function
+     * @returns {Promise<any>}
+     */
     async generate(...args) {
         throw Error(
             "The current model class (CodeGenModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'CodeGenForCausalLM'}"
@@ -2988,7 +4111,16 @@ class CodeGenModel extends CodeGenPreTrainedModel {
     }
 }
 
+/**
+ * CodeGenForCausalLM is a class that represents a code generation model based on the GPT-2 architecture. It extends the `CodeGenPreTrainedModel` class.
+ * @extends CodeGenPreTrainedModel
+ */
 class CodeGenForCausalLM extends CodeGenPreTrainedModel {
+    /**
+     * Creates a new instance of the `CodeGenForCausalLM` class.
+    * @param {object} config The model configuration object.
+    * @param {object} session The ONNX session object.
+    */
     constructor(config, session) {
         super(config, session);
 
@@ -3000,18 +4132,40 @@ class CodeGenForCausalLM extends CodeGenPreTrainedModel {
         this.dim_kv = this.config.n_embd / this.num_heads;
     }
 
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds - The input token ids.
+     * @param {number} numOutputTokens - The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask - Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
         return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
     }
 
+    /**
+     * Runs beam search for text generation given a beam.
+     * @param {any} beam - The Beam object representing the beam.
+     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
     }
 
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam - The Beam object representing the beam.
+     * @param {number} newTokenId - The new generated token id to be added to the beam.
+     */
     updateBeam(beam, newTokenId) {
         return textgenUpdatebeam(beam, newTokenId);
     }
 
+    /**
+     * Forward pass for the model.
+     * @param {object} model_inputs - The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
     async forward(model_inputs) {
         return await textgen_forward(this, model_inputs)
     }
@@ -3022,6 +4176,9 @@ class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 //////////////////////////////////////////////////
 class ViTPreTrainedModel extends PreTrainedModel { }
 class ViTForImageClassification extends ViTPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
@@ -3032,6 +4189,9 @@ class ViTForImageClassification extends ViTPreTrainedModel {
 //////////////////////////////////////////////////
 class DetrPreTrainedModel extends PreTrainedModel { }
 class DetrForObjectDetection extends DetrPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
     async _call(model_inputs) {
         let output = (await super._call(model_inputs));
         return new DetrObjectDetectionOutput(output.logits, output.pred_boxes)
@@ -3039,6 +4199,10 @@ class DetrForObjectDetection extends DetrPreTrainedModel {
 }
 
 class DetrObjectDetectionOutput extends ModelOutput {
+    /**
+     * @param {any} logits
+     * @param {any} pred_boxes
+     */
     constructor(logits, pred_boxes) {
         super();
         this.logits = logits;
@@ -3047,9 +4211,99 @@ class DetrObjectDetectionOutput extends ModelOutput {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// MarianMT models
+class MarianPreTrainedModel extends PreTrainedModel { };
+
+class MarianModel extends MarianPreTrainedModel {
+    /**
+     * 
+     * @param  {...any} args 
+     * @throws {Error}
+     * @returns {Promise<any>}
+     */
+    async generate(...args) {
+        throw Error(
+            "The current model class (T5Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'T5ForConditionalGeneration'}"
+        )
+    }
+}
+
+class MarianMTModel extends MarianPreTrainedModel {
+    /**
+     * Creates a new instance of the `MarianMTModel` class.
+    * @param {object} config The model configuration object.
+    * @param {object} session The ONNX session object.
+    * @param {any} decoder_merged_session 
+    * @param {any} generation_config 
+    */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+    }
+
+    /**
+     * @param {string} modelPath
+     */
+    static async from_pretrained(modelPath, progressCallback = null) {
+        let info = await seq2seqLoadModel(modelPath, progressCallback);
+        return new this(...info);
+    }
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {any[]} inputs - The input token ids.
+     * @param {number} numOutputTokens - The number of tokens to be generated.
+     * @returns {any} A Beam object representing the initialized beam.
+     * @param {any[]} args
+     */
+    getStartBeams(inputs, numOutputTokens, ...args) {
+        return seq2seqStartBeams(this, inputs, numOutputTokens);
+    }
+
+    /**
+     * @param {any} beam
+     * @returns {Promise<any>}
+     */
+    async runBeam(beam) {
+        return await seq2seqRunBeam(this, beam);
+    }
+
+    /**
+     * @param {any} beam
+     * @param {any} newTokenId
+     */
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
+    /**
+     * @param {any} model_inputs
+     * @returns {Promise<Seq2SeqLMOutput>}
+     */
+    async forward(model_inputs) {
+        return await seq2seq_forward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
+/**
+ * Helper class to determine model type from config
+ */
 class AutoModel {
     // Helper class to determine model type from config
     static MODEL_CLASS_MAPPING = {
@@ -3057,6 +4311,8 @@ class AutoModel {
         'albert': AlbertModel,
         'distilbert': DistilBertModel,
         't5': T5Model,
+        'mt5': MT5Model,
+        'gpt2': GPT2Model,
         'gpt_neo': GPTNeoModel,
         'codegen': CodeGenModel,
         'bart': BartModel,
@@ -3065,7 +4321,15 @@ class AutoModel {
         'clip': CLIPModel,
         'mobilebert': MobileBertModel,
         'squeezebert': SqueezeBertModel,
+        'marian': MarianModel,
     }
+
+    /**
+     * Instantiates a pre-trained model based on the given model path and config.
+     * @param {string} modelPath - The path to the pre-trained model.
+     * @param {function} progressCallback - Optional. A callback function that can be used to track loading progress.
+     * @returns {Promise<PreTrainedModel>} - A promise that resolves to an instance of a pre-trained model.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let config = await fetchJSON(modelPath, 'config.json', progressCallback);
@@ -3088,6 +4352,9 @@ class AutoModel {
     }
 }
 
+/**
+ * Helper class for loading sequence classification models from pretrained checkpoints
+ */
 class AutoModelForSequenceClassification {
 
     static MODEL_CLASS_MAPPING = {
@@ -3100,6 +4367,13 @@ class AutoModelForSequenceClassification {
         'squeezebert': SqueezeBertForSequenceClassification,
     }
 
+    /**
+     * Load a sequence classification model from a pretrained checkpoint
+     * @param {string} modelPath - The path to the model checkpoint directory
+     * @param {function} [progressCallback=null] - An optional callback function to receive progress updates
+     * @returns {Promise<PreTrainedModel>} A promise that resolves to a pre-trained sequence classification model
+     * @throws {Error} if an unsupported model type is encountered
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -3121,13 +4395,26 @@ class AutoModelForSequenceClassification {
     }
 }
 
+/**
+ * Class representing an automatic sequence-to-sequence language model.
+ */
 class AutoModelForSeq2SeqLM {
     static MODEL_CLASS_MAPPING = {
         't5': T5ForConditionalGeneration,
         'mt5': MT5ForConditionalGeneration,
         'bart': BartForConditionalGeneration,
         'whisper': WhisperForConditionalGeneration,
+        'marian': MarianMTModel,
     }
+
+    /**
+     * Loads a pretrained sequence-to-sequence language model from a file path.
+     * @param {string} modelPath - The path to the model files.
+     * @param {function} [progressCallback=null] - A callback function to track loading progress.
+     * @returns {Promise<Object>} A Promise that resolves to an instance of the appropriate model class.
+     * @throws {Error} If the model type is unsupported.
+     * @static
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
         let info = await seq2seqLoadModel(modelPath, progressCallback);
         let config = info[0];
@@ -3139,12 +4426,23 @@ class AutoModelForSeq2SeqLM {
     }
 }
 
+/**
+ * A class for loading pre-trained models for causal language modeling tasks.
+ */
 class AutoModelForCausalLM {
     static MODEL_CLASS_MAPPING = {
         'gpt2': GPT2LMHeadModel,
         'gpt_neo': GPTNeoForCausalLM,
         'codegen': CodeGenForCausalLM,
     }
+
+    /**
+     * Loads a pre-trained model from the given path and returns an instance of the appropriate class.
+     * @param {string} modelPath - The path to the pre-trained model.
+     * @param {function} [progressCallback=null] - An optional callback function to track the progress of the loading process.
+     * @returns {Promise<GPT2LMHeadModel|CodeGenForCausalLM>} An instance of the appropriate class for the loaded model.
+     * @throws {Error} If the loaded model type is not supported.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -3167,6 +4465,9 @@ class AutoModelForCausalLM {
     }
 }
 
+/**
+ * A class to automatically select the appropriate model for Masked Language Modeling (MLM) tasks.
+ */
 class AutoModelForMaskedLM {
     static MODEL_CLASS_MAPPING = {
         'bert': BertForMaskedLM,
@@ -3176,6 +4477,16 @@ class AutoModelForMaskedLM {
         'mobilebert': MobileBertForMaskedLM,
         'squeezebert': SqueezeBertForMaskedLM,
     }
+
+    /**
+     * Loads a pre-trained model from a given directory and returns an instance of the appropriate model class.
+     *
+     * @async
+     * @param {string} modelPath - The path to the pre-trained model directory.
+     * @param {function} [progressCallback=null] - An optional callback function to track the loading progress.
+     * @returns {Promise<PreTrainedModel>} An instance of the appropriate model class for MLM tasks.
+     * @throws {Error} If an unsupported model type is encountered.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let config = await fetchJSON(modelPath, 'config.json', progressCallback);
@@ -3197,6 +4508,9 @@ class AutoModelForMaskedLM {
     }
 }
 
+/**
+ * Automatic model class for question answering tasks.
+ */
 class AutoModelForQuestionAnswering {
     static MODEL_CLASS_MAPPING = {
         'bert': BertForQuestionAnswering,
@@ -3206,6 +4520,14 @@ class AutoModelForQuestionAnswering {
         'mobilebert': MobileBertForQuestionAnswering,
         'squeezebert': SqueezeBertForQuestionAnswering,
     }
+
+    /**
+     * Loads and returns a question answering model from a pretrained model path.
+     * @param {string} modelPath - The path to the pretrained model.
+     * @param {function} [progressCallback=null] - Optional callback function to track loading progress.
+     * @returns {Promise<PreTrainedModel>} - The loaded question answering model.
+     * @throws Will throw an error if an unsupported model type is encountered.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -3227,10 +4549,20 @@ class AutoModelForQuestionAnswering {
     }
 }
 
+/**
+ * Class representing an autoencoder-decoder model for vision-to-sequence tasks.
+ */
 class AutoModelForVision2Seq {
     static MODEL_CLASS_MAPPING = {
         'vision-encoder-decoder': VisionEncoderDecoderModel
     }
+
+    /**
+     * Loads a pretrained model from a given path.
+     * @param {string} modelPath - The path to the pretrained model.
+     * @param {function} progressCallback - Optional callback function to track progress of the model loading.
+     * @returns {Promise<VisionEncoderDecoderModel>} - A Promise that resolves to a new instance of VisionEncoderDecoderModel.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session, decoder_merged_session] = await Promise.all([
@@ -3254,10 +4586,21 @@ class AutoModelForVision2Seq {
     }
 }
 
+/**
+ * AutoModelForImageClassification is a class for loading pre-trained image classification models from ONNX format.
+ */
 class AutoModelForImageClassification {
     static MODEL_CLASS_MAPPING = {
         'vit': ViTForImageClassification,
     }
+
+    /**
+     * Loads a pre-trained image classification model from a given directory path.
+     * @param {string} modelPath - The path to the directory containing the pre-trained model.
+     * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
+     * @returns {Promise<ViTForImageClassification>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @throws {Error} If the specified model type is not supported.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -3285,6 +4628,14 @@ class AutoModelForObjectDetection {
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForObjectDetection,
     }
+
+    /**
+     * Loads a pre-trained image classification model from a given directory path.
+     * @param {string} modelPath - The path to the directory containing the pre-trained model.
+     * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
+     * @returns {Promise<any>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @throws {Error} If the specified model type is not supported.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let [config, session] = await Promise.all([
@@ -3309,6 +4660,11 @@ class AutoModelForObjectDetection {
 
 //////////////////////////////////////////////////
 class Seq2SeqLMOutput extends ModelOutput {
+    /**
+     * @param {Tensor} logits - The output logits of the model.
+     * @param {Array} past_key_values - An array of key/value pairs that represent the previous state of the model.
+     * @param {Tensor} encoder_outputs - The output of the encoder in a sequence-to-sequence model.
+     */
     constructor(logits, past_key_values, encoder_outputs) {
         super();
         this.logits = logits;
@@ -3318,6 +4674,9 @@ class Seq2SeqLMOutput extends ModelOutput {
 }
 
 class SequenceClassifierOutput extends ModelOutput {
+    /**
+     * @param {Tensor} logits 
+     */
     constructor(logits) {
         super();
         this.logits = logits;
@@ -3325,6 +4684,9 @@ class SequenceClassifierOutput extends ModelOutput {
 }
 
 class MaskedLMOutput extends ModelOutput {
+    /**
+     * @param {Tensor} logits 
+     */
     constructor(logits) {
         super();
         this.logits = logits;
@@ -3332,6 +4694,10 @@ class MaskedLMOutput extends ModelOutput {
 }
 
 class QuestionAnsweringModelOutput extends ModelOutput {
+    /**
+     * @param {Float32Array} start_logits - The logits for start positions of the answer.
+     * @param {Float32Array} end_logits - The logits for end positions of the answer.
+     */
     constructor(start_logits, end_logits) {
         super();
         this.start_logits = start_logits;
@@ -3395,9 +4761,14 @@ const {
 } = __webpack_require__(/*! ./env.js */ "./src/env.js");
 
 const { Tensor } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js");
-
 const { loadImage } = __webpack_require__(/*! ./image_utils.js */ "./src/image_utils.js");
 
+/**
+ * Prepare images for further tasks.
+ * @param {any[]} images - images to prepare.
+ * @returns {Promise<any[]>} - returns processed images.
+ * @async
+ */
 async function prepareImages(images) {
     if (!Array.isArray(images)) {
         images = [images];
@@ -3409,7 +4780,17 @@ async function prepareImages(images) {
     return images;
 }
 
+/**
+ * Pipeline class for executing a natural language processing task.
+ * @extends Callable
+ */
 class Pipeline extends Callable {
+    /**
+     * Creates a new instance of Pipeline.
+     * @param {string} task - The natural language processing task to be performed.
+     * @param {object} tokenizer - The tokenizer object to be used for tokenizing input texts.
+     * @param {object} model - The model object to be used for processing input texts.
+     */
     constructor(task, tokenizer, model) {
         super();
         this.task = task;
@@ -3417,10 +4798,19 @@ class Pipeline extends Callable {
         this.model = model;
     }
 
+    /**
+     * Disposes the model.
+     * @returns {Promise<void>} - A promise that resolves when the model has been disposed.
+     */
     async dispose() {
         return await this.model.dispose();
     }
 
+    /**
+     * Executes the natural language processing task.
+     * @param {any} texts - The input texts to be processed.
+     * @returns {Promise<any>} - A promise that resolves to an array containing the inputs and outputs of the task.
+     */
     async _call(texts) {
         // Run tokenization
         let inputs = this.tokenizer(texts, {
@@ -3435,7 +4825,18 @@ class Pipeline extends Callable {
     }
 }
 
+/**
+ * TextClassificationPipeline class for executing a text classification task.
+ * @extends Pipeline
+ */
 class TextClassificationPipeline extends Pipeline {
+    /**
+     * Executes the text classification task.
+     * @param {any} texts - The input texts to be classified.
+     * @param {object} options - An optional object containing the following properties:
+     * @param {number} [options.topk=1] - The number of top predictions to be returned.
+     * @returns {Promise<object[]|object>} - A promise that resolves to an array or object containing the predicted labels and scores.
+     */
     async _call(texts, {
         topk = 1
     } = {}) {
@@ -3464,12 +4865,23 @@ class TextClassificationPipeline extends Pipeline {
     }
 }
 
+/**
+ * QuestionAnsweringPipeline class for executing a question answering task.
+ * @extends Pipeline
+ */
 class QuestionAnsweringPipeline extends Pipeline {
-    async _call(question, context,
-        {
-            topk = 1
-        } = {}
-    ) {
+    /**
+     * Executes the question answering task.
+     * @param {string|string[]} question - The question(s) to be answered.
+     * @param {string|string[]} context - The context(s) where the answer(s) can be found.
+     * @param {object} options - An optional object containing the following properties:
+     * @param {number} [options.topk=1] - The number of top answer predictions to be returned.
+     * @todo fix error below
+     * @returns {Promise<any>} - A promise that resolves to an array or object containing the predicted answers and scores.
+     */
+    async _call(question, context, {
+        topk = 1
+    } = {}) {
 
         let inputs = this.tokenizer(question, {
             text_pair: context
@@ -3517,7 +4929,14 @@ class QuestionAnsweringPipeline extends Pipeline {
     }
 }
 
+/**
+ * Class representing a fill-mask pipeline for natural language processing.
+ * @extends Pipeline
+ */
 class FillMaskPipeline extends Pipeline {
+    /**
+     * @param {any} texts
+     */
     async _call(texts, {
         topk = 5
     } = {}) {
@@ -3563,9 +4982,24 @@ class FillMaskPipeline extends Pipeline {
     }
 }
 
+/**
+ * Text2TextGenerationPipeline class for generating text using a model that performs text-to-text generation tasks.
+ * @extends Pipeline
+ */
 class Text2TextGenerationPipeline extends Pipeline {
     _key = null;
 
+    /**
+     * Fill the masked token in the text(s) given as inputs.
+     * @async
+     * @param {string|string[]} texts - The text or array of texts to be processed.
+     * @param {Object} [options={}] - Options for the fill-mask pipeline.
+     * @param {number} [options.topk=5] - The number of top-k predictions to return.
+     * @returns {Promise<any>} An array of objects containing the score, predicted token, predicted token string,
+     * and the sequence with the predicted token filled in, or an array of such arrays (one for each input text).
+     * If only one input text is given, the output will be an array of objects.
+     * @throws {Error} When the mask token is not found in the input text.
+     */
     async _call(texts, generate_kwargs = {}) {
         if (!Array.isArray(texts)) {
             texts = [texts];
@@ -3594,6 +5028,9 @@ class Text2TextGenerationPipeline extends Pipeline {
 
         let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
 
+        /**
+         * @type {any[]}
+         */
         let toReturn = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
@@ -3606,15 +5043,35 @@ class Text2TextGenerationPipeline extends Pipeline {
     }
 }
 
+
+/**
+ * A pipeline for summarization tasks, inheriting from Text2TextGenerationPipeline.
+ * @extends Text2TextGenerationPipeline
+ */
 class SummarizationPipeline extends Text2TextGenerationPipeline {
     _key = 'summary_text';
 }
 
+/**
+ * TranslationPipeline class to translate text from one language to another using the provided model and tokenizer.
+ * @extends Text2TextGenerationPipeline
+ */
 class TranslationPipeline extends Text2TextGenerationPipeline {
     _key = 'translation_text';
 }
 
+/**
+ * A pipeline for generating text based on an input prompt.
+ * @extends Pipeline
+ */
 class TextGenerationPipeline extends Pipeline {
+    /**
+     * Generates text based on an input prompt.
+     * @async
+     * @param {any} texts - The input prompt or prompts to generate text from.
+     * @param {object} [generate_kwargs={}] - Additional arguments for text generation.
+     * @returns {Promise<any>} - The generated text or texts.
+     */
     async _call(texts, generate_kwargs = {}) {
         let stringInput = typeof texts === 'string' || texts instanceof String;
         if (stringInput) {
@@ -3630,6 +5087,9 @@ class TextGenerationPipeline extends Pipeline {
         let input_ids = inputs.input_ids;
         let attention_mask = inputs.attention_mask;
 
+        /**
+         * @type {any[]}
+         */
         let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, null, {
             inputs_attention_mask: attention_mask
         });
@@ -3651,8 +5111,17 @@ class TextGenerationPipeline extends Pipeline {
     }
 }
 
+/**
+ * Class representing an Zero Shot Classification Pipeline that should only be used with zero shot classification tasks.
+ * @extends Pipeline
+ */
 class ZeroShotClassificationPipeline extends Pipeline {
 
+    /**
+     * @param {string} task
+     * @param {any} tokenizer
+     * @param {any} model
+     */
     constructor(task, tokenizer, model) {
         super(task, tokenizer, model);
 
@@ -3675,6 +5144,12 @@ class ZeroShotClassificationPipeline extends Pipeline {
             this.contradiction_id = 0;
         }
     }
+    /**
+     * @param {any[]} texts
+     * @param {string[]} candidate_labels
+     * @todo fix error below
+     * @return {Promise<*>}
+     */
     async _call(texts, candidate_labels, {
         hypothesis_template = "This example is {}.",
         multi_label = false,
@@ -3744,11 +5219,22 @@ class ZeroShotClassificationPipeline extends Pipeline {
 }
 
 
+/**
+ * Class representing an Embeddings Pipeline that should only be used with sentence-transformers.
+ * If you want to get the raw outputs from the model, use `AutoModel.from_pretrained(...)`.
+ * @extends Pipeline
+ */
 class EmbeddingsPipeline extends Pipeline {
     // Should only be used with sentence-transformers
     // If you want to get the raw outputs from the model,
     // use `AutoModel.from_pretrained(...)`
-
+    /**
+     * Private method to perform mean pooling of the last hidden state followed by a normalization step.
+     * @param {Tensor} last_hidden_state - Tensor of shape [batchSize, seqLength, embedDim]
+     * @param {Tensor} attention_mask - Tensor of shape [batchSize, seqLength]
+     * @returns {Tensor} Returns a new Tensor of shape [batchSize, embedDim].
+     * @private
+     */
     _mean_pooling(last_hidden_state, attention_mask) {
         // last_hidden_state: [batchSize, seqLength, embedDim]
         // attention_mask:    [batchSize, seqLength]
@@ -3788,10 +5274,14 @@ class EmbeddingsPipeline extends Pipeline {
         )
     }
 
+    /**
+     * Private method to normalize the input tensor along dim=1. 
+     * NOTE: only works for tensors of shape [batchSize, embedDim]. Operates in-place.
+     * @param {any} tensor - Tensor of shape [batchSize, embedDim]
+     * @returns {any} Returns the same Tensor object after performing normalization.
+     * @private
+     */
     _normalize(tensor) {
-        // Normalise tensors along dim=1
-        // NOTE: only works for tensors of shape [batchSize, embedDim]
-        // Operates in-place
         for (let batch of tensor) {
             let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b))
 
@@ -3802,6 +5292,11 @@ class EmbeddingsPipeline extends Pipeline {
         return tensor;
     }
 
+    /**
+     * Method to perform mean pooling and normalization of the input texts.
+     * @param {string[]} texts - An array of texts to embed.
+     * @returns {Promise<Tensor>} Returns a new Tensor of shape [batchSize, embedDim].
+     */
     async _call(texts) {
         let [inputs, outputs] = await super._call(texts);
 
@@ -3809,6 +5304,10 @@ class EmbeddingsPipeline extends Pipeline {
         return this._normalize(this._mean_pooling(outputs.last_hidden_state, inputs.attention_mask));
     }
 
+    /**
+     * @param {number[]} arr1
+     * @param {number[]} arr2
+     */
     cos_sim(arr1, arr2, is_normalised = false) {
         // Compute cosine similarity. If `is_normalised`, then
         // use the dot product instead of the cosine similarity
@@ -3816,13 +5315,31 @@ class EmbeddingsPipeline extends Pipeline {
     }
 }
 
+/**
+ * A class representing an automatic speech recognition pipeline.
+ * @extends Pipeline
+ */
 class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
+    /**
+     * Creates an instance of AutomaticSpeechRecognitionPipeline.
+     * @param {string} task - The type of the task for this pipeline. Currently only "asr" is supported.
+     * @param {object} tokenizer - The tokenizer to be used for pre-processing inputs.
+     * @param {object} model - The model to be used for the task.
+     * @param {object} processor - The processor to be used for pre-processing audio inputs.
+     */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
         this.processor = processor;
     }
 
+    /**
+     * Preprocesses the input audio for the AutomaticSpeechRecognitionPipeline.
+     * @param {any} audio - The audio to be preprocessed.
+     * @param {number} sampling_rate - The sampling rate of the audio.
+     * @returns {Promise<string | ArrayBuffer>} - A promise that resolves to the preprocessed audio data.
+     * @private
+     */
     async _preprocess(audio, sampling_rate) {
         if (isString(audio)) {
             // Attempting to load from path
@@ -3870,6 +5387,17 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         return audio;
     }
 
+    /**
+     * Asynchronously processes audio and generates text transcription using the model.
+     * @param {Array} audio - The audio to be transcribed. Can be a single Float32Array or an array of Float32Arrays.
+     * @param {Object} [kwargs={}] - Optional arguments.
+     * @param {boolean} [kwargs.return_timestamps] - Whether to return timestamps or not. Default is false.
+     * @param {number} [kwargs.chunk_length_s] - The length of audio chunks to process in seconds. Default is 0 (no chunking).
+     * @param {number} [kwargs.stride_length_s] - The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to chunk_length_s / 6.
+     * @param {function} [kwargs.chunk_callback] - Callback function to be called with each chunk processed.
+     * @param {boolean} [kwargs.force_full_sequences] - Whether to force outputting full sequences or not. Default is false.
+     * @returns {Promise<Object>} A Promise that resolves to an object containing the transcription text and optionally timestamps if return_timestamps is true.
+     */
     async _call(audio, kwargs = {}) {
         let return_timestamps = kwargs.return_timestamps ?? false;
         let chunk_length_s = kwargs.chunk_length_s ?? 0;
@@ -3893,6 +5421,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
         for (let aud of audio) {
             aud = await this._preprocess(aud, sampling_rate)
 
+            /** @type {any[]} */
             let chunks = [];
             if (chunk_length_s > 0) {
                 if (stride_length_s === null) {
@@ -3936,13 +5465,10 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 }]
             }
 
-
-
             // Generate for each set of input features
             for (let chunk of chunks) {
                 // NOTE: doing sequentially for now
                 let data = await this.model.generate(chunk.input_features, kwargs);
-
 
                 // Get top beam
                 chunk.tokens = data[0].flat()
@@ -3968,13 +5494,26 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
     }
 }
 
-
+/**
+ * A pipeline for performing image-to-text tasks.
+ * @extends Pipeline
+ */
 class ImageToTextPipeline extends Pipeline {
+    /**
+     * Create an instance of ImageToTextPipeline.
+     * @param {string} task - The task name.
+     * @param {object} tokenizer - The tokenizer to use.
+     * @param {object} model - The generator model to use.
+     * @param {object} processor - The image processor to use.
+     */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
         this.processor = processor;
     }
 
+    /**
+     * @param {any[]} images
+     */
     async _call(images, generate_kwargs = {}) {
         let isBatched = Array.isArray(images);
 
@@ -3998,12 +5537,30 @@ class ImageToTextPipeline extends Pipeline {
     }
 }
 
+/**
+ * A class representing an image classification pipeline.
+ * @extends Pipeline
+ */
 class ImageClassificationPipeline extends Pipeline {
+    /**
+     * Create a new ImageClassificationPipeline.
+     * @param {string} task - The task of the pipeline.
+     * @param {Object} model - The model to use for classification.
+     * @param {Function} processor - The function to preprocess images.
+     */
     constructor(task, model, processor) {
         super(task, null, model); // TODO tokenizer
         this.processor = processor;
     }
 
+    /**
+     * Classify the given images.
+     * @async
+     * @param {any} images - The images to classify.
+     * @param {Object} options - The options to use for classification.
+     * @param {number} [options.topk=1] - The number of top results to return.
+     * @returns {Promise<any>} - The top classification results for the images.
+     */
     async _call(images, {
         topk = 1
     } = {}) {
@@ -4036,12 +5593,33 @@ class ImageClassificationPipeline extends Pipeline {
 
 }
 
+/**
+ * Class representing a zero-shot image classification pipeline.
+ * @extends Pipeline
+ */
 class ZeroShotImageClassificationPipeline extends Pipeline {
 
+    /**
+     * Create a zero-shot image classification pipeline.
+     * @param {string} task - The task of the pipeline.
+     * @param {Object} tokenizer - The tokenizer to use.
+     * @param {Object} model - The model to use.
+     * @param {Function} processor - The image processing function.
+     */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
         this.processor = processor;
     }
+
+    /**
+     * Classify the input images with candidate labels using a zero-shot approach.
+     * @param {Array} images - The input images.
+     * @param {Array} candidate_labels - The candidate labels.
+     * @param {Object} options - The options for the classification.
+     * @param {string} [options.hypothesis_template] - The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
+     * @todo fix error below
+     * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
+     */
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
@@ -4082,11 +5660,19 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
 
 
 class ObjectDetectionPipeline extends Pipeline {
+    /**
+     * @param {string} task
+     * @param {any} model
+     * @param {any} processor
+     */
     constructor(task, model, processor) {
         super(task, null, model); // TODO tokenizer
         this.processor = processor;
     }
 
+    /**
+     * @param {any[]} images
+     */
     async _call(images, {
         threshold = 0.5,
         percentage = false, // get in percentage (true) or in pixels (false)
@@ -4287,7 +5873,19 @@ const TASK_ALIASES = {
     "vqa": "visual-question-answering",
 }
 
-
+/**
+ * Constructs a pipeline for a specified task with optional model and progress callback.
+ *
+ * @async
+ * @function
+ * @param {string} task - The task to perform, e.g. "text-generation".
+ * @param {string} [model=null] - The name of the pre-trained model to use. If not specified, the default model for the task will be used.
+ * @param {object} [options] - Optional parameters for the pipeline.
+ * @param {function} [options.progress_callback=null] - A function to call with progress updates.
+ * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
+ * @todo fix error below
+ * @throws {Error} If an unsupported pipeline is requested.
+ */
 async function pipeline(
     task,
     model = null,
@@ -4363,11 +5961,16 @@ async function pipeline(
 
     // Load tokenizer and model
     let items = await Promise.all(promises)
+    // TODO: fix error below
     return new pipelineClass(task, ...items);
 
 }
 
-
+/**
+ * Compute the Cartesian product of given arrays
+ * @param {...Array} a - Arrays to compute the product
+ * @returns {Array} - Returns the computed Cartesian product as an array
+ */
 function product(...a) {
     // Cartesian product of items
     // Adapted from https://stackoverflow.com/a/43053803
@@ -4399,9 +6002,19 @@ const {
 const FFT = __webpack_require__(/*! ./fft.js */ "./src/fft.js");
 const { Tensor, transpose, cat } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js");
 
+/**
+ * Helper class to determine model type from config
+ */
 class AutoProcessor {
-    // Helper class to determine model type from config
-
+    /**
+     * Returns a new instance of a Processor with a feature extractor
+     * based on the configuration file located at `modelPath`.
+     *
+     * @param {string} modelPath - The path to the model directory.
+     * @param {function} progressCallback - A callback function to track the loading progress (optional).
+     * @returns {Promise<Processor>} A Promise that resolves with a new instance of a Processor.
+     * @throws {Error} If the feature extractor type specified in the configuration file is unknown.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
 
         let preprocessorConfig = await fetchJSON(modelPath, 'preprocessor_config.json', progressCallback)
@@ -4444,15 +6057,41 @@ class AutoProcessor {
     }
 }
 
+/**
+ * Base class for feature extractors.
+ *
+ * @extends Callable
+ */
 class FeatureExtractor extends Callable {
+    /**
+     * Constructs a new FeatureExtractor instance.
+     *
+     * @param {object} config - The configuration for the feature extractor.
+     */
     constructor(config) {
         super();
         this.config = config
     }
 }
 
+/**
+ * Feature extractor for Vision Transformer (ViT) models.
+ *
+ * @extends FeatureExtractor
+ */
 class ImageFeatureExtractor extends FeatureExtractor {
 
+    /**
+     * Constructs a new ViTFeatureExtractor instance.
+     *
+     * @param {object} config - The configuration for the feature extractor.
+     * @param {number[]} config.image_mean - The mean values for image normalization.
+     * @param {number[]} config.image_std - The standard deviation values for image normalization.
+     * @param {boolean} config.do_rescale - Whether to rescale the image pixel values to the [0,1] range.
+     * @param {boolean} config.do_normalize - Whether to normalize the image pixel values.
+     * @param {boolean} config.do_resize - Whether to resize the image.
+     * @param {number} config.size - The size to resize the image to.
+     */
     constructor(config) {
         super(config);
 
@@ -4479,6 +6118,12 @@ class ImageFeatureExtractor extends FeatureExtractor {
         this.crop_size = this.config.crop_size;
     }
 
+    /**
+     * Preprocesses the given image.
+     *
+     * @param {any} image - The URL of the image to preprocess.
+     * @returns {Promise<any>} The preprocessed image as a Tensor.
+     */
     async preprocess(image) {
         // image is a Jimp image
 
@@ -4541,6 +6186,13 @@ class ImageFeatureExtractor extends FeatureExtractor {
         return transposed;
     }
 
+    /**
+     * Calls the feature extraction process on an array of image
+     * URLs, preprocesses each image, and concatenates the resulting
+     * features into a single Tensor.
+     * @param {any} images - The URL(s) of the image(s) to extract features from.
+     * @returns {Promise<Object>} An object containing the concatenated pixel values of the preprocessed images.
+     */
     async _call(images) {
         if (!Array.isArray(images)) {
             images = [images];
@@ -4559,7 +6211,20 @@ class ImageFeatureExtractor extends FeatureExtractor {
 }
 
 class ViTFeatureExtractor extends ImageFeatureExtractor { }
+
+/**
+ * Detr Feature Extractor.
+ *
+ * @extends ImageFeatureExtractor
+ */
 class DetrFeatureExtractor extends ImageFeatureExtractor {
+    /**
+     * Calls the feature extraction process on an array of image
+     * URLs, preprocesses each image, and concatenates the resulting
+     * features into a single Tensor.
+     * @param {any} urls - The URL(s) of the image(s) to extract features from.
+     * @returns {Promise<Object>} An object containing the concatenated pixel values of the preprocessed images.
+     */
     async _call(urls) {
         let result = await super._call(urls);
 
@@ -4569,6 +6234,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
         let maskSize = [result.pixel_values.dims[0], 64, 64];
         result.pixel_mask = new Tensor(
             'int64',
+            // TODO: fix error below
             new BigInt64Array(maskSize.reduce((a, b) => a * b)).fill(1n),
             maskSize
         );
@@ -4576,6 +6242,10 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
         return result;
     }
 
+    /**
+     * @param {number[]} arr - The URL(s) of the image(s) to extract features from.
+     * @returns {number[]} An object containing the concatenated pixel values of the preprocessed images.
+     */
     center_to_corners_format([centerX, centerY, width, height]) {
         return [
             centerX - width / 2,
@@ -4585,6 +6255,10 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
         ];
     }
 
+    /**
+     * @param {{ logits: any; pred_boxes: any; }} outputs
+     * @return {any}
+     */
     post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
         const out_logits = outputs.logits;
         const out_bbox = outputs.pred_boxes;
@@ -4621,6 +6295,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
                 let score = probs[maxIndex];
                 if (score > threshold) {
                     // Some class has a high enough probability
+                    /** @type {number[]} */
                     let box = bbox.get(j);
 
                     // convert to [x0, y0, x1, y1] format
@@ -4643,10 +6318,23 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
 
 class WhisperFeatureExtractor extends FeatureExtractor {
 
+    /**
+     * Calculates the index offset for a given index and window size.
+     * @param {number} i - The index.
+     * @param {number} w - The window size.
+     * @returns {number} The index offset.
+     */
     calcOffset(i, w) {
         return Math.abs((i + w) % (2 * w) - w);
     }
 
+    /**
+     * Pads an array with a reflected version of itself on both ends.
+     * @param {Float32Array} array - The array to pad.
+     * @param {number} left - The amount of padding to add to the left.
+     * @param {number} right - The amount of padding to add to the right.
+     * @returns {Float32Array} The padded array.
+     */
     padReflect(array, left, right) {
         const padded = new Float32Array(array.length + left + right);
         const w = array.length - 1;
@@ -4666,6 +6354,15 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         return padded;
     }
 
+    /**
+     * Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
+     * 
+     * @param {number[][]} frames - A 2D array representing the signal frames.
+     * @param {number[]} window - A 1D array representing the window to be applied to the frames.
+     * @returns {Object} An object with the following properties:
+     * - data: A 1D array representing the complex STFT of the signal.
+     * - dims: An array representing the dimensions of the STFT data, i.e. [num_frames, num_fft_bins].
+     */
     stft(frames, window) {
         // Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
         // 
@@ -4723,9 +6420,10 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         // create object to perform Fast Fourier Transforms
         // with `nextP2` complex numbers
         const f = new FFT(nextP2 >> 1);
+        // TODO: decide between Float32Array and Float64Array
         f.transform(outBuffer, ichirp);
 
-        for (let i in frames) {
+        for (let i = 0; i < frames.length; ++i) {
             const frame = frames[i];
 
             for (let j = 0; j < slicedChirp.length; j += 2) {
@@ -4736,6 +6434,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 buffer1[j] = a_real * slicedChirp[j];
                 buffer1[j2] = a_real * slicedChirp[j2];
             }
+            // TODO: decide between Float32Array and Float64Array
             f.transform(outBuffer2, buffer1);
 
             for (let j = 0; j < outBuffer.length; j += 2) {
@@ -4744,6 +6443,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 buffer2[j] = outBuffer2[j] * outBuffer[j] - outBuffer2[j2] * outBuffer[j2]
                 buffer2[j2] = outBuffer2[j] * outBuffer[j2] + outBuffer2[j2] * outBuffer[j]
             }
+            // TODO: decide between Float32Array and Float64Array
             f.inverseTransform(outBuffer3, buffer2)
 
             const offset = i * num_fft_bins;
@@ -4765,6 +6465,14 @@ class WhisperFeatureExtractor extends FeatureExtractor {
             dims: [frames.length, num_fft_bins] // [3001, 402]
         };
     }
+
+    /**
+     * Creates an array of frames from a given waveform.
+     *
+     * @param {Float32Array} waveform - The waveform to create frames from.
+     * @param {boolean} [center=true] - Whether to center the frames on their corresponding positions in the waveform. Defaults to true.
+     * @returns {Array} An array of frames.
+     */
     fram_wave(waveform, center = true) {
         const frames = [];
         const half_window = Math.floor((this.config.n_fft - 1) / 2) + 1;
@@ -4802,9 +6510,9 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 frame = new Float32Array(this.config.n_fft);
                 const frameArray = waveform.subarray(i, i + this.config.n_fft);
 
-                if (frameWidth < this.config.n_fft) {
+                if (frameArray.length < this.config.n_fft) {
                     frame.set(frameArray);
-                    frame.fill(0, frameWidth, this.config.n_fft)
+                    frame.fill(0, frameArray.length, this.config.n_fft)
                 } else {
                     frame = frameArray;
                 }
@@ -4816,6 +6524,12 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         return frames;
     }
 
+    /**
+     * Generates a Hanning window of length M.
+     *
+     * @param {number} M - The length of the Hanning window to generate.
+     * @returns {*} - The generated Hanning window.
+     */
     hanning(M) {
         if (M < 1) {
             return [];
@@ -4831,6 +6545,12 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         }
         return cos_vals;
     }
+
+    /**
+     * Computes the log-Mel spectrogram of the provided audio waveform.
+     * @param {Float32Array} waveform - The audio waveform to process.
+     * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     */
     _extract_fbank_features(waveform) {
         // Compute the log-Mel spectrogram of the provided audio
 
@@ -4908,6 +6628,12 @@ class WhisperFeatureExtractor extends FeatureExtractor {
         };
     }
 
+    /**
+     * Asynchronously extracts features from a given audio using the provided configuration.
+     * @param {Float32Array} audio - The audio data as a Float32Array.
+     * @returns {Promise<{ input_features: Tensor }>} - A Promise resolving to an object containing the extracted input features as a Tensor.
+     * @async
+    */
     async _call(audio) {
         // audio is a float32array
 
@@ -4931,19 +6657,43 @@ class WhisperFeatureExtractor extends FeatureExtractor {
     }
 }
 
+/**
+ * Represents a Processor that extracts features from an input.
+ * @extends Callable
+ */
 class Processor extends Callable {
+    /**
+     * Creates a new Processor with the given feature extractor.
+     * @param {function} feature_extractor - The function used to extract features from the input.
+     */
     constructor(feature_extractor) {
         super();
         this.feature_extractor = feature_extractor;
         // TODO use tokenizer here?
     }
+
+    /**
+     * Calls the feature_extractor function with the given input.
+     * @param {any} input - The input to extract features from.
+     * @returns {Promise<any>} A Promise that resolves with the extracted features.
+     * @async
+     */
     async _call(input) {
         return await this.feature_extractor(input);
     }
 }
 
-
+/**
+ * Represents a WhisperProcessor that extracts features from an audio input.
+ * @extends Processor
+ */
 class WhisperProcessor extends Processor {
+    /**
+     * Calls the feature_extractor function with the given audio input.
+     * @param {any} audio - The audio input to extract features from.
+     * @returns {Promise<any>} A Promise that resolves with the extracted features.
+     * @async
+     */
     async _call(audio) {
         return await this.feature_extractor(audio)
     }
@@ -4971,20 +6721,47 @@ const {
     getTopItems
 } = __webpack_require__(/*! ./utils.js */ "./src/utils.js");
 
+/**
+ * Sampler is a base class for all sampling methods used for text generation.
+ */
 class Sampler extends Callable {
+    /**
+     * Creates a new Sampler object with the specified temperature.
+     * @param {number} temperature - The temperature to use when sampling. Higher values result in more random samples.
+     */
     constructor(temperature) {
         super();
         this.temperature = temperature;
     }
 
-    _call(logits, index=-1) {
+    /**
+     * Executes the sampler, using the specified logits.
+     * @param {any} logits
+     * @param {number} index
+     * @returns {void}
+     */
+    _call(logits, index = -1) {
         // Sample from logits, of dims [batch, sequence_length, vocab_size].
         // If index is specified, sample from [batch, index, vocab_size].
         return this.sample(logits, index);
     }
+
+    /**
+     * Abstract method for sampling the logits.
+     * @param {any} logits
+     * @param {number} index
+     * @throws {Error}
+     */
     sample(logits, index) {
         throw Error("sample should be implemented in subclasses.")
     }
+
+    /**
+     * Returns the specified logits as an array, with temperature applied.
+     * @param {any} logits
+     * @param {number} index
+     * @returns {Array}
+     */
     getLogits(logits, index) {
         let vocabSize = logits.dims[2];
 
@@ -5004,6 +6781,11 @@ class Sampler extends Callable {
         return logs;
     }
 
+    /**
+     * Selects an item randomly based on the specified probabilities.
+     * @param {Array} probabilities - An array of probabilities to use for selection.
+     * @returns {number} The index of the selected item.
+     */
     randomSelect(probabilities) {
         // Return index of chosen item
         let sumProbabilities = probabilities.reduce((acc, curr) => acc + curr, 0);
@@ -5018,28 +6800,46 @@ class Sampler extends Callable {
         return 0; // return first (most probable) as a fallback
     }
 
-    static getSampler(options) {
-        // TODO add beam
-        if (options.num_beams > 1) {
+    /**
+     * Returns a Sampler object based on the specified options.
+     * @param {object} generation_config - An object containing options for the sampler.
+     * @returns {Sampler} A Sampler object.
+     */
+    static getSampler(generation_config) {
+        if (generation_config.num_beams > 1) {
             return new BeamSearchSampler(
-                options.temperature,
-                options.num_beams,
-                options.do_sample,
-                options.top_k,
-            )
+                generation_config.temperature,
+                generation_config.num_beams,
+                generation_config.do_sample,
+                generation_config.top_k,
+            );
 
-        } else if (options.top_k > 0 || options.do_sample) {
+        } else if (generation_config.do_sample) {
             return new TopKSampler(
-                options.temperature,
-                options.top_k,
-            )
+                generation_config.temperature,
+                generation_config.top_k,
+            );
+
         } else {
-            return new GreedySampler(options.temperature)
+            if (generation_config.num_return_sequences > 1) {
+                throw Error(`num_return_sequences has to be 1 when doing greedy search, but is ${generation_config.num_return_sequences}.`)
+            }
+            return new GreedySampler(generation_config.temperature);
         }
     }
 }
 
+/**
+ * Class representing a Greedy Sampler.
+ * @extends Sampler
+ */
 class GreedySampler extends Sampler {
+    /**
+     * Sample the maximum probability of a given logits tensor.
+     * @param {any} logits
+     * @param {number} [index=-1]
+     * @returns {Array} - An array with a single tuple, containing the index of the maximum value and a meaningless score (since this is a greedy search).
+     */
     sample(logits, index = -1) {
         // NOTE: no need to do log_softmax here since we only take the maximum
         let logs = this.getLogits(logits, index);
@@ -5053,12 +6853,27 @@ class GreedySampler extends Sampler {
     }
 }
 
+/**
+ * Class representing a TopKSampler.
+ * @extends Sampler
+ */
 class TopKSampler extends Sampler {
+    /**
+     * Create a TopKSampler.
+     * @param {number} temperature
+     * @param {number} k
+     */
     constructor(temperature, k) {
         super(temperature);
         this.k = k;
     }
 
+    /**
+     * Sample from the logits using the top-k sampling strategy.
+     * @param {any} logits
+     * @param {number} index
+     * @returns {Array}
+     */
     sample(logits, index = -1) {
         let [batchSize, seqLength, vocabSize] = logits.dims;
         let k = vocabSize;
@@ -5084,7 +6899,18 @@ class TopKSampler extends Sampler {
     }
 }
 
+/**
+ * Class representing a beam search sampler for generating sequences.
+ * @extends Sampler
+ */
 class BeamSearchSampler extends Sampler {
+    /**
+   * Create a BeamSearchSampler.
+   * @param {number} temperature
+   * @param {number} num_beams
+   * @param {boolean} do_sample
+   * @param {number} top_k
+   */
     constructor(temperature, num_beams, do_sample, top_k) {
         super(temperature);
         this.num_beams = num_beams; // maximum number of beams
@@ -5093,6 +6919,12 @@ class BeamSearchSampler extends Sampler {
         this.top_k = top_k; // if do_sample, sample from top k items
     }
 
+    /**
+   * Samples from the logits to generate a sequence using beam search.
+   * @param {any} logits - The logits to sample from.
+   * @param {number} [index=-1] - The index to sample from, if applicable.
+   * @returns {Array} - An array of arrays containing tokens and scores.
+   */
     sample(logits, index = -1) {
 
         let logs = this.getLogits(logits, index);
@@ -5142,6 +6974,7 @@ module.exports = {
 
 const { ONNX } = __webpack_require__(/*! ./backends/onnx.js */ "./src/backends/onnx.js");
 
+// TODO: fix error below
 class Tensor extends ONNX.Tensor {
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
@@ -5154,6 +6987,11 @@ class Tensor extends ONNX.Tensor {
         }
     }
 
+    /**
+     * Returns an iterator object for iterating over the tensor data in row-major order.
+     * If the tensor has more than one dimension, the iterator will yield subarrays.
+     * @returns {Iterator} An iterator object for iterating over the tensor data in row-major order.
+     */
     *[Symbol.iterator]() {
         const [iterLength, ...iterDims] = this.dims;
 
@@ -5168,6 +7006,11 @@ class Tensor extends ONNX.Tensor {
 
     }
 
+    /**
+     * 
+     * @param {number} index 
+     * @returns 
+     */
     get(index) {
         const iterDims = this.dims.slice(1);
         if (iterDims.length > 0) {
@@ -5178,6 +7021,10 @@ class Tensor extends ONNX.Tensor {
         }
     }
 
+    /**
+     * @param {any} item 
+     * @returns {number}
+     */
     indexOf(item) {
         for (let index = 0; index < this.data.length; ++index) {
             // Note: == instead of === so we can match Ints with BigInts
@@ -5188,6 +7035,12 @@ class Tensor extends ONNX.Tensor {
         return -1;
     }
 
+    /**
+     * @param {number} index 
+     * @param {number} iterSize 
+     * @param {any} iterDims 
+     * @returns {Tensor}
+     */
     _subarray(index, iterSize, iterDims) {
         let data = this.data.subarray(index * iterSize, (index + 1) * iterSize);
         return new Tensor(this.type, data, iterDims);
@@ -5201,7 +7054,35 @@ class Tensor extends ONNX.Tensor {
     // TODO add .slice()
 }
 
+/**
+ * This creates a nested array of a given type and depth (see examples).
+ * 
+ * @example
+ *   NestArray<string, 1>; // string[]
+ * @example
+ *   NestArray<number, 2>; // number[][]
+ * @example
+ *   NestArray<string, 3>; // string[][][] etc.
+ * @template T
+ * @template {number} Depth
+ * @template {never[]} [Acc=[]]
+ * @typedef {Acc['length'] extends Depth ? T : NestArray<T[], Depth, [...Acc, never]>} NestArray
+ */
 
+/**
+ * Reshapes a 1-dimensional array into an n-dimensional array, according to the provided dimensions.
+ *
+ * @example
+ *   reshape([10                    ], [1      ]); // Type: number[]      Value: [10]
+ *   reshape([1, 2, 3, 4            ], [2, 2   ]); // Type: number[][]    Value: [[1, 2], [3, 4]]
+ *   reshape([1, 2, 3, 4, 5, 6, 7, 8], [2, 2, 2]); // Type: number[][][]  Value: [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+ *   reshape([1, 2, 3, 4, 5, 6, 7, 8], [4, 2   ]); // Type: number[][]    Value: [[1, 2], [3, 4], [5, 6], [7, 8]]
+ * @param {T[]} data - The input array to reshape.
+ * @param {DIM} dimensions - The target shape/dimensions.
+ * @template T
+ * @template {[number]|[number, number]|[number, number, number]|[number, number, number, number]} DIM
+ * @returns {NestArray<T, DIM["length"]>} The reshaped array.
+ */
 function reshape(data, dimensions) {
 
     const totalElements = data.length;
@@ -5211,6 +7092,7 @@ function reshape(data, dimensions) {
         throw Error(`cannot reshape array of size ${totalElements} into shape (${dimensions})`);
     }
 
+    /** @type {any} */
     let reshapedArray = data;
 
     for (let i = dimensions.length - 1; i >= 0; i--) {
@@ -5230,6 +7112,12 @@ function reshape(data, dimensions) {
     return reshapedArray[0];
 }
 
+/**
+ * Transposes a tensor according to the provided axes.
+ * @param {any} tensor - The input tensor to transpose.
+ * @param {Array} axes - The axes to transpose the tensor along.
+ * @returns {Tensor} The transposed tensor.
+ */
 function transpose(tensor, axes) {
     // Calculate the new shape of the transposed array
     // and the stride of the original array
@@ -5260,6 +7148,12 @@ function transpose(tensor, axes) {
     return new Tensor(tensor.type, transposedData, shape);
 }
 
+/**
+ * Concatenates an array of tensors along the 0th dimension.
+ *
+ * @param {any} tensors - The array of tensors to concatenate.
+ * @returns {Tensor} - The concatenated tensor.
+ */
 function cat(tensors) {
     if (tensors.length === 0) {
         return tensors[0];
@@ -5319,51 +7213,118 @@ const {
 
 const { Tensor } = __webpack_require__(/*! ./tensor_utils.js */ "./src/tensor_utils.js")
 
-
+/**
+ * Abstract base class for tokenizer models.
+ *
+ * @extends Callable
+ */
 class TokenizerModel extends Callable {
-
+    /**
+     * Creates a new instance of TokenizerModel.
+     * @param {object} config - The configuration object for the TokenizerModel.
+     */
     constructor(config) {
         super();
         this.config = config;
     }
+    /**
+     * Instantiates a new TokenizerModel instance based on the configuration object provided.
+     * @param {object} config - The configuration object for the TokenizerModel.
+     * @param {...*} args - Optional arguments to pass to the specific TokenizerModel constructor.
+     * @returns {TokenizerModel} A new instance of a TokenizerModel.
+     * @throws Will throw an error if the TokenizerModel type in the config is not recognized.
+     */
     static fromConfig(config, ...args) {
         switch (config.type) {
             case 'WordPiece':
                 return new WordPieceTokenizer(config);
             case 'Unigram':
+                // TODO: fix error below
                 return new Unigram(config, ...args);
 
             case 'BPE':
+                // TODO: fix error below
                 return new BPE(config, ...args);
             default:
                 throw new Error(`Unknown TokenizerModel type: ${config.type}`);
         }
     }
+
+    /**
+     * Internal function to call the TokenizerModel instance.
+     * @param {string[]} tokens - The tokens to encode.
+     * @returns {number[]} The encoded token IDs.
+     */
     _call(tokens) {
         return this.encode(tokens);
     }
+
+    /**
+     * Encodes a list of tokens into a list of token IDs.
+     * @param {string[]} tokens - The tokens to encode.
+     * @returns {number[]} The encoded token IDs.
+     * @throws Will throw an error if not implemented in a subclass.
+     */
     encode(tokens) {
         throw Error("encode should be implemented in subclass.")
     }
+
+    /**
+     * Converts a list of tokens into a list of token IDs.
+     * @param {string[]} tokens - The tokens to convert.
+     * @returns {number[]} The converted token IDs.
+     */
     convert_tokens_to_ids(tokens) {
         return tokens.map(t => this.tokens_to_ids[t] ?? this.unk_token_id);
     }
 
+    /**
+     * Converts a list of token IDs into a list of tokens.
+     * @param {number[]} ids - The token IDs to convert.
+     * @returns {string[]} The converted tokens.
+     */
     convert_ids_to_tokens(ids) {
         return ids.map(i => this.vocab[i] ?? this.unk_token);
     }
 }
 
+/**
+ * A subclass of TokenizerModel that uses WordPiece encoding to encode tokens.
+ * @extends TokenizerModel
+ */
 class WordPieceTokenizer extends TokenizerModel {
+    /**
+     * @param {Object} config - The configuration object.
+     * @param {Object.<string, number>} config.vocab - A mapping of tokens to ids.
+     * @param {string} config.unk_token - The unknown token string.
+     * @param {string} config.continuing_subword_prefix - The prefix to use for continuing subwords.
+     */
     constructor(config) {
         super(config);
-
+        /**
+         * A mapping of tokens to ids.
+         * @type {Object.<string, number>}
+         */
         this.tokens_to_ids = config.vocab;
 
+        /**
+         * The id of the unknown token.
+         * @type {number}
+         */
         this.unk_token_id = this.tokens_to_ids[config.unk_token];
+
+        /**
+         * The unknown token string.
+         * @type {string}
+         */
         this.unk_token = config.unk_token;
 
         let e = Object.entries(this.tokens_to_ids);
+
+        /**
+         * An array of tokens.
+         * @type {string[]}
+         */
         this.vocab = Array(e.length);
 
         for (const [key, value] of e) {
@@ -5371,6 +7332,11 @@ class WordPieceTokenizer extends TokenizerModel {
         }
     }
 
+    /**
+     * Encodes an array of tokens using WordPiece encoding.
+     * @param {Array} tokens - The tokens to encode.
+     * @returns {Array} An array of encoded tokens.
+     */
     encode(tokens) {
         let outputTokens = [];
         for (let token of tokens) {
@@ -5408,7 +7374,7 @@ class WordPieceTokenizer extends TokenizerModel {
                 start = end;
             }
             if (isUnknown) {
-                outputTokens.push(this.unknownToken);
+                outputTokens.push(this.unk_token);
             } else {
                 outputTokens.push(...subTokens);
             }
@@ -5419,7 +7385,16 @@ class WordPieceTokenizer extends TokenizerModel {
 
 }
 
+/**
+ * Class representing a Unigram tokenizer model.
+ * @extends TokenizerModel
+ */
 class Unigram extends TokenizerModel {
+    /**
+     * Create a new Unigram tokenizer model.
+     * @param {object} config - The configuration object for the Unigram model.
+     * @param {object} moreConfig - Additional configuration object for the Unigram model.
+     */
     constructor(config, moreConfig) {
         super(config);
 
@@ -5447,7 +7422,10 @@ class Unigram extends TokenizerModel {
         this.trie.extend(this.vocab)
     }
 
-
+    /**
+     * Populates lattice nodes.
+     * @param {TokenLattice} lattice - The token lattice to populate with nodes.
+     */
     populateNodes(lattice) {
         const sentence = lattice.sentence;
         const len = sentence.length;
@@ -5456,6 +7434,7 @@ class Unigram extends TokenizerModel {
             const mblen = 1;
             let hasSingleNode = false;
             const tokens = [];
+            // TODO: fix error below
             for (let token of this.trie.commonPrefixSearch(sentence.slice(beginPos))) {
                 tokens.push(token);
                 const tokenId = this.tokens_to_ids[token];
@@ -5472,11 +7451,24 @@ class Unigram extends TokenizerModel {
             beginPos += mblen;
         }
     }
+
+    /**
+     * Encodes an array of tokens into an array of subtokens using the unigram model.
+     *
+     * @param {string} normalized - The normalized string.
+     * @returns {string[]} An array of subtokens obtained by encoding the input tokens using the unigram model.
+     */
     tokenize(normalized) {
         const lattice = new TokenLattice(normalized, this.bosTokenId, this.eosTokenId);
         this.populateNodes(lattice);
         return lattice.tokens();
     }
+
+    /**
+     * Encodes an array of tokens using WordPiece encoding.
+     * @param {Array} tokens - The tokens to encode.
+     * @returns {Array} An array of encoded tokens.
+     */
     encode(tokens) {
         let toReturn = [];
         for (let token of tokens) {
@@ -5488,6 +7480,11 @@ class Unigram extends TokenizerModel {
 
 }
 
+/**
+ * Returns list of utf-8 byte and a mapping to unicode strings.
+ * Specifically avoids mapping to whitespace/control characters the BPE code barfs on.
+ * @returns {Object} Object with utf-8 byte keys and unicode string values.
+ */
 const BYTES_TO_UNICODE = (() => {
     // Returns list of utf-8 byte and a mapping to unicode strings.
     // We specifically avoids mapping to whitespace/control characters
@@ -5507,13 +7504,24 @@ const BYTES_TO_UNICODE = (() => {
             n += 1;
         }
     }
-    cs = cs.map(n => String.fromCharCode(n));
-    return Object.fromEntries(bs.map((b, i) => [b, cs[i]]));
+    let ccs = cs.map(n => String.fromCharCode(n));
+    return Object.fromEntries(bs.map((b, i) => [b, ccs[i]]));
 })();
 
 const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
 
+/**
+ * BPE class for encoding text into Byte-Pair-Encoding (BPE) tokens.
+ * @extends TokenizerModel
+ */
 class BPE extends TokenizerModel {
+    /**
+     * Create a BPE instance.
+     * @param {Object} config - The configuration object for BPE.
+     * @param {Object} config.vocab - A dictionary containing the vocabulary with tokens as keys and their corresponding indices as values.
+     * @param {string} config.unk_token - The unknown token used for out of vocabulary words.
+     * @param {Array} config.merges - An array of BPE merges as strings.
+     */
     constructor(config) {
         super(config);
 
@@ -5538,6 +7546,11 @@ class BPE extends TokenizerModel {
         this.cache = {}
     }
 
+    /**
+     * Get all the possible pairs of characters in a word.
+     * @param {string[]} word - The word to get pairs from.
+     * @returns {Array} - An array of pairs.
+     */
     get_pairs(word) {
         let pairs = new Set();
         let prev_char = word[0];
@@ -5546,9 +7559,15 @@ class BPE extends TokenizerModel {
             pairs.add(`${prev_char} ${char}`);
             prev_char = char;
         }
+        // TODO: fix error below
         return [...pairs];
     }
 
+    /**
+     * Apply Byte-Pair-Encoding (BPE) to a given token.
+     * @param {string} token - The token to encode.
+     * @returns {string} - The BPE encoded token.
+     */
     bpe(token) {
         if (token in this.cache) {
             return this.cache[token];
@@ -5604,6 +7623,12 @@ class BPE extends TokenizerModel {
         this.cache[token] = final_word;
         return final_word;
     }
+
+    /**
+     * Encodes the input sequence of tokens using the BPE algorithm and returns the resulting subword tokens.
+     * @param {Array} tokens - The input sequence of tokens to encode.
+     * @returns {Array} - The resulting subword tokens after applying the BPE algorithm to the input sequence of tokens.
+     */
     encode(tokens) {
         let outputTokens = [];
 
@@ -5618,13 +7643,26 @@ class BPE extends TokenizerModel {
 
 }
 
+/**
+ * A base class for text normalization.
+ * @abstract
+ */
 class Normalizer extends Callable {
-
+    /**
+     * @param {object} config - The configuration object for the normalizer.
+     */
     constructor(config) {
         super();
         this.config = config;
     }
 
+    /**
+     * Factory method for creating normalizers from config objects.
+     * @static
+     * @param {object} config - The configuration object for the normalizer.
+     * @returns {Normalizer} - A Normalizer object.
+     * @throws {Error} - If an unknown Normalizer type is specified in the config.
+     */
     static fromConfig(config) {
         if (config === null) return null;
         switch (config.type) {
@@ -5649,17 +7687,38 @@ class Normalizer extends Callable {
         }
     }
 
+    /**
+     * Normalize the input text.
+     * @abstract
+     * @param {string} text - The text to normalize.
+     * @returns {string} - The normalized text.
+     * @throws {Error} - If this method is not implemented in a subclass.
+     */
     normalize(text) {
         throw Error("normalize should be implemented in subclass.")
     }
 
+    /**
+     * Alias for {@link Normalizer#normalize}.
+     * @param {string} text - The text to normalize.
+     * @returns {string} - The normalized text.
+     */
     _call(text) {
         return this.normalize(text);
     }
 
 }
 
+/**
+ * Replace normalizer that replaces occurrences of a pattern with a given string or regular expression.
+ * @extends Normalizer
+ */
 class Replace extends Normalizer {
+    /**
+     * Normalize the input text by replacing the pattern with the content.
+     * @param {string} text - The input text to be normalized.
+     * @returns {string} The normalized text after replacing the pattern with the content.
+     */
     normalize(text) {
         // TODO: this.config.pattern might not be Regex.
         if (this.config.pattern.Regex) {
@@ -5676,35 +7735,89 @@ class Replace extends Normalizer {
     }
 }
 
+/**
+ * A normalizer that applies Unicode normalization form C (NFC) to the input text.
+ * @extends Normalizer
+ */
 class NFC extends Normalizer {
+    /**
+     * Normalize the input text by applying Unicode normalization form C (NFC).
+     * @param {string} text - The input text to be normalized.
+     * @returns {string} The normalized text.
+     */
     normalize(text) {
         text = text.normalize('NFC')
         return text;
     }
 }
+
+/**
+ * NFKD Normalizer.
+ * @extends Normalizer
+ */
 class NFKD extends Normalizer {
+    /**
+     * Normalize text using NFKD normalization.
+     * @param {string} text - The text to be normalized.
+     * @returns {string} The normalized text.
+     */
     normalize(text) {
         text = text.normalize('NFKD')
         return text;
     }
 }
+
+/**
+ * StripAccents normalizer removes all accents from the text.
+ * @extends Normalizer
+ */
 class StripAccents extends Normalizer {
+    /**
+     * Remove all accents from the text.
+     * @param {string} text - The input text.
+     * @returns {string} The normalized text without accents.
+     */
     normalize(text) {
         text = text.replace(/[\u0300-\u036f]/g, '');
         return text;
     }
 }
+
+/**
+ * A Normalizer that lowercases the input string.
+ * @extends Normalizer
+ */
 class Lowercase extends Normalizer {
+    /**
+     * Lowercases the input string.
+     * @param {string} text - The text to normalize.
+     * @returns {string} The normalized text.
+     */
     normalize(text) {
         text = text.toLowerCase();
         return text;
     }
 }
+
+/**
+ * A Normalizer that applies a sequence of Normalizers.
+ * @extends Normalizer
+ */
 class NormalizerSequence extends Normalizer {
+    /**
+   * Create a new instance of NormalizerSequence.
+   * @param {object} config - The configuration object.
+   * @param {object[]} config.normalizers - An array of Normalizer configuration objects.
+   */
     constructor(config) {
         super(config);
         this.normalizers = config.normalizers.map(x => Normalizer.fromConfig(x));
     }
+    /**
+   * Apply a sequence of Normalizers to the input text.
+   * @param {string} text - The text to normalize.
+   * @returns {string} The normalized text.
+   */
     normalize(text) {
         // TODO use reduce?
         for (let normalizer of this.normalizers) {
@@ -5713,8 +7826,18 @@ class NormalizerSequence extends Normalizer {
         return text;
     }
 }
-class BertNormalizer extends Normalizer {
 
+/**
+ * A class representing a normalizer used in BERT tokenization.
+ * @extends Normalizer
+ */
+class BertNormalizer extends Normalizer {
+    /**
+     * Adds whitespace around any CJK (Chinese, Japanese, or Korean) character in the input text.
+     *
+     * @param {string} text - The input text to tokenize.
+     * @returns {string} - The tokenized text with whitespace added around CJK characters.
+     */
     _tokenize_chinese_chars(text) {
         /* Adds whitespace around any CJK character. */
         let output = [];
@@ -5732,17 +7855,21 @@ class BertNormalizer extends Normalizer {
         return output.join("");
     }
 
+    /**
+     * Checks whether the given Unicode codepoint represents a CJK (Chinese, Japanese, or Korean) character.
+     *
+     * A "chinese character" is defined as anything in the CJK Unicode block:
+     * https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
+     *
+     * Note that the CJK Unicode block is NOT all Japanese and Korean characters, despite its name.
+     * The modern Korean Hangul alphabet is a different block, as is Japanese Hiragana and Katakana.
+     * Those alphabets are used to write space-separated words, so they are not treated specially
+     * and are handled like all other languages.
+     *
+     * @param {number} cp - The Unicode codepoint to check.
+     * @returns {boolean} - True if the codepoint represents a CJK character, false otherwise.
+     */
     _is_chinese_char(cp) {
-        // Checks whether CP is the codepoint of a CJK character.
-        //
-        // This defines a "chinese character" as anything in the CJK Unicode block:
-        //   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
-        //
-        // Note that the CJK Unicode block is NOT all Japanese and Korean characters,
-        // despite its name. The modern Korean Hangul alphabet is a different block,
-        // as is Japanese Hiragana and Katakana. Those alphabets are used to write
-        // space-separated words, so they are not treated specially and handled
-        // like the all of the other languages.
         return (
             (cp >= 0x4E00 && cp <= 0x9FFF)
             || (cp >= 0x3400 && cp <= 0x4DBF)
@@ -5754,9 +7881,20 @@ class BertNormalizer extends Normalizer {
             || (cp >= 0x2F800 && cp <= 0x2FA1F)
         )
     }
+    /**
+     * Strips accents from the given text.
+     * @param {string} text - The text to strip accents from.
+     * @returns {string} - The text with accents removed.
+     */
     stripAccents(text) {
         return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
+
+    /**
+     * Normalizes the given text based on the configuration.
+     * @param {string} text - The text to normalize.
+     * @returns {string} - The normalized text.
+     */
     normalize(text) {
         // TODO use rest of config
         // config.clean_text,
@@ -5782,8 +7920,20 @@ class BertNormalizer extends Normalizer {
     }
 }
 
-
+/**
+ * A callable class representing a pre-tokenizer used in tokenization. Subclasses
+ * should implement the `pre_tokenize_text` method to define the specific pre-tokenization logic.
+ * @extends Callable
+ */
 class PreTokenizer extends Callable {
+    /**
+   * Factory method that returns an instance of a subclass of `PreTokenizer` based on the provided configuration.
+   *
+   * @static
+   * @param {Object} config - A configuration object for the pre-tokenizer.
+   * @returns {PreTokenizer} An instance of a subclass of `PreTokenizer`.
+   * @throws {Error} If the provided configuration object does not correspond to any known pre-tokenizer.
+   */
     static fromConfig(config) {
         switch (config.type) {
             case 'BertPreTokenizer':
@@ -5805,10 +7955,23 @@ class PreTokenizer extends Callable {
         }
     }
 
+    /**
+   * Method that should be implemented by subclasses to define the specific pre-tokenization logic.
+   *
+   * @abstract
+   * @param {string} text - The text to pre-tokenize.
+   * @returns {string[]} The pre-tokenized text.
+   * @throws {Error} If the method is not implemented in the subclass.
+   */
     pre_tokenize_text(text) {
         throw Error("pre_tokenize_text should be implemented in subclass.")
     }
 
+    /**
+     * Tokenizes the given text into pre-tokens.
+     * @param {string|string[]} text - The text or array of texts to pre-tokenize.
+     * @returns {string[]} An array of pre-tokens.
+     */
     pre_tokenize(text) {
         let result = [];
         if (Array.isArray(text)) {
@@ -5819,41 +7982,88 @@ class PreTokenizer extends Callable {
         return result.flat();
     }
 
+    /**
+     * Alias for {@link PreTokenizer#pre_tokenize}.
+     * @param {string|string[]} text - The text or array of texts to pre-tokenize.
+     * @returns {string[]} An array of pre-tokens.
+     */
     _call(text) {
         return this.pre_tokenize(text);
     }
 }
 
+/**
+ * @extends PreTokenizer
+ */
 class BertPreTokenizer extends PreTokenizer {
+    /**
+     * A PreTokenizer that splits text into wordpieces using a basic tokenization scheme
+     * similar to that used in the original implementation of BERT.
+     * 
+     * @param {object} config - The configuration object.
+     */
     constructor(config) {
         super();
         // TODO use config
         this.pattern = /\b\w+\b|[^\s\w]+/g
     }
+    /**
+     * Tokenizes a single text using the BERT pre-tokenization scheme.
+     * 
+     * @param {string} text - The text to tokenize.
+     * @returns {Array.<string>} - An array of tokens.
+     */
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
         return text.trim().match(this.pattern) || [];
     }
 }
+
+/**
+ * A pre-tokenizer that splits text into Byte-Pair-Encoding (BPE) subwords.
+ * @extends PreTokenizer
+ */
 class ByteLevelPreTokenizer extends PreTokenizer {
+    /**
+     * Creates a new instance of the `ByteLevelPreTokenizer` class.
+     * @param {Object} config - The configuration object.
+     */
     constructor(config) {
         super();
         // TODO use config
         this.pattern = /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
     }
 
+    /**
+     * Tokenizes a single piece of text using byte-level tokenization.
+     * @param {string} text - The text to tokenize.
+     * @returns {string[]} - An array of tokens.
+     */
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
         return text.match(this.pattern) || [];
     }
 }
 
+/**
+ * Splits text using a given pattern.
+ * @extends PreTokenizer
+ */
 class SplitPreTokenizer extends PreTokenizer {
+    /**
+     * @param {Object} config - The configuration options for the pre-tokenizer.
+     * @param {Object} config.pattern - The pattern used to split the text. Can be a string or a regex object.
+     */
     constructor(config) {
         super();
         this.config = config;
     }
 
+    /**
+     * Tokenizes text by splitting it using the given pattern.
+     * @param {string} text - The text to tokenize.
+     * @returns {string[]} An array of tokens.
+     */
     pre_tokenize_text(text) {
         if (this.config.pattern.Regex) {
             return text.match(new RegExp(this.config.pattern.Regex, 'gu')) || [];
@@ -5870,8 +8080,18 @@ class SplitPreTokenizer extends PreTokenizer {
 
 }
 
+/**
+ * @extends Callable
+ */
 class PostProcessor extends Callable {
 
+    /**
+     * Factory method to create a PostProcessor object from a configuration object.
+     *
+     * @param {Object} config - Configuration object representing a PostProcessor.
+     * @returns {PostProcessor} A PostProcessor object created from the given configuration.
+     * @throws {Error} If an unknown PostProcessor type is encountered.
+     */
     static fromConfig(config) {
         switch (config.type) {
             case 'TemplateProcessing':
@@ -5887,16 +8107,40 @@ class PostProcessor extends Callable {
                 throw new Error(`Unknown PostProcessor type: ${config.type}`);
         }
     }
+
+    /**
+     * Method to be implemented in subclass to apply post-processing on the given tokens.
+     *
+     * @param {Array} tokens - The input tokens to be post-processed.
+     * @param {...*} args - Additional arguments required by the post-processing logic.
+     * @returns {Array} The post-processed tokens.
+     * @throws {Error} If the method is not implemented in subclass.
+     */
     post_process(tokens, ...args) {
         throw Error("post_process should be implemented in subclass.")
     }
 
+    /**
+     * Alias for {@link PostProcessor#post_process}.
+     * @param {Array} tokens - The text or array of texts to post-process.
+     * @param {...*} args - Additional arguments required by the post-processing logic.
+     * @returns {Array} An array of post-processed tokens.
+     */
     _call(tokens, ...args) {
         return this.post_process(tokens, ...args);
     }
 }
 
+/**
+ * A post-processor that adds special tokens to the beginning and end of the input.
+ * @extends PostProcessor
+ */
 class RobertaProcessing extends PostProcessor {
+    /**
+     * @param {Object} config - The configuration for the post-processor.
+     * @param {string[]} config.cls - The special tokens to add to the beginning of the input.
+     * @param {string[]} config.sep - The special tokens to add to the end of the input.
+     */
     constructor(config) {
         super();
         this.config = config;
@@ -5906,6 +8150,12 @@ class RobertaProcessing extends PostProcessor {
 
     }
 
+    /**
+     * Adds the special tokens to the beginning and end of the input.
+     * @param {string[]} tokens - The input tokens.
+     * @param {string[]|null} tokens_pair - An optional second set of input tokens.
+     * @returns {string[]} The input tokens with the special tokens added to the beginning and end.
+     */
     post_process(tokens, tokens_pair = null) {
         tokens = [this.config.cls[0], ...tokens, this.config.sep[0]]
 
@@ -5918,11 +8168,28 @@ class RobertaProcessing extends PostProcessor {
     }
 }
 
+/**
+ * Post processor that replaces special tokens in a template with actual tokens.
+ * @extends PostProcessor
+ */
 class TemplateProcessing extends PostProcessor {
+    /**
+     * Creates a new instance of `TemplateProcessing`.
+     * @param {Object} config - The configuration options for the post processor.
+     * @param {Array} config.single - The template for a single sequence of tokens.
+     * @param {Array} config.pair - The template for a pair of sequences of tokens.
+     */
     constructor(config) {
         super();
         this.config = config;
     }
+
+    /**
+     * Replaces special tokens in the template with actual tokens.
+     * @param {Array} tokens - The list of tokens for the first sequence.
+     * @param {Array} [tokens_pair=null] - The list of tokens for the second sequence (optional).
+     * @returns {Array} - The list of tokens with the special tokens replaced with actual tokens.
+     */
     post_process(tokens, tokens_pair = null) {
         let type = tokens_pair === null ? this.config.single : this.config.pair
 
@@ -5943,23 +8210,54 @@ class TemplateProcessing extends PostProcessor {
         return toReturn;
     }
 }
+
+/**
+ * A PostProcessor that returns the given tokens as is.
+ * @extends PostProcessor
+ */
 class ByteLevelPostProcessor extends PostProcessor {
+    /**
+     * Create a new instance of ByteLevelPostProcessor.
+     * @param {object} config - Configuration object.
+     */
     constructor(config) {
         super();
         this.config = config;
     }
+
+    /**
+     * Post process the given tokens.
+     * @param {string[]} tokens - The tokens to be post processed.
+     * @returns {string[]} The post processed tokens.
+     */
     post_process(tokens) {
         return tokens;
     }
 }
 
+/**
+ * The base class for token decoders.
+ * @extends Callable
+ */
 class Decoder extends Callable {
 
+    /**
+    * Creates an instance of `Decoder`.
+    *
+    * @param {Object} config - The configuration object.
+    */
     constructor(config) {
         super();
         this.config = config;
     }
 
+    /**
+   * Creates a decoder instance based on the provided configuration.
+   *
+   * @param {Object} config - The configuration object.
+   * @returns {Decoder} A decoder instance.
+   * @throws {Error} If an unknown decoder type is provided.
+   */
     static fromConfig(config) {
         switch (config.type) {
             case 'WordPiece':
@@ -5973,14 +8271,32 @@ class Decoder extends Callable {
         }
     }
 
+    /**
+    * Converts a list of tokens to a string.
+    *
+    * @param {string[]} tokens - The list of tokens.
+    * @returns {string} The decoded string.
+    */
     convert_tokens_to_string(tokens) {
         return tokens.join('').trim();
     }
 
+    /**
+    * Calls the `decode` method.
+    *
+    * @param {string[]} tokens - The list of tokens.
+    * @returns {string} The decoded string.
+    */
     _call(tokens) {
         return this.decode(tokens);
     }
 
+    /**
+    * Decodes a list of tokens.
+    * @param {string[]} tokens - The list of tokens.
+    * @returns {string} The decoded string.
+    * @throws {Error} If the `decode` method is not implemented in the subclass.
+    */
     decode(tokens) {
         throw Error("decode should be implemented in subclass.")
     }
@@ -5988,24 +8304,53 @@ class Decoder extends Callable {
 
 }
 
+/**
+ * A decoder that decodes a list of WordPiece tokens into a single string.
+ * @extends Decoder
+ */
 class WordPieceDecoder extends Decoder {
 
+    /**
+     * Creates a new instance of WordPieceDecoder.
+     * @param {Object} config - The configuration object.
+     * @param {string} config.prefix - The prefix used for WordPiece encoding.
+     * @param {boolean} config.cleanup - Whether to cleanup the decoded string.
+     */
     constructor(config) {
         super(config);
         this.convertRegex = new RegExp(` ${config.prefix}`, 'g');
+        this.cleanup = config.cleanup;
     }
 
-
+    /**
+     * Converts a list of WordPiece tokens to a single string.
+     * @param {Array} tokens - The list of WordPiece tokens.
+     * @returns {string} The decoded string.
+     */
     convert_tokens_to_string(tokens) {
         return tokens.join(' ').replace(this.convertRegex, '').trim();
     }
 
+    /**
+     * Decodes a list of WordPiece tokens into a single string.
+     * @param {Array} tokens - The list of WordPiece tokens.
+     * @returns {string} The decoded string.
+     */
     decode(tokens) {
         return this.convert_tokens_to_string(tokens);
     }
 }
 
+/**
+ * Byte-level decoder for tokenization output. Inherits from the `Decoder` class.
+ * @extends Decoder
+ */
 class ByteLevelDecoder extends Decoder {
+
+    /**
+     * Create a `ByteLevelDecoder` object.
+     * @param {object} config - Configuration object.
+     */
     constructor(config) {
         super(config);
 
@@ -6013,10 +8358,14 @@ class ByteLevelDecoder extends Decoder {
         this.text_decoder = new TextDecoder("utf-8", {
             fatal: false,
             ignoreBOM: true,
-            ignoreEncoding: false
         });
     }
 
+    /**
+     * Convert an array of tokens to string by decoding each byte.
+     * @param {string[]} tokens - Array of tokens to be decoded.
+     * @returns {string} - The decoded string.
+     */
     convert_tokens_to_string(tokens) {
         let text = tokens.join('');
 
@@ -6026,11 +8375,17 @@ class ByteLevelDecoder extends Decoder {
             text = ' ' + text;
         }
 
+        // @ts-ignore
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
     }
 
+    /**
+     * Decode an array of tokens to string.
+     * @param {string[]} tokens - Array of tokens to be decoded.
+     * @returns {string} - The decoded string.
+     */
     decode(tokens) {
         // TODO move to base class (like HF)
         // tokens === filtered_tokens
@@ -6067,7 +8422,18 @@ class ByteLevelDecoder extends Decoder {
     }
 }
 
+/**
+ * This PreTokenizer replaces spaces with the given replacement character, adds a prefix space if requested,
+ * and returns a list of tokens.
+ * @extends PreTokenizer
+ */
 class MetaspacePreTokenizer extends PreTokenizer {
+    /**
+     * @param {Object} config - The configuration object for the MetaspacePreTokenizer.
+     * @param {boolean} config.add_prefix_space - Whether to add a prefix space to the first token.
+     * @param {string} config.replacement - The character to replace spaces with.
+     * @param {string} [config.str_rep=config.replacement] - An optional string representation of the replacement character.
+     */
     constructor(config) {
         super();
 
@@ -6075,6 +8441,13 @@ class MetaspacePreTokenizer extends PreTokenizer {
         this.replacement = config.replacement;
         this.strRep = config.str_rep || this.replacement;
     }
+
+    /**
+     * This method takes a list of normalized tokens, replaces spaces with the replacement character,
+     * adds a prefix space if requested, and returns a new list of tokens.
+     * @param {string[]|string} normalizedTokens - The list of normalized tokens to pre-tokenize.
+     * @returns {string[]} A new list of pre-tokenized tokens.
+     */
     pre_tokenize(normalizedTokens) {
         if (typeof normalizedTokens === 'string' || normalizedTokens instanceof String) {
             // Metaspace acts on a list of tokens. If passing in a string, first split on whitespace
@@ -6093,7 +8466,17 @@ class MetaspacePreTokenizer extends PreTokenizer {
     }
 }
 
+/**
+ * MetaspaceDecoder class extends the Decoder class and decodes Metaspace tokenization.
+ * @extends Decoder
+ */
 class MetaspaceDecoder extends Decoder {
+    /**
+     * Constructs a new MetaspaceDecoder object.
+     * @param {Object} config - The configuration object for the MetaspaceDecoder.
+     * @param {boolean} config.add_prefix_space - Whether to add a prefix space to the decoded string.
+     * @param {string} config.replacement - The string to replace spaces with.
+     */
     constructor(config) {
         super(config);
 
@@ -6101,6 +8484,11 @@ class MetaspaceDecoder extends Decoder {
         this.replacement = config.replacement;
     }
 
+    /**
+     * Decodes the given tokens back into a string.
+     * @param {Array} tokens - The tokens to decode.
+     * @returns {string} - The decoded string.
+     */
     decode(tokens) {
         let result = [];
         let i = 0;
@@ -6117,88 +8505,94 @@ class MetaspaceDecoder extends Decoder {
     }
 }
 
+/**
+ * A normalizer that applies a precompiled charsmap.
+ * This is useful for applying complex normalizations in C++ and exposing them to JavaScript.
+ * @extends Normalizer
+ * @param {Object} config - The configuration object for the Precompiled normalizer.
+ * @param {Object} config.precompiled_charsmap - The precompiled charsmap object.
+ */
 class Precompiled extends Normalizer {
+    /**
+     * Create a new instance of Precompiled normalizer.
+     * @param {object} config - The configuration object.
+     * @param {any} config.precompiled_charsmap - Precompiled chars mapping.
+     */
     constructor(config) {
         super(config);
         this.charsmap = config.precompiled_charsmap;
     }
+
+    /**
+     * Normalizes the given text by applying the precompiled charsmap.
+     * @param {string} text - The text to normalize.
+     * @returns {string} - The normalized text.
+     */
     normalize(text) {
+        // TODO use this.charsmap
         return text;
     }
 }
 
+/**
+ * A pre-tokenizer that applies a sequence of pre-tokenizers to the input text.
+ * @extends PreTokenizer
+ */
 class PreTokenizerSequence extends PreTokenizer {
+    /**
+     * Creates an instance of PreTokenizerSequence.
+     * @param {object} config - The configuration object for the pre-tokenizer sequence.
+     * @param {object[]} config.pretokenizers - An array of pre-tokenizer configurations.
+     */
     constructor(config) {
         super();
         this.tokenizers = config.pretokenizers.map(x => PreTokenizer.fromConfig(x));
     }
+
+    /**
+     * Applies each pre-tokenizer in the sequence to the input text in turn.
+     * @param {string|string[]} text - The text(s) to pre-tokenize.
+     * @returns {string[]} The pre-tokenized text.
+     */
     pre_tokenize_text(text) {
-        // TODO use reduce?
-        for (let tokenizer of this.tokenizers) {
-            text = tokenizer.pre_tokenize(text);
+        if (typeof text === 'string') {
+            text = [text];
         }
-        return text;
+        // Use reduce to apply each tokenizer to the text
+        return this.tokenizers.reduce((preTokenizedText, tokenizer) => {
+            return tokenizer.pre_tokenize(preTokenizedText);
+        }, text);
     }
 }
+
+/**
+ * Splits a string of text by whitespace characters into individual tokens.
+ * @extends PreTokenizer
+ */
 class WhitespaceSplit extends PreTokenizer {
+    /**
+     * Creates an instance of WhitespaceSplit.
+     * @param {object} config - The configuration object for the pre-tokenizer sequence.
+     */
     constructor(config) {
         super();
     }
+    /**
+     * Pre-tokenizes the input text by splitting it on whitespace characters.
+     * @param {string} text - The text to be pre-tokenized.
+     * @returns {string[]} An array of tokens produced by splitting the input text on whitespace.
+     */
     pre_tokenize_text(text) {
         return text.split(/\s+/);
     }
 }
 
-class AutoTokenizer {
-    // Helper class to determine tokenizer type from tokenizer.json
-
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [tokenizerJSON, tokenizerConfig] = await Promise.all([
-            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
-            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
-        ])
-
-        switch (tokenizerConfig.tokenizer_class) {
-            case 'T5Tokenizer':
-                return new T5Tokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'DistilBertTokenizer':
-                return new DistilBertTokenizer(tokenizerJSON, tokenizerConfig);
-            case 'BertTokenizer':
-                return new BertTokenizer(tokenizerJSON, tokenizerConfig);
-            case 'MobileBertTokenizer':
-                return new MobileBertTokenizer(tokenizerJSON, tokenizerConfig);
-            case 'SqueezeBertTokenizer':
-                return new SqueezeBertTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'AlbertTokenizer':
-                return new AlbertTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'GPT2Tokenizer':
-                return new GPT2Tokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'BartTokenizer':
-                return new BartTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'RobertaTokenizer':
-                return new RobertaTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'WhisperTokenizer':
-                return new WhisperTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'CodeGenTokenizer':
-                return new CodeGenTokenizer(tokenizerJSON, tokenizerConfig);
-
-            case 'CLIPTokenizer':
-                return new CLIPTokenizer(tokenizerJSON, tokenizerConfig);
-            default:
-                console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
-                return new PreTrainedTokenizer(tokenizerJSON, tokenizerConfig);
-        }
-    }
-}
 class PreTrainedTokenizer extends Callable {
+    /**
+   * Create a new PreTrainedTokenizer instance.
+   * @param {Object} tokenizerJSON - The JSON of the tokenizer.
+   * @param {Object} tokenizerConfig - The config of the tokenizer.
+   */
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
 
@@ -6256,6 +8650,12 @@ class PreTrainedTokenizer extends Callable {
         this.padding_side = 'right';
     }
 
+    /**
+     * Returns the value of the first matching key in the tokenizer config object.
+     * @param {...string} keys - One or more keys to search for in the tokenizer config object.
+     * @returns {string|null} - The value associated with the first matching key, or null if no match is found.
+     * @throws {Error} - If an object is found for a matching key and its __type property is not "AddedToken".
+     */
     getToken(...keys) {
         for (let key of keys) {
             let item = this.tokenizerConfig[key];
@@ -6275,6 +8675,15 @@ class PreTrainedTokenizer extends Callable {
         return null;
     }
 
+    /**
+     * Creates a new Tokenizer instance with the tokenizer configuration and files
+     * downloaded from a pretrained model located at the given model path.
+     *
+     * @param {string} modelPath - The path to the pretrained model.
+     * @param {function} [progressCallback=null] - Optional callback function that will be called with the current
+     * progress percentage (0 to 100) each time a file is downloaded.
+     * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the modelPath.
+     */
     static async from_pretrained(modelPath, progressCallback = null) {
         // TODO get files in parallel
 
@@ -6286,10 +8695,27 @@ class PreTrainedTokenizer extends Callable {
         return new this(tokenizerJSON, tokenizerConfig);
     }
 
+    /**
+     * This function can be overridden by a subclass to apply additional preprocessing
+     * to a model's input data.
+     * @param {Object} inputs - An object containing input data as properties.
+     * @returns {Object} The modified inputs object.
+     */
     prepare_model_inputs(inputs) {
         return inputs;
     }
 
+    /**
+     * Encode/tokenize the given text(s).
+     * @param {string|string[]} text - The text to tokenize.
+     * @param {object} options - An optional object containing the following properties:
+     * @param {string|string[]} [options.text_pair=null] - Optional second sequence to be encoded. If set, must be the same type as text.
+     * @param {boolean} [options.padding=false] - Whether to pad the input sequences.
+     * @param {boolean} [options.truncation=null] - Whether to truncate the input sequences.
+     * @param {number} [options.max_length=null] - Maximum length of the returned list and optionally padding length.
+     * @param {boolean} [options.return_tensor=true] - Whether to return the results as Tensors or arrays.
+     * @returns {{ input_ids: number[]|number[][]|Tensor; attention_mask: any[]|Tensor; }} Object to be passed to the model.
+     */
     _call(
         // Required positional arguments
         text,
@@ -6304,6 +8730,7 @@ class PreTrainedTokenizer extends Callable {
             return_tensor = true, // Different to HF
         } = {},
     ) {
+        /** @type {number[]|number[][]|Tensor} */
         let tokens;
 
         if (Array.isArray(text)) {
@@ -6331,6 +8758,10 @@ class PreTrainedTokenizer extends Callable {
             if (text === null) {
                 throw Error('text may not be null')
             }
+
+            if (Array.isArray(text_pair)) {
+                throw Error('When specifying `text_pair`, since `text` is a string, `text_pair` must also be a string (i.e., not an array).')
+            }
             tokens = [this.encode(text, text_pair)];
         }
         // At this point, tokens is batched: [batch_size, tokens]
@@ -6346,7 +8777,7 @@ class PreTrainedTokenizer extends Callable {
         // Ensure it is less than model max length
         max_length = Math.min(max_length, this.model_max_length)
 
-        // TODO convert to tensor here?
+        /** @type {any[]|Tensor} */
         let attention_mask = [];
         if (padding || truncation) {
             // Perform padding and/or truncation
@@ -6428,6 +8859,12 @@ class PreTrainedTokenizer extends Callable {
         return modelInputs
     }
 
+    /**
+     * Encodes a single text using the preprocessor pipeline of the tokenizer.
+     *
+     * @param {string|null} text - The text to encode.
+     * @returns {Array} The encoded tokens.
+     */
     _encode_text(text) {
         if (text === null) return null;
 
@@ -6457,6 +8894,13 @@ class PreTrainedTokenizer extends Callable {
         return tokens;
     }
 
+    /**
+     * Encodes a single text or a pair of texts using the model's tokenizer.
+     *
+     * @param {string} text - The text to encode.
+     * @param {string|null} text_pair - The optional second text to encode.
+     * @returns {number[]} An array of token IDs representing the encoded text(s).
+     */
     encode(text, text_pair = null) {
         // Function called by users to encode possibly multiple texts
         let tokens = this._encode_text(text);
@@ -6468,6 +8912,11 @@ class PreTrainedTokenizer extends Callable {
         return ids
     }
 
+    /**
+     * Clean up a list of simple English tokenization artifacts like spaces before punctuations and abbreviated forms
+     * @param {string} text - The text to clean up.
+     * @returns {string} - The cleaned up text.
+     */
     clean_up_tokenization(text) {
         // Clean up a list of simple English tokenization artifacts
         // like spaces before punctuations and abbreviated forms
@@ -6483,9 +8932,27 @@ class PreTrainedTokenizer extends Callable {
             .replace(/ \'re/g, "'re");
     }
 
+    /**
+     * Decode a batch of tokenized sequences.
+     * @param {number[][]} batch - List of tokenized input sequences.
+     * @param {Object} decode_args - (Optional) Object with decoding arguments.
+     * @returns {string[]} List of decoded sequences.
+     */
     batch_decode(batch, decode_args = {}) {
         return batch.map(x => this.decode(x, decode_args));
     }
+
+    /**
+     * Decodes a sequence of token IDs back to a string.
+     *
+     * @param {number[]} token_ids - List of token IDs to decode.
+     * @param {Object} [decode_args={}]
+     * @param {boolean} [decode_args.skip_special_tokens=false] - If true, special tokens are removed from the output string.
+     * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] - If true, spaces before punctuations and abbreviated forms are removed.
+     *
+     * @returns {string} The decoded string.
+     * @throws {Error} If `token_ids` is not a non-empty array of integers.
+     */
     decode(
         token_ids,
         decode_args = {},
@@ -6499,6 +8966,14 @@ class PreTrainedTokenizer extends Callable {
         )
     }
 
+    /**
+     * Decode a single list of token ids to a string.
+     * @param {number[]} token_ids - List of token ids to decode
+     * @param {object} decode_args - Optional arguments for decoding
+     * @param {boolean} [decode_args.skip_special_tokens=false] - Whether to skip special tokens during decoding
+     * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] - Whether to clean up tokenization spaces during decoding
+     * @returns {string} - The decoded string
+     */
     decode_single(
         token_ids,
         {
@@ -6513,8 +8988,9 @@ class PreTrainedTokenizer extends Callable {
 
         let decoded = this.decoder(tokens); // tokens === filtered_tokens
 
-        if (this.decoder.cleanup !== undefined && this.decoder.cleanup !== clean_up_tokenization_spaces) {
+        if ('cleanup' in this.decoder && this.decoder.cleanup !== clean_up_tokenization_spaces) {
             console.warn(`clean_up_tokenization_spaces disagrees with decoder's cleanup setting. Overriding to use decoder's cleanup setting (${this.decoder.cleanup})`)
+            // @ts-ignore
             clean_up_tokenization_spaces = this.decoder.cleanup;
         }
 
@@ -6527,6 +9003,11 @@ class PreTrainedTokenizer extends Callable {
 
 }
 
+/**
+* Prepare model inputs for a BERT model.
+* @param {Object} inputs - An object containing the input ids and attention mask.
+* @returns {Object} The prepared inputs object.
+*/
 function bert_prepare_model_inputs(inputs) {
     // Helper method for preparing token_type_ids for bert models
     inputs.token_type_ids = new Tensor(
@@ -6536,22 +9017,43 @@ function bert_prepare_model_inputs(inputs) {
     )
     return inputs;
 }
+
+/**
+ * BertTokenizer is a class used to tokenize text for BERT models.
+ * @extends PreTrainedTokenizer
+ */
 class BertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
 }
+/**
+ * Albert tokenizer
+ * @extends PreTrainedTokenizer
+ */
 class AlbertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
 }
 class MobileBertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
 }
 class SqueezeBertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
@@ -6563,7 +9065,10 @@ class BartTokenizer extends PreTrainedTokenizer { }
 class RobertaTokenizer extends PreTrainedTokenizer { }
 
 
-
+/**
+ * WhisperTokenizer tokenizer
+ * @extends PreTrainedTokenizer
+ */
 class WhisperTokenizer extends PreTrainedTokenizer {
     static LANGUAGES = {
         "en": "english",
@@ -6666,6 +9171,13 @@ class WhisperTokenizer extends PreTrainedTokenizer {
         "jw": "javanese",
         "su": "sundanese",
     }
+
+    /**
+     * Decodes automatic speech recognition (ASR) sequences.
+     * @param {Array.<{tokens: Array.<number>, stride: [number, number, number]}>} sequences The sequences to decode.
+     * @param {Object} options - The options to use for decoding.
+     * @returns {[string, {chunks?:Array.<{language: string|null, timestamp: [number|null, number|null], text: string}>}]} The decoded sequences.
+     */
     _decode_asr(sequences, {
         return_timestamps = false,
         return_language = false,
@@ -6765,7 +9277,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
                 if (all_special_ids.has(token)) {
                     const text = this.decode([token]);
                     if (text[0] === "[" && text[text.length - 1] === "]") {
-                        const language = this.LANGUAGES[text.slice(1, -1)];
+                        const language = WhisperTokenizer.LANGUAGES[text.slice(1, -1)];
 
                         if (language !== undefined) {
                             // 1/ Indeed some language
@@ -6893,6 +9405,12 @@ class WhisperTokenizer extends PreTrainedTokenizer {
 
     }
 
+    /**
+     * Finds the longest common sequence among the provided sequences.
+     * @param {number[][]} sequences - An array of sequences of token ids to compare.
+     * @returns {number[]} - The longest common sequence found.
+     * @throws {Error} - If there is a bug within the function.
+     */
     findLongestCommonSequence(sequences) {
         // It would be much harder to do O(n) because of fault tolerance.
         // We actually have a really good property which is that the total sequence
@@ -6966,17 +9484,30 @@ class WhisperTokenizer extends PreTrainedTokenizer {
 }
 class CodeGenTokenizer extends PreTrainedTokenizer { }
 class CLIPTokenizer extends PreTrainedTokenizer { }
+class MarianTokenizer extends PreTrainedTokenizer { }
 
-
+/**
+ * A trie structure to efficiently store and search for strings.
+ */
 class CharTrie {
     constructor() {
         this.root = CharTrieNode.default();
     }
+
+    /**
+     * Adds one or more `texts` to the trie.
+     * @param {string[]} texts - The strings to add to the trie.
+     */
     extend(texts) {
         for (let text of texts) {
             this.push(text);
         }
     }
+
+    /**
+     * Adds one or more `texts` to the trie.
+     * @param {*} text - The strings to add to the trie.
+     */
     push(text) {
         let node = this.root;
         for (let ch of text) {
@@ -6990,6 +9521,11 @@ class CharTrie {
         node.isLeaf = true;
     }
 
+    /**
+     * Searches the trie for all strings with a common prefix of `text`.
+     * @param {string} text - The common prefix to search for.
+     * @yields {string} - Each string in the trie that has `text` as a prefix.
+     */
     *commonPrefixSearch(text) {
         let node = this.root;
         let prefix = "";
@@ -7003,18 +9539,35 @@ class CharTrie {
         }
     }
 }
+
+/**
+ * Represents a node in a character trie.
+ * @param {boolean} isLeaf - Whether the node is a leaf node or not.
+ * @param {Map<string, CharTrieNode>} children - A map containing the node's children, where the key is a character and the value is a `CharTrieNode`.
+ */
 class CharTrieNode {
     constructor(isLeaf, children) {
         this.isLeaf = isLeaf;
         this.children = children;
     }
+
+    /**
+     * Returns a new `CharTrieNode` instance with default values.
+     * @returns {CharTrieNode} A new `CharTrieNode` instance with `isLeaf` set to `false` and an empty `children` map.
+     */
     static default() {
         return new CharTrieNode(false, new Map());
     }
 }
 
-
 class TokenLattice {
+    /**
+     * Creates a new TokenLattice instance.
+     *
+     * @param {string} sentence - The input sentence to be tokenized.
+     * @param {number} bosTokenId - The beginning-of-sequence token ID.
+     * @param {number} eosTokenId - The end-of-sequence token ID.
+     */
     constructor(sentence, bosTokenId, eosTokenId) {
         this.sentence = sentence;
         this.len = sentence.length;
@@ -7034,6 +9587,15 @@ class TokenLattice {
         this.beginNodes[this.len].push(eos);
         this.endNodes[0].push(bos);
     }
+
+    /**
+     * Inserts a new token node into the token lattice.
+     *
+     * @param {number} pos - The starting position of the token.
+     * @param {number} length - The length of the token.
+     * @param {number} score - The score of the token.
+     * @param {number} tokenId - The token ID of the token.
+     */
     insert(pos, length, score, tokenId) {
         const nodeId = this.nodes.length;
         const node = new TokenLatticeNode(tokenId, nodeId, pos, length, score);
@@ -7041,6 +9603,12 @@ class TokenLattice {
         this.endNodes[pos + length].push(node);
         this.nodes.push(node);
     }
+
+    /**
+     * Implements the Viterbi algorithm to compute the most likely sequence of tokens.
+     *
+     * @returns {TokenLatticeNode[]} - The array of nodes representing the most likely sequence of tokens.
+     */
     viterbi() {
         const len = this.len;
         let pos = 0;
@@ -7084,19 +9652,40 @@ class TokenLattice {
         results.reverse();
         return results;
     }
+
+    /**
+     * @param {any} node
+     * @returns {string} - The array of nodes representing the most likely sequence of tokens.
+     */
     piece(node) {
         return this.sentence.slice(node.pos, node.pos + node.length);
     }
+
+    /**
+     * @returns {Array} - The array of nodes representing the most likely sequence of tokens.
+     */
     tokens() {
         const nodes = this.viterbi();
         return nodes.map(x => this.piece(x));
     }
+
+    /**
+     * @returns {Array} - The array of nodes representing the most likely sequence of tokens.
+     */
     tokenIds() {
         const nodes = this.viterbi();
         return nodes.map(x => x.tokenId);
     }
 }
 class TokenLatticeNode {
+    /**
+     * Represents a node in a token lattice for a given sentence.
+     * @param {number} tokenId - The ID of the token associated with this node.
+     * @param {number} nodeId - The ID of this node.
+     * @param {number} pos - The starting position of the token in the sentence.
+     * @param {number} length - The length of the token.
+     * @param {number} score - The score associated with the token.
+     */
     constructor(tokenId, nodeId, pos, length, score) {
         this.tokenId = tokenId;
         this.nodeId = nodeId;
@@ -7106,6 +9695,11 @@ class TokenLatticeNode {
         this.prev = null;
         this.backtraceScore = 0.0;
     }
+
+    /**
+     * Returns a clone of this node.
+     * @returns {TokenLatticeNode} - A clone of this node.
+     */
     clone() {
         const n = new TokenLatticeNode(this.tokenId, this.nodeId, this.pos, this.length, this.score);
         n.prev = this.prev;
@@ -7114,6 +9708,39 @@ class TokenLatticeNode {
     }
 }
 
+class AutoTokenizer {
+    // Helper class to determine tokenizer type from tokenizer.json
+    static TOKENIZER_CLASS_MAPPING = {
+        'T5Tokenizer': T5Tokenizer,
+        'DistilBertTokenizer': DistilBertTokenizer,
+        'BertTokenizer': BertTokenizer,
+        'MobileBertTokenizer': MobileBertTokenizer,
+        'SqueezeBertTokenizer': SqueezeBertTokenizer,
+        'AlbertTokenizer': AlbertTokenizer,
+        'GPT2Tokenizer': GPT2Tokenizer,
+        'BartTokenizer': BartTokenizer,
+        'RobertaTokenizer': RobertaTokenizer,
+        'WhisperTokenizer': WhisperTokenizer,
+        'CodeGenTokenizer': CodeGenTokenizer,
+        'CLIPTokenizer': CLIPTokenizer,
+        'MarianTokenizer': MarianTokenizer,
+    }
+
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [tokenizerJSON, tokenizerConfig] = await Promise.all([
+            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
+            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
+        ])
+
+        let cls = this.TOKENIZER_CLASS_MAPPING[tokenizerConfig.tokenizer_class];
+        if (!cls) {
+            console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
+            cls = PreTrainedTokenizer;
+        }
+        return new cls(tokenizerJSON, tokenizerConfig);
+    }
+}
 
 module.exports = {
     AutoTokenizer,
@@ -7122,6 +9749,7 @@ module.exports = {
     T5Tokenizer,
     GPT2Tokenizer
 };
+
 
 /***/ }),
 
@@ -7148,7 +9776,7 @@ const {
     AutoModelForQuestionAnswering,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
-    T5ForConditionalGeneration
+    AutoModelForObjectDetection,
 } = __webpack_require__(/*! ./models.js */ "./src/models.js");
 
 const {
@@ -7177,8 +9805,7 @@ const moduleExports = {
     AutoModelForQuestionAnswering,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
-
-    T5ForConditionalGeneration,
+    AutoModelForObjectDetection,
 
     // Processors
     AutoProcessor,
@@ -7199,6 +9826,7 @@ if (typeof self !== 'undefined') {
 // Used by other modules
 module.exports = moduleExports
 
+
 /***/ }),
 
 /***/ "./src/utils.js":
@@ -7213,6 +9841,10 @@ const fs = __webpack_require__(/*! fs */ "?569f");
 const { env } = __webpack_require__(/*! ./env.js */ "./src/env.js");
 
 class FileResponse {
+    /**
+     * Creates a new `FileResponse` object.
+     * @param {string} filePath
+     */
     constructor(filePath) {
         this.filePath = filePath;
         this.headers = {};
@@ -7222,7 +9854,6 @@ class FileResponse {
         if (this.exists) {
             this.status = 200;
             this.statusText = 'OK';
-
 
             let stats = fs.statSync(filePath);
             this.headers['content-length'] = stats.size;
@@ -7245,6 +9876,12 @@ class FileResponse {
         }
     }
 
+    /**
+     * Updates the 'content-type' header property of the response based on the extension of
+     * the file specified by the filePath property of the current object.
+     * @function
+     * @returns {void}
+     */
     updateContentType() {
         // Set content-type header based on file extension
         const extension = this.filePath.split('.').pop().toLowerCase();
@@ -7280,34 +9917,77 @@ class FileResponse {
         }
     }
 
+    /**
+     * @function
+     * @returns {FileResponse}
+     */
     clone() {
-        return new FileResponse(this.filePath, {
-            status: this.status,
-            statusText: this.statusText,
-            headers: this.headers,
-        });
+        let response = new FileResponse(this.filePath);
+        response.exists = this.exists;
+        response.status = this.status;
+        response.statusText = this.statusText;
+        response.headers = this.headers;
+        return response;
     }
 
+    /**
+     * Reads the contents of the file specified by the filePath property and returns a Promise that
+     * resolves with an ArrayBuffer containing the file's contents.
+     * @async
+     * @function
+     * @returns {Promise<ArrayBuffer>} - A Promise that resolves with an ArrayBuffer containing the file's contents.
+     * @throws {Error} - If the file cannot be read.
+     */
     async arrayBuffer() {
         const data = await fs.promises.readFile(this.filePath);
         return data.buffer;
     }
 
+    /**
+     * Reads the contents of the file specified by the filePath property and returns a Promise that
+     * resolves with a Blob containing the file's contents.
+     * @async
+     * @function
+     * @returns {Promise<Blob>} - A Promise that resolves with a Blob containing the file's contents.
+     * @throws {Error} - If the file cannot be read.
+     */
     async blob() {
         const data = await fs.promises.readFile(this.filePath);
         return new Blob([data], { type: this.headers['content-type'] });
     }
 
+    /**
+     * Reads the contents of the file specified by the filePath property and returns a Promise that
+     * resolves with a string containing the file's contents.
+     * @async
+     * @function
+     * @returns {Promise<string>} - A Promise that resolves with a string containing the file's contents.
+     * @throws {Error} - If the file cannot be read.
+     */
     async text() {
         const data = await fs.promises.readFile(this.filePath, 'utf8');
         return data;
     }
 
+    /**
+     * Reads the contents of the file specified by the filePath property and returns a Promise that
+     * resolves with a parsed JavaScript object containing the file's contents.
+     * @async
+     * @function
+     * @returns {Promise<object>} - A Promise that resolves with a parsed JavaScript object containing the file's contents.
+     * @throws {Error} - If the file cannot be read.
+     */
     async json() {
         return JSON.parse(await this.text());
     }
 }
 
+/**
+ * Determines whether the given string is a valid HTTP or HTTPS URL.
+ * @function
+ * @param {string} string - The string to test for validity as an HTTP or HTTPS URL.
+ * @returns {boolean} - True if the string is a valid HTTP or HTTPS URL, false otherwise.
+ */
 function isValidHttpUrl(string) {
     // https://stackoverflow.com/a/43467144
     let url;
@@ -7319,6 +9999,14 @@ function isValidHttpUrl(string) {
     return url.protocol === "http:" || url.protocol === "https:";
 }
 
+/**
+ * Helper function to get a file, using either the Fetch API or FileSystem API.
+ *
+ * @async
+ * @function getFile
+ * @param {string} url - The URL of the file to get.
+ * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
+ */
 async function getFile(url) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
@@ -7330,10 +10018,29 @@ async function getFile(url) {
     }
 }
 
+/**
+ * Helper function to dispatch progress callbacks.
+ *
+ * @function dispatchCallback
+ * @param {function} progressCallback - The progress callback function to dispatch.
+ * @param {any} data - The data to pass to the progress callback function.
+ * @returns {void}
+ */
 function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
 }
 
+/**
+ * Retrieves a file from either a remote URL using the Fetch API or from the local file system using the FileSystem API.
+ *
+ * @async
+ * @function getModelFile
+ * @param {string} modelPath - The path of the model file.
+ * @param {string} fileName - The name of the model file.
+ * @param {function} [progressCallback=null] - A function to call when the download progress is updated.
+ * @returns {Promise} A Promise that resolves with the file content as a buffer.
+ * @throws Will throw an error if the file is not found.
+ */
 async function getModelFile(modelPath, fileName, progressCallback = null, fatal = true) {
 
     // Initiate session
@@ -7350,7 +10057,10 @@ async function getModelFile(modelPath, fileName, progressCallback = null, fatal 
 
     const request = pathJoin(modelPath, fileName);
 
+    /** @type {Response | FileResponse} */
     let response;
+
+    /** @type {Response | FileResponse} */
     let responseToCache;
 
     if (!env.useCache || (response = await cache.match(request)) === undefined) {
@@ -7391,7 +10101,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null, fatal 
 
     // Check again whether request is in cache. If not, we add the response to the cache
     if (responseToCache !== undefined && await cache.match(request) === undefined) {
-        cache.put(request, responseToCache);
+        cache.put(request, /** @type {Response} */(/** @type {unknown} */ (responseToCache)));
     }
 
     dispatchCallback(progressCallback, {
@@ -7403,6 +10113,14 @@ async function getModelFile(modelPath, fileName, progressCallback = null, fatal 
     return buffer;
 }
 
+/**
+ * Fetches a JSON file from a given path and file name.
+ *
+ * @param {string} modelPath - The path to the directory containing the file.
+ * @param {string} fileName - The name of the file to fetch.
+ * @param {function} progressCallback - A callback function to receive progress updates. Optional.
+ * @returns {Promise<object>} - The JSON data parsed into a JavaScript object.
+ */
 async function fetchJSON(modelPath, fileName, progressCallback = null, fatal = true) {
     let buffer = await getModelFile(modelPath, fileName, progressCallback, fatal);
     if (buffer === null) {
@@ -7416,7 +10134,13 @@ async function fetchJSON(modelPath, fileName, progressCallback = null, fatal = t
     return JSON.parse(jsonData);
 }
 
-
+/**
+ * Read and track progress when reading a Response object
+ *
+ * @param {any} response - The Response object to read
+ * @param {function} progressCallback - The function to call with progress updates
+ * @returns {Promise<Uint8Array>} A Promise that resolves with the Uint8Array buffer
+ */
 async function readResponse(response, progressCallback) {
     // Read and track progress when reading a Response object
 
@@ -7467,6 +10191,12 @@ async function readResponse(response, progressCallback) {
     return buffer;
 }
 
+/**
+ * Joins multiple parts of a path into a single path, while handling leading and trailing slashes.
+ *
+ * @param {...string} parts - Multiple parts of a path.
+ * @returns {string} A string representing the joined path.
+ */
 function pathJoin(...parts) {
     // https://stackoverflow.com/a/55142565
     parts = parts.map((part, index) => {
@@ -7481,11 +10211,24 @@ function pathJoin(...parts) {
     return parts.join('/');
 }
 
+/**
+ * Reverses the keys and values of an object.
+ *
+ * @param {object} data - The object to reverse.
+ * @returns {object} The reversed object.
+ * @see https://ultimatecourses.com/blog/reverse-object-keys-and-values-in-javascript
+ */
 function reverseDictionary(data) {
     // https://ultimatecourses.com/blog/reverse-object-keys-and-values-in-javascript
     return Object.fromEntries(Object.entries(data).map(([key, value]) => [value, key]));
 }
 
+/**
+ * Returns the index of the maximum value in an array.
+ * @param {Array} arr - The input array.
+ * @see https://stackoverflow.com/a/11301464
+ * @returns {number} - The index of the maximum value in the array.
+ */
 function indexOfMax(arr) {
     // https://stackoverflow.com/a/11301464
 
@@ -7506,7 +10249,12 @@ function indexOfMax(arr) {
     return maxIndex;
 }
 
-
+/**
+ * Compute the softmax of an array of numbers.
+ *
+ * @param {number[]} arr - The array of numbers to compute the softmax of.
+ * @returns {number[]} The softmax array.
+ */
 function softmax(arr) {
     // Compute the maximum value in the array
     const max = Math.max(...arr);
@@ -7523,6 +10271,11 @@ function softmax(arr) {
     return softmaxArr;
 }
 
+/**
+ * Calculates the logarithm of the softmax function for the input array.
+ * @param {number[]} arr - The input array to calculate the log_softmax function for.
+ * @returns {any} - The resulting log_softmax array.
+ */
 function log_softmax(arr) {
     // Compute the softmax values
     const softmaxArr = softmax(arr);
@@ -7533,10 +10286,23 @@ function log_softmax(arr) {
     return logSoftmaxArr;
 }
 
+/**
+ * Escapes regular expression special characters from a string by replacing them with their escaped counterparts.
+ *
+ * @param {string} string - The string to escape.
+ * @returns {string} - The escaped string.
+ */
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
+/**
+ * Get the top k items from an iterable, sorted by descending order
+ *
+ * @param {Array} items - The items to be sorted
+ * @param {number} [top_k=0] - The number of top items to return (default: 0 = return all)
+ * @returns {Array} - The top k items, sorted by descending order
+ */
 function getTopItems(items, top_k = 0) {
     // if top == 0, return all
 
@@ -7551,10 +10317,23 @@ function getTopItems(items, top_k = 0) {
     return items
 }
 
+/**
+ * Calculates the dot product of two arrays.
+ * @param {number[]} arr1 - The first array.
+ * @param {number[]} arr2 - The second array.
+ * @returns {number} - The dot product of arr1 and arr2.
+ */
 function dot(arr1, arr2) {
     return arr1.reduce((acc, val, i) => acc + val * arr2[i], 0);
 }
 
+/**
+ * Computes the cosine similarity between two arrays.
+ *
+ * @param {number[]} arr1 - The first array.
+ * @param {number[]} arr2 - The second array.
+ * @returns {number} The cosine similarity between the two arrays.
+ */
 function cos_sim(arr1, arr2) {
     // Calculate dot product of the two arrays
     const dotProduct = dot(arr1, arr2);
@@ -7571,23 +10350,57 @@ function cos_sim(arr1, arr2) {
     return cosineSimilarity;
 }
 
+/**
+ * Calculates the magnitude of a given array.
+ * @param {number[]} arr - The array to calculate the magnitude of.
+ * @returns {number} The magnitude of the array.
+ */
 function magnitude(arr) {
     return Math.sqrt(arr.reduce((acc, val) => acc + val * val, 0));
 }
 
-
+/**
+ * A base class for creating callable objects.
+ *
+ * @extends Function
+ */
 class Callable extends Function {
+    /**
+    * Creates a new instance of the Callable class.
+    */
     constructor() {
-        let closure = function (...args) { return closure._call(...args) }
+        super();
+        /**
+         * Creates a closure that delegates to a private method '_call' with the given arguments.
+         *
+         * @param {...any} args - Zero or more arguments to pass to the '_call' method.
+         * @returns {*} - The result of calling the '_call' method.
+         */
+        let closure = function (...args) {
+            // @ts-ignore
+            return closure._call(...args)
+        }
         return Object.setPrototypeOf(closure, new.target.prototype)
     }
 
+    /**
+     * This method should be implemented in subclasses to provide the
+     * functionality of the callable object.
+     *
+     * @throws {Error} Must implement _call method in subclass
+     * @param {...*} args
+     */
     _call(...args) {
         throw Error('Must implement _call method in subclass')
     }
 }
 
-
+/**
+ * Returns the minimum item.
+ * @param {number[]} arr - array of numbers.
+ * @returns {number} - the minimum number.
+ * @throws {Error} If array is empty.
+ */
 function min(arr) {
     if (arr.length === 0) throw Error('Array must not be empty');
     let min = arr[0];
@@ -7599,15 +10412,29 @@ function min(arr) {
     return min;
 }
 
+/**
+ * Check if a value is a string.
+ * @param {*} text - The value to check.
+ * @returns {boolean} - True if the value is a string, false otherwise.
+ */
 function isString(text) {
     return typeof text === 'string' || text instanceof String
 }
 
-
+/**
+ * Check if a value is an integer.
+ * @param {*} x - The value to check.
+ * @returns {boolean} - True if the value is a string, false otherwise.
+ */
 function isIntegralNumber(x) {
     return Number.isInteger(x) || typeof x === 'bigint'
 }
 
+/**
+ * Check if a value is exists.
+ * @param {*} x - The value to check.
+ * @returns {boolean} - True if the value exists, false otherwise.
+ */
 function exists(x) {
     return x !== undefined && x !== null;
 }

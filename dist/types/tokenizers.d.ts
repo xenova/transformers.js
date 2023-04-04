@@ -21,6 +21,10 @@ export class AutoTokenizer {
  * @extends PreTrainedTokenizer
  */
 export class BertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
+    prepare_model_inputs(inputs: any): any;
 }
 export class DistilBertTokenizer extends PreTrainedTokenizer {
 }
@@ -29,9 +33,15 @@ export class T5Tokenizer extends PreTrainedTokenizer {
 export class GPT2Tokenizer extends PreTrainedTokenizer {
 }
 declare class MobileBertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs: any): any;
 }
 declare class SqueezeBertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
     prepare_model_inputs(inputs: any): any;
 }
 /**
@@ -39,6 +49,10 @@ declare class SqueezeBertTokenizer extends PreTrainedTokenizer {
  * @extends PreTrainedTokenizer
  */
 declare class AlbertTokenizer extends PreTrainedTokenizer {
+    /**
+     * @see {@link bert_prepare_model_inputs}
+     */
+    prepare_model_inputs(inputs: any): any;
 }
 declare class BartTokenizer extends PreTrainedTokenizer {
 }
@@ -224,19 +238,32 @@ declare class PreTrainedTokenizer extends Callable {
      */
     getToken(...keys: string[]): string | null;
     /**
-     * @param {any} inputs
-     * @return {any}
+     * This function can be overridden by a subclass to apply additional preprocessing
+     * to a model's input data.
+     * @param {Object} inputs - An object containing input data as properties.
+     * @returns {Object} The modified inputs object.
      */
     prepare_model_inputs(inputs: any): any;
-    _call(text: any, { text_pair, padding, truncation, max_length, return_tensor, }?: {
-        text_pair?: any;
+    /**
+     * Encode/tokenize the given text(s).
+     * @param {string|string[]} text - The text to tokenize.
+     * @param {object} options - An optional object containing the following properties:
+     * @param {string|string[]} [options.text_pair=null] - Optional second sequence to be encoded. If set, must be the same type as text.
+     * @param {boolean} [options.padding=false] - Whether to pad the input sequences.
+     * @param {boolean} [options.truncation=null] - Whether to truncate the input sequences.
+     * @param {number} [options.max_length=null] - Maximum length of the returned list and optionally padding length.
+     * @param {boolean} [options.return_tensor=true] - Whether to return the results as Tensors or arrays.
+     * @returns {{ input_ids: number[]|number[][]|Tensor; attention_mask: any[]|Tensor; }} Object to be passed to the model.
+     */
+    _call(text: string | string[], { text_pair, padding, truncation, max_length, return_tensor, }?: {
+        text_pair?: string | string[];
         padding?: boolean;
-        truncation?: any;
-        max_length?: any;
+        truncation?: boolean;
+        max_length?: number;
         return_tensor?: boolean;
     }): {
-        input_ids: Tensor | number[][];
-        attention_mask: any;
+        input_ids: number[] | number[][] | Tensor;
+        attention_mask: any[] | Tensor;
     };
     /**
      * Encodes a single text using the preprocessor pipeline of the tokenizer.
@@ -322,7 +349,7 @@ declare class Normalizer extends Callable {
      */
     normalize(text: string): string;
     /**
-     * Alias for normalize method. Allows normalization to be called as a function.
+     * Alias for {@link Normalizer#normalize}.
      * @param {string} text - The text to normalize.
      * @returns {string} - The normalized text.
      */
@@ -385,9 +412,6 @@ declare class TokenizerModel extends Callable {
      */
     constructor(config: object);
     config: any;
-    tokens_to_ids: any;
-    unk_token_id: any;
-    vocab: any;
     /**
      * Internal function to call the TokenizerModel instance.
      * @param {string[]} tokens - The tokens to encode.
@@ -435,7 +459,13 @@ declare class PostProcessor extends Callable {
      * @throws {Error} If the method is not implemented in subclass.
      */
     post_process(tokens: any[], ...args: any[]): any[];
-    _call(tokens: any, ...args: any[]): any[];
+    /**
+     * Alias for {@link PostProcessor#post_process}.
+     * @param {Array} tokens - The text or array of texts to post-process.
+     * @param {...*} args - Additional arguments required by the post-processing logic.
+     * @returns {Array} An array of post-processed tokens.
+     */
+    _call(tokens: any[], ...args: any[]): any[];
 }
 /**
  * The base class for token decoders.
@@ -457,8 +487,6 @@ declare class Decoder extends Callable {
     */
     constructor(config: any);
     config: any;
-    added_tokens: any;
-    cleanup: any;
     /**
     * Converts a list of tokens to a string.
     *

@@ -5,8 +5,8 @@
  */
 export class Callable extends Function {
     /**
-   * Creates a new instance of the Callable class.
-   */
+    * Creates a new instance of the Callable class.
+    */
     constructor();
     /**
      * This method should be implemented in subclasses to provide the
@@ -154,6 +154,7 @@ export function exists(x: any): boolean;
 export function min(arr: number[]): number;
 declare class FileResponse {
     /**
+     * Creates a new `FileResponse` object.
      * @param {string} filePath
      */
     constructor(filePath: string);
@@ -164,7 +165,7 @@ declare class FileResponse {
     statusText: string;
     body: ReadableStream<any>;
     /**
-     * Updates the 'content-type' header property of the HTTP response based on the file extension of
+     * Updates the 'content-type' header property of the response based on the extension of
      * the file specified by the filePath property of the current object.
      * @function
      * @returns {void}

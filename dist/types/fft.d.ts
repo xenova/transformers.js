@@ -1,6 +1,7 @@
 export = FFT;
 /**
  * FFT class provides functionality for performing Fast Fourier Transform on arrays
+ * Code adapted from https://www.npmjs.com/package/fft.js
  */
 declare class FFT {
     /**

@@ -219,15 +219,64 @@ export class ForceTokensLogitsProcessor extends LogitsProcessor {
      */
     _call(input_ids: any[], logits: any): any[];
 }
+/**
+ * A logits processor that disallows ngrams of a certain size to be repeated.
+ *
+ * @extends LogitsProcessor
+ */
 export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
-    constructor(no_repeat_ngram_size: any);
-    no_repeat_ngram_size: any;
-    _call(input_ids: any, logits: any): any;
+    /**
+     * Create a NoRepeatNGramLogitsProcessor.
+     * @param {number} no_repeat_ngram_size - The no-repeat-ngram size. All ngrams of this size can only occur once.
+     */
+    constructor(no_repeat_ngram_size: number);
+    no_repeat_ngram_size: number;
+    /**
+     * Generate n-grams from a sequence of token ids.
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {Map<string, number[]>} - Map of generated n-grams
+     */
+    getNgrams(prevInputIds: number[]): Map<string, number[]>;
+    /**
+     * Generate n-grams from a sequence of token ids.
+     * @param {Map<string, number[]>} bannedNgrams - Map of banned n-grams
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {number[]} - Map of generated n-grams
+     */
+    getGeneratedNgrams(bannedNgrams: Map<string, number[]>, prevInputIds: number[]): number[];
+    /**
+     * Calculate banned n-gram tokens
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {number[]} - Map of generated n-grams
+     */
+    calcBannedNgramTokens(prevInputIds: number[]): number[];
+    /**
+     * Apply the no-repeat-ngram processor to the logits.
+     * @param {Array} input_ids - The input IDs.
+     * @param {Object} logits - The logits.
+     * @returns {Object} The logits with no-repeat-ngram processing.
+     */
+    _call(input_ids: any[], logits: any): any;
 }
+/**
+ * A logits processor that penalises repeated output tokens.
+ *
+ * @extends LogitsProcessor
+ */
 export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
-    constructor(penalty: any);
-    penalty: any;
-    _call(input_ids: any, logits: any): any;
+    /**
+     * Create a RepetitionPenaltyLogitsProcessor.
+     * @param {number} penalty - The penalty to apply for repeated tokens.
+     */
+    constructor(penalty: number);
+    penalty: number;
+    /**
+     * Apply the repetition penalty to the logits.
+     * @param {Array} input_ids - The input IDs.
+     * @param {Object} logits - The logits.
+     * @returns {Object} The logits with repetition penalty processing.
+     */
+    _call(input_ids: any[], logits: any): any;
 }
 import { Callable } from "./utils.js";
 import { Tensor } from "./tensor_utils.js";
