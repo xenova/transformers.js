@@ -554,9 +554,6 @@ class EmbeddingsPipeline extends Pipeline {
      * @private
      */
     _normalize(tensor) {
-        // Normalise tensors along dim=1
-        // NOTE: only works for tensors of shape [batchSize, embedDim]
-        // Operates in-place
         for (let batch of tensor) {
             let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b))
 
