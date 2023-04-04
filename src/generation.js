@@ -287,6 +287,11 @@ const calcBannedNgramTokens = (ngramSize, prevInputIds) => {
     }
 };
 
+/**
+ * A logits processor that disallows ngrams of a certain size to be repeated.
+ * 
+ * @extends LogitsProcessor
+ */
 class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
     /**
      * Create a NoRepeatNGramLogitsProcessor.
