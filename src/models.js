@@ -201,8 +201,7 @@ async function seq2seq_forward(self, model_inputs, {
 
     const decoderResults = await sessionRun(self.decoder_merged_session, decoderFeeds);
     let logits = decoderResults.logits;
-    pastKeyValues = self.getPastKeyValues(decoderResults);
-
+    pastKeyValues = self.getPastKeyValues(decoderResults, pastKeyValues);
     return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
 }
 
@@ -302,7 +301,7 @@ async function textgen_forward(self, model_inputs) {
     let decoderResults = await sessionRun(self.session, decoderFeeds);
     let logits = decoderResults.logits;
 
-    past_key_values = self.getPastKeyValues(decoderResults);
+    past_key_values = self.getPastKeyValues(decoderResults, past_key_values);
     return { logits, past_key_values };
 }
 
@@ -810,14 +809,25 @@ class PreTrainedModel extends Callable {
      * Returns an object containing past key values from the given decoder results object.
      *
      * @param {Object} decoderResults - The decoder results object.
+     * @param {Object} pastKeyValues - The previous past key values.
      * @returns {Object} - An object containing past key values.
      */
-    getPastKeyValues(decoderResults) {
+    getPastKeyValues(decoderResults, pastKeyValues) {
+
         const pkvs = {};
 
         for (const name in decoderResults) {
             if (name.startsWith('present')) {
-                pkvs[name.replace('present', 'past_key_values')] = decoderResults[name]
+                let newName = name.replace('present', 'past_key_values');
+
+                if (pastKeyValues !== null && name.includes('encoder')) {
+                    // Optimization introduced by optimum to reuse past key values. So, we just replace the constant
+                    // outputs with the previous past key values.
+                    // https://github.com/huggingface/optimum/blob/0bf2c05fb7e1182b52d21b703cfc95fd9e4ea3dc/optimum/onnxruntime/base.py#L677-L704
+                    pkvs[newName] = pastKeyValues[newName];
+                } else {
+                    pkvs[newName] = decoderResults[name];
+                }
             }
         }
         return pkvs;
