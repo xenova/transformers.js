@@ -257,16 +257,25 @@ class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
         this.no_repeat_ngram_size = no_repeat_ngram_size;
     }
 
-    getNgrams(ngramSize, prevInputIds) {
+    /**
+     * Generate n-grams from a sequence of token ids.
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {Map<string, number[]>} - Map of generated n-grams
+     */
+    getNgrams(prevInputIds) {
         const curLen = prevInputIds.length;
+
+        /**@type {number[][]} */
         const ngrams = [];
-        for (let j = 0; j < curLen + 1 - ngramSize; ++j) {
+        for (let j = 0; j < curLen + 1 - this.no_repeat_ngram_size; ++j) {
             const ngram = [];
-            for (let k = 0; k < ngramSize; ++k) {
+            for (let k = 0; k < this.no_repeat_ngram_size; ++k) {
                 ngram.push(prevInputIds[j + k]);
             }
             ngrams.push(ngram);
         }
+
+        /** @type {Map<string, number[]>} */
         const generatedNgram = new Map();
         for (const ngram of ngrams) {
             const prevNgram = ngram.slice(0, ngram.length - 1);
@@ -278,26 +287,32 @@ class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
         return generatedNgram;
     }
 
-    getGeneratedNgrams(bannedNgrams, prevInputIds, ngramSize) {
-        const ngramIdx = prevInputIds.slice(prevInputIds.length + 1 - ngramSize, prevInputIds.length);
+    /**
+     * Generate n-grams from a sequence of token ids.
+     * @param {Map<string, number[]>} bannedNgrams - Map of banned n-grams
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {number[]} - Map of generated n-grams
+     */
+    getGeneratedNgrams(bannedNgrams, prevInputIds) {
+        const ngramIdx = prevInputIds.slice(prevInputIds.length + 1 - this.no_repeat_ngram_size, prevInputIds.length);
         const banned = bannedNgrams.get(JSON.stringify(ngramIdx)) ?? [];
         return banned;
     }
 
-    calcBannedNgramTokens(ngramSize, prevInputIds) {
+    /**
+     * Calculate banned n-gram tokens
+     * @param {number[]} prevInputIds - List of previous input ids
+     * @returns {number[]} - Map of generated n-grams
+     */
+    calcBannedNgramTokens(prevInputIds) {
         const bannedTokens = [];
-        if (prevInputIds.length + 1 < ngramSize) {
+        if (prevInputIds.length + 1 < this.no_repeat_ngram_size) {
             // return no banned tokens if we haven't generated no_repeat_ngram_size tokens yet
             return bannedTokens;
 
         } else {
-            const generatedNgrams = this.getNgrams(ngramSize, prevInputIds);
-
-            const bannedTokens = this.getGeneratedNgrams(
-                generatedNgrams,
-                prevInputIds,
-                ngramSize,
-            );
+            const generatedNgrams = this.getNgrams(prevInputIds);
+            const bannedTokens = this.getGeneratedNgrams(generatedNgrams, prevInputIds);
             return bannedTokens;
         }
     }
@@ -309,10 +324,7 @@ class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
      * @returns {Object} The logits with no-repeat-ngram processing.
      */
     _call(input_ids, logits) {
-        const bannedTokens = this.calcBannedNgramTokens(
-            this.no_repeat_ngram_size,
-            input_ids,
-        );
+        const bannedTokens = this.calcBannedNgramTokens(input_ids);
 
         for (const token of bannedTokens) {
             logits.data[token] = -Infinity;
