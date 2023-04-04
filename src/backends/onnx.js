@@ -1,6 +1,6 @@
 let ONNX;
 
-// TODO support 
+// TODO support more execution providers (e.g., webgpu)
 const executionProviders = ['wasm'];
 
 if (typeof process !== 'undefined') {
