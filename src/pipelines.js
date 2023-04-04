@@ -373,7 +373,7 @@ class TextGenerationPipeline extends Pipeline {
             let startText = texts[i].trim();
             let decoded = this.tokenizer.batch_decode(outTokens, {
                 skip_special_tokens: true,
-            }).map((x) => {
+            }).map(x => {
                 return {
                     generated_text: startText + x
                 }
