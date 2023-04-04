@@ -1,7 +1,7 @@
-// Code adapted from https://www.npmjs.com/package/fft.js
 
 /**
  * FFT class provides functionality for performing Fast Fourier Transform on arrays
+ * Code adapted from https://www.npmjs.com/package/fft.js
  */
 class FFT {
     /**
@@ -126,7 +126,7 @@ class FFT {
         if (out === data)
             throw new Error('Input and output buffers must be different');
 
-        this._realTransform4(out, data, 1/* DONE */);
+        this._realTransform4(out, data, 1 /* DONE */);
     }
 
     /**
