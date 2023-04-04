@@ -1576,13 +1576,6 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             logits_processor = [new WhisperTimeStampLogitsProcessor(generation_config)]
         }
 
-
-
-        // Modify forced_decoder_ids_mapping. This is the way HF also does it,
-        // but it would probably be best to not modify the class' mapping, and
-        // rather create a copy?
-
-
         return super.generate(inputs, generation_config, logits_processor)
     }
 
