@@ -135,7 +135,7 @@ function boolTensor(value) {
     return new Tensor('bool', [value], [1]);
 }
 
-// JS doesn't support mixings, so we define some reused functions here, and allow "this" to be passed in
+// JS doesn't support mixins, so we define some reused functions here, and allow "this" to be passed in
 /**
  * Loads a sequence-to-sequence model from the specified path.
  * @param {string} modelPath - The path to the model directory.
