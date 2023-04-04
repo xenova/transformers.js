@@ -406,6 +406,11 @@ function textgenUpdatebeam(beam, newTokenId) {
  * @extends Callable
  */
 class PreTrainedModel extends Callable {
+    /**
+     * Creates a new instance of the `PreTrainedModel` class.
+     * @param {object} config - The model configuration.
+     * @param {any} session - session for the model.
+     */
     constructor(config, session) {
         super();
 
@@ -1147,6 +1152,7 @@ class T5Model extends T5PreTrainedModel {
  */
 class T5ForConditionalGeneration extends T5PreTrainedModel {
     /**
+     * Creates a new instance of the `T5ForConditionalGeneration` class.
      * @param {object} config - The model configuration.
      * @param {any} session - session for the model.
      * @param {any} decoder_merged_session - session for the decoder.
@@ -1245,7 +1251,6 @@ class MT5Model extends MT5PreTrainedModel {
 class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     /**
      * Creates a new instance of the `MT5ForConditionalGeneration` class.
-     *
      * @param {any} config - The model configuration.
      * @param {any} session - The TensorFlow.js session containing the encoder weights.
      * @param {any} decoder_merged_session - The TensorFlow.js session containing the merged decoder weights.
@@ -1351,7 +1356,7 @@ class BartModel extends BartPretrainedModel {
  */
 class BartForConditionalGeneration extends BartPretrainedModel {
     /**
-     * Create a new BartForConditionalGeneration instance.
+     * Creates a new instance of the `BartForConditionalGeneration` class.
      * @param {object} config - The configuration object for the Bart model.
      * @param {object} session - The TensorFlow.js session used to execute the model.
      * @param {object} decoder_merged_session - The TensorFlow.js session used to execute the decoder.
@@ -1516,7 +1521,7 @@ class WhisperModel extends WhisperPreTrainedModel {
  */
 class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     /**
-     * Initializes the WhisperForConditionalGeneration object.
+     * Creates a new instance of the `WhisperForConditionalGeneration` class.
      * @param {Object} config - Configuration object for the model.
      * @param {Object} session - TensorFlow.js Session object for the model.
      * @param {Object} decoder_merged_session - TensorFlow.js Session object for the decoder.
@@ -1636,6 +1641,7 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
  */
 class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
+     * Creates a new instance of the `VisionEncoderDecoderModel` class.
      * @param {object} config - The configuration object specifying the hyperparameters and other model settings.
      * @param {object} session - The TensorFlow.js session containing the encoder model.
      * @param {any} decoder_merged_session - The TensorFlow.js session containing the merged decoder model.
@@ -1758,6 +1764,7 @@ class GPT2Model extends GPT2PreTrainedModel {
  */
 class GPT2LMHeadModel extends GPT2PreTrainedModel {
     /**
+     * Creates a new instance of the `GPT2LMHeadModel` class.
      * @param {object} config - The configuration of the model.
      * @param {any} session - The ONNX session containing the model weights.
      */
@@ -1832,6 +1839,7 @@ class GPTNeoModel extends GPTNeoPreTrainedModel {
 
 class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
     /**
+     * Creates a new instance of the `GPTNeoForCausalLM` class.
      * @param {object} config - The configuration of the model.
      * @param {any} session - The ONNX session containing the model weights.
      */
@@ -1916,6 +1924,7 @@ class CodeGenModel extends CodeGenPreTrainedModel {
  */
 class CodeGenForCausalLM extends CodeGenPreTrainedModel {
     /**
+     * Creates a new instance of the `CodeGenForCausalLM` class.
     * @param {object} config The model configuration object.
     * @param {object} session The ONNX session object.
     */
@@ -2030,6 +2039,7 @@ class MarianModel extends MarianPreTrainedModel {
 
 class MarianMTModel extends MarianPreTrainedModel {
     /**
+     * Creates a new instance of the `MarianMTModel` class.
     * @param {object} config The model configuration object.
     * @param {object} session The ONNX session object.
     * @param {any} decoder_merged_session 
