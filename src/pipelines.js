@@ -151,11 +151,9 @@ class QuestionAnsweringPipeline extends Pipeline {
      * @todo fix error below
      * @returns {Promise<any>} - A promise that resolves to an array or object containing the predicted answers and scores.
      */
-    async _call(question, context,
-        {
-            topk = 1
-        } = {}
-    ) {
+    async _call(question, context, {
+        topk = 1
+    } = {}) {
 
         let inputs = this.tokenizer(question, {
             text_pair: context
