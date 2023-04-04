@@ -1557,6 +1557,10 @@ class PreTrainedTokenizer extends Callable {
             if (text === null) {
                 throw Error('text may not be null')
             }
+
+            if (Array.isArray(text_pair)) {
+                throw Error('When specifying `text_pair`, since `text` is a string, `text_pair` must also be a string (i.e., not an array).')
+            }
             tokens = [this.encode(text, text_pair)];
         }
         // At this point, tokens is batched: [batch_size, tokens]
