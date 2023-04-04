@@ -1430,6 +1430,12 @@ class BartForConditionalGeneration extends BartPretrainedModel {
 }
 
 class BartForSequenceClassification extends BartPretrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
+     */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
