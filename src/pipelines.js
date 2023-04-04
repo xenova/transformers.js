@@ -441,7 +441,7 @@ class ZeroShotClassificationPipeline extends Pipeline {
 
         // Insert labels into hypothesis template
         let hypotheses = candidate_labels.map(
-            (x) => hypothesis_template.replace('{}', x)
+            x => hypothesis_template.replace('{}', x)
         );
 
         // How to perform the softmax over the logits:
