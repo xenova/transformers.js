@@ -309,7 +309,7 @@ class Text2TextGenerationPipeline extends Pipeline {
             skip_special_tokens: true,
         });
         if (this._key !== null) {
-            toReturn = toReturn.map((text) => {
+            toReturn = toReturn.map(text => {
                 return (this._key === null) ? text : { [this._key]: text }
             })
         }
