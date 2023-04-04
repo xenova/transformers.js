@@ -2129,6 +2129,7 @@ class AutoModel {
         'clip': CLIPModel,
         'mobilebert': MobileBertModel,
         'squeezebert': SqueezeBertModel,
+        'marian': MarianModel,
     }
 
     /**
