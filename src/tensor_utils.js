@@ -118,9 +118,7 @@ function reshape(data, dimensions) {
         throw Error(`cannot reshape array of size ${totalElements} into shape (${dimensions})`);
     }
 
-    /**
-     * @type {any}
-     */
+    /** @type {any} */
     let reshapedArray = data;
 
     for (let i = dimensions.length - 1; i >= 0; i--) {
