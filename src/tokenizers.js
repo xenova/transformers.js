@@ -1492,8 +1492,9 @@ class PreTrainedTokenizer extends Callable {
     }
 
     /**
-     * @param {any} inputs
-     * @return {any}
+     * @param {T} inputs
+     * @template T
+     * @return {T}
      */
     prepare_model_inputs(inputs) {
         return inputs;
