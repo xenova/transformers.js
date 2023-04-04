@@ -411,14 +411,6 @@ class PreTrainedModel extends Callable {
 
         this.config = config;
         this.session = session;
-        this.num_encoder_heads = undefined;
-        this.encoder_dim_kv = undefined;
-        this.num_decoder_heads = undefined;
-        this.decoder_dim_kv = undefined;
-        this.num_decoder_layers = undefined;
-        this.num_heads = undefined;
-        this.dim_kv = undefined;
-        this.num_layers = undefined;
     }
 
     /**
