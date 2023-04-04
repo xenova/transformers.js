@@ -650,8 +650,10 @@ class PreTrainedModel extends Callable {
         // Create empty generation config (contains defaults)
         let gen_config = new GenerationConfig();
 
-        // Apply model's generation config
-        Object.assign(gen_config, this.generation_config);
+        // Apply model's generation config, if it exists
+        if ('generation_config' in this) {
+            Object.assign(gen_config, this.generation_config);
+        }
 
         // Finally, use any generation config specified by the user
         // when calling `generate`
