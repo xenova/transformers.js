@@ -22,9 +22,6 @@ class TokenizerModel extends Callable {
     constructor(config) {
         super();
         this.config = config;
-        this.tokens_to_ids = undefined;
-        this.unk_token_id = undefined;
-        this.vocab = undefined;
     }
     /**
      * Instantiates a new TokenizerModel instance based on the configuration object provided.
@@ -57,7 +54,7 @@ class TokenizerModel extends Callable {
     _call(tokens) {
         return this.encode(tokens);
     }
-    
+
     /**
      * Encodes a list of tokens into a list of token IDs.
      * @param {string[]} tokens - The tokens to encode.
@@ -173,7 +170,7 @@ class WordPieceTokenizer extends TokenizerModel {
                 start = end;
             }
             if (isUnknown) {
-                outputTokens.push(this.unknownToken);
+                outputTokens.push(this.unk_token);
             } else {
                 outputTokens.push(...subTokens);
             }
@@ -250,7 +247,7 @@ class Unigram extends TokenizerModel {
             beginPos += mblen;
         }
     }
-    
+
     /**
      * Encodes an array of tokens into an array of subtokens using the unigram model.
      *
@@ -303,8 +300,8 @@ const BYTES_TO_UNICODE = (() => {
             n += 1;
         }
     }
-    cs = cs.map(n => String.fromCharCode(n));
-    return Object.fromEntries(bs.map((b, i) => [b, cs[i]]));
+    let ccs = cs.map(n => String.fromCharCode(n));
+    return Object.fromEntries(bs.map((b, i) => [b, ccs[i]]));
 })();
 
 const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
@@ -1052,8 +1049,6 @@ class Decoder extends Callable {
     constructor(config) {
         super();
         this.config = config;
-        this.added_tokens = undefined;
-        this.cleanup = undefined;
     }
 
     /**
@@ -1161,7 +1156,6 @@ class ByteLevelDecoder extends Decoder {
         this.text_decoder = new TextDecoder("utf-8", {
             fatal: false,
             ignoreBOM: true,
-            ignoreEncoding: false
         });
     }
 
@@ -1179,7 +1173,7 @@ class ByteLevelDecoder extends Decoder {
             text = ' ' + text;
         }
 
-        // TODO: fix error below
+        // @ts-ignore
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
@@ -1353,11 +1347,13 @@ class PreTokenizerSequence extends PreTokenizer {
      * @returns {string[]} The pre-tokenized text.
      */
     pre_tokenize_text(text) {
-        // TODO use reduce?
-        for (let tokenizer of this.tokenizers) {
-            text = tokenizer.pre_tokenize(text);
+        if (typeof text === 'string') {
+            text = [text];
         }
-        return text;
+        // Use reduce to apply each tokenizer to the text
+        return this.tokenizers.reduce((preTokenizedText, tokenizer) => {
+            return tokenizer.pre_tokenize(preTokenizedText);
+        }, text);
     }
 }
 
@@ -1801,11 +1797,11 @@ function bert_prepare_model_inputs(inputs) {
  * @extends PreTrainedTokenizer
  */
 class BertTokenizer extends PreTrainedTokenizer {
-     /**
-     * Prepare model inputs for a BERT model.
-     * @param {Object} inputs - An object containing the input ids and attention mask.
-     * @returns {Object} The prepared inputs object.
-     */
+    /**
+    * Prepare model inputs for a BERT model.
+    * @param {Object} inputs - An object containing the input ids and attention mask.
+    * @returns {Object} The prepared inputs object.
+    */
     prepare_model_inputs(inputs) {
         return bert_prepare_model_inputs(inputs);
     }
@@ -2280,7 +2276,7 @@ class CharTrie {
             this.push(text);
         }
     }
-    
+
     /**
      * Adds one or more `texts` to the trie.
      * @param {*} text - The strings to add to the trie.
