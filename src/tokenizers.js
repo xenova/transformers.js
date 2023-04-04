@@ -122,7 +122,7 @@ class WordPieceTokenizer extends TokenizerModel {
 
         /**
          * An array of tokens.
-         * @type {Array.<string>}
+         * @type {string[]}
          */
         this.vocab = Array(e.length);
 
