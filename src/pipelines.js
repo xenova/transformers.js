@@ -810,7 +810,7 @@ class ImageToTextPipeline extends Pipeline {
             let output = (await this.model.generate(batch, generate_kwargs)).flat();
             let decoded = this.tokenizer.batch_decode(output, {
                 skip_special_tokens: true,
-            }).map((x) => {
+            }).map(x => {
                 return { generated_text: x.trim() }
             })
             toReturn.push(decoded);
