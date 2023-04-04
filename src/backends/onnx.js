@@ -17,6 +17,7 @@ if (typeof process !== 'undefined') {
 
         // Fix "ReferenceError: self is not defined" bug when running directly with node
         // https://github.com/microsoft/onnxruntime/issues/13072
+        // @ts-ignore
         global.self = global;
 
         ONNX = require('onnxruntime-web');
