@@ -13,7 +13,9 @@ const {
  * @extends Callable
  */
 class LogitsProcessorList extends Callable {
-
+    /**
+     * Constructs a new instance of `LogitsProcessorList`.
+     */
     constructor() {
         super();
         this.processors = [];
