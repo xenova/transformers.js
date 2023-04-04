@@ -14,11 +14,10 @@ const B64_STRING = /^data:image\/\w+;base64,/;
  * @returns {Promise<any>}
  */
 async function loadImage(url) {
-  // TODO if already is a Jimp image, return it
-  /**
-   * @type {any}
-   */
-  let imgToLoad = url;
+    // TODO if already is a Jimp image, return it
+
+    /** @type {any} */
+    let imgToLoad = url;
     if (B64_STRING.test(url)) {
         imgToLoad = imgToLoad.replace(B64_STRING, '');
         if (typeof Buffer !== 'undefined') {
