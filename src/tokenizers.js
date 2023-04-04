@@ -1556,10 +1556,7 @@ class PreTrainedTokenizer extends Callable {
         // Ensure it is less than model max length
         max_length = Math.min(max_length, this.model_max_length)
 
-        // TODO: convert to tensor here?
-        /**
-         * @type {any}
-         */
+        /** @type {any[]} */
         let attention_mask = [];
         if (padding || truncation) {
             // Perform padding and/or truncation
