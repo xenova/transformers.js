@@ -321,13 +321,27 @@ class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
     }
 }
 
-
+/**
+ * A logits processor that penalises repeated output tokens.
+ * 
+ * @extends LogitsProcessor
+ */
 class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a RepetitionPenaltyLogitsProcessor.
+     * @param {number} penalty - The penalty to apply for repeated tokens.
+     */
     constructor(penalty) {
         super();
         this.penalty = penalty;
     }
 
+    /**
+     * Apply the repetition penalty to the logits.
+     * @param {Array} input_ids - The input IDs.
+     * @param {Object} logits - The logits.
+     * @returns {Object} The logits with repetition penalty processing.
+     */
     _call(input_ids, logits) {
         // Modify the logits corresponding to each element in `input_ids`.
         // As a consequence, the logits corresponding to tokens that appear
