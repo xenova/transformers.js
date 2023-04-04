@@ -288,11 +288,21 @@ const calcBannedNgramTokens = (ngramSize, prevInputIds) => {
 };
 
 class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a NoRepeatNGramLogitsProcessor.
+     * @param {number} no_repeat_ngram_size - The no-repeat-ngram size. All ngrams of this size can only occur once.
+     */
     constructor(no_repeat_ngram_size) {
         super();
         this.no_repeat_ngram_size = no_repeat_ngram_size;
     }
 
+    /**
+     * Apply the no-repeat-ngram processor to the logits.
+     * @param {Array} input_ids - The input IDs.
+     * @param {Object} logits - The logits.
+     * @returns {Object} The logits with no-repeat-ngram processing.
+     */
     _call(input_ids, logits) {
         const bannedTokens = calcBannedNgramTokens(
             this.no_repeat_ngram_size,
