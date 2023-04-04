@@ -1254,8 +1254,8 @@ class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     /**
      * Creates a new instance of the `MT5ForConditionalGeneration` class.
      * @param {any} config - The model configuration.
-     * @param {any} session - The TensorFlow.js session containing the encoder weights.
-     * @param {any} decoder_merged_session - The TensorFlow.js session containing the merged decoder weights.
+     * @param {any} session - The ONNX session containing the encoder weights.
+     * @param {any} decoder_merged_session - The ONNX session containing the merged decoder weights.
      * @param {GenerationConfig} generation_config - The generation configuration.
      */
     constructor(config, session, decoder_merged_session, generation_config) {
@@ -1360,8 +1360,8 @@ class BartForConditionalGeneration extends BartPretrainedModel {
     /**
      * Creates a new instance of the `BartForConditionalGeneration` class.
      * @param {object} config - The configuration object for the Bart model.
-     * @param {object} session - The TensorFlow.js session used to execute the model.
-     * @param {object} decoder_merged_session - The TensorFlow.js session used to execute the decoder.
+     * @param {object} session - The ONNX session used to execute the model.
+     * @param {object} decoder_merged_session - The ONNX session used to execute the decoder.
      * @param {object} generation_config - The generation configuration object.
      */
     constructor(config, session, decoder_merged_session, generation_config) {
@@ -1531,8 +1531,8 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
      * @param {Object} config - Configuration object for the model.
-     * @param {Object} session - TensorFlow.js Session object for the model.
-     * @param {Object} decoder_merged_session - TensorFlow.js Session object for the decoder.
+     * @param {Object} session - ONNX Session object for the model.
+     * @param {Object} decoder_merged_session - ONNX Session object for the decoder.
      * @param {Object} generation_config - Configuration object for the generation process.
      */
     constructor(config, session, decoder_merged_session, generation_config) {
@@ -1651,8 +1651,8 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
      * @param {object} config - The configuration object specifying the hyperparameters and other model settings.
-     * @param {object} session - The TensorFlow.js session containing the encoder model.
-     * @param {any} decoder_merged_session - The TensorFlow.js session containing the merged decoder model.
+     * @param {object} session - The ONNX session containing the encoder model.
+     * @param {any} decoder_merged_session - The ONNX session containing the merged decoder model.
      */
     constructor(config, session, decoder_merged_session) {
         super(config, session);
