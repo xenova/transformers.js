@@ -300,9 +300,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
                 let score = probs[maxIndex];
                 if (score > threshold) {
                     // Some class has a high enough probability
-                    /**
-                     * @type {number[]}
-                     */
+                    /** @type {number[]} */
                     let box = bbox.get(j);
 
                     // convert to [x0, y0, x1, y1] format
