@@ -516,7 +516,6 @@ class Replace extends Normalizer {
      * @returns {string} The normalized text after replacing the pattern with the content.
      */
     normalize(text) {
-        // TODO: this.config.pattern might not be Regex.
         if (this.config.pattern.Regex) {
             text = text.replace(new RegExp(this.config.pattern.Regex, 'g'), this.config.content)
 
