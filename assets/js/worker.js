@@ -1,8 +1,12 @@
+///////////////////////////////////////////////////////////////
+// Worker.js file for doing all transformer-based computations
+// Needed to ensure the UI thread is not blocked when running
+///////////////////////////////////////////////////////////////
+//
 // Get dist directory relative to location of worker script.
 const DIST_DIR = location.pathname.split('/').slice(0, -1 - 2).join('/') + '/dist/';
 
-// Worker.js file for doing all transformer-based computations
-// Needed to ensure the UI thread is not blocked when running
+// Import transformers.js library
 importScripts(DIST_DIR + 'transformers.min.js');
 
 // Set paths to wasm files. In this case, we use the .wasm files present in `DIST_DIR`.
