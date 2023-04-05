@@ -3,10 +3,26 @@ SUPPORTED_TASKS = {
     # map tasks to automodels
     'default': 'AutoModel',
     'masked-lm': 'AutoModelForMaskedLM',
+    'causal-lm': 'AutoModelForCausalLM',
+    'seq2seq-lm': 'AutoModelForSeq2SeqLM',
     'sequence-classification': 'AutoModelForSequenceClassification',
-    'multiple-choice': 'AutoModelForMultipleChoice',
     'token-classification': 'AutoModelForTokenClassification',
+    # 'multiple-choice': 'AutoModelForMultipleChoice',
+    'object-detection': 'AutoModelForObjectDetection',
     'question-answering': 'AutoModelForQuestionAnswering',
+    'image-classification': 'AutoModelForImageClassification',
+    # 'image-segmentation': 'AutoModelForImageSegmentation',
+    # 'masked-im': 'AutoModelForMaskedImageModeling',
+    # 'semantic-segmentation': 'AutoModelForSemanticSegmentation',
+    'speech2seq-lm': 'AutoModelForSpeechSeq2Seq',
+    # 'audio-classification': 'AutoModelForAudioClassification',
+    # 'audio-frame-classification': 'AutoModelForAudioFrameClassification',
+    # 'audio-ctc': 'AutoModelForCTC',
+    # 'audio-xvector': 'AutoModelForAudioXVector',
+    'vision2seq-lm': 'AutoModelForVision2Seq',
+    # 'stable-diffusion': 'StableDiffusionPipeline',
+    'zero-shot-image-classification': 'AutoModelForZeroShotImageClassification',
+    'zero-shot-object-detection': 'AutoModelForZeroShotObjectDetection',
 }
 
 SUPPORTED_MODELS = {
