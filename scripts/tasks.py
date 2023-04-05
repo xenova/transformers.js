@@ -81,6 +81,32 @@ SUPPORTED_MODELS = {
         'sentence-transformers/all-MiniLM-L12-v2': [
             'default',
         ],
+
+
+        'Davlan/bert-base-multilingual-cased-ner-hrl': [
+            # 'default',
+            'token-classification',
+        ],
+        'ckiplab/bert-base-chinese-ner': [
+            # 'default',
+            'token-classification',
+        ],
+        'ckiplab/bert-base-chinese-ws': [
+            # 'default',
+            'token-classification',
+        ],
+        'ckiplab/bert-base-chinese-pos': [
+            # 'default',
+            'token-classification',
+        ],
+        'dslim/bert-base-NER': [
+            # 'default',
+            'token-classification',
+        ],
+        'dslim/bert-base-NER-uncased': [
+            # 'default',
+            'token-classification',
+        ],
     },
     'blenderbot-small': {
         'facebook/blenderbot_small-90M': [
@@ -146,7 +172,12 @@ SUPPORTED_MODELS = {
         'typeform/distilbert-base-uncased-mnli': [
             'default',
             'sequence-classification',
-        ]
+        ],
+
+        'Davlan/distilbert-base-multilingual-cased-ner-hrl': [
+            # 'default',
+            'token-classification',
+        ],
     },
     'gpt-neo': {
         'EleutherAI/gpt-neo-125M': [
