@@ -159,8 +159,6 @@ def copy_if_exists(model_path, file_name, destination):
 
 def main():
 
-    # Helper script to fix inconsistencies between optimum exporter and other exporters.
-    # T5 uses similar approach to fastT5 (https://github.com/Ki6an/fastT5)
     parser = HfArgumentParser(
         (ConversionArguments, )
     )
