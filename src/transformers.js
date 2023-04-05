@@ -9,6 +9,7 @@ const {
 const {
     AutoModel,
     AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
@@ -39,6 +40,7 @@ const moduleExports = {
     AutoModel,
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,

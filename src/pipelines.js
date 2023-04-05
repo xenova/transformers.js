@@ -1,6 +1,7 @@
 const {
     Callable,
     softmax,
+    indexOfMax,
     getTopItems,
     cos_sim,
     pathJoin,
@@ -15,6 +16,7 @@ const {
 const {
     AutoModel,
     AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
@@ -137,6 +139,69 @@ class TextClassificationPipeline extends Pipeline {
     }
 }
 
+
+/**
+ * TokenClassificationPipeline class for executing a token classification task.
+ * @extends Pipeline
+ */
+class TokenClassificationPipeline extends Pipeline {
+    /**
+     * Executes the token classification task.
+     * @param {any} texts - The input texts to be classified.
+     * @param {object} options - An optional object containing the following properties:
+     * @returns {Promise<object[]|object>} - A promise that resolves to an array or object containing the predicted labels and scores.
+     */
+    async _call(texts, {
+        ignore_labels = ['O'], // TODO init param?
+    } = {}) {
+
+        let isBatched = Array.isArray(texts);
+
+        if (!isBatched) {
+            texts = [texts];
+        }
+
+        let tokenizer = this.tokenizer;
+        let [inputs, outputs] = await super._call(texts);
+
+        let logits = outputs.logits;
+        let id2label = this.model.config.id2label;
+
+        let toReturn = [];
+        for (let i = 0; i < logits.dims[0]; ++i) {
+            let ids = inputs.input_ids.get(i);
+            let batch = logits.get(i);
+
+            // List of tokens that aren't ignored
+            let tokens = [];
+            for (let j = 0; j < batch.dims[0]; ++j) {
+                let tokenData = batch.get(j);
+                let topScoreIndex = indexOfMax(tokenData.data);
+
+                let entity = id2label[topScoreIndex];
+                if (ignore_labels.includes(entity)) {
+                    // We predicted a token that should be ignored. So, we skip it.
+                    continue;
+                }
+
+                let scores = softmax(tokenData.data);
+
+                tokens.push({
+                    entity: entity,
+                    score: scores[topScoreIndex],
+                    index: j,
+                    word: tokenizer.decode([ids.get(j)], { skip_special_tokens: false }),
+
+                    // TODO: null for now, but will add
+                    start: null,
+                    end: null,
+                });
+            }
+            toReturn.push(tokens);
+        }
+        return isBatched ? toReturn : toReturn[0];
+    }
+}
 /**
  * QuestionAnsweringPipeline class for executing a question answering task.
  * @extends Pipeline
@@ -981,7 +1046,15 @@ const SUPPORTED_TASKS = {
         },
         "type": "text",
     },
-
+    "token-classification": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": TokenClassificationPipeline,
+        "model": AutoModelForTokenClassification,
+        "default": {
+            "model": "Davlan/bert-base-multilingual-cased-ner-hrl",
+        },
+        "type": "text",
+    },
     "question-answering": {
         "tokenizer": AutoTokenizer,
         "pipeline": QuestionAnsweringPipeline,
