@@ -49,6 +49,8 @@ self.addEventListener('message', async (event) => {
 class PipelineFactory {
     static task = null;
     static model = null;
+
+    // NOTE: instance stores a promise that resolves to the pipeline
     static instance = null;
 
     constructor(tokenizer, model) {
@@ -56,12 +58,12 @@ class PipelineFactory {
         this.model = model;
     }
 
-    static async getInstance(progressCallback = null) {
+    static getInstance(progressCallback = null) {
         if (this.task === null || this.model === null) {
             throw Error("Must set task and model")
         }
         if (this.instance === null) {
-            this.instance = await pipeline(this.task, this.model, {
+            this.instance = pipeline(this.task, this.model, {
                 progress_callback: progressCallback
             });
         }
