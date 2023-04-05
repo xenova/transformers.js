@@ -233,7 +233,7 @@ def main():
         # Handle special cases
         if model.config.model_type == 'marian':
             import json
-            from .tokenizers.marian import generate_tokenizer_json
+            from .extra.marian import generate_tokenizer_json
             tokenizer_json = generate_tokenizer_json(model_path, tokenizer)
 
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
