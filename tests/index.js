@@ -140,6 +140,51 @@ async function text_classification() {
 }
 
 
+async function token_classification() {
+    let classifier = await pipeline('token-classification', 'Davlan/bert-base-multilingual-cased-ner-hrl');
+
+    let texts = [
+        "The Golden State Warriors are an American professional basketball team based in San Francisco.",
+        "My name is Sarah and I live in London."
+    ];
+
+    let start = performance.now();
+
+    let outputs1 = await classifier(texts[0]);
+    let outputs2 = await classifier(texts);
+
+    let duration = performance.now() - start;
+
+    // Dispose pipeline
+    await classifier.dispose()
+
+    return [isDeepEqual(
+        outputs1,
+        [
+            { entity: "B-ORG", score: 0.9998535513877869, index: 2, word: "Golden", start: null, end: null },
+            { entity: "I-ORG", score: 0.9998612999916077, index: 3, word: "State", start: null, end: null },
+            { entity: "I-ORG", score: 0.999866247177124, index: 4, word: "Warriors", start: null, end: null },
+            { entity: "B-LOC", score: 0.9997050166130066, index: 13, word: "San", start: null, end: null },
+            { entity: "I-LOC", score: 0.9987282156944275, index: 14, word: "Francisco", start: null, end: null }
+        ]
+    ) && isDeepEqual(
+        outputs2,
+        [
+            [
+                { entity: "B-ORG", score: 0.9998375773429871, index: 2, word: "Golden", start: null, end: null },
+                { entity: "I-ORG", score: 0.9998642206192017, index: 3, word: "State", start: null, end: null },
+                { entity: "I-ORG", score: 0.9998642802238464, index: 4, word: "Warriors", start: null, end: null },
+                { entity: "B-LOC", score: 0.9996914863586426, index: 13, word: "San", start: null, end: null },
+                { entity: "I-LOC", score: 0.9989780783653259, index: 14, word: "Francisco", start: null, end: null }
+            ], [
+                { entity: "B-PER", score: 0.997977614402771, index: 4, word: "Sarah", start: null, end: null },
+                { entity: "B-LOC", score: 0.9996902346611023, index: 9, word: "London", start: null, end: null }
+            ]
+        ]
+    ), duration];
+}
+
+
 async function zero_shot_classification() {
     let classifier = await pipeline('zero-shot-classification', 'facebook/bart-large-mnli');
 
@@ -828,6 +873,7 @@ console.warn = (...data) => {
 // Define tests
 let tests = {
     'Text classification:': text_classification,
+    'Token classification:': token_classification,
     'Zero-shot classification': zero_shot_classification,
     'Masked language modelling:': masked_language_modelling,
     'Question answering:': question_answering,
