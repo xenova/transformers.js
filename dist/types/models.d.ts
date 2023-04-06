@@ -71,6 +71,23 @@ export class AutoModelForSequenceClassification {
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
 }
 /**
+ * Helper class for loading token classification models from pretrained checkpoints
+ */
+export class AutoModelForTokenClassification {
+    static MODEL_CLASS_MAPPING: {
+        bert: typeof BertForTokenClassification;
+        distilbert: typeof DistilBertForTokenClassification;
+    };
+    /**
+     * Load a token classification model from a pretrained checkpoint
+     * @param {string} modelPath - The path to the model checkpoint directory
+     * @param {function} [progressCallback=null] - An optional callback function to receive progress updates
+     * @returns {Promise<PreTrainedModel>} A promise that resolves to a pre-trained token classification model
+     * @throws {Error} if an unsupported model type is encountered
+     */
+    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
+}
+/**
  * A class for loading pre-trained models for causal language modeling tasks.
  */
 export class AutoModelForCausalLM {
@@ -83,10 +100,10 @@ export class AutoModelForCausalLM {
      * Loads a pre-trained model from the given path and returns an instance of the appropriate class.
      * @param {string} modelPath - The path to the pre-trained model.
      * @param {function} [progressCallback=null] - An optional callback function to track the progress of the loading process.
-     * @returns {Promise<GPT2LMHeadModel|CodeGenForCausalLM>} An instance of the appropriate class for the loaded model.
+     * @returns {Promise<GPT2LMHeadModel|CodeGenForCausalLM|CodeGenForCausalLM>} An instance of the appropriate class for the loaded model.
      * @throws {Error} If the loaded model type is not supported.
      */
-    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<GPT2LMHeadModel | CodeGenForCausalLM>;
+    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<GPT2LMHeadModel | CodeGenForCausalLM | CodeGenForCausalLM>;
 }
 /**
  * A class to automatically select the appropriate model for Masked Language Modeling (MLM) tasks.
@@ -143,9 +160,9 @@ export class AutoModelForVision2Seq {
      * Loads a pretrained model from a given path.
      * @param {string} modelPath - The path to the pretrained model.
      * @param {function} progressCallback - Optional callback function to track progress of the model loading.
-     * @returns {Promise<VisionEncoderDecoderModel>} - A Promise that resolves to a new instance of VisionEncoderDecoderModel.
+     * @returns {Promise<PreTrainedModel>} - A Promise that resolves to a new instance of VisionEncoderDecoderModel.
      */
-    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<VisionEncoderDecoderModel>;
+    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
 }
 /**
  * AutoModelForImageClassification is a class for loading pre-trained image classification models from ONNX format.
@@ -158,10 +175,10 @@ export class AutoModelForImageClassification {
      * Loads a pre-trained image classification model from a given directory path.
      * @param {string} modelPath - The path to the directory containing the pre-trained model.
      * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<ViTForImageClassification>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with an instance of the ViTForImageClassification class.
      * @throws {Error} If the specified model type is not supported.
      */
-    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<ViTForImageClassification>;
+    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
 }
 export class AutoModelForObjectDetection {
     static MODEL_CLASS_MAPPING: {
@@ -171,10 +188,10 @@ export class AutoModelForObjectDetection {
      * Loads a pre-trained image classification model from a given directory path.
      * @param {string} modelPath - The path to the directory containing the pre-trained model.
      * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<any>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with an instance of the ViTForImageClassification class.
      * @throws {Error} If the specified model type is not supported.
      */
-    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<any>;
+    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
 }
 declare class BertModel extends BertPreTrainedModel {
 }
@@ -421,10 +438,9 @@ declare class T5ForConditionalGeneration extends T5PreTrainedModel {
      */
     getStartBeams(inputs: number[][], numOutputTokens: number, ...args: any[]): any[];
     /**
-     * Runs the beam search for a given beam.
-     * @async
-     * @param {any} beam - The current beam.
-     * @returns {Promise<any>} The model output.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     runBeam(beam: any): Promise<any>;
     /**
@@ -475,12 +491,11 @@ declare class MT5ForConditionalGeneration extends MT5PreTrainedModel {
    */
     getStartBeams(inputs: any[], numOutputTokens: number, ...args: any[]): any[];
     /**
-    * Runs the given beam through
-    * the model and returns the next token prediction.
-    * @param {any} beam - The beam to run.
-    * @returns {Promise<number>} - A Promise that resolves to the index of the predicted token.
-    */
-    runBeam(beam: any): Promise<number>;
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
+     */
+    runBeam(beam: any): Promise<any>;
     /**
      * Updates the given beam with the new predicted token.
      * @param {any} beam - The beam to update.
@@ -581,9 +596,9 @@ declare class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      */
     getStartBeams(inputTokenIds: any[], numOutputTokens: number, ...args: any[]): any[];
     /**
-     * Runs a beam for generating outputs.
-     * @param {Object} beam - Beam object.
-     * @returns {Promise<Object>} Promise object represents the generated outputs for the beam.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     runBeam(beam: any): Promise<any>;
     /**
@@ -623,8 +638,9 @@ declare class MarianMTModel extends MarianPreTrainedModel {
      */
     getStartBeams(inputs: any[], numOutputTokens: number, ...args: any[]): any;
     /**
-     * @param {any} beam
-     * @returns {Promise<any>}
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     runBeam(beam: any): Promise<any>;
     /**
@@ -669,7 +685,7 @@ declare class DistilBertForSequenceClassification extends DistilBertPreTrainedMo
      * Calls the model on new inputs.
      *
      * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for question answering.
+     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
      */
     _call(model_inputs: any): Promise<SequenceClassifierOutput>;
 }
@@ -717,6 +733,32 @@ declare class SqueezeBertForSequenceClassification extends SqueezeBertPreTrained
     _call(model_inputs: any): Promise<SequenceClassifierOutput>;
 }
 /**
+ * BertForTokenClassification is a class representing a BERT model for token classification.
+ * @extends BertPreTrainedModel
+ */
+declare class BertForTokenClassification extends BertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} - An object containing the model's output logits for token classification.
+     */
+    _call(model_inputs: any): Promise<TokenClassifierOutput>;
+}
+/**
+ * DistilBertForTokenClassification is a class representing a DistilBERT model for token classification.
+ * @extends DistilBertPreTrainedModel
+ */
+declare class DistilBertForTokenClassification extends DistilBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} - An object containing the model's output logits for token classification.
+     */
+    _call(model_inputs: any): Promise<TokenClassifierOutput>;
+}
+/**
  * GPT-2 language model head on top of the GPT-2 base model. This model is suitable for text generation tasks.
  * @extends GPT2PreTrainedModel
  */
@@ -733,9 +775,9 @@ declare class GPT2LMHeadModel extends GPT2PreTrainedModel {
      */
     getStartBeams(inputTokenIds: Tensor, numOutputTokens: number, inputs_attention_mask: Tensor): any;
     /**
-     * Runs beam search for text generation given a beam.
-     * @param {any} beam - The Beam object representing the beam.
-     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     runBeam(beam: any): Promise<any>;
     /**
@@ -758,9 +800,9 @@ declare class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
      */
     getStartBeams(inputTokenIds: Tensor, numOutputTokens: number, inputs_attention_mask: Tensor): any;
     /**
-     * Runs beam search for text generation given a beam.
-     * @param {any} beam - The Beam object representing the beam.
-     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     runBeam(beam: any): Promise<any>;
     /**
@@ -787,9 +829,9 @@ declare class CodeGenForCausalLM extends CodeGenPreTrainedModel {
      */
     getStartBeams(inputTokenIds: Tensor, numOutputTokens: number, inputs_attention_mask: Tensor): any;
     /**
-     * Runs beam search for text generation given a beam.
-     * @param {any} beam - The Beam object representing the beam.
-     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     runBeam(beam: any): Promise<any>;
     /**
@@ -972,10 +1014,9 @@ declare class VisionEncoderDecoderModel extends PreTrainedModel {
      */
     getStartBeams(inputs: any[], numOutputTokens: number, ...args: any[]): any;
     /**
-     * Generate the next beam step for the given beam.
-     *
-     * @param {any} beam - The current beam.
-     * @returns {Promise<any>} The updated beam with the additional predicted token ID.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     runBeam(beam: any): Promise<any>;
     /**
@@ -1044,6 +1085,13 @@ declare class Seq2SeqLMOutput extends ModelOutput {
     encoder_outputs: Tensor;
 }
 declare class SequenceClassifierOutput extends ModelOutput {
+    /**
+     * @param {Tensor} logits
+     */
+    constructor(logits: Tensor);
+    logits: Tensor;
+}
+declare class TokenClassifierOutput extends ModelOutput {
     /**
      * @param {Tensor} logits
      */

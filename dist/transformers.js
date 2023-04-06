@@ -3105,6 +3105,23 @@ class BertForSequenceClassification extends BertPreTrainedModel {
 }
 
 /**
+ * BertForTokenClassification is a class representing a BERT model for token classification.
+ * @extends BertPreTrainedModel
+ */
+class BertForTokenClassification extends BertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} - An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new TokenClassifierOutput(logits)
+    }
+}
+
+/**
  * BertForQuestionAnswering is a class representing a BERT model for question answering.
  * @extends BertPreTrainedModel
  */
@@ -3136,13 +3153,31 @@ class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
      * Calls the model on new inputs.
      *
      * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for question answering.
+     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
         return new SequenceClassifierOutput(logits)
     }
 }
+
+/**
+ * DistilBertForTokenClassification is a class representing a DistilBERT model for token classification.
+ * @extends DistilBertPreTrainedModel
+ */
+class DistilBertForTokenClassification extends DistilBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs - The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} - An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        let logits = (await super._call(model_inputs)).logits;
+        return new TokenClassifierOutput(logits)
+    }
+}
+
 
 /**
  * DistilBertForQuestionAnswering is a class representing a DistilBERT model for question answering.
@@ -3389,10 +3424,9 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
     }
 
     /**
-     * Runs the beam search for a given beam.
-     * @async
-     * @param {any} beam - The current beam.
-     * @returns {Promise<any>} The model output.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
@@ -3490,11 +3524,10 @@ class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     }
 
     /**
-    * Runs the given beam through
-    * the model and returns the next token prediction.
-    * @param {any} beam - The beam to run.
-    * @returns {Promise<number>} - A Promise that resolves to the index of the predicted token.
-    */
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
+     */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
     }
@@ -3794,9 +3827,9 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     }
 
     /**
-     * Runs a beam for generating outputs.
-     * @param {Object} beam - Beam object.
-     * @returns {Promise<Object>} Promise object represents the generated outputs for the beam.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam, {
@@ -3885,10 +3918,9 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
     }
 
     /**
-     * Generate the next beam step for the given beam.
-     *
-     * @param {any} beam - The current beam.
-     * @returns {Promise<any>} The updated beam with the additional predicted token ID.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return seq2seqRunBeam(this, beam, {
@@ -3984,9 +4016,9 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
     }
 
     /**
-     * Runs beam search for text generation given a beam.
-     * @param {any} beam - The Beam object representing the beam.
-     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
@@ -4059,9 +4091,9 @@ class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
     }
 
     /**
-     * Runs beam search for text generation given a beam.
-     * @param {any} beam - The Beam object representing the beam.
-     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
@@ -4144,9 +4176,9 @@ class CodeGenForCausalLM extends CodeGenPreTrainedModel {
     }
 
     /**
-     * Runs beam search for text generation given a beam.
-     * @param {any} beam - The Beam object representing the beam.
-     * @returns {Promise<any>} A Beam object representing the updated beam after running beam search.
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
@@ -4272,8 +4304,9 @@ class MarianMTModel extends MarianPreTrainedModel {
     }
 
     /**
-     * @param {any} beam
-     * @returns {Promise<any>}
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
@@ -4395,6 +4428,46 @@ class AutoModelForSequenceClassification {
     }
 }
 
+
+/**
+ * Helper class for loading token classification models from pretrained checkpoints
+ */
+class AutoModelForTokenClassification {
+
+    static MODEL_CLASS_MAPPING = {
+        'bert': BertForTokenClassification,
+        'distilbert': DistilBertForTokenClassification,
+    }
+
+    /**
+     * Load a token classification model from a pretrained checkpoint
+     * @param {string} modelPath - The path to the model checkpoint directory
+     * @param {function} [progressCallback=null] - An optional callback function to receive progress updates
+     * @returns {Promise<PreTrainedModel>} A promise that resolves to a pre-trained token classification model
+     * @throws {Error} if an unsupported model type is encountered
+     */
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'model.onnx', progressCallback)
+        ]);
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+        return new cls(config, session);
+    }
+}
+
+
 /**
  * Class representing an automatic sequence-to-sequence language model.
  */
@@ -4440,7 +4513,7 @@ class AutoModelForCausalLM {
      * Loads a pre-trained model from the given path and returns an instance of the appropriate class.
      * @param {string} modelPath - The path to the pre-trained model.
      * @param {function} [progressCallback=null] - An optional callback function to track the progress of the loading process.
-     * @returns {Promise<GPT2LMHeadModel|CodeGenForCausalLM>} An instance of the appropriate class for the loaded model.
+     * @returns {Promise<GPT2LMHeadModel|CodeGenForCausalLM|CodeGenForCausalLM>} An instance of the appropriate class for the loaded model.
      * @throws {Error} If the loaded model type is not supported.
      */
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -4561,7 +4634,7 @@ class AutoModelForVision2Seq {
      * Loads a pretrained model from a given path.
      * @param {string} modelPath - The path to the pretrained model.
      * @param {function} progressCallback - Optional callback function to track progress of the model loading.
-     * @returns {Promise<VisionEncoderDecoderModel>} - A Promise that resolves to a new instance of VisionEncoderDecoderModel.
+     * @returns {Promise<PreTrainedModel>} - A Promise that resolves to a new instance of VisionEncoderDecoderModel.
      */
     static async from_pretrained(modelPath, progressCallback = null) {
 
@@ -4598,7 +4671,7 @@ class AutoModelForImageClassification {
      * Loads a pre-trained image classification model from a given directory path.
      * @param {string} modelPath - The path to the directory containing the pre-trained model.
      * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<ViTForImageClassification>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with an instance of the ViTForImageClassification class.
      * @throws {Error} If the specified model type is not supported.
      */
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -4633,7 +4706,7 @@ class AutoModelForObjectDetection {
      * Loads a pre-trained image classification model from a given directory path.
      * @param {string} modelPath - The path to the directory containing the pre-trained model.
      * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<any>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with an instance of the ViTForImageClassification class.
      * @throws {Error} If the specified model type is not supported.
      */
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -4683,6 +4756,17 @@ class SequenceClassifierOutput extends ModelOutput {
     }
 }
 
+class TokenClassifierOutput extends ModelOutput {
+    /**
+     * @param {Tensor} logits 
+     */
+    constructor(logits) {
+        super();
+        this.logits = logits;
+    }
+}
+
+
 class MaskedLMOutput extends ModelOutput {
     /**
      * @param {Tensor} logits 
@@ -4709,6 +4793,7 @@ module.exports = {
     AutoModel,
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
@@ -4729,6 +4814,7 @@ module.exports = {
 const {
     Callable,
     softmax,
+    indexOfMax,
     getTopItems,
     cos_sim,
     pathJoin,
@@ -4743,6 +4829,7 @@ const {
 const {
     AutoModel,
     AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
@@ -4865,6 +4952,76 @@ class TextClassificationPipeline extends Pipeline {
     }
 }
 
+
+/**
+ * TokenClassificationPipeline class for executing a token classification task.
+ * @extends Pipeline
+ */
+class TokenClassificationPipeline extends Pipeline {
+    /**
+     * Executes the token classification task.
+     * @param {any} texts - The input texts to be classified.
+     * @param {object} options - An optional object containing the following properties:
+     * @returns {Promise<object[]|object>} - A promise that resolves to an array or object containing the predicted labels and scores.
+     */
+    async _call(texts, {
+        ignore_labels = ['O'], // TODO init param?
+    } = {}) {
+
+        let isBatched = Array.isArray(texts);
+
+        if (!isBatched) {
+            texts = [texts];
+        }
+
+        let tokenizer = this.tokenizer;
+        let [inputs, outputs] = await super._call(texts);
+
+        let logits = outputs.logits;
+        let id2label = this.model.config.id2label;
+
+        let toReturn = [];
+        for (let i = 0; i < logits.dims[0]; ++i) {
+            let ids = inputs.input_ids.get(i);
+            let batch = logits.get(i);
+
+            // List of tokens that aren't ignored
+            let tokens = [];
+            for (let j = 0; j < batch.dims[0]; ++j) {
+                let tokenData = batch.get(j);
+                let topScoreIndex = indexOfMax(tokenData.data);
+
+                let entity = id2label[topScoreIndex];
+                if (ignore_labels.includes(entity)) {
+                    // We predicted a token that should be ignored. So, we skip it.
+                    continue;
+                }
+
+                // TODO add option to keep special tokens?
+                let word = tokenizer.decode([ids.get(j)], { skip_special_tokens: true });
+                if (word === '') {
+                    // Was a special token. So, we skip it.
+                    continue;
+                }
+
+                let scores = softmax(tokenData.data);
+
+                tokens.push({
+                    entity: entity,
+                    score: scores[topScoreIndex],
+                    index: j,
+                    word: word,
+
+                    // TODO: null for now, but will add
+                    start: null,
+                    end: null,
+                });
+            }
+            toReturn.push(tokens);
+        }
+        return isBatched ? toReturn : toReturn[0];
+    }
+}
 /**
  * QuestionAnsweringPipeline class for executing a question answering task.
  * @extends Pipeline
@@ -5709,7 +5866,15 @@ const SUPPORTED_TASKS = {
         },
         "type": "text",
     },
-
+    "token-classification": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": TokenClassificationPipeline,
+        "model": AutoModelForTokenClassification,
+        "default": {
+            "model": "Davlan/bert-base-multilingual-cased-ner-hrl",
+        },
+        "type": "text",
+    },
     "question-answering": {
         "tokenizer": AutoTokenizer,
         "pipeline": QuestionAnsweringPipeline,
@@ -7720,7 +7885,6 @@ class Replace extends Normalizer {
      * @returns {string} The normalized text after replacing the pattern with the content.
      */
     normalize(text) {
-        // TODO: this.config.pattern might not be Regex.
         if (this.config.pattern.Regex) {
             text = text.replace(new RegExp(this.config.pattern.Regex, 'g'), this.config.content)
 
@@ -8005,7 +8169,7 @@ class BertPreTokenizer extends PreTokenizer {
     constructor(config) {
         super();
         // TODO use config
-        this.pattern = /\b\w+\b|[^\s\w]+/g
+        this.pattern = /\b\p{L}+\b|[^\s\p{L}]+/gu
     }
     /**
      * Tokenizes a single text using the BERT pre-tokenization scheme.
@@ -8589,10 +8753,10 @@ class WhitespaceSplit extends PreTokenizer {
 
 class PreTrainedTokenizer extends Callable {
     /**
-   * Create a new PreTrainedTokenizer instance.
-   * @param {Object} tokenizerJSON - The JSON of the tokenizer.
-   * @param {Object} tokenizerConfig - The config of the tokenizer.
-   */
+     * Create a new PreTrainedTokenizer instance.
+     * @param {Object} tokenizerJSON - The JSON of the tokenizer.
+     * @param {Object} tokenizerConfig - The config of the tokenizer.
+     */
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
 
@@ -9484,7 +9648,52 @@ class WhisperTokenizer extends PreTrainedTokenizer {
 }
 class CodeGenTokenizer extends PreTrainedTokenizer { }
 class CLIPTokenizer extends PreTrainedTokenizer { }
-class MarianTokenizer extends PreTrainedTokenizer { }
+class MarianTokenizer extends PreTrainedTokenizer {
+    /**
+     * Create a new MarianTokenizer instance.
+     * @param {Object} tokenizerJSON - The JSON of the tokenizer.
+     * @param {Object} tokenizerConfig - The config of the tokenizer.
+     */
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+
+        this.languageRegex = /^(>>\w+<<)\s*/g;
+
+        this.supported_language_codes = this.model.vocab.filter(
+            x => this.languageRegex.test(x)
+        );
+    }
+
+    /**
+     * Encodes a single text. Overriding this method is necessary since the language codes
+     * must be removed before encoding with sentencepiece model.
+     * @see https://github.com/huggingface/transformers/blob/12d51db243a00726a548a43cc333390ebae731e3/src/transformers/models/marian/tokenization_marian.py#L204-L213
+     *
+     * @param {string|null} text - The text to encode.
+     * @returns {Array} The encoded tokens.
+     */
+    _encode_text(text) {
+        if (text === null) return null;
+
+        // Check if text starts with language code:
+        let [matchInfo, ...remainder] = text.trim().split(this.languageRegex);
+
+        if (remainder.length === 0) {
+            // No language code, encode normally
+            return super._encode_text(matchInfo);
+
+        } else if (remainder.length === 2) {
+            // Text starts with language code, so we do not encode it with sentencepiece.
+            let [language, text] = remainder;
+
+            if (!this.supported_language_codes.includes(language)) {
+                console.warn(`Unsupported language code "${language}" detected, which may lead to unexpected behavior. Should be one of: ${JSON.stringify(this.supported_language_codes)}`)
+            }
+            return [language, ...super._encode_text(text)]
+        }
+    }
+
+}
 
 /**
  * A trie structure to efficiently store and search for strings.
@@ -9770,6 +9979,7 @@ const {
 const {
     AutoModel,
     AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
@@ -9800,6 +10010,7 @@ const moduleExports = {
     AutoModel,
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
     AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,

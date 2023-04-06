@@ -193,6 +193,8 @@ declare class CodeGenTokenizer extends PreTrainedTokenizer {
 declare class CLIPTokenizer extends PreTrainedTokenizer {
 }
 declare class MarianTokenizer extends PreTrainedTokenizer {
+    languageRegex: RegExp;
+    supported_language_codes: any;
 }
 declare class PreTrainedTokenizer extends Callable {
     /**
@@ -206,10 +208,10 @@ declare class PreTrainedTokenizer extends Callable {
      */
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedTokenizer>;
     /**
-   * Create a new PreTrainedTokenizer instance.
-   * @param {Object} tokenizerJSON - The JSON of the tokenizer.
-   * @param {Object} tokenizerConfig - The config of the tokenizer.
-   */
+     * Create a new PreTrainedTokenizer instance.
+     * @param {Object} tokenizerJSON - The JSON of the tokenizer.
+     * @param {Object} tokenizerConfig - The config of the tokenizer.
+     */
     constructor(tokenizerJSON: any, tokenizerConfig: any);
     tokenizerJSON: any;
     tokenizerConfig: any;
