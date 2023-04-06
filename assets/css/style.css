@@ -112,3 +112,31 @@ code#highlighting-content {
     stroke-width: 2px;
     stroke: white;
 }
+
+#tc-output {
+    border: 1px solid #ced4da;
+    min-height: 134px;
+    max-height: 134px;
+    border-radius: 0.25rem;
+    color: #4B5563;
+    line-height: 1.75;
+    margin-top: 0.5rem;
+    overflow-y: auto;
+}
+
+.ner-container, .ner-tag{
+    border-radius: 0.25rem;
+    font-weight: 600;
+
+}
+.ner-container {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+.ner-tag {
+    font-size: 0.75rem;
+    padding-left: 0.125rem;
+    padding-right: 0.125rem;
+    margin-left: 0.125rem;
+}

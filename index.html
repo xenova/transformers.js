@@ -117,6 +117,9 @@
                         <option value="sequence-classification">
                             Text classification w/ bert-base-multilingual-uncased-sentiment (170 MB)
                         </option>
+                        <option value="token-classification">
+                            Token classification w/ Davlan/bert-base-multilingual-cased-ner-hrl (135 MB)
+                        </option>
                         <option value="zero-shot-classification">
                             Zero-shot classification w/ typeform/distilbert-base-uncased-mnli (68 MB)
                         </option>
@@ -219,8 +222,7 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="task-settings col-xl-2 col-md-4 col-sm-6"
-                            task="zero-shot-classification">
+                        <div class="task-settings col-xl-2 col-md-4 col-sm-6" task="zero-shot-classification">
                             <div class="input-group mb-2" title="Allow multiple true classes">
                                 <label class="input-group-text" for="multi-label-select">Multi label</label>
                                 <select param-name="multi_label" datatype="bool" class="form-select generation-option"
@@ -235,11 +237,22 @@
                 <div task="sequence-classification" class="task-settings">
                     <div class="row">
                         <div class="col-lg-6">
-                            <textarea id="tc-input-textbox" class="mt-3 form-control"
+                            <textarea id="sc-input-textbox" class="mt-3 form-control"
                                 rows="5">The Shawshank Redemption is a true masterpiece of cinema, a movie that deserves every bit of its status as one of the greatest films ever made. From its stellar performances to its unforgettable storytelling, everything about this film is a testament to the power of great filmmaking.</textarea>
                         </div>
                         <div class="col-lg-6 mt-1" style="max-height:146px">
-                            <canvas id="tc-canvas"></canvas>
+                            <canvas id="sc-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div task="token-classification" class="task-settings">
+                    <div class="row">
+                        <div class="col-lg-6 mt-1">
+                            <textarea id="tc-input-textbox" class="mt-3 form-control"
+                                rows="5">Hugging Face is a technology company that was founded in 2016 by Clément Delangue, Julien Chaumond, and Thomas Wolf. The company is headquartered in New York City, and is focused on developing natural language processing software and tools.</textarea>
+                        </div>
+                        <div class="col-lg-6 mt-1" style="max-height:146px">
+                            <div id="tc-output" class="mt-3 p-2"></div>
                         </div>
                     </div>
                 </div>
@@ -505,7 +518,8 @@
                 <div class="mt-3 mb-1">
                     Notes:
                     <ul>
-                        <li>Clicking <em>Generate</em> for the first time will download the corresponding model from the
+                        <li>Clicking <em>Generate</em> for the first time will download the corresponding model from
+                            the
                             <a href="https://huggingface.co/models">HuggingFace Hub</a>.
                             All subsequent requests will use the cached model.
                         </li>
@@ -640,6 +654,22 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                             For more information, check out the
                             <a href="https://huggingface.co/docs/transformers/tasks/sequence_classification">
                                 Text Classification docs</a>.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">token-classification (a.k.a. ner)</div>
+                            Supported models:
+                            <code>Davlan/bert-base-multilingual-cased-ner-hrl</code>,
+                            <code>Davlan/distilbert-base-multilingual-cased-ner-hrl</code>,
+                            <code>ckiplab/bert-base-chinese-ner</code>,
+                            <code>ckiplab/bert-base-chinese-ws</code>,
+                            <code>ckiplab/bert-base-chinese-pos</code>,
+                            <code>dslim/bert-base-NER</code>,
+                            <code>dslim/bert-base-NER-uncased</code>.
+                            For more information, check out the
+                            <a href="https://huggingface.co/docs/transformers/tasks/token_classification">
+                                Token Classification docs</a>.
                         </div>
                     </li>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
@@ -963,7 +993,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">mT5</div>
-                            Tasks: Sequence-to-sequence 
+                            Tasks: Sequence-to-sequence
                             <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/mt5">mT5 docs</a>.
@@ -981,7 +1011,7 @@ env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
                             <div class="fw-bold">MarianMT</div>
-                            Tasks: Sequence-to-sequence 
+                            Tasks: Sequence-to-sequence
                             <code>(AutoModelForSeq2SeqLM)</code>.
                             For more information, check out the <a
                                 href="https://huggingface.co/docs/transformers/model_doc/marian">MarianMT docs</a>.

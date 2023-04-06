@@ -31,9 +31,11 @@ const GENERATE_BUTTON = document.getElementById('generate');
 const MLM_INPUT_TEXTBOX = document.getElementById('mlm-input-textbox');
 const MLM_OUTPUT_TEXTBOX = document.getElementById('mlm-output-textbox');
 
-const TC_INPUT_TEXTBOX = document.getElementById('tc-input-textbox');
-const TC_OUTPUT_CANVAS = document.getElementById('tc-canvas');
+const SC_INPUT_TEXTBOX = document.getElementById('sc-input-textbox');
+const SC_OUTPUT_CANVAS = document.getElementById('sc-canvas');
 
+const TC_INPUT_TEXTBOX = document.getElementById('tc-input-textbox');
+const TC_OUTPUT = document.getElementById('tc-output');
 
 const QA_CONTEXT_TEXTBOX = document.getElementById('qa-context-textbox');
 const QA_QUESTION_TEXTBOX = document.getElementById('qa-question-textbox');
@@ -102,6 +104,7 @@ const TASK_DEFAULT_PARAMS = {
 		topk: 5 // number of samples
 	},
 	'sequence-classification': {},
+	'token-classification': {},
 	'zero-shot-classification': {
 		multi_label: false
 	},
@@ -139,6 +142,14 @@ const TASK_DEFAULT_PARAMS = {
 		media.src = url;
 	});
 });
+
+const NER_TAGS = {
+	// tag: [textColour, backgroundColour, tagColour]
+	'ORG': ['#115E59', '#CCFBF1', '#14B8A6'],
+	'PER': ['#9D174D', '#FCE7F3', '#EC4899'],
+	'LOC': ['#86198F', '#FAE8FF', '#D946EF'],
+}
+
 
 // Predefined list of unique colours
 const COLOURS = [
@@ -328,7 +339,7 @@ const DEFAULT_DATA = {
 
 
 const CHARTS = {
-	'tc-canvas': new Chart(TC_OUTPUT_CANVAS, {
+	'sc-canvas': new Chart(SC_OUTPUT_CANVAS, {
 		type: 'bar',
 		data: {
 			labels: ['5 stars', '4 stars', '3 stars', '2 stars', '1 star'],
@@ -469,9 +480,15 @@ GENERATE_BUTTON.addEventListener('click', async (e) => {
 			break;
 
 		case 'sequence-classification':
-			data.text = TC_INPUT_TEXTBOX.value
-			data.elementIdToUpdate = TC_OUTPUT_CANVAS.id
+			data.text = SC_INPUT_TEXTBOX.value
+			data.elementIdToUpdate = SC_OUTPUT_CANVAS.id
 			data.targetType = 'chart'
+			break;
+
+		case 'token-classification':
+			data.text = TC_INPUT_TEXTBOX.value
+			data.elementIdToUpdate = TC_OUTPUT.id
+			data.targetType = 'tokens'
 			break;
 
 		case 'zero-shot-classification':
@@ -619,6 +636,24 @@ worker.addEventListener('message', (event) => {
 					chartToUpdate.update(); // update the chart
 					break;
 
+				case 'tokens':
+					let target = document.getElementById(message.target);
+					target.innerHTML = '';
+
+					let tokens = message.data;
+
+					for (let token of tokens) {
+						let elem;
+						if (token.type === 'O') {
+							elem = document.createTextNode(token.text);
+						} else {
+							let [textColour, backgroundColour, tagColour] = NER_TAGS[token.type];
+							elem = htmlToElement(`<span class="ner-container" style="background-color: ${backgroundColour}; color: ${textColour};">${token.text}<span class="ner-tag" style="background-color: ${tagColour}; color: ${backgroundColour};">${token.type}</span></span>`);
+						}
+						target.appendChild(elem);
+
+					}
+					break;
 
 				case 'overlay':
 					let parent = document.getElementById(message.target);
