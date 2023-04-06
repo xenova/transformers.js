@@ -184,13 +184,20 @@ class TokenClassificationPipeline extends Pipeline {
                     continue;
                 }
 
+                // TODO add option to keep special tokens?
+                let word = tokenizer.decode([ids.get(j)], { skip_special_tokens: true });
+                if (word === '') {
+                    // Was a special token. So, we skip it.
+                    continue;
+                }
+
                 let scores = softmax(tokenData.data);
 
                 tokens.push({
                     entity: entity,
                     score: scores[topScoreIndex],
                     index: j,
-                    word: tokenizer.decode([ids.get(j)], { skip_special_tokens: false }),
+                    word: word,
 
                     // TODO: null for now, but will add
                     start: null,
