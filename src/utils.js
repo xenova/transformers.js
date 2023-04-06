@@ -3,7 +3,7 @@ const fs = require('fs');
 
 const { env } = require('./env.js');
 
-if (global.ReadableStream  === undefined && typeof process !== 'undefined') {
+if (global.ReadableStream === undefined && typeof process !== 'undefined') {
     try {
         global.ReadableStream  = require('node:stream/web').ReadableStream; // ReadableStream is not a global with Node 16
     } catch(err) {
