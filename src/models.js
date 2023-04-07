@@ -140,7 +140,7 @@ function boolTensor(value) {
  * Loads a sequence-to-sequence model from the specified path.
  * @param {string} modelPath - The path to the model directory.
  * @param {function} progressCallback - The optional progress callback function.
- * @returns {Promise<[any, any, any, any]>} - A promise that resolves with information about the loaded model.
+ * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
  */
 async function seq2seqLoadModel(modelPath, progressCallback) {
     let info = await Promise.all([
