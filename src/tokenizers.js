@@ -806,7 +806,7 @@ class BertPreTokenizer extends PreTokenizer {
      * Tokenizes a single text using the BERT pre-tokenization scheme.
      * 
      * @param {string} text - The text to tokenize.
-     * @returns {Array.<string>} - An array of tokens.
+     * @returns {Array<string>} - An array of tokens.
      */
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
@@ -1509,7 +1509,7 @@ class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.truncation=null] - Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] - Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] - Whether to return the results as Tensors or arrays.
-     * @returns {{ input_ids: number[]|number[][]|Tensor; attention_mask: any[]|Tensor; }} Object to be passed to the model.
+     * @returns {{ input_ids: number[]|number[][]|Tensor, attention_mask: any[]|Tensor }} Object to be passed to the model.
      */
     _call(
         // Required positional arguments
@@ -1969,9 +1969,9 @@ class WhisperTokenizer extends PreTrainedTokenizer {
 
     /**
      * Decodes automatic speech recognition (ASR) sequences.
-     * @param {Array.<{tokens: Array.<number>, stride: [number, number, number]}>} sequences The sequences to decode.
+     * @param {Array<{tokens: number[], stride: number[]}>} sequences - The sequences to decode.
      * @param {Object} options - The options to use for decoding.
-     * @returns {[string, {chunks?:Array.<{language: string|null, timestamp: [number|null, number|null], text: string}>}]} The decoded sequences.
+     * @returns {Array<string|{chunks: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} - The decoded sequences.
      */
     _decode_asr(sequences, {
         return_timestamps = false,
