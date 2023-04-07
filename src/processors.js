@@ -264,8 +264,10 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
     }
 
     /**
-     * @param {{ logits: any; pred_boxes: any; }} outputs
-     * @return {any}
+     * @param {object} outputs - The outputs of the model that must be post-processed
+     * @param {Tensor} outputs.logits - The logits
+     * @param {Tensor} outputs.pred_boxes - The predicted boxes.
+     * @return {object[]}
      */
     post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
         const out_logits = outputs.logits;
