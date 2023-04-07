@@ -38,6 +38,7 @@
     "onnxruntime-node": "^1.14.0"
   },
   "devDependencies": {
+    "catharsis": "github:xenova/catharsis",
     "copy-webpack-plugin": "^11.0.0",
     "jsdoc-to-markdown": "^8.0.0",
     "typescript": "^5.0.2",
