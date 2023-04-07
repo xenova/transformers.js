@@ -11,7 +11,8 @@
     "typegen": "tsc ./src/transformers.js --outDir dist/types --allowJs --declaration --emitDeclarationOnly",
     "dev": "webpack serve --no-client-overlay",
     "test": "node tests/index.js",
-    "build": "npm run webpack && npm run typegen"
+    "build": "npm run webpack && npm run typegen",
+    "docs": "npx jsdoc-to-markdown --files ./src/**.js"
   },
   "repository": {
     "type": "git",
