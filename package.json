@@ -38,6 +38,7 @@
   },
   "devDependencies": {
     "copy-webpack-plugin": "^11.0.0",
+    "jsdoc-to-markdown": "^8.0.0",
     "typescript": "^5.0.2",
     "webpack": "^5.76.0",
     "webpack-cli": "^5.0.1",
