@@ -33,9 +33,9 @@ class Tensor extends ONNX.Tensor {
     }
 
     /**
-     * 
-     * @param {number} index 
-     * @returns 
+     * Index into a Tensor object, returning either a Tensor or a scalar value.
+     * @param {number} index - The index to access.
+     * @returns {Tensor|number} - The data at the specified index.
      */
     get(index) {
         const iterDims = this.dims.slice(1);
@@ -48,8 +48,8 @@ class Tensor extends ONNX.Tensor {
     }
 
     /**
-     * @param {any} item 
-     * @returns {number}
+     * @param {number|bigint} item - The item to search for in the tensor
+     * @returns {number} - The index of the first occurrence of item in the tensor data.
      */
     indexOf(item) {
         for (let index = 0; index < this.data.length; ++index) {
@@ -72,8 +72,11 @@ class Tensor extends ONNX.Tensor {
         return new Tensor(this.type, data, iterDims);
     }
 
+    /**
+     * Convert tensor data to a n-dimensional JS list
+     * @returns {Array}
+     */
     tolist() {
-        // Convert tensor data to a n-dimensional JS list
         return reshape(this.data, this.dims)
     }
 
