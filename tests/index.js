@@ -779,25 +779,25 @@ async function zero_shot_image_classification() {
     return [isDeepEqual(
         output1,
         [
-            { "score": 0.9872211813926697, "label": "football" },
-            { "score": 0.005961867049336433, "label": "airport" },
-            { "score": 0.0068169692531228065, "label": "animals" }
+            { "score": 0.9937776923179626, "label": "football" },
+            { "score": 0.0010888857068493962, "label": "airport" },
+            { "score": 0.005133440252393484, "label": "animals" }
         ]
     ) && isDeepEqual(
         output2,
         [
             [
-                { "score": 0.982650101184845, "label": "football" },
-                { "score": 0.006871742662042379, "label": "airport" },
-                { "score": 0.010478177107870579, "label": "animals" }
+                { "score": 0.9927281141281128, "label": "football" },
+                { "score": 0.0014022591058164835, "label": "airport" },
+                { "score": 0.005869609769433737, "label": "animals" }
             ], [
-                { "score": 0.03974880650639534, "label": "football" },
-                { "score": 0.8731245994567871, "label": "airport" },
-                { "score": 0.08712659031152725, "label": "animals" }
+                { "score": 0.00029855265165679157, "label": "football" },
+                { "score": 0.9982157945632935, "label": "airport" },
+                { "score": 0.0014856450725346804, "label": "animals" }
             ], [
-                { "score": 0.04401572421193123, "label": "football" },
-                { "score": 0.054234009236097336, "label": "airport" },
-                { "score": 0.9017502665519714, "label": "animals" }
+                { "score": 0.012006462551653385, "label": "football" },
+                { "score": 0.01685832068324089, "label": "airport" },
+                { "score": 0.9711351990699768, "label": "animals" }
             ]
         ]
     ), duration];
