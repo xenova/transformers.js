@@ -21,4 +21,4 @@ jobs:
           GIT_LFS_SKIP_SMUDGE: 1
       - run: mv transformers.js models/onnx
       - run: cd models && echo $(ls -a)
-      # - run: npm run test
+      - run: npm run test
