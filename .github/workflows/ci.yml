@@ -16,11 +16,9 @@ jobs:
         with:
           cache: npm
       - run: npm ci
-      - run: cd models
       - run: git clone https://huggingface.co/Xenova/transformers.js
         env:
           GIT_LFS_SKIP_SMUDGE: 1
-      - run: echo $(ls -a)
-      # - run: mv /transformers.js /onnx
-      # - run: rm -rf /transformers.js
+      - run: mv /transformers.js /models/onnx
+      - run: cd models && echo $(ls -a)
       # - run: npm run test
