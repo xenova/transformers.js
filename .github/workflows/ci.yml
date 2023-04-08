@@ -10,8 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      with:
+        lfs: true
       - uses: actions/setup-node@v3
         with:
           cache: npm
       - run: npm ci
+      - run: cd models
+      - run: git clone https://huggingface.co/Xenova/transformers.js
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
+      - run: mv /transformers.js /onnx
+      - run: rm -rf /transformers.js
       - run: npm run test
