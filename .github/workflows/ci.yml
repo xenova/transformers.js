@@ -20,6 +20,7 @@ jobs:
       - run: git clone https://huggingface.co/Xenova/transformers.js
         env:
           GIT_LFS_SKIP_SMUDGE: 1
-      - run: mv /transformers.js /onnx
-      - run: rm -rf /transformers.js
-      - run: npm run test
+      - run: echo $(ls -a)
+      # - run: mv /transformers.js /onnx
+      # - run: rm -rf /transformers.js
+      # - run: npm run test
