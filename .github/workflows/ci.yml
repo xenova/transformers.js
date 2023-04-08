@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      with:
-        lfs: true
+        with:
+          lfs: true
       - uses: actions/setup-node@v3
         with:
           cache: npm
