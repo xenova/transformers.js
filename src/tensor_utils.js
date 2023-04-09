@@ -9,7 +9,7 @@ const { ONNX } = require('./backends/onnx.js');
 class Tensor extends ONNX.Tensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
-     * @param  {[string, TypedArray, number[]]|[ONNX.Tensor]} args 
+     * @param  {[string, Array|TypedArray, number[]]|[ONNX.Tensor]} args 
      */
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
