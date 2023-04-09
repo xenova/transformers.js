@@ -8,7 +8,7 @@ const {
 
 
 const FFT = require('./fft.js');
-const { Tensor, transpose, cat } = require("./tensor_utils.js");
+const { Tensor, transpose, cat, interpolate } = require("./tensor_utils.js");
 
 /**
  * Helper class to determine model type from config
@@ -309,7 +309,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
                     // convert to [x0, y0, x1, y1] format
                     box = this.center_to_corners_format(box)
                     if (target_size !== null) {
-                        box = box.map((x, i) => x * target_size[i % 2])
+                        box = box.map((x, i) => x * target_size[(i + 1) % 2])
                     }
 
                     info.boxes.push(box);
@@ -320,6 +320,279 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
             toReturn.push(info);
         }
         return toReturn;
+    }
+
+    /**
+     * Binarize the given masks using `object_mask_threshold`, it returns the associated values of `masks`, `scores` and `labels`.
+     * @param {Tensor} class_logits - The class logits.
+     * @param {Tensor} mask_logits - The mask logits.
+     * @param {number} object_mask_threshold - A number between 0 and 1 used to binarize the masks.
+     * @param {number} num_labels - The number of labels.
+     * @returns {[Tensor[], number[], number[]]} - The binarized masks, the scores, and the labels.
+     */
+    remove_low_and_no_objects(class_logits, mask_logits, object_mask_threshold, num_labels) {
+
+        let mask_probs_item = [];
+        let pred_scores_item = [];
+        let pred_labels_item = [];
+
+        for (let j = 0; j < class_logits.dims[0]; ++j) {
+            let cls = class_logits.get(j);
+            let mask = mask_logits.get(j);
+
+            let pred_label = indexOfMax(cls.data);
+            if (pred_label === num_labels) {
+                // Is the background, so we ignore it
+                continue;
+            }
+
+            let scores = softmax(cls.data);
+            let pred_score = scores[pred_label];
+            if (pred_score > object_mask_threshold) {
+                mask_probs_item.push(mask);
+                pred_scores_item.push(pred_score);
+                pred_labels_item.push(pred_label);
+            }
+        }
+
+        return [mask_probs_item, pred_scores_item, pred_labels_item];
+
+    }
+
+    /**
+     * Checks whether the segment is valid or not.
+     * @param {Int32Array} mask_labels - Labels for each pixel in the mask.
+     * @param {Tensor[]} mask_probs - Probabilities for each pixel in the masks.
+     * @param {number} k - The class id of the segment.
+     * @param {number} mask_threshold - The mask threshold.
+     * @param {number} overlap_mask_area_threshold - The overlap mask area threshold.
+     * @returns {[boolean, number[]]} - Whether the segment is valid or not, and the indices of the valid labels.
+     */
+    check_segment_validity(
+        mask_labels,
+        mask_probs,
+        k,
+        mask_threshold = 0.5,
+        overlap_mask_area_threshold = 0.8
+    ) {
+        // mask_k is a 1D array of indices, indicating where the mask is equal to k
+        let mask_k = [];
+        let mask_k_area = 0;
+        let original_area = 0;
+
+        // Compute the area of all the stuff in query k
+        for (let i = 0; i < mask_labels.length; ++i) {
+            if (mask_labels[i] === k) {
+                mask_k.push(i);
+                ++mask_k_area;
+            }
+
+            if (mask_probs[k].data[i] >= mask_threshold) {
+                ++original_area;
+            }
+        }
+        let mask_exists = mask_k_area > 0 && original_area > 0;
+
+        // Eliminate disconnected tiny segments
+        if (mask_exists) {
+            // Perform additional check
+            let area_ratio = mask_k_area / original_area;
+            mask_exists = area_ratio > overlap_mask_area_threshold;
+        }
+
+        return [mask_exists, mask_k]
+    }
+
+    /**
+     * Computes the segments.
+     * @param {Tensor[]} mask_probs - The mask probabilities.
+     * @param {number[]} pred_scores - The predicted scores.
+     * @param {number[]} pred_labels - The predicted labels.
+     * @param {number} mask_threshold - The mask threshold.
+     * @param {number} overlap_mask_area_threshold - The overlap mask area threshold.
+     * @param {Set<number>} label_ids_to_fuse - The label ids to fuse.
+     * @param {number[]} target_size - The target size of the image.
+     * @returns {[Tensor, Array<{id: number, label_id: number, score: number}>]} - The computed segments.
+     */
+    compute_segments(
+        mask_probs,
+        pred_scores,
+        pred_labels,
+        mask_threshold,
+        overlap_mask_area_threshold,
+        label_ids_to_fuse = null,
+        target_size = null,
+    ) {
+        let [height, width] = target_size ?? mask_probs[0].dims;
+
+        let segmentation = new Tensor(
+            'int32',
+            new Int32Array(height * width),
+            [height, width]
+        );
+        let segments = [];
+
+        // 1. Weigh each mask by its prediction score
+        // NOTE: `mask_probs` is updated in-place
+        // 
+        // Temporary storage for the best label/scores for each pixel ([height, width]):
+        let mask_labels = new Int32Array(mask_probs[0].data.length);
+        let bestScores = new Float32Array(mask_probs[0].data.length);
+        for (let i = 0; i < mask_probs.length; ++i) {
+
+            if (target_size !== null) {
+                mask_probs[i] = interpolate(mask_probs[i], target_size, 'bilinear', false);
+            }
+
+            let score = pred_scores[i];
+            // console.log({ i, item, score, a: bestScores.slice() })
+
+            for (let j = 0; j < mask_probs[i].data.length; ++j) {
+                mask_probs[i].data[j] *= score
+                if (mask_probs[i].data[j] > bestScores[j]) {
+                    mask_labels[j] = i;
+                    bestScores[j] = mask_probs[i].data[j];
+                }
+            }
+        }
+
+        let current_segment_id = 0;
+
+        // let stuff_memory_list = {}
+        for (let k = 0; k < pred_labels.length; ++k) {
+            let pred_class = pred_labels[k];
+
+            // TODO add `should_fuse`
+            // let should_fuse = pred_class in label_ids_to_fuse
+
+            // Check if mask exists and large enough to be a segment
+            let [mask_exists, mask_k] = this.check_segment_validity(
+                mask_labels,
+                mask_probs,
+                k,
+                mask_threshold,
+                overlap_mask_area_threshold
+            )
+
+            if (!mask_exists) {
+                // Nothing to see here
+                continue;
+            }
+
+            // TODO
+            // if (pred_class in stuff_memory_list) {
+            //     current_segment_id = stuff_memory_list[pred_class]
+            // } else {
+            //     current_segment_id += 1;
+            // }
+            ++current_segment_id;
+
+
+            // Add current object segment to final segmentation map
+            for (let index of mask_k) {
+                segmentation.data[index] = current_segment_id;
+            }
+
+            segments.push({
+                id: current_segment_id,
+                label_id: pred_class,
+                // was_fused: should_fuse, TODO
+                score: pred_scores[k],
+            })
+
+            // TODO
+            // if(should_fuse){
+            //     stuff_memory_list[pred_class] = current_segment_id
+            // }
+        }
+
+        return [segmentation, segments];
+    }
+
+    /**
+     * Post-process the model output to generate the final panoptic segmentation.
+     * @param {*} outputs - The model output to post process
+     * @param {number} [threshold=0.5] - The probability score threshold to keep predicted instance masks.
+     * @param {number} [mask_threshold=0.5] - Threshold to use when turning the predicted masks into binary values.
+     * @param {number} [overlap_mask_area_threshold=0.8] - The overlap mask area threshold to merge or discard small disconnected parts within each binary instance mask.
+     * @param {Set<number>} [label_ids_to_fuse=null] - The labels in this state will have all their instances be fused together.
+     * @param {number[][]} [target_sizes=null] - The target sizes to resize the masks to.
+     * @returns {Array<{ segmentation: Tensor, segments_info: Array<{id: number, label_id: number, score: number}>}>}
+     */
+    post_process_panoptic_segmentation(
+        outputs,
+        threshold = 0.5,
+        mask_threshold = 0.5,
+        overlap_mask_area_threshold = 0.8,
+        label_ids_to_fuse = null,
+        target_sizes = null,
+    ) {
+        if (label_ids_to_fuse === null) {
+            console.warn("`label_ids_to_fuse` unset. No instance will be fused.")
+            label_ids_to_fuse = new Set();
+        }
+
+        const class_queries_logits = outputs.logits; // [batch_size, num_queries, num_classes+1]
+        const masks_queries_logits = outputs.pred_masks; // [batch_size, num_queries, height, width]
+
+        const mask_probs = masks_queries_logits.sigmoid()  // [batch_size, num_queries, height, width]
+
+        let [batch_size, num_queries, num_labels] = class_queries_logits.dims;
+        num_labels -= 1; // Remove last class (background)
+
+        if (target_sizes !== null && target_sizes.length !== batch_size) {
+            throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
+        }
+
+        let toReturn = [];
+        for (let i = 0; i < batch_size; ++i) {
+            let target_size = target_sizes !== null ? target_sizes[i] : null;
+
+            let class_logits = class_queries_logits.get(i);
+            let mask_logits = mask_probs.get(i);
+
+            let [mask_probs_item, pred_scores_item, pred_labels_item] = this.remove_low_and_no_objects(class_logits, mask_logits, threshold, num_labels);
+
+            if (pred_labels_item.length === 0) {
+                // No mask found
+                let [height, width] = target_size ?? mask_logits.dims.slice(-2);
+
+                let segmentation = new Tensor(
+                    'int32',
+                    new Int32Array(height * width).fill(-1),
+                    [height, width]
+                )
+                toReturn.push({
+                    segmentation: segmentation,
+                    segments_info: []
+                });
+                continue;
+            }
+
+
+            // Get segmentation map and segment information of batch item
+            let [segmentation, segments] = this.compute_segments(
+                mask_probs_item,
+                pred_scores_item,
+                pred_labels_item,
+                mask_threshold,
+                overlap_mask_area_threshold,
+                label_ids_to_fuse,
+                target_size,
+            )
+
+            toReturn.push({
+                segmentation: segmentation,
+                segments_info: segments
+            })
+        }
+
+        return toReturn;
+    }
+
+    post_process_instance_segmentation() {
+        // TODO
+        throw Error("Not implemented yet");
     }
 }
 
