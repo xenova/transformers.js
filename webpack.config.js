@@ -16,9 +16,9 @@ module.exports = {
         path: __dirname,
     },
     plugins: [
-        // Do not include node module when bundling for the browser
+        // Do not include node modules when bundling for the browser
         new webpack.IgnorePlugin({
-            resourceRegExp: /^onnxruntime-node$/
+            resourceRegExp: /^onnxruntime-node$|^node:/
         }),
 
         // Copy .wasm files to dist folder
