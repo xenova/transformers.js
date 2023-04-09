@@ -1,7 +1,16 @@
 const { ONNX } = require('./backends/onnx.js');
 
+
+/**
+ * @typedef {Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array} TypedArray
+ */
+
 // TODO: fix error below
 class Tensor extends ONNX.Tensor {
+    /**
+     * Create a new Tensor or copy an existing Tensor.
+     * @param  {[string, TypedArray, number[]]|[ONNX.Tensor]} args 
+     */
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
             // Create shallow copy
@@ -77,7 +86,39 @@ class Tensor extends ONNX.Tensor {
         return reshape(this.data, this.dims)
     }
 
+    /**
+     * Return a new Tensor the sigmoid function applied to each element.
+     * @returns {Tensor} - The tensor with the sigmoid function applied.
+     */
+    sigmoid() {
+        return this.clone().sigmoid_();
+    }
+
+    /**
+     * Applies the sigmoid function to the tensor in place.
+     * @returns {Tensor} - Returns `this`.
+     */
+    sigmoid_() {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = 1 / (1 + Math.exp(-this.data[i]));
+        }
+        return this;
+    }
+
+    clone() {
+        return new Tensor(this.type, this.data.slice(), this.dims.slice());
+    }
+
     // TODO add .slice()
+
+    /**
+     * Return a transposed version of this Tensor, according to the provided dimensions.
+     * @param  {...number} dims - Dimensions to transpose.
+     * @returns {Tensor} - The transposed tensor.
+     */
+    transpose(...dims) {
+        return transpose(this, dims);
+    }
 }
 
 /**
@@ -145,6 +186,18 @@ function reshape(data, dimensions) {
  * @returns {Tensor} The transposed tensor.
  */
 function transpose(tensor, axes) {
+    const [transposedData, shape] = transpose_data(tensor.data, tensor.dims, axes);
+    return new Tensor(tensor.type, transposedData, shape);
+}
+
+/**
+ * Helper method to transpose a TypedArray directly
+ * @param {TypedArray} array 
+ * @param {number[]} dims 
+ * @param {number[]} axes 
+ * @returns {[TypedArray, number[]]} The transposed array and the new shape.
+ */
+function transpose_data(array, dims, axes) {
     // Calculate the new shape of the transposed array
     // and the stride of the original array
     const shape = new Array(axes.length);
@@ -152,7 +205,7 @@ function transpose(tensor, axes) {
 
     for (let i = axes.length - 1, s = 1; i >= 0; --i) {
         stride[i] = s;
-        shape[i] = tensor.dims[axes[i]];
+        shape[i] = dims[axes[i]];
         s *= shape[i];
     }
 
@@ -160,18 +213,19 @@ function transpose(tensor, axes) {
     const invStride = axes.map((_, i) => stride[axes.indexOf(i)]);
 
     // Create the transposed array with the new shape
-    const transposedData = new tensor.data.constructor(tensor.data.length);
+    const transposedData = new array.constructor(array.length);
 
     // Transpose the original array to the new array
-    for (let i = 0; i < tensor.data.length; ++i) {
+    for (let i = 0; i < array.length; ++i) {
         let newIndex = 0;
-        for (let j = tensor.dims.length - 1, k = i; j >= 0; --j) {
-            newIndex += (k % tensor.dims[j]) * invStride[j];
-            k = Math.floor(k / tensor.dims[j]);
+        for (let j = dims.length - 1, k = i; j >= 0; --j) {
+            newIndex += (k % dims[j]) * invStride[j];
+            k = Math.floor(k / dims[j]);
         }
-        transposedData[newIndex] = tensor.data[i];
+        transposedData[newIndex] = array[i];
     }
-    return new Tensor(tensor.type, transposedData, shape);
+
+    return [transposedData, shape];
 }
 
 /**
@@ -211,10 +265,91 @@ function cat(tensors) {
     return new Tensor(tensorType, data, tensorShape)
 }
 
+/**
+ * Interpolates an Tensor to the given size.
+ * @param {Tensor} input - The input tensor to interpolate. Data must be channel-first (i.e., [c, h, w])
+ * @param {number[]} size - The output size of the image
+ * @param {string} mode - The interpolation mode
+ * @param {boolean} align_corners - Whether to align corners.
+ * @returns {Tensor} - The interpolated tensor.
+ */
+function interpolate(input, [out_height, out_width], mode = 'bilinear', align_corners = false) {
+    // TODO use mode and align_corners
 
+    // Input image dimensions
+    const in_channels = input.dims.at(-3) ?? 1;
+    const in_height = input.dims.at(-2);
+    const in_width = input.dims.at(-1);
+
+    // Output image dimensions
+    const x_scale = out_width / in_width;
+    const y_scale = out_height / in_height;
+
+    // Output image
+    const out_img = new input.data.constructor(out_height * out_width * in_channels);
+
+    // Pre-calculate strides
+    const inStride = in_height * in_width;
+    const outStride = out_height * out_width;
+
+    for (let i = 0; i < out_height; ++i) {
+        for (let j = 0; j < out_width; ++j) {
+            // Calculate output offset
+            const outOffset = i * out_width + j;
+
+            // Calculate input pixel coordinates
+            const x = (j + 0.5) / x_scale - 0.5;
+            const y = (i + 0.5) / y_scale - 0.5;
+
+            // Calculate the four nearest input pixels
+            // We also check if the input pixel coordinates are within the image bounds
+            let x1 = Math.floor(x);
+            let y1 = Math.floor(y);
+            const x2 = Math.min(x1 + 1, in_width - 1);
+            const y2 = Math.min(y1 + 1, in_height - 1);
+
+            x1 = Math.max(x1, 0);
+            y1 = Math.max(y1, 0);
+
+
+            // Calculate the fractional distances between the input pixel and the four nearest pixels
+            const s = x - x1;
+            const t = y - y1;
+
+            // Perform bilinear interpolation
+            const w1 = (1 - s) * (1 - t);
+            const w2 = s * (1 - t);
+            const w3 = (1 - s) * t;
+            const w4 = s * t;
+
+            // Calculate the four nearest input pixel indices
+            const yStride = y1 * in_width;
+            const xStride = y2 * in_width;
+            const idx1 = yStride + x1;
+            const idx2 = yStride + x2;
+            const idx3 = xStride + x1;
+            const idx4 = xStride + x2;
+
+            for (let k = 0; k < in_channels; ++k) {
+                // Calculate channel offset
+                const cOffset = k * inStride;
+
+                out_img[k * outStride + outOffset] =
+                    w1 * input.data[cOffset + idx1] +
+                    w2 * input.data[cOffset + idx2] +
+                    w3 * input.data[cOffset + idx3] +
+                    w4 * input.data[cOffset + idx4];
+            }
+        }
+    }
+
+    return new Tensor(input.type, out_img, [in_channels, out_height, out_width]);
+}
 
 module.exports = {
     Tensor,
     transpose,
-    cat
+    cat,
+    interpolate,
+    transpose_data,
 }
