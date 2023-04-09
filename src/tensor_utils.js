@@ -44,7 +44,8 @@ class Tensor extends ONNX.Tensor {
     /**
      * 
      * @param {number} index 
-     * @returns 
+     * @returns {Tensor}
+     * @todo Set type based on dims
      */
     get(index) {
         const iterDims = this.dims.slice(1);
