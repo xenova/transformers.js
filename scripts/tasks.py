@@ -148,6 +148,11 @@ SUPPORTED_MODELS = {
             'object-detection',
             # 'image-segmentation',
         ],
+
+        'facebook/detr-resnet-50-panoptic': [
+            'image-segmentation',
+        ],
+        
     },
     'distilbert': {
         'distilbert-base-uncased': [
