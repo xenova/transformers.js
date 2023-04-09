@@ -1,4 +1,5 @@
 
+const path = require('path');
 const { pipeline, env } = require('..');
 
 // Only use local models
@@ -753,6 +754,38 @@ async function image_classification() {
 }
 
 
+async function image_segmentation() {
+    let segmenter = await pipeline('image-segmentation', 'facebook/detr-resnet-50-panoptic')
+
+    let img = path.join(__dirname, '../assets/images/cats.jpg')
+
+    let start = performance.now();
+    let outputs = await segmenter(img);
+
+    // Just calculate sum of mask (to avoid having to check the whole mask)
+    outputs.forEach(x => x.mask = x.mask.bitmap.data.reduce((acc, curr) => {
+        if (curr > 0) {
+            acc += 1;
+        }
+        return acc;
+    }, 0));
+
+    let duration = performance.now() - start;
+
+    // Dispose pipeline
+    await segmenter.dispose()
+
+    return [isDeepEqual(
+        outputs, [
+        { score: 0.9947476387023926, label: 'cat', mask: 8553 },
+        { score: 0.9986827969551086, label: 'remote', mask: 856 },
+        { score: 0.9995028972625732, label: 'remote', mask: 100 },
+        { score: 0.9696072340011597, label: 'couch', mask: 38637 },
+        { score: 0.9994519948959351, label: 'cat', mask: 1849 }
+    ]), duration];
+
+}
+
 async function zero_shot_image_classification() {
 
     let classifier = await pipeline('zero-shot-image-classification', 'openai/clip-vit-base-patch16');
@@ -886,6 +919,7 @@ let tests = {
     'Speech-to-text generation:': speech2text_generation,
     'Image-to-text:': image_to_text,
     'Image classification:': image_classification,
+    'Image segmentation:': image_segmentation,
     'Zero-shot image classification:': zero_shot_image_classification,
     'Object detection:': object_detection,
 };
