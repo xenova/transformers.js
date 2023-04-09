@@ -23,6 +23,7 @@ const {
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
+    AutoModelForImageSegmentation,
     AutoModelForObjectDetection
 } = require("./models.js");
 const {
@@ -34,8 +35,8 @@ const {
     env
 } = require('./env.js');
 
-const { Tensor } = require("./tensor_utils.js");
-const { loadImage } = require("./image_utils.js");
+const { Tensor, transpose_data } = require("./tensor_utils.js");
+const { Jimp, ImageType, loadImage } = require("./image_utils.js");
 
 /**
  * Prepare images for further tasks.
@@ -938,6 +939,131 @@ class ImageClassificationPipeline extends Pipeline {
 }
 
 /**
+ * @typedef {'panoptic'|'instance'|'semantic'} ImageSegmentationSubTask
+ */
+
+/**
+ * ImageSegmentationPipeline class for executing an image-segmentation task.
+ * @extends Pipeline
+ */
+class ImageSegmentationPipeline extends Pipeline {
+    /**
+     * Create a new ImageSegmentationPipeline.
+     * @param {string} task - The task of the pipeline.
+     * @param {Object} model - The model to use for classification.
+     * @param {Function} processor - The function to preprocess images.
+     */
+    constructor(task, model, processor) {
+        super(task, null, model); // TODO tokenizer
+        this.processor = processor;
+
+        /** 
+         * @type {Object<ImageSegmentationSubTask, string>}
+         */
+        this.subtasks_mapping = {
+            // Mapping of subtasks to their corresponding post-processing function names.
+            panoptic: 'post_process_panoptic_segmentation',
+            instance: 'post_process_instance_segmentation',
+            semantic: 'post_process_semantic_segmentation'
+        }
+    }
+
+    /**
+     * Segment the input images.
+     * @param {Array} images - The input images.
+     * @param {Object} options - The options to use for segmentation.
+     * @param {number} [options.threshold=0.5] - Probability threshold to filter out predicted masks.
+     * @param {number} [options.mask_threshold=0.5] - Threshold to use when turning the predicted masks into binary values.
+     * @param {number} [options.overlap_mask_area_threshold=0.8] - Mask overlap threshold to eliminate small, disconnected segments.
+     * @param {null|ImageSegmentationSubTask} [options.subtask=null] - Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`], depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
+     * @param {Array} [options.label_ids_to_fuse=null] - List of label ids to fuse. If not set, do not fuse any labels.
+     * @param {Array} [options.target_sizes=null] - List of target sizes for the input images. If not set, use the original image sizes.
+     * @returns {Promise<Array>} - The annotated segments.
+     */
+    async _call(images, {
+        threshold = 0.5,
+        mask_threshold = 0.5,
+        overlap_mask_area_threshold = 0.8,
+        label_ids_to_fuse = null,
+        target_sizes = null,
+        subtask = null, // TODO use
+    } = {}) {
+        let isBatched = Array.isArray(images);
+
+        if (isBatched && images.length !== 1) {
+            throw Error("Image segmentation pipeline currently only supports a batch size of 1.");
+        }
+
+        images = await prepareImages(images);
+        let imageSizes = images.map(x => [x.bitmap.height, x.bitmap.width]);
+
+        let inputs = await this.processor(images);
+        let output = await this.model(inputs);
+
+        let fn = null;
+        if (subtask !== null) {
+            fn = this.subtasks_mapping[subtask];
+        } else {
+            for (let [task, func] of Object.entries(this.subtasks_mapping)) {
+                if (func in this.processor.feature_extractor) {
+                    fn = this.processor.feature_extractor[func].bind(this.processor.feature_extractor);
+                    subtask = task;
+                    break;
+                }
+            }
+        }
+
+        // add annotations
+        let annotation = [];
+
+        if (subtask === 'panoptic' || subtask === 'instance') {
+
+            let processed = fn(
+                output,
+                threshold,
+                mask_threshold,
+                overlap_mask_area_threshold,
+                label_ids_to_fuse,
+                target_sizes ?? imageSizes, // TODO FIX?
+            )[0];
+
+            let segmentation = processed.segmentation;
+
+            let id2label = this.model.config.id2label;
+
+            for (let segment of processed.segments_info) {
+                let maskData = new Uint8Array(segmentation.data.length);
+                for (let i = 0; i < segmentation.data.length; ++i) {
+                    if (segmentation.data[i] === segment.id) {
+                        maskData[i] = 255;
+                    }
+                }
+
+                let [transposedData, shape] = transpose_data(maskData, segmentation.dims, [0, 1]);
+
+                const mask = new Jimp(...shape);
+                mask.bitmap.data = transposedData;
+
+                annotation.push({
+                    score: segment.score,
+                    label: id2label[segment.label_id],
+                    mask: mask
+                })
+            }
+
+        } else if (subtask === 'semantic') {
+            throw Error(`semantic segmentation not yet supported.`);
+
+        } else {
+            throw Error(`Subtask ${subtask} not supported.`);
+        }
+
+        return annotation;
+    }
+}
+
+
+/**
  * Class representing a zero-shot image classification pipeline.
  * @extends Pipeline
  */
@@ -1028,7 +1154,7 @@ class ObjectDetectionPipeline extends Pipeline {
         }
         images = await prepareImages(images);
 
-        let imageSizes = percentage ? null : images.map(x => [x.bitmap.width, x.bitmap.height]);
+        let imageSizes = percentage ? null : images.map(x => [x.bitmap.height, x.bitmap.width]);
 
         let inputs = await this.processor(images);
         let output = await this.model(inputs);
@@ -1156,6 +1282,17 @@ const SUPPORTED_TASKS = {
         "processor": AutoProcessor,
         "default": {
             "model": "google/vit-base-patch16-224"
+        },
+        "type": "multimodal",
+    },
+
+    "image-segmentation": {
+        // no tokenizer
+        "pipeline": ImageSegmentationPipeline,
+        "model": AutoModelForImageSegmentation,
+        "processor": AutoProcessor,
+        "default": {
+            "model": "facebook/detr-resnet-50-panoptic"
         },
         "type": "multimodal",
     },
