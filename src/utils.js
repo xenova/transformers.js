@@ -5,6 +5,7 @@ const { env } = require('./env.js');
 
 if (global.ReadableStream === undefined && typeof process !== 'undefined') {
     try {
+        // @ts-ignore
         global.ReadableStream  = require('node:stream/web').ReadableStream; // ReadableStream is not a global with Node 16
     } catch(err) {
         console.warn("ReadableStream not defined and unable to import from node:stream/web");
@@ -14,7 +15,7 @@ if (global.ReadableStream === undefined && typeof process !== 'undefined') {
 class FileResponse {
     /**
      * Creates a new `FileResponse` object.
-     * @param {string} filePath
+     * @param {string|URL} filePath
      */
     constructor(filePath) {
         this.filePath = filePath;
@@ -55,7 +56,7 @@ class FileResponse {
      */
     updateContentType() {
         // Set content-type header based on file extension
-        const extension = this.filePath.split('.').pop().toLowerCase();
+        const extension = this.filePath.toString().split('.').pop().toLowerCase();
         switch (extension) {
             case 'txt':
                 this.headers['content-type'] = 'text/plain';
@@ -156,7 +157,7 @@ class FileResponse {
 /**
  * Determines whether the given string is a valid HTTP or HTTPS URL.
  * @function
- * @param {string} string - The string to test for validity as an HTTP or HTTPS URL.
+ * @param {string|URL} string - The string to test for validity as an HTTP or HTTPS URL.
  * @returns {boolean} - True if the string is a valid HTTP or HTTPS URL, false otherwise.
  */
 function isValidHttpUrl(string) {
@@ -175,7 +176,7 @@ function isValidHttpUrl(string) {
  *
  * @async
  * @function getFile
- * @param {string} url - The URL of the file to get.
+ * @param {string|URL} url - The URL of the file to get.
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
 async function getFile(url) {
