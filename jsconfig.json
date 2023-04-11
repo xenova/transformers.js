@@ -1,5 +1,10 @@
 {
+    // Only include files in the src directory
+    "include": [
+        "src/**/*"
+    ],
     "compilerOptions": {
+        // Tells the compiler to check JS files
         "checkJs": true
     }
 }
