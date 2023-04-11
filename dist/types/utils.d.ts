@@ -123,10 +123,10 @@ export function magnitude(arr: number[]): number;
  *
  * @async
  * @function getFile
- * @param {string} url - The URL of the file to get.
+ * @param {string|URL} url - The URL of the file to get.
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
-export function getFile(url: string): Promise<FileResponse | Response>;
+export function getFile(url: string | URL): Promise<FileResponse | Response>;
 /**
  * Check if a value is an integer.
  * @param {*} x - The value to check.
@@ -155,10 +155,10 @@ export function min(arr: number[]): number;
 declare class FileResponse {
     /**
      * Creates a new `FileResponse` object.
-     * @param {string} filePath
+     * @param {string|URL} filePath
      */
-    constructor(filePath: string);
-    filePath: string;
+    constructor(filePath: string | URL);
+    filePath: string | URL;
     headers: {};
     exists: boolean;
     status: number;
