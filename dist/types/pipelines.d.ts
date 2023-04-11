@@ -43,3 +43,4 @@ declare class Pipeline extends Callable {
 }
 import { Callable } from "./utils.js";
 export {};
+//# sourceMappingURL=pipelines.d.ts.map

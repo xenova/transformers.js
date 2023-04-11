@@ -79,3 +79,4 @@ export class CustomImage {
      */
     save(path: string | Buffer | URL, mime?: string): void;
 }
+//# sourceMappingURL=image_utils.d.ts.map

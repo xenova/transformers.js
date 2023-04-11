@@ -139,3 +139,4 @@ declare class FFT {
      */
     _singleRealTransform4(data: Float64Array, out: Float64Array, outOff: number, off: number, step: number, inv: number): void;
 }
+//# sourceMappingURL=fft.d.ts.map

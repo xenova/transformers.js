@@ -100,3 +100,4 @@ export class BeamSearchSampler extends Sampler {
     sample(logits: any, index?: number): any[];
 }
 import { Callable } from "./utils.js";
+//# sourceMappingURL=samplers.d.ts.map

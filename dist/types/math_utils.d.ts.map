@@ -1,0 +1,1 @@
+{"version":3,"file":"math_utils.d.ts","sourceRoot":"","sources":["../../src/math_utils.js"],"names":[],"mappings":"yBAEa,SAAS,GAAG,UAAU,GAAG,iBAAiB,GAAG,UAAU,GAAG,WAAW,GAAG,UAAU,GAAG,WAAW,GAAG,YAAY,GAAG,YAAY;4BAC9H,aAAa,GAAG,cAAc;4BAC9B,UAAU,GAAG,aAAa;AAHvC;;;;GAIG;AAEH;;GAEG;AACH,mCAFW,UAAU,yIAqEpB;AAGD;;;;;;;GAOG;AACH,yEAJW,MAAM,EAAE,QACR,MAAM,EAAE,iBAiClB"}

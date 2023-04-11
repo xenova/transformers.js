@@ -20,3 +20,4 @@ export function interpolate(input: TypedArray, [in_channels, in_height, in_width
  */
 declare function transpose_data<T extends AnyTypedArray>(array: T, dims: number[], axes: number[]): [T, number[]];
 export { transpose_data as transpose };
+//# sourceMappingURL=math_utils.d.ts.map

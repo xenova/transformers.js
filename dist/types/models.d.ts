@@ -1165,3 +1165,4 @@ declare class DetrSegmentationOutput extends ModelOutput {
 declare class ModelOutput {
 }
 export {};
+//# sourceMappingURL=models.d.ts.map

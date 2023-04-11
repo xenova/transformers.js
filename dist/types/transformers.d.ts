@@ -18,3 +18,4 @@ import { pipeline } from "./pipelines.js";
 import { Tensor } from "./tensor_utils.js";
 import { env } from "./env.js";
 export { AutoTokenizer, BertTokenizer, DistilBertTokenizer, T5Tokenizer, GPT2Tokenizer, AutoModel, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForCausalLM, AutoModelForMaskedLM, AutoModelForQuestionAnswering, AutoModelForVision2Seq, AutoModelForImageClassification, AutoModelForObjectDetection, AutoProcessor, pipeline, Tensor, env };
+//# sourceMappingURL=transformers.d.ts.map

@@ -80,3 +80,4 @@ export function cat(tensors: any): Tensor;
 export function interpolate(input: Tensor, [out_height, out_width]: number[], mode?: string, align_corners?: boolean): Tensor;
 import { transpose as transpose_data } from "./math_utils.js";
 export { transpose_data };
+//# sourceMappingURL=tensor_utils.d.ts.map

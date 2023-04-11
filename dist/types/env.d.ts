@@ -10,3 +10,4 @@ declare const localURL: string;
 declare const CACHE_AVAILABLE: boolean;
 declare const FS_AVAILABLE: boolean;
 export {};
+//# sourceMappingURL=env.d.ts.map

@@ -280,3 +280,4 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
 }
 import { Callable } from "./utils.js";
 import { Tensor } from "./tensor_utils.js";
+//# sourceMappingURL=generation.d.ts.map

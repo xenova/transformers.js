@@ -33,3 +33,4 @@ export class Processor extends Callable {
     _call(input: any): Promise<any>;
 }
 import { Callable } from "./utils.js";
+//# sourceMappingURL=processors.d.ts.map

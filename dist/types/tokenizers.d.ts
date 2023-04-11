@@ -513,3 +513,4 @@ declare class Decoder extends Callable {
 }
 import { Tensor } from "./tensor_utils.js";
 export {};
+//# sourceMappingURL=tokenizers.d.ts.map
