@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
-    "jimp": "^0.22.7",
+    "canvas": "^2.11.2",
     "onnxruntime-web": "^1.14.0"
   },
   "optionalDependencies": {

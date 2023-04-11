@@ -679,7 +679,7 @@ async function image_to_text() {
     ) && isDeepEqual(
         output2,
         [{
-            "generated_text": "a herd of giraffes and zebras grazing in a field"
+            "generated_text": "a herd of giraffes and zebras standing in a field"
         }, {
             "generated_text": "a herd of giraffes and zebras are grazing in a field"
         }]
@@ -689,7 +689,7 @@ async function image_to_text() {
             [{
                 "generated_text": "a soccer player is kicking a soccer ball"
             }], [{
-                "generated_text": "a plane is parked at an airport with other planes"
+                "generated_text": "a plane is parked at an airport with a lot of people"
             }]
         ]
     ) && isDeepEqual(
@@ -698,11 +698,11 @@ async function image_to_text() {
             [{
                 "generated_text": "a soccer player is kicking a soccer ball"
             }, {
-                "generated_text": "a soccer player is kicking a ball"
+                "generated_text": "a soccer player is kicking a ball in the air"
             }], [{
-                "generated_text": "airplanes parked at an airport"
-            }, {
                 "generated_text": "airplanes are parked at an airport"
+            }, {
+                "generated_text": "airplanes are parked on the tarmac at an airport"
             }]
         ]
     ), duration];
@@ -736,18 +736,18 @@ async function image_classification() {
 
     return [isDeepEqual(
         output1,
-        [{ "label": "tiger, Panthera tigris", "score": 0.7521011829376221 }]
+        [{ "label": "tiger, Panthera tigris", "score": 0.7717679142951965 }]
     ) && isDeepEqual(
         output2,
-        [{ "label": "tiger, Panthera tigris", "score": 0.7521011829376221 }, { "label": "tiger cat", "score": 0.24334438145160675 }]
+        [{ "label": "tiger, Panthera tigris", "score": 0.7717679142951965 }, { "label": "tiger cat", "score": 0.22388941049575806 }]
     ) && isDeepEqual(
         output3,
-        [{ "label": "palace", "score": 0.9980287551879883 }, { "label": "teapot", "score": 0.9890381693840027 }]
+        [{ "label": "palace", "score": 0.9983996152877808 }, { "label": "teapot", "score": 0.9884148836135864 }]
     ) && isDeepEqual(
         output4,
         [
-            [{ "label": "palace", "score": 0.9980287551879883 }, { "label": "monastery", "score": 0.0006073643453419209 }],
-            [{ "label": "teapot", "score": 0.9890381693840027 }, { "label": "coffeepot", "score": 0.0057989382185041904 }]
+            [{ "label": "palace", "score": 0.9983996152877808 }, { "label": "monastery", "score": 0.0005066859303042293 }],
+            [{ "label": "teapot", "score": 0.9884148836135864 }, { "label": "coffeepot", "score": 0.006186090875416994 }]
         ]
     ), duration];
 
@@ -763,7 +763,7 @@ async function image_segmentation() {
     let outputs = await segmenter(img);
 
     // Just calculate sum of mask (to avoid having to check the whole mask)
-    outputs.forEach(x => x.mask = x.mask.bitmap.data.reduce((acc, curr) => {
+    outputs.forEach(x => x.mask = x.mask.data.reduce((acc, curr) => {
         if (curr > 0) {
             acc += 1;
         }
@@ -812,25 +812,25 @@ async function zero_shot_image_classification() {
     return [isDeepEqual(
         output1,
         [
-            { "score": 0.9937776923179626, "label": "football" },
-            { "score": 0.0010888857068493962, "label": "airport" },
-            { "score": 0.005133440252393484, "label": "animals" }
+            { "score": 0.9930433034896851, "label": "football" },
+            { "score": 0.0010687140747904778, "label": "airport" },
+            { "score": 0.00588800385594368, "label": "animals" }
         ]
     ) && isDeepEqual(
         output2,
         [
             [
-                { "score": 0.9927281141281128, "label": "football" },
-                { "score": 0.0014022591058164835, "label": "airport" },
-                { "score": 0.005869609769433737, "label": "animals" }
+                { "score": 0.9937127232551575, "label": "football" },
+                { "score": 0.001083463546819985, "label": "airport" },
+                { "score": 0.005203814711421728, "label": "animals" }
             ], [
-                { "score": 0.00029855265165679157, "label": "football" },
-                { "score": 0.9982157945632935, "label": "airport" },
-                { "score": 0.0014856450725346804, "label": "animals" }
+                { "score": 0.00045409638551063836, "label": "football" },
+                { "score": 0.9976944923400879, "label": "airport" },
+                { "score": 0.0018514387775212526, "label": "animals" }
             ], [
-                { "score": 0.012006462551653385, "label": "football" },
-                { "score": 0.01685832068324089, "label": "airport" },
-                { "score": 0.9711351990699768, "label": "animals" }
+                { "score": 0.012140189297497272, "label": "football" },
+                { "score": 0.013895479030907154, "label": "airport" },
+                { "score": 0.9739643335342407, "label": "animals" }
             ]
         ]
     ), duration];
@@ -864,31 +864,31 @@ async function object_detection() {
     return [isDeepEqual(
         output1,
         {
-            boxes: [
-                [359.76656198501587, 247.15871572494507, 402.9358148574829, 315.704562664032],
-                [109.06712919473648, 237.22267627716064, 234.6556493639946, 324.0059995651245],
-                [2.541865110397339, 148.06851625442505, 221.13489389419556, 255.35571813583374],
-                [186.80795073509216, 230.4118824005127, 322.8719401359558, 305.1347064971924],
-                [349.60298001766205, 95.32436728477478, 547.5894981622696, 311.53558373451233]
+            "boxes": [
+                [358.96632492542267, 247.58064329624176, 401.70598447322845, 315.80701768398285],
+                [110.12272596359253, 236.77275717258453, 235.19042015075684, 323.5002797842026],
+                [3.7028244137763977, 148.02273631095886, 221.12379759550095, 254.5628035068512],
+                [188.50673854351044, 230.62812745571136, 322.1572870016098, 305.23363173007965],
+                [350.2080622315407, 94.52754735946655, 547.5165876746178, 310.9271836280823]
             ],
-            classes: [24, 24, 25, 24, 25],
-            labels: ["zebra", "zebra", "giraffe", "zebra", "giraffe"],
-            scores: [0.9990037083625793, 0.9987165331840515, 0.93809574842453, 0.9977785348892212, 0.9987764358520508],
+            "classes": [24, 24, 25, 24, 25],
+            "scores": [0.9989174008369446, 0.9985705614089966, 0.9560438394546509, 0.9976871013641357, 0.9989231824874878],
+            "labels": ["zebra", "zebra", "giraffe", "zebra", "giraffe"]
         }
     ) && isDeepEqual(
         output2,
         [{
-            boxes: [
-                [0.11961111426353455, 0.8362486660480499, 0.22848913073539734, 0.9653392732143402],
-                [0.12597772479057312, 0.02483522891998291, 0.62779501080513, 0.9831656217575073],
-                [-0.014880642294883728, 0.08133217692375183, 0.21618883311748505, 0.7050653994083405],
-                [0.12513580918312073, 0.022572606801986694, 0.7006023824214935, 0.9825432598590851],
-                [0.6693135350942612, 0.053024232387542725, 0.8096815496683121, 0.6173807978630066],
-                [0.527036190032959, 0.1286628246307373, 0.8026435375213623, 0.9251552820205688]
+            "boxes": [
+                [0.11884483695030212, 0.8355862200260162, 0.2269599735736847, 0.9643512666225433],
+                [0.12690269947052002, 0.023795485496520996, 0.6280449032783508, 0.9843276739120483],
+                [-0.014768391847610474, 0.0791754424571991, 0.21561279892921448, 0.7040039002895355],
+                [0.12554875016212463, 0.021175920963287354, 0.6984966695308685, 0.9823558926582336],
+                [0.665948748588562, 0.05154389142990112, 0.8112401962280273, 0.615310549736023],
+                [0.5251416265964508, 0.12678277492523193, 0.801356166601181, 0.9241014719009399]
             ],
-            classes: [37, 1, 1, 1, 1, 1],
-            labels: ["sports ball", "person", "person", "person", "person", "person"],
-            scores: [0.9995566010475159, 0.9635121822357178, 0.9992444515228271, 0.9051326513290405, 0.9229124188423157, 0.9993530511856079],
+            "classes": [37, 1, 1, 1, 1, 1],
+            "scores": [0.9995761513710022, 0.9574956893920898, 0.9992514848709106, 0.9042971730232239, 0.937954843044281, 0.9991750121116638],
+            "labels": ["sports ball", "person", "person", "person", "person", "person"]
         }]
     ), duration];
 

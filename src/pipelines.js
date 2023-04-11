@@ -27,7 +27,8 @@ const {
     AutoModelForObjectDetection
 } = require("./models.js");
 const {
-    AutoProcessor
+    AutoProcessor,
+    Processor
 } = require("./processors.js");
 
 
@@ -36,7 +37,7 @@ const {
 } = require('./env.js');
 
 const { Tensor, transpose_data } = require("./tensor_utils.js");
-const { Jimp, ImageType, loadImage } = require("./image_utils.js");
+const { CustomImage } = require("./image_utils.js");
 
 /**
  * Prepare images for further tasks.
@@ -50,8 +51,7 @@ async function prepareImages(images) {
     }
 
     // Possibly convert any non-images to images
-    images = await Promise.all(images.map(loadImage));
-
+    images = await Promise.all(images.map(x => CustomImage.read(x)));
     return images;
 }
 
@@ -939,10 +939,6 @@ class ImageClassificationPipeline extends Pipeline {
 }
 
 /**
- * @typedef {'panoptic'|'instance'|'semantic'} ImageSegmentationSubTask
- */
-
-/**
  * ImageSegmentationPipeline class for executing an image-segmentation task.
  * @extends Pipeline
  */
@@ -951,15 +947,12 @@ class ImageSegmentationPipeline extends Pipeline {
      * Create a new ImageSegmentationPipeline.
      * @param {string} task - The task of the pipeline.
      * @param {Object} model - The model to use for classification.
-     * @param {Function} processor - The function to preprocess images.
+     * @param {Processor} processor - The function to preprocess images.
      */
     constructor(task, model, processor) {
         super(task, null, model); // TODO tokenizer
         this.processor = processor;
 
-        /** 
-         * @type {Object<ImageSegmentationSubTask, string>}
-         */
         this.subtasks_mapping = {
             // Mapping of subtasks to their corresponding post-processing function names.
             panoptic: 'post_process_panoptic_segmentation',
@@ -975,7 +968,7 @@ class ImageSegmentationPipeline extends Pipeline {
      * @param {number} [options.threshold=0.5] - Probability threshold to filter out predicted masks.
      * @param {number} [options.mask_threshold=0.5] - Threshold to use when turning the predicted masks into binary values.
      * @param {number} [options.overlap_mask_area_threshold=0.8] - Mask overlap threshold to eliminate small, disconnected segments.
-     * @param {null|ImageSegmentationSubTask} [options.subtask=null] - Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`], depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
+     * @param {null|string} [options.subtask=null] - Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`], depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
      * @param {Array} [options.label_ids_to_fuse=null] - List of label ids to fuse. If not set, do not fuse any labels.
      * @param {Array} [options.target_sizes=null] - List of target sizes for the input images. If not set, use the original image sizes.
      * @returns {Promise<Array>} - The annotated segments.
@@ -995,7 +988,7 @@ class ImageSegmentationPipeline extends Pipeline {
         }
 
         images = await prepareImages(images);
-        let imageSizes = images.map(x => [x.bitmap.height, x.bitmap.width]);
+        let imageSizes = images.map(x => [x.height, x.width]);
 
         let inputs = await this.processor(images);
         let output = await this.model(inputs);
@@ -1028,21 +1021,17 @@ class ImageSegmentationPipeline extends Pipeline {
             )[0];
 
             let segmentation = processed.segmentation;
-
             let id2label = this.model.config.id2label;
 
             for (let segment of processed.segments_info) {
-                let maskData = new Uint8Array(segmentation.data.length);
+                let maskData = new Uint8ClampedArray(segmentation.data.length);
                 for (let i = 0; i < segmentation.data.length; ++i) {
                     if (segmentation.data[i] === segment.id) {
                         maskData[i] = 255;
                     }
                 }
 
-                let [transposedData, shape] = transpose_data(maskData, segmentation.dims, [0, 1]);
-
-                const mask = new Jimp(...shape);
-                mask.bitmap.data = transposedData;
+                let mask = new CustomImage(maskData, segmentation.dims[1], segmentation.dims[0], 1)
 
                 annotation.push({
                     score: segment.score,
@@ -1154,7 +1143,7 @@ class ObjectDetectionPipeline extends Pipeline {
         }
         images = await prepareImages(images);
 
-        let imageSizes = percentage ? null : images.map(x => [x.bitmap.height, x.bitmap.width]);
+        let imageSizes = percentage ? null : images.map(x => [x.height, x.width]);
 
         let inputs = await this.processor(images);
         let output = await this.model(inputs);

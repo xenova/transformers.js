@@ -10,6 +10,7 @@ const {
 const FFT = require('./fft.js');
 const { Tensor, transpose, cat, interpolate } = require("./tensor_utils.js");
 
+const { CustomImage } = require('./image_utils.js');
 /**
  * Helper class to determine model type from config
  */
@@ -129,16 +130,15 @@ class ImageFeatureExtractor extends FeatureExtractor {
     /**
      * Preprocesses the given image.
      *
-     * @param {any} image - The URL of the image to preprocess.
+     * @param {CustomImage} image - The image to preprocess.
      * @returns {Promise<any>} The preprocessed image as a Tensor.
      */
     async preprocess(image) {
-        // image is a Jimp image
 
-        const srcWidth = image.bitmap.width;   // original width
-        const srcHeight = image.bitmap.height; // original height
+        const srcWidth = image.width;   // original width
+        const srcHeight = image.height; // original height
 
-        // resize all images
+        // First, resize all images
         if (this.do_resize) {
             // If `max_size` is set, maintain aspect ratio and resize to `size`
             // while keeping the largest dimension <= `max_size`
@@ -161,34 +161,27 @@ class ImageFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        const data = image.bitmap.data;
+        // Convert image to RGB
+        image = image.rgb();
 
-        // Do not include alpha channel
-        let convData = new Float32Array(data.length * 3 / 4);
-
-        let outIndex = 0;
-        for (let i = 0; i < data.length; i += 4) {
-            for (let j = 0; j < 3; ++j) {
-                convData[outIndex++] = data[i + j];
-            }
-        }
+        const pixelData = Float32Array.from(image.data);
 
         if (this.do_rescale) {
-            for (let i = 0; i < convData.length; ++i) {
-                convData[i] = convData[i] / 255;
+            for (let i = 0; i < pixelData.length; ++i) {
+                pixelData[i] = pixelData[i] / 255;
             }
         }
 
         if (this.do_normalize) {
-            for (let i = 0; i < convData.length; i += 3) {
+            for (let i = 0; i < pixelData.length; i += 3) {
                 for (let j = 0; j < 3; ++j) {
-                    convData[i + j] = (convData[i + j] - this.image_mean[j]) / this.image_std[j];
+                    pixelData[i + j] = (pixelData[i + j] - this.image_mean[j]) / this.image_std[j];
                 }
             }
         }
 
-        let imgDims = [image.bitmap.height, image.bitmap.width, 3];
-        let img = new Tensor('float32', convData, imgDims);
+        let imgDims = [image.height, image.width, 3];
+        let img = new Tensor('float32', pixelData, imgDims);
         let transposed = transpose(img, [2, 0, 1]); // hwc -> chw
 
         return transposed;
@@ -432,20 +425,23 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
         );
         let segments = [];
 
-        // 1. Weigh each mask by its prediction score
+        // 1. If target_size is not null, we need to resize the masks to the target size
+        if (target_size !== null) {
+            // resize the masks to the target size
+            for (let i = 0; i < mask_probs.length; ++i) {
+                mask_probs[i] = interpolate(mask_probs[i], target_size, 'bilinear', false);
+            }
+        }
+
+        // 2. Weigh each mask by its prediction score
         // NOTE: `mask_probs` is updated in-place
         // 
         // Temporary storage for the best label/scores for each pixel ([height, width]):
         let mask_labels = new Int32Array(mask_probs[0].data.length);
         let bestScores = new Float32Array(mask_probs[0].data.length);
+
         for (let i = 0; i < mask_probs.length; ++i) {
-
-            if (target_size !== null) {
-                mask_probs[i] = interpolate(mask_probs[i], target_size, 'bilinear', false);
-            }
-
             let score = pred_scores[i];
-            // console.log({ i, item, score, a: bestScores.slice() })
 
             for (let j = 0; j < mask_probs[i].data.length; ++j) {
                 mask_probs[i].data[j] *= score
@@ -982,5 +978,6 @@ class WhisperProcessor extends Processor {
 
 
 module.exports = {
-    AutoProcessor
+    AutoProcessor,
+    Processor,
 }
