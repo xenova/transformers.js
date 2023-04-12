@@ -6,8 +6,8 @@ const { env } = require('./env.js');
 if (global.ReadableStream === undefined && typeof process !== 'undefined') {
     try {
         // @ts-ignore
-        global.ReadableStream  = require('node:stream/web').ReadableStream; // ReadableStream is not a global with Node 16
-    } catch(err) {
+        global.ReadableStream = require('node:stream/web').ReadableStream; // ReadableStream is not a global with Node 16
+    } catch (err) {
         console.warn("ReadableStream not defined and unable to import from node:stream/web");
     }
 }
@@ -429,10 +429,10 @@ function indexOfMax(arr) {
  */
 function softmax(arr) {
     // Compute the maximum value in the array
-    const max = Math.max(...arr);
+    const maxVal = max(arr);
 
     // Compute the exponentials of the array values
-    const exps = arr.map(x => Math.exp(x - max));
+    const exps = arr.map(x => Math.exp(x - maxVal));
 
     // Compute the sum of the exponentials
     const sumExps = exps.reduce((acc, val) => acc + val, 0);
@@ -584,6 +584,24 @@ function min(arr) {
     return min;
 }
 
+
+/**
+ * Returns the maximum item.
+ * @param {number[]} arr - array of numbers.
+ * @returns {number} - the maximum number.
+ * @throws {Error} If array is empty.
+ */
+function max(arr) {
+    if (arr.length === 0) throw Error('Array must not be empty');
+    let max = arr[0];
+    for (let i = 1; i < arr.length; ++i) {
+        if (arr[i] > max) {
+            max = arr[i];
+        }
+    }
+    return max;
+}
+
 /**
  * Check if a value is a string.
  * @param {*} text - The value to check.
@@ -630,5 +648,6 @@ module.exports = {
     isIntegralNumber,
     isString,
     exists,
-    min
+    min,
+    max,
 };
