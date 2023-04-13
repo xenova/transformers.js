@@ -1,10 +1,10 @@
 
-const fs = require('fs');
-const { getFile, isString } = require('./utils.js');
-const { env } = require('./env.js');
+import fs from 'fs';
+import { getFile, isString } from './utils.js';
+import { env } from './env.js';
 
 let CanvasClass;
-let ImageClass = typeof Image !== 'undefined' ? Image : null; // Only used for type-checking
+let ImageClass = typeof Image !== 'undefined' ? Image : null;
 
 let ImageDataClass;
 let loadImageFunction;
@@ -14,7 +14,7 @@ if (typeof self !== 'undefined') {
     ImageDataClass = ImageData;
 
 } else {
-    const { Canvas, loadImage, ImageData, Image } = require('canvas');
+    const { Canvas, loadImage, ImageData, Image } = await import('canvas');
     CanvasClass = Canvas;
     loadImageFunction = async (/**@type {Blob}*/ b) => await loadImage(Buffer.from(await b.arrayBuffer()));
     ImageDataClass = ImageData;
@@ -22,7 +22,7 @@ if (typeof self !== 'undefined') {
 }
 
 
-class CustomImage {
+export class CustomImage {
 
     /**
      * Create a new CustomImage object.
@@ -277,7 +277,3 @@ class CustomImage {
         fs.writeFileSync(path, buffer);
     }
 }
-
-module.exports = {
-    CustomImage,
-};

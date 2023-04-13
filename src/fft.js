@@ -3,7 +3,7 @@
  * FFT class provides functionality for performing Fast Fourier Transform on arrays
  * Code adapted from https://www.npmjs.com/package/fft.js
  */
-class FFT {
+export default class FFT {
     /**
      * @param {number} size - The size of the input array. Must be a power of two and bigger than 1.
      * @throws {Error} FFT size must be a power of two and bigger than 1.
@@ -494,5 +494,3 @@ class FFT {
         out[outOff + 7] = T3r;
     }
 }
-
-module.exports = FFT

@@ -1,4 +1,4 @@
-const {
+import {
     Callable,
     softmax,
     indexOfMax,
@@ -8,12 +8,12 @@ const {
     isString,
     getFile,
     dot
-} = require("./utils.js");
+} from './utils.js';
 
-const {
+import {
     AutoTokenizer
-} = require("./tokenizers.js");
-const {
+} from './tokenizers.js';
+import {
     AutoModel,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
@@ -25,19 +25,15 @@ const {
     AutoModelForImageClassification,
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection
-} = require("./models.js");
-const {
+} from './models.js';
+import {
     AutoProcessor,
     Processor
-} = require("./processors.js");
+} from './processors.js';
 
-
-const {
-    env
-} = require('./env.js');
-
-const { Tensor, transpose_data } = require("./tensor_utils.js");
-const { CustomImage } = require("./image_utils.js");
+import { env } from './env.js';
+import { Tensor } from './tensor_utils.js';
+import { CustomImage } from './image_utils.js';
 
 /**
  * Prepare images for further tasks.
@@ -1364,7 +1360,7 @@ const TASK_ALIASES = {
  * @todo fix error below
  * @throws {Error} If an unsupported pipeline is requested.
  */
-async function pipeline(
+export async function pipeline(
     task,
     model = null,
     {
@@ -1454,7 +1450,3 @@ function product(...a) {
     // Adapted from https://stackoverflow.com/a/43053803
     return a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e])));
 }
-
-module.exports = {
-    pipeline
-};

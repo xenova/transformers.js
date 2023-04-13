@@ -1,13 +1,13 @@
-let ONNX;
+export let ONNX;
 
 // TODO support more execution providers (e.g., webgpu)
-const executionProviders = ['wasm'];
+export const executionProviders = ['wasm'];
 
 if (typeof process !== 'undefined') {
     // Running in a node-like environment.
     // Try to import onnxruntime-node, using onnxruntime-web as a fallback
     try {
-        ONNX = require('onnxruntime-node');
+        ONNX = (await import('onnxruntime-node')).default;
     } catch (err) {
         console.warn(
             "Node.js environment detected, but `onnxruntime-node` was not found. " +
@@ -20,7 +20,7 @@ if (typeof process !== 'undefined') {
         // @ts-ignore
         global.self = global;
 
-        ONNX = require('onnxruntime-web');
+        ONNX = (await import('onnxruntime-web')).default;
 
         // Disable spawning worker threads for testing.
         // This is done by setting numThreads to 1
@@ -33,10 +33,6 @@ if (typeof process !== 'undefined') {
 
 } else {
     // Running in a browser-environment, so we just import `onnxruntime-web`
-    ONNX = require('onnxruntime-web');
+    ONNX = (await import('onnxruntime-web')).default;
 }
 
-module.exports = {
-    ONNX,
-    executionProviders,
-}

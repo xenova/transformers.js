@@ -1,15 +1,15 @@
-const {
+import {
     Callable,
     indexOfMax,
     softmax,
     log_softmax,
     getTopItems
-} = require("./utils.js");
+} from './utils.js';
 
 /**
  * Sampler is a base class for all sampling methods used for text generation.
  */
-class Sampler extends Callable {
+export class Sampler extends Callable {
     /**
      * Creates a new Sampler object with the specified temperature.
      * @param {number} temperature - The temperature to use when sampling. Higher values result in more random samples.
@@ -239,11 +239,4 @@ class BeamSearchSampler extends Sampler {
             return topLogits;
         }
     }
-}
-
-module.exports = {
-    Sampler,
-    GreedySampler,
-    TopKSampler,
-    BeamSearchSampler
 }

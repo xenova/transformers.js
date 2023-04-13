@@ -1,12 +1,12 @@
 
-const fs = require('fs');
+import { existsSync, statSync, promises } from 'fs';
 
-const { env } = require('./env.js');
+import { env } from './env.js';
 
 if (global.ReadableStream === undefined && typeof process !== 'undefined') {
     try {
         // @ts-ignore
-        global.ReadableStream = require('node:stream/web').ReadableStream; // ReadableStream is not a global with Node 16
+        global.ReadableStream = (await import('node:stream/web')).ReadableStream; // ReadableStream is not a global with Node 16
     } catch (err) {
         console.warn("ReadableStream not defined and unable to import from node:stream/web");
     }
@@ -22,12 +22,12 @@ class FileResponse {
         this.headers = {};
         this.headers.get = (x) => this.headers[x]
 
-        this.exists = fs.existsSync(filePath);
+        this.exists = existsSync(filePath);
         if (this.exists) {
             this.status = 200;
             this.statusText = 'OK';
 
-            let stats = fs.statSync(filePath);
+            let stats = statSync(filePath);
             this.headers['content-length'] = stats.size;
 
             this.updateContentType();
@@ -111,7 +111,7 @@ class FileResponse {
      * @throws {Error} - If the file cannot be read.
      */
     async arrayBuffer() {
-        const data = await fs.promises.readFile(this.filePath);
+        const data = await promises.readFile(this.filePath);
         return data.buffer;
     }
 
@@ -124,7 +124,7 @@ class FileResponse {
      * @throws {Error} - If the file cannot be read.
      */
     async blob() {
-        const data = await fs.promises.readFile(this.filePath);
+        const data = await promises.readFile(this.filePath);
         return new Blob([data], { type: this.headers['content-type'] });
     }
 
@@ -137,7 +137,7 @@ class FileResponse {
      * @throws {Error} - If the file cannot be read.
      */
     async text() {
-        const data = await fs.promises.readFile(this.filePath, 'utf8');
+        const data = await promises.readFile(this.filePath, 'utf8');
         return data;
     }
 
@@ -179,7 +179,7 @@ function isValidHttpUrl(string) {
  * @param {string|URL} url - The URL of the file to get.
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
-async function getFile(url) {
+export async function getFile(url) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
     if (env.useFS && !isValidHttpUrl(url)) {
@@ -198,7 +198,7 @@ async function getFile(url) {
  * @param {any} data - The data to pass to the progress callback function.
  * @returns {void}
  */
-function dispatchCallback(progressCallback, data) {
+export function dispatchCallback(progressCallback, data) {
     if (progressCallback !== null) progressCallback(data);
 }
 
@@ -293,7 +293,7 @@ async function getModelFile(modelPath, fileName, progressCallback = null, fatal 
  * @param {function} progressCallback - A callback function to receive progress updates. Optional.
  * @returns {Promise<object>} - The JSON data parsed into a JavaScript object.
  */
-async function fetchJSON(modelPath, fileName, progressCallback = null, fatal = true) {
+export async function fetchJSON(modelPath, fileName, progressCallback = null, fatal = true) {
     let buffer = await getModelFile(modelPath, fileName, progressCallback, fatal);
     if (buffer === null) {
         // Return empty object
@@ -369,7 +369,7 @@ async function readResponse(response, progressCallback) {
  * @param {...string} parts - Multiple parts of a path.
  * @returns {string} A string representing the joined path.
  */
-function pathJoin(...parts) {
+export function pathJoin(...parts) {
     // https://stackoverflow.com/a/55142565
     parts = parts.map((part, index) => {
         if (index) {
@@ -390,7 +390,7 @@ function pathJoin(...parts) {
  * @returns {object} The reversed object.
  * @see https://ultimatecourses.com/blog/reverse-object-keys-and-values-in-javascript
  */
-function reverseDictionary(data) {
+export function reverseDictionary(data) {
     // https://ultimatecourses.com/blog/reverse-object-keys-and-values-in-javascript
     return Object.fromEntries(Object.entries(data).map(([key, value]) => [value, key]));
 }
@@ -401,7 +401,7 @@ function reverseDictionary(data) {
  * @see https://stackoverflow.com/a/11301464
  * @returns {number} - The index of the maximum value in the array.
  */
-function indexOfMax(arr) {
+export function indexOfMax(arr) {
     // https://stackoverflow.com/a/11301464
 
     if (arr.length === 0) {
@@ -427,7 +427,7 @@ function indexOfMax(arr) {
  * @param {number[]} arr - The array of numbers to compute the softmax of.
  * @returns {number[]} The softmax array.
  */
-function softmax(arr) {
+export function softmax(arr) {
     // Compute the maximum value in the array
     const maxVal = max(arr);
 
@@ -448,7 +448,7 @@ function softmax(arr) {
  * @param {number[]} arr - The input array to calculate the log_softmax function for.
  * @returns {any} - The resulting log_softmax array.
  */
-function log_softmax(arr) {
+export function log_softmax(arr) {
     // Compute the softmax values
     const softmaxArr = softmax(arr);
 
@@ -464,7 +464,7 @@ function log_softmax(arr) {
  * @param {string} string - The string to escape.
  * @returns {string} - The escaped string.
  */
-function escapeRegExp(string) {
+export function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
@@ -475,7 +475,7 @@ function escapeRegExp(string) {
  * @param {number} [top_k=0] - The number of top items to return (default: 0 = return all)
  * @returns {Array} - The top k items, sorted by descending order
  */
-function getTopItems(items, top_k = 0) {
+export function getTopItems(items, top_k = 0) {
     // if top == 0, return all
 
     items = Array.from(items)
@@ -495,7 +495,7 @@ function getTopItems(items, top_k = 0) {
  * @param {number[]} arr2 - The second array.
  * @returns {number} - The dot product of arr1 and arr2.
  */
-function dot(arr1, arr2) {
+export function dot(arr1, arr2) {
     return arr1.reduce((acc, val, i) => acc + val * arr2[i], 0);
 }
 
@@ -506,7 +506,7 @@ function dot(arr1, arr2) {
  * @param {number[]} arr2 - The second array.
  * @returns {number} The cosine similarity between the two arrays.
  */
-function cos_sim(arr1, arr2) {
+export function cos_sim(arr1, arr2) {
     // Calculate dot product of the two arrays
     const dotProduct = dot(arr1, arr2);
 
@@ -527,7 +527,7 @@ function cos_sim(arr1, arr2) {
  * @param {number[]} arr - The array to calculate the magnitude of.
  * @returns {number} The magnitude of the array.
  */
-function magnitude(arr) {
+export function magnitude(arr) {
     return Math.sqrt(arr.reduce((acc, val) => acc + val * val, 0));
 }
 
@@ -536,7 +536,7 @@ function magnitude(arr) {
  *
  * @extends Function
  */
-class Callable extends Function {
+export class Callable extends Function {
     /**
     * Creates a new instance of the Callable class.
     */
@@ -573,7 +573,7 @@ class Callable extends Function {
  * @returns {number} - the minimum number.
  * @throws {Error} If array is empty.
  */
-function min(arr) {
+export function min(arr) {
     if (arr.length === 0) throw Error('Array must not be empty');
     let min = arr[0];
     for (let i = 1; i < arr.length; ++i) {
@@ -591,7 +591,7 @@ function min(arr) {
  * @returns {number} - the maximum number.
  * @throws {Error} If array is empty.
  */
-function max(arr) {
+export function max(arr) {
     if (arr.length === 0) throw Error('Array must not be empty');
     let max = arr[0];
     for (let i = 1; i < arr.length; ++i) {
@@ -607,7 +607,7 @@ function max(arr) {
  * @param {*} text - The value to check.
  * @returns {boolean} - True if the value is a string, false otherwise.
  */
-function isString(text) {
+export function isString(text) {
     return typeof text === 'string' || text instanceof String
 }
 
@@ -616,7 +616,7 @@ function isString(text) {
  * @param {*} x - The value to check.
  * @returns {boolean} - True if the value is a string, false otherwise.
  */
-function isIntegralNumber(x) {
+export function isIntegralNumber(x) {
     return Number.isInteger(x) || typeof x === 'bigint'
 }
 
@@ -625,29 +625,10 @@ function isIntegralNumber(x) {
  * @param {*} x - The value to check.
  * @returns {boolean} - True if the value exists, false otherwise.
  */
-function exists(x) {
+export function exists(x) {
     return x !== undefined && x !== null;
 }
 
-module.exports = {
-    Callable,
+export {
     getModelFile,
-    dispatchCallback,
-    fetchJSON,
-    pathJoin,
-    reverseDictionary,
-    indexOfMax,
-    softmax,
-    log_softmax,
-    escapeRegExp,
-    getTopItems,
-    dot,
-    cos_sim,
-    magnitude,
-    getFile,
-    isIntegralNumber,
-    isString,
-    exists,
-    min,
-    max,
 };

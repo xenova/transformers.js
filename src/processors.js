@@ -1,20 +1,20 @@
 
-const {
+import {
     Callable,
     fetchJSON,
     indexOfMax,
     softmax,
-} = require("./utils.js");
+} from './utils.js';
 
+import FFT from './fft.js';
+import { Tensor, transpose, cat, interpolate } from './tensor_utils.js';
 
-const FFT = require('./fft.js');
-const { Tensor, transpose, cat, interpolate } = require("./tensor_utils.js");
+import { CustomImage } from './image_utils.js';
 
-const { CustomImage } = require('./image_utils.js');
 /**
  * Helper class to determine model type from config
  */
-class AutoProcessor {
+export class AutoProcessor {
     /**
      * Returns a new instance of a Processor with a feature extractor
      * based on the configuration file located at `modelPath`.
@@ -938,7 +938,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
  * Represents a Processor that extracts features from an input.
  * @extends Callable
  */
-class Processor extends Callable {
+export class Processor extends Callable {
     /**
      * Creates a new Processor with the given feature extractor.
      * @param {function} feature_extractor - The function used to extract features from the input.
@@ -974,10 +974,4 @@ class WhisperProcessor extends Processor {
     async _call(audio) {
         return await this.feature_extractor(audio)
     }
-}
-
-
-module.exports = {
-    AutoProcessor,
-    Processor,
 }

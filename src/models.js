@@ -1,17 +1,16 @@
-const {
+import {
     Callable,
     getModelFile,
     fetchJSON,
     dispatchCallback,
     isIntegralNumber,
-} = require("./utils.js");
+} from './utils.js';
 
-const {
+import {
     Sampler,
-} = require("./samplers.js");
+} from './samplers.js';
 
-
-const {
+import {
     LogitsProcessorList,
     GenerationConfig,
     ForceTokensLogitsProcessor,
@@ -20,13 +19,14 @@ const {
     WhisperTimeStampLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
     RepetitionPenaltyLogitsProcessor
-} = require("./generation.js");
+} from './generation.js';
 
-const { executionProviders, ONNX } = require('./backends/onnx.js');
-const {
+import {
     Tensor,
     cat
-} = require('./tensor_utils');
+} from './tensor_utils.js';
+
+import { executionProviders, ONNX } from './backends/onnx.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 //////////////////////////////////////////////////
@@ -2172,7 +2172,7 @@ class MarianMTModel extends MarianPreTrainedModel {
 /**
  * Helper class to determine model type from config
  */
-class AutoModel {
+export class AutoModel {
     // Helper class to determine model type from config
     static MODEL_CLASS_MAPPING = {
         'bert': BertModel,
@@ -2223,7 +2223,7 @@ class AutoModel {
 /**
  * Helper class for loading sequence classification models from pretrained checkpoints
  */
-class AutoModelForSequenceClassification {
+export class AutoModelForSequenceClassification {
 
     static MODEL_CLASS_MAPPING = {
         'bert': BertForSequenceClassification,
@@ -2267,7 +2267,7 @@ class AutoModelForSequenceClassification {
 /**
  * Helper class for loading token classification models from pretrained checkpoints
  */
-class AutoModelForTokenClassification {
+export class AutoModelForTokenClassification {
 
     static MODEL_CLASS_MAPPING = {
         'bert': BertForTokenClassification,
@@ -2306,7 +2306,7 @@ class AutoModelForTokenClassification {
 /**
  * Class representing an automatic sequence-to-sequence language model.
  */
-class AutoModelForSeq2SeqLM {
+export class AutoModelForSeq2SeqLM {
     static MODEL_CLASS_MAPPING = {
         't5': T5ForConditionalGeneration,
         'mt5': MT5ForConditionalGeneration,
@@ -2337,7 +2337,7 @@ class AutoModelForSeq2SeqLM {
 /**
  * A class for loading pre-trained models for causal language modeling tasks.
  */
-class AutoModelForCausalLM {
+export class AutoModelForCausalLM {
     static MODEL_CLASS_MAPPING = {
         'gpt2': GPT2LMHeadModel,
         'gpt_neo': GPTNeoForCausalLM,
@@ -2376,7 +2376,7 @@ class AutoModelForCausalLM {
 /**
  * A class to automatically select the appropriate model for Masked Language Modeling (MLM) tasks.
  */
-class AutoModelForMaskedLM {
+export class AutoModelForMaskedLM {
     static MODEL_CLASS_MAPPING = {
         'bert': BertForMaskedLM,
         'albert': AlbertForMaskedLM,
@@ -2419,7 +2419,7 @@ class AutoModelForMaskedLM {
 /**
  * Automatic model class for question answering tasks.
  */
-class AutoModelForQuestionAnswering {
+export class AutoModelForQuestionAnswering {
     static MODEL_CLASS_MAPPING = {
         'bert': BertForQuestionAnswering,
         'albert': AlbertForQuestionAnswering,
@@ -2460,7 +2460,7 @@ class AutoModelForQuestionAnswering {
 /**
  * Class representing an autoencoder-decoder model for vision-to-sequence tasks.
  */
-class AutoModelForVision2Seq {
+export class AutoModelForVision2Seq {
     static MODEL_CLASS_MAPPING = {
         'vision-encoder-decoder': VisionEncoderDecoderModel
     }
@@ -2498,7 +2498,7 @@ class AutoModelForVision2Seq {
 /**
  * AutoModelForImageClassification is a class for loading pre-trained image classification models from ONNX format.
  */
-class AutoModelForImageClassification {
+export class AutoModelForImageClassification {
     static MODEL_CLASS_MAPPING = {
         'vit': ViTForImageClassification,
     }
@@ -2537,7 +2537,7 @@ class AutoModelForImageClassification {
 /**
  * AutoModelForImageSegmentation is a class for loading pre-trained image classification models from ONNX format.
  */
-class AutoModelForImageSegmentation {
+export class AutoModelForImageSegmentation {
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForSegmentation,
     }
@@ -2573,7 +2573,7 @@ class AutoModelForImageSegmentation {
 
 
 //////////////////////////////////////////////////
-class AutoModelForObjectDetection {
+export class AutoModelForObjectDetection {
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForObjectDetection,
     }
@@ -2664,17 +2664,3 @@ class QuestionAnsweringModelOutput extends ModelOutput {
         this.end_logits = end_logits;
     }
 }
-
-module.exports = {
-    AutoModel,
-    AutoModelForSeq2SeqLM,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoModelForCausalLM,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForVision2Seq,
-    AutoModelForImageClassification,
-    AutoModelForObjectDetection,
-    AutoModelForImageSegmentation,
-};

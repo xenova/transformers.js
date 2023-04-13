@@ -1,6 +1,8 @@
 
-const path = require('path');
-const { pipeline, env } = require('..');
+import path from 'path';
+import { pipeline, env } from '../src/transformers.js';
+
+const __dirname = env.__dirname;
 
 // Only use local models
 env.remoteModels = false;
@@ -757,7 +759,7 @@ async function image_classification() {
 async function image_segmentation() {
     let segmenter = await pipeline('image-segmentation', 'facebook/detr-resnet-50-panoptic')
 
-    let img = path.join(__dirname, '../assets/images/cats.jpg')
+    let img = path.join(__dirname, './assets/images/cats.jpg')
 
     let start = performance.now();
     let outputs = await segmenter(img);

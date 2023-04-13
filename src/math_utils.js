@@ -8,7 +8,7 @@
 /**
  * @param {TypedArray} input
  */
-function interpolate(input, [in_channels, in_height, in_width], [out_height, out_width], mode = 'bilinear', align_corners = false) {
+export function interpolate(input, [in_channels, in_height, in_width], [out_height, out_width], mode = 'bilinear', align_corners = false) {
     // TODO use mode and align_corners
 
     // Output image dimensions
@@ -86,7 +86,7 @@ function interpolate(input, [in_channels, in_height, in_width], [out_height, out
  * @param {number[]} axes 
  * @returns {[T, number[]]} The transposed array and the new shape.
  */
-function transpose_data(array, dims, axes) {
+export function transpose_data(array, dims, axes) {
     // Calculate the new shape of the transposed array
     // and the stride of the original array
     const shape = new Array(axes.length);
@@ -116,9 +116,4 @@ function transpose_data(array, dims, axes) {
     }
 
     return [transposedData, shape];
-}
-
-module.exports = {
-    interpolate,
-    transpose: transpose_data,
 }
