@@ -154,10 +154,10 @@ class ImageFeatureExtractor extends FeatureExtractor {
                 const downscaleFactor = Math.min(this.max_size / newWidth, this.max_size / newHeight, 1);
 
                 // Perform resize
-                image = image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor));
+                image = await image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor));
 
             } else {
-                image = image.resize(this.size, this.size);
+                image = await image.resize(this.size, this.size);
             }
         }
 
