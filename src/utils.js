@@ -1,5 +1,5 @@
 
-import { existsSync, statSync, promises } from 'fs';
+import { existsSync, statSync, promises } from 'node:fs';
 
 import { env } from './env.js';
 
