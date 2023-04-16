@@ -1,5 +1,5 @@
 
-import fs from 'fs';
+import fs from 'node:fs';
 import { getFile, isString } from './utils.js';
 import { env } from './env.js';
 
@@ -8,7 +8,7 @@ let ImageClass = typeof Image !== 'undefined' ? Image : null;
 
 let ImageDataClass;
 let loadImageFunction;
-if (typeof self !== 'undefined') {
+if (typeof OffscreenCanvas !== 'undefined') {
     CanvasClass = OffscreenCanvas;
     loadImageFunction = self.createImageBitmap;
     ImageDataClass = ImageData;
@@ -18,6 +18,7 @@ if (typeof self !== 'undefined') {
     CanvasClass = Canvas;
     loadImageFunction = async (/**@type {Blob}*/ b) => await loadImage(Buffer.from(await b.arrayBuffer()));
     ImageDataClass = ImageData;
+    // @ts-ignore
     ImageClass = Image;
 }
 
