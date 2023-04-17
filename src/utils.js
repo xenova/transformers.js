@@ -396,43 +396,6 @@ function reverseDictionary(data) {
 }
 
 /**
- * Compute the softmax of an array of numbers.
- *
- * @param {number[]} arr - The array of numbers to compute the softmax of.
- * @returns {number[]} The softmax array.
- */
-function softmax(arr) {
-    // Compute the maximum value in the array
-    const maxVal = max(arr)[0];
-
-    // Compute the exponentials of the array values
-    const exps = arr.map(x => Math.exp(x - maxVal));
-
-    // Compute the sum of the exponentials
-    const sumExps = exps.reduce((acc, val) => acc + val, 0);
-
-    // Compute the softmax values
-    const softmaxArr = exps.map(x => x / sumExps);
-
-    return softmaxArr;
-}
-
-/**
- * Calculates the logarithm of the softmax function for the input array.
- * @param {number[]} arr - The input array to calculate the log_softmax function for.
- * @returns {any} - The resulting log_softmax array.
- */
-function log_softmax(arr) {
-    // Compute the softmax values
-    const softmaxArr = softmax(arr);
-
-    // Apply log formula to each element
-    const logSoftmaxArr = softmaxArr.map(x => Math.log(x));
-
-    return logSoftmaxArr;
-}
-
-/**
  * Escapes regular expression special characters from a string by replacing them with their escaped counterparts.
  *
  * @param {string} string - The string to escape.
@@ -440,69 +403,6 @@ function log_softmax(arr) {
  */
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-}
-
-/**
- * Get the top k items from an iterable, sorted by descending order
- *
- * @param {Array} items - The items to be sorted
- * @param {number} [top_k=0] - The number of top items to return (default: 0 = return all)
- * @returns {Array} - The top k items, sorted by descending order
- */
-function getTopItems(items, top_k = 0) {
-    // if top == 0, return all
-
-    items = Array.from(items)
-        .map((x, i) => [i, x])            // Get indices ([index, score])
-        .sort((a, b) => b[1] - a[1])      // Sort by log probabilities
-
-    if (top_k > 0) {
-        items = items.slice(0, top_k);    // Get top k items
-    }
-
-    return items
-}
-
-/**
- * Calculates the dot product of two arrays.
- * @param {number[]} arr1 - The first array.
- * @param {number[]} arr2 - The second array.
- * @returns {number} - The dot product of arr1 and arr2.
- */
-function dot(arr1, arr2) {
-    return arr1.reduce((acc, val, i) => acc + val * arr2[i], 0);
-}
-
-/**
- * Computes the cosine similarity between two arrays.
- *
- * @param {number[]} arr1 - The first array.
- * @param {number[]} arr2 - The second array.
- * @returns {number} The cosine similarity between the two arrays.
- */
-function cos_sim(arr1, arr2) {
-    // Calculate dot product of the two arrays
-    const dotProduct = dot(arr1, arr2);
-
-    // Calculate the magnitude of the first array
-    const magnitudeA = magnitude(arr1);
-
-    // Calculate the magnitude of the second array
-    const magnitudeB = magnitude(arr2);
-
-    // Calculate the cosine similarity
-    const cosineSimilarity = dotProduct / (magnitudeA * magnitudeB);
-
-    return cosineSimilarity;
-}
-
-/**
- * Calculates the magnitude of a given array.
- * @param {number[]} arr - The array to calculate the magnitude of.
- * @returns {number} The magnitude of the array.
- */
-function magnitude(arr) {
-    return Math.sqrt(arr.reduce((acc, val) => acc + val * val, 0));
 }
 
 /**
@@ -542,45 +442,6 @@ class Callable extends Function {
 }
 
 /**
- * Returns the value and index of the minimum element in an array.
- * @param {number[]} arr - array of numbers.
- * @returns {number[]} - the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
- * @throws {Error} If array is empty.
- */
-function min(arr) {
-    if (arr.length === 0) throw Error('Array must not be empty');
-    let min = arr[0];
-    let indexOfMin = 0;
-    for (let i = 1; i < arr.length; ++i) {
-        if (arr[i] < min) {
-            min = arr[i];
-            indexOfMin = i;
-        }
-    }
-    return [min, indexOfMin];
-}
-
-
-/**
- * Returns the value and index of the maximum element in an array.
- * @param {number[]} arr - array of numbers.
- * @returns {number[]} - the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
- * @throws {Error} If array is empty.
- */
-function max(arr) {
-    if (arr.length === 0) throw Error('Array must not be empty');
-    let max = arr[0];
-    let indexOfMax = 0;
-    for (let i = 1; i < arr.length; ++i) {
-        if (arr[i] > max) {
-            max = arr[i];
-            indexOfMax = i;
-        }
-    }
-    return [max, indexOfMax];
-}
-
-/**
  * Check if a value is a string.
  * @param {*} text - The value to check.
  * @returns {boolean} - True if the value is a string, false otherwise.
@@ -614,17 +475,9 @@ module.exports = {
     fetchJSON,
     pathJoin,
     reverseDictionary,
-    softmax,
-    log_softmax,
     escapeRegExp,
-    getTopItems,
-    dot,
-    cos_sim,
-    magnitude,
     getFile,
     isIntegralNumber,
     isString,
     exists,
-    min,
-    max,
 };

@@ -4,8 +4,9 @@ const {
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
-    min,
 } = require('./utils.js');
+
+const { min } = require('./math_utils.js');
 
 const { Tensor } = require('./tensor_utils.js')
 

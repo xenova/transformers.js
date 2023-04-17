@@ -1,14 +1,16 @@
 const {
     Callable,
+    pathJoin,
+    isString,
+    getFile,
+} = require("./utils.js");
+const {
     softmax,
     max,
     getTopItems,
     cos_sim,
-    pathJoin,
-    isString,
-    getFile,
     dot
-} = require("./utils.js");
+} = require('./math_utils.js');
 
 const {
     AutoTokenizer
@@ -36,7 +38,7 @@ const {
     env
 } = require('./env.js');
 
-const { Tensor, transpose_data } = require("./tensor_utils.js");
+const { Tensor } = require("./tensor_utils.js");
 const { CustomImage } = require("./image_utils.js");
 
 /**

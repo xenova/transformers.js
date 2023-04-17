@@ -1,10 +1,13 @@
 const {
     Callable,
+} = require("./utils.js");
+
+const {
     max,
     softmax,
     log_softmax,
     getTopItems
-} = require("./utils.js");
+} = require('./math_utils.js');
 
 /**
  * Sampler is a base class for all sampling methods used for text generation.

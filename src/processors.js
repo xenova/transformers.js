@@ -2,15 +2,18 @@
 const {
     Callable,
     fetchJSON,
-    max,
-    softmax,
 } = require("./utils.js");
 
+const {
+    max,
+    softmax,
+    FFT
+} = require('./math_utils.js');
 
-const FFT = require('./fft.js');
 const { Tensor, transpose, cat, interpolate } = require("./tensor_utils.js");
 
 const { CustomImage } = require('./image_utils.js');
+
 /**
  * Helper class to determine model type from config
  */

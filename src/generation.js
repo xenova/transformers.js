@@ -2,8 +2,10 @@ const { Tensor } = require("./tensor_utils.js");
 const {
     Callable,
     exists,
-    log_softmax
 } = require("./utils.js");
+const {
+    log_softmax
+} = require('./math_utils.js');
 
 /**
  * A class representing a list of logits processors. A logits processor is a function that modifies the logits
