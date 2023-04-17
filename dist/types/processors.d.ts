@@ -17,7 +17,7 @@ export class AutoProcessor {
  * Represents a Processor that extracts features from an input.
  * @extends Callable
  */
-declare class Processor extends Callable {
+export class Processor extends Callable {
     /**
      * Creates a new Processor with the given feature extractor.
      * @param {function} feature_extractor - The function used to extract features from the input.
@@ -33,4 +33,3 @@ declare class Processor extends Callable {
     _call(input: any): Promise<any>;
 }
 import { Callable } from "./utils.js";
-export {};

@@ -1,6 +1,6 @@
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
-const TerserPlugin = require("terser-webpack-plugin");
+const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = {
     mode: 'development',
@@ -8,25 +8,25 @@ module.exports = {
     entry: {
         // include dist in entry point so that when running dev server,
         // we can access the files with /dist/...
-        "dist/transformers": './src/transformers.js',
-        "dist/transformers.min": './src/transformers.js',
+        'dist/transformers': './src/transformers.js',
+        'dist/transformers.min': './src/transformers.js',
     },
     output: {
         filename: '[name].js',
         path: __dirname,
     },
     plugins: [
-        // Do not include node module when bundling for the browser
+        // Do not include node modules when bundling for the browser
         new webpack.IgnorePlugin({
-            resourceRegExp: /^onnxruntime-node$/
+            resourceRegExp: /^onnxruntime-node$|^node:/
         }),
 
         // Copy .wasm files to dist folder
         new CopyWebpackPlugin({
             patterns: [
                 {
-                    from: "node_modules/onnxruntime-web/dist/*.wasm",
-                    to: "dist/[name][ext]"
+                    from: 'node_modules/onnxruntime-web/dist/*.wasm',
+                    to: 'dist/[name][ext]'
                 },
             ],
         }),
@@ -44,10 +44,4 @@ module.exports = {
         },
         port: 8080
     },
-    resolve: {
-        fallback: {
-            fs: false,
-            path: false
-        }
-    }
 };

@@ -2038,6 +2038,18 @@ class DetrForObjectDetection extends DetrPreTrainedModel {
     }
 }
 
+class DetrForSegmentation extends DetrPreTrainedModel {
+    /**
+     * Runs the model with the provided inputs
+     * @param {Object} model_inputs - Model inputs
+     * @returns {Promise<DetrSegmentationOutput>} - Object containing segmentation outputs
+     */
+    async _call(model_inputs) {
+        let output = (await super._call(model_inputs));
+        return new DetrSegmentationOutput(output.logits, output.pred_boxes, output.pred_masks);
+    }
+}
+
 class DetrObjectDetectionOutput extends ModelOutput {
     /**
      * @param {any} logits
@@ -2047,6 +2059,21 @@ class DetrObjectDetectionOutput extends ModelOutput {
         super();
         this.logits = logits;
         this.pred_boxes = pred_boxes;
+    }
+}
+
+class DetrSegmentationOutput extends ModelOutput {
+
+    /**
+     * @param {Tensor} logits - The output logits of the model.
+     * @param {Tensor} pred_boxes - Predicted boxes.
+     * @param {Tensor} pred_masks - Predicted masks.
+     */
+    constructor(logits, pred_boxes, pred_masks) {
+        super();
+        this.logits = logits;
+        this.pred_boxes = pred_boxes;
+        this.pred_masks = pred_masks;
     }
 }
 //////////////////////////////////////////////////
@@ -2467,6 +2494,7 @@ class AutoModelForVision2Seq {
     }
 }
 
+//////////////////////////////////////////////////
 /**
  * AutoModelForImageClassification is a class for loading pre-trained image classification models from ONNX format.
  */
@@ -2479,7 +2507,7 @@ class AutoModelForImageClassification {
      * Loads a pre-trained image classification model from a given directory path.
      * @param {string} modelPath - The path to the directory containing the pre-trained model.
      * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<PreTrainedModel>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
      * @throws {Error} If the specified model type is not supported.
      */
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -2504,6 +2532,46 @@ class AutoModelForImageClassification {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+/**
+ * AutoModelForImageSegmentation is a class for loading pre-trained image classification models from ONNX format.
+ */
+class AutoModelForImageSegmentation {
+    static MODEL_CLASS_MAPPING = {
+        'detr': DetrForSegmentation,
+    }
+
+    /**
+     * Loads a pre-trained image classification model from a given directory path.
+     * @param {string} modelPath - The path to the directory containing the pre-trained model.
+     * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
+     * @throws {Error} If the specified model type is not supported.
+     */
+    static async from_pretrained(modelPath, progressCallback = null) {
+
+        let [config, session] = await Promise.all([
+            fetchJSON(modelPath, 'config.json', progressCallback),
+            constructSession(modelPath, 'model.onnx', progressCallback),
+        ])
+
+        // Called when all parts are loaded
+        dispatchCallback(progressCallback, {
+            status: 'loaded',
+            name: modelPath
+        });
+
+        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
+        if (!cls) {
+            throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+        return new cls(config, session);
+    }
+}
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 class AutoModelForObjectDetection {
     static MODEL_CLASS_MAPPING = {
@@ -2514,7 +2582,7 @@ class AutoModelForObjectDetection {
      * Loads a pre-trained image classification model from a given directory path.
      * @param {string} modelPath - The path to the directory containing the pre-trained model.
      * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<PreTrainedModel>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
      * @throws {Error} If the specified model type is not supported.
      */
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -2608,4 +2676,5 @@ module.exports = {
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
     AutoModelForObjectDetection,
+    AutoModelForImageSegmentation,
 };

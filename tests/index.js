@@ -1,4 +1,5 @@
 
+const path = require('path');
 const { pipeline, env } = require('..');
 
 // Only use local models
@@ -673,7 +674,7 @@ async function image_to_text() {
     return [isDeepEqual(
         output1,
         [{
-            "generated_text": "a herd of giraffes walking across a grassy field"
+            "generated_text": "a herd of giraffes and zebras are grazing in a field"
         }]
     ) && isDeepEqual(
         output2,
@@ -685,25 +686,18 @@ async function image_to_text() {
     ) && isDeepEqual(
         output3,
         [
-            [{
-                "generated_text": "a soccer player is kicking a soccer ball"
-            }], [{
-                "generated_text": "a plane is parked at an airport with other planes"
-            }]
+            [{ "generated_text": "a soccer player kicking a soccer ball during a game" }],
+            [{ "generated_text": "a plane is parked at an airport with a lot of people" }]
         ]
     ) && isDeepEqual(
         output4,
-        [
-            [{
-                "generated_text": "a soccer player is kicking a soccer ball"
-            }, {
-                "generated_text": "a soccer player is kicking a ball"
-            }], [{
-                "generated_text": "airplanes parked at an airport"
-            }, {
-                "generated_text": "airplanes are parked at an airport"
-            }]
-        ]
+        [[
+            { "generated_text": "a soccer player kicking a soccer ball during a game" },
+            { "generated_text": "a soccer player kicking a soccer ball during a match" }
+        ], [
+            { "generated_text": "airplanes parked at an airport" },
+            { "generated_text": "airplanes are parked at an airport" }
+        ]]
     ), duration];
 
 }
@@ -735,23 +729,57 @@ async function image_classification() {
 
     return [isDeepEqual(
         output1,
-        [{ "label": "tiger, Panthera tigris", "score": 0.7521011829376221 }]
+        [{ "label": "tiger, Panthera tigris", "score": 0.7911674380302429 }]
     ) && isDeepEqual(
         output2,
-        [{ "label": "tiger, Panthera tigris", "score": 0.7521011829376221 }, { "label": "tiger cat", "score": 0.24334438145160675 }]
+        [{ "label": "tiger, Panthera tigris", "score": 0.7911674380302429 }, { "label": "tiger cat", "score": 0.20425112545490265 }]
     ) && isDeepEqual(
         output3,
-        [{ "label": "palace", "score": 0.9980287551879883 }, { "label": "teapot", "score": 0.9890381693840027 }]
+        [{ "label": "palace", "score": 0.9975974559783936 }, { "label": "teapot", "score": 0.9849203824996948 }]
     ) && isDeepEqual(
         output4,
         [
-            [{ "label": "palace", "score": 0.9980287551879883 }, { "label": "monastery", "score": 0.0006073643453419209 }],
-            [{ "label": "teapot", "score": 0.9890381693840027 }, { "label": "coffeepot", "score": 0.0057989382185041904 }]
+            [{ "label": "palace", "score": 0.9975974559783936 }, { "label": "monastery", "score": 0.0007480724016204476 }],
+            [{ "label": "teapot", "score": 0.9849203824996948 }, { "label": "coffeepot", "score": 0.008069870993494987 }]
         ]
     ), duration];
 
 }
 
+
+async function image_segmentation() {
+    let segmenter = await pipeline('image-segmentation', 'facebook/detr-resnet-50-panoptic')
+
+    let img = path.join(__dirname, '../assets/images/cats.jpg')
+
+    let start = performance.now();
+    let outputs = await segmenter(img);
+
+    // Just calculate sum of mask (to avoid having to check the whole mask)
+    outputs.forEach(x => x.mask = x.mask.data.reduce((acc, curr) => {
+        if (curr > 0) {
+            acc += 1;
+        }
+        return acc;
+    }, 0));
+
+    let duration = performance.now() - start;
+
+    // Dispose pipeline
+    await segmenter.dispose()
+
+    return [isDeepEqual(
+        outputs,
+        [
+            { score: 0.9967514276504517, label: 'cat', mask: 58924 },
+            { score: 0.998571515083313, label: 'remote', mask: 4241 },
+            { score: 0.999416172504425, label: 'remote', mask: 2280 },
+            { score: 0.9635734558105469, label: 'couch', mask: 172312 },
+            { score: 0.999547004699707, label: 'cat', mask: 52395 }
+        ]
+    ), duration];
+
+}
 
 async function zero_shot_image_classification() {
 
@@ -779,25 +807,25 @@ async function zero_shot_image_classification() {
     return [isDeepEqual(
         output1,
         [
-            { "score": 0.9872211813926697, "label": "football" },
-            { "score": 0.005961867049336433, "label": "airport" },
-            { "score": 0.0068169692531228065, "label": "animals" }
+            { "score": 0.9934590458869934, "label": "football" },
+            { "score": 0.0007887096726335585, "label": "airport" },
+            { "score": 0.005752227734774351, "label": "animals" }
         ]
     ) && isDeepEqual(
         output2,
         [
             [
-                { "score": 0.982650101184845, "label": "football" },
-                { "score": 0.006871742662042379, "label": "airport" },
-                { "score": 0.010478177107870579, "label": "animals" }
+                { "score": 0.9938763976097107, "label": "football" },
+                { "score": 0.0007706438773311675, "label": "airport" },
+                { "score": 0.005352961830794811, "label": "animals" }
             ], [
-                { "score": 0.03974880650639534, "label": "football" },
-                { "score": 0.8731245994567871, "label": "airport" },
-                { "score": 0.08712659031152725, "label": "animals" }
+                { "score": 0.00042657132144086063, "label": "football" },
+                { "score": 0.997478187084198, "label": "airport" },
+                { "score": 0.0020952688064426184, "label": "animals" }
             ], [
-                { "score": 0.04401572421193123, "label": "football" },
-                { "score": 0.054234009236097336, "label": "airport" },
-                { "score": 0.9017502665519714, "label": "animals" }
+                { "score": 0.014750242233276367, "label": "football" },
+                { "score": 0.021008191630244255, "label": "airport" },
+                { "score": 0.9642415642738342, "label": "animals" }
             ]
         ]
     ), duration];
@@ -808,7 +836,7 @@ async function object_detection() {
     let detector = await pipeline('object-detection', 'facebook/detr-resnet-50')
 
     let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
-    let urls = ['https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg']
+    let urls = ['https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg']
 
     // TODO add batched test cases when supported
 
@@ -831,31 +859,35 @@ async function object_detection() {
     return [isDeepEqual(
         output1,
         {
-            boxes: [
-                [359.76656198501587, 247.15871572494507, 402.9358148574829, 315.704562664032],
-                [109.06712919473648, 237.22267627716064, 234.6556493639946, 324.0059995651245],
-                [2.541865110397339, 148.06851625442505, 221.13489389419556, 255.35571813583374],
-                [186.80795073509216, 230.4118824005127, 322.8719401359558, 305.1347064971924],
-                [349.60298001766205, 95.32436728477478, 547.5894981622696, 311.53558373451233]
+            "boxes": [
+                [358.7606209516525, 247.36226856708527, 402.14368879795074, 315.4741019010544],
+                [110.0420343875885, 237.36174881458282, 233.3449423313141, 323.1463783979416],
+                [6.167297065258026, 147.96502590179443, 221.5736523270607, 260.91010093688965],
+                [186.66354596614838, 231.2074738740921, 321.6980177164078, 305.78231513500214],
+                [349.1101884841919, 95.70672154426575, 547.1087765693665, 310.6894862651825]
             ],
-            classes: [24, 24, 25, 24, 25],
-            labels: ["zebra", "zebra", "giraffe", "zebra", "giraffe"],
-            scores: [0.9990037083625793, 0.9987165331840515, 0.93809574842453, 0.9977785348892212, 0.9987764358520508],
-        }
+            "classes": [24, 24, 25, 24, 25],
+            "scores": [0.9990543723106384, 0.9987652897834778, 0.9860252737998962, 0.997667133808136, 0.9986326694488525],
+            "labels": ["zebra", "zebra", "giraffe", "zebra", "giraffe"]
+        },
     ) && isDeepEqual(
         output2,
         [{
-            boxes: [
-                [0.11961111426353455, 0.8362486660480499, 0.22848913073539734, 0.9653392732143402],
-                [0.12597772479057312, 0.02483522891998291, 0.62779501080513, 0.9831656217575073],
-                [-0.014880642294883728, 0.08133217692375183, 0.21618883311748505, 0.7050653994083405],
-                [0.12513580918312073, 0.022572606801986694, 0.7006023824214935, 0.9825432598590851],
-                [0.6693135350942612, 0.053024232387542725, 0.8096815496683121, 0.6173807978630066],
-                [0.527036190032959, 0.1286628246307373, 0.8026435375213623, 0.9251552820205688]
+            "boxes": [
+                [0.4284285604953766, 0.5051715075969696, 0.4905807673931122, 0.5450733006000519],
+                [0.6921858489513397, 0.33420196175575256, 1.016784816980362, 0.9818757474422455],
+                [0.7528624832630157, 0.5306279957294464, 0.8514151275157928, 0.6537223756313324],
+                [0.5119757056236267, 0.5140881687402725, 0.5615171790122986, 0.5465199798345566],
+                [0.33254460990428925, 0.5169002115726471, 0.35381682217121124, 0.6282477080821991],
+                [0.42312371730804443, 0.4445413798093796, 0.5735017657279968, 0.5278995186090469],
+                [0.18738143146038055, 0.40505293011665344, 0.4653054028749466, 0.5265144407749176],
+                [0.5737103521823883, 0.4582572281360626, 0.7308457791805267, 0.6411504447460175],
+                [0.5117709636688232, 0.5142771750688553, 0.5613124370574951, 0.5452155321836472],
+                [0.5707400292158127, 0.46061643958091736, 0.7277757674455643, 0.6379677355289459]
             ],
-            classes: [37, 1, 1, 1, 1, 1],
-            labels: ["sports ball", "person", "person", "person", "person", "person"],
-            scores: [0.9995566010475159, 0.9635121822357178, 0.9992444515228271, 0.9051326513290405, 0.9229124188423157, 0.9993530511856079],
+            "classes": [8, 6, 1, 8, 1, 5, 5, 8, 3, 6],
+            "scores": [0.911045253276825, 0.9961543679237366, 0.9976616501808167, 0.9338068962097168, 0.9982594847679138, 0.9954741597175598, 0.9979778528213501, 0.9158956408500671, 0.9502778649330139, 0.994942843914032],
+            "labels": ["truck", "bus", "person", "truck", "person", "airplane", "airplane", "truck", "car", "bus"]
         }]
     ), duration];
 
@@ -886,6 +918,7 @@ let tests = {
     'Speech-to-text generation:': speech2text_generation,
     'Image-to-text:': image_to_text,
     'Image classification:': image_classification,
+    'Image segmentation:': image_segmentation,
     'Zero-shot image classification:': zero_shot_image_classification,
     'Object detection:': object_detection,
 };

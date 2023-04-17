@@ -1,7 +1,20 @@
 const { ONNX } = require('./backends/onnx.js');
 
+const { interpolate: interpolate_data, transpose: transpose_data } = require('./math_utils.js');
+
+
+/**
+ * @typedef {import('./math_utils.js').AnyTypedArray} AnyTypedArray
+ */
+
+const ONNXTensor = ONNX.Tensor;
+
 // TODO: fix error below
-class Tensor extends ONNX.Tensor {
+class Tensor extends ONNXTensor {
+    /**
+     * Create a new Tensor or copy an existing Tensor.
+     * @param  {[string, Array|AnyTypedArray, number[]]|[ONNXTensor]} args 
+     */
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
             // Create shallow copy
@@ -80,7 +93,39 @@ class Tensor extends ONNX.Tensor {
         return reshape(this.data, this.dims)
     }
 
+    /**
+     * Return a new Tensor the sigmoid function applied to each element.
+     * @returns {Tensor} - The tensor with the sigmoid function applied.
+     */
+    sigmoid() {
+        return this.clone().sigmoid_();
+    }
+
+    /**
+     * Applies the sigmoid function to the tensor in place.
+     * @returns {Tensor} - Returns `this`.
+     */
+    sigmoid_() {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = 1 / (1 + Math.exp(-this.data[i]));
+        }
+        return this;
+    }
+
+    clone() {
+        return new Tensor(this.type, this.data.slice(), this.dims.slice());
+    }
+
     // TODO add .slice()
+
+    /**
+     * Return a transposed version of this Tensor, according to the provided dimensions.
+     * @param  {...number} dims - Dimensions to transpose.
+     * @returns {Tensor} - The transposed tensor.
+     */
+    transpose(...dims) {
+        return transpose(this, dims);
+    }
 }
 
 /**
@@ -148,34 +193,10 @@ function reshape(data, dimensions) {
  * @returns {Tensor} The transposed tensor.
  */
 function transpose(tensor, axes) {
-    // Calculate the new shape of the transposed array
-    // and the stride of the original array
-    const shape = new Array(axes.length);
-    const stride = new Array(axes.length);
-
-    for (let i = axes.length - 1, s = 1; i >= 0; --i) {
-        stride[i] = s;
-        shape[i] = tensor.dims[axes[i]];
-        s *= shape[i];
-    }
-
-    // Precompute inverse mapping of stride
-    const invStride = axes.map((_, i) => stride[axes.indexOf(i)]);
-
-    // Create the transposed array with the new shape
-    const transposedData = new tensor.data.constructor(tensor.data.length);
-
-    // Transpose the original array to the new array
-    for (let i = 0; i < tensor.data.length; ++i) {
-        let newIndex = 0;
-        for (let j = tensor.dims.length - 1, k = i; j >= 0; --j) {
-            newIndex += (k % tensor.dims[j]) * invStride[j];
-            k = Math.floor(k / tensor.dims[j]);
-        }
-        transposedData[newIndex] = tensor.data[i];
-    }
+    const [transposedData, shape] = transpose_data(tensor.data, tensor.dims, axes);
     return new Tensor(tensor.type, transposedData, shape);
 }
+
 
 /**
  * Concatenates an array of tensors along the 0th dimension.
@@ -214,10 +235,35 @@ function cat(tensors) {
     return new Tensor(tensorType, data, tensorShape)
 }
 
+/**
+ * Interpolates an Tensor to the given size.
+ * @param {Tensor} input - The input tensor to interpolate. Data must be channel-first (i.e., [c, h, w])
+ * @param {number[]} size - The output size of the image
+ * @param {string} mode - The interpolation mode
+ * @param {boolean} align_corners - Whether to align corners.
+ * @returns {Tensor} - The interpolated tensor.
+ */
+function interpolate(input, [out_height, out_width], mode = 'bilinear', align_corners = false) {
 
+    // Input image dimensions
+    const in_channels = input.dims.at(-3) ?? 1;
+    const in_height = input.dims.at(-2);
+    const in_width = input.dims.at(-1);
+
+    let output = interpolate_data(
+        input.data,
+        [in_channels, in_height, in_width],
+        [out_height, out_width],
+        mode,
+        align_corners
+    );
+    return new Tensor(input.type, output, [in_channels, out_height, out_width]);
+}
 
 module.exports = {
     Tensor,
     transpose,
-    cat
+    cat,
+    interpolate,
+    transpose_data,
 }

@@ -15,5 +15,6 @@ import { AutoModelForImageClassification } from "./models.js";
 import { AutoModelForObjectDetection } from "./models.js";
 import { AutoProcessor } from "./processors.js";
 import { pipeline } from "./pipelines.js";
+import { Tensor } from "./tensor_utils.js";
 import { env } from "./env.js";
-export { AutoTokenizer, BertTokenizer, DistilBertTokenizer, T5Tokenizer, GPT2Tokenizer, AutoModel, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForCausalLM, AutoModelForMaskedLM, AutoModelForQuestionAnswering, AutoModelForVision2Seq, AutoModelForImageClassification, AutoModelForObjectDetection, AutoProcessor, pipeline, env };
+export { AutoTokenizer, BertTokenizer, DistilBertTokenizer, T5Tokenizer, GPT2Tokenizer, AutoModel, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoModelForCausalLM, AutoModelForMaskedLM, AutoModelForQuestionAnswering, AutoModelForVision2Seq, AutoModelForImageClassification, AutoModelForObjectDetection, AutoProcessor, pipeline, Tensor, env };

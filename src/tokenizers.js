@@ -336,6 +336,8 @@ class BPE extends TokenizerModel {
         this.bpe_ranks = Object.fromEntries(config.merges.map((x, i) => [x, i]));
         this.merges = config.merges.map(x => x.split(/\s+/))
 
+        this.end_of_word_suffix = config.end_of_word_suffix;
+
         this.byte_encoder = BYTES_TO_UNICODE;
         this.text_encoder = new TextEncoder();
 
@@ -369,9 +371,15 @@ class BPE extends TokenizerModel {
             return this.cache[token];
         }
         let word = Array.from(token);
+        if (this.end_of_word_suffix) {
+            word[word.length - 1] += this.end_of_word_suffix;
+        }
         let pairs = this.get_pairs(word);
 
         if (!pairs.length) {
+            if (this.end_of_word_suffix) {
+                token += this.end_of_word_suffix;
+            }
             return token;
         }
 
@@ -1154,6 +1162,8 @@ class ByteLevelDecoder extends Decoder {
             fatal: false,
             ignoreBOM: true,
         });
+
+        this.end_of_word_suffix = null;
     }
 
     /**
@@ -1173,6 +1183,10 @@ class ByteLevelDecoder extends Decoder {
         // @ts-ignore
         let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
+
+        if (this.end_of_word_suffix) {
+            decoded_text = decoded_text.replaceAll(this.end_of_word_suffix, ' ').trim();
+        }
         return decoded_text;
     }
 
@@ -1405,6 +1419,12 @@ class PreTrainedTokenizer extends Callable {
         // Slight hack, but it prevents code duplication:
         // Add added_tokens to this.decoder
         this.decoder.added_tokens = [];
+
+        // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
+        // This is needed for cases where BPE model and ByteLevel decoder are used
+        // For more information, see https://github.com/xenova/transformers.js/issues/74
+        // TODO - save this to the decoder when exporting?
+        this.decoder.end_of_word_suffix = this.model.end_of_word_suffix;
 
         // Add added_tokens to model
         this.special_tokens = [];

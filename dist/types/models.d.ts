@@ -175,7 +175,7 @@ export class AutoModelForImageClassification {
      * Loads a pre-trained image classification model from a given directory path.
      * @param {string} modelPath - The path to the directory containing the pre-trained model.
      * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<PreTrainedModel>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
      * @throws {Error} If the specified model type is not supported.
      */
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
@@ -188,7 +188,23 @@ export class AutoModelForObjectDetection {
      * Loads a pre-trained image classification model from a given directory path.
      * @param {string} modelPath - The path to the directory containing the pre-trained model.
      * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<PreTrainedModel>} A Promise that resolves with an instance of the ViTForImageClassification class.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
+     * @throws {Error} If the specified model type is not supported.
+     */
+    static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
+}
+/**
+ * AutoModelForImageSegmentation is a class for loading pre-trained image classification models from ONNX format.
+ */
+export class AutoModelForImageSegmentation {
+    static MODEL_CLASS_MAPPING: {
+        detr: typeof DetrForSegmentation;
+    };
+    /**
+     * Loads a pre-trained image classification model from a given directory path.
+     * @param {string} modelPath - The path to the directory containing the pre-trained model.
+     * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
+     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
      * @throws {Error} If the specified model type is not supported.
      */
     static from_pretrained(modelPath: string, progressCallback?: Function): Promise<PreTrainedModel>;
@@ -1039,6 +1055,14 @@ declare class DetrForObjectDetection extends DetrPreTrainedModel {
      */
     _call(model_inputs: any): Promise<DetrObjectDetectionOutput>;
 }
+declare class DetrForSegmentation extends DetrPreTrainedModel {
+    /**
+     * Runs the model with the provided inputs
+     * @param {Object} model_inputs - Model inputs
+     * @returns {Promise<DetrSegmentationOutput>} - Object containing segmentation outputs
+     */
+    _call(model_inputs: any): Promise<DetrSegmentationOutput>;
+}
 declare class BertPreTrainedModel extends PreTrainedModel {
 }
 declare class AlbertPreTrainedModel extends PreTrainedModel {
@@ -1126,6 +1150,17 @@ declare class DetrObjectDetectionOutput extends ModelOutput {
     constructor(logits: any, pred_boxes: any);
     logits: any;
     pred_boxes: any;
+}
+declare class DetrSegmentationOutput extends ModelOutput {
+    /**
+     * @param {Tensor} logits - The output logits of the model.
+     * @param {Tensor} pred_boxes - Predicted boxes.
+     * @param {Tensor} pred_masks - Predicted masks.
+     */
+    constructor(logits: Tensor, pred_boxes: Tensor, pred_masks: Tensor);
+    logits: Tensor;
+    pred_boxes: Tensor;
+    pred_masks: Tensor;
 }
 declare class ModelOutput {
 }
