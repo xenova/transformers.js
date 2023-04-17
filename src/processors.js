@@ -2,7 +2,7 @@
 const {
     Callable,
     fetchJSON,
-    indexOfMax,
+    max,
     softmax,
 } = require("./utils.js");
 
@@ -285,7 +285,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
                 let logit = logits.get(j);
 
                 // Get most probable class
-                let maxIndex = indexOfMax(logit.data);
+                let maxIndex = max(logit.data)[1];
 
                 if (maxIndex === num_classes - 1) {
                     // This is the background class, skip it
@@ -335,7 +335,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
             let cls = class_logits.get(j);
             let mask = mask_logits.get(j);
 
-            let pred_label = indexOfMax(cls.data);
+            let pred_label = max(cls.data)[1];
             if (pred_label === num_labels) {
                 // Is the background, so we ignore it
                 continue;

@@ -1,6 +1,6 @@
 const {
     Callable,
-    indexOfMax,
+    max,
     softmax,
     log_softmax,
     getTopItems
@@ -128,7 +128,7 @@ class GreedySampler extends Sampler {
     sample(logits, index = -1) {
         // NOTE: no need to do log_softmax here since we only take the maximum
         let logs = this.getLogits(logits, index);
-        let argmax = indexOfMax(logs);
+        let argmax = max(logs)[1];
 
         // Note: score is meaningless in this context, since we are performing
         // greedy search (p = 1 => log(p) = 0)

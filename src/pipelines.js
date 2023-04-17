@@ -1,7 +1,7 @@
 const {
     Callable,
     softmax,
-    indexOfMax,
+    max,
     getTopItems,
     cos_sim,
     pathJoin,
@@ -177,7 +177,7 @@ class TokenClassificationPipeline extends Pipeline {
             let tokens = [];
             for (let j = 0; j < batch.dims[0]; ++j) {
                 let tokenData = batch.get(j);
-                let topScoreIndex = indexOfMax(tokenData.data);
+                let topScoreIndex = max(tokenData.data)[1];
 
                 let entity = id2label[topScoreIndex];
                 if (ignore_labels.includes(entity)) {

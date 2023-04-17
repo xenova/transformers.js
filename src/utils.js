@@ -396,32 +396,6 @@ function reverseDictionary(data) {
 }
 
 /**
- * Returns the index of the maximum value in an array.
- * @param {Array} arr - The input array.
- * @see https://stackoverflow.com/a/11301464
- * @returns {number} - The index of the maximum value in the array.
- */
-function indexOfMax(arr) {
-    // https://stackoverflow.com/a/11301464
-
-    if (arr.length === 0) {
-        return -1;
-    }
-
-    var max = arr[0];
-    var maxIndex = 0;
-
-    for (var i = 1; i < arr.length; ++i) {
-        if (arr[i] > max) {
-            maxIndex = i;
-            max = arr[i];
-        }
-    }
-
-    return maxIndex;
-}
-
-/**
  * Compute the softmax of an array of numbers.
  *
  * @param {number[]} arr - The array of numbers to compute the softmax of.
@@ -429,7 +403,7 @@ function indexOfMax(arr) {
  */
 function softmax(arr) {
     // Compute the maximum value in the array
-    const maxVal = max(arr);
+    const maxVal = max(arr)[0];
 
     // Compute the exponentials of the array values
     const exps = arr.map(x => Math.exp(x - maxVal));
@@ -568,38 +542,42 @@ class Callable extends Function {
 }
 
 /**
- * Returns the minimum item.
+ * Returns the value and index of the minimum element in an array.
  * @param {number[]} arr - array of numbers.
- * @returns {number} - the minimum number.
+ * @returns {number[]} - the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
  * @throws {Error} If array is empty.
  */
 function min(arr) {
     if (arr.length === 0) throw Error('Array must not be empty');
     let min = arr[0];
+    let indexOfMin = 0;
     for (let i = 1; i < arr.length; ++i) {
         if (arr[i] < min) {
             min = arr[i];
+            indexOfMin = i;
         }
     }
-    return min;
+    return [min, indexOfMin];
 }
 
 
 /**
- * Returns the maximum item.
+ * Returns the value and index of the maximum element in an array.
  * @param {number[]} arr - array of numbers.
- * @returns {number} - the maximum number.
+ * @returns {number[]} - the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
  * @throws {Error} If array is empty.
  */
 function max(arr) {
     if (arr.length === 0) throw Error('Array must not be empty');
     let max = arr[0];
+    let indexOfMax = 0;
     for (let i = 1; i < arr.length; ++i) {
         if (arr[i] > max) {
             max = arr[i];
+            indexOfMax = i;
         }
     }
-    return max;
+    return [max, indexOfMax];
 }
 
 /**
@@ -636,7 +614,6 @@ module.exports = {
     fetchJSON,
     pathJoin,
     reverseDictionary,
-    indexOfMax,
     softmax,
     log_softmax,
     escapeRegExp,
