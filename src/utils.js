@@ -407,15 +407,12 @@ function escapeRegExp(string) {
 
 /**
  * A base class for creating callable objects.
- *
- * @extends Function
  */
-class Callable extends Function {
+class Callable {
     /**
     * Creates a new instance of the Callable class.
     */
     constructor() {
-        super();
         /**
          * Creates a closure that delegates to a private method '_call' with the given arguments.
          *
