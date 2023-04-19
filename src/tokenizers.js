@@ -11,6 +11,23 @@ const { min } = require('./math_utils.js');
 const { Tensor } = require('./tensor_utils.js')
 
 /**
+ * Helper method to construct a pattern from a config object.
+ * @param {Object} pattern - The pattern object.
+ * @returns {RegExp|string|null} - The compiled pattern.
+ */
+function createPattern(pattern) {
+    if (pattern.Regex) {
+        return new RegExp(pattern.Regex, 'gu');
+
+    } else if (pattern.String) {
+        return pattern.String;
+
+    } else {
+        console.warn('Unknown pattern type:', pattern)
+        return null;
+    }
+}
+/**
  * Abstract base class for tokenizer models.
  *
  * @extends Callable
@@ -525,15 +542,12 @@ class Replace extends Normalizer {
      * @returns {string} The normalized text after replacing the pattern with the content.
      */
     normalize(text) {
-        if (this.config.pattern.Regex) {
-            text = text.replace(new RegExp(this.config.pattern.Regex, 'g'), this.config.content)
-
-        } else if (this.config.pattern.String) {
-            text = text.replace(this.config.pattern.String, this.config.content)
-
-        } else {
-            console.warn('Unknown pattern type:', this.config.pattern)
+        let pattern = createPattern(this.config.pattern);
+        if (pattern === null) {
+            return text;
         }
+
+        text = text.replace(pattern, this.config.content)
 
         return text;
     }
@@ -857,6 +871,9 @@ class SplitPreTokenizer extends PreTokenizer {
     /**
      * @param {Object} config - The configuration options for the pre-tokenizer.
      * @param {Object} config.pattern - The pattern used to split the text. Can be a string or a regex object.
+     * @param {string|undefined} config.pattern.String - The string to use for splitting. Only defined if the pattern is a string.
+     * @param {string|undefined} config.pattern.Regex - The regex to use for splitting. Only defined if the pattern is a regex.
+     * @param {'isolated'|'removed'} config.behavior - The behavior to use when splitting.
      */
     constructor(config) {
         super();
@@ -869,19 +886,22 @@ class SplitPreTokenizer extends PreTokenizer {
      * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
-        if (this.config.pattern.Regex) {
-            return text.match(new RegExp(this.config.pattern.Regex, 'gu')) || [];
-
-        } else if (this.config.pattern.String) {
-            return text.match(this.config.pattern.String) || [];
-
-        } else {
-            console.warn('Unknown pattern type:', this.config.pattern)
+        let pattern = createPattern(this.config.pattern);
+        if (pattern === null) {
+            return [];
         }
 
-        return [];
+        switch (this.config.behavior.toLowerCase()) {
+            // TODO add merged_with_previous, merged_with_next, contiguous
+            // TODO these should act slightly differently. Currently, we haven't found a tokenizer which produces different results.
+            case 'isolated':
+            case 'removed':
+                return text.match(pattern) || [];
+            default:
+                console.warn(`Unknown split behavior: "${this.config.behavior}"`)
+                return [];
+        }
     }
-
 }
 
 /**
@@ -1501,7 +1521,6 @@ class PreTrainedTokenizer extends Callable {
      * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the modelPath.
      */
     static async from_pretrained(modelPath, progressCallback = null) {
-        // TODO get files in parallel
 
         let [tokenizerJSON, tokenizerConfig] = await Promise.all([
             fetchJSON(modelPath, 'tokenizer.json', progressCallback),
@@ -1546,6 +1565,7 @@ class PreTrainedTokenizer extends Callable {
             return_tensor = true, // Different to HF
         } = {},
     ) {
+
         /** @type {number[]|number[][]|Tensor} */
         let tokens;
 
@@ -1563,7 +1583,7 @@ class PreTrainedTokenizer extends Callable {
                 }
 
                 tokens = text.map(
-                    (text, i) => this.encode(text, text_pair[i])
+                    (t, i) => this.encode(t, text_pair[i])
                 )
 
             } else {
@@ -1578,6 +1598,8 @@ class PreTrainedTokenizer extends Callable {
             if (Array.isArray(text_pair)) {
                 throw Error('When specifying `text_pair`, since `text` is a string, `text_pair` must also be a string (i.e., not an array).')
             }
+
+            // For single input, we just wrap in an array, and then unwrap later.
             tokens = [this.encode(text, text_pair)];
         }
         // At this point, tokens is batched: [batch_size, tokens]
@@ -1648,6 +1670,8 @@ class PreTrainedTokenizer extends Callable {
             }
 
             // Now we actually convert to tensor
+            // NOTE: In the same way as the python library, we return a batched tensor, regardless of
+            // whether we have a single input or multiple inputs.
             let dims = [tokens.length, tokens[0].length];
 
             tokens = new Tensor('int64',
@@ -1660,6 +1684,13 @@ class PreTrainedTokenizer extends Callable {
                 BigInt64Array.from(attention_mask.flat().map(BigInt)),
                 dims
             )
+        } else {
+            // If not returning a tensor, we match the input type
+            if (!Array.isArray(text)) {
+                // Input was not batched, so we unwrap
+                tokens = tokens[0];
+                attention_mask = attention_mask[0];
+            }
         }
 
 
@@ -1820,17 +1851,31 @@ class PreTrainedTokenizer extends Callable {
 }
 
 /**
-* Prepare model inputs for a BERT model.
+* Helper method for preparing model inputs (`token_type_ids`, in particular) for BERT models
 * @param {Object} inputs - An object containing the input ids and attention mask.
 * @returns {Object} The prepared inputs object.
 */
 function bert_prepare_model_inputs(inputs) {
-    // Helper method for preparing token_type_ids for bert models
-    inputs.token_type_ids = new Tensor(
-        'int64',
-        new BigInt64Array(inputs.input_ids.data.length),
-        inputs.input_ids.dims
-    )
+    if (inputs.input_ids instanceof Tensor) {
+        inputs.token_type_ids = new Tensor(
+            'int64',
+            new BigInt64Array(inputs.input_ids.data.length),
+            inputs.input_ids.dims
+        )
+    } else if (Array.isArray(inputs.input_ids)) {
+
+        if (Array.isArray(inputs.input_ids[0])) {
+            // This means input is batched, so we need to batch the token_type_ids as well
+            inputs.token_type_ids = inputs.input_ids.map(
+                x => new Array(x.length).fill(0)
+            )
+        } else {
+            inputs.token_type_ids = new Array(inputs.input_ids.length).fill(0);
+        }
+    } else {
+        throw new Error('Input ids must be a Tensor or an Array')
+    }
+
     return inputs;
 }
 
@@ -1880,6 +1925,7 @@ class GPT2Tokenizer extends PreTrainedTokenizer { }
 class BartTokenizer extends PreTrainedTokenizer { }
 class RobertaTokenizer extends PreTrainedTokenizer { }
 
+class BloomTokenizer extends PreTrainedTokenizer { }
 
 /**
  * WhisperTokenizer tokenizer
@@ -2585,6 +2631,8 @@ class AutoTokenizer {
         'CodeGenTokenizer': CodeGenTokenizer,
         'CLIPTokenizer': CLIPTokenizer,
         'MarianTokenizer': MarianTokenizer,
+
+        'BloomTokenizer': BloomTokenizer,
     }
 
     static async from_pretrained(modelPath, progressCallback = null) {
@@ -2594,9 +2642,12 @@ class AutoTokenizer {
             fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
         ])
 
-        let cls = this.TOKENIZER_CLASS_MAPPING[tokenizerConfig.tokenizer_class];
+        // Some tokenizers are saved with the "Fast" suffix, so we remove that if present.
+        let tokenizerName = tokenizerConfig.tokenizer_class.replace(/Fast$/, '');
+
+        let cls = this.TOKENIZER_CLASS_MAPPING[tokenizerName];
         if (!cls) {
-            console.warn(`Unknown tokenizer class "${tokenizerConfig.tokenizer_class}", attempting to construct from base class.`);
+            console.warn(`Unknown tokenizer class "${tokenizerName}", attempting to construct from base class.`);
             cls = PreTrainedTokenizer;
         }
         return new cls(tokenizerJSON, tokenizerConfig);
