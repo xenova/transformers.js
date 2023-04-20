@@ -26,7 +26,7 @@ class LogitsProcessorList extends Callable {
     /**
      * Adds a new logits processor to the list.
      *
-     * @param {function} item - The logits processor function to add.
+     * @param {LogitsProcessor} item - The logits processor function to add.
      */
     push(item) {
         this.processors.push(item);
@@ -35,7 +35,7 @@ class LogitsProcessorList extends Callable {
     /**
      * Adds multiple logits processors to the list.
      *
-     * @param {function[]} items - The logits processor functions to add.
+     * @param {LogitsProcessor[]} items - The logits processor functions to add.
      */
     extend(items) {
         this.processors.push(...items);
@@ -152,7 +152,7 @@ class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     /**
      * Create a ForcedEOSTokenLogitsProcessor.
      * @param {number} max_length - Max length of the sequence.
-     * @param {number} forced_eos_token_id - The ID of the end-of-sequence token to be forced.
+     * @param {number|number[]} forced_eos_token_id - The ID of the end-of-sequence token to be forced.
      */
     constructor(max_length, forced_eos_token_id) {
         super();
