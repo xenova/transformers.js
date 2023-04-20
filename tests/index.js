@@ -858,15 +858,6 @@ async function object_detection() {
 
 }
 
-
-// hide unused initializer and node arguments warnings
-console._warn = console.warn;
-console.warn = (...data) => {
-    if (!data[0].includes('CleanUnusedInitializersAndNodeArgs')) {
-        console._warn(...data);
-    }
-};
-
 // Define tests
 let tests = {
     'Text classification:': text_classification,
