@@ -36,22 +36,20 @@ function escapeRegExp(string) {
 /**
  * A base class for creating callable objects.
  * 
- * @todo remove inheritance from `Function`, as this causes CSP (Content Security Policy) issues.
+ * @type {new () => {(...args: any[]): any, _call(...args: any[]): any}}
  */
-class Callable extends Function {
+const Callable = /** @type {any} */ (class {
     /**
     * Creates a new instance of the Callable class.
     */
     constructor() {
-        super();
         /**
          * Creates a closure that delegates to a private method '_call' with the given arguments.
-         *
+         * @type {any}
          * @param {...any} args - Zero or more arguments to pass to the '_call' method.
          * @returns {*} - The result of calling the '_call' method.
          */
         let closure = function (...args) {
-            // @ts-ignore
             return closure._call(...args)
         }
         return Object.setPrototypeOf(closure, new.target.prototype)
@@ -61,13 +59,13 @@ class Callable extends Function {
      * This method should be implemented in subclasses to provide the
      * functionality of the callable object.
      *
-     * @throws {Error} Must implement _call method in subclass
-     * @param {...*} args
+     * @throws {Error} If the subclass does not implement the `_call` method.
+     * @param {any[]} args
      */
     _call(...args) {
         throw Error('Must implement _call method in subclass')
     }
-}
+});
 
 /**
  * Check if a value is a string.
