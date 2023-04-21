@@ -67,19 +67,11 @@ class ImageFeatureExtractor extends FeatureExtractor {
         }
 
         this.do_rescale = this.config.do_rescale ?? true;
+        this.rescale_factor = this.config.rescale_factor ?? (1 / 255);
         this.do_normalize = this.config.do_normalize;
 
         this.do_resize = this.config.do_resize;
         this.size = this.config.size;
-
-        // Support both formats for backwards compatibility
-        if (Number.isInteger(this.size)) {
-            this.shortest_edge = this.size;
-            this.longest_edge = this.config.max_size ?? this.shortest_edge;
-        } else {
-            this.shortest_edge = this.size.shortest_edge;
-            this.longest_edge = this.size.longest_edge;
-        }
 
         // TODO use these
         this.do_center_crop = this.config.do_center_crop;
@@ -99,24 +91,45 @@ class ImageFeatureExtractor extends FeatureExtractor {
 
         // First, resize all images
         if (this.do_resize) {
-            // If `longest_edge` is set, maintain aspect ratio and resize to `size`
+
+            // `this.size` comes in many forms, so we need to handle them all here:
+            // 1. `this.size` is an integer, in which case we resize the image to be a square 
+
+            let shortest_edge;
+            let longest_edge;
+
+            // Support both formats for backwards compatibility
+            if (Number.isInteger(this.size)) {
+                shortest_edge = this.size;
+                longest_edge = this.config.max_size ?? shortest_edge;
+
+            } else {
+                // Extract known properties from `this.size`
+                shortest_edge = this.size.shortest_edge;
+                longest_edge = this.size.longest_edge ?? shortest_edge;
+            }
+
+            // If `longest_edge` and `shortest_edge` are set, maintain aspect ratio and resize to `shortest_edge`
             // while keeping the largest dimension <= `longest_edge`
-            if (this.longest_edge !== undefined) {
+            if (longest_edge !== undefined && shortest_edge !== undefined) {
                 // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
                 // Try resize so that shortest edge is `this.shortest_edge` (target)
-                const ratio = Math.max(this.shortest_edge / srcWidth, this.shortest_edge / srcHeight);
+                const ratio = Math.max(shortest_edge / srcWidth, shortest_edge / srcHeight);
                 const newWidth = srcWidth * ratio;
                 const newHeight = srcHeight * ratio;
 
                 // The new width and height might be greater than `this.longest_edge`, so
                 // we downscale again to ensure the largest dimension is `this.longest_edge` 
-                const downscaleFactor = Math.min(this.longest_edge / newWidth, this.longest_edge / newHeight, 1);
+                const downscaleFactor = Math.min(longest_edge / newWidth, longest_edge / newHeight, 1);
 
                 // Perform resize
                 image = await image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor));
 
+            } else if (this.size.width !== undefined && this.size.height !== undefined) {
+                // If `width` and `height` are set, resize to those dimensions
+                image = await image.resize(this.size.width, this.size.height);
             } else {
-                image = await image.resize(this.shortest_edge, this.shortest_edge);
+                throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(this.size)}`);
             }
         }
 
@@ -127,7 +140,7 @@ class ImageFeatureExtractor extends FeatureExtractor {
 
         if (this.do_rescale) {
             for (let i = 0; i < pixelData.length; ++i) {
-                pixelData[i] = pixelData[i] / 255;
+                pixelData[i] = this.rescale_factor * pixelData[i];
             }
         }
 
@@ -996,7 +1009,7 @@ class AutoProcessor {
             if (preprocessorConfig.size !== undefined) {
                 // Assume ImageFeatureExtractor
                 console.warn('Feature extractor type not specified, assuming ImageFeatureExtractor due to size parameter in config.');
-                feature_extractor_class = new ImageFeatureExtractor(preprocessorConfig);
+                feature_extractor_class = ImageFeatureExtractor;
             } else {
                 throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
             }
