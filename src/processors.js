@@ -1,8 +1,12 @@
 
 const {
     Callable,
-    fetchJSON,
+    dispatchCallback,
 } = require("./utils.js");
+
+const {
+    getModelJSON,
+} = require('./utils/hub.js');
 
 const {
     max,
@@ -13,61 +17,6 @@ const {
 const { Tensor, transpose, cat, interpolate } = require("./tensor_utils.js");
 
 const { CustomImage } = require('./image_utils.js');
-
-/**
- * Helper class to determine model type from config
- */
-class AutoProcessor {
-    /**
-     * Returns a new instance of a Processor with a feature extractor
-     * based on the configuration file located at `modelPath`.
-     *
-     * @param {string} modelPath - The path to the model directory.
-     * @param {function} progressCallback - A callback function to track the loading progress (optional).
-     * @returns {Promise<Processor>} A Promise that resolves with a new instance of a Processor.
-     * @throws {Error} If the feature extractor type specified in the configuration file is unknown.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let preprocessorConfig = await fetchJSON(modelPath, 'preprocessor_config.json', progressCallback)
-
-        let processor_class;
-        let feature_extractor;
-
-        switch (preprocessorConfig.feature_extractor_type) {
-            case 'WhisperFeatureExtractor':
-                feature_extractor = new WhisperFeatureExtractor(preprocessorConfig)
-                break;
-            case 'ViTFeatureExtractor':
-                feature_extractor = new ViTFeatureExtractor(preprocessorConfig)
-                break;
-            case 'DetrFeatureExtractor':
-                feature_extractor = new DetrFeatureExtractor(preprocessorConfig)
-                break;
-            default:
-                if (preprocessorConfig.size !== undefined) {
-                    // Assume ImageFeatureExtractor
-                    console.warn('Feature extractor type not specified, assuming ImageFeatureExtractor due to size parameter in config.')
-                    feature_extractor = new ImageFeatureExtractor(preprocessorConfig)
-
-                } else {
-                    throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
-
-                }
-        }
-
-        switch (preprocessorConfig.processor_class) {
-            case 'WhisperProcessor':
-                processor_class = WhisperProcessor;
-                break;
-            default:
-                // No associated processor class, use default
-                processor_class = Processor;
-        }
-
-        return new processor_class(feature_extractor);
-    }
-}
 
 /**
  * Base class for feature extractors.
@@ -123,7 +72,14 @@ class ImageFeatureExtractor extends FeatureExtractor {
         this.do_resize = this.config.do_resize;
         this.size = this.config.size;
 
-        this.max_size = this.config.max_size;
+        // Support both formats for backwards compatibility
+        if (Number.isInteger(this.size)) {
+            this.shortest_edge = this.size;
+            this.longest_edge = this.config.max_size ?? this.shortest_edge;
+        } else {
+            this.shortest_edge = this.size.shortest_edge;
+            this.longest_edge = this.size.longest_edge;
+        }
 
         // TODO use these
         this.do_center_crop = this.config.do_center_crop;
@@ -143,24 +99,24 @@ class ImageFeatureExtractor extends FeatureExtractor {
 
         // First, resize all images
         if (this.do_resize) {
-            // If `max_size` is set, maintain aspect ratio and resize to `size`
-            // while keeping the largest dimension <= `max_size`
-            if (this.max_size !== undefined) {
+            // If `longest_edge` is set, maintain aspect ratio and resize to `size`
+            // while keeping the largest dimension <= `longest_edge`
+            if (this.longest_edge !== undefined) {
                 // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
-                // Try resize so that shortest edge is `this.size` (target)
-                const ratio = Math.max(this.size / srcWidth, this.size / srcHeight);
+                // Try resize so that shortest edge is `this.shortest_edge` (target)
+                const ratio = Math.max(this.shortest_edge / srcWidth, this.shortest_edge / srcHeight);
                 const newWidth = srcWidth * ratio;
                 const newHeight = srcHeight * ratio;
 
-                // The new width and height might be greater than `this.max_size`, so
-                // we downscale again to ensure the largest dimension is `this.max_size` 
-                const downscaleFactor = Math.min(this.max_size / newWidth, this.max_size / newHeight, 1);
+                // The new width and height might be greater than `this.longest_edge`, so
+                // we downscale again to ensure the largest dimension is `this.longest_edge` 
+                const downscaleFactor = Math.min(this.longest_edge / newWidth, this.longest_edge / newHeight, 1);
 
                 // Perform resize
                 image = await image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor));
 
             } else {
-                image = await image.resize(this.size, this.size);
+                image = await image.resize(this.shortest_edge, this.shortest_edge);
             }
         }
 
@@ -946,7 +902,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
 class Processor extends Callable {
     /**
      * Creates a new Processor with the given feature extractor.
-     * @param {function} feature_extractor - The function used to extract features from the input.
+     * @param {FeatureExtractor} feature_extractor - The function used to extract features from the input.
      */
     constructor(feature_extractor) {
         super();
@@ -980,6 +936,81 @@ class WhisperProcessor extends Processor {
         return await this.feature_extractor(audio)
     }
 }
+
+//////////////////////////////////////////////////
+/**
+ * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
+ */
+/**
+ * Helper class which is used to instantiate pretrained processors with the `from_pretrained` function.
+ * The chosen processor class is determined by the type specified in the processor config.
+ * 
+ * @example
+ * let processor = await AutoProcessor.from_pretrained('openai/whisper-tiny.en');
+ */
+class AutoProcessor {
+    static FEATURE_EXTRACTOR_CLASS_MAPPING = {
+        'WhisperFeatureExtractor': WhisperFeatureExtractor,
+        'ViTFeatureExtractor': ViTFeatureExtractor,
+        'DetrFeatureExtractor': DetrFeatureExtractor,
+    }
+
+    static PROCESSOR_CLASS_MAPPING = {
+        'WhisperProcessor': WhisperProcessor,
+    }
+
+    /**
+     * Instantiate one of the processor classes of the library from a pretrained model.
+     * 
+     * The processor class to instantiate is selected based on the `feature_extractor_type` property of the config object
+     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
+     * 
+     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
+     * - A string, the *model id* of a pretrained processor hosted inside a model repo on huggingface.co.
+     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+     *   user or organization name, like `dbmdz/bert-base-german-cased`.
+     * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
+     * @param {PretrainedOptions} options - Additional options for loading the processor.
+     * 
+     * @returns {Promise<Processor>} A new instance of the Processor class.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, {
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+
+        let preprocessorConfig = config ?? await getModelJSON(pretrained_model_name_or_path, 'preprocessor_config.json', true, {
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        })
+
+        let feature_extractor_class = this.FEATURE_EXTRACTOR_CLASS_MAPPING[preprocessorConfig.feature_extractor_type];
+
+        if (!feature_extractor_class) {
+            if (preprocessorConfig.size !== undefined) {
+                // Assume ImageFeatureExtractor
+                console.warn('Feature extractor type not specified, assuming ImageFeatureExtractor due to size parameter in config.');
+                feature_extractor_class = new ImageFeatureExtractor(preprocessorConfig);
+            } else {
+                throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
+            }
+        }
+
+        // If no associated processor class, use default
+        let processor_class = this.PROCESSOR_CLASS_MAPPING[preprocessorConfig.processor_class] ?? Processor;
+
+        // Instantiate processor and feature extractor
+        let feature_extractor = new feature_extractor_class(preprocessorConfig);
+        return new processor_class(feature_extractor);
+    }
+}
+//////////////////////////////////////////////////
 
 
 module.exports = {

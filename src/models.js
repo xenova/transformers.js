@@ -1,10 +1,12 @@
 const {
     Callable,
-    getModelFile,
-    fetchJSON,
-    dispatchCallback,
     isIntegralNumber,
 } = require("./utils.js");
+
+const {
+    getModelFile,
+    getModelJSON,
+} = require('./utils/hub.js');
 
 const {
     Sampler,
@@ -29,24 +31,33 @@ const {
 } = require('./tensor_utils');
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
+/**
+ * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
+ */
 //////////////////////////////////////////////////
 // Helper functions
 /**
  * Constructs an InferenceSession using a model file located at the specified path.
- * @param {string} modelPath - The path to the directory containing the model file.
+ * @param {string} pretrained_model_name_or_path - The path to the directory containing the model file.
  * @param {string} fileName - The name of the model file.
- * @param {function} [progressCallback=null] - An optional function to track progress during the creation of the session.
+ * @param {PretrainedOptions} options - Additional options for loading the model.
  * @returns {Promise<InferenceSession>} - A Promise that resolves to an InferenceSession object.
  */
-async function constructSession(modelPath, fileName, progressCallback = null) {
-    let buffer = await getModelFile(modelPath, fileName, progressCallback);
-
+async function constructSession(pretrained_model_name_or_path, fileName, options) {
     // TODO add option for user to force specify their desired execution provider
+    let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
+    let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
+
     try {
         return await InferenceSession.create(buffer, {
             executionProviders,
         });
     } catch (err) {
+        // If the execution provided was only wasm, throw the error
+        if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
+            throw err;
+        }
+
         console.warn(err);
         console.warn(
             'Something went wrong during model construction (most likely a missing operation). ' +
@@ -135,34 +146,87 @@ function boolTensor(value) {
     return new Tensor('bool', [value], [1]);
 }
 
-// JS doesn't support mixins, so we define some reused functions here, and allow "this" to be passed in
+
 /**
- * Loads a sequence-to-sequence model from the specified path.
- * @param {string} modelPath - The path to the model directory.
- * @param {function} progressCallback - The optional progress callback function.
+ * Loads a model from the specified path.
+ * @param {string} pretrained_model_name_or_path - The path to the model directory.
+ * @param {PretrainedOptions} options - Additional options for loading the model.
  * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
  */
-async function seq2seqLoadModel(modelPath, progressCallback) {
+async function loadAutoModel(pretrained_model_name_or_path, options) {
+    // Only get config.json if not already specified
+    let config = options.config ?? await getModelJSON(pretrained_model_name_or_path, 'config.json', true, options);
+
+    let modelName = config.is_encoder_decoder ? 'encoder_model' : 'model';
+
+    let session = await constructSession(pretrained_model_name_or_path, modelName, options);
+
+    return [config, session];
+}
+
+/**
+ * Loads a model from the specified path.
+ * @param {string} pretrained_model_name_or_path - The path to the model directory.
+ * @param {PretrainedOptions} options - Additional options for loading the model.
+ * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ */
+async function loadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
-        fetchJSON(modelPath, 'config.json', progressCallback),
-        constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-        constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback),
-        fetchJSON(modelPath, 'generation_config.json', progressCallback, false),
-    ])
-
-    // Called when all parts are loaded
-    dispatchCallback(progressCallback, {
-        status: 'loaded',
-        name: modelPath
-    });
-
+        options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
+        constructSession(pretrained_model_name_or_path, 'model', options)
+    ]);
     return info;
 }
 
 /**
+ * Loads a sequence-to-sequence model from the specified path.
+ * @param {string} pretrained_model_name_or_path - The path to the model directory.
+ * @param {PretrainedOptions} options - Additional options for loading the model.
+ * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ */
+async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
+    let info = await Promise.all([
+        options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
+        constructSession(pretrained_model_name_or_path, 'encoder_model', options),
+        constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+        getModelJSON(pretrained_model_name_or_path, 'generation_config.json', true, options),
+    ])
+    return info;
+}
+
+/**
+ * Loads an encoder-decoder model from the specified path.
+ * @param {string} pretrained_model_name_or_path - The path to the model directory.
+ * @param {PretrainedOptions} options - Additional options for loading the model.
+ * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ */
+async function encoderDecoderLoadModel(pretrained_model_name_or_path, options) {
+    let info = await Promise.all([
+        options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
+        constructSession(pretrained_model_name_or_path, 'encoder_model', options),
+        constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+    ])
+    return info;
+}
+
+
+/**
+ * Loads a decoder model from the specified path.
+ * @param {string} pretrained_model_name_or_path - The path to the model directory.
+ * @param {PretrainedOptions} options - Additional options for loading the model.
+ * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ */
+async function decoderLoadModel(pretrained_model_name_or_path, options) {
+    let info = await Promise.all([
+        options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
+        constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+    ])
+    return info;
+}
+
+// JS doesn't support mixins, so we define some reused functions here, and allow "this" to be passed in
+/**
  * Perform forward pass on the seq2seq model.
- * @async
- * @function
  * @param {Object} self - The seq2seq model object.
  * @param {Object} model_inputs - The input object for the model containing encoder and decoder inputs.
  * @param {Object} options - The options
@@ -207,7 +271,6 @@ async function seq2seq_forward(self, model_inputs, {
 
 /**
  * Start the beam search process for the seq2seq model.
- * @function
  * @param {Object} self - The seq2seq model object.
  * @param {Object[]} inputTokenIds - Array of input token ids for each input sequence.
  * @param {number} numOutputTokens - The maximum number of output tokens for the model.
@@ -248,8 +311,6 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
 
 /**
  * Run beam search on the seq2seq model for a single beam.
- * @async
- * @function
  * @param {Object} self - The seq2seq model object.
  * @param {Object} beam - The beam search object for which to run the model.
  * @param {Object} options - options
@@ -283,8 +344,6 @@ async function seq2seqRunBeam(self, beam, {
 
 /**
  * Forward pass of the text generation model.
- * @async
- * @function
  * @param {Object} self - The text generation model object.
  * @param {Object} model_inputs - The input data to be used for the forward pass.
  * @returns {Promise<Object>} - Promise that resolves with an object containing the logits and past key values.
@@ -354,8 +413,6 @@ function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
 /**
  * Runs a single step of the text generation process for a given beam.
  *
- * @async
- * @function textgenRunBeam
  * @param {Object} self - The textgen object.
  * @param {Object} beam - The beam to run.
  * @param {Tensor} beam.input - The input tensor.
@@ -400,7 +457,6 @@ function textgenUpdatebeam(beam, newTokenId) {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// Base class
 /**
  * A base class for pre-trained models that provides the model configuration and an ONNX session.
  * @extends Callable
@@ -437,28 +493,31 @@ class PreTrainedModel extends Callable {
     }
 
     /**
-     * Loads a pre-trained model from the given modelPath.
-     * @static
-     * @async
-     * @param {string} modelPath - The path to the pre-trained model.
-     * @param {function} progressCallback - A function to be called with progress updates.
-     * @returns {Promise<PreTrainedModel>} A new instance of the PreTrainedModel class.
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`. 
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
+     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * 
+     * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
-        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
-
-        // Load model
-        let session = await constructSession(modelPath, modelName, progressCallback);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let info = await loadAutoModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
         });
 
-        return new this(config, session);
+        return new this(...info);
     }
 
     /**
@@ -1210,14 +1269,29 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
     }
 
     /**
-     * Loads the pre-trained model from a given path.
-     * @async
-     * @param {string} modelPath - The path to the pre-trained model.
-     * @param {function} progressCallback - A function to call with progress updates (optional).
-     * @returns {Promise<T5ForConditionalGeneration>} The loaded model instance.
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
+     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * 
+     * @returns {Promise<T5ForConditionalGeneration>} A new instance of the `T5ForConditionalGeneration` class.
      */
-    static async from_pretrained(modelPath, progressCallback = null) {
-        let info = await seq2seqLoadModel(modelPath, progressCallback);
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        });
         return new this(...info);
     }
 
@@ -1251,7 +1325,6 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
 
     /**
      * Runs the forward pass of the model for a given set of inputs.
-     * @async
      * @param {Object} model_inputs - The model inputs.
      * @returns {Promise<Object>} The model output.
      */
@@ -1307,15 +1380,29 @@ class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     }
 
     /**
-     * Loads a pre-trained model from the given path.
-     *
-     * @param {string} modelPath - The path to the pre-trained model.
-     * @param {function} [progressCallback=null] - A callback function that is called with the download progress percentage (0-100).
-     * @returns {Promise<any>} - A Promise that resolves to a new `MT5ForConditionalGeneration` instance.
-     * @static
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
+     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * 
+     * @returns {Promise<MT5ForConditionalGeneration>} A new instance of the `MT5ForConditionalGeneration` class.
      */
-    static async from_pretrained(modelPath, progressCallback = null) {
-        let info = await seq2seqLoadModel(modelPath, progressCallback);
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        });
         return new this(...info);
     }
 
@@ -1374,7 +1461,6 @@ class BartModel extends BartPretrainedModel {
     /**
      * Throws an error because the current model class (BartModel) is not compatible with `.generate()`.
      * 
-     * @async
      * @throws {Error} The current model class (BartModel) is not compatible with `.generate()`.
      * @returns {Promise<any>}
      */
@@ -1410,15 +1496,30 @@ class BartForConditionalGeneration extends BartPretrainedModel {
         this.num_encoder_heads = this.config.encoder_attention_heads;
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
-
     /**
-     * Loads a BartForConditionalGeneration instance from a pretrained model stored on disk.
-     * @param {string} modelPath - The path to the directory containing the pretrained model.
-     * @param {function} [progressCallback=null] - An optional callback function to track the download progress.
-     * @returns {Promise<BartForConditionalGeneration>} - The pretrained BartForConditionalGeneration instance.
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
+     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * 
+     * @returns {Promise<BartForConditionalGeneration>} A new instance of the `BartForConditionalGeneration` class.
      */
-    static async from_pretrained(modelPath, progressCallback = null) {
-        let info = await seq2seqLoadModel(modelPath, progressCallback);
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        });
         return new this(...info);
     }
 
@@ -1453,7 +1554,6 @@ class BartForConditionalGeneration extends BartPretrainedModel {
 
     /**
      * Runs the forward pass of the model for a given set of inputs.
-     * @async
      * @param {Object} model_inputs - The model inputs.
      * @returns {Promise<Object>} The model output.
      */
@@ -1613,13 +1713,29 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     }
 
     /**
-     * Loads a pre-trained model from a saved model directory.
-     * @param {string} modelPath - Path to the saved model directory.
-     * @param {function} progressCallback - Optional function for tracking loading progress.
-     * @returns {Promise<WhisperForConditionalGeneration>} Promise object represents the loaded model.
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
+     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * 
+     * @returns {Promise<WhisperForConditionalGeneration>} A new instance of the `WhisperForConditionalGeneration` class.
      */
-    static async from_pretrained(modelPath, progressCallback = null) {
-        let info = await seq2seqLoadModel(modelPath, progressCallback);
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        });
         return new this(...info);
     }
 
@@ -1656,7 +1772,6 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
     /**
      * Runs the forward pass of the model for a given set of inputs.
-     * @async
      * @param {Object} model_inputs - The model inputs.
      * @returns {Promise<Object>} The model output.
      */
@@ -1690,27 +1805,30 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
     }
 
     /**
-     * Loads a VisionEncoderDecoderModel from the given path.
-     *
-     * @param {string} modelPath - The path to the folder containing the saved model files.
-     * @param {function} [progressCallback=null] - Optional callback function to track the progress of model loading.
-     * @returns {Promise<VisionEncoderDecoderModel>} A Promise that resolves with the loaded VisionEncoderDecoderModel instance.
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
+     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * 
+     * @returns {Promise<VisionEncoderDecoderModel>} A new instance of the `VisionEncoderDecoderModel` class.
      */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session, decoder_merged_session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_merged_session.onnx', progressCallback),
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let info = await encoderDecoderLoadModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
         });
-
-        return new this(config, session, decoder_merged_session);
+        return new this(...info);
     }
 
     /**
@@ -2120,10 +2238,29 @@ class MarianMTModel extends MarianPreTrainedModel {
     }
 
     /**
-     * @param {string} modelPath
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
+     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * 
+     * @returns {Promise<MarianMTModel>} A new instance of the `MarianMTModel` class.
      */
-    static async from_pretrained(modelPath, progressCallback = null) {
-        let info = await seq2seqLoadModel(modelPath, progressCallback);
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        });
         return new this(...info);
     }
 
@@ -2169,11 +2306,87 @@ class MarianMTModel extends MarianPreTrainedModel {
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
+
 /**
- * Helper class to determine model type from config
+ * Base class of all AutoModels. Contains the `from_pretrained` function
+ * which is used to instantiate pretrained models.
  */
-class AutoModel {
-    // Helper class to determine model type from config
+class PretrainedMixin {
+    /**
+     * Mapping from model type to model class.
+     */
+    static MODEL_CLASS_MAPPING = {};
+
+    /**
+     * Whether to attempt to instantiate the base class (`PretrainedModel`) if 
+     * the model type is not found in the mapping.
+     */
+    static BASE_IF_FAIL = false;
+
+    /**
+     * The function to use to load the pretrained model.
+     */
+    static LOAD_FUNCTION = null;
+
+    /**
+     * Instantiate one of the model classes of the library from a pretrained model.
+     * 
+     * The model class to instantiate is selected based on the `model_type` property of the config object
+     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
+     * 
+     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
+     * - A string, the *model id* of a pretrained model hosted inside a model repo on huggingface.co.
+     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+     *   user or organization name, like `dbmdz/bert-base-german-cased`.
+     * - A path to a *directory* containing model weights, e.g., `./my_model_directory/`.
+     * @param {PretrainedOptions} options - Additional options for loading the model.
+     * 
+     * @returns {Promise<PreTrainedModel>} A new instance of the PreTrainedModel class.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        if (this.LOAD_FUNCTION === null) {
+            throw new Error("`LOAD_FUNCTION` not implemented for this model");
+        }
+
+        let info = await this.LOAD_FUNCTION(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        });
+
+        let cls = this.MODEL_CLASS_MAPPING[info[0].model_type];
+        if (!cls) {
+            if (this.BASE_IF_FAIL) {
+                console.warn(`Unknown model class "${info[0].model_type}", attempting to construct from base class.`);
+                cls = PreTrainedModel;
+            } else {
+                throw Error(`Unsupported model type: ${info[0].model_type}`)
+            }
+        }
+        return new cls(...info);
+    }
+}
+
+/**
+ * Helper class which is used to instantiate pretrained models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModel.from_pretrained('bert-base-uncased');
+ */
+class AutoModel extends PretrainedMixin {
+    static LOAD_FUNCTION = loadAutoModel;
+    static BASE_IF_FAIL = true;
     static MODEL_CLASS_MAPPING = {
         'bert': BertModel,
         'albert': AlbertModel,
@@ -2191,40 +2404,17 @@ class AutoModel {
         'squeezebert': SqueezeBertModel,
         'marian': MarianModel,
     }
-
-    /**
-     * Instantiates a pre-trained model based on the given model path and config.
-     * @param {string} modelPath - The path to the pre-trained model.
-     * @param {function} progressCallback - Optional. A callback function that can be used to track loading progress.
-     * @returns {Promise<PreTrainedModel>} - A promise that resolves to an instance of a pre-trained model.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
-        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
-
-        let session = await constructSession(modelPath, modelName, progressCallback);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
-            cls = PreTrainedModel;
-        }
-        return new cls(config, session)
-    }
 }
 
 /**
- * Helper class for loading sequence classification models from pretrained checkpoints
+ * Helper class which is used to instantiate pretrained sequence classification models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english');
  */
-class AutoModelForSequenceClassification {
-
+class AutoModelForSequenceClassification extends PretrainedMixin {
+    static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForSequenceClassification,
         'albert': AlbertForSequenceClassification,
@@ -2234,79 +2424,33 @@ class AutoModelForSequenceClassification {
         'mobilebert': MobileBertForSequenceClassification,
         'squeezebert': SqueezeBertForSequenceClassification,
     }
-
-    /**
-     * Load a sequence classification model from a pretrained checkpoint
-     * @param {string} modelPath - The path to the model checkpoint directory
-     * @param {function} [progressCallback=null] - An optional callback function to receive progress updates
-     * @returns {Promise<PreTrainedModel>} A promise that resolves to a pre-trained sequence classification model
-     * @throws {Error} if an unsupported model type is encountered
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback)
-        ]);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session);
-    }
 }
 
-
 /**
- * Helper class for loading token classification models from pretrained checkpoints
+ * Helper class which is used to instantiate pretrained token classification models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForTokenClassification.from_pretrained('Davlan/distilbert-base-multilingual-cased-ner-hrl');
  */
-class AutoModelForTokenClassification {
-
+class AutoModelForTokenClassification extends PretrainedMixin {
+    static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForTokenClassification,
         'distilbert': DistilBertForTokenClassification,
     }
-
-    /**
-     * Load a token classification model from a pretrained checkpoint
-     * @param {string} modelPath - The path to the model checkpoint directory
-     * @param {function} [progressCallback=null] - An optional callback function to receive progress updates
-     * @returns {Promise<PreTrainedModel>} A promise that resolves to a pre-trained token classification model
-     * @throws {Error} if an unsupported model type is encountered
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback)
-        ]);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session);
-    }
 }
 
 
 /**
- * Class representing an automatic sequence-to-sequence language model.
+ * Helper class which is used to instantiate pretrained sequence-to-sequence models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
  */
-class AutoModelForSeq2SeqLM {
+class AutoModelForSeq2SeqLM extends PretrainedMixin {
+    static LOAD_FUNCTION = seq2seqLoadModel;
     static MODEL_CLASS_MAPPING = {
         't5': T5ForConditionalGeneration,
         'mt5': MT5ForConditionalGeneration,
@@ -2314,69 +2458,33 @@ class AutoModelForSeq2SeqLM {
         'whisper': WhisperForConditionalGeneration,
         'marian': MarianMTModel,
     }
-
-    /**
-     * Loads a pretrained sequence-to-sequence language model from a file path.
-     * @param {string} modelPath - The path to the model files.
-     * @param {function} [progressCallback=null] - A callback function to track loading progress.
-     * @returns {Promise<Object>} A Promise that resolves to an instance of the appropriate model class.
-     * @throws {Error} If the model type is unsupported.
-     * @static
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-        let info = await seq2seqLoadModel(modelPath, progressCallback);
-        let config = info[0];
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(...info)
-    }
 }
 
 /**
- * A class for loading pre-trained models for causal language modeling tasks.
+ * Helper class which is used to instantiate pretrained causal language models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForCausalLM.from_pretrained('gpt2');
  */
-class AutoModelForCausalLM {
+class AutoModelForCausalLM extends PretrainedMixin {
+    static LOAD_FUNCTION = decoderLoadModel;
     static MODEL_CLASS_MAPPING = {
         'gpt2': GPT2LMHeadModel,
         'gpt_neo': GPTNeoForCausalLM,
         'codegen': CodeGenForCausalLM,
     }
-
-    /**
-     * Loads a pre-trained model from the given path and returns an instance of the appropriate class.
-     * @param {string} modelPath - The path to the pre-trained model.
-     * @param {function} [progressCallback=null] - An optional callback function to track the progress of the loading process.
-     * @returns {Promise<GPT2LMHeadModel|CodeGenForCausalLM|CodeGenForCausalLM>} An instance of the appropriate class for the loaded model.
-     * @throws {Error} If the loaded model type is not supported.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session);
-
-    }
 }
 
 /**
- * A class to automatically select the appropriate model for Masked Language Modeling (MLM) tasks.
+ * Helper class which is used to instantiate pretrained masked language models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForMaskedLM.from_pretrained('bert-base-uncased');
  */
-class AutoModelForMaskedLM {
+class AutoModelForMaskedLM extends PretrainedMixin {
+    static LOAD_FUNCTION = loadAutoModel;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForMaskedLM,
         'albert': AlbertForMaskedLM,
@@ -2385,41 +2493,17 @@ class AutoModelForMaskedLM {
         'mobilebert': MobileBertForMaskedLM,
         'squeezebert': SqueezeBertForMaskedLM,
     }
-
-    /**
-     * Loads a pre-trained model from a given directory and returns an instance of the appropriate model class.
-     *
-     * @async
-     * @param {string} modelPath - The path to the pre-trained model directory.
-     * @param {function} [progressCallback=null] - An optional callback function to track the loading progress.
-     * @returns {Promise<PreTrainedModel>} An instance of the appropriate model class for MLM tasks.
-     * @throws {Error} If an unsupported model type is encountered.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let config = await fetchJSON(modelPath, 'config.json', progressCallback);
-        let modelName = config.is_encoder_decoder ? 'encoder_model.onnx' : 'model.onnx';
-
-        let session = await constructSession(modelPath, modelName, progressCallback);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session);
-    }
 }
 
 /**
- * Automatic model class for question answering tasks.
+ * Helper class which is used to instantiate pretrained question answering models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad');
  */
-class AutoModelForQuestionAnswering {
+class AutoModelForQuestionAnswering extends PretrainedMixin {
+    static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForQuestionAnswering,
         'albert': AlbertForQuestionAnswering,
@@ -2428,181 +2512,61 @@ class AutoModelForQuestionAnswering {
         'mobilebert': MobileBertForQuestionAnswering,
         'squeezebert': SqueezeBertForQuestionAnswering,
     }
-
-    /**
-     * Loads and returns a question answering model from a pretrained model path.
-     * @param {string} modelPath - The path to the pretrained model.
-     * @param {function} [progressCallback=null] - Optional callback function to track loading progress.
-     * @returns {Promise<PreTrainedModel>} - The loaded question answering model.
-     * @throws Will throw an error if an unsupported model type is encountered.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback)
-        ]);
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session);
-    }
 }
 
 /**
- * Class representing an autoencoder-decoder model for vision-to-sequence tasks.
+ * Helper class which is used to instantiate pretrained vision-to-sequence models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForVision2Seq.from_pretrained('nlpconnect/vit-gpt2-image-captioning');
  */
-class AutoModelForVision2Seq {
+class AutoModelForVision2Seq extends PretrainedMixin {
+    static LOAD_FUNCTION = encoderDecoderLoadModel;
     static MODEL_CLASS_MAPPING = {
         'vision-encoder-decoder': VisionEncoderDecoderModel
     }
-
-    /**
-     * Loads a pretrained model from a given path.
-     * @param {string} modelPath - The path to the pretrained model.
-     * @param {function} progressCallback - Optional callback function to track progress of the model loading.
-     * @returns {Promise<PreTrainedModel>} - A Promise that resolves to a new instance of VisionEncoderDecoderModel.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session, decoder_merged_session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'encoder_model.onnx', progressCallback),
-            constructSession(modelPath, 'decoder_model_merged.onnx', progressCallback)
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session, decoder_merged_session);
-
-    }
 }
 
-//////////////////////////////////////////////////
 /**
- * AutoModelForImageClassification is a class for loading pre-trained image classification models from ONNX format.
+ * Helper class which is used to instantiate pretrained image classification models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForImageClassification.from_pretrained('google/vit-base-patch16-224');
  */
-class AutoModelForImageClassification {
+class AutoModelForImageClassification extends PretrainedMixin {
+    static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'vit': ViTForImageClassification,
     }
-
-    /**
-     * Loads a pre-trained image classification model from a given directory path.
-     * @param {string} modelPath - The path to the directory containing the pre-trained model.
-     * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
-     * @throws {Error} If the specified model type is not supported.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback),
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session);
-    }
 }
-//////////////////////////////////////////////////
 
-
-//////////////////////////////////////////////////
 /**
- * AutoModelForImageSegmentation is a class for loading pre-trained image classification models from ONNX format.
+ * Helper class which is used to instantiate pretrained image segmentation models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForImageSegmentation.from_pretrained('facebook/detr-resnet-50-panoptic');
  */
-class AutoModelForImageSegmentation {
+class AutoModelForImageSegmentation extends PretrainedMixin {
+    static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForSegmentation,
     }
-
-    /**
-     * Loads a pre-trained image classification model from a given directory path.
-     * @param {string} modelPath - The path to the directory containing the pre-trained model.
-     * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
-     * @throws {Error} If the specified model type is not supported.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback),
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session);
-    }
 }
-//////////////////////////////////////////////////
 
-
-//////////////////////////////////////////////////
-class AutoModelForObjectDetection {
+/**
+ * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForObjectDetection.from_pretrained('facebook/detr-resnet-50');
+ */
+class AutoModelForObjectDetection extends PretrainedMixin {
+    static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForObjectDetection,
-    }
-
-    /**
-     * Loads a pre-trained image classification model from a given directory path.
-     * @param {string} modelPath - The path to the directory containing the pre-trained model.
-     * @param {function} [progressCallback=null] - A callback function to monitor the loading progress.
-     * @returns {Promise<PreTrainedModel>} A Promise that resolves with the model.
-     * @throws {Error} If the specified model type is not supported.
-     */
-    static async from_pretrained(modelPath, progressCallback = null) {
-
-        let [config, session] = await Promise.all([
-            fetchJSON(modelPath, 'config.json', progressCallback),
-            constructSession(modelPath, 'model.onnx', progressCallback),
-        ])
-
-        // Called when all parts are loaded
-        dispatchCallback(progressCallback, {
-            status: 'loaded',
-            name: modelPath
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[config.model_type];
-        if (!cls) {
-            throw Error(`Unsupported model type: ${config.model_type}`)
-        }
-        return new cls(config, session);
     }
 }
 //////////////////////////////////////////////////

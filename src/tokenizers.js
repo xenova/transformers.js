@@ -1,14 +1,36 @@
 const {
     Callable,
-    fetchJSON,
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
 } = require('./utils.js');
 
+const {
+    getModelJSON,
+} = require('./utils/hub.js');
+
 const { min } = require('./math_utils.js');
 
 const { Tensor } = require('./tensor_utils.js')
+
+/**
+ * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
+ */
+
+/**
+ * Loads a tokenizer from the specified path.
+ * @param {string} pretrained_model_name_or_path - The path to the tokenizer directory.
+ * @param {PretrainedOptions} options - Additional options for loading the tokenizer.
+ * @returns {Promise<Array>} - A promise that resolves with information about the loaded tokenizer.
+ */
+async function loadTokenizer(pretrained_model_name_or_path, options) {
+
+    let info = await Promise.all([
+        getModelJSON(pretrained_model_name_or_path, 'tokenizer.json', true, options),
+        getModelJSON(pretrained_model_name_or_path, 'tokenizer_config.json', true, options),
+    ])
+    return info;
+}
 
 /**
  * Helper method to construct a pattern from a config object.
@@ -227,7 +249,7 @@ class Unigram extends TokenizerModel {
         this.eosTokenId = this.tokens_to_ids[this.eosToken];
         this.unkToken = this.vocab[this.unk_token_id];
 
-        this.minScore = min(this.scores);
+        this.minScore = min(this.scores)[0];
 
         this.unkScore = this.minScore - 10.0;
         this.scores[this.unk_token_id] = this.unkScore;
@@ -334,6 +356,7 @@ class BPE extends TokenizerModel {
      * @param {Object} config - The configuration object for BPE.
      * @param {Object} config.vocab - A dictionary containing the vocabulary with tokens as keys and their corresponding indices as values.
      * @param {string} config.unk_token - The unknown token used for out of vocabulary words.
+     * @param {string} config.end_of_word_suffix - The suffix to place at the end of each word.
      * @param {Array} config.merges - An array of BPE merges as strings.
      */
     constructor(config) {
@@ -375,8 +398,7 @@ class BPE extends TokenizerModel {
             pairs.add(`${prev_char} ${char}`);
             prev_char = char;
         }
-        // TODO: fix error below
-        return [...pairs];
+        return Array.from(pairs);
     }
 
     /**
@@ -1512,22 +1534,31 @@ class PreTrainedTokenizer extends Callable {
     }
 
     /**
-     * Creates a new Tokenizer instance with the tokenizer configuration and files
-     * downloaded from a pretrained model located at the given model path.
-     *
-     * @param {string} modelPath - The path to the pretrained model.
-     * @param {function} [progressCallback=null] - Optional callback function that will be called with the current
-     * progress percentage (0 to 100) each time a file is downloaded.
-     * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the modelPath.
+     * Loads a pre-trained tokenizer from the given `pretrained_model_name_or_path`. 
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained tokenizer.
+     * @param {PretrainedOptions} options - Additional options for loading the tokenizer. For more information, @see {@link PreTrainedTokenizer.from_pretrained}.
+     * 
+     * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the `pretrained_model_name_or_path`.
+     * @returns {Promise<PreTrainedTokenizer>} A new instance of the `PreTrainedTokenizer` class.
      */
-    static async from_pretrained(modelPath, progressCallback = null) {
+    static async from_pretrained(pretrained_model_name_or_path, {
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
 
-        let [tokenizerJSON, tokenizerConfig] = await Promise.all([
-            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
-            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
-        ])
+        let info = await loadTokenizer(pretrained_model_name_or_path, {
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        })
 
-        return new this(tokenizerJSON, tokenizerConfig);
+        return new this(...info);
     }
 
     /**
@@ -2038,7 +2069,7 @@ class WhisperTokenizer extends PreTrainedTokenizer {
      * Decodes automatic speech recognition (ASR) sequences.
      * @param {Array<{tokens: number[], stride: number[]}>} sequences - The sequences to decode.
      * @param {Object} options - The options to use for decoding.
-     * @returns {Array<string|{chunks: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} - The decoded sequences.
+     * @returns {Array<string|{chunks?: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} - The decoded sequences.
      */
     _decode_asr(sequences, {
         return_timestamps = false,
@@ -2615,8 +2646,14 @@ class TokenLatticeNode {
     }
 }
 
+/**
+ * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
+ * The chosen tokenizer class is determined by the type specified in the tokenizer config.
+ * 
+ * @example
+ * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
+ */
 class AutoTokenizer {
-    // Helper class to determine tokenizer type from tokenizer.json
     static TOKENIZER_CLASS_MAPPING = {
         'T5Tokenizer': T5Tokenizer,
         'DistilBertTokenizer': DistilBertTokenizer,
@@ -2635,12 +2672,39 @@ class AutoTokenizer {
         'BloomTokenizer': BloomTokenizer,
     }
 
-    static async from_pretrained(modelPath, progressCallback = null) {
 
-        let [tokenizerJSON, tokenizerConfig] = await Promise.all([
-            fetchJSON(modelPath, 'tokenizer.json', progressCallback),
-            fetchJSON(modelPath, 'tokenizer_config.json', progressCallback),
-        ])
+    /**
+     * Instantiate one of the tokenizer classes of the library from a pretrained model.
+     * 
+     * The tokenizer class to instantiate is selected based on the `tokenizer_class` property of the config object
+     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
+     * 
+     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
+     * - A string, the *model id* of a pretrained tokenizer hosted inside a model repo on huggingface.co.
+     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+     *   user or organization name, like `dbmdz/bert-base-german-cased`.
+     * - A path to a *directory* containing tokenizer files, e.g., `./my_model_directory/`.
+     * @param {PretrainedOptions} options - Additional options for loading the tokenizer.
+     * 
+     * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+
+        let [tokenizerJSON, tokenizerConfig] = await loadTokenizer(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        })
 
         // Some tokenizers are saved with the "Fast" suffix, so we remove that if present.
         let tokenizerName = tokenizerConfig.tokenizer_class.replace(/Fast$/, '');
