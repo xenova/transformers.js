@@ -373,8 +373,6 @@ async function getModelFile(path_or_repo_id, filename, fatal = true, options = {
             throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`)
         }
 
-        console.log(1, { response })
-
         if (response === undefined || response.status === 404) {
             // File not found locally. This means either:
             // - the path is a valid HTTP url (`response === undefined`)
