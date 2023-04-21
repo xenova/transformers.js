@@ -1,7 +1,9 @@
 
 const fs = require('fs');
-const { getFile, isString } = require('./utils.js');
+const { isString } = require('./utils.js');
 const { env } = require('./env.js');
+
+const { getFile } = require('./utils/hub.js');
 
 // Will be empty (or not used) if running in browser or web-worker
 const sharp = require('sharp');
