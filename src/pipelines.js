@@ -568,14 +568,13 @@ class ZeroShotClassificationPipeline extends Pipeline {
 
 
 /**
- * Class representing an Embeddings Pipeline that should only be used with sentence-transformers.
- * If you want to get the raw outputs from the model, use `AutoModel.from_pretrained(...)`.
+ * Class representing a Feature Extraction Pipeline. This can be used with `sentence-transformers`.
+ * Alternatively, if you want to get the raw outputs from the model, use `AutoModel.from_pretrained(...)`.
  * @extends Pipeline
+ * 
+ * @todo Make sure this works for other models than `sentence-transformers`.
  */
-class EmbeddingsPipeline extends Pipeline {
-    // Should only be used with sentence-transformers
-    // If you want to get the raw outputs from the model,
-    // use `AutoModel.from_pretrained(...)`
+class FeatureExtractionPipeline extends Pipeline {
     /**
      * Private method to perform mean pooling of the last hidden state followed by a normalization step.
      * @param {Tensor} last_hidden_state - Tensor of shape [batchSize, seqLength, embedDim]
@@ -1312,11 +1311,10 @@ const SUPPORTED_TASKS = {
         "type": "multimodal",
     },
 
-    // This task is not supported in HuggingFace transformers, but serves as a useful interface
-    // for dealing with sentence-transformers (https://huggingface.co/sentence-transformers)
-    "embeddings": {
+    // This task serves as a useful interface for dealing with sentence-transformers (https://huggingface.co/sentence-transformers).
+    "feature-extraction": {
         "tokenizer": AutoTokenizer,
-        "pipeline": EmbeddingsPipeline,
+        "pipeline": FeatureExtractionPipeline,
         "model": AutoModel,
         "default": {
             "model": "sentence-transformers/all-MiniLM-L6-v2"
@@ -1330,6 +1328,9 @@ const TASK_ALIASES = {
     "sentiment-analysis": "text-classification",
     "ner": "token-classification",
     "vqa": "visual-question-answering",
+
+    // Add for backwards compatibility
+    "embeddings": "feature-extraction",
 }
 
 /**
