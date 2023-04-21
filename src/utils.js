@@ -35,12 +35,15 @@ function escapeRegExp(string) {
 
 /**
  * A base class for creating callable objects.
+ * 
+ * @todo remove inheritance from `Function`, as this causes CSP (Content Security Policy) issues.
  */
-class Callable {
+class Callable extends Function {
     /**
     * Creates a new instance of the Callable class.
     */
     constructor() {
+        super();
         /**
          * Creates a closure that delegates to a private method '_call' with the given arguments.
          *
