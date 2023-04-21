@@ -1,8 +1,6 @@
 const {
     Callable,
-    pathJoin,
     isString,
-    getFile,
 } = require("./utils.js");
 const {
     softmax,
@@ -11,6 +9,9 @@ const {
     cos_sim,
     dot
 } = require('./math_utils.js');
+const {
+    getFile,
+} = require('./utils/hub.js');
 
 const {
     AutoTokenizer
@@ -1324,28 +1325,6 @@ const SUPPORTED_TASKS = {
     },
 }
 
-const TASK_NAME_MAPPING = {
-    // Fix mismatch between pipeline's task name and exports (folder name)
-    'text-classification': 'sequence-classification',
-    'embeddings': 'default',
-    'fill-mask': 'masked-lm',
-
-    'text2text-generation': 'seq2seq-lm-with-past',
-    'summarization': 'seq2seq-lm-with-past',
-    'text-generation': 'causal-lm-with-past',
-
-    'automatic-speech-recognition': 'speech2seq-lm-with-past',
-    'image-to-text': 'vision2seq-lm-with-past',
-
-    'zero-shot-image-classification': 'default',
-    'zero-shot-classification': 'sequence-classification'
-}
-
-const TASK_PREFIX_MAPPING = {
-    // if task starts with one of these, set the corresponding folder name
-    'translation': 'seq2seq-lm-with-past',
-}
-
 
 const TASK_ALIASES = {
     "sentiment-analysis": "text-classification",
@@ -1354,14 +1333,17 @@ const TASK_ALIASES = {
 }
 
 /**
+ * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
+ */
+
+/**
  * Constructs a pipeline for a specified task with optional model and progress callback.
  *
  * @async
  * @function
  * @param {string} task - The task to perform, e.g. "text-generation".
  * @param {string} [model=null] - The name of the pre-trained model to use. If not specified, the default model for the task will be used.
- * @param {object} [options] - Optional parameters for the pipeline.
- * @param {function} [options.progress_callback=null] - A function to call with progress updates.
+ * @param {PretrainedOptions} [options] - Optional parameters for the pipeline.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
  * @todo fix error below
  * @throws {Error} If an unsupported pipeline is requested.
@@ -1370,7 +1352,12 @@ async function pipeline(
     task,
     model = null,
     {
-        progress_callback = null
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
     } = {}
 ) {
     // Helper method to construct pipeline
@@ -1384,36 +1371,11 @@ async function pipeline(
         throw Error(`Unsupported pipeline: ${task}. Must be one of [${Object.keys(SUPPORTED_TASKS)}]`)
     }
 
-
     // Use model if specified, otherwise, use default
     if (!model) {
         model = pipelineInfo.default.model
         console.log(`No model specified. Using default model: "${model}".`);
     }
-
-    // determine suffix
-    let suffix = TASK_NAME_MAPPING[task];
-    if (!suffix) {
-        // try get from suffix
-        for (const [prefix, mapping] of Object.entries(TASK_PREFIX_MAPPING)) {
-            if (task.startsWith(prefix)) {
-                suffix = mapping;
-                break;
-            }
-        }
-    }
-
-    if (!suffix) {
-        // Still not set... so, we default to the name given
-        suffix = task;
-    }
-
-    // Construct model path
-    model = pathJoin(
-        (env.remoteModels) ? env.remoteURL : env.localURL, // host prefix
-        model, // model name
-        suffix, // task suffix
-    )
 
     let tokenizerClass = pipelineInfo.tokenizer;
     let modelClass = pipelineInfo.model;
@@ -1422,20 +1384,28 @@ async function pipeline(
 
     let promises = [];
 
+    let pretrainedOptions = {
+        quantized,
+        progress_callback,
+        config,
+        cache_dir,
+        local_files_only,
+        revision,
+    }
     if (tokenizerClass) {
         promises.push(
-            AutoTokenizer.from_pretrained(model, progress_callback),
+            tokenizerClass.from_pretrained(model, pretrainedOptions),
         )
     }
     if (modelClass) {
         promises.push(
-            modelClass.from_pretrained(model, progress_callback)
+            modelClass.from_pretrained(model, pretrainedOptions)
         )
     }
 
     if (processorClass) {
         promises.push(
-            processorClass.from_pretrained(model, progress_callback)
+            processorClass.from_pretrained(model, pretrainedOptions)
         )
     }
 
