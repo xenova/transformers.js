@@ -189,8 +189,8 @@ async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
         options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
         constructSession(pretrained_model_name_or_path, 'encoder_model', options),
         constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
-        getModelJSON(pretrained_model_name_or_path, 'generation_config.json', true, options),
-    ])
+        getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
+    ]);
     return info;
 }
 
