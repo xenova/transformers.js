@@ -12,7 +12,7 @@ SUPPORTED_TASKS = {
     'object-detection': 'AutoModelForObjectDetection',
     'question-answering': 'AutoModelForQuestionAnswering',
     'image-classification': 'AutoModelForImageClassification',
-    # 'image-segmentation': 'AutoModelForImageSegmentation',
+    'image-segmentation': 'AutoModelForImageSegmentation',
     # 'masked-im': 'AutoModelForMaskedImageModeling',
     # 'semantic-segmentation': 'AutoModelForSemanticSegmentation',
     'speech2seq-lm': 'AutoModelForSpeechSeq2Seq',
