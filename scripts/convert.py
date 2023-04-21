@@ -3,6 +3,7 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from typing import Optional
+from tqdm import tqdm
 
 from transformers import (
     AutoConfig,
@@ -10,7 +11,6 @@ from transformers import (
     HfArgumentParser
 )
 from transformers.utils import cached_file
-from tqdm import tqdm
 
 import onnx
 from optimum.exporters.onnx import main_export
@@ -19,7 +19,6 @@ from onnxruntime.quantization import (
     quantize_dynamic,
     QuantType
 )
-from onnxruntime.quantization.registry import IntegerOpsRegistry
 
 
 @dataclass
