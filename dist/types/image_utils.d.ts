@@ -12,20 +12,19 @@ export class CustomImage {
      */
     static fromURL(url: string | URL): Promise<CustomImage>;
     /**
-     * Helper method to create a new canvas, draw an image/canvas to it, then return the pixel data.     * @param {ImageClass|CanvasClass} img - The image/canvas to draw to the canvas.
-     * @param {number} [width=null] - Width of the canvas. If null, the width of the image is used.
-     * @param {number} [height=null] - Height of the canvas. If null, the height of the image is used.
-     * @returns {CustomImage} - The image object.
+     * Helper method to create a new Image from a blob.
+     * @param {Blob} blob - The blob to read the image from.
+     * @returns {Promise<CustomImage>} - The image object.
      */
-    static createCanvasAndDraw(img: any, width?: number, height?: number): CustomImage;
+    static fromBlob(blob: Blob): Promise<CustomImage>;
     /**
      * Create a new CustomImage object.
      * @param {Uint8ClampedArray} data - The pixel data.
      * @param {number} width - The width of the image.
      * @param {number} height - The height of the image.
-     * @param {number} channels - The number of channels.
+     * @param {1|2|3|4} channels - The number of channels.
      */
-    constructor(data: Uint8ClampedArray, width: number, height: number, channels: number);
+    constructor(data: Uint8ClampedArray, width: number, height: number, channels: 1 | 2 | 3 | 4);
     /**
      * Convert the image to grayscale format.
      * @returns {CustomImage} - `this` to support chaining.
@@ -45,22 +44,22 @@ export class CustomImage {
      * Resize the image to the given dimensions. This method uses the canvas API to perform the resizing.
      * @param {number} width - The width of the new image.
      * @param {number} height - The height of the new image.
-     * @returns {CustomImage} - `this` to support chaining.
+     * @returns {Promise<CustomImage>} - `this` to support chaining.
      */
-    resize(width: number, height: number): CustomImage;
+    resize(width: number, height: number): Promise<CustomImage>;
     toCanvas(): any;
     /**
      * Helper method to update the image data.
      * @param {Uint8ClampedArray} data - The new image data.
      * @param {number} width - The new width of the image.
      * @param {number} height - The new height of the image.
-     * @param {number} channels - The new number of channels of the image.
+     * @param {1|2|3|4} channels - The new number of channels of the image.
      */
-    _update(data: Uint8ClampedArray, width: number, height: number, channels?: number): CustomImage;
+    _update(data: Uint8ClampedArray, width: number, height: number, channels?: 1 | 2 | 3 | 4): CustomImage;
     data: Uint8ClampedArray;
     width: number;
     height: number;
-    channels: number;
+    channels: 2 | 1 | 3 | 4;
     /**
      * Clone the image
      * @returns {CustomImage} - The cloned image

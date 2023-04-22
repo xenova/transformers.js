@@ -152,6 +152,13 @@ export function exists(x: any): boolean;
  * @throws {Error} If array is empty.
  */
 export function min(arr: number[]): number;
+/**
+ * Returns the maximum item.
+ * @param {number[]} arr - array of numbers.
+ * @returns {number} - the maximum number.
+ * @throws {Error} If array is empty.
+ */
+export function max(arr: number[]): number;
 declare class FileResponse {
     /**
      * Creates a new `FileResponse` object.
