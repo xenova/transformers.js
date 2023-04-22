@@ -194,9 +194,14 @@ class CustomImage {
      * Resize the image to the given dimensions. This method uses the canvas API to perform the resizing.
      * @param {number} width - The width of the new image.
      * @param {number} height - The height of the new image.
+     * @param {object} options - Additional options for resizing.
+     * @param {string} [options.resample] - The resampling method to use. Can be one of `nearest`, `bilinear`, `bicubic`.
      * @returns {Promise<CustomImage>} - `this` to support chaining.
      */
-    async resize(width, height) {
+    async resize(width, height, {
+        // TODO: Use `resample`
+        resample = 'bilinear',
+    } = {}) {
         if (CanvasClass) {
             // Store number of channels before resizing
             let numChannels = this.channels;
@@ -233,6 +238,127 @@ class CustomImage {
             return await loadImageFunction(img);
         }
 
+    }
+
+    async center_crop(crop_width, crop_height) {
+        // If the image is already the desired size, return it
+        if (this.width === crop_width && this.height === crop_height) {
+            return this;
+        }
+
+        // Determine bounds of the image in the new canvas
+        let width_offset = (this.width - crop_width) / 2;
+        let height_offset = (this.height - crop_height) / 2;
+
+
+        if (CanvasClass) {
+            // Store number of channels before resizing
+            let numChannels = this.channels;
+
+            // Create canvas object for this image
+            let canvas = this.toCanvas();
+
+            // Create a new canvas of the desired size. This is needed since if the 
+            // image is too small, we need to pad it with black pixels.
+            const ctx = new CanvasClass(crop_width, crop_height).getContext('2d');
+
+            let sourceX = 0;
+            let sourceY = 0;
+            let destX = 0;
+            let destY = 0;
+
+            if (width_offset >= 0) {
+                sourceX = width_offset;
+            } else {
+                destX = -width_offset;
+            }
+
+            if (height_offset >= 0) {
+                sourceY = height_offset;
+            } else {
+                destY = -height_offset;
+            }
+
+            // Draw image to context, cropping in the process
+            ctx.drawImage(canvas,
+                sourceX, sourceY, crop_width, crop_height,
+                destX, destY, crop_width, crop_height
+            );
+
+            // Create image from the resized data
+            let resizedImage = new CustomImage(ctx.getImageData(0, 0, crop_width, crop_height).data, crop_width, crop_height, 4);
+
+            // Convert back so that image has the same number of channels as before
+            return resizedImage.convert(numChannels);
+
+        } else {
+            // Create sharp image from raw data
+            let img = sharp(this.data, {
+                raw: {
+                    width: this.width,
+                    height: this.height,
+                    channels: this.channels
+                }
+            });
+
+            if (width_offset >= 0 && height_offset >= 0) {
+                // Cropped image lies entirely within the original image
+                img = img.extract({
+                    left: Math.floor(width_offset),
+                    top: Math.floor(height_offset),
+                    width: crop_width,
+                    height: crop_height,
+                })
+            } else if (width_offset <= 0 && height_offset <= 0) {
+                // Cropped image lies entirely outside the original image,
+                // so we add padding
+                let top = Math.floor(-height_offset);
+                let left = Math.floor(-width_offset);
+                img = img.extend({
+                    top: top,
+                    left: left,
+
+                    // Ensures the resulting image has the desired dimensions
+                    right: crop_width - this.width - left,
+                    bottom: crop_height - this.height - top,
+                });
+            } else {
+                // Cropped image lies partially outside the original image.
+                // We first pad, then crop.
+
+                let y_padding = [0, 0];
+                let y_extract = 0;
+                if (height_offset < 0) {
+                    y_padding[0] = Math.floor(-height_offset);
+                    y_padding[1] = crop_height - this.height - y_padding[0];
+                } else {
+                    y_extract = Math.floor(height_offset);
+                }
+
+                let x_padding = [0, 0];
+                let x_extract = 0;
+                if (width_offset < 0) {
+                    x_padding[0] = Math.floor(-width_offset);
+                    x_padding[1] = crop_width - this.width - x_padding[0];
+                } else {
+                    x_extract = Math.floor(width_offset);
+                }
+
+                img = img.extend({
+                    top: y_padding[0],
+                    bottom: y_padding[1],
+                    left: x_padding[0],
+                    right: x_padding[1],
+                }).extract({
+                    left: x_extract,
+                    top: y_extract,
+                    width: crop_width,
+                    height: crop_height,
+                })
+            }
+
+            return await loadImageFunction(img);
+        }
     }
 
     toCanvas() {
