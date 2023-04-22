@@ -3,8 +3,7 @@ const path = require('path');
 
 const { env: onnx_env } = require('./backends/onnx.js').ONNX;
 
-// Only used for environments with access to file system
-const DEFAULT_CACHE_DIR = path.join(path.dirname(__dirname), '/.cache/')
+
 
 // check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
@@ -12,6 +11,11 @@ const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
+
+// Only used for environments with access to file system
+const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
+    ? path.join(path.dirname(__dirname), '/.cache/')
+    : null;
 
 // set local model path, based on available APIs
 const DEFAULT_LOCAL_MODEL_PATH = '/models/';
