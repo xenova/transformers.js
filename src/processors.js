@@ -42,6 +42,16 @@ class FeatureExtractor extends Callable {
  */
 class ImageFeatureExtractor extends FeatureExtractor {
 
+    // Defined here: https://github.com/python-pillow/Pillow/blob/a405e8406b83f8bfb8916e93971edc7407b8b1ff/src/libImaging/Imaging.h#L262-L268
+    RESAMPLING_MAPPING = {
+        0: 'nearest',
+        1: 'lanczos',
+        2: 'bilinear',
+        3: 'bicubic',
+        4: 'box',
+        5: 'hamming',
+    }
+
     /**
      * Constructs a new ViTFeatureExtractor instance.
      *
@@ -49,8 +59,10 @@ class ImageFeatureExtractor extends FeatureExtractor {
      * @param {number[]} config.image_mean - The mean values for image normalization.
      * @param {number[]} config.image_std - The standard deviation values for image normalization.
      * @param {boolean} config.do_rescale - Whether to rescale the image pixel values to the [0,1] range.
+     * @param {number} config.rescale_factor - The factor to use for rescaling the image pixel values.
      * @param {boolean} config.do_normalize - Whether to normalize the image pixel values.
      * @param {boolean} config.do_resize - Whether to resize the image.
+     * @param {number} config.resample - What method to use for resampling.
      * @param {number} config.size - The size to resize the image to.
      */
     constructor(config) {
@@ -66,6 +78,7 @@ class ImageFeatureExtractor extends FeatureExtractor {
             this.image_std = new Array(3).fill(this.image_std);
         }
 
+        this.resample = this.config.resample ?? 2; // 2 => bilinear
         this.do_rescale = this.config.do_rescale ?? true;
         this.rescale_factor = this.config.rescale_factor ?? (1 / 255);
         this.do_normalize = this.config.do_normalize;
@@ -76,6 +89,7 @@ class ImageFeatureExtractor extends FeatureExtractor {
         // TODO use these
         this.do_center_crop = this.config.do_center_crop;
         this.crop_size = this.config.crop_size;
+        this.do_convert_rgb = this.config.do_convert_rgb ?? true;
     }
 
     /**
@@ -106,12 +120,12 @@ class ImageFeatureExtractor extends FeatureExtractor {
             } else {
                 // Extract known properties from `this.size`
                 shortest_edge = this.size.shortest_edge;
-                longest_edge = this.size.longest_edge ?? shortest_edge;
+                longest_edge = this.size.longest_edge;
             }
 
             // If `longest_edge` and `shortest_edge` are set, maintain aspect ratio and resize to `shortest_edge`
             // while keeping the largest dimension <= `longest_edge`
-            if (longest_edge !== undefined && shortest_edge !== undefined) {
+            if (shortest_edge !== undefined) {
                 // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
                 // Try resize so that shortest edge is `this.shortest_edge` (target)
                 const ratio = Math.max(shortest_edge / srcWidth, shortest_edge / srcHeight);
@@ -120,21 +134,29 @@ class ImageFeatureExtractor extends FeatureExtractor {
 
                 // The new width and height might be greater than `this.longest_edge`, so
                 // we downscale again to ensure the largest dimension is `this.longest_edge` 
-                const downscaleFactor = Math.min(longest_edge / newWidth, longest_edge / newHeight, 1);
+                const downscaleFactor = longest_edge === undefined
+                    ? 1 // If `longest_edge` is not set, don't downscale
+                    : Math.min(longest_edge / newWidth, longest_edge / newHeight, 1);
 
                 // Perform resize
-                image = await image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor));
+                image = await image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor), {
+                    resample: this.resample,
+                });
 
             } else if (this.size.width !== undefined && this.size.height !== undefined) {
                 // If `width` and `height` are set, resize to those dimensions
-                image = await image.resize(this.size.width, this.size.height);
+                image = await image.resize(this.size.width, this.size.height, {
+                    resample: this.resample,
+                });
             } else {
                 throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(this.size)}`);
             }
         }
 
-        // Convert image to RGB
-        image = image.rgb();
+        if (this.do_convert_rgb) {
+            // Convert image to RGB
+            image = image.rgb();
+        }
 
         const pixelData = Float32Array.from(image.data);
 
