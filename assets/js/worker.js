@@ -10,7 +10,7 @@ const DIST_DIR = location.pathname.split('/').slice(0, -1 - 2).join('/') + '/dis
 importScripts(DIST_DIR + 'transformers.min.js');
 
 // Set paths to wasm files. In this case, we use the .wasm files present in `DIST_DIR`.
-env.onnx.wasm.wasmPaths = DIST_DIR;
+env.backends.onnx.wasm.wasmPaths = DIST_DIR;
 
 // If we are running locally, we should use the local model files (speeds up development)
 // Otherwise, we should use the remote files
