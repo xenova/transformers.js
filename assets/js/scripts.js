@@ -570,13 +570,13 @@ worker.addEventListener('message', (event) => {
 
 				// create progress bar
 				PROGRESS_BARS.appendChild(htmlToElement(`
-					<div class="progress w-100" model="${message.data.path}" file="${message.data.file}">
+					<div class="progress w-100" model="${message.data.name}" file="${message.data.file}">
 						<div class="progress-bar" role="progressbar"></div>
 					</div>
 				`));
 
 			} else {
-				let bar = PROGRESS_BARS.querySelector(`.progress[model="${message.data.path}"][file="${message.data.file}"]> .progress-bar`)
+				let bar = PROGRESS_BARS.querySelector(`.progress[model="${message.data.name}"][file="${message.data.file}"]> .progress-bar`)
 
 				switch (message.data.status) {
 					case 'progress':
@@ -585,12 +585,16 @@ worker.addEventListener('message', (event) => {
 						bar.textContent = `${message.data.file} (${formatBytes(message.data.loaded)} / ${formatBytes(message.data.total)})`;
 						break;
 
-					case 'loaded':
-						// hide container
-						PROGRESS.style.display = 'none';
-						PROGRESS_BARS.innerHTML = '';
-
+					case 'done':
+						// Remove the progress bar
+						bar.parentElement.remove();
 						break;
+				}
+
+				if (PROGRESS_BARS.children.length === 0) {
+					// hide container
+					PROGRESS.style.display = 'none';
+					PROGRESS_BARS.innerHTML = '';
 				}
 
 			}
