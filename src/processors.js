@@ -69,14 +69,7 @@ class ImageFeatureExtractor extends FeatureExtractor {
         super(config);
 
         this.image_mean = this.config.image_mean;
-        if (!Array.isArray(this.image_mean)) {
-            this.image_mean = new Array(3).fill(this.image_mean);
-        }
-
         this.image_std = this.config.image_std;
-        if (!Array.isArray(this.image_std)) {
-            this.image_std = new Array(3).fill(this.image_std);
-        }
 
         this.resample = this.config.resample ?? 2; // 2 => bilinear
         this.do_rescale = this.config.do_rescale ?? true;
@@ -100,11 +93,18 @@ class ImageFeatureExtractor extends FeatureExtractor {
      */
     async preprocess(image) {
 
+        // First, convert image to RGB if specified in config.
+        if (this.do_convert_rgb) {
+            image = image.rgb();
+        }
+
         const srcWidth = image.width;   // original width
         const srcHeight = image.height; // original height
 
-        // First, resize all images
+        // Next, resize all images
         if (this.do_resize) {
+            // TODO:
+            // For efficiency reasons, it might be best to merge the resize and center crop operations into one.
 
             // `this.size` comes in many forms, so we need to handle them all here:
             // 1. `this.size` is an integer, in which case we resize the image to be a square 
@@ -153,9 +153,19 @@ class ImageFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        if (this.do_convert_rgb) {
-            // Convert image to RGB
-            image = image.rgb();
+        if (this.do_center_crop) {
+
+            let crop_width;
+            let crop_height;
+            if (Number.isInteger(this.crop_size)) {
+                crop_width = this.crop_size;
+                crop_height = this.crop_size;
+            } else {
+                crop_width = this.crop_size.width;
+                crop_height = this.crop_size.height;
+            }
+
+            image = await image.center_crop(crop_width, crop_height);
         }
 
         const pixelData = Float32Array.from(image.data);
@@ -167,14 +177,29 @@ class ImageFeatureExtractor extends FeatureExtractor {
         }
 
         if (this.do_normalize) {
-            for (let i = 0; i < pixelData.length; i += 3) {
-                for (let j = 0; j < 3; ++j) {
+            let image_mean = this.image_mean;
+            if (!Array.isArray(this.image_mean)) {
+                image_mean = new Array(image.channels).fill(image_mean);
+            }
+
+            let image_std = this.image_std;
+            if (!Array.isArray(this.image_std)) {
+                image_std = new Array(image.channels).fill(image_mean);
+            }
+
+            if (image_mean.length !== image.channels || image_std.length !== image.channels) {
+                throw new Error(`When set to arrays, the length of \`image_mean\` (${image_mean.length}) and \`image_std\` (${image_std.length}) must match the number of channels in the image (${image.channels}).`);
+            }
+
+            for (let i = 0; i < pixelData.length; i += image.channels) {
+                for (let j = 0; j < image.channels; ++j) {
                     pixelData[i + j] = (pixelData[i + j] - this.image_mean[j]) / this.image_std[j];
                 }
             }
         }
 
-        let imgDims = [image.height, image.width, 3];
+        // convert to channel dimension format:
+        let imgDims = [image.height, image.width, image.channels];
         let img = new Tensor('float32', pixelData, imgDims);
         let transposed = transpose(img, [2, 0, 1]); // hwc -> chw
 
