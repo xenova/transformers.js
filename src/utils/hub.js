@@ -396,6 +396,7 @@ async function getModelFile(path_or_repo_id, filename, fatal = true, options = {
                     .replace('{revision}', options.revision ?? 'main'),
                 filename
             );
+            response = await getFile(remoteURL);
 
             if (response.status !== 200) {
                 return handleError(response.status, remoteURL, fatal);
