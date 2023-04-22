@@ -8,10 +8,10 @@ env.remoteModels = false;
 // env.remoteModels = true; // Uncomment to test online
 
 
-async function embeddings() {
+async function feature_extraction() {
 
-    // Load embeddings pipeline (uses  by default)
-    let embedder = await pipeline('embeddings', 'sentence-transformers/all-MiniLM-L6-v2')
+    // Load feature extraction pipeline
+    let embedder = await pipeline('feature-extraction', 'sentence-transformers/all-MiniLM-L6-v2')
 
 
     // Provide sentences
@@ -639,29 +639,29 @@ async function image_to_text() {
     return [isDeepEqual(
         output1,
         [{
-            "generated_text": "a herd of giraffes and zebras are grazing in a field"
+            "generated_text": "a herd of giraffes and zebras grazing in a field"
         }]
     ) && isDeepEqual(
         output2,
         [{
             "generated_text": "a herd of giraffes and zebras grazing in a field"
         }, {
-            "generated_text": "a herd of giraffes and zebras are grazing in a field"
+            "generated_text": "a herd of giraffes and zebras grazing in a grassy field"
         }]
     ) && isDeepEqual(
         output3,
         [
-            [{ "generated_text": "a soccer player kicking a soccer ball during a game" }],
-            [{ "generated_text": "a plane is parked at an airport with a lot of people" }]
+            [{ "generated_text": "two men are playing soccer on a field" }],
+            [{ "generated_text": "a plane is parked on the tarmac at an airport" }]
         ]
     ) && isDeepEqual(
         output4,
         [[
-            { "generated_text": "a soccer player kicking a soccer ball during a game" },
-            { "generated_text": "a soccer player kicking a soccer ball during a match" }
+            { "generated_text": "a man kicking a soccer ball on a field" },
+            { "generated_text": "a man kicking a soccer ball in a soccer game" }
         ], [
-            { "generated_text": "airplanes parked at an airport" },
-            { "generated_text": "airplanes are parked at an airport" }
+            { "generated_text": "a large jetliner sitting on top of an airport tarmac" },
+            { "generated_text": "a large jetliner sitting on top of a tarmac" }
         ]]
     ), duration];
 
@@ -694,18 +694,18 @@ async function image_classification() {
 
     return [isDeepEqual(
         output1,
-        [{ "label": "tiger, Panthera tigris", "score": 0.7911674380302429 }]
+        [{ "label": "tiger, Panthera tigris", "score": 0.8053199648857117 }]
     ) && isDeepEqual(
         output2,
-        [{ "label": "tiger, Panthera tigris", "score": 0.7911674380302429 }, { "label": "tiger cat", "score": 0.20425112545490265 }]
+        [{ "label": "tiger, Panthera tigris", "score": 0.8053199648857117 }, { "label": "tiger cat", "score": 0.1903550773859024 }]
     ) && isDeepEqual(
         output3,
-        [{ "label": "palace", "score": 0.9975974559783936 }, { "label": "teapot", "score": 0.9849203824996948 }]
+        [{ "label": "palace", "score": 0.9973987340927124 }, { "label": "teapot", "score": 0.9834653735160828 }]
     ) && isDeepEqual(
         output4,
         [
-            [{ "label": "palace", "score": 0.9975974559783936 }, { "label": "monastery", "score": 0.0007480724016204476 }],
-            [{ "label": "teapot", "score": 0.9849203824996948 }, { "label": "coffeepot", "score": 0.008069870993494987 }]
+            [{ "label": "palace", "score": 0.9973987340927124 }, { "label": "castle", "score": 0.0007704473682679236 }],
+            [{ "label": "teapot", "score": 0.9834653735160828 }, { "label": "coffeepot", "score": 0.009658231399953365 }]
         ]
     ), duration];
 
@@ -713,7 +713,11 @@ async function image_classification() {
 
 
 async function image_segmentation() {
-    let segmenter = await pipeline('image-segmentation', 'facebook/detr-resnet-50-panoptic')
+    let segmenter = await pipeline('image-segmentation', 'facebook/detr-resnet-50-panoptic', {
+
+        // Quantized version of model produces incorrect results
+        quantized: false,
+    })
 
     let img = path.join(__dirname, '../assets/images/cats.jpg')
 
@@ -750,6 +754,7 @@ async function zero_shot_image_classification() {
 
     let classifier = await pipeline('zero-shot-image-classification', 'openai/clip-vit-base-patch16');
 
+
     let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg';
     let urls = [
         'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg',
@@ -772,25 +777,25 @@ async function zero_shot_image_classification() {
     return [isDeepEqual(
         output1,
         [
-            { "score": 0.9934590458869934, "label": "football" },
-            { "score": 0.0007887096726335585, "label": "airport" },
-            { "score": 0.005752227734774351, "label": "animals" }
+            { "score": 0.9859885573387146, "label": "football" },
+            { "score": 0.0027391533367335796, "label": "airport" },
+            { "score": 0.011272300966084003, "label": "animals" }
         ]
     ) && isDeepEqual(
         output2,
         [
             [
-                { "score": 0.9938763976097107, "label": "football" },
-                { "score": 0.0007706438773311675, "label": "airport" },
-                { "score": 0.005352961830794811, "label": "animals" }
+                { "score": 0.9864809513092041, "label": "football" },
+                { "score": 0.002001031069085002, "label": "airport" },
+                { "score": 0.011517995037138462, "label": "animals" }
             ], [
-                { "score": 0.00042657132144086063, "label": "football" },
-                { "score": 0.997478187084198, "label": "airport" },
-                { "score": 0.0020952688064426184, "label": "animals" }
+                { "score": 0.0006775481160730124, "label": "football" },
+                { "score": 0.9980292320251465, "label": "airport" },
+                { "score": 0.0012932150857523084, "label": "animals" }
             ], [
-                { "score": 0.014750242233276367, "label": "football" },
-                { "score": 0.021008191630244255, "label": "airport" },
-                { "score": 0.9642415642738342, "label": "animals" }
+                { "score": 0.016665885224938393, "label": "football" },
+                { "score": 0.018305325880646706, "label": "airport" },
+                { "score": 0.9650287628173828, "label": "animals" }
             ]
         ]
     ), duration];
@@ -825,34 +830,32 @@ async function object_detection() {
         output1,
         {
             "boxes": [
-                [358.7606209516525, 247.36226856708527, 402.14368879795074, 315.4741019010544],
-                [110.0420343875885, 237.36174881458282, 233.3449423313141, 323.1463783979416],
-                [6.167297065258026, 147.96502590179443, 221.5736523270607, 260.91010093688965],
-                [186.66354596614838, 231.2074738740921, 321.6980177164078, 305.78231513500214],
-                [349.1101884841919, 95.70672154426575, 547.1087765693665, 310.6894862651825]
+                [353.46766233444214, 246.3719218969345, 390.4700446128845, 317.3739963769913],
+                [13.694103956222534, 147.21754789352417, 209.85854387283325, 256.78999185562134],
+                [114.16613191366196, 235.96070230007172, 225.00602155923843, 324.78122770786285],
+                [191.83536261320114, 229.7595316171646, 314.76392537355423, 304.3607658147812],
+                [365.9121733903885, 95.36925673484802, 526.8269795179367, 314.0325701236725]
             ],
-            "classes": [24, 24, 25, 24, 25],
-            "scores": [0.9990543723106384, 0.9987652897834778, 0.9860252737998962, 0.997667133808136, 0.9986326694488525],
-            "labels": ["zebra", "zebra", "giraffe", "zebra", "giraffe"]
-        },
+            "classes": [24, 25, 24, 24, 25],
+            "scores": [0.9990849494934082, 0.9275544285774231, 0.9987317323684692, 0.9977309703826904, 0.9986600875854492],
+            "labels": ["zebra", "giraffe", "zebra", "zebra", "giraffe"]
+        }
     ) && isDeepEqual(
         output2,
         [{
             "boxes": [
-                [0.4284285604953766, 0.5051715075969696, 0.4905807673931122, 0.5450733006000519],
-                [0.6921858489513397, 0.33420196175575256, 1.016784816980362, 0.9818757474422455],
-                [0.7528624832630157, 0.5306279957294464, 0.8514151275157928, 0.6537223756313324],
-                [0.5119757056236267, 0.5140881687402725, 0.5615171790122986, 0.5465199798345566],
-                [0.33254460990428925, 0.5169002115726471, 0.35381682217121124, 0.6282477080821991],
-                [0.42312371730804443, 0.4445413798093796, 0.5735017657279968, 0.5278995186090469],
-                [0.18738143146038055, 0.40505293011665344, 0.4653054028749466, 0.5265144407749176],
-                [0.5737103521823883, 0.4582572281360626, 0.7308457791805267, 0.6411504447460175],
-                [0.5117709636688232, 0.5142771750688553, 0.5613124370574951, 0.5452155321836472],
-                [0.5707400292158127, 0.46061643958091736, 0.7277757674455643, 0.6379677355289459]
+                [0.7251099348068237, 0.3263818323612213, 0.9811199903488159, 0.9992953240871429],
+                [0.7574957609176636, 0.5250559747219086, 0.8291805982589722, 0.64716437458992],
+                [0.5086115896701813, 0.5169457495212555, 0.5510353744029999, 0.5451572835445404],
+                [0.3393232971429825, 0.5198696702718735, 0.35605834424495697, 0.6132815033197403],
+                [0.42163804173469543, 0.4444425106048584, 0.5550684630870819, 0.521735429763794],
+                [0.20032313466072083, 0.4107527732849121, 0.4521646201610565, 0.5207630395889282],
+                [0.5072861611843109, 0.5172932296991348, 0.5501181185245514, 0.5445606559514999],
+                [0.5722146779298782, 0.452553853392601, 0.7078577727079391, 0.6239819675683975]
             ],
-            "classes": [8, 6, 1, 8, 1, 5, 5, 8, 3, 6],
-            "scores": [0.911045253276825, 0.9961543679237366, 0.9976616501808167, 0.9338068962097168, 0.9982594847679138, 0.9954741597175598, 0.9979778528213501, 0.9158956408500671, 0.9502778649330139, 0.994942843914032],
-            "labels": ["truck", "bus", "person", "truck", "person", "airplane", "airplane", "truck", "car", "bus"]
+            "classes": [6, 1, 8, 1, 5, 5, 3, 6],
+            "scores": [0.9965458512306213, 0.9970073699951172, 0.9373661279678345, 0.9982954859733582, 0.9951448440551758, 0.9982654452323914, 0.963291347026825, 0.9981732368469238],
+            "labels": ["bus", "person", "truck", "person", "airplane", "airplane", "car", "bus"]
         }]
     ), duration];
 
@@ -870,7 +873,7 @@ let tests = {
     'Text-to-text generation:': text2text_generation,
     'Text generation:': text_generation,
     'Code generation:': code_generation,
-    'Embeddings:': embeddings,
+    'Feature extraction:': feature_extraction,
     'Speech-to-text generation:': speech2text_generation,
     'Image-to-text:': image_to_text,
     'Image classification:': image_classification,
