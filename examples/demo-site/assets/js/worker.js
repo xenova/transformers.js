@@ -8,15 +8,15 @@
 import { pipeline, env } from '/dist/transformers.js';
 
 // Detect whether running locally or remotely (e.g., GitHub pages)
-const RUNNING_REMOTE = location.hostname !== '127.0.0.1' && location.hostname !== 'localhost';
+const RUNNING_LOCALLY = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
 
 // To speed up development when running locally, we should:
 //  1. use the local model files (instead of remote files)
 //  2. load the wasm files from the local dist folder (instead of wasm files from CDN)
-env.remoteModels = RUNNING_REMOTE;
+env.remoteModels = !RUNNING_LOCALLY;
 
-if (RUNNING_REMOTE) {
-    env.backends.onnx.wasm.wasmPaths = DIST_DIR;
+if (RUNNING_LOCALLY) {
+    env.backends.onnx.wasm.wasmPaths = '/dist/';
 }
 
 // Define task function mapping
