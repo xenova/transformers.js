@@ -60,6 +60,7 @@
     "fs": false,
     "path": false,
     "url": false,
-    "sharp": false
+    "sharp": false,
+    "onnxruntime-node": false
   }
 }
