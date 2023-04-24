@@ -2,7 +2,9 @@
 // Scripts.js - handles link between DOM and worker
 
 // Initialise worker
-const worker = new Worker('./assets/js/worker.js');
+const worker = new Worker('./assets/js/worker.js', {
+	type: 'module',
+});
 
 // Define elements
 const TASK_SELECTOR = document.getElementById('task');
