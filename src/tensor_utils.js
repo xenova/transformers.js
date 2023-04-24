@@ -1,6 +1,9 @@
-const { ONNX } = require('./backends/onnx.js');
+import { ONNX } from './backends/onnx.js';
 
-const { interpolate: interpolate_data, transpose: transpose_data } = require('./math_utils.js');
+import {
+    interpolate as interpolate_data,
+    transpose_data
+} from './math_utils.js';
 
 
 /**
@@ -10,7 +13,7 @@ const { interpolate: interpolate_data, transpose: transpose_data } = require('./
 const ONNXTensor = ONNX.Tensor;
 
 // TODO: fix error below
-class Tensor extends ONNXTensor {
+export class Tensor extends ONNXTensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
      * @param  {[string, Array|AnyTypedArray, number[]]|[ONNXTensor]} args 
@@ -192,7 +195,7 @@ function reshape(data, dimensions) {
  * @param {Array} axes - The axes to transpose the tensor along.
  * @returns {Tensor} The transposed tensor.
  */
-function transpose(tensor, axes) {
+export function transpose(tensor, axes) {
     const [transposedData, shape] = transpose_data(tensor.data, tensor.dims, axes);
     return new Tensor(tensor.type, transposedData, shape);
 }
@@ -204,7 +207,7 @@ function transpose(tensor, axes) {
  * @param {any} tensors - The array of tensors to concatenate.
  * @returns {Tensor} - The concatenated tensor.
  */
-function cat(tensors) {
+export function cat(tensors) {
     if (tensors.length === 0) {
         return tensors[0];
     }
@@ -243,7 +246,7 @@ function cat(tensors) {
  * @param {boolean} align_corners - Whether to align corners.
  * @returns {Tensor} - The interpolated tensor.
  */
-function interpolate(input, [out_height, out_width], mode = 'bilinear', align_corners = false) {
+export function interpolate(input, [out_height, out_width], mode = 'bilinear', align_corners = false) {
 
     // Input image dimensions
     const in_channels = input.dims.at(-3) ?? 1;
@@ -258,12 +261,4 @@ function interpolate(input, [out_height, out_width], mode = 'bilinear', align_co
         align_corners
     );
     return new Tensor(input.type, output, [in_channels, out_height, out_width]);
-}
-
-module.exports = {
-    Tensor,
-    transpose,
-    cat,
-    interpolate,
-    transpose_data,
 }

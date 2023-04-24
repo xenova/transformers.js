@@ -8,7 +8,7 @@
 /**
  * @param {TypedArray} input
  */
-function interpolate(input, [in_channels, in_height, in_width], [out_height, out_width], mode = 'bilinear', align_corners = false) {
+export function interpolate(input, [in_channels, in_height, in_width], [out_height, out_width], mode = 'bilinear', align_corners = false) {
     // TODO use mode and align_corners
 
     // Output image dimensions
@@ -86,7 +86,7 @@ function interpolate(input, [in_channels, in_height, in_width], [out_height, out
  * @param {number[]} axes 
  * @returns {[T, number[]]} The transposed array and the new shape.
  */
-function transpose_data(array, dims, axes) {
+export function transpose_data(array, dims, axes) {
     // Calculate the new shape of the transposed array
     // and the stride of the original array
     const shape = new Array(axes.length);
@@ -125,7 +125,7 @@ function transpose_data(array, dims, axes) {
  * @param {number[]} arr - The array of numbers to compute the softmax of.
  * @returns {number[]} The softmax array.
  */
-function softmax(arr) {
+export function softmax(arr) {
     // Compute the maximum value in the array
     const maxVal = max(arr)[0];
 
@@ -146,7 +146,7 @@ function softmax(arr) {
  * @param {number[]} arr - The input array to calculate the log_softmax function for.
  * @returns {any} - The resulting log_softmax array.
  */
-function log_softmax(arr) {
+export function log_softmax(arr) {
     // Compute the softmax values
     const softmaxArr = softmax(arr);
 
@@ -162,7 +162,7 @@ function log_softmax(arr) {
  * @param {number[]} arr2 - The second array.
  * @returns {number} - The dot product of arr1 and arr2.
  */
-function dot(arr1, arr2) {
+export function dot(arr1, arr2) {
     return arr1.reduce((acc, val, i) => acc + val * arr2[i], 0);
 }
 
@@ -174,7 +174,7 @@ function dot(arr1, arr2) {
  * @param {number} [top_k=0] - The number of top items to return (default: 0 = return all)
  * @returns {Array} - The top k items, sorted by descending order
  */
-function getTopItems(items, top_k = 0) {
+export function getTopItems(items, top_k = 0) {
     // if top == 0, return all
 
     items = Array.from(items)
@@ -195,7 +195,7 @@ function getTopItems(items, top_k = 0) {
  * @param {number[]} arr2 - The second array.
  * @returns {number} The cosine similarity between the two arrays.
  */
-function cos_sim(arr1, arr2) {
+export function cos_sim(arr1, arr2) {
     // Calculate dot product of the two arrays
     const dotProduct = dot(arr1, arr2);
 
@@ -216,7 +216,7 @@ function cos_sim(arr1, arr2) {
  * @param {number[]} arr - The array to calculate the magnitude of.
  * @returns {number} The magnitude of the array.
  */
-function magnitude(arr) {
+export function magnitude(arr) {
     return Math.sqrt(arr.reduce((acc, val) => acc + val * val, 0));
 }
 
@@ -227,7 +227,7 @@ function magnitude(arr) {
  * @returns {number[]} - the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
  * @throws {Error} If array is empty.
  */
-function min(arr) {
+export function min(arr) {
     if (arr.length === 0) throw Error('Array must not be empty');
     let min = arr[0];
     let indexOfMin = 0;
@@ -247,7 +247,7 @@ function min(arr) {
  * @returns {number[]} - the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
  * @throws {Error} If array is empty.
  */
-function max(arr) {
+export function max(arr) {
     if (arr.length === 0) throw Error('Array must not be empty');
     let max = arr[0];
     let indexOfMax = 0;
@@ -265,7 +265,7 @@ function max(arr) {
  * FFT class provides functionality for performing Fast Fourier Transform on arrays
  * Code adapted from https://www.npmjs.com/package/fft.js
  */
-class FFT {
+export class FFT {
     /**
      * @param {number} size - The size of the input array. Must be a power of two and bigger than 1.
      * @throws {Error} FFT size must be a power of two and bigger than 1.
@@ -757,16 +757,3 @@ class FFT {
     }
 }
 
-module.exports = {
-    interpolate,
-    transpose: transpose_data,
-    softmax,
-    log_softmax,
-    getTopItems,
-    dot,
-    cos_sim,
-    magnitude,
-    min,
-    max,
-    FFT
-}

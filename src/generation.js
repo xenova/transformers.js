@@ -1,11 +1,11 @@
-const { Tensor } = require("./tensor_utils.js");
-const {
+import { Tensor } from './tensor_utils.js';
+import {
     Callable,
     exists,
-} = require("./utils.js");
-const {
+} from './utils.js';
+import {
     log_softmax
-} = require('./math_utils.js');
+} from './math_utils.js';
 
 /**
  * A class representing a list of logits processors. A logits processor is a function that modifies the logits
@@ -14,7 +14,7 @@ const {
  *
  * @extends Callable
  */
-class LogitsProcessorList extends Callable {
+export class LogitsProcessorList extends Callable {
     /**
      * Constructs a new instance of `LogitsProcessorList`.
      */
@@ -68,7 +68,7 @@ class LogitsProcessorList extends Callable {
  * Base class for processing logits.
  * @extends Callable
  */
-class LogitsProcessor extends Callable {
+export class LogitsProcessor extends Callable {
     /**
      * Apply the processor to the input logits.
      *
@@ -87,7 +87,7 @@ class LogitsProcessor extends Callable {
  * 
  * @extends LogitsProcessor
  */
-class ForceTokensLogitsProcessor extends LogitsProcessor {
+export class ForceTokensLogitsProcessor extends LogitsProcessor {
     /**
      * Constructs a new instance of `ForceTokensLogitsProcessor`.
      * 
@@ -119,7 +119,7 @@ class ForceTokensLogitsProcessor extends LogitsProcessor {
  * A LogitsProcessor that forces a BOS token at the beginning of the generated sequence.
  * @extends LogitsProcessor
  */
-class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
+export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
     /**
      * Create a ForcedBOSTokenLogitsProcessor.
      * @param {number} bos_token_id - The ID of the beginning-of-sequence token to be forced.
@@ -148,7 +148,7 @@ class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
  * 
  * @extends LogitsProcessor
  */
-class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
+export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     /**
      * Create a ForcedEOSTokenLogitsProcessor.
      * @param {number} max_length - Max length of the sequence.
@@ -176,7 +176,7 @@ class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
  * A LogitsProcessor that handles adding timestamps to generated text.
  * @extends LogitsProcessor
  */
-class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
+export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
     /**
      * Constructs a new WhisperTimeStampLogitsProcessor.
      * @param {object} generate_config - The config object passed to the `generate()` method of a transformer model.
@@ -251,7 +251,7 @@ class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
  * 
  * @extends LogitsProcessor
  */
-class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
+export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
     /**
      * Create a NoRepeatNGramLogitsProcessor.
      * @param {number} no_repeat_ngram_size - The no-repeat-ngram size. All ngrams of this size can only occur once.
@@ -342,7 +342,7 @@ class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
  * 
  * @extends LogitsProcessor
  */
-class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
+export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
     /**
      * Create a RepetitionPenaltyLogitsProcessor.
      * @param {number} penalty - The penalty to apply for repeated tokens.
@@ -374,7 +374,7 @@ class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
 }
 
 
-class GenerationConfig {
+export class GenerationConfig {
     /**
      * Create a GenerationConfig object
      * @constructor
@@ -495,15 +495,3 @@ class GenerationConfig {
         this.generation_kwargs = kwargs.generation_kwargs ?? {};
     }
 }
-
-module.exports = {
-    LogitsProcessor,
-    LogitsProcessorList,
-    GenerationConfig,
-    ForcedBOSTokenLogitsProcessor,
-    ForcedEOSTokenLogitsProcessor,
-    WhisperTimeStampLogitsProcessor,
-    ForceTokensLogitsProcessor,
-    NoRepeatNGramLogitsProcessor,
-    RepetitionPenaltyLogitsProcessor
-};

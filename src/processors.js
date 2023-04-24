@@ -1,22 +1,24 @@
 
-const {
+import {
     Callable,
-    dispatchCallback,
-} = require("./utils.js");
+    softmax,
+} from './utils.js';
 
-const {
+import {
     getModelJSON,
-} = require('./utils/hub.js');
+} from './utils/hub.js';
 
-const {
+import {
     max,
     softmax,
     FFT
-} = require('./math_utils.js');
+} from './math_utils.js';
 
-const { Tensor, transpose, cat, interpolate } = require("./tensor_utils.js");
 
-const { CustomImage } = require('./image_utils.js');
+import { Tensor, transpose, cat, interpolate } from './tensor_utils.js';
+
+import { CustomImage } from './image_utils.js';
+
 
 /**
  * Base class for feature extractors.
@@ -959,7 +961,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
  * Represents a Processor that extracts features from an input.
  * @extends Callable
  */
-class Processor extends Callable {
+export class Processor extends Callable {
     /**
      * Creates a new Processor with the given feature extractor.
      * @param {FeatureExtractor} feature_extractor - The function used to extract features from the input.
@@ -1008,7 +1010,7 @@ class WhisperProcessor extends Processor {
  * @example
  * let processor = await AutoProcessor.from_pretrained('openai/whisper-tiny.en');
  */
-class AutoProcessor {
+export class AutoProcessor {
     static FEATURE_EXTRACTOR_CLASS_MAPPING = {
         'WhisperFeatureExtractor': WhisperFeatureExtractor,
         'ViTFeatureExtractor': ViTFeatureExtractor,
@@ -1072,8 +1074,3 @@ class AutoProcessor {
 }
 //////////////////////////////////////////////////
 
-
-module.exports = {
-    AutoProcessor,
-    Processor,
-}

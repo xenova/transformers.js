@@ -1,7 +1,11 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const { env: onnx_env } = require('./backends/onnx.js').ONNX;
+import { ONNX } from './backends/onnx.js';
+const { env: onnx_env } = ONNX;
+
+const __dirname = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 
 
@@ -28,7 +32,7 @@ const localModelPath = RUNNING_LOCALLY
 // We use remote wasm files by default to make it easier for newer users.
 // In practice, users should probably self-host the necessary .wasm files.
 onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
-    ? path.join(path.dirname(__dirname), '/dist/')
+    ? path.join(__dirname, '/dist/')
     : 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/';
 
 
@@ -55,7 +59,9 @@ const env = {
 
     // Whether to use the file system to load files. By default, it is true available.
     useFS: FS_AVAILABLE,
-
+    
+    // Directory name of module. Useful for resolving local paths.
+    __dirname,
 
     /////////////////// Cache settings ///////////////////
     // Whether to use Cache API to cache models. By default, it is true if available.
@@ -78,6 +84,3 @@ function isEmpty(obj) {
     return Object.keys(obj).length === 0;
 }
 
-module.exports = {
-    env
-}

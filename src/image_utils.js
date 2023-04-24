@@ -1,12 +1,12 @@
 
-const fs = require('fs');
-const { isString } = require('./utils.js');
-const { env } = require('./env.js');
+import fs from 'fs';
+import { isString } from './utils.js';
+import { env } from './env.js';
 
-const { getFile } = require('./utils/hub.js');
+import { getFile } from './utils/hub.js';
 
 // Will be empty (or not used) if running in browser or web-worker
-const sharp = require('sharp');
+import sharp from 'sharp';
 
 let CanvasClass;
 let ImageDataClass;
@@ -30,7 +30,7 @@ if (typeof self !== 'undefined') {
 }
 
 
-class CustomImage {
+export class CustomImage {
 
     /**
      * Create a new CustomImage object.
@@ -440,7 +440,3 @@ class CustomImage {
         fs.writeFileSync(path, buffer);
     }
 }
-
-module.exports = {
-    CustomImage,
-};

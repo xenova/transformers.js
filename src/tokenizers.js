@@ -1,17 +1,16 @@
-const {
+import {
     Callable,
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
-} = require('./utils.js');
+} from './utils.js';
 
-const {
+import {
     getModelJSON,
-} = require('./utils/hub.js');
+} from './utils/hub.js';
 
-const { min } = require('./math_utils.js');
-
-const { Tensor } = require('./tensor_utils.js')
+import { min } from './math_utils.js';
+import { Tensor } from './tensor_utils.js';
 
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
@@ -1914,7 +1913,7 @@ function bert_prepare_model_inputs(inputs) {
  * BertTokenizer is a class used to tokenize text for BERT models.
  * @extends PreTrainedTokenizer
  */
-class BertTokenizer extends PreTrainedTokenizer {
+export class BertTokenizer extends PreTrainedTokenizer {
     /**
      * @see {@link bert_prepare_model_inputs}
      */
@@ -1926,7 +1925,7 @@ class BertTokenizer extends PreTrainedTokenizer {
  * Albert tokenizer
  * @extends PreTrainedTokenizer
  */
-class AlbertTokenizer extends PreTrainedTokenizer {
+export class AlbertTokenizer extends PreTrainedTokenizer {
     /**
      * @see {@link bert_prepare_model_inputs}
      */
@@ -1934,7 +1933,7 @@ class AlbertTokenizer extends PreTrainedTokenizer {
         return bert_prepare_model_inputs(inputs);
     }
 }
-class MobileBertTokenizer extends PreTrainedTokenizer {
+export class MobileBertTokenizer extends PreTrainedTokenizer {
     /**
      * @see {@link bert_prepare_model_inputs}
      */
@@ -1942,7 +1941,7 @@ class MobileBertTokenizer extends PreTrainedTokenizer {
         return bert_prepare_model_inputs(inputs);
     }
 }
-class SqueezeBertTokenizer extends PreTrainedTokenizer {
+export class SqueezeBertTokenizer extends PreTrainedTokenizer {
     /**
      * @see {@link bert_prepare_model_inputs}
      */
@@ -1950,11 +1949,11 @@ class SqueezeBertTokenizer extends PreTrainedTokenizer {
         return bert_prepare_model_inputs(inputs);
     }
 }
-class DistilBertTokenizer extends PreTrainedTokenizer { }
-class T5Tokenizer extends PreTrainedTokenizer { }
-class GPT2Tokenizer extends PreTrainedTokenizer { }
-class BartTokenizer extends PreTrainedTokenizer { }
-class RobertaTokenizer extends PreTrainedTokenizer { }
+export class DistilBertTokenizer extends PreTrainedTokenizer { }
+export class T5Tokenizer extends PreTrainedTokenizer { }
+export class GPT2Tokenizer extends PreTrainedTokenizer { }
+export class BartTokenizer extends PreTrainedTokenizer { }
+export class RobertaTokenizer extends PreTrainedTokenizer { }
 
 class BloomTokenizer extends PreTrainedTokenizer { }
 
@@ -1962,7 +1961,7 @@ class BloomTokenizer extends PreTrainedTokenizer { }
  * WhisperTokenizer tokenizer
  * @extends PreTrainedTokenizer
  */
-class WhisperTokenizer extends PreTrainedTokenizer {
+export class WhisperTokenizer extends PreTrainedTokenizer {
     static LANGUAGES = {
         "en": "english",
         "zh": "chinese",
@@ -2375,9 +2374,9 @@ class WhisperTokenizer extends PreTrainedTokenizer {
         return totalSequence;
     }
 }
-class CodeGenTokenizer extends PreTrainedTokenizer { }
-class CLIPTokenizer extends PreTrainedTokenizer { }
-class MarianTokenizer extends PreTrainedTokenizer {
+export class CodeGenTokenizer extends PreTrainedTokenizer { }
+export class CLIPTokenizer extends PreTrainedTokenizer { }
+export class MarianTokenizer extends PreTrainedTokenizer {
     /**
      * Create a new MarianTokenizer instance.
      * @param {Object} tokenizerJSON - The JSON of the tokenizer.
@@ -2653,7 +2652,7 @@ class TokenLatticeNode {
  * @example
  * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
  */
-class AutoTokenizer {
+export class AutoTokenizer {
     static TOKENIZER_CLASS_MAPPING = {
         'T5Tokenizer': T5Tokenizer,
         'DistilBertTokenizer': DistilBertTokenizer,
@@ -2717,11 +2716,3 @@ class AutoTokenizer {
         return new cls(tokenizerJSON, tokenizerConfig);
     }
 }
-
-module.exports = {
-    AutoTokenizer,
-    BertTokenizer,
-    DistilBertTokenizer,
-    T5Tokenizer,
-    GPT2Tokenizer
-};

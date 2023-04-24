@@ -1,7 +1,9 @@
 
-const path = require('path');
-const { pipeline, env } = require('..');;
-const { isDeepEqual } = require('./test_utils.js');
+import path from 'path';
+import { pipeline, env } from '..';
+import { isDeepEqual } from './test_utils.js';
+
+const __dirname = env.__dirname;
 
 // Only use local models
 env.remoteModels = false;
@@ -719,7 +721,7 @@ async function image_segmentation() {
         quantized: false,
     })
 
-    let img = path.join(__dirname, '../assets/images/cats.jpg')
+    let img = path.join(__dirname, './assets/images/cats.jpg')
 
     let start = performance.now();
     let outputs = await segmenter(img);

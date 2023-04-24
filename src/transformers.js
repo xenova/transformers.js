@@ -1,12 +1,15 @@
 
-const {
+// Tokenizers
+export {
     AutoTokenizer,
     BertTokenizer,
     DistilBertTokenizer,
     T5Tokenizer,
     GPT2Tokenizer
-} = require("./tokenizers.js");
-const {
+} from './tokenizers.js';
+
+// Models
+export {
     AutoModel,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
@@ -17,54 +20,18 @@ const {
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
     AutoModelForObjectDetection,
-} = require("./models.js");
+} from './models.js';
 
-const {
+// Processors
+export {
     AutoProcessor
-} = require("./processors.js");
-const {
+} from './processors.js';
+
+// environment variables
+export { env } from './env.js';
+
+// other
+export {
     pipeline
-} = require("./pipelines.js");
-const { env } = require('./env.js');
-
-const { Tensor } = require('./tensor_utils.js');
-
-const moduleExports = {
-    // Tokenizers
-    AutoTokenizer,
-    BertTokenizer,
-    DistilBertTokenizer,
-    T5Tokenizer,
-    GPT2Tokenizer,
-
-    // Models
-    AutoModel,
-    AutoModelForSeq2SeqLM,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoModelForCausalLM,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForVision2Seq,
-    AutoModelForImageClassification,
-    AutoModelForObjectDetection,
-
-    // Processors
-    AutoProcessor,
-
-    // other
-    pipeline,
-    Tensor,
-
-    // environment variables
-    env
-};
-
-// Allow global access to these variables
-if (typeof self !== 'undefined') {
-    // Used by web workers
-    Object.assign(self, moduleExports);
-}
-
-// Used by other modules
-module.exports = moduleExports
+} from './pipelines.js';
+export { Tensor } from './tensor_utils.js';

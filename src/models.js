@@ -1,19 +1,18 @@
-const {
+import {
     Callable,
     isIntegralNumber,
-} = require("./utils.js");
+} from './utils.js';
 
-const {
+import {
     getModelFile,
     getModelJSON,
-} = require('./utils/hub.js');
+} from './utils/hub.js';
 
-const {
+import {
     Sampler,
-} = require("./samplers.js");
+} from './samplers.js';
 
-
-const {
+import {
     LogitsProcessorList,
     GenerationConfig,
     ForceTokensLogitsProcessor,
@@ -22,13 +21,14 @@ const {
     WhisperTimeStampLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
     RepetitionPenaltyLogitsProcessor
-} = require("./generation.js");
+} from './generation.js';
 
-const { executionProviders, ONNX } = require('./backends/onnx.js');
-const {
+import {
     Tensor,
     cat
-} = require('./tensor_utils');
+} from './tensor_utils.js';
+
+import { executionProviders, ONNX } from './backends/onnx.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 /**
@@ -2384,7 +2384,7 @@ class PretrainedMixin {
  * @example
  * let model = await AutoModel.from_pretrained('bert-base-uncased');
  */
-class AutoModel extends PretrainedMixin {
+export class AutoModel extends PretrainedMixin {
     static LOAD_FUNCTION = loadAutoModel;
     static BASE_IF_FAIL = true;
     static MODEL_CLASS_MAPPING = {
@@ -2413,7 +2413,7 @@ class AutoModel extends PretrainedMixin {
  * @example
  * let model = await AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english');
  */
-class AutoModelForSequenceClassification extends PretrainedMixin {
+export class AutoModelForSequenceClassification extends PretrainedMixin {
     static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForSequenceClassification,
@@ -2433,7 +2433,7 @@ class AutoModelForSequenceClassification extends PretrainedMixin {
  * @example
  * let model = await AutoModelForTokenClassification.from_pretrained('Davlan/distilbert-base-multilingual-cased-ner-hrl');
  */
-class AutoModelForTokenClassification extends PretrainedMixin {
+export class AutoModelForTokenClassification extends PretrainedMixin {
     static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForTokenClassification,
@@ -2449,7 +2449,7 @@ class AutoModelForTokenClassification extends PretrainedMixin {
  * @example
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
  */
-class AutoModelForSeq2SeqLM extends PretrainedMixin {
+export class AutoModelForSeq2SeqLM extends PretrainedMixin {
     static LOAD_FUNCTION = seq2seqLoadModel;
     static MODEL_CLASS_MAPPING = {
         't5': T5ForConditionalGeneration,
@@ -2467,7 +2467,7 @@ class AutoModelForSeq2SeqLM extends PretrainedMixin {
  * @example
  * let model = await AutoModelForCausalLM.from_pretrained('gpt2');
  */
-class AutoModelForCausalLM extends PretrainedMixin {
+export class AutoModelForCausalLM extends PretrainedMixin {
     static LOAD_FUNCTION = decoderLoadModel;
     static MODEL_CLASS_MAPPING = {
         'gpt2': GPT2LMHeadModel,
@@ -2483,7 +2483,7 @@ class AutoModelForCausalLM extends PretrainedMixin {
  * @example
  * let model = await AutoModelForMaskedLM.from_pretrained('bert-base-uncased');
  */
-class AutoModelForMaskedLM extends PretrainedMixin {
+export class AutoModelForMaskedLM extends PretrainedMixin {
     static LOAD_FUNCTION = loadAutoModel;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForMaskedLM,
@@ -2502,7 +2502,7 @@ class AutoModelForMaskedLM extends PretrainedMixin {
  * @example
  * let model = await AutoModelForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad');
  */
-class AutoModelForQuestionAnswering extends PretrainedMixin {
+export class AutoModelForQuestionAnswering extends PretrainedMixin {
     static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForQuestionAnswering,
@@ -2521,7 +2521,7 @@ class AutoModelForQuestionAnswering extends PretrainedMixin {
  * @example
  * let model = await AutoModelForVision2Seq.from_pretrained('nlpconnect/vit-gpt2-image-captioning');
  */
-class AutoModelForVision2Seq extends PretrainedMixin {
+export class AutoModelForVision2Seq extends PretrainedMixin {
     static LOAD_FUNCTION = encoderDecoderLoadModel;
     static MODEL_CLASS_MAPPING = {
         'vision-encoder-decoder': VisionEncoderDecoderModel
@@ -2535,7 +2535,7 @@ class AutoModelForVision2Seq extends PretrainedMixin {
  * @example
  * let model = await AutoModelForImageClassification.from_pretrained('google/vit-base-patch16-224');
  */
-class AutoModelForImageClassification extends PretrainedMixin {
+export class AutoModelForImageClassification extends PretrainedMixin {
     static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'vit': ViTForImageClassification,
@@ -2549,7 +2549,7 @@ class AutoModelForImageClassification extends PretrainedMixin {
  * @example
  * let model = await AutoModelForImageSegmentation.from_pretrained('facebook/detr-resnet-50-panoptic');
  */
-class AutoModelForImageSegmentation extends PretrainedMixin {
+export class AutoModelForImageSegmentation extends PretrainedMixin {
     static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForSegmentation,
@@ -2563,7 +2563,7 @@ class AutoModelForImageSegmentation extends PretrainedMixin {
  * @example
  * let model = await AutoModelForObjectDetection.from_pretrained('facebook/detr-resnet-50');
  */
-class AutoModelForObjectDetection extends PretrainedMixin {
+export class AutoModelForObjectDetection extends PretrainedMixin {
     static LOAD_FUNCTION = loadModel;
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForObjectDetection,
@@ -2628,17 +2628,3 @@ class QuestionAnsweringModelOutput extends ModelOutput {
         this.end_logits = end_logits;
     }
 }
-
-module.exports = {
-    AutoModel,
-    AutoModelForSeq2SeqLM,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoModelForCausalLM,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForVision2Seq,
-    AutoModelForImageClassification,
-    AutoModelForObjectDetection,
-    AutoModelForImageSegmentation,
-};

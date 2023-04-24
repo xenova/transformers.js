@@ -7,7 +7,7 @@
  * @param {any} data - The data to pass to the progress callback function.
  * @returns {void}
  */
-function dispatchCallback(progress_callback, data) {
+export function dispatchCallback(progress_callback, data) {
     if (progress_callback !== null) progress_callback(data);
 }
 
@@ -18,7 +18,7 @@ function dispatchCallback(progress_callback, data) {
  * @returns {object} The reversed object.
  * @see https://ultimatecourses.com/blog/reverse-object-keys-and-values-in-javascript
  */
-function reverseDictionary(data) {
+export function reverseDictionary(data) {
     // https://ultimatecourses.com/blog/reverse-object-keys-and-values-in-javascript
     return Object.fromEntries(Object.entries(data).map(([key, value]) => [value, key]));
 }
@@ -29,7 +29,7 @@ function reverseDictionary(data) {
  * @param {string} string - The string to escape.
  * @returns {string} - The escaped string.
  */
-function escapeRegExp(string) {
+export function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
@@ -38,7 +38,7 @@ function escapeRegExp(string) {
  * 
  * @type {new () => {(...args: any[]): any, _call(...args: any[]): any}}
  */
-const Callable = /** @type {any} */ (class {
+export const Callable = /** @type {any} */ (class {
     /**
     * Creates a new instance of the Callable class.
     */
@@ -67,12 +67,13 @@ const Callable = /** @type {any} */ (class {
     }
 });
 
+
 /**
  * Check if a value is a string.
  * @param {*} text - The value to check.
  * @returns {boolean} - True if the value is a string, false otherwise.
  */
-function isString(text) {
+export function isString(text) {
     return typeof text === 'string' || text instanceof String
 }
 
@@ -81,7 +82,7 @@ function isString(text) {
  * @param {*} x - The value to check.
  * @returns {boolean} - True if the value is a string, false otherwise.
  */
-function isIntegralNumber(x) {
+export function isIntegralNumber(x) {
     return Number.isInteger(x) || typeof x === 'bigint'
 }
 
@@ -90,16 +91,7 @@ function isIntegralNumber(x) {
  * @param {*} x - The value to check.
  * @returns {boolean} - True if the value exists, false otherwise.
  */
-function exists(x) {
+export function exists(x) {
     return x !== undefined && x !== null;
 }
 
-module.exports = {
-    Callable,
-    dispatchCallback,
-    reverseDictionary,
-    escapeRegExp,
-    isIntegralNumber,
-    isString,
-    exists,
-};
