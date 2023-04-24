@@ -1,38 +1,30 @@
+// Handler file for choosing the correct version of ONNX Runtime, based on the environment.
+// 
+// Ideally, we could import the `onnxruntime-web` and `onnxruntime-node` packages only when needed,
+// but dynamic imports don't seem to work with the current webpack version and/or configuration.
+// This is possibly due to the experimental nature of top-level await statements.
+// 
+// So, we just import both packages, and use the appropriate one based on the environment.
+//  - When running in node, we use `onnxruntime-node`.
+//  - When running in the browser, we use `onnxruntime-web` (`onnxruntime-node` is not bundled).
+
+
+// NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
+import ONNX_NODE from 'onnxruntime-node';
+import ONNX_WEB from 'onnxruntime-web';
+
 export let ONNX;
 
-// TODO support more execution providers (e.g., webgpu)
 export const executionProviders = ['wasm'];
 
 if (typeof process !== 'undefined') {
     // Running in a node-like environment.
-    // Try to import onnxruntime-node, using onnxruntime-web as a fallback
-    try {
-        ONNX = (await import('onnxruntime-node')).default;
-    } catch (err) {
-        console.warn(
-            "Node.js environment detected, but `onnxruntime-node` was not found. " +
-            "Using `onnxruntime-web` as a fallback. We recommend installing `onnxruntime-node` " +
-            "as it generally improves performance (up to 5X)."
-        )
-
-        // Fix "ReferenceError: self is not defined" bug when running directly with node
-        // https://github.com/microsoft/onnxruntime/issues/13072
-        // @ts-ignore
-        global.self = global;
-
-        ONNX = (await import('onnxruntime-web')).default;
-
-        // Disable spawning worker threads for testing.
-        // This is done by setting numThreads to 1
-        // https://github.com/microsoft/onnxruntime/issues/10311
-        ONNX.env.wasm.numThreads = 1;
-    }
+    ONNX = ONNX_NODE;
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
     executionProviders.unshift('cpu');
 
 } else {
-    // Running in a browser-environment, so we just import `onnxruntime-web`
-    ONNX = (await import('onnxruntime-web')).default;
+    // Running in a browser-environment
+    ONNX = ONNX_WEB;
 }
-
