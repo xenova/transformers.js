@@ -20,10 +20,10 @@ import path from 'path';
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
  */
 
-if (global.ReadableStream === undefined && typeof process !== 'undefined') {
+if (globalThis.ReadableStream === undefined && typeof process !== 'undefined') {
     try {
         // @ts-ignore
-        global.ReadableStream = require('node:stream/web').ReadableStream; // ReadableStream is not a global with Node 16
+        globalThis.ReadableStream = require('node:stream/web').ReadableStream; // ReadableStream is not a global with Node 16
     } catch (err) {
         console.warn("ReadableStream not defined and unable to import from node:stream/web");
     }
