@@ -1,11 +1,10 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import url from 'url';
 
 import { ONNX } from './backends/onnx.js';
 const { env: onnx_env } = ONNX;
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
@@ -13,6 +12,10 @@ const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
+
+const __dirname = RUNNING_LOCALLY
+    ? path.dirname(url.fileURLToPath(import.meta.url))
+    : './';
 
 // Only used for environments with access to file system
 const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
@@ -57,7 +60,7 @@ export const env = {
 
     // Whether to use the file system to load files. By default, it is true available.
     useFS: FS_AVAILABLE,
-    
+
     // Directory name of module. Useful for resolving local paths.
     __dirname,
 
