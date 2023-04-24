@@ -1,9 +1,6 @@
 
-import path from 'path';
 import { pipeline, env } from '../src/transformers.js';
 import { isDeepEqual } from './test_utils.js';
-
-const __dirname = env.__dirname;
 
 // Only use local models
 env.remoteModels = false;
