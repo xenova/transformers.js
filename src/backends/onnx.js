@@ -27,4 +27,12 @@ if (typeof process !== 'undefined') {
 } else {
     // Running in a browser-environment
     ONNX = ONNX_WEB;
+
+    // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
+    // As a temporary fix, we disable it for now.
+    // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
+    const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
+    if (isIOS) {
+        ONNX.env.wasm.simd = false;
+    }
 }
