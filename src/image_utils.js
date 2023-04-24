@@ -8,14 +8,21 @@ import { getFile } from './utils/hub.js';
 // Will be empty (or not used) if running in browser or web-worker
 import sharp from 'sharp';
 
-let CanvasClass;
+const BROWSER_ENV = typeof self !== 'undefined';
+
+let createCanvasFunction;
 let ImageDataClass;
 let loadImageFunction;
-if (typeof self !== 'undefined') {
+if (BROWSER_ENV) {
     // Running in browser or web-worker
-    CanvasClass = OffscreenCanvas;
+    createCanvasFunction = (/** @type {number} */ width, /** @type {number} */ height) => {
+        if (!self.OffscreenCanvas) {
+            throw new Error('OffscreenCanvas not supported by this browser.');
+        }
+        return new self.OffscreenCanvas(width, height)
+    };
     loadImageFunction = self.createImageBitmap;
-    ImageDataClass = ImageData;
+    ImageDataClass = self.ImageData;
 
 } else if (sharp) {
     // Running in Node.js, electron, or other non-browser environment
@@ -76,11 +83,11 @@ export class CustomImage {
      * @returns {Promise<CustomImage>} - The image object.
      */
     static async fromBlob(blob) {
-        if (CanvasClass) {
+        if (BROWSER_ENV) {
             // Running in environment with canvas
             let img = await loadImageFunction(blob);
 
-            const ctx = new CanvasClass(img.width, img.height).getContext('2d');
+            const ctx = createCanvasFunction(img.width, img.height).getContext('2d');
 
             // Draw image to context
             ctx.drawImage(img, 0, 0);
@@ -202,7 +209,7 @@ export class CustomImage {
         // TODO: Use `resample`
         resample = 'bilinear',
     } = {}) {
-        if (CanvasClass) {
+        if (BROWSER_ENV) {
             // Store number of channels before resizing
             let numChannels = this.channels;
 
@@ -210,7 +217,7 @@ export class CustomImage {
             let canvas = this.toCanvas();
 
             // Actually perform resizing using the canvas API
-            const ctx = new CanvasClass(width, height).getContext('2d');
+            const ctx = createCanvasFunction(width, height).getContext('2d');
 
             // Draw image to context, resizing in the process
             ctx.drawImage(canvas, 0, 0, width, height);
@@ -251,7 +258,7 @@ export class CustomImage {
         let height_offset = (this.height - crop_height) / 2;
 
 
-        if (CanvasClass) {
+        if (BROWSER_ENV) {
             // Store number of channels before resizing
             let numChannels = this.channels;
 
@@ -260,7 +267,7 @@ export class CustomImage {
 
             // Create a new canvas of the desired size. This is needed since if the 
             // image is too small, we need to pad it with black pixels.
-            const ctx = new CanvasClass(crop_width, crop_height).getContext('2d');
+            const ctx = createCanvasFunction(crop_width, crop_height).getContext('2d');
 
             let sourceX = 0;
             let sourceY = 0;
@@ -367,7 +374,7 @@ export class CustomImage {
         let cloned = this.clone().rgba();
 
         // Create canvas object for the cloned image
-        let clonedCanvas = new CanvasClass(cloned.width, cloned.height);
+        let clonedCanvas = createCanvasFunction(cloned.width, cloned.height);
 
         // Draw image to context
         let data = new ImageDataClass(cloned.data, cloned.width, cloned.height);
