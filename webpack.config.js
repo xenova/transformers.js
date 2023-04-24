@@ -54,7 +54,6 @@ export default {
         port: 8080
     },
     experiments: {
-        topLevelAwait: true,
         outputModule: true,
     },
 };
