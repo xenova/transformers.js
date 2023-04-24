@@ -25,7 +25,9 @@ export default {
     plugins: [
         // Do not include node modules when bundling for the browser
         new webpack.IgnorePlugin({
-            resourceRegExp: /^onnxruntime-node$|^node:/
+            // NOTE: We do not ignore `onnxruntime-node` because it's
+            // already ignored by the `browser` option in in package.json
+            resourceRegExp: /^node:/
         }),
 
         // Copy .wasm files to dist folder
