@@ -14,18 +14,18 @@ const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 
 const __dirname = RUNNING_LOCALLY
-    ? path.dirname(url.fileURLToPath(import.meta.url))
+    ? path.dirname(path.dirname(url.fileURLToPath(import.meta.url)))
     : './';
 
 // Only used for environments with access to file system
 const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
-    ? path.join(path.dirname(__dirname), '/.cache/')
+    ? path.join(__dirname, '/.cache/')
     : null;
 
 // set local model path, based on available APIs
 const DEFAULT_LOCAL_MODEL_PATH = '/models/';
 const localModelPath = RUNNING_LOCALLY
-    ? path.join(path.dirname(__dirname), DEFAULT_LOCAL_MODEL_PATH)
+    ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
 // First, set path to wasm files. This is needed when running in a web worker.
