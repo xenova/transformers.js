@@ -5,9 +5,7 @@ import { fileURLToPath } from 'url';
 import { ONNX } from './backends/onnx.js';
 const { env: onnx_env } = ONNX;
 
-const __dirname = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
@@ -37,7 +35,7 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
 
 
 // Global variable used to control exection, with suitable defaults
-const env = {
+export const env = {
     // Expose environment variables of different backends, allowing users to set
     // these variables if they want to.
     // TODO - will be used when we add more backends

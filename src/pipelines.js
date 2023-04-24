@@ -1,7 +1,7 @@
 import {
     Callable,
     isString,
-} = require("./utils.js");
+} from "./utils.js";
 import {
     softmax,
     max,

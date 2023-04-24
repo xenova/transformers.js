@@ -1,11 +1,11 @@
 // Utility functions to interact with the Hugging Face Hub (https://huggingface.co/models)
 
 // const path = require('file-system-cache');
-const { env } = require('../env.js');
-const fs = require('fs');
+import { env } from '../env.js';
+import fs from 'fs';
 
-const { dispatchCallback } = require('../utils.js');
-const path = require('path');
+import { dispatchCallback } from '../utils.js';
+import path from 'path';
 
 /**
  * @typedef {object} PretrainedOptions Options for loading a pretrained model.     
@@ -198,7 +198,7 @@ function isValidHttpUrl(string) {
  * @param {URL|string} urlOrPath - The URL/path of the file to get.
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
-async function getFile(urlOrPath) {
+export async function getFile(urlOrPath) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
     if (env.useFS && !isValidHttpUrl(urlOrPath)) {
@@ -321,7 +321,7 @@ class FileCache {
  * @throws Will throw an error if the file is not found and `fatal` is true.
  * @returns {Promise} A Promise that resolves with the file content as a buffer.
  */
-async function getModelFile(path_or_repo_id, filename, fatal = true, options = {}) {
+export async function getModelFile(path_or_repo_id, filename, fatal = true, options = {}) {
 
     // Initiate file retrieval
     dispatchCallback(options.progress_callback, {
@@ -364,11 +364,11 @@ async function getModelFile(path_or_repo_id, filename, fatal = true, options = {
         // Caching not available, or file is not cached, so we perform the request
 
         let isURL = isValidHttpUrl(request);
-
+        let localPath = pathJoin(env.localModelPath, request);
         // If request is a valid HTTP URL, we skip the local file check. Otherwise, we
         // try to get the file locally.
         if (!isURL) {
-            response = await getFile(pathJoin(env.localModelPath, request))
+            response = await getFile(localPath);
         } else if (options.local_files_only) {
             throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`)
         }
@@ -380,7 +380,7 @@ async function getModelFile(path_or_repo_id, filename, fatal = true, options = {
             if (options.local_files_only) {
                 // User requested local files only, but the file is not found locally.
                 if (fatal) {
-                    throw Error(`\`local_files_only=true\` and file was not found locally at "${request}".`)
+                    throw Error(`\`local_files_only=true\` and file was not found locally at "${localPath}".`)
                 } else {
                     // File not found, but this file is optional.
                     // TODO in future, cache the response?
@@ -458,7 +458,7 @@ async function getModelFile(path_or_repo_id, filename, fatal = true, options = {
  * @returns {Promise<object>} - The JSON data parsed into a JavaScript object.
  * @throws Will throw an error if the file is not found and `fatal` is true.
  */
-async function getModelJSON(modelPath, fileName, fatal = true, options = {}) {
+export async function getModelJSON(modelPath, fileName, fatal = true, options = {}) {
     let buffer = await getModelFile(modelPath, fileName, fatal, options);
     if (buffer === null) {
         // Return empty object
@@ -546,10 +546,4 @@ function pathJoin(...parts) {
         return part;
     })
     return parts.join('/');
-}
-
-module.exports = {
-    getModelFile,
-    getModelJSON,
-    getFile,
 }

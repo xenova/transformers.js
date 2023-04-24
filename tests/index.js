@@ -1,6 +1,6 @@
 
 import path from 'path';
-import { pipeline, env } from '..';
+import { pipeline, env } from '../src/transformers.js';
 import { isDeepEqual } from './test_utils.js';
 
 const __dirname = env.__dirname;
@@ -721,7 +721,7 @@ async function image_segmentation() {
         quantized: false,
     })
 
-    let img = path.join(__dirname, './assets/images/cats.jpg')
+    let img = 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/coco_sample.png';
 
     let start = performance.now();
     let outputs = await segmenter(img);

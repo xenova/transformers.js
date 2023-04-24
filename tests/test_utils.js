@@ -1,5 +1,5 @@
 
-function isDeepEqual(obj1, obj2, {
+export function isDeepEqual(obj1, obj2, {
     tol = 1e-3
 } = {}) {
     // Get the keys of both objects
@@ -34,7 +34,4 @@ function isDeepEqual(obj1, obj2, {
 
     // If all key-value pairs are equal, the objects are deep equal
     return true;
-}
-module.exports = {
-    isDeepEqual
 }

@@ -1,7 +1,6 @@
 
 import {
     Callable,
-    softmax,
 } from './utils.js';
 
 import {
