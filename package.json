@@ -59,6 +59,7 @@
   "browser": {
     "fs": false,
     "path": false,
+    "url": false,
     "sharp": false
   }
 }
