@@ -436,7 +436,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         // Check again whether request is in cache. If not, we add the response to the cache
         (await cache.match(request) === undefined)
     ) {
-        cache.put(request, responseToCache);
+        await cache.put(request, responseToCache);
     }
 
     dispatchCallback(options.progress_callback, {
