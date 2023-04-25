@@ -1,5 +1,5 @@
 
-# Transformer.js - Sample browser extension
+# Transformers.js - Sample browser extension
 
 An example project to show how to run 🤗 Transformers in a browser extension. Although we only provide instructions for running in Chrome, it should should be similar for other browsers.
 
