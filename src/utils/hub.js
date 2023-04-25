@@ -436,7 +436,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         // Check again whether request is in cache. If not, we add the response to the cache
         (await cache.match(request) === undefined)
     ) {
-        await cache.put(request, responseToCache);
+        await cache.put(request, responseToCache)
+            .catch(err => {
+                // Do not crash if unable to add to cache (e.g., QuotaExceededError).
+                // Rather, log a warning and proceed with execution.
+                console.warn(`Unable to add ${request} to browser cache: ${err}.`);
+            });
     }
 
     dispatchCallback(options.progress_callback, {
