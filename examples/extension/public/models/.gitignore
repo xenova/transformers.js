@@ -1,0 +1,15 @@
+# Place your model files here. We recommend downloading them from the Hugging Face Hub: https://huggingface.co/
+# For example, https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/tree/main
+#
+# The directory should look something like this:
+# distilbert-base-uncased-finetuned-sst-2-english/
+#   - config.json
+#   - tokenizer.json
+#   - tokenizer_config.json
+#   - onnx/
+#     - model.onnx
+#     - model_quantized.onnx
+#
+# NOTE: Depending on your task, you may only need to include the quantized model weights.
+*
+!.gitignore

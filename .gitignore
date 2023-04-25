@@ -4,6 +4,6 @@ node_modules
 .cache
 
 # Do not track build artifacts/generated files
-dist
-types
-models
+/dist
+/types
+/models
