@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "extension",
+  "description": "Transformers.js | Sample browser extension",
+  "version": "0.0.1",
+  "permissions": [],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "minimum_chrome_version": "92",
+  "action": {
+    "default_icon": "icons/icon.png",
+    "default_title": "extension",
+    "default_popup": "popup.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'"
+  }
+}
