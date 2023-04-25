@@ -40,11 +40,9 @@ An example project to show how to run 🤗 Transformers in a browser extension. 
 
 1. That's it! You should now be able to open the extenion's popup and use the model in your browser!
 
----
-
 ## Editing the template
 
-To edit the extension, we recommend running `npm run dev`, which will rebuild the project when changes are made. 
+We recommend running `npm run dev` while editing the template as it will rebuild the project when changes are made. 
 
 All source code can be found in the `./src/` directory:
 - `background.js` - contains the service worker code which runs in the background. It handles all the requests from the UI, does processing on a separate thread, then returns the result. You will need to reload the extension (by visiting `chrome://extensions/` and clicking the refresh button) after editing this file for changes to be visible in the extension.
