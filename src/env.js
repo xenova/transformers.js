@@ -54,6 +54,10 @@ export const env = {
     remoteHost: 'https://huggingface.co/',
     remotePathTemplate: '{model}/resolve/{revision}/',
 
+    // Whether to allow loading of remote files, defaults to `true`.
+    // If set to `false`, it will have the same effect as setting `local_files_only=true`
+    // when loading pipelines, models, tokenizers, processors, etc.
+    allowRemoteModels: true,
 
     // Local URL to load models from.
     localModelPath: localModelPath,

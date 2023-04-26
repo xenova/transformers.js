@@ -370,17 +370,19 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         if (!isURL) {
             response = await getFile(localPath);
         } else if (options.local_files_only) {
-            throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`)
+            throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`);
+        } else if (!env.allowRemoteModels) {
+            throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${request}.`);
         }
 
         if (response === undefined || response.status === 404) {
             // File not found locally. This means either:
             // - the path is a valid HTTP url (`response === undefined`)
             // - the path is not a valid HTTP url and the file is not present locally on the file system/server (`response.status === 404`)
-            if (options.local_files_only) {
+            if (options.local_files_only || !env.allowRemoteModels) {
                 // User requested local files only, but the file is not found locally.
                 if (fatal) {
-                    throw Error(`\`local_files_only=true\` and file was not found locally at "${localPath}".`)
+                    throw Error(`\`local_files_only=true\` or \`env.allowRemoteModels=false\` and file was not found locally at "${localPath}".`);
                 } else {
                     // File not found, but this file is optional.
                     // TODO in future, cache the response?
