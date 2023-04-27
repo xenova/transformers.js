@@ -198,7 +198,7 @@ def main():
     # Step 3. Move .onnx files to the 'onnx' subfolder
     os.makedirs(os.path.join(output_model_folder, 'onnx'), exist_ok=True)
     for file in os.listdir(output_model_folder):
-        if file.endswith('.onnx'):
+        if file.endswith('.onnx') or file.endswith('.onnx_data'):
             shutil.move(os.path.join(output_model_folder, file),
                         os.path.join(output_model_folder, 'onnx', file))
 
