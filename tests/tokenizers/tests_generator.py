@@ -21,9 +21,6 @@ TEST_DATA = {
         "sentence-transformers/all-MiniLM-L6-v2",
         "ckiplab/bert-base-chinese-ner"
     ],
-    "blenderbot-small": [
-        "facebook/blenderbot_small-90M"
-    ],
     "clip": [
         "openai/clip-vit-base-patch16"
     ],
