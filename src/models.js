@@ -2210,7 +2210,7 @@ class MarianModel extends MarianPreTrainedModel {
      */
     async generate(...args) {
         throw Error(
-            "The current model class (T5Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'T5ForConditionalGeneration'}"
+            "The current model class (MarianModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'MarianMTModel'}"
         )
     }
 }
@@ -2244,6 +2244,111 @@ class MarianMTModel extends MarianPreTrainedModel {
      * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<MarianMTModel>} A new instance of the `MarianMTModel` class.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        });
+        return new this(...info);
+    }
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {any[]} inputs - The input token ids.
+     * @param {number} numOutputTokens - The number of tokens to be generated.
+     * @returns {any} A Beam object representing the initialized beam.
+     * @param {any[]} args
+     */
+    getStartBeams(inputs, numOutputTokens, ...args) {
+        return seq2seqStartBeams(this, inputs, numOutputTokens);
+    }
+
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam - The current beam being generated.
+     * @returns {Promise<any>} - The updated beam after a single generation step.
+     */
+    async runBeam(beam) {
+        return await seq2seqRunBeam(this, beam);
+    }
+
+    /**
+     * @param {any} beam
+     * @param {any} newTokenId
+     */
+    updateBeam(beam, newTokenId) {
+        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
+    }
+
+    /**
+     * @param {any} model_inputs
+     * @returns {Promise<Seq2SeqLMOutput>}
+     */
+    async forward(model_inputs) {
+        return await seq2seq_forward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// M2M100 models
+class M2M100PreTrainedModel extends PreTrainedModel { };
+
+class M2M100Model extends M2M100PreTrainedModel {
+    /**
+     * 
+     * @param  {...any} args 
+     * @throws {Error}
+     * @returns {Promise<any>}
+     */
+    async generate(...args) {
+        throw Error(
+            "The current model class (M2M100Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'M2M100ForConditionalGeneration'}"
+        )
+    }
+}
+
+class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
+    /**
+     * Creates a new instance of the `M2M100ForConditionalGeneration` class.
+    * @param {object} config The model configuration object.
+    * @param {object} session The ONNX session object.
+    * @param {any} decoder_merged_session 
+    * @param {any} generation_config 
+    */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+    }
+
+    /**
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
+     * 
+     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
+     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * 
+     * @returns {Promise<M2M100ForConditionalGeneration>} A new instance of the `M2M100ForConditionalGeneration` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
         quantized = true,
@@ -2457,6 +2562,7 @@ export class AutoModelForSeq2SeqLM extends PretrainedMixin {
         'bart': BartForConditionalGeneration,
         'whisper': WhisperForConditionalGeneration,
         'marian': MarianMTModel,
+        'm2m_100': M2M100ForConditionalGeneration,
     }
 }
 
