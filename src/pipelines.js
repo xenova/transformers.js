@@ -363,10 +363,19 @@ class Text2TextGenerationPipeline extends Pipeline {
             // TODO update generation config
         }
 
-        let input_ids = this.tokenizer(texts, {
+        let tokenizer_options = {
             padding: true,
-            truncation: true
-        }).input_ids
+            truncation: true,
+        }
+        let input_ids;
+        if (this instanceof TranslationPipeline && '_build_translation_inputs' in this.tokenizer) {
+            // TODO - move to Translation pipeline?
+            // Currently put here to avoid code duplication
+            input_ids = this.tokenizer._build_translation_inputs(texts, tokenizer_options, generate_kwargs).input_ids;
+
+        } else {
+            input_ids = this.tokenizer(texts, tokenizer_options).input_ids;
+        }
 
         let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
 
@@ -1340,7 +1349,6 @@ const TASK_ALIASES = {
  * @param {string} [model=null] - The name of the pre-trained model to use. If not specified, the default model for the task will be used.
  * @param {PretrainedOptions} [options] - Optional parameters for the pipeline.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
- * @todo fix error below
  * @throws {Error} If an unsupported pipeline is requested.
  */
 export async function pipeline(
