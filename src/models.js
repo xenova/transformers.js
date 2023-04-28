@@ -851,7 +851,7 @@ class PreTrainedModel extends Callable {
      */
     groupBeams(beams) {
         // Group beams by their ids
-        const groups = {};
+        const groups = Object.create(null);
         for (const obj of beams) {
             if (groups[obj.id] === undefined) {
                 groups[obj.id] = [obj];
@@ -872,7 +872,7 @@ class PreTrainedModel extends Callable {
      */
     getPastKeyValues(decoderResults, pastKeyValues) {
 
-        const pkvs = {};
+        const pkvs = Object.create(null);
 
         for (const name in decoderResults) {
             if (name.startsWith('present')) {
@@ -2420,7 +2420,7 @@ class PretrainedMixin {
     /**
      * Mapping from model type to model class.
      */
-    static MODEL_CLASS_MAPPING = {};
+    static MODEL_CLASS_MAPPING = Object.create(null);
 
     /**
      * Whether to attempt to instantiate the base class (`PretrainedModel`) if 

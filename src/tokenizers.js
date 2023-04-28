@@ -386,7 +386,7 @@ class BPE extends TokenizerModel {
             this.text_encoder = new TextEncoder();
         }
 
-        this.cache = {}
+        this.cache = Object.create(null);
     }
 
     /**
@@ -2321,7 +2321,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             chunks.push(chunk);
         }
 
-        let optional = {};
+        let optional = Object.create(null);
 
         // Preparing and cleaning up the pipeline output
         const full_text = chunks.map(chunk => chunk.text).join('');

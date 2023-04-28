@@ -85,7 +85,8 @@ texts_data = {
         "You should've done this",
         "A\n'll !!to?'d''d of, can't.",
         "def main():\n\tpass",
-        "This\n\nis\na\ntest."
+        "This\n\nis\na\ntest.",
+        "let a = obj.toString();\ntoString();",
     ],
     "custom": {
     }
