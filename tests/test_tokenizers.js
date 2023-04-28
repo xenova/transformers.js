@@ -19,6 +19,8 @@ import { isDeepEqual } from './test_utils.js';
 
             // Log if the test fails
             console.log({
+                name: tokenizerName,
+                text: test.input,
                 output: encoded,
                 target: test.target,
             })
