@@ -1957,6 +1957,44 @@ export class RobertaTokenizer extends PreTrainedTokenizer { }
 
 class BloomTokenizer extends PreTrainedTokenizer { }
 
+class NllbTokenizer extends PreTrainedTokenizer {
+
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+
+        const languageRegex = /[a-z]{3}_[A-Z][a-z]{3}/;
+        this.language_codes = this.special_tokens.filter(x => languageRegex.test(x));
+    }
+
+    /**
+     * Helper function to build translation inputs for an `NllbTokenizer`.
+     * @param {string|string[]} raw_inputs - The text to tokenize.
+     * @param {object} tokenizer_options - Options to be sent to the tokenizer
+     * @param {object} generate_kwargs - Generation options.
+     * @returns {object} Object to be passed to the model.
+     */
+    _build_translation_inputs(raw_inputs, tokenizer_options, generate_kwargs) {
+
+        // Check that both the source and target languages are valid:
+        if (!this.language_codes.includes(generate_kwargs.src_lang)) {
+            throw new Error(`Source language code "${generate_kwargs.src_lang}" is not valid. Must be one of: {${this.language_codes.join(', ')}}`);
+        }
+        if (!this.language_codes.includes(generate_kwargs.tgt_lang)) {
+            throw new Error(`Target language code "${generate_kwargs.tgt_lang}" is not valid. Must be one of: {${this.language_codes.join(', ')}}`);
+        }
+
+        // In the same way as the Python library, we override the post-processor
+        // to force the source language to be first:
+        this.post_processor.config.single[0].SpecialToken.id = generate_kwargs.src_lang;
+
+        // Override the `forced_bos_token_id` to force the correct language
+        generate_kwargs.forced_bos_token_id = this.model.convert_tokens_to_ids([generate_kwargs.tgt_lang])[0];
+
+        return this._call(raw_inputs, tokenizer_options);
+    }
+}
+
+
 /**
  * WhisperTokenizer tokenizer
  * @extends PreTrainedTokenizer
@@ -2669,6 +2707,7 @@ export class AutoTokenizer {
         'MarianTokenizer': MarianTokenizer,
 
         'BloomTokenizer': BloomTokenizer,
+        'NllbTokenizer': NllbTokenizer,
     }
 
 
