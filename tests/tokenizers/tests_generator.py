@@ -121,7 +121,7 @@ def main():
 
     results_file = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'tests.json')
-    with open(results_file, 'w') as fp:
+    with open(results_file, 'w', encoding='utf-8') as fp:
         json.dump(results, fp)
 
 
