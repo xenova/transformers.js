@@ -2421,6 +2421,12 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 }
 export class CodeGenTokenizer extends PreTrainedTokenizer { }
 export class CLIPTokenizer extends PreTrainedTokenizer { }
+
+
+/**
+ * @todo This model is not yet supported by Hugging Face's "fast" tokenizers library (https://github.com/huggingface/tokenizers).
+ * Therefore, this implementation (which is based on fast tokenizers) may produce slightly inaccurate results.
+ */
 export class MarianTokenizer extends PreTrainedTokenizer {
     /**
      * Create a new MarianTokenizer instance.
@@ -2435,6 +2441,8 @@ export class MarianTokenizer extends PreTrainedTokenizer {
         this.supported_language_codes = this.model.vocab.filter(
             x => this.languageRegex.test(x)
         );
+
+        console.warn('WARNING: `MarianTokenizer` is not yet supported by Hugging Face\'s "fast" tokenizers library. Therefore, you may experience slightly inaccurate results.')
     }
 
     /**
