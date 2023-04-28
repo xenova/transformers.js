@@ -3,9 +3,7 @@ import { pipeline, env } from '../src/transformers.js';
 import { isDeepEqual } from './test_utils.js';
 
 // Only use local models
-env.remoteModels = false;
-// env.remoteModels = true; // Uncomment to test online
-
+env.allowRemoteModels = false;
 
 async function feature_extraction() {
 
@@ -433,6 +431,14 @@ async function translation() {
     // Dispose pipeline
     await translator.dispose()
 
+    // Multilingual translation:
+    let translator2 = await pipeline('translation', 'facebook/nllb-200-distilled-600M');
+
+    let translation3 = await translator2('Hello world!', {
+        src_lang: 'eng_Latn',
+        tgt_lang: 'arb_Arab'
+    });
+
     return [isDeepEqual(
         translation1,
         [{ "translation_text": "Hallo, wie sind Sie?" }]
@@ -443,6 +449,9 @@ async function translation() {
             { 'translation_text': 'Hallo, wie sind Sie?' },
             { 'translation_text': 'Mein Name ist Maria.' }
         ]
+    ) && isDeepEqual(
+        translation3,
+        [{ 'translation_text': 'مرحباً عالمياً'}]
     ), duration];
 }
 
