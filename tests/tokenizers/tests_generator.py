@@ -41,9 +41,8 @@ TEST_DATA = {
         "gpt2",
         "distilgpt2"
     ],
-    "marian": [
-        "Helsinki-NLP/opus-mt-en-jap",
-        "Helsinki-NLP/opus-mt-jap-en"
+    "m2m_100": [
+        "facebook/nllb-200-distilled-600M",
     ],
     "mobilebert": [
         "google/mobilebert-uncased"
