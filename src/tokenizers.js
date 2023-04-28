@@ -378,8 +378,13 @@ class BPE extends TokenizerModel {
 
         this.end_of_word_suffix = config.end_of_word_suffix;
 
-        this.byte_encoder = BYTES_TO_UNICODE;
-        this.text_encoder = new TextEncoder();
+        // TODO: Might need to default to false in future.
+        // For more info, see https://github.com/huggingface/tokenizers/issues/1234
+        this.use_byte_fallback = this.config.byte_fallback ?? true;
+        if (this.use_byte_fallback) {
+            this.byte_encoder = BYTES_TO_UNICODE;
+            this.text_encoder = new TextEncoder();
+        }
 
         this.cache = {}
     }
@@ -476,7 +481,9 @@ class BPE extends TokenizerModel {
         let outputTokens = [];
 
         for (let token of tokens) {
-            token = Array.from(this.text_encoder.encode(token), byte => this.byte_encoder[byte]).join('');
+            if (this.use_byte_fallback) {
+                token = Array.from(this.text_encoder.encode(token), byte => this.byte_encoder[byte]).join('');
+            }
             let bpe_token_list = this.bpe(token).split(' ');
             outputTokens.push(...bpe_token_list);
         }
