@@ -1982,17 +1982,23 @@ class NllbTokenizer extends PreTrainedTokenizer {
      */
     _build_translation_inputs(raw_inputs, tokenizer_options, generate_kwargs) {
 
-        // Check that both the source and target languages are valid:
-        if (!this.language_codes.includes(generate_kwargs.src_lang)) {
-            throw new Error(`Source language code "${generate_kwargs.src_lang}" is not valid. Must be one of: {${this.language_codes.join(', ')}}`);
-        }
+
+        // Check that the target language is valid:
         if (!this.language_codes.includes(generate_kwargs.tgt_lang)) {
             throw new Error(`Target language code "${generate_kwargs.tgt_lang}" is not valid. Must be one of: {${this.language_codes.join(', ')}}`);
         }
 
-        // In the same way as the Python library, we override the post-processor
-        // to force the source language to be first:
-        this.post_processor.config.single[0].SpecialToken.id = generate_kwargs.src_lang;
+        // Allow `src_lang` to be optional. If not set, we'll use the tokenizer's default.
+        if (generate_kwargs.src_lang !== undefined) {
+            // Check that the source language is valid:
+            if (!this.language_codes.includes(generate_kwargs.src_lang)) {
+                throw new Error(`Source language code "${generate_kwargs.src_lang}" is not valid. Must be one of: {${this.language_codes.join(', ')}}`);
+            }
+
+            // In the same way as the Python library, we override the post-processor
+            // to force the source language to be first:
+            this.post_processor.config.single[0].SpecialToken.id = generate_kwargs.src_lang;
+        }
 
         // Override the `forced_bos_token_id` to force the correct language
         generate_kwargs.forced_bos_token_id = this.model.convert_tokens_to_ids([generate_kwargs.tgt_lang])[0];
