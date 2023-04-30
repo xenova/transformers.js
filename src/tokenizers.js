@@ -1969,8 +1969,8 @@ class NllbTokenizer extends PreTrainedTokenizer {
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);
 
-        const languageRegex = /[a-z]{3}_[A-Z][a-z]{3}/;
-        this.language_codes = this.special_tokens.filter(x => languageRegex.test(x));
+        this.languageRegex = /^[a-z]{3}_[A-Z][a-z]{3}$/;
+        this.language_codes = this.special_tokens.filter(x => this.languageRegex.test(x));
     }
 
     /**
@@ -1997,7 +1997,12 @@ class NllbTokenizer extends PreTrainedTokenizer {
 
             // In the same way as the Python library, we override the post-processor
             // to force the source language to be first:
-            this.post_processor.config.single[0].SpecialToken.id = generate_kwargs.src_lang;
+            for (let item of this.post_processor.config.single) {
+                if ('SpecialToken' in item && this.languageRegex.test(item.SpecialToken.id)) {
+                    item.SpecialToken.id = generate_kwargs.src_lang;
+                    break;
+                }
+            }
         }
 
         // Override the `forced_bos_token_id` to force the correct language
