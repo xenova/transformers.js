@@ -378,13 +378,7 @@ class BPE extends TokenizerModel {
 
         this.end_of_word_suffix = config.end_of_word_suffix;
 
-        // TODO: Might need to default to false in future.
-        // For more info, see https://github.com/huggingface/tokenizers/issues/1234
-        this.use_byte_fallback = this.config.byte_fallback ?? true;
-        if (this.use_byte_fallback) {
-            this.byte_encoder = BYTES_TO_UNICODE;
-            this.text_encoder = new TextEncoder();
-        }
+        this.byte_fallback = this.config.byte_fallback ?? false;
 
         this.cache = Object.create(null);
     }
@@ -481,9 +475,6 @@ class BPE extends TokenizerModel {
         let outputTokens = [];
 
         for (let token of tokens) {
-            if (this.use_byte_fallback) {
-                token = Array.from(this.text_encoder.encode(token), byte => this.byte_encoder[byte]).join('');
-            }
             let bpe_token_list = this.bpe(token).split(' ');
             outputTokens.push(...bpe_token_list);
         }
@@ -876,8 +867,30 @@ class ByteLevelPreTokenizer extends PreTokenizer {
      */
     constructor(config) {
         super();
-        // TODO use config
+        this.config = config;
+
+        /**
+         * @type {boolean} Whether to add a leading space to the first word.
+         * This allows to treat the leading word just as any other word.
+         */
+        this.add_prefix_space = this.config.add_prefix_space;
+
+        /**
+         * @type {boolean} Whether the post processing step should trim offsets
+         * to avoid including whitespaces.
+         * @todo Use this in the pretokenization step.
+         */
+        this.trim_offsets = this.config.trim_offsets;
+
+        /**
+         * @type {boolean} Whether to use the standard GPT2 regex for whitespace splitting.
+         * Set it to False if you want to use your own splitting. Defaults to true.
+         */
+        this.use_regex = this.config.use_regex ?? true;
         this.pattern = /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+
+        this.byte_encoder = BYTES_TO_UNICODE;
+        this.text_encoder = new TextEncoder();
     }
 
     /**
@@ -887,7 +900,19 @@ class ByteLevelPreTokenizer extends PreTokenizer {
      */
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
-        return text.match(this.pattern) || [];
+        let tokens = this.use_regex ? (text.match(this.pattern) || []) : [text];
+
+        return tokens.map(token => {
+            if (this.add_prefix_space && !token.startsWith(' ')) {
+                token = ' ' + token;
+            }
+
+            // Maps all our bytes to unicode strings, avoiding control tokens of the BPE (spaces in our case)
+            token = Array.from(this.text_encoder.encode(token), byte => this.byte_encoder[byte]).join('');
+
+            return token;
+        });
+
     }
 }
 
