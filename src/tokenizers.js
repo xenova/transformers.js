@@ -48,6 +48,7 @@ function createPattern(pattern) {
         return null;
     }
 }
+
 /**
  * Abstract base class for tokenizer models.
  *
@@ -61,6 +62,9 @@ class TokenizerModel extends Callable {
     constructor(config) {
         super();
         this.config = config;
+
+        /** @type {string[]} */
+        this.vocab = [];
     }
     /**
      * Instantiates a new TokenizerModel instance based on the configuration object provided.
@@ -110,7 +114,7 @@ class TokenizerModel extends Callable {
      * @returns {number[]} The converted token IDs.
      */
     convert_tokens_to_ids(tokens) {
-        return tokens.map(t => this.tokens_to_ids[t] ?? this.unk_token_id);
+        return tokens.map(t => this.tokens_to_ids.get(t) ?? this.unk_token_id);
     }
 
     /**
@@ -130,7 +134,7 @@ class TokenizerModel extends Callable {
 class WordPieceTokenizer extends TokenizerModel {
     /**
      * @param {Object} config - The configuration object.
-     * @param {Object.<string, number>} config.vocab - A mapping of tokens to ids.
+     * @param {Map<string, number>} config.vocab - A mapping of tokens to ids.
      * @param {string} config.unk_token - The unknown token string.
      * @param {string} config.continuing_subword_prefix - The prefix to use for continuing subwords.
      */
@@ -138,7 +142,7 @@ class WordPieceTokenizer extends TokenizerModel {
         super(config);
         /**
          * A mapping of tokens to ids.
-         * @type {Object.<string, number>}
+         * @type {Map<string, number>}
          */
         this.tokens_to_ids = config.vocab;
 
@@ -146,7 +150,7 @@ class WordPieceTokenizer extends TokenizerModel {
          * The id of the unknown token.
          * @type {number}
          */
-        this.unk_token_id = this.tokens_to_ids[config.unk_token];
+        this.unk_token_id = this.tokens_to_ids.get(config.unk_token);
 
         /**
          * The unknown token string.
@@ -154,15 +158,13 @@ class WordPieceTokenizer extends TokenizerModel {
          */
         this.unk_token = config.unk_token;
 
-        let e = Object.entries(this.tokens_to_ids);
-
         /**
          * An array of tokens.
          * @type {string[]}
          */
-        this.vocab = Array(e.length);
+        this.vocab = new Array(this.tokens_to_ids.size);
 
-        for (const [key, value] of e) {
+        for (const [key, value] of this.tokens_to_ids) {
             this.vocab[value] = key;
         }
     }
@@ -194,14 +196,14 @@ class WordPieceTokenizer extends TokenizerModel {
                     if (start > 0) {
                         substr = this.config.continuing_subword_prefix + substr;
                     }
-                    if (this.vocab.includes(substr)) {
+                    if (this.tokens_to_ids.has(substr)) {
                         currentSubstring = substr;
                         break;
                     }
 
                     --end;
                 }
-                if (currentSubstring == null) {
+                if (currentSubstring === null) {
                     isUnknown = true;
                     break;
                 }
@@ -228,24 +230,31 @@ class Unigram extends TokenizerModel {
     /**
      * Create a new Unigram tokenizer model.
      * @param {object} config - The configuration object for the Unigram model.
+     * @param {Map<string, number>} config.vocab - A mapping of tokens to scores.
      * @param {object} moreConfig - Additional configuration object for the Unigram model.
      */
     constructor(config, moreConfig) {
         super(config);
 
-        this.vocab = config.vocab.map(x => x[0]);
-        this.scores = config.vocab.map(x => x[1]);
+        this.vocab = new Array(config.vocab.size);
+        this.scores = new Array(config.vocab.size);
+        let count = 0;
+        config.vocab.forEach((value, key) => {
+            this.vocab[count] = key;
+            this.scores[count] = value;
+            ++count;
+        });
 
         this.unk_token_id = config.unk_id;
         this.unk_token = this.vocab[config.unk_id];
 
-        this.tokens_to_ids = Object.fromEntries(this.vocab.map((x, i) => [x, i]));
+        this.tokens_to_ids = new Map(this.vocab.map((x, i) => [x, i]));
         this.bosToken = ' '; // beginning of a sentence token
 
-        this.bosTokenId = this.tokens_to_ids[this.bosToken];
+        this.bosTokenId = this.tokens_to_ids.get(this.bosToken);
         this.eosToken = moreConfig.eos_token;
 
-        this.eosTokenId = this.tokens_to_ids[this.eosToken];
+        this.eosTokenId = this.tokens_to_ids.get(this.eosToken);
         this.unkToken = this.vocab[this.unk_token_id];
 
         this.minScore = min(this.scores)[0];
@@ -272,7 +281,7 @@ class Unigram extends TokenizerModel {
             // TODO: fix error below
             for (let token of this.trie.commonPrefixSearch(sentence.slice(beginPos))) {
                 tokens.push(token);
-                const tokenId = this.tokens_to_ids[token];
+                const tokenId = this.tokens_to_ids.get(token);
                 const tokenScore = this.scores[tokenId];
                 const n = token.length;
                 lattice.insert(beginPos, n, tokenScore, tokenId);
@@ -353,7 +362,7 @@ class BPE extends TokenizerModel {
     /**
      * Create a BPE instance.
      * @param {Object} config - The configuration object for BPE.
-     * @param {Object} config.vocab - A dictionary containing the vocabulary with tokens as keys and their corresponding indices as values.
+     * @param {Map<string, number>} config.vocab - A mapping of tokens to ids.
      * @param {string} config.unk_token - The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix - The suffix to place at the end of each word.
      * @param {Array} config.merges - An array of BPE merges as strings.
@@ -363,13 +372,11 @@ class BPE extends TokenizerModel {
 
         this.tokens_to_ids = config.vocab;
 
-        this.unk_token_id = this.tokens_to_ids[config.unk_token];
+        this.unk_token_id = this.tokens_to_ids.get(config.unk_token);
         this.unk_token = config.unk_token;
 
-        let e = Object.entries(this.tokens_to_ids);
-        this.vocab = Array(e.length);
-
-        for (const [key, value] of e) {
+        this.vocab = new Array(this.tokens_to_ids.size);
+        for (const [key, value] of this.tokens_to_ids) {
             this.vocab[value] = key;
         }
 
@@ -1476,11 +1483,17 @@ class PreTrainedTokenizer extends Callable {
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
 
-        this.tokenizerJSON = tokenizerJSON;
-        this.tokenizerConfig = tokenizerConfig;
-
+        // Construct parts of the tokenizer from the JSON
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
+
+        // Convert the vocabulary to a map, if it exists
+        if (tokenizerJSON.model.vocab) {
+            if (!Array.isArray(tokenizerJSON.model.vocab)) {
+                tokenizerJSON.model.vocab = Object.entries(tokenizerJSON.model.vocab);
+            }
+            tokenizerJSON.model.vocab = new Map(tokenizerJSON.model.vocab);
+        }
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
 
@@ -1505,7 +1518,7 @@ class PreTrainedTokenizer extends Callable {
             let content = addedToken.content;
             this.decoder.added_tokens.push(content);
 
-            this.model.tokens_to_ids[content] = id;
+            this.model.tokens_to_ids.set(content, id);
             this.model.vocab[id] = content;
 
             if (addedToken.special) {
@@ -1517,20 +1530,19 @@ class PreTrainedTokenizer extends Callable {
             '(' + this.special_tokens.map(escapeRegExp).join('|') + ')'
         );
 
-
         // Set mask token if present (otherwise will be undefined, which is fine)
-        this.mask_token = this.getToken('mask_token');
-        this.mask_token_id = this.model.tokens_to_ids[this.mask_token];
+        this.mask_token = this.getToken(tokenizerConfig, 'mask_token');
+        this.mask_token_id = this.model.tokens_to_ids.get(this.mask_token);
 
-        this.pad_token = this.getToken('pad_token', 'eos_token');
-        this.pad_token_id = this.model.tokens_to_ids[this.pad_token];
+        this.pad_token = this.getToken(tokenizerConfig, 'pad_token', 'eos_token');
+        this.pad_token_id = this.model.tokens_to_ids.get(this.pad_token);
 
-        this.sep_token = this.getToken('sep_token');
-        this.sep_token_id = this.model.tokens_to_ids[this.sep_token];
+        this.sep_token = this.getToken(tokenizerConfig, 'sep_token');
+        this.sep_token_id = this.model.tokens_to_ids.get(this.sep_token);
 
-        this.model_max_length = this.tokenizerConfig.model_max_length;
+        this.model_max_length = tokenizerConfig.model_max_length;
 
-        this.remove_space = this.tokenizerConfig.remove_space;
+        this.remove_space = tokenizerConfig.remove_space;
 
         // TODO allow user to change this
         this.padding_side = 'right';
@@ -1542,9 +1554,9 @@ class PreTrainedTokenizer extends Callable {
      * @returns {string|null} - The value associated with the first matching key, or null if no match is found.
      * @throws {Error} - If an object is found for a matching key and its __type property is not "AddedToken".
      */
-    getToken(...keys) {
+    getToken(tokenizerConfig, ...keys) {
         for (let key of keys) {
-            let item = this.tokenizerConfig[key];
+            let item = tokenizerConfig[key];
 
             if (!item) continue;
 
