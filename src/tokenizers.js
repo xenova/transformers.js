@@ -1349,16 +1349,13 @@ class MetaspaceDecoder extends Decoder {
      */
     decode(tokens) {
         let result = [];
-        let i = 0;
-        for (let token of tokens) {
-            let normalized = token.replace(this.replacement, ' ');
+        for (let i = 0; i < tokens.length; ++i) {
+            let normalized = tokens[i].replace(this.replacement, ' ');
             if (this.addPrefixSpace && i == 0 && normalized.startsWith(' ')) {
                 normalized = normalized.substring(1);
             }
             result.push(normalized);
-            ++i;
         }
-
         return this.convert_tokens_to_string(result);
     }
 }
