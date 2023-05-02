@@ -43,16 +43,6 @@ class FeatureExtractor extends Callable {
  */
 class ImageFeatureExtractor extends FeatureExtractor {
 
-    // Defined here: https://github.com/python-pillow/Pillow/blob/a405e8406b83f8bfb8916e93971edc7407b8b1ff/src/libImaging/Imaging.h#L262-L268
-    RESAMPLING_MAPPING = {
-        0: 'nearest',
-        1: 'lanczos',
-        2: 'bilinear',
-        3: 'bicubic',
-        4: 'box',
-        5: 'hamming',
-    }
-
     /**
      * Constructs a new ViTFeatureExtractor instance.
      *

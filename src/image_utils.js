@@ -37,6 +37,16 @@ if (BROWSER_ENV) {
 }
 
 
+// Defined here: https://github.com/python-pillow/Pillow/blob/a405e8406b83f8bfb8916e93971edc7407b8b1ff/src/libImaging/Imaging.h#L262-L268
+const RESAMPLING_MAPPING = {
+    0: 'nearest',
+    1: 'lanczos',
+    2: 'bilinear',
+    3: 'bicubic',
+    4: 'box',
+    5: 'hamming',
+}
+
 export class CustomImage {
 
     /**
@@ -202,14 +212,19 @@ export class CustomImage {
      * @param {number} width - The width of the new image.
      * @param {number} height - The height of the new image.
      * @param {object} options - Additional options for resizing.
-     * @param {string} [options.resample] - The resampling method to use. Can be one of `nearest`, `bilinear`, `bicubic`.
+     * @param {0|1|2|3|4|5|string} [options.resample] - The resampling method to use.
      * @returns {Promise<CustomImage>} - `this` to support chaining.
      */
     async resize(width, height, {
-        // TODO: Use `resample`
-        resample = 'bilinear',
+        resample = 2,
     } = {}) {
+
+        // Ensure resample method is a string
+        let resampleMethod = RESAMPLING_MAPPING[resample] ?? resample;
+
         if (BROWSER_ENV) {
+            // TODO use `resample` in browser environment
+
             // Store number of channels before resizing
             let numChannels = this.channels;
 
@@ -236,12 +251,40 @@ export class CustomImage {
                     height: this.height,
                     channels: this.channels
                 }
-            }).resize({
-                // https://github.com/lovell/sharp/blob/main/docs/api-resize.md
-                width, height,
-                fit: 'fill',
-                kernel: 'cubic'
             });
+
+            switch (resampleMethod) {
+                case 'box':
+                case 'hamming':
+                    if (resampleMethod === 'box' || resampleMethod === 'hamming') {
+                        console.warn(`Resampling method ${resampleMethod} is not yet supported. Using bilinear instead.`);
+                        resampleMethod = 'bilinear';
+                    }
+
+                case 'nearest':
+                case 'bilinear':
+                case 'bicubic':
+                    // Perform resizing using affine transform. 
+                    // This matches how the python Pillow library does it.
+                    img = img.affine([width / this.width, 0, 0, height / this.height], {
+                        interpolator: resampleMethod
+                    });
+                    break;
+
+                case 'lanczos':
+                    // https://github.com/python-pillow/Pillow/discussions/5519
+                    // https://github.com/lovell/sharp/blob/main/docs/api-resize.md
+                    img = img.resize({
+                        width, height,
+                        fit: 'fill',
+                        kernel: 'lanczos3', // PIL Lanczos uses a kernel size of 3 
+                    });
+                    break;
+
+                default:
+                    throw new Error(`Resampling method ${resampleMethod} is not supported.`);
+            }
+
             return await loadImageFunction(img);
         }
 
