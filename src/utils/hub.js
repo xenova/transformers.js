@@ -6,6 +6,11 @@ import fs from 'fs';
 
 import { dispatchCallback } from '../utils.js';
 import path from 'path';
+import stream from 'node:stream/web';
+
+if (!globalThis.ReadableStream) {
+    globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16
+}
 
 /**
  * @typedef {object} PretrainedOptions Options for loading a pretrained model.     
@@ -19,15 +24,6 @@ import path from 'path';
  * @property {string} [options.revision='main'] The specific model version to use. It can be a branch name, a tag name, or a commit id,
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
  */
-
-if (globalThis.ReadableStream === undefined && typeof process !== 'undefined') {
-    try {
-        // @ts-ignore
-        globalThis.ReadableStream = require('node:stream/web').ReadableStream; // ReadableStream is not a global with Node 16
-    } catch (err) {
-        console.warn("ReadableStream not defined and unable to import from node:stream/web");
-    }
-}
 
 class Headers extends Object {
     constructor(...args) {
