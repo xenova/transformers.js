@@ -5,14 +5,11 @@
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
   "type": "module",
-  "directories": {
-    "test": "tests"
-  },
   "scripts": {
     "webpack": "webpack",
     "typegen": "tsc",
     "dev": "webpack serve --no-client-overlay",
-    "test": "node tests/index.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
     "build": "npm run webpack && npm run typegen",
     "docs": "npx jsdoc-to-markdown --files ./src/**.js"
   },
@@ -40,8 +37,11 @@
     "onnxruntime-node": "^1.14.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.1",
     "catharsis": "github:xenova/catharsis",
     "copy-webpack-plugin": "^11.0.0",
+    "jest": "^29.5.0",
+    "jest-environment-node": "^29.5.0",
     "jsdoc-to-markdown": "^8.0.0",
     "typescript": "^5.0.2",
     "webpack": "^5.80.0",
