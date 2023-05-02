@@ -1,10 +1,12 @@
-# We compare outputs with the python library
+# Helper file to dynamically generate unit tests
+# This is done by running the python Transformers library and comparing its outputs with ours.
+
 import json
 import os
 
 from transformers import AutoTokenizer
 
-TEST_DATA = {
+MODELS_TO_TEST = {
     "albert": [
         "albert-base-v2",
         # "sentence-transformers/paraphrase-albert-small-v2",
@@ -77,7 +79,7 @@ TEST_DATA = {
     ],
 }
 
-texts_data = {
+TOKENIZER_TEST_DATA = {
     "shared": [
         "hello world",
         "Hello World",
@@ -92,11 +94,11 @@ texts_data = {
 }
 
 
-def main():
+def generate_tokenizer_tests():
 
     results = {}
 
-    for model_type, tokenizer_names in TEST_DATA.items():
+    for model_type, tokenizer_names in MODELS_TO_TEST.items():
 
         for tokenizer_name in tokenizer_names:
             # Load tokenizer
@@ -104,8 +106,9 @@ def main():
 
             tokenizer_results = []
 
-            shared_texts = texts_data["shared"]
-            custom_texts = texts_data["custom"].get(tokenizer_name, [])
+            shared_texts = TOKENIZER_TEST_DATA["shared"]
+            custom_texts = TOKENIZER_TEST_DATA["custom"].get(
+                tokenizer_name, [])
 
             # Run tokenizer on test cases
             for text in shared_texts + custom_texts:
@@ -114,11 +117,20 @@ def main():
 
             results[tokenizer_name] = tokenizer_results
 
-    results_file = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "tests.json"
+    return results
+
+
+def main():
+    # TODO add option to cache generated data + force build tests
+
+    data_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "data",
     )
-    with open(results_file, "w", encoding="utf-8") as fp:
-        json.dump(results, fp)
+
+    tokenizer_tests = generate_tokenizer_tests()
+
+    with open(os.path.join(data_dir, "tokenizer_tests.json"), "w", encoding="utf-8") as fp:
+        json.dump(tokenizer_tests, fp)
 
 
 if __name__ == "__main__":
