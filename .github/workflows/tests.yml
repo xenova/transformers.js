@@ -22,4 +22,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
       - run: npm run build
+      - run: pip install -r scripts/requirements.txt
+      - run: npm run generate-tests
       - run: npm run test

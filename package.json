@@ -10,8 +10,7 @@
     "typegen": "tsc",
     "dev": "webpack serve --no-client-overlay",
     "generate-tests": "python tests/generate_tests.py",
-    "jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
-    "test": "npm run generate-tests && npm run jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
     "build": "npm run webpack && npm run typegen",
     "docs": "npx jsdoc-to-markdown --files ./src/**.js",
     "docs-preview": "doc-builder preview Transformers.js ./docs/source/ --not_python_module"
