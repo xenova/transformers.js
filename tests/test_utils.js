@@ -1,7 +1,29 @@
 
+/**
+ * Check if two arrays are the same:
+ * Adapted from https://stackoverflow.com/a/16436975/13989043
+ * @param {any[]} a 
+ * @param {any[]} b 
+ * @returns {boolean} True if the arrays are equal, false if not
+ */
+function arraysEqual(a, b) {
+    if (a === b) return true;
+    if (a == null || b == null) return false;
+    if (a.length !== b.length) return false;
+
+    for (let i = 0; i < a.length; ++i) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
 export function isDeepEqual(obj1, obj2, {
     tol = 1e-3
 } = {}) {
+    if (Array.isArray(obj1) && Array.isArray(obj2)) {
+        return arraysEqual(obj1, obj2);
+    }
+
     // Get the keys of both objects
     const obj1Keys = Object.keys(obj1);
     const obj2Keys = Object.keys(obj2);
