@@ -461,7 +461,7 @@ function textgenUpdatebeam(beam, newTokenId) {
  * A base class for pre-trained models that provides the model configuration and an ONNX session.
  * @extends Callable
  */
-class PreTrainedModel extends Callable {
+export class PreTrainedModel extends Callable {
     /**
      * Creates a new instance of the `PreTrainedModel` class.
      * @param {object} config - The model configuration.

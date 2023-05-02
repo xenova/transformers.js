@@ -10,6 +10,7 @@ export {
 
 // Models
 export {
+    // Auto classes
     AutoModel,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
@@ -20,6 +21,9 @@ export {
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
     AutoModelForObjectDetection,
+    
+    // Other
+    PreTrainedModel,
 } from './models.js';
 
 // Processors
