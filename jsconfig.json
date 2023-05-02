@@ -9,5 +9,10 @@
         "target": "esnext",
         "module": "esnext",
         "moduleResolution": "nodenext",
+    },
+    "typeAcquisition": {
+        "include": [
+            "jest"
+        ]
     }
 }
