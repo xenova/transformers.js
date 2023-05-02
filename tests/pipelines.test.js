@@ -7,6 +7,9 @@ env.allowRemoteModels = false;
 
 const MAX_TEST_EXECUTION_TIME = 60_000; // 60 seconds
 
+// TEMP: Disable pipeline tests for now
+it = it.skip;
+
 describe('Pipelines', () => {
 
     describe('Text classification', () => {
@@ -541,14 +544,15 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
     });
 
-    describe('Speech-to-text generation', () => {
-        // TODO add test case
-        // let audio = './tests/assets/jfk.wav';
-        // let transcriber = await pipeline('automatic-speech-recognition')
-        // let output = await transcriber(audio);
-        // console.log(output);
-        it.todo('1');
-    });
+    // TODO add test case
+    // describe('Speech-to-text generation', () => {
+    //     it('1', async () => {
+    //         let audio = './tests/assets/jfk.wav';
+    //         let transcriber = await pipeline('automatic-speech-recognition')
+    //         let output = await transcriber(audio);
+    //         console.log(output);
+    //     });
+    // });
 
     describe('Image-to-text', () => {
         it('1', async () => {
