@@ -7,3 +7,6 @@ node_modules
 /dist
 /types
 /models
+
+# Do not track coverage reports
+/coverage
