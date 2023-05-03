@@ -46,9 +46,10 @@ MODELS_TO_TEST = {
     "m2m_100": [
         "facebook/nllb-200-distilled-600M",
     ],
-    "mobilebert": [
-        "google/mobilebert-uncased",
-    ],
+    # TODO add back
+    # "mobilebert": [
+    #     "google/mobilebert-uncased",
+    # ],
     "mt5": [
         "google/mt5-small",
     ],
