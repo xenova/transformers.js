@@ -45,19 +45,21 @@ SUPPORTED_MODELS = {
         'bert-base-multilingual-uncased',
         'bert-base-multilingual-cased',
         'nlptown/bert-base-multilingual-uncased-sentiment',
+        'Davlan/bert-base-multilingual-cased-ner-hrl',
+
         'sentence-transformers/all-MiniLM-L6-v2',
         'sentence-transformers/all-MiniLM-L12-v2',
 
-        'Davlan/bert-base-multilingual-cased-ner-hrl',
         'ckiplab/bert-base-chinese-ner',
         'ckiplab/bert-base-chinese-ws',
         'ckiplab/bert-base-chinese-pos',
         'dslim/bert-base-NER',
         'dslim/bert-base-NER-uncased',
     },
-    'blenderbot-small': {
-        'facebook/blenderbot_small-90M',
-    },
+    # TODO:
+    # 'blenderbot-small': {
+    #     'facebook/blenderbot_small-90M',
+    # },
     'clip': {
         'openai/clip-vit-base-patch16',
         'openai/clip-vit-base-patch32',
@@ -70,9 +72,7 @@ SUPPORTED_MODELS = {
     'detr': {
         'facebook/detr-resnet-50',
         'facebook/detr-resnet-101',
-
         'facebook/detr-resnet-50-panoptic',
-
     },
     'distilbert': {
         'distilbert-base-uncased',
@@ -81,33 +81,43 @@ SUPPORTED_MODELS = {
         'distilbert-base-cased-distilled-squad',
         'distilbert-base-uncased-finetuned-sst-2-english',
         'typeform/distilbert-base-uncased-mnli',
-
         'Davlan/distilbert-base-multilingual-cased-ner-hrl',
     },
     'gpt-neo': {
         'EleutherAI/gpt-neo-125M',
+        'MBZUAI/LaMini-Neo-125M',
     },
     'gpt2': {
         'gpt2',
         'distilgpt2',
+        'MBZUAI/LaMini-Cerebras-256M',
+        'MBZUAI/LaMini-Cerebras-590M',
     },
-    'marian': {
-        f'Helsinki-NLP/opus-mt-{x}'
-        for x in SUPPORTED_HELSINKI_NLP_MODELS
-    },
+    # TODO:
+    # 'marian': {
+    #     f'Helsinki-NLP/opus-mt-{x}'
+    #     for x in SUPPORTED_HELSINKI_NLP_MODELS
+    # },
     'mobilebert': {
-        'google/mobilebert-uncased',
         'typeform/mobilebert-uncased-mnli',
+
+        # TODO:
+        # https://github.com/huggingface/optimum/issues/1027
+        # 'google/mobilebert-uncased',
     },
     'mt5': {
         'google/mt5-small',
+        'google/mt5-base',
     },
     'roberta': {
         'xlm-roberta-base',
         'roberta-base',
         'distilroberta-base',
-        'sentence-transformers/all-distilroberta-v1',
         'roberta-large-mnli',
+
+        # TODO:
+        # https://github.com/huggingface/optimum/issues/1028
+        # 'sentence-transformers/all-distilroberta-v1',
     },
     'squeezebert': {
         'squeezebert/squeezebert-uncased',
@@ -120,6 +130,14 @@ SUPPORTED_MODELS = {
         'google/t5-v1_1-base',
         'google/flan-t5-small',
         'google/flan-t5-base',
+
+        'MBZUAI/LaMini-Flan-T5-77M',
+        'MBZUAI/LaMini-Flan-T5-248M',
+        'MBZUAI/LaMini-Flan-T5-783M',
+
+        'MBZUAI/LaMini-T5-61M',
+        'MBZUAI/LaMini-T5-223M',
+        'MBZUAI/LaMini-T5-738M',
     },
     'vision-encoder-decoder': {
         'nlpconnect/vit-gpt2-image-captioning',
