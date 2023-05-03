@@ -6,7 +6,7 @@ import fs from 'fs';
 
 import { dispatchCallback } from '../utils.js';
 import path from 'path';
-import stream from 'node:stream/web';
+import stream from 'stream/web';
 
 if (!globalThis.ReadableStream) {
     globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16

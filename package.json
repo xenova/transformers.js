@@ -63,6 +63,7 @@
     "path": false,
     "url": false,
     "sharp": false,
-    "onnxruntime-node": false
+    "onnxruntime-node": false,
+    "stream/web": false
   }
 }
