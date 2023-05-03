@@ -1175,7 +1175,9 @@ const SUPPORTED_TASKS = {
         "pipeline": TextClassificationPipeline,
         "model": AutoModelForSequenceClassification,
         "default": {
-            "model": "distilbert-base-uncased-finetuned-sst-2-english",
+            // TODO: replace with original
+            // "model": "distilbert-base-uncased-finetuned-sst-2-english",
+            "model": "Xenova/distilbert-base-uncased-finetuned-sst-2-english",
         },
         "type": "text",
     },
@@ -1184,7 +1186,9 @@ const SUPPORTED_TASKS = {
         "pipeline": TokenClassificationPipeline,
         "model": AutoModelForTokenClassification,
         "default": {
-            "model": "Davlan/bert-base-multilingual-cased-ner-hrl",
+            // TODO: replace with original
+            // "model": "Davlan/bert-base-multilingual-cased-ner-hrl",
+            "model": "Xenova/bert-base-multilingual-cased-ner-hrl",
         },
         "type": "text",
     },
@@ -1193,7 +1197,9 @@ const SUPPORTED_TASKS = {
         "pipeline": QuestionAnsweringPipeline,
         "model": AutoModelForQuestionAnswering,
         "default": {
-            "model": "distilbert-base-cased-distilled-squad"
+            // TODO: replace with original
+            // "model": "distilbert-base-cased-distilled-squad",
+            "model": "Xenova/distilbert-base-cased-distilled-squad",
         },
         "type": "text",
     },
@@ -1203,7 +1209,9 @@ const SUPPORTED_TASKS = {
         "pipeline": FillMaskPipeline,
         "model": AutoModelForMaskedLM,
         "default": {
-            "model": "bert-base-uncased"
+            // TODO: replace with original
+            // "model": "bert-base-uncased",
+            "model": "Xenova/bert-base-uncased",
         },
         "type": "text",
     },
@@ -1212,7 +1220,9 @@ const SUPPORTED_TASKS = {
         "pipeline": SummarizationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
-            "model": "sshleifer/distilbart-cnn-6-6"
+            // TODO: replace with original
+            // "model": "sshleifer/distilbart-cnn-6-6",
+            "model": "Xenova/distilbart-cnn-6-6",
         },
         "type": "text",
     },
@@ -1221,7 +1231,9 @@ const SUPPORTED_TASKS = {
         "pipeline": TranslationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
-            "model": "t5-small"
+            // TODO: replace with original
+            // "model": "t5-small",
+            "model": "Xenova/t5-small",
         },
         "type": "text",
     },
@@ -1230,7 +1242,9 @@ const SUPPORTED_TASKS = {
         "pipeline": Text2TextGenerationPipeline,
         "model": AutoModelForSeq2SeqLM,
         "default": {
-            "model": "google/flan-t5-small"
+            // TODO: replace with original
+            // "model": "google/flan-t5-small",
+            "model": "Xenova/flan-t5-small",
         },
         "type": "text",
     },
@@ -1239,7 +1253,9 @@ const SUPPORTED_TASKS = {
         "pipeline": TextGenerationPipeline,
         "model": AutoModelForCausalLM,
         "default": {
-            "model": "gpt2"
+            // TODO: replace with original
+            // "model": "gpt2",
+            "model": "Xenova/gpt2",
         },
         "type": "text",
     },
@@ -1248,7 +1264,9 @@ const SUPPORTED_TASKS = {
         "pipeline": ZeroShotClassificationPipeline,
         "model": AutoModelForSequenceClassification,
         "default": {
-            "model": "typeform/distilbert-base-uncased-mnli",
+            // TODO: replace with original
+            // "model": "typeform/distilbert-base-uncased-mnli",
+            "model": "Xenova/distilbert-base-uncased-mnli",
         },
         "type": "text",
     },
@@ -1259,7 +1277,9 @@ const SUPPORTED_TASKS = {
         "model": AutoModelForSeq2SeqLM,
         "processor": AutoProcessor,
         "default": {
-            "model": "openai/whisper-tiny.en"
+            // TODO: replace with original
+            // "model": "openai/whisper-tiny.en",
+            "model": "Xenova/whisper-tiny.en",
         },
         "type": "multimodal",
     },
@@ -1270,7 +1290,9 @@ const SUPPORTED_TASKS = {
         "model": AutoModelForVision2Seq,
         "processor": AutoProcessor,
         "default": {
-            "model": "nlpconnect/vit-gpt2-image-captioning"
+            // TODO: replace with original
+            // "model": "nlpconnect/vit-gpt2-image-captioning",
+            "model": "Xenova/vit-gpt2-image-captioning",
         },
         "type": "multimodal",
     },
@@ -1281,7 +1303,9 @@ const SUPPORTED_TASKS = {
         "model": AutoModelForImageClassification,
         "processor": AutoProcessor,
         "default": {
-            "model": "google/vit-base-patch16-224"
+            // TODO: replace with original
+            // "model": "google/vit-base-patch16-224",
+            "model": "Xenova/vit-base-patch16-224",
         },
         "type": "multimodal",
     },
@@ -1292,7 +1316,9 @@ const SUPPORTED_TASKS = {
         "model": AutoModelForImageSegmentation,
         "processor": AutoProcessor,
         "default": {
-            "model": "facebook/detr-resnet-50-panoptic"
+            // TODO: replace with original
+            // "model": "facebook/detr-resnet-50-panoptic",
+            "model": "Xenova/detr-resnet-50-panoptic",
         },
         "type": "multimodal",
     },
@@ -1304,7 +1330,9 @@ const SUPPORTED_TASKS = {
         "model": AutoModel,
         "processor": AutoProcessor,
         "default": {
-            "model": "openai/clip-vit-base-patch32"
+            // TODO: replace with original
+            // "model": "openai/clip-vit-base-patch32",
+            "model": "Xenova/clip-vit-base-patch32",
         },
         "type": "multimodal",
     },
@@ -1315,7 +1343,9 @@ const SUPPORTED_TASKS = {
         "model": AutoModelForObjectDetection,
         "processor": AutoProcessor,
         "default": {
-            "model": "facebook/detr-resnet-50"
+            // TODO: replace with original
+            // "model": "facebook/detr-resnet-50",
+            "model": "Xenova/detr-resnet-50",
         },
         "type": "multimodal",
     },
@@ -1326,7 +1356,9 @@ const SUPPORTED_TASKS = {
         "pipeline": FeatureExtractionPipeline,
         "model": AutoModel,
         "default": {
-            "model": "sentence-transformers/all-MiniLM-L6-v2"
+            // TODO: replace with original
+            // "model": "sentence-transformers/all-MiniLM-L6-v2",
+            "model": "Xenova/all-MiniLM-L6-v2",
         },
         "type": "text",
     },
