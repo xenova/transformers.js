@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main, docs ]
 
+env:
+  TESTING_REMOTELY: true
+
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -1,21 +1,16 @@
 
-import { env, pipeline } from '../src/transformers.js';
-import './init.js';
+import { pipeline } from '../src/transformers.js';
+import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
 
-env.allowRemoteModels = false;
-
-
-const MAX_TEST_EXECUTION_TIME = 60_000; // 60 seconds
-
-// TEMP: Disable pipeline tests for now
-it = it.skip;
+// Initialise the testing environment
+init();
 
 describe('Pipelines', () => {
 
     describe('Text classification', () => {
         it('1', async () => {
 
-            let classifier = await pipeline('text-classification', 'distilbert-base-uncased-finetuned-sst-2-english');
+            let classifier = await pipeline('text-classification', m('distilbert-base-uncased-finetuned-sst-2-english'));
 
             let texts = [
                 "This was a masterpiece. Not completely faithful to the books, but enthralling from beginning to end. Might be my favorite of the three.",
@@ -57,7 +52,7 @@ describe('Pipelines', () => {
 
     describe('Token classification', () => {
         it('1', async () => {
-            let classifier = await pipeline('token-classification', 'Davlan/bert-base-multilingual-cased-ner-hrl');
+            let classifier = await pipeline('token-classification', m('Davlan/bert-base-multilingual-cased-ner-hrl'));
 
             let texts = [
                 "The Golden State Warriors are an American professional basketball team based in San Francisco.",
@@ -95,7 +90,7 @@ describe('Pipelines', () => {
 
     describe('Zero-shot classification', () => {
         it('1', async () => {
-            let classifier = await pipeline('zero-shot-classification', 'facebook/bart-large-mnli');
+            let classifier = await pipeline('zero-shot-classification', m('facebook/bart-large-mnli'));
 
 
             let sequences_to_classify = ['one day I will see the world', 'I love making pizza'];
@@ -141,7 +136,7 @@ describe('Pipelines', () => {
     describe('Masked language modelling', () => {
         it('1', async () => {
 
-            let unmasker = await pipeline('fill-mask', 'bert-base-uncased');
+            let unmasker = await pipeline('fill-mask', m('bert-base-uncased'));
 
             let outputs1 = await unmasker("Once upon a [MASK].");
             let outputs2 = await unmasker([
@@ -257,7 +252,7 @@ describe('Pipelines', () => {
             let question = 'Who was Jim Henson?'
             let context = 'Jim Henson was a nice puppet.'
 
-            let answerer = await pipeline('question-answering', 'distilbert-base-uncased-distilled-squad');
+            let answerer = await pipeline('question-answering', m('distilbert-base-uncased-distilled-squad'));
 
             let outputs = await answerer(question, context);
             let outputs2 = await answerer(question, context, {
@@ -287,7 +282,7 @@ describe('Pipelines', () => {
 
         it('1', async () => {
 
-            let summarizer = await pipeline('summarization', 'sshleifer/distilbart-cnn-6-6')
+            let summarizer = await pipeline('summarization', m('sshleifer/distilbart-cnn-6-6'))
 
             let summary = await summarizer(texts, {
                 top_k: 0,
@@ -309,7 +304,7 @@ describe('Pipelines', () => {
 
         it('2', async () => {
             // This case also tests `forced_bos_token_id`
-            let summarizer = await pipeline('summarization', 'facebook/bart-large-cnn');
+            let summarizer = await pipeline('summarization', m('facebook/bart-large-cnn'));
 
             let summary = await summarizer(texts[0], {
                 top_k: 0,
@@ -327,7 +322,7 @@ describe('Pipelines', () => {
 
     describe('Translation', () => {
         it('1', async () => {
-            let translator = await pipeline('translation_en_to_de', 't5-small')
+            let translator = await pipeline('translation_en_to_de', m('t5-small'))
 
             let texts = [
                 'Hello, how are you?',
@@ -357,7 +352,7 @@ describe('Pipelines', () => {
 
         // Multilingual translation:
         it('2', async () => {
-            let translator = await pipeline('translation', 'facebook/nllb-200-distilled-600M');
+            let translator = await pipeline('translation', m('facebook/nllb-200-distilled-600M'));
 
             let translation1 = await translator('Hello world!', {
                 src_lang: 'eng_Latn',
@@ -394,7 +389,7 @@ describe('Pipelines', () => {
     describe('Text-to-text generation', () => {
 
         it('1', async () => {
-            let generator1 = await pipeline('text2text-generation', 'google/flan-t5-small');
+            let generator1 = await pipeline('text2text-generation', m('google/flan-t5-small'));
 
             let output1 = await generator1(
                 "Premise:  At my age you will probably have learnt one lesson. " +
@@ -415,7 +410,7 @@ describe('Pipelines', () => {
 
         it('2', async () => {
 
-            let generator2 = await pipeline('text2text-generation', 'google/flan-t5-base');
+            let generator2 = await pipeline('text2text-generation', m('google/flan-t5-base'));
 
             let output2 = await generator2(`
         Q: Roger has 5 tennis balls. He buys 2 more cans of tennis balls. Each can
@@ -440,7 +435,7 @@ describe('Pipelines', () => {
 
     describe('Text generation', () => {
         it('1', async () => {
-            let generator = await pipeline('text-generation', 'distilgpt2')
+            let generator = await pipeline('text-generation', m('distilgpt2'))
 
             let output1 = await generator('Once upon a time, there was a', {
                 max_new_tokens: 10,
@@ -491,7 +486,7 @@ describe('Pipelines', () => {
 
         it('1', async () => {
             // Specifically test that `added_tokens` are added correctly
-            let generator = await pipeline('text-generation', 'Salesforce/codegen-350M-mono')
+            let generator = await pipeline('text-generation', m('Salesforce/codegen-350M-mono'))
 
             let output1 = await generator('def fib(n):', {
                 max_new_tokens: 45,
@@ -520,7 +515,7 @@ describe('Pipelines', () => {
             ]
 
             // Load feature extraction pipeline
-            let embedder = await pipeline('feature-extraction', 'sentence-transformers/all-MiniLM-L6-v2')
+            let embedder = await pipeline('feature-extraction', m('sentence-transformers/all-MiniLM-L6-v2'))
 
             // Run sentences through embedder
             let output = await embedder(sentences)
@@ -556,7 +551,7 @@ describe('Pipelines', () => {
 
     describe('Image-to-text', () => {
         it('1', async () => {
-            let captioner = await pipeline('image-to-text', 'nlpconnect/vit-gpt2-image-captioning')
+            let captioner = await pipeline('image-to-text', m('nlpconnect/vit-gpt2-image-captioning'))
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
             let urls = [
@@ -619,7 +614,7 @@ describe('Pipelines', () => {
     describe('Image classification', () => {
         it('1', async () => {
 
-            let classifier = await pipeline('image-classification', 'google/vit-base-patch16-224');
+            let classifier = await pipeline('image-classification', m('google/vit-base-patch16-224'));
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg';
             let urls = [
@@ -666,7 +661,7 @@ describe('Pipelines', () => {
 
     describe('Image segmentation', () => {
         it('1', async () => {
-            let segmenter = await pipeline('image-segmentation', 'facebook/detr-resnet-50-panoptic', {
+            let segmenter = await pipeline('image-segmentation', m('facebook/detr-resnet-50-panoptic'), {
                 // Quantized version of model produces incorrect results
                 quantized: false,
             })
@@ -699,7 +694,7 @@ describe('Pipelines', () => {
     describe('Zero-shot image classification', () => {
         it('1', async () => {
 
-            let classifier = await pipeline('zero-shot-image-classification', 'openai/clip-vit-base-patch16');
+            let classifier = await pipeline('zero-shot-image-classification', m('openai/clip-vit-base-patch16'));
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg';
             let urls = [
@@ -742,7 +737,7 @@ describe('Pipelines', () => {
 
     describe('Object detection', () => {
         it('1', async () => {
-            let detector = await pipeline('object-detection', 'facebook/detr-resnet-50')
+            let detector = await pipeline('object-detection', m('facebook/detr-resnet-50'))
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
             let urls = ['https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg']

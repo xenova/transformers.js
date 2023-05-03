@@ -1,9 +1,7 @@
 
 
-import { env, AutoModel, PreTrainedModel } from '../src/transformers.js';
-
-// env.allowRemoteModels = false;
-const MAX_TEST_EXECUTION_TIME = 60_000; // 60 seconds
+import { AutoModel, PreTrainedModel } from '../src/transformers.js';
+import { MAX_TEST_EXECUTION_TIME } from './init.js';
 
 // TODO: Set cache folder to a temp directory
 
