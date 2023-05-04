@@ -1,4 +1,3 @@
-import webpack from 'webpack';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import TerserPlugin from 'terser-webpack-plugin';
 import { fileURLToPath } from 'url';
@@ -23,13 +22,6 @@ export default {
         },
     },
     plugins: [
-        // Do not include node modules when bundling for the browser
-        new webpack.IgnorePlugin({
-            // NOTE: We do not ignore `onnxruntime-node` because it's
-            // already ignored by the `browser` option in in package.json
-            resourceRegExp: /^node:/
-        }),
-
         // Copy .wasm files to dist folder
         new CopyWebpackPlugin({
             patterns: [
