@@ -26,5 +26,10 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: pip install -r scripts/requirements.txt
+      
+      # Setup the testing environment
       - run: npm run generate-tests
+      - run: git lfs install && git clone https://huggingface.co/Xenova/t5-small ./models/t5-small
+
+      # Actually run tests
       - run: npm run test

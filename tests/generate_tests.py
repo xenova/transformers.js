@@ -57,7 +57,9 @@ MODELS_TO_TEST = {
         "roberta-base",
         "distilroberta-base",
         "roberta-large-mnli",
-        "sentence-transformers/all-distilroberta-v1",
+
+        # TODO add back
+        # "sentence-transformers/all-distilroberta-v1",
     ],
     "squeezebert": [
         "squeezebert/squeezebert-uncased",

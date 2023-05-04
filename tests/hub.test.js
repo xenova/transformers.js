@@ -18,7 +18,7 @@ describe('Hub', () => {
         it('should load a model from the remote cache', async () => {
             // 2. Local model doesn't exist, remote file exists
             // This tests that fallback functionality is working
-            let model = await AutoModel.from_pretrained('Xenova/t5-small-web');
+            let model = await AutoModel.from_pretrained('Xenova/t5-small');
             expect(model).toBeInstanceOf(PreTrainedModel);
         }, MAX_TEST_EXECUTION_TIME);
 
