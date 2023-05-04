@@ -1,6 +1,6 @@
 
 import { pipeline } from '../src/transformers.js';
-import { init, m, MAX_TEST_EXECUTION_TIME, MAX_MODEL_LOAD_TIME } from './init.js';
+import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
 
 
 // Initialise the testing environment
@@ -44,6 +44,12 @@ function compare(val1, val2, tol = 0.1) {
     }
 }
 
+
+// NOTE:
+// Due to a memory leak in Jest, we cannot have multiple tests for a single model.
+// This is due to how model construction and destruction occurs, in `beforeAll` and `afterAll`, respectively.
+// As a result, each test is responsible for exactly one model, but we run multiple inputs through it.
+// By encapsulating model construction and destruction in a single `it` block, we avoid these memory issues.
 describe('Pipelines', () => {
 
     describe('Text classification', () => {
@@ -53,31 +59,24 @@ describe('Pipelines', () => {
             'distilbert-base-uncased-finetuned-sst-2-english',
         ];
 
-        describe(models[0], () => {
-            let classifier;
+        it(models[0], async () => {
+            let classifier = await pipeline('text-classification', m(models[0]));
             let texts = [
                 "This was a masterpiece. Not completely faithful to the books, but enthralling from beginning to end. Might be my favorite of the three.",
                 "I hated the movie"
             ];
 
-            beforeAll(async () => {
-                classifier = await pipeline('text-classification', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await classifier.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let outputs = await classifier("I hated the movie");
                 let expected = [
                     { "label": "NEGATIVE", "score": 0.9996212720870972 }
                 ];
                 compare(outputs, expected);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('single + topk', async () => {
+            // single + topk
+            {
                 let outputs = await classifier("I hated the movie", {
                     topk: 2
                 });
@@ -86,10 +85,10 @@ describe('Pipelines', () => {
                     { "label": "POSITIVE", "score": 0.0003787268069572747 }
                 ];
                 compare(outputs, expected);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('batched', async () => {
+            // batched
+            {
                 let outputs = await classifier(texts);
 
                 let expected = [
@@ -98,10 +97,11 @@ describe('Pipelines', () => {
                 ];
 
                 compare(outputs, expected);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
 
-            it('batched + topk', async () => {
+            // batched + topk
+            {
                 let outputs = await classifier(texts, {
                     topk: 2
                 });
@@ -115,9 +115,12 @@ describe('Pipelines', () => {
                 ]];
 
                 compare(outputs, expected);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+
+            await classifier.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Token classification', () => {
@@ -127,22 +130,15 @@ describe('Pipelines', () => {
             'Davlan/bert-base-multilingual-cased-ner-hrl',
         ];
 
-        describe(models[0], () => {
-            let classifier;
+        it(models[0], async () => {
+            let classifier = await pipeline('token-classification', m(models[0]));
             let texts = [
                 "The Golden State Warriors are an American professional basketball team based in San Francisco.",
                 "My name is Sarah and I live in London."
             ];
 
-            beforeAll(async () => {
-                classifier = await pipeline('token-classification', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await classifier.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let outputs = await classifier(texts[0]);
 
                 let expected = [
@@ -155,9 +151,10 @@ describe('Pipelines', () => {
 
                 compare(outputs, expected, 0.05);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
-            it('batched', async () => {
+            // batched
+            {
                 let outputs = await classifier(texts);
 
                 let expected = [
@@ -174,9 +171,11 @@ describe('Pipelines', () => {
                 ];
 
                 compare(outputs, expected, 0.05);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            await classifier.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Zero-shot classification', () => {
@@ -186,21 +185,14 @@ describe('Pipelines', () => {
             'facebook/bart-large-mnli',
         ];
 
-        describe(models[0], () => {
-            let classifier;
+        it(models[0], async () => {
+            let classifier = await pipeline('zero-shot-classification', m(models[0]));
 
             let sequences_to_classify = ['one day I will see the world', 'I love making pizza'];
             let candidate_labels = ['travel', 'cooking', 'dancing'];
 
-            beforeAll(async () => {
-                classifier = await pipeline('zero-shot-classification', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await classifier.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let outputs = await classifier(sequences_to_classify[0], candidate_labels);
                 let expected = {
                     sequence: "one day I will see the world",
@@ -210,9 +202,10 @@ describe('Pipelines', () => {
 
                 compare(outputs, expected, 0.2);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
-            it('batched', async () => {
+            // batched
+            {
                 let outputs = await classifier(sequences_to_classify, candidate_labels);
                 let expected = [{
                     sequence: "one day I will see the world",
@@ -226,10 +219,11 @@ describe('Pipelines', () => {
 
                 compare(outputs, expected, 0.2);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
 
-            it('batched + multilabel', async () => {
+            // batched + multilabel
+            {
                 let outputs = await classifier(sequences_to_classify, candidate_labels, {
                     multi_label: true
                 })
@@ -245,8 +239,10 @@ describe('Pipelines', () => {
 
                 compare(outputs, expected);
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+
+            await classifier.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Masked language modelling', () => {
@@ -256,22 +252,15 @@ describe('Pipelines', () => {
             'bert-base-uncased',
         ];
 
-        describe(models[0], () => {
-            let unmasker;
+        it(models[0], async () => {
+            let unmasker = await pipeline('fill-mask', m(models[0]));
             let texts = [
                 "Once upon a [MASK].",
                 "[MASK] is the capital of England."
             ];
 
-            beforeAll(async () => {
-                unmasker = await pipeline('fill-mask', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await unmasker.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let outputs = await unmasker(texts[0]);
                 let expected = [
                     {
@@ -307,10 +296,11 @@ describe('Pipelines', () => {
                 ];
                 compare(outputs, expected);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
 
-            it('batched', async () => {
+            // batched
+            {
                 let outputs = await unmasker(texts);
 
                 let expected = [[
@@ -379,8 +369,10 @@ describe('Pipelines', () => {
 
                 compare(outputs, expected);
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+
+            await unmasker.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Question answering', () => {
@@ -393,26 +385,19 @@ describe('Pipelines', () => {
             'distilbert-base-uncased-distilled-squad',
         ];
 
-        describe(models[0], () => {
-            let answerer;
+        it(models[0], async () => {
+            let answerer = await pipeline('question-answering', m(models[0]));
 
-            beforeAll(async () => {
-                answerer = await pipeline('question-answering', m(models[0]))
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await answerer.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let outputs = await answerer(question, context);
                 let expected = { answer: 'a nice puppet', score: 0.5664517526948352 };
 
                 compare(outputs, expected, 0.2);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('single + topk', async () => {
+            // single + topk
+            {
                 let outputs = await answerer(question, context, {
                     topk: 3,
                 });
@@ -424,8 +409,9 @@ describe('Pipelines', () => {
 
                 compare(outputs, expected, 0.2);
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+            await answerer.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Summarization', () => {
@@ -441,18 +427,11 @@ describe('Pipelines', () => {
             `The Amazon rainforest (Portuguese: Floresta Amazônica or Amazônia; Spanish: Selva Amazónica, Amazonía or usually Amazonia; French: Forêt amazonienne; Dutch: Amazoneregenwoud), also known in English as Amazonia or the Amazon Jungle, is a moist broadleaf forest that covers most of the Amazon basin of South America. This basin encompasses 7,000,000 square kilometres (2,700,000 sq mi), of which 5,500,000 square kilometres (2,100,000 sq mi) are covered by the rainforest. This region includes territory belonging to nine nations. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%, Colombia with 10%, and with minor amounts in Venezuela, Ecuador, Bolivia, Guyana, Suriname and French Guiana. States or departments in four nations contain "Amazonas" in their names. The Amazon represents over half of the planet's remaining rainforests, and comprises the largest and most biodiverse tract of tropical rainforest in the world, with an estimated 390 billion individual trees divided into 16,000 species.`
         ];
 
-        describe(models[0], () => {
-            let summarizer;
+        it(models[0], async () => {
+            let summarizer = await pipeline('summarization', m(models[0]));
 
-            beforeAll(async () => {
-                summarizer = await pipeline('summarization', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await summarizer.dispose();
-            });
-
-            it('batched', async () => {
+            // batched
+            {
                 let summary = await summarizer(texts, {
                     top_k: 0,
                     do_sample: false,
@@ -460,34 +439,28 @@ describe('Pipelines', () => {
                 expect(summary).toHaveLength(2);
                 expect(summary[0].summary_text.length).toBeGreaterThan(50);
                 expect(summary[1].summary_text.length).toBeGreaterThan(50);
+            }
+            await summarizer.dispose();
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-        });
+        }, MAX_TEST_EXECUTION_TIME);
 
 
-        describe(models[1], () => {
-            let summarizer;
+        it(models[1], async () => {
+            let summarizer = await pipeline('summarization', m(models[1]));
 
-            beforeAll(async () => {
-                summarizer = await pipeline('summarization', m(models[1]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await summarizer.dispose();
-            });
-
-            it('batched + `forced_bos_token_id`', async () => {
+            // batched + `forced_bos_token_id`
+            {
                 let summary = await summarizer(texts[0], {
                     top_k: 0,
                     do_sample: false,
                 });
                 expect(summary).toHaveLength(1);
                 expect(summary[0].summary_text.length).toBeGreaterThan(50);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
+            await summarizer.dispose();
 
-        });
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Translation', () => {
@@ -500,22 +473,15 @@ describe('Pipelines', () => {
             'facebook/nllb-200-distilled-600M',
         ];
 
-        describe(models[0], () => {
-            let translator;
+        it(models[0], async () => {
+            let translator = await pipeline('translation_en_to_de', m(models[0]));
             let texts = [
                 'Hello, how are you?',
                 'My name is Maria.',
             ]
 
-            beforeAll(async () => {
-                translator = await pipeline('translation_en_to_de', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await translator.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let translation = await translator(texts[0], {
                     top_k: 0,
                     do_sample: false
@@ -526,10 +492,10 @@ describe('Pipelines', () => {
                 ];
 
                 compare(translation, expected);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('batched', async () => {
+            // batched
+            {
                 let output = await translator(texts, {
                     top_k: 0,
                     do_sample: false
@@ -542,26 +508,21 @@ describe('Pipelines', () => {
 
                 compare(output, expected);
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+
+            await translator.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
 
 
-        describe(models[1], () => {
-            let translator;
+        it(models[1], async () => {
+            let translator = await pipeline('translation', m(models[1]));
             let texts = [
                 'Hello world!',
                 'I like to walk my dog.',
             ]
 
-            beforeAll(async () => {
-                translator = await pipeline('translation', m(models[1]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await translator.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let translation = await translator(texts[0], {
                     src_lang: 'eng_Latn',
                     tgt_lang: 'arb_Arab'
@@ -572,10 +533,10 @@ describe('Pipelines', () => {
                 ];
 
                 compare(translation, expected);
+            };
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('single + back-translation', async () => {
+            // single + back-translation
+            {
                 let translation1 = await translator(texts[1], {
                     // src_lang: 'eng_Latn',
                     tgt_lang: 'ell_Grek'
@@ -596,8 +557,10 @@ describe('Pipelines', () => {
                 ]
                 compare(translation2, expectedBack);
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+
+            await translator.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Text-to-text generation', () => {
@@ -608,33 +571,27 @@ describe('Pipelines', () => {
             'google/flan-t5-base',
         ];
 
-        describe(models[0], () => {
-            let generator;
+        it(models[0], async () => {
+            let generator = await pipeline('text2text-generation', m(models[0]));
             let text = "Premise:  At my age you will probably have learnt one lesson. " +
                 "Hypothesis:  It's not certain how many lessons you'll learn by your thirties. " +
                 "Does the premise entail the hypothesis?";
 
-            beforeAll(async () => {
-                generator = await pipeline('text2text-generation', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await generator.dispose();
-            });
-
-            it('single', async () => {
+            {
                 let outputs = await generator(text, {
                     top_k: 0,
                     do_sample: false
                 });
                 expect(outputs).toHaveLength(1);
                 expect(outputs[0].length).toBeGreaterThan(10);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            await generator.dispose();
 
-        describe(models[1], () => {
-            let generator;
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it(models[1], async () => {
+            let generator = await pipeline('text2text-generation', m(models[1]));
             let text = `
             Q: Roger has 5 tennis balls. He buys 2 more cans of tennis balls. Each can
             has 3 tennis balls. How many tennis balls does he have now?
@@ -644,24 +601,17 @@ describe('Pipelines', () => {
             Q: A juggler can juggle 16 balls. Half of the balls are golf balls, and half
             of the golf balls are blue. How many blue golf balls are there?`;
 
-            beforeAll(async () => {
-                generator = await pipeline('text2text-generation', m(models[1]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await generator.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let outputs = await generator(text, {
                     top_k: 0,
                     do_sample: false
                 });
                 expect(outputs).toHaveLength(1);
                 expect(outputs[0].length).toBeGreaterThan(10);
-
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+            await generator.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Text generation', () => {
@@ -673,22 +623,15 @@ describe('Pipelines', () => {
             'Salesforce/codegen-350M-mono',
         ];
 
-        describe(models[0], () => {
-            let generator;
+        it(models[0], async () => {
+            let generator = await pipeline('text-generation', m(models[0]));
             let texts = [
                 'Once upon a time, there was a',
                 'I enjoy walking with my cute dog',
             ];
 
-            beforeAll(async () => {
-                generator = await pipeline('text-generation', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await generator.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let output = await generator(texts[0], {
                     max_new_tokens: 10,
                     top_k: 0,
@@ -696,10 +639,10 @@ describe('Pipelines', () => {
                 })
                 expect(output).toHaveLength(1);
                 expect(output[0].generated_text.length).toBeGreaterThan(texts[0].length);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('single + `num_beams` + `num_return_sequences`', async () => {
+            // single + `num_beams` + `num_return_sequences`
+            {
                 let output = await generator(texts[0], {
                     max_new_tokens: 10,
                     num_beams: 2,
@@ -711,9 +654,10 @@ describe('Pipelines', () => {
                 expect(output[0].generated_text.length).toBeGreaterThan(texts[0].length);
                 expect(output[1].generated_text.length).toBeGreaterThan(texts[0].length);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
-            it('batched + `num_beams` + `num_return_sequences`', async () => {
+            // batched + `num_beams` + `num_return_sequences`
+            {
                 let output = await generator(texts, {
                     max_new_tokens: 10,
                     num_beams: 2,
@@ -729,23 +673,19 @@ describe('Pipelines', () => {
                 expect(output[1][0].generated_text.length).toBeGreaterThan(texts[1].length);
                 expect(output[1][1].generated_text.length).toBeGreaterThan(texts[1].length);
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+
+            await generator.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
 
 
-        describe(models[1], () => {
-            let generator;
+        it(models[1], async () => {
+            let generator = await pipeline('text-generation', m(models[1]));
             let code = 'def fib(n):';
 
-            beforeAll(async () => {
-                generator = await pipeline('text-generation', m(models[1]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await generator.dispose();
-            });
-
-            it('single + `added_tokens`', async () => {
+            // single + `added_tokens`
+            {
                 let output = await generator(code, {
                     max_new_tokens: 45,
                     top_k: 0,
@@ -753,10 +693,10 @@ describe('Pipelines', () => {
                 })
                 expect(output).toHaveLength(1);
                 expect(output[0].generated_text.length).toBeGreaterThan(code.length);
+            }
+            await generator.dispose();
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-        });
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Feature extraction', () => {
@@ -767,8 +707,8 @@ describe('Pipelines', () => {
 
         ];
 
-        describe(models[0], () => {
-            let extractor;
+        it(models[0], async () => {
+            let extractor = await pipeline('feature-extraction', m(models[0]));
 
             // Provide sentences
             let sentences = [
@@ -777,15 +717,8 @@ describe('Pipelines', () => {
                 'The quick brown fox jumps over the lazy dog.'
             ]
 
-            beforeAll(async () => {
-                extractor = await pipeline('feature-extraction', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await extractor.dispose();
-            });
-
-            it('test', async () => {
+            // compare features
+            {
                 let output = await extractor(sentences);
 
                 // Convert Tensor to JS list
@@ -802,10 +735,10 @@ describe('Pipelines', () => {
 
                 let expected = [0.502872309810269, 0.11088411026413121, 0.09602621986931259]
                 compare(pairwiseScores, expected);
+            }
+            await extractor.dispose();
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-        });
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     // TODO
@@ -816,24 +749,17 @@ describe('Pipelines', () => {
     //         'openai/whisper-tiny.en',
     //     ];
 
-    //     describe(models[0], () => {
-    //         let transcriber;
+    //     it(models[0], async () => {
+    //         let transcriber = await pipeline('automatic-speech-recognition', m(models[0]));
     //         let audio = './tests/assets/jfk.wav';
 
-    //         beforeAll(async () => {
-    //             transcriber = await pipeline('automatic-speech-recognition', m(models[0]));
-    //         }, MAX_MODEL_LOAD_TIME);
-
-    //         afterAll(async () => {
-    //             await transcriber.dispose();
-    //         });
-
-    //         it('single', async () => {
+    //         {
     //             let output = await transcriber(audio);
     //             expect(output);
+    //         }
+    //         await transcriber.dispose();
 
-    //         }, MAX_TEST_EXECUTION_TIME);
-    //     });
+    //     }, MAX_TEST_EXECUTION_TIME);
     // });
 
     describe('Image-to-text', () => {
@@ -843,8 +769,8 @@ describe('Pipelines', () => {
             'nlpconnect/vit-gpt2-image-captioning',
         ];
 
-        describe(models[0], () => {
-            let captioner;
+        it(models[0], async () => {
+            let captioner = await pipeline('image-to-text', m(models[0]));
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
             let urls = [
@@ -852,15 +778,8 @@ describe('Pipelines', () => {
                 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg'
             ]
 
-            beforeAll(async () => {
-                captioner = await pipeline('image-to-text', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await captioner.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let output = await captioner(url, {
                     top_k: 0,
                     do_sample: false
@@ -871,10 +790,10 @@ describe('Pipelines', () => {
 
                 expect(output).toHaveLength(1);
                 expect(output[0].generated_text.length).toBeGreaterThan(10);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('single + generation options', async () => {
+            // single + generation options
+            {
                 let output = await captioner(url, {
                     max_new_tokens: 20,
                     num_beams: 2,
@@ -891,9 +810,10 @@ describe('Pipelines', () => {
                 expect(output[0].generated_text.length).toBeGreaterThan(10);
                 expect(output[1].generated_text.length).toBeGreaterThan(10);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
-            it('batched', async () => {
+            // batched
+            {
                 let output = await captioner(urls, {
                     top_k: 0,
                     do_sample: false
@@ -908,10 +828,10 @@ describe('Pipelines', () => {
                 expect(output[0][0].generated_text.length).toBeGreaterThan(10);
                 expect(output[1]).toHaveLength(1);
                 expect(output[1][0].generated_text.length).toBeGreaterThan(10);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('batched + generation options', async () => {
+            // batched + generation options
+            {
                 let output = await captioner(urls, {
                     max_new_tokens: 20,
                     num_beams: 2,
@@ -937,8 +857,9 @@ describe('Pipelines', () => {
                 expect(output[1][0].generated_text.length).toBeGreaterThan(10);
                 expect(output[1][1].generated_text.length).toBeGreaterThan(10);
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+            await captioner.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Image classification', () => {
@@ -948,8 +869,8 @@ describe('Pipelines', () => {
             'google/vit-base-patch16-224',
         ];
 
-        describe(models[0], () => {
-            let classifier;
+        it(models[0], async () => {
+            let classifier = await pipeline('image-classification', m(models[0]));
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg';
             let urls = [
@@ -957,15 +878,8 @@ describe('Pipelines', () => {
                 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/teapot.jpg'
             ]
 
-            beforeAll(async () => {
-                classifier = await pipeline('image-classification', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await classifier.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let outputs = await classifier(url);
 
                 let expected = [
@@ -974,9 +888,10 @@ describe('Pipelines', () => {
 
                 compare(outputs, expected, 0.2);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
-            it('single + topk', async () => {
+            // single + topk
+            {
                 let outputs = await classifier(url, {
                     topk: 2
                 });
@@ -987,11 +902,11 @@ describe('Pipelines', () => {
                 ];
 
                 compare(outputs, expected, 0.2);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
 
-
-            it('batched', async () => {
+            // batched
+            {
                 let outputs = await classifier(urls);
 
                 let expected = [
@@ -1000,10 +915,10 @@ describe('Pipelines', () => {
                 ];
 
                 compare(outputs, expected);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-            it('batched + topk', async () => {
+            // batched + topk
+            {
                 let outputs = await classifier(urls, {
                     topk: 2
                 });
@@ -1020,9 +935,10 @@ describe('Pipelines', () => {
                 ];
 
                 compare(outputs, expected);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            await classifier.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Image segmentation', () => {
@@ -1032,25 +948,16 @@ describe('Pipelines', () => {
             'facebook/detr-resnet-50-panoptic',
         ];
 
-        describe(models[0], () => {
-            let segmenter;
+        it(models[0], async () => {
+            let segmenter = await pipeline('image-segmentation', m(models[0]), {
+                // Quantized version of model produces incorrect results
+                quantized: false,
+            })
             let img = 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/coco_sample.png';
 
-
-            beforeAll(async () => {
-                segmenter = await pipeline('image-segmentation', m(models[0]), {
-                    // Quantized version of model produces incorrect results
-                    quantized: false,
-                })
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await segmenter.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let outputs = await segmenter(img);
-
 
                 let expected = [
                     { score: 0.9916538596153259, label: 'cat', mask: 58998 },
@@ -1065,10 +972,11 @@ describe('Pipelines', () => {
 
                 expect(outputLabels).toHaveLength(expectedLabels.length);
                 expect(outputLabels.sort()).toEqual(expectedLabels.sort())
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
+            await segmenter.dispose();
 
-        });
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Zero-shot image classification', () => {
@@ -1078,8 +986,8 @@ describe('Pipelines', () => {
             'openai/clip-vit-base-patch16',
         ];
 
-        describe(models[0], () => {
-            let classifier;
+        it(models[0], async () => {
+            let classifier = await pipeline('zero-shot-image-classification', m(models[0]));
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg';
             let urls = [
@@ -1090,15 +998,8 @@ describe('Pipelines', () => {
 
             let classes = ['football', 'airport', 'animals'];
 
-            beforeAll(async () => {
-                classifier = await pipeline('zero-shot-image-classification', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await classifier.dispose();
-            });
-
-            it('single', async () => {
+            // single
+            {
                 let output = await classifier(url, classes);
 
                 let expected = [
@@ -1108,10 +1009,11 @@ describe('Pipelines', () => {
                 ]
                 compare(output, expected, 0.1);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
 
-            it('batched', async () => {
+            // batched
+            {
                 let output = await classifier(urls, classes);
 
                 let expected = [
@@ -1131,8 +1033,9 @@ describe('Pipelines', () => {
                 ];
                 compare(output, expected, 0.1);
 
-            }, MAX_TEST_EXECUTION_TIME);
-        });
+            }
+            await classifier.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Object detection', () => {
@@ -1142,23 +1045,15 @@ describe('Pipelines', () => {
             'facebook/detr-resnet-50',
         ];
 
-        describe(models[0], () => {
-            let detector;
-
+        it(models[0], async () => {
+            let detector = await pipeline('object-detection', m(models[0]));
 
             // TODO add batched test cases when supported
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
             let urls = ['https://huggingface.co/datasets/mishig/sample_images/resolve/main/airport.jpg']
 
-            beforeAll(async () => {
-                detector = await pipeline('object-detection', m(models[0]));
-            }, MAX_MODEL_LOAD_TIME);
-
-            afterAll(async () => {
-                await detector.dispose();
-            });
-
-            it('single + threshold', async () => {
+            // single + threshold
+            {
                 let output = await detector(url, {
                     threshold: 0.9,
                 });
@@ -1183,10 +1078,10 @@ describe('Pipelines', () => {
                 expect(output.scores.length).toEqual(num_classes);
                 expect(output.labels.length).toEqual(num_classes);
 
-            }, MAX_TEST_EXECUTION_TIME);
+            }
 
-
-            it('single + threshold', async () => {
+            // single + threshold + percentage
+            {
                 let output = await detector(urls, {
                     threshold: 0.9,
                     percentage: true
@@ -1215,9 +1110,9 @@ describe('Pipelines', () => {
                 expect(output[0].classes.length).toEqual(num_classes);
                 expect(output[0].scores.length).toEqual(num_classes);
                 expect(output[0].labels.length).toEqual(num_classes);
+            }
 
-            }, MAX_TEST_EXECUTION_TIME);
-
-        });
+            await detector.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
     });
 });
