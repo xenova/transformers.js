@@ -94,3 +94,4 @@ if (process.env.TESTING_REMOTELY) {
 }
 
 export const MAX_TEST_EXECUTION_TIME = 60_000; // 60 seconds
+export const MAX_MODEL_LOAD_TIME = 30_000; // 30 seconds
