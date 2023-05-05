@@ -1601,7 +1601,7 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
 
         // Whisper has additional options for returning timestamps
-        generation_config.return_timestamps ??= false;
+        generation_config.return_timestamps = generation_config.return_timestamps || false;
 
         // TODO add language and task
 
