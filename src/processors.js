@@ -21,7 +21,7 @@
  */
 import {
     Callable,
-} from './utils.js';
+} from './utils/core.js';
 
 import {
     getModelJSON,
@@ -31,12 +31,12 @@ import {
     max,
     softmax,
     FFT
-} from './math_utils.js';
+} from './utils/maths.js';
 
 
-import { Tensor, transpose, cat, interpolate } from './tensor_utils.js';
+import { Tensor, transpose, cat, interpolate } from './utils/tensor.js';
 
-import { CustomImage } from './image_utils.js';
+import { CustomImage } from './utils/image.js';
 
 
 /**

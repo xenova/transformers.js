@@ -5,12 +5,12 @@
  * @module utils/hub
  */
 
-import { env } from '../env.js';
 import fs from 'fs';
-
-import { dispatchCallback } from '../utils.js';
 import path from 'path';
 import stream from 'stream/web';
+
+import { env } from '../env.js';
+import { dispatchCallback } from './core.js';
 
 if (!globalThis.ReadableStream) {
     globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16

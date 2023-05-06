@@ -5,7 +5,7 @@
  * These functions and classes are only used internally, 
  * meaning an end-user shouldn't need to access anything here.
  * 
- * @module math_utils
+ * @module utils/maths
  */
 
 /**

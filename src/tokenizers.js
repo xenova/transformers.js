@@ -25,14 +25,14 @@ import {
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
-} from './utils.js';
+} from './utils/core.js';
 
 import {
     getModelJSON,
 } from './utils/hub.js';
 
-import { min } from './math_utils.js';
-import { Tensor } from './tensor_utils.js';
+import { min } from './utils/maths.js';
+import { Tensor } from './utils/tensor.js';
 
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions

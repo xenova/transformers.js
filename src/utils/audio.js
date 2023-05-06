@@ -4,12 +4,12 @@
  * These functions and classes are only used internally, 
  * meaning an end-user shouldn't need to access anything here.
  * 
- * @module audio_utils
+ * @module utils/audio
  */
 
 import {
     getFile,
-} from './utils/hub.js';
+} from './hub.js';
 
 export async function read_audio(url, sampling_rate) {
     // Attempting to load from path/url

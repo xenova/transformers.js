@@ -5,14 +5,13 @@
  * These functions and classes are only used internally, 
  * meaning an end-user shouldn't need to access anything here.
  * 
- * @module image_utils
+ * @module utils/image
  */
 
 import fs from 'fs';
-import { isString } from './utils.js';
-import { env } from './env.js';
-
-import { getFile } from './utils/hub.js';
+import { isString } from './core.js';
+import { getFile } from './hub.js';
+import { env } from '../env.js';
 
 // Will be empty (or not used) if running in browser or web-worker
 import sharp from 'sharp';

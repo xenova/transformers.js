@@ -8,8 +8,6 @@ import * as types from "node:util/types";
 import { onnxruntimeBackend } from "onnxruntime-node/dist/backend";
 import ONNX_COMMON from "onnxruntime-common";
 
-import { env } from '../src/transformers.js';
-
 export function init() {
     // A workaround to define a new backend for onnxruntime, which
     // will not throw an error when running tests with jest.
@@ -89,8 +87,6 @@ if (process.env.TESTING_REMOTELY) {
 
         return parts.join('/');
     }
-} else {
-    env.allowRemoteModels = false;
 }
 
 export const MAX_TEST_EXECUTION_TIME = 60_000; // 60 seconds

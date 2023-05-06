@@ -1,11 +1,11 @@
 
 /**
- * @file Utility functions/classes for Transformers.js.
+ * @file Core utility functions/classes for Transformers.js.
  * 
  * These are only used internally, meaning an end-user shouldn't
  * need to access anything here.
  * 
- * @module utils
+ * @module utils/core
  */
 
 /**

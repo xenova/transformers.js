@@ -4,19 +4,19 @@
  * These functions and classes are only used internally, 
  * meaning an end-user shouldn't need to access anything here.
  * 
- * @module tensor_utils
+ * @module utils/tensor
  */
 
-import { ONNX } from './backends/onnx.js';
+import { ONNX } from '../backends/onnx.js';
 
 import {
     interpolate_data,
     transpose_data
-} from './math_utils.js';
+} from './maths.js';
 
 
 /**
- * @typedef {import('./math_utils.js').AnyTypedArray} AnyTypedArray
+ * @typedef {import('./maths.js').AnyTypedArray} AnyTypedArray
  */
 
 const ONNXTensor = ONNX.Tensor;

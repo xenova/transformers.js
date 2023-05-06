@@ -20,6 +20,6 @@ export * from './models.js';
 export * from './tokenizers.js';
 export * from './processors.js';
 
-export * from './audio_utils.js';
-export * from './tensor_utils.js';
-export * from './math_utils.js';
+export * from './utils/audio.js';
+export * from './utils/tensor.js';
+export * from './utils/maths.js';

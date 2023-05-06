@@ -14,20 +14,6 @@
  */
 
 import {
-    Callable,
-    isString,
-} from "./utils.js";
-import {
-    softmax,
-    max,
-    getTopItems,
-    cos_sim,
-    dot
-} from './math_utils.js';
-import {
-    read_audio
-} from './audio_utils.js';
-import {
     AutoTokenizer,
     PreTrainedTokenizer,
 } from './tokenizers.js';
@@ -50,8 +36,23 @@ import {
     Processor
 } from './processors.js';
 
-import { Tensor } from './tensor_utils.js';
-import { CustomImage } from './image_utils.js';
+
+import {
+    Callable,
+    isString,
+} from './utils/core.js';
+import {
+    softmax,
+    max,
+    getTopItems,
+    cos_sim,
+    dot
+} from './utils/maths.js';
+import {
+    read_audio
+} from './utils/audio.js';
+import { Tensor } from './utils/tensor.js';
+import { CustomImage } from './utils/image.js';
 
 /**
  * Prepare images for further tasks.
