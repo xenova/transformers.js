@@ -1,3 +1,27 @@
+/**
+ * @file Module used to configure Transformers.js. For the full list of possible options, @see {@link env}.
+ * 
+ * **Example:** Disable remote models.
+ * ```javascript
+ * import { env } from '@xenova/transformers';
+ * env.allowRemoteModels = false;
+ * ```
+ * 
+ * **Example:** Set local model path.
+ * ```javascript
+ * import { env } from '@xenova/transformers';
+ * env.localModelPath = '/path/to/local/models/';
+ * ```
+ * 
+ * **Example:** Set cache directory.
+ * ```javascript
+ * import { env } from '@xenova/transformers';
+ * env.cacheDir = '/path/to/cache/directory/';
+ * ```
+ * 
+ * @module env
+ */
+
 import fs from 'fs';
 import path from 'path';
 import url from 'url';
@@ -37,11 +61,23 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
     : 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/';
 
 
-// Global variable used to control exection, with suitable defaults
+/**
+ * Global variable used to control exection, with suitable defaults
+ * @property {object} backends Expose environment variables of different backends,
+ * allowing users to set these variables if they want to.
+ * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
+ * @property {string} remotePathTemplate Path template to fill in and append to `remoteHost` when loading models.
+ * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
+ * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
+ * @property {string} localModelPath Path to load local models from. Defaults to `/models/`.
+ * @property {boolean} useFS Whether to use the file system to load files. By default, it is true available.
+ * @property {string} __dirname Directory name of module. Useful for resolving local paths.
+ * @property {boolean} useBrowserCache Whether to use Cache API to cache models. By default, it is true if available.
+ * @property {boolean} useFSCache Whether to use the file system to cache files. By default, it is true available.
+ * @property {string} cacheDir The directory to use for caching files with the file system. By default, it is `./.cache`.
+*/
 export const env = {
-    // Expose environment variables of different backends, allowing users to set
-    // these variables if they want to.
-    // TODO - will be used when we add more backends
+    /////////////////// Backends settings ///////////////////
     backends: {
         // onnxruntime-web/onnxruntime-node
         onnx: onnx_env,
@@ -50,40 +86,27 @@ export const env = {
         tfjs: {},
     },
 
-    // URL to load models from. Defaults to the Hugging Face Hub.
-    remoteHost: 'https://huggingface.co/',
-    remotePathTemplate: '{model}/resolve/{revision}/',
-
-    // Whether to allow loading of remote files, defaults to `true`.
-    // If set to `false`, it will have the same effect as setting `local_files_only=true`
-    // when loading pipelines, models, tokenizers, processors, etc.
-    allowRemoteModels: true,
-
-    // Local URL to load models from.
-    localModelPath: localModelPath,
-
-    // Whether to use the file system to load files. By default, it is true available.
-    useFS: FS_AVAILABLE,
-
-    // Directory name of module. Useful for resolving local paths.
     __dirname,
 
+    /////////////////// Model settings ///////////////////
+    remoteHost: 'https://huggingface.co/',
+    remotePathTemplate: '{model}/resolve/{revision}/',
+    allowRemoteModels: true,
+    localModelPath: localModelPath,
+    useFS: FS_AVAILABLE,
+
     /////////////////// Cache settings ///////////////////
-    // Whether to use Cache API to cache models. By default, it is true if available.
     useBrowserCache: WEB_CACHE_AVAILABLE,
-
-    // Whether to use the file system to cache files. By default, it is true available.
     useFSCache: FS_AVAILABLE,
-
-    // The directory to use for caching files with the file system. By default, it is `./.cache`.
     cacheDir: DEFAULT_CACHE_DIR,
-    //////////////////////////////////////////////////////
 
+    //////////////////////////////////////////////////////
 }
 
 
 /**
  * @param {object} obj
+ * @private
  */
 function isEmpty(obj) {
     return Object.keys(obj).length === 0;

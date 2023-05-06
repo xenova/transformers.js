@@ -1,6 +1,10 @@
-// Utility functions to interact with the Hugging Face Hub (https://huggingface.co/models)
 
-// const path = require('file-system-cache');
+/**
+ * @file Utility functions to interact with the Hugging Face Hub (https://huggingface.co/models)
+ * 
+ * @module utils/hub
+ */
+
 import { env } from '../env.js';
 import fs from 'fs';
 

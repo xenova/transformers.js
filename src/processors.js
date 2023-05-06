@@ -1,4 +1,24 @@
 
+/**
+ * @file Processors are used to prepare non-textual inputs (e.g., image or audio) for a model.
+ * 
+ * **Example:** Using a `WhisperProcessor` to prepare an audio input for a model.
+ * ```javascript
+ * import { AutoProcessor, read_audio } from '@xenova/transformers';
+ *
+ * let processor = await AutoProcessor.from_pretrained('openai/whisper-tiny.en');
+ * let audio = await read_audio('https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/mlk.flac');
+ * let { input_features } = await processor(audio);
+ * // Tensor {
+ * //   data: Float32Array(240000) [0.4752984642982483, 0.5597258806228638, 0.56434166431427, ...],
+ * //   dims: [1, 80, 3000],
+ * //   type: 'float32',
+ * //   size: 240000,
+ * // }
+ * ```
+ * 
+ * @module processors
+ */
 import {
     Callable,
 } from './utils.js';
@@ -24,7 +44,7 @@ import { CustomImage } from './image_utils.js';
  *
  * @extends Callable
  */
-class FeatureExtractor extends Callable {
+export class FeatureExtractor extends Callable {
     /**
      * Constructs a new FeatureExtractor instance.
      *
@@ -41,7 +61,7 @@ class FeatureExtractor extends Callable {
  *
  * @extends FeatureExtractor
  */
-class ImageFeatureExtractor extends FeatureExtractor {
+export class ImageFeatureExtractor extends FeatureExtractor {
 
     /**
      * Constructs a new ViTFeatureExtractor instance.
@@ -221,14 +241,14 @@ class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
-class ViTFeatureExtractor extends ImageFeatureExtractor { }
+export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 
 /**
  * Detr Feature Extractor.
  *
  * @extends ImageFeatureExtractor
  */
-class DetrFeatureExtractor extends ImageFeatureExtractor {
+export class DetrFeatureExtractor extends ImageFeatureExtractor {
     /**
      * Calls the feature extraction process on an array of image
      * URLs, preprocesses each image, and concatenates the resulting
@@ -605,7 +625,7 @@ class DetrFeatureExtractor extends ImageFeatureExtractor {
 }
 
 
-class WhisperFeatureExtractor extends FeatureExtractor {
+export class WhisperFeatureExtractor extends FeatureExtractor {
 
     /**
      * Calculates the index offset for a given index and window size.
@@ -921,7 +941,6 @@ class WhisperFeatureExtractor extends FeatureExtractor {
      * Asynchronously extracts features from a given audio using the provided configuration.
      * @param {Float32Array} audio - The audio data as a Float32Array.
      * @returns {Promise<{ input_features: Tensor }>} - A Promise resolving to an object containing the extracted input features as a Tensor.
-     * @async
     */
     async _call(audio) {
         // audio is a float32array
@@ -933,7 +952,7 @@ class WhisperFeatureExtractor extends FeatureExtractor {
                 "remember to specify `chunk_length_s` and/or `stride_length_s`."
             );
         }
-        let waveform = audio.slice(0, this.config.n_samples)
+        let waveform = audio.slice(0, this.config.n_samples);
 
         let features = this._extract_fbank_features(waveform);
 
@@ -965,7 +984,6 @@ export class Processor extends Callable {
      * Calls the feature_extractor function with the given input.
      * @param {any} input - The input to extract features from.
      * @returns {Promise<any>} A Promise that resolves with the extracted features.
-     * @async
      */
     async _call(input) {
         return await this.feature_extractor(input);
@@ -976,12 +994,11 @@ export class Processor extends Callable {
  * Represents a WhisperProcessor that extracts features from an audio input.
  * @extends Processor
  */
-class WhisperProcessor extends Processor {
+export class WhisperProcessor extends Processor {
     /**
      * Calls the feature_extractor function with the given audio input.
      * @param {any} audio - The audio input to extract features from.
      * @returns {Promise<any>} A Promise that resolves with the extracted features.
-     * @async
      */
     async _call(audio) {
         return await this.feature_extractor(audio)

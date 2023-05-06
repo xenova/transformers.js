@@ -1,5 +1,14 @@
 
 /**
+ * @file Helper module for mathematical processing. 
+ * 
+ * These functions and classes are only used internally, 
+ * meaning an end-user shouldn't need to access anything here.
+ * 
+ * @module math_utils
+ */
+
+/**
  * @typedef {Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array} TypedArray
  * @typedef {BigInt64Array | BigUint64Array} BigTypedArray
  * @typedef {TypedArray | BigTypedArray} AnyTypedArray
@@ -8,7 +17,7 @@
 /**
  * @param {TypedArray} input
  */
-export function interpolate(input, [in_channels, in_height, in_width], [out_height, out_width], mode = 'bilinear', align_corners = false) {
+export function interpolate_data(input, [in_channels, in_height, in_width], [out_height, out_width], mode = 'bilinear', align_corners = false) {
     // TODO use mode and align_corners
 
     // Output image dimensions
@@ -79,7 +88,7 @@ export function interpolate(input, [in_channels, in_height, in_width], [out_heig
 
 
 /**
- * Helper method to transpose a AnyTypedArray directly
+ * Helper method to transpose a `AnyTypedArray` directly
  * @param {T} array 
  * @template {AnyTypedArray} T 
  * @param {number[]} dims 

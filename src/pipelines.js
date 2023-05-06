@@ -1,3 +1,18 @@
+/**
+ * @file Pipelines provide a high-level, easy to use, API for running machine learning models.
+ * 
+ * **Example:** Instantiate pipeline using the `pipeline` function.
+ * ```javascript
+ * import { pipeline } from '@xenova/transformers';
+ * 
+ * let pipeline = await pipeline('sentiment-analysis');
+ * let result = await pipeline('I love transformers!');
+ * // [{'label': 'POSITIVE', 'score': 0.999817686}]
+ * ```
+ * 
+ * @module pipelines
+ */
+
 import {
     Callable,
     isString,
@@ -10,10 +25,11 @@ import {
     dot
 } from './math_utils.js';
 import {
-    getFile,
-} from './utils/hub.js';
+    read_audio
+} from './audio_utils.js';
 import {
-    AutoTokenizer
+    AutoTokenizer,
+    PreTrainedTokenizer,
 } from './tokenizers.js';
 import {
     AutoModel,
@@ -26,7 +42,8 @@ import {
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
     AutoModelForImageSegmentation,
-    AutoModelForObjectDetection
+    AutoModelForObjectDetection,
+    PreTrainedModel,
 } from './models.js';
 import {
     AutoProcessor,
@@ -40,7 +57,7 @@ import { CustomImage } from './image_utils.js';
  * Prepare images for further tasks.
  * @param {any[]} images - images to prepare.
  * @returns {Promise<any[]>} - returns processed images.
- * @async
+ * @private
  */
 async function prepareImages(images) {
     if (!Array.isArray(images)) {
@@ -56,12 +73,12 @@ async function prepareImages(images) {
  * Pipeline class for executing a natural language processing task.
  * @extends Callable
  */
-class Pipeline extends Callable {
+export class Pipeline extends Callable {
     /**
      * Creates a new instance of Pipeline.
      * @param {string} task - The natural language processing task to be performed.
-     * @param {object} tokenizer - The tokenizer object to be used for tokenizing input texts.
-     * @param {object} model - The model object to be used for processing input texts.
+     * @param {PreTrainedTokenizer} tokenizer - The tokenizer object to be used for tokenizing input texts.
+     * @param {PreTrainedModel} model - The model object to be used for processing input texts.
      */
     constructor(task, tokenizer, model) {
         super();
@@ -101,7 +118,7 @@ class Pipeline extends Callable {
  * TextClassificationPipeline class for executing a text classification task.
  * @extends Pipeline
  */
-class TextClassificationPipeline extends Pipeline {
+export class TextClassificationPipeline extends Pipeline {
     /**
      * Executes the text classification task.
      * @param {any} texts - The input texts to be classified.
@@ -142,7 +159,7 @@ class TextClassificationPipeline extends Pipeline {
  * TokenClassificationPipeline class for executing a token classification task.
  * @extends Pipeline
  */
-class TokenClassificationPipeline extends Pipeline {
+export class TokenClassificationPipeline extends Pipeline {
     /**
      * Executes the token classification task.
      * @param {any} texts - The input texts to be classified.
@@ -211,7 +228,7 @@ class TokenClassificationPipeline extends Pipeline {
  * QuestionAnsweringPipeline class for executing a question answering task.
  * @extends Pipeline
  */
-class QuestionAnsweringPipeline extends Pipeline {
+export class QuestionAnsweringPipeline extends Pipeline {
     /**
      * Executes the question answering task.
      * @param {string|string[]} question - The question(s) to be answered.
@@ -275,7 +292,7 @@ class QuestionAnsweringPipeline extends Pipeline {
  * Class representing a fill-mask pipeline for natural language processing.
  * @extends Pipeline
  */
-class FillMaskPipeline extends Pipeline {
+export class FillMaskPipeline extends Pipeline {
     /**
      * @param {any} texts
      */
@@ -328,12 +345,11 @@ class FillMaskPipeline extends Pipeline {
  * Text2TextGenerationPipeline class for generating text using a model that performs text-to-text generation tasks.
  * @extends Pipeline
  */
-class Text2TextGenerationPipeline extends Pipeline {
+export class Text2TextGenerationPipeline extends Pipeline {
     _key = null;
 
     /**
      * Fill the masked token in the text(s) given as inputs.
-     * @async
      * @param {string|string[]} texts - The text or array of texts to be processed.
      * @param {Object} [options={}] - Options for the fill-mask pipeline.
      * @param {number} [options.topk=5] - The number of top-k predictions to return.
@@ -399,7 +415,7 @@ class Text2TextGenerationPipeline extends Pipeline {
  * A pipeline for summarization tasks, inheriting from Text2TextGenerationPipeline.
  * @extends Text2TextGenerationPipeline
  */
-class SummarizationPipeline extends Text2TextGenerationPipeline {
+export class SummarizationPipeline extends Text2TextGenerationPipeline {
     _key = 'summary_text';
 }
 
@@ -407,7 +423,7 @@ class SummarizationPipeline extends Text2TextGenerationPipeline {
  * TranslationPipeline class to translate text from one language to another using the provided model and tokenizer.
  * @extends Text2TextGenerationPipeline
  */
-class TranslationPipeline extends Text2TextGenerationPipeline {
+export class TranslationPipeline extends Text2TextGenerationPipeline {
     _key = 'translation_text';
 }
 
@@ -415,10 +431,9 @@ class TranslationPipeline extends Text2TextGenerationPipeline {
  * A pipeline for generating text based on an input prompt.
  * @extends Pipeline
  */
-class TextGenerationPipeline extends Pipeline {
+export class TextGenerationPipeline extends Pipeline {
     /**
      * Generates text based on an input prompt.
-     * @async
      * @param {any} texts - The input prompt or prompts to generate text from.
      * @param {object} [generate_kwargs={}] - Additional arguments for text generation.
      * @returns {Promise<any>} - The generated text or texts.
@@ -466,12 +481,12 @@ class TextGenerationPipeline extends Pipeline {
  * Class representing an Zero Shot Classification Pipeline that should only be used with zero shot classification tasks.
  * @extends Pipeline
  */
-class ZeroShotClassificationPipeline extends Pipeline {
+export class ZeroShotClassificationPipeline extends Pipeline {
 
     /**
      * @param {string} task
-     * @param {any} tokenizer
-     * @param {any} model
+     * @param {PreTrainedTokenizer} tokenizer
+     * @param {PreTrainedModel} model
      */
     constructor(task, tokenizer, model) {
         super(task, tokenizer, model);
@@ -577,7 +592,7 @@ class ZeroShotClassificationPipeline extends Pipeline {
  * 
  * @todo Make sure this works for other models than `sentence-transformers`.
  */
-class FeatureExtractionPipeline extends Pipeline {
+export class FeatureExtractionPipeline extends Pipeline {
     /**
      * Private method to perform mean pooling of the last hidden state followed by a normalization step.
      * @param {Tensor} last_hidden_state - Tensor of shape [batchSize, seqLength, embedDim]
@@ -669,14 +684,14 @@ class FeatureExtractionPipeline extends Pipeline {
  * A class representing an automatic speech recognition pipeline.
  * @extends Pipeline
  */
-class AutomaticSpeechRecognitionPipeline extends Pipeline {
+export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
     /**
      * Creates an instance of AutomaticSpeechRecognitionPipeline.
-     * @param {string} task - The type of the task for this pipeline. Currently only "asr" is supported.
-     * @param {object} tokenizer - The tokenizer to be used for pre-processing inputs.
-     * @param {object} model - The model to be used for the task.
-     * @param {object} processor - The processor to be used for pre-processing audio inputs.
+     * @param {string} task - The type of the task for this pipeline.
+     * @param {PreTrainedTokenizer} tokenizer - The tokenizer to be used for pre-processing inputs.
+     * @param {PreTrainedModel} model - The model to be used for the task.
+     * @param {Processor} processor - The processor to be used for pre-processing audio inputs.
      */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
@@ -692,52 +707,7 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
      */
     async _preprocess(audio, sampling_rate) {
         if (isString(audio)) {
-            // Attempting to load from path
-
-            if (typeof AudioContext === 'undefined') {
-                // Running in node or an environment without AudioContext
-                throw Error(
-                    "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
-                    "As a result, audio data must be passed directly to the processor. " +
-                    "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
-                )
-            }
-            const response = await (await getFile(audio)).arrayBuffer();
-            const audioCTX = new AudioContext({ sampleRate: sampling_rate });
-            const decoded = await audioCTX.decodeAudioData(response);
-
-            // We now replicate HuggingFace's `ffmpeg_read` method:
-
-            if (decoded.numberOfChannels === 2) {
-                // When downmixing a stereo audio file to mono using the -ac 1 option in FFmpeg,
-                // the audio signal is summed across both channels to create a single mono channel.
-                // However, if the audio is at full scale (i.e. the highest possible volume level),
-                // the summing of the two channels can cause the audio signal to clip or distort.
-
-                // To prevent this clipping, FFmpeg applies a scaling factor of 1/sqrt(2) (~ 0.707)
-                // to the audio signal before summing the two channels. This scaling factor ensures
-                // that the combined audio signal will not exceed the maximum possible level, even
-                // if both channels are at full scale.
-
-                // After applying this scaling factor, the audio signal from both channels is summed
-                // to create a single mono channel. It's worth noting that this scaling factor is
-                // only applied when downmixing stereo audio to mono using the -ac 1 option in FFmpeg.
-                // If you're using a different downmixing method, or if you're not downmixing the
-                // audio at all, this scaling factor may not be needed.
-                const SCALING_FACTOR = Math.sqrt(2);
-
-                let left = decoded.getChannelData(0);
-                let right = decoded.getChannelData(1);
-
-                audio = new Float32Array(left.length);
-                for (let i = 0; i < decoded.length; i++) {
-                    audio[i] = SCALING_FACTOR * (left[i] + right[i]) / 2;
-                }
-
-            } else {
-                // If the audio is not stereo, we can just use the first channel:
-                audio = decoded.getChannelData(0);
-            }
+            audio = await read_audio(audio, sampling_rate);
         }
 
         return audio;
@@ -854,13 +824,13 @@ class AutomaticSpeechRecognitionPipeline extends Pipeline {
  * A pipeline for performing image-to-text tasks.
  * @extends Pipeline
  */
-class ImageToTextPipeline extends Pipeline {
+export class ImageToTextPipeline extends Pipeline {
     /**
      * Create an instance of ImageToTextPipeline.
      * @param {string} task - The task name.
-     * @param {object} tokenizer - The tokenizer to use.
-     * @param {object} model - The generator model to use.
-     * @param {object} processor - The image processor to use.
+     * @param {PreTrainedTokenizer} tokenizer - The tokenizer to use.
+     * @param {PreTrainedModel} model - The generator model to use.
+     * @param {Processor} processor - The image processor to use.
      */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
@@ -897,12 +867,12 @@ class ImageToTextPipeline extends Pipeline {
  * A class representing an image classification pipeline.
  * @extends Pipeline
  */
-class ImageClassificationPipeline extends Pipeline {
+export class ImageClassificationPipeline extends Pipeline {
     /**
      * Create a new ImageClassificationPipeline.
      * @param {string} task - The task of the pipeline.
-     * @param {Object} model - The model to use for classification.
-     * @param {Function} processor - The function to preprocess images.
+     * @param {PreTrainedModel} model - The model to use for classification.
+     * @param {Processor} processor - The function to preprocess images.
      */
     constructor(task, model, processor) {
         super(task, null, model); // TODO tokenizer
@@ -911,7 +881,6 @@ class ImageClassificationPipeline extends Pipeline {
 
     /**
      * Classify the given images.
-     * @async
      * @param {any} images - The images to classify.
      * @param {Object} options - The options to use for classification.
      * @param {number} [options.topk=1] - The number of top results to return.
@@ -953,11 +922,11 @@ class ImageClassificationPipeline extends Pipeline {
  * ImageSegmentationPipeline class for executing an image-segmentation task.
  * @extends Pipeline
  */
-class ImageSegmentationPipeline extends Pipeline {
+export class ImageSegmentationPipeline extends Pipeline {
     /**
      * Create a new ImageSegmentationPipeline.
-     * @param {string} task - The task of the pipeline.
-     * @param {Object} model - The model to use for classification.
+     * @param {PreTrainedTokenizer} task - The task of the pipeline.
+     * @param {PreTrainedModel} model - The model to use for classification.
      * @param {Processor} processor - The function to preprocess images.
      */
     constructor(task, model, processor) {
@@ -1067,14 +1036,14 @@ class ImageSegmentationPipeline extends Pipeline {
  * Class representing a zero-shot image classification pipeline.
  * @extends Pipeline
  */
-class ZeroShotImageClassificationPipeline extends Pipeline {
+export class ZeroShotImageClassificationPipeline extends Pipeline {
 
     /**
      * Create a zero-shot image classification pipeline.
      * @param {string} task - The task of the pipeline.
-     * @param {Object} tokenizer - The tokenizer to use.
-     * @param {Object} model - The model to use.
-     * @param {Function} processor - The image processing function.
+     * @param {PreTrainedTokenizer} tokenizer - The tokenizer to use.
+     * @param {PreTrainedModel} model - The model to use.
+     * @param {Processor} processor - The image processing function.
      */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
@@ -1129,11 +1098,11 @@ class ZeroShotImageClassificationPipeline extends Pipeline {
 }
 
 
-class ObjectDetectionPipeline extends Pipeline {
+export class ObjectDetectionPipeline extends Pipeline {
     /**
-     * @param {string} task
-     * @param {any} model
-     * @param {any} processor
+     * @param {PreTrainedTokenizer} task
+     * @param {PreTrainedModel} model
+     * @param {Processor} processor
      */
     constructor(task, model, processor) {
         super(task, null, model); // TODO tokenizer
@@ -1379,11 +1348,9 @@ const TASK_ALIASES = {
  */
 
 /**
- * Constructs a pipeline for a specified task with optional model and progress callback.
+ * Utility factory method to build a [`Pipeline`] object.
  *
- * @async
- * @function
- * @param {string} task - The task to perform, e.g. "text-generation".
+ * @param {string} task - The task defining which pipeline will be returned.
  * @param {string} [model=null] - The name of the pre-trained model to use. If not specified, the default model for the task will be used.
  * @param {PretrainedOptions} [options] - Optional parameters for the pipeline.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
@@ -1461,6 +1428,7 @@ export async function pipeline(
  * Compute the Cartesian product of given arrays
  * @param {...Array} a - Arrays to compute the product
  * @returns {Array} - Returns the computed Cartesian product as an array
+ * @private
  */
 function product(...a) {
     // Cartesian product of items

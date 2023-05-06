@@ -1,3 +1,12 @@
+/**
+ * @file Helper module sampling from a model that can generate (i.e., has `.generate()`).
+ * 
+ * These classes are only used internally, meaning an end-user
+ * shouldn't need to access anything here.
+ * 
+ * @module samplers
+ */
+
 import {
     Callable,
 } from "./utils.js";

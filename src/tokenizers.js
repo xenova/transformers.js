@@ -1,3 +1,25 @@
+
+/**
+ * @file Tokenizers are used to prepare textual inputs for a model.
+ * 
+ * **Example:** Create an `AutoTokenizer` and use it to tokenize a sentence.
+ * This will automatically detect the tokenizer type based on the tokenizer class defined in `tokenizer.json`.
+ * ```javascript
+ * import { AutoTokenizer } from '@xenova/transformers';
+ * 
+ * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
+ * let { input_ids } = await tokenizer('I love transformers!');
+ * // Tensor {
+ * //   data: BigInt64Array(6) [101n, 1045n, 2293n, 19081n, 999n, 102n],
+ * //   dims: [1, 6],
+ * //   type: 'int64',
+ * //   size: 6,
+ * // }
+ * ```
+ * 
+ * @module tokenizers
+ */
+
 import {
     Callable,
     reverseDictionary,
@@ -54,7 +76,7 @@ function createPattern(pattern) {
  *
  * @extends Callable
  */
-class TokenizerModel extends Callable {
+export class TokenizerModel extends Callable {
     /**
      * Creates a new instance of TokenizerModel.
      * @param {object} config - The configuration object for the TokenizerModel.
@@ -1474,7 +1496,7 @@ class WhitespaceSplit extends PreTokenizer {
     }
 }
 
-class PreTrainedTokenizer extends Callable {
+export class PreTrainedTokenizer extends Callable {
     /**
      * Create a new PreTrainedTokenizer instance.
      * @param {Object} tokenizerJSON - The JSON of the tokenizer.
@@ -1996,9 +2018,9 @@ export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
-class BloomTokenizer extends PreTrainedTokenizer { }
+export class BloomTokenizer extends PreTrainedTokenizer { }
 
-class NllbTokenizer extends PreTrainedTokenizer {
+export class NllbTokenizer extends PreTrainedTokenizer {
 
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);

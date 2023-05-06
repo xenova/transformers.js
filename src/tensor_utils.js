@@ -1,7 +1,16 @@
+/**
+ * @file Helper module for `Tensor` processing.
+ * 
+ * These functions and classes are only used internally, 
+ * meaning an end-user shouldn't need to access anything here.
+ * 
+ * @module tensor_utils
+ */
+
 import { ONNX } from './backends/onnx.js';
 
 import {
-    interpolate as interpolate_data,
+    interpolate_data,
     transpose_data
 } from './math_utils.js';
 
@@ -12,7 +21,6 @@ import {
 
 const ONNXTensor = ONNX.Tensor;
 
-// TODO: fix error below
 export class Tensor extends ONNXTensor {
     /**
      * Create a new Tensor or copy an existing Tensor.

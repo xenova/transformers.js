@@ -1,6 +1,47 @@
+
+/**
+ * @file Definitions of all models available in Transformers.js.
+ * 
+ * **Example:** Load and run an `AutoModel`.
+ * 
+ * ```javascript
+ * import { AutoModel, AutoTokenizer } from '@xenova/transformers';
+ *
+ * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
+ * let model = await AutoModel.from_pretrained('Xenova/bert-base-uncased');
+ *
+ * let inputs = await tokenizer('I love transformers!');
+ * let { logits } = await model(inputs);
+ * // Tensor {
+ * //     data: Float32Array(183132) [-7.117443084716797, -7.107812881469727, -7.092104911804199, ...]
+ * //     dims: (3) [1, 6, 30522],
+ * //     type: "float32",
+ * //     size: 183132,
+ * // }
+ * ```
+ * 
+ * We also provide other `AutoModel`s (listed below), which you can use in the same way as the Python library. For example:
+ * 
+ * **Example:** Load and run a `AutoModelForSeq2SeqLM`.
+ * ```javascript
+ * import { AutoModelForSeq2SeqLM, AutoTokenizer } from '@xenova/transformers';
+ * 
+ * let tokenizer = await AutoTokenizer.from_pretrained('t5-small');
+ * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
+ *
+ * let { input_ids } = await tokenizer('translate English to German: I love transformers!');
+ * let outputs = await model.generate(input_ids);
+ * let decoded = await tokenizer.decode(outputs[0][0], { skip_special_tokens: true });
+ * // 'Ich liebe Transformatoren!'
+ * ```
+ * 
+ * @module models
+ */
+
 import {
     Callable,
     isIntegralNumber,
+    isTypedArray,
 } from './utils.js';
 
 import {
@@ -34,6 +75,7 @@ const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
  */
+
 //////////////////////////////////////////////////
 // Helper functions
 /**
@@ -741,6 +783,10 @@ export class PreTrainedModel extends Callable {
         } = {},
     ) {
 
+        if (!(inputs instanceof Tensor) && !isTypedArray(inputs) && !Array.isArray(inputs)) {
+            throw Error(`\`inputs\` must be a Tensor, TypedArray, or Array, but is "${inputs.constructor.name}".`);
+        }
+
         if (inputs.length === 0) {
             throw Error("Must supply a non-empty array of input token ids.")
         }
@@ -796,7 +842,7 @@ export class PreTrainedModel extends Callable {
                     extractedLogits.push(lastLogits)
                 }
                 let logits = cat(extractedLogits);
-                logits_processor(beam.output_token_ids, logits)
+                logits_processor(beam.output_token_ids, logits);
 
                 let sampledTokens = sampler(logits);
                 for (let [newTokenId, logProb] of sampledTokens) {
@@ -819,8 +865,8 @@ export class PreTrainedModel extends Callable {
             // Next, we get the best beams, per ID
             newest_beams = this.groupBeams(newest_beams).map(
                 group => group
-                    .sort((a, b) => b.score - a.score)  // sort based on score
-                    .slice(0, generation_config.num_beams)        // remove outside beam width
+                    .sort((a, b) => b.score - a.score)      // sort based on score
+                    .slice(0, generation_config.num_beams)  // remove outside beam width
             );
 
             // Flatten beams
@@ -831,6 +877,8 @@ export class PreTrainedModel extends Callable {
                 generation_config.callback_function(beams);
             }
         }
+
+        // TODO - Ensure that we can return non-batched outputs
 
         return this.groupBeams(beams).map(
             batch => {
@@ -929,19 +977,19 @@ export class PreTrainedModel extends Callable {
 }
 //////////////////////////////////////////////////
 // Base model output class
-class ModelOutput { }
+export class ModelOutput { }
 
 
 //////////////////////////////////////////////////
 // Bert models
-class BertPreTrainedModel extends PreTrainedModel { }
-class BertModel extends BertPreTrainedModel { }
+export class BertPreTrainedModel extends PreTrainedModel { }
+export class BertModel extends BertPreTrainedModel { }
 
 /**
  * BertForMaskedLM is a class representing a BERT model for masked language modeling.
  * @extends BertPreTrainedModel
  */
-class BertForMaskedLM extends BertPreTrainedModel {
+export class BertForMaskedLM extends BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -958,7 +1006,7 @@ class BertForMaskedLM extends BertPreTrainedModel {
  * BertForSequenceClassification is a class representing a BERT model for sequence classification.
  * @extends BertPreTrainedModel
  */
-class BertForSequenceClassification extends BertPreTrainedModel {
+export class BertForSequenceClassification extends BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -975,7 +1023,7 @@ class BertForSequenceClassification extends BertPreTrainedModel {
  * BertForTokenClassification is a class representing a BERT model for token classification.
  * @extends BertPreTrainedModel
  */
-class BertForTokenClassification extends BertPreTrainedModel {
+export class BertForTokenClassification extends BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -992,7 +1040,7 @@ class BertForTokenClassification extends BertPreTrainedModel {
  * BertForQuestionAnswering is a class representing a BERT model for question answering.
  * @extends BertPreTrainedModel
  */
-class BertForQuestionAnswering extends BertPreTrainedModel {
+export class BertForQuestionAnswering extends BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1008,14 +1056,14 @@ class BertForQuestionAnswering extends BertPreTrainedModel {
 
 //////////////////////////////////////////////////
 // DistilBert models
-class DistilBertPreTrainedModel extends PreTrainedModel { }
-class DistilBertModel extends DistilBertPreTrainedModel { }
+export class DistilBertPreTrainedModel extends PreTrainedModel { }
+export class DistilBertModel extends DistilBertPreTrainedModel { }
 
 /**
  * DistilBertForSequenceClassification is a class representing a DistilBERT model for sequence classification.
  * @extends DistilBertPreTrainedModel
  */
-class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
+export class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1032,7 +1080,7 @@ class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
  * DistilBertForTokenClassification is a class representing a DistilBERT model for token classification.
  * @extends DistilBertPreTrainedModel
  */
-class DistilBertForTokenClassification extends DistilBertPreTrainedModel {
+export class DistilBertForTokenClassification extends DistilBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1050,7 +1098,7 @@ class DistilBertForTokenClassification extends DistilBertPreTrainedModel {
  * DistilBertForQuestionAnswering is a class representing a DistilBERT model for question answering.
  * @extends DistilBertPreTrainedModel
  */
-class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
+export class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1067,7 +1115,7 @@ class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
  * DistilBertForMaskedLM is a class representing a DistilBERT model for masking task.
  * @extends DistilBertPreTrainedModel
  */
-class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
+export class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1084,14 +1132,14 @@ class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
 
 //////////////////////////////////////////////////
 // MobileBert models
-class MobileBertPreTrainedModel extends PreTrainedModel { }
-class MobileBertModel extends MobileBertPreTrainedModel { }
+export class MobileBertPreTrainedModel extends PreTrainedModel { }
+export class MobileBertModel extends MobileBertPreTrainedModel { }
 
 /**
  * MobileBertForMaskedLM is a class representing a MobileBERT model for masking task.
  * @extends MobileBertPreTrainedModel
  */
-class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
+export class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1107,7 +1155,7 @@ class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
 /**
  * @extends MobileBertPreTrainedModel
  */
-class MobileBertForSequenceClassification extends MobileBertPreTrainedModel {
+export class MobileBertForSequenceClassification extends MobileBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1123,7 +1171,7 @@ class MobileBertForSequenceClassification extends MobileBertPreTrainedModel {
 /**
  * @extends MobileBertPreTrainedModel
  */
-class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
+export class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1140,9 +1188,9 @@ class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
 
 //////////////////////////////////////////////////
 // SqueezeBert models
-class SqueezeBertPreTrainedModel extends PreTrainedModel { }
-class SqueezeBertModel extends SqueezeBertPreTrainedModel { }
-class SqueezeBertForMaskedLM extends SqueezeBertPreTrainedModel {
+export class SqueezeBertPreTrainedModel extends PreTrainedModel { }
+export class SqueezeBertModel extends SqueezeBertPreTrainedModel { }
+export class SqueezeBertForMaskedLM extends SqueezeBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1154,7 +1202,7 @@ class SqueezeBertForMaskedLM extends SqueezeBertPreTrainedModel {
         return new MaskedLMOutput(logits)
     }
 }
-class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedModel {
+export class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1166,7 +1214,7 @@ class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedModel {
         return new SequenceClassifierOutput(logits)
     }
 }
-class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel {
+export class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1183,9 +1231,9 @@ class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel {
 
 //////////////////////////////////////////////////
 // Albert models
-class AlbertPreTrainedModel extends PreTrainedModel { }
-class AlbertModel extends AlbertPreTrainedModel { }
-class AlbertForSequenceClassification extends AlbertPreTrainedModel {
+export class AlbertPreTrainedModel extends PreTrainedModel { }
+export class AlbertModel extends AlbertPreTrainedModel { }
+export class AlbertForSequenceClassification extends AlbertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1197,7 +1245,7 @@ class AlbertForSequenceClassification extends AlbertPreTrainedModel {
         return new SequenceClassifierOutput(logits)
     }
 }
-class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
+export class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1209,7 +1257,7 @@ class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
         return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
     }
 }
-class AlbertForMaskedLM extends AlbertPreTrainedModel {
+export class AlbertForMaskedLM extends AlbertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1226,9 +1274,9 @@ class AlbertForMaskedLM extends AlbertPreTrainedModel {
 
 //////////////////////////////////////////////////
 // T5 models
-class T5PreTrainedModel extends PreTrainedModel { };
+export class T5PreTrainedModel extends PreTrainedModel { };
 
-class T5Model extends T5PreTrainedModel {
+export class T5Model extends T5PreTrainedModel {
     /**
      * Generates text based on the provided arguments.
      * @throws {Error} - Throws an error as the current model class (T5Model) is not compatible with `.generate()`.
@@ -1246,7 +1294,7 @@ class T5Model extends T5PreTrainedModel {
  * T5Model is a class representing a T5 model for conditional generation.
  * @extends T5PreTrainedModel
  */
-class T5ForConditionalGeneration extends T5PreTrainedModel {
+export class T5ForConditionalGeneration extends T5PreTrainedModel {
     /**
      * Creates a new instance of the `T5ForConditionalGeneration` class.
      * @param {object} config - The model configuration.
@@ -1336,9 +1384,9 @@ class T5ForConditionalGeneration extends T5PreTrainedModel {
 
 //////////////////////////////////////////////////
 // MT5 models
-class MT5PreTrainedModel extends PreTrainedModel { };
+export class MT5PreTrainedModel extends PreTrainedModel { };
 
-class MT5Model extends MT5PreTrainedModel {
+export class MT5Model extends MT5PreTrainedModel {
     /**
      * 
      * @param  {...any} args
@@ -1357,7 +1405,7 @@ class MT5Model extends MT5PreTrainedModel {
  *
  * @extends MT5PreTrainedModel
  */
-class MT5ForConditionalGeneration extends MT5PreTrainedModel {
+export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     /**
      * Creates a new instance of the `MT5ForConditionalGeneration` class.
      * @param {any} config - The model configuration.
@@ -1449,7 +1497,7 @@ class MT5ForConditionalGeneration extends MT5PreTrainedModel {
 
 //////////////////////////////////////////////////
 // Bart models
-class BartPretrainedModel extends PreTrainedModel { };
+export class BartPretrainedModel extends PreTrainedModel { };
 
 /**
  * BART encoder and decoder model.
@@ -1457,7 +1505,7 @@ class BartPretrainedModel extends PreTrainedModel { };
  * @hideconstructor
  * @extends BartPretrainedModel
  */
-class BartModel extends BartPretrainedModel {
+export class BartModel extends BartPretrainedModel {
     /**
      * Throws an error because the current model class (BartModel) is not compatible with `.generate()`.
      * 
@@ -1475,7 +1523,7 @@ class BartModel extends BartPretrainedModel {
  * BART model with a language model head for conditional generation.
  * @extends BartPretrainedModel
  */
-class BartForConditionalGeneration extends BartPretrainedModel {
+export class BartForConditionalGeneration extends BartPretrainedModel {
     /**
      * Creates a new instance of the `BartForConditionalGeneration` class.
      * @param {object} config - The configuration object for the Bart model.
@@ -1562,7 +1610,7 @@ class BartForConditionalGeneration extends BartPretrainedModel {
     }
 }
 
-class BartForSequenceClassification extends BartPretrainedModel {
+export class BartForSequenceClassification extends BartPretrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1579,14 +1627,14 @@ class BartForSequenceClassification extends BartPretrainedModel {
 
 //////////////////////////////////////////////////
 // Roberta models
-class RobertaPreTrainedModel extends PreTrainedModel { }
-class RobertaModel extends RobertaPreTrainedModel { }
+export class RobertaPreTrainedModel extends PreTrainedModel { }
+export class RobertaModel extends RobertaPreTrainedModel { }
 
 /**
  * RobertaForMaskedLM class for performing masked language modeling on Roberta models.
  * @extends RobertaPreTrainedModel
  */
-class RobertaForMaskedLM extends RobertaPreTrainedModel {
+export class RobertaForMaskedLM extends RobertaPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1603,7 +1651,7 @@ class RobertaForMaskedLM extends RobertaPreTrainedModel {
  * RobertaForSequenceClassification class for performing sequence classification on Roberta models.
  * @extends RobertaPreTrainedModel
  */
-class RobertaForSequenceClassification extends RobertaPreTrainedModel {
+export class RobertaForSequenceClassification extends RobertaPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1620,7 +1668,7 @@ class RobertaForSequenceClassification extends RobertaPreTrainedModel {
  * RobertaForQuestionAnswering class for performing question answering on Roberta models.
  * @extends RobertaPreTrainedModel
  */
-class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
+export class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -1636,13 +1684,13 @@ class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
 
 //////////////////////////////////////////////////
 // T5 models
-class WhisperPreTrainedModel extends PreTrainedModel { };
+export class WhisperPreTrainedModel extends PreTrainedModel { };
 
 /**
  * WhisperModel class for training Whisper models without a language model head.
  * @extends WhisperPreTrainedModel
  */
-class WhisperModel extends WhisperPreTrainedModel {
+export class WhisperModel extends WhisperPreTrainedModel {
     /**
      * Throws an error when attempting to generate output since this model doesn't have a language model head.
      * @throws Error
@@ -1660,7 +1708,7 @@ class WhisperModel extends WhisperPreTrainedModel {
  * WhisperForConditionalGeneration class for generating conditional outputs from Whisper models.
  * @extends WhisperPreTrainedModel
  */
-class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
+export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
      * @param {Object} config - Configuration object for the model.
@@ -1788,7 +1836,7 @@ class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
  * Vision Encoder-Decoder model based on OpenAI's GPT architecture for image captioning and other vision tasks
  * @extends PreTrainedModel
  */
-class VisionEncoderDecoderModel extends PreTrainedModel {
+export class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
      * @param {object} config - The configuration object specifying the hyperparameters and other model settings.
@@ -1881,8 +1929,8 @@ class VisionEncoderDecoderModel extends PreTrainedModel {
 
 //////////////////////////////////////////////////
 // CLIP models
-class CLIPPreTrainedModel extends PreTrainedModel { }
-class CLIPModel extends CLIPPreTrainedModel {
+export class CLIPPreTrainedModel extends PreTrainedModel { }
+export class CLIPModel extends CLIPPreTrainedModel {
 
 }
 
@@ -1890,12 +1938,12 @@ class CLIPModel extends CLIPPreTrainedModel {
 
 //////////////////////////////////////////////////
 // GPT2 models
-class GPT2PreTrainedModel extends PreTrainedModel { }
+export class GPT2PreTrainedModel extends PreTrainedModel { }
 /**
  * GPT2Model is not compatible with `.generate()`, as it doesn't have a language model head.
  * @extends GPT2PreTrainedModel
  */
-class GPT2Model extends GPT2PreTrainedModel {
+export class GPT2Model extends GPT2PreTrainedModel {
     /**
      * 
      * @param  {...any} args 
@@ -1913,7 +1961,7 @@ class GPT2Model extends GPT2PreTrainedModel {
  * GPT-2 language model head on top of the GPT-2 base model. This model is suitable for text generation tasks.
  * @extends GPT2PreTrainedModel
  */
-class GPT2LMHeadModel extends GPT2PreTrainedModel {
+export class GPT2LMHeadModel extends GPT2PreTrainedModel {
     /**
      * Creates a new instance of the `GPT2LMHeadModel` class.
      * @param {object} config - The configuration of the model.
@@ -1969,12 +2017,12 @@ class GPT2LMHeadModel extends GPT2PreTrainedModel {
     }
 
 }
-// class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
+// export class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
 // TODO
 // }
 //////////////////////////////////////////////////
-class GPTNeoPreTrainedModel extends PreTrainedModel { }
-class GPTNeoModel extends GPTNeoPreTrainedModel {
+export class GPTNeoPreTrainedModel extends PreTrainedModel { }
+export class GPTNeoModel extends GPTNeoPreTrainedModel {
     /**
      * 
      * @param  {...any} args 
@@ -1988,7 +2036,7 @@ class GPTNeoModel extends GPTNeoPreTrainedModel {
     }
 }
 
-class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
+export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
     /**
      * Creates a new instance of the `GPTNeoForCausalLM` class.
      * @param {object} config - The configuration of the model.
@@ -2046,13 +2094,13 @@ class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 
 //////////////////////////////////////////////////
 // CodeGen models
-class CodeGenPreTrainedModel extends PreTrainedModel { }
+export class CodeGenPreTrainedModel extends PreTrainedModel { }
 /**
  * CodeGenModel is a class representing a code generation model without a language model head.
  * 
  * @extends CodeGenPreTrainedModel
  */
-class CodeGenModel extends CodeGenPreTrainedModel {
+export class CodeGenModel extends CodeGenPreTrainedModel {
     /**
      * Throws an error indicating that the current model class is not compatible with `.generate()`,
      * as it doesn't have a language model head.
@@ -2073,7 +2121,7 @@ class CodeGenModel extends CodeGenPreTrainedModel {
  * CodeGenForCausalLM is a class that represents a code generation model based on the GPT-2 architecture. It extends the `CodeGenPreTrainedModel` class.
  * @extends CodeGenPreTrainedModel
  */
-class CodeGenForCausalLM extends CodeGenPreTrainedModel {
+export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
     /**
      * Creates a new instance of the `CodeGenForCausalLM` class.
     * @param {object} config The model configuration object.
@@ -2132,8 +2180,8 @@ class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-class ViTPreTrainedModel extends PreTrainedModel { }
-class ViTForImageClassification extends ViTPreTrainedModel {
+export class ViTPreTrainedModel extends PreTrainedModel { }
+export class ViTForImageClassification extends ViTPreTrainedModel {
     /**
      * @param {any} model_inputs
      */
@@ -2145,8 +2193,8 @@ class ViTForImageClassification extends ViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-class DetrPreTrainedModel extends PreTrainedModel { }
-class DetrForObjectDetection extends DetrPreTrainedModel {
+export class DetrPreTrainedModel extends PreTrainedModel { }
+export class DetrForObjectDetection extends DetrPreTrainedModel {
     /**
      * @param {any} model_inputs
      */
@@ -2156,7 +2204,7 @@ class DetrForObjectDetection extends DetrPreTrainedModel {
     }
 }
 
-class DetrForSegmentation extends DetrPreTrainedModel {
+export class DetrForSegmentation extends DetrPreTrainedModel {
     /**
      * Runs the model with the provided inputs
      * @param {Object} model_inputs - Model inputs
@@ -2168,7 +2216,7 @@ class DetrForSegmentation extends DetrPreTrainedModel {
     }
 }
 
-class DetrObjectDetectionOutput extends ModelOutput {
+export class DetrObjectDetectionOutput extends ModelOutput {
     /**
      * @param {any} logits
      * @param {any} pred_boxes
@@ -2180,7 +2228,7 @@ class DetrObjectDetectionOutput extends ModelOutput {
     }
 }
 
-class DetrSegmentationOutput extends ModelOutput {
+export class DetrSegmentationOutput extends ModelOutput {
 
     /**
      * @param {Tensor} logits - The output logits of the model.
@@ -2199,9 +2247,9 @@ class DetrSegmentationOutput extends ModelOutput {
 
 //////////////////////////////////////////////////
 // MarianMT models
-class MarianPreTrainedModel extends PreTrainedModel { };
+export class MarianPreTrainedModel extends PreTrainedModel { };
 
-class MarianModel extends MarianPreTrainedModel {
+export class MarianModel extends MarianPreTrainedModel {
     /**
      * 
      * @param  {...any} args 
@@ -2215,7 +2263,7 @@ class MarianModel extends MarianPreTrainedModel {
     }
 }
 
-class MarianMTModel extends MarianPreTrainedModel {
+export class MarianMTModel extends MarianPreTrainedModel {
     /**
      * Creates a new instance of the `MarianMTModel` class.
     * @param {object} config The model configuration object.
@@ -2304,9 +2352,9 @@ class MarianMTModel extends MarianPreTrainedModel {
 
 //////////////////////////////////////////////////
 // M2M100 models
-class M2M100PreTrainedModel extends PreTrainedModel { };
+export class M2M100PreTrainedModel extends PreTrainedModel { };
 
-class M2M100Model extends M2M100PreTrainedModel {
+export class M2M100Model extends M2M100PreTrainedModel {
     /**
      * 
      * @param  {...any} args 
@@ -2320,7 +2368,7 @@ class M2M100Model extends M2M100PreTrainedModel {
     }
 }
 
-class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
+export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
     /**
      * Creates a new instance of the `M2M100ForConditionalGeneration` class.
     * @param {object} config The model configuration object.
@@ -2416,7 +2464,7 @@ class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
  * Base class of all AutoModels. Contains the `from_pretrained` function
  * which is used to instantiate pretrained models.
  */
-class PretrainedMixin {
+export class PretrainedMixin {
     /**
      * Mapping from model type to model class.
      */
@@ -2508,6 +2556,7 @@ export class AutoModel extends PretrainedMixin {
         'mobilebert': MobileBertModel,
         'squeezebert': SqueezeBertModel,
         'marian': MarianModel,
+        'm2m_100': M2M100Model,
     }
 }
 
@@ -2678,7 +2727,7 @@ export class AutoModelForObjectDetection extends PretrainedMixin {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-class Seq2SeqLMOutput extends ModelOutput {
+export class Seq2SeqLMOutput extends ModelOutput {
     /**
      * @param {Tensor} logits - The output logits of the model.
      * @param {Array} past_key_values - An array of key/value pairs that represent the previous state of the model.
@@ -2692,7 +2741,7 @@ class Seq2SeqLMOutput extends ModelOutput {
     }
 }
 
-class SequenceClassifierOutput extends ModelOutput {
+export class SequenceClassifierOutput extends ModelOutput {
     /**
      * @param {Tensor} logits 
      */
@@ -2702,7 +2751,7 @@ class SequenceClassifierOutput extends ModelOutput {
     }
 }
 
-class TokenClassifierOutput extends ModelOutput {
+export class TokenClassifierOutput extends ModelOutput {
     /**
      * @param {Tensor} logits 
      */
@@ -2713,7 +2762,7 @@ class TokenClassifierOutput extends ModelOutput {
 }
 
 
-class MaskedLMOutput extends ModelOutput {
+export class MaskedLMOutput extends ModelOutput {
     /**
      * @param {Tensor} logits 
      */
@@ -2723,7 +2772,7 @@ class MaskedLMOutput extends ModelOutput {
     }
 }
 
-class QuestionAnsweringModelOutput extends ModelOutput {
+export class QuestionAnsweringModelOutput extends ModelOutput {
     /**
      * @param {Float32Array} start_logits - The logits for start positions of the answer.
      * @param {Float32Array} end_logits - The logits for end positions of the answer.

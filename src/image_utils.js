@@ -1,4 +1,13 @@
 
+/**
+ * @file Helper module for image processing. 
+ * 
+ * These functions and classes are only used internally, 
+ * meaning an end-user shouldn't need to access anything here.
+ * 
+ * @module image_utils
+ */
+
 import fs from 'fs';
 import { isString } from './utils.js';
 import { env } from './env.js';

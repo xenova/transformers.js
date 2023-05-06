@@ -1,4 +1,12 @@
 
+/**
+ * @file Utility functions/classes for Transformers.js.
+ * 
+ * These are only used internally, meaning an end-user shouldn't
+ * need to access anything here.
+ * 
+ * @module utils
+ */
 
 /**
  * Helper function to dispatch progress callbacks.
@@ -6,6 +14,7 @@
  * @param {function} progress_callback - The progress callback function to dispatch.
  * @param {any} data - The data to pass to the progress callback function.
  * @returns {void}
+ * @private
  */
 export function dispatchCallback(progress_callback, data) {
     if (progress_callback !== null) progress_callback(data);
@@ -76,6 +85,19 @@ export const Callable = /** @type {any} */ (class {
 export function isString(text) {
     return typeof text === 'string' || text instanceof String
 }
+
+
+/**
+ * Check if a value is a typed array.
+ * @param {*} text - The value to check.
+ * @returns {boolean} - True if the value is a `TypedArray`, false otherwise.
+ * 
+ * Adapted from https://stackoverflow.com/a/71091338/13989043
+ */
+export function isTypedArray(val) {
+    return val?.prototype?.__proto__?.constructor?.name === 'TypedArray';
+}
+
 
 /**
  * Check if a value is an integer.

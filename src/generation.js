@@ -1,3 +1,11 @@
+
+/**
+ * @file Classes, functions, and utilities for generation.
+ * 
+ * @todo Describe how to create a custom `GenerationConfig`.
+ * 
+ * @module generation
+ */
 import { Tensor } from './tensor_utils.js';
 import {
     Callable,
