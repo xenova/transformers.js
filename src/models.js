@@ -2216,8 +2216,8 @@ export class DetrForSegmentation extends DetrPreTrainedModel {
 
 export class DetrObjectDetectionOutput extends ModelOutput {
     /**
-     * @param {any} logits
-     * @param {any} pred_boxes
+     * @param {Tensor} logits
+     * @param {Tensor} pred_boxes
      */
     constructor(logits, pred_boxes) {
         super();
@@ -2237,6 +2237,42 @@ export class DetrSegmentationOutput extends ModelOutput {
         super();
         this.logits = logits;
         this.pred_boxes = pred_boxes;
+        this.pred_masks = pred_masks;
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+export class SamPreTrainedModel extends PreTrainedModel { }
+export class SamModel extends SamPreTrainedModel {
+    /**
+     * @param {object} model_inputs
+     * @param {Tensor} model_inputs.pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
+     * @param {Tensor} model_input_ids.input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`. This is used by the prompt encoder to encode the prompt.
+     * @todo Add support for `input_labels`, `input_boxes`, `input_masks`, and `image_embeddings`.
+     */
+    async _call(model_inputs) {
+        // TODO split into encoder and decoder
+        let output = (await super._call(model_inputs));
+        return new SamImageSegmentationOutput(output.iou_scores, output.pred_masks);
+    }
+}
+
+
+/**
+ * Base class for Segment-Anything model's output.
+ * 
+ * @extends ModelOutput
+ */
+export class SamImageSegmentationOutput extends ModelOutput {
+    /**
+     * @param {Tensor} iou_scores - The output logits of the model.
+     * @param {Tensor} pred_masks - Predicted boxes.
+     */
+    constructor(iou_scores, pred_masks) {
+        super();
+        this.iou_scores = iou_scores;
         this.pred_masks = pred_masks;
     }
 }
@@ -2555,6 +2591,7 @@ export class AutoModel extends PretrainedMixin {
         'squeezebert': SqueezeBertModel,
         'marian': MarianModel,
         'm2m_100': M2M100Model,
+        'sam': SamModel,
     }
 }
 
@@ -2722,13 +2759,27 @@ export class AutoModelForObjectDetection extends PretrainedMixin {
         'detr': DetrForObjectDetection,
     }
 }
+
+/**
+ * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForMaskGeneration.from_pretrained('Xenova/sam-vit-base');
+ */
+export class AutoModelForMaskGeneration extends PretrainedMixin {
+    static LOAD_FUNCTION = loadModel;
+    static MODEL_CLASS_MAPPING = {
+        'sam': SamModel,
+    }
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 export class Seq2SeqLMOutput extends ModelOutput {
     /**
      * @param {Tensor} logits - The output logits of the model.
-     * @param {Array} past_key_values - An array of key/value pairs that represent the previous state of the model.
+     * @param {Tensor} past_key_values - An tensor of key/value pairs that represent the previous state of the model.
      * @param {Tensor} encoder_outputs - The output of the encoder in a sequence-to-sequence model.
      */
     constructor(logits, past_key_values, encoder_outputs) {
@@ -2772,8 +2823,8 @@ export class MaskedLMOutput extends ModelOutput {
 
 export class QuestionAnsweringModelOutput extends ModelOutput {
     /**
-     * @param {Float32Array} start_logits - The logits for start positions of the answer.
-     * @param {Float32Array} end_logits - The logits for end positions of the answer.
+     * @param {Tensor} start_logits - The logits for start positions of the answer.
+     * @param {Tensor} end_logits - The logits for end positions of the answer.
      */
     constructor(start_logits, end_logits) {
         super();
