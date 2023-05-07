@@ -21,5 +21,6 @@ export * from './tokenizers.js';
 export * from './processors.js';
 
 export * from './utils/audio.js';
+export * from './utils/image.js';
 export * from './utils/tensor.js';
 export * from './utils/maths.js';
