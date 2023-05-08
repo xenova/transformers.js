@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "webpack": "webpack",
-    "typegen": "tsc",
+    "typegen": "tsc ./src/transformers.js --allowJs --declaration --emitDeclarationOnly --declarationMap --outDir types",
     "dev": "webpack serve --no-client-overlay",
     "generate-tests": "python tests/generate_tests.py",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
