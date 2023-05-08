@@ -37,7 +37,7 @@ export class LogitsProcessorList extends Callable {
     /**
      * Adds a new logits processor to the list.
      *
-     * @param {LogitsProcessor} item - The logits processor function to add.
+     * @param {LogitsProcessor} item The logits processor function to add.
      */
     push(item) {
         this.processors.push(item);
@@ -46,7 +46,7 @@ export class LogitsProcessorList extends Callable {
     /**
      * Adds multiple logits processors to the list.
      *
-     * @param {LogitsProcessor[]} items - The logits processor functions to add.
+     * @param {LogitsProcessor[]} items The logits processor functions to add.
      */
     extend(items) {
         this.processors.push(...items);
@@ -55,8 +55,8 @@ export class LogitsProcessorList extends Callable {
     /**
      * Applies all logits processors in the list to a batch of logits, modifying them in-place.
      *
-     * @param {number[]} input_ids - The input IDs for the language model.
-     * @param {number[][]} batchedLogits - A 2D array of logits, where each row corresponds to a single
+     * @param {number[]} input_ids The input IDs for the language model.
+     * @param {number[][]} batchedLogits A 2D array of logits, where each row corresponds to a single
      *                                                input sequence in the batch.
      */
     _call(input_ids, batchedLogits) {
@@ -133,7 +133,7 @@ export class ForceTokensLogitsProcessor extends LogitsProcessor {
 export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
     /**
      * Create a ForcedBOSTokenLogitsProcessor.
-     * @param {number} bos_token_id - The ID of the beginning-of-sequence token to be forced.
+     * @param {number} bos_token_id The ID of the beginning-of-sequence token to be forced.
      */
     constructor(bos_token_id) {
         super();
@@ -142,8 +142,8 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply the BOS token forcing to the logits.
-     * @param {Array} input_ids - The input IDs.
-     * @param {Object} logits - The logits.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
      * @returns {Object} The logits with BOS token forcing.
      */
     _call(input_ids, logits) {
@@ -162,8 +162,8 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
 export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     /**
      * Create a ForcedEOSTokenLogitsProcessor.
-     * @param {number} max_length - Max length of the sequence.
-     * @param {number|number[]} forced_eos_token_id - The ID of the end-of-sequence token to be forced.
+     * @param {number} max_length Max length of the sequence.
+     * @param {number|number[]} forced_eos_token_id The ID of the end-of-sequence token to be forced.
      */
     constructor(max_length, forced_eos_token_id) {
         super();
@@ -174,8 +174,8 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     /**
      * Apply the processor to input_ids and logits.
      * 
-     * @param {number[]} input_ids - The input ids.
-     * @param {any} logits - The logits tensor.
+     * @param {number[]} input_ids The input ids.
+     * @param {any} logits The logits tensor.
      */
     _call(input_ids, logits) {
         // console.log('call ForcedEOSTokenLogitsProcessor')
@@ -190,11 +190,11 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
 export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
     /**
      * Constructs a new WhisperTimeStampLogitsProcessor.
-     * @param {object} generate_config - The config object passed to the `generate()` method of a transformer model.
-     * @param {number} generate_config.eos_token_id - The ID of the end-of-sequence token.
-     * @param {number} generate_config.no_timestamps_token_id - The ID of the token used to indicate that a token should not have a timestamp.
-     * @param {number[][]} [generate_config.forced_decoder_ids] - An array of two-element arrays representing decoder IDs that are forced to appear in the output. The second element of each array indicates whether the token is a timestamp.
-     * @param {number} [generate_config.max_initial_timestamp_index] - The maximum index at which an initial timestamp can appear.
+     * @param {object} generate_config The config object passed to the `generate()` method of a transformer model.
+     * @param {number} generate_config.eos_token_id The ID of the end-of-sequence token.
+     * @param {number} generate_config.no_timestamps_token_id The ID of the token used to indicate that a token should not have a timestamp.
+     * @param {number[][]} [generate_config.forced_decoder_ids] An array of two-element arrays representing decoder IDs that are forced to appear in the output. The second element of each array indicates whether the token is a timestamp.
+     * @param {number} [generate_config.max_initial_timestamp_index] The maximum index at which an initial timestamp can appear.
      */
     constructor(generate_config) {
         super();
@@ -212,9 +212,9 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 
     /**
      * Modify the logits to handle timestamp tokens.
-     * @param {Array} input_ids - The input sequence of tokens.
-     * @param {Tensor} logits - The logits output by the model.
-     * @returns {Tensor} - The modified logits.
+     * @param {Array} input_ids The input sequence of tokens.
+     * @param {Tensor} logits The logits output by the model.
+     * @returns {Tensor} The modified logits.
      */
     _call(input_ids, logits) {
         // suppress <|notimestamps|> which is handled by without_timestamps
@@ -265,7 +265,7 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
     /**
      * Create a NoRepeatNGramLogitsProcessor.
-     * @param {number} no_repeat_ngram_size - The no-repeat-ngram size. All ngrams of this size can only occur once.
+     * @param {number} no_repeat_ngram_size The no-repeat-ngram size. All ngrams of this size can only occur once.
      */
     constructor(no_repeat_ngram_size) {
         super();
@@ -274,8 +274,8 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
 
     /**
      * Generate n-grams from a sequence of token ids.
-     * @param {number[]} prevInputIds - List of previous input ids
-     * @returns {Map<string, number[]>} - Map of generated n-grams
+     * @param {number[]} prevInputIds List of previous input ids
+     * @returns {Map<string, number[]>} Map of generated n-grams
      */
     getNgrams(prevInputIds) {
         const curLen = prevInputIds.length;
@@ -304,9 +304,9 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
 
     /**
      * Generate n-grams from a sequence of token ids.
-     * @param {Map<string, number[]>} bannedNgrams - Map of banned n-grams
-     * @param {number[]} prevInputIds - List of previous input ids
-     * @returns {number[]} - Map of generated n-grams
+     * @param {Map<string, number[]>} bannedNgrams Map of banned n-grams
+     * @param {number[]} prevInputIds List of previous input ids
+     * @returns {number[]} Map of generated n-grams
      */
     getGeneratedNgrams(bannedNgrams, prevInputIds) {
         const ngramIdx = prevInputIds.slice(prevInputIds.length + 1 - this.no_repeat_ngram_size, prevInputIds.length);
@@ -316,8 +316,8 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
 
     /**
      * Calculate banned n-gram tokens
-     * @param {number[]} prevInputIds - List of previous input ids
-     * @returns {number[]} - Map of generated n-grams
+     * @param {number[]} prevInputIds List of previous input ids
+     * @returns {number[]} Map of generated n-grams
      */
     calcBannedNgramTokens(prevInputIds) {
         const bannedTokens = [];
@@ -334,8 +334,8 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply the no-repeat-ngram processor to the logits.
-     * @param {Array} input_ids - The input IDs.
-     * @param {Object} logits - The logits.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
      * @returns {Object} The logits with no-repeat-ngram processing.
      */
     _call(input_ids, logits) {
@@ -356,7 +356,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
 export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
     /**
      * Create a RepetitionPenaltyLogitsProcessor.
-     * @param {number} penalty - The penalty to apply for repeated tokens.
+     * @param {number} penalty The penalty to apply for repeated tokens.
      */
     constructor(penalty) {
         super();
@@ -365,8 +365,8 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply the repetition penalty to the logits.
-     * @param {Array} input_ids - The input IDs.
-     * @param {Object} logits - The logits.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
      * @returns {Object} The logits with repetition penalty processing.
      */
     _call(input_ids, logits) {
@@ -389,7 +389,7 @@ export class GenerationConfig {
     /**
      * Create a GenerationConfig object
      * @constructor
-     * @param {Object} [kwargs={}] - The configuration parameters. If not set, the default values are used.
+     * @param {Object} [kwargs={}] The configuration parameters. If not set, the default values are used.
      * 
      * @param {number} [kwargs.max_length=20] The maximum length the generated tokens can have. Corresponds to the length of the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
      * @param {number} [kwargs.max_new_tokens=null] The maximum numbers of tokens to generate, ignoring the number of tokens in the prompt.
@@ -514,7 +514,7 @@ export class GenerationConfig {
 export class Sampler extends Callable {
     /**
      * Creates a new Sampler object with the specified temperature.
-     * @param {number} temperature - The temperature to use when sampling. Higher values result in more random samples.
+     * @param {number} temperature The temperature to use when sampling. Higher values result in more random samples.
      */
     constructor(temperature) {
         super();
@@ -570,7 +570,7 @@ export class Sampler extends Callable {
 
     /**
      * Selects an item randomly based on the specified probabilities.
-     * @param {Array} probabilities - An array of probabilities to use for selection.
+     * @param {Array} probabilities An array of probabilities to use for selection.
      * @returns {number} The index of the selected item.
      */
     randomSelect(probabilities) {
@@ -589,7 +589,7 @@ export class Sampler extends Callable {
 
     /**
      * Returns a Sampler object based on the specified options.
-     * @param {object} generation_config - An object containing options for the sampler.
+     * @param {object} generation_config An object containing options for the sampler.
      * @returns {Sampler} A Sampler object.
      */
     static getSampler(generation_config) {
@@ -625,7 +625,7 @@ class GreedySampler extends Sampler {
      * Sample the maximum probability of a given logits tensor.
      * @param {any} logits
      * @param {number} [index=-1]
-     * @returns {Array} - An array with a single tuple, containing the index of the maximum value and a meaningless score (since this is a greedy search).
+     * @returns {Array} An array with a single tuple, containing the index of the maximum value and a meaningless score (since this is a greedy search).
      */
     sample(logits, index = -1) {
         // NOTE: no need to do log_softmax here since we only take the maximum
@@ -708,9 +708,9 @@ class BeamSearchSampler extends Sampler {
 
     /**
    * Samples from the logits to generate a sequence using beam search.
-   * @param {any} logits - The logits to sample from.
-   * @param {number} [index=-1] - The index to sample from, if applicable.
-   * @returns {Array} - An array of arrays containing tokens and scores.
+   * @param {any} logits The logits to sample from.
+   * @param {number} [index=-1] The index to sample from, if applicable.
+   * @returns {Array} An array of arrays containing tokens and scores.
    */
     sample(logits, index = -1) {
 

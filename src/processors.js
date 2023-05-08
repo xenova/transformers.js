@@ -49,7 +49,7 @@ export class FeatureExtractor extends Callable {
     /**
      * Constructs a new FeatureExtractor instance.
      *
-     * @param {object} config - The configuration for the feature extractor.
+     * @param {object} config The configuration for the feature extractor.
      */
     constructor(config) {
         super();
@@ -67,15 +67,15 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     /**
      * Constructs a new ViTFeatureExtractor instance.
      *
-     * @param {object} config - The configuration for the feature extractor.
-     * @param {number[]} config.image_mean - The mean values for image normalization.
-     * @param {number[]} config.image_std - The standard deviation values for image normalization.
-     * @param {boolean} config.do_rescale - Whether to rescale the image pixel values to the [0,1] range.
-     * @param {number} config.rescale_factor - The factor to use for rescaling the image pixel values.
-     * @param {boolean} config.do_normalize - Whether to normalize the image pixel values.
-     * @param {boolean} config.do_resize - Whether to resize the image.
-     * @param {number} config.resample - What method to use for resampling.
-     * @param {number} config.size - The size to resize the image to.
+     * @param {object} config The configuration for the feature extractor.
+     * @param {number[]} config.image_mean The mean values for image normalization.
+     * @param {number[]} config.image_std The standard deviation values for image normalization.
+     * @param {boolean} config.do_rescale Whether to rescale the image pixel values to the [0,1] range.
+     * @param {number} config.rescale_factor The factor to use for rescaling the image pixel values.
+     * @param {boolean} config.do_normalize Whether to normalize the image pixel values.
+     * @param {boolean} config.do_resize Whether to resize the image.
+     * @param {number} config.resample What method to use for resampling.
+     * @param {number} config.size The size to resize the image to.
      */
     constructor(config) {
         super(config);
@@ -102,7 +102,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     /**
      * Preprocesses the given image.
      *
-     * @param {CustomImage} image - The image to preprocess.
+     * @param {CustomImage} image The image to preprocess.
      * @returns {Promise<any>} The preprocessed image as a Tensor.
      */
     async preprocess(image) {
@@ -243,7 +243,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * Calls the feature extraction process on an array of image
      * URLs, preprocesses each image, and concatenates the resulting
      * features into a single Tensor.
-     * @param {any} images - The URL(s) of the image(s) to extract features from.
+     * @param {any} images The URL(s) of the image(s) to extract features from.
      * @returns {Promise<Object>} An object containing the concatenated pixel values (and other metadata) of the preprocessed images.
      */
     async _call(images) {
@@ -285,7 +285,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
      * Calls the feature extraction process on an array of image
      * URLs, preprocesses each image, and concatenates the resulting
      * features into a single Tensor.
-     * @param {any} urls - The URL(s) of the image(s) to extract features from.
+     * @param {any} urls The URL(s) of the image(s) to extract features from.
      * @returns {Promise<Object>} An object containing the concatenated pixel values of the preprocessed images.
      */
     async _call(urls) {
@@ -306,7 +306,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
     }
 
     /**
-     * @param {number[]} arr - The URL(s) of the image(s) to extract features from.
+     * @param {number[]} arr The URL(s) of the image(s) to extract features from.
      * @returns {number[]} An object containing the concatenated pixel values of the preprocessed images.
      */
     center_to_corners_format([centerX, centerY, width, height]) {
@@ -319,9 +319,9 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
     }
 
     /**
-     * @param {object} outputs - The outputs of the model that must be post-processed
-     * @param {Tensor} outputs.logits - The logits
-     * @param {Tensor} outputs.pred_boxes - The predicted boxes.
+     * @param {object} outputs The outputs of the model that must be post-processed
+     * @param {Tensor} outputs.logits The logits
+     * @param {Tensor} outputs.pred_boxes The predicted boxes.
      * @return {object[]}
      */
     post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
@@ -381,11 +381,11 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
 
     /**
      * Binarize the given masks using `object_mask_threshold`, it returns the associated values of `masks`, `scores` and `labels`.
-     * @param {Tensor} class_logits - The class logits.
-     * @param {Tensor} mask_logits - The mask logits.
-     * @param {number} object_mask_threshold - A number between 0 and 1 used to binarize the masks.
-     * @param {number} num_labels - The number of labels.
-     * @returns {[Tensor[], number[], number[]]} - The binarized masks, the scores, and the labels.
+     * @param {Tensor} class_logits The class logits.
+     * @param {Tensor} mask_logits The mask logits.
+     * @param {number} object_mask_threshold A number between 0 and 1 used to binarize the masks.
+     * @param {number} num_labels The number of labels.
+     * @returns {[Tensor[], number[], number[]]} The binarized masks, the scores, and the labels.
      */
     remove_low_and_no_objects(class_logits, mask_logits, object_mask_threshold, num_labels) {
 
@@ -418,12 +418,12 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
 
     /**
      * Checks whether the segment is valid or not.
-     * @param {Int32Array} mask_labels - Labels for each pixel in the mask.
-     * @param {Tensor[]} mask_probs - Probabilities for each pixel in the masks.
-     * @param {number} k - The class id of the segment.
-     * @param {number} mask_threshold - The mask threshold.
-     * @param {number} overlap_mask_area_threshold - The overlap mask area threshold.
-     * @returns {[boolean, number[]]} - Whether the segment is valid or not, and the indices of the valid labels.
+     * @param {Int32Array} mask_labels Labels for each pixel in the mask.
+     * @param {Tensor[]} mask_probs Probabilities for each pixel in the masks.
+     * @param {number} k The class id of the segment.
+     * @param {number} mask_threshold The mask threshold.
+     * @param {number} overlap_mask_area_threshold The overlap mask area threshold.
+     * @returns {[boolean, number[]]} Whether the segment is valid or not, and the indices of the valid labels.
      */
     check_segment_validity(
         mask_labels,
@@ -462,14 +462,14 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
 
     /**
      * Computes the segments.
-     * @param {Tensor[]} mask_probs - The mask probabilities.
-     * @param {number[]} pred_scores - The predicted scores.
-     * @param {number[]} pred_labels - The predicted labels.
-     * @param {number} mask_threshold - The mask threshold.
-     * @param {number} overlap_mask_area_threshold - The overlap mask area threshold.
-     * @param {Set<number>} label_ids_to_fuse - The label ids to fuse.
-     * @param {number[]} target_size - The target size of the image.
-     * @returns {[Tensor, Array<{id: number, label_id: number, score: number}>]} - The computed segments.
+     * @param {Tensor[]} mask_probs The mask probabilities.
+     * @param {number[]} pred_scores The predicted scores.
+     * @param {number[]} pred_labels The predicted labels.
+     * @param {number} mask_threshold The mask threshold.
+     * @param {number} overlap_mask_area_threshold The overlap mask area threshold.
+     * @param {Set<number>} label_ids_to_fuse The label ids to fuse.
+     * @param {number[]} target_size The target size of the image.
+     * @returns {[Tensor, Array<{id: number, label_id: number, score: number}>]} The computed segments.
      */
     compute_segments(
         mask_probs,
@@ -571,12 +571,12 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
 
     /**
      * Post-process the model output to generate the final panoptic segmentation.
-     * @param {*} outputs - The model output to post process
-     * @param {number} [threshold=0.5] - The probability score threshold to keep predicted instance masks.
-     * @param {number} [mask_threshold=0.5] - Threshold to use when turning the predicted masks into binary values.
-     * @param {number} [overlap_mask_area_threshold=0.8] - The overlap mask area threshold to merge or discard small disconnected parts within each binary instance mask.
-     * @param {Set<number>} [label_ids_to_fuse=null] - The labels in this state will have all their instances be fused together.
-     * @param {number[][]} [target_sizes=null] - The target sizes to resize the masks to.
+     * @param {*} outputs The model output to post process
+     * @param {number} [threshold=0.5] The probability score threshold to keep predicted instance masks.
+     * @param {number} [mask_threshold=0.5] Threshold to use when turning the predicted masks into binary values.
+     * @param {number} [overlap_mask_area_threshold=0.8] The overlap mask area threshold to merge or discard small disconnected parts within each binary instance mask.
+     * @param {Set<number>} [label_ids_to_fuse=null] The labels in this state will have all their instances be fused together.
+     * @param {number[][]} [target_sizes=null] The target sizes to resize the masks to.
      * @returns {Array<{ segmentation: Tensor, segments_info: Array<{id: number, label_id: number, score: number}>}>}
      */
     post_process_panoptic_segmentation(
@@ -700,7 +700,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
             shape
         )
 
-        // TODO - allowed to be floats?
+        // TODO: allowed to be floats?
         // let input_points_tensor = new Tensor(
         //     'float32',
         //     Float32Array.from(input_points.flat(Infinity)),
@@ -747,7 +747,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
 
             let mask = masks.get(i); // [b, c, h, w]
 
-            // TODO - improve
+            // TODO: improve
             let interpolated_masks = [];
             for (let j = 0; j < mask.dims[0]; ++j) {
                 let m = mask.get(j); // 3d tensor
@@ -789,8 +789,8 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
 
     /**
      * Calculates the index offset for a given index and window size.
-     * @param {number} i - The index.
-     * @param {number} w - The window size.
+     * @param {number} i The index.
+     * @param {number} w The window size.
      * @returns {number} The index offset.
      */
     calcOffset(i, w) {
@@ -799,9 +799,9 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
 
     /**
      * Pads an array with a reflected version of itself on both ends.
-     * @param {Float32Array} array - The array to pad.
-     * @param {number} left - The amount of padding to add to the left.
-     * @param {number} right - The amount of padding to add to the right.
+     * @param {Float32Array} array The array to pad.
+     * @param {number} left The amount of padding to add to the left.
+     * @param {number} right The amount of padding to add to the right.
      * @returns {Float32Array} The padded array.
      */
     padReflect(array, left, right) {
@@ -826,8 +826,8 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
     /**
      * Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
      * 
-     * @param {number[][]} frames - A 2D array representing the signal frames.
-     * @param {number[]} window - A 1D array representing the window to be applied to the frames.
+     * @param {number[][]} frames A 2D array representing the signal frames.
+     * @param {number[]} window A 1D array representing the window to be applied to the frames.
      * @returns {Object} An object with the following properties:
      * - data: A 1D array representing the complex STFT of the signal.
      * - dims: An array representing the dimensions of the STFT data, i.e. [num_frames, num_fft_bins].
@@ -938,8 +938,8 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
     /**
      * Creates an array of frames from a given waveform.
      *
-     * @param {Float32Array} waveform - The waveform to create frames from.
-     * @param {boolean} [center=true] - Whether to center the frames on their corresponding positions in the waveform. Defaults to true.
+     * @param {Float32Array} waveform The waveform to create frames from.
+     * @param {boolean} [center=true] Whether to center the frames on their corresponding positions in the waveform. Defaults to true.
      * @returns {Array} An array of frames.
      */
     fram_wave(waveform, center = true) {
@@ -996,8 +996,8 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
     /**
      * Generates a Hanning window of length M.
      *
-     * @param {number} M - The length of the Hanning window to generate.
-     * @returns {*} - The generated Hanning window.
+     * @param {number} M The length of the Hanning window to generate.
+     * @returns {*} The generated Hanning window.
      */
     hanning(M) {
         if (M < 1) {
@@ -1017,7 +1017,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
 
     /**
      * Computes the log-Mel spectrogram of the provided audio waveform.
-     * @param {Float32Array} waveform - The audio waveform to process.
+     * @param {Float32Array} waveform The audio waveform to process.
      * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
     _extract_fbank_features(waveform) {
@@ -1099,8 +1099,8 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
 
     /**
      * Asynchronously extracts features from a given audio using the provided configuration.
-     * @param {Float32Array} audio - The audio data as a Float32Array.
-     * @returns {Promise<{ input_features: Tensor }>} - A Promise resolving to an object containing the extracted input features as a Tensor.
+     * @param {Float32Array} audio The audio data as a Float32Array.
+     * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
     */
     async _call(audio) {
         // audio is a float32array
@@ -1132,7 +1132,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
 export class Processor extends Callable {
     /**
      * Creates a new Processor with the given feature extractor.
-     * @param {FeatureExtractor} feature_extractor - The function used to extract features from the input.
+     * @param {FeatureExtractor} feature_extractor The function used to extract features from the input.
      */
     constructor(feature_extractor) {
         super();
@@ -1142,7 +1142,7 @@ export class Processor extends Callable {
 
     /**
      * Calls the feature_extractor function with the given input.
-     * @param {any} input - The input to extract features from.
+     * @param {any} input The input to extract features from.
      * @returns {Promise<any>} A Promise that resolves with the extracted features.
      */
     async _call(input) {
@@ -1172,7 +1172,7 @@ export class SamProcessor extends Processor {
 export class WhisperProcessor extends Processor {
     /**
      * Calls the feature_extractor function with the given audio input.
-     * @param {any} audio - The audio input to extract features from.
+     * @param {any} audio The audio input to extract features from.
      * @returns {Promise<any>} A Promise that resolves with the extracted features.
      */
     async _call(audio) {
@@ -1216,7 +1216,7 @@ export class AutoProcessor {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
-     * @param {PretrainedOptions} options - Additional options for loading the processor.
+     * @param {PretrainedOptions} options Additional options for loading the processor.
      * 
      * @returns {Promise<Processor>} A new instance of the Processor class.
      */

@@ -58,8 +58,8 @@ export class Tensor extends ONNXTensor {
 
     /**
      * Index into a Tensor object, returning either a Tensor or a scalar value.
-     * @param {number} index - The index to access.
-     * @returns {Tensor} - The data at the specified index.
+     * @param {number} index The index to access.
+     * @returns {Tensor} The data at the specified index.
      */
     get(index) {
         const iterDims = this.dims.slice(1);
@@ -72,8 +72,8 @@ export class Tensor extends ONNXTensor {
     }
 
     /**
-     * @param {number|bigint} item - The item to search for in the tensor
-     * @returns {number} - The index of the first occurrence of item in the tensor data.
+     * @param {number|bigint} item The item to search for in the tensor
+     * @returns {number} The index of the first occurrence of item in the tensor data.
      */
     indexOf(item) {
         for (let index = 0; index < this.data.length; ++index) {
@@ -106,7 +106,7 @@ export class Tensor extends ONNXTensor {
 
     /**
      * Return a new Tensor the sigmoid function applied to each element.
-     * @returns {Tensor} - The tensor with the sigmoid function applied.
+     * @returns {Tensor} The tensor with the sigmoid function applied.
      */
     sigmoid() {
         return this.clone().sigmoid_();
@@ -114,7 +114,7 @@ export class Tensor extends ONNXTensor {
 
     /**
      * Applies the sigmoid function to the tensor in place.
-     * @returns {Tensor} - Returns `this`.
+     * @returns {Tensor} Returns `this`.
      */
     sigmoid_() {
         for (let i = 0; i < this.data.length; ++i) {
@@ -198,8 +198,8 @@ export class Tensor extends ONNXTensor {
 
     /**
      * Return a transposed version of this Tensor, according to the provided dimensions.
-     * @param  {...number} dims - Dimensions to transpose.
-     * @returns {Tensor} - The transposed tensor.
+     * @param  {...number} dims Dimensions to transpose.
+     * @returns {Tensor} The transposed tensor.
      */
     transpose(...dims) {
         return transpose(this, dims);
@@ -229,8 +229,8 @@ export class Tensor extends ONNXTensor {
  *   reshape([1, 2, 3, 4            ], [2, 2   ]); // Type: number[][]    Value: [[1, 2], [3, 4]]
  *   reshape([1, 2, 3, 4, 5, 6, 7, 8], [2, 2, 2]); // Type: number[][][]  Value: [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
  *   reshape([1, 2, 3, 4, 5, 6, 7, 8], [4, 2   ]); // Type: number[][]    Value: [[1, 2], [3, 4], [5, 6], [7, 8]]
- * @param {T[]} data - The input array to reshape.
- * @param {DIM} dimensions - The target shape/dimensions.
+ * @param {T[]} data The input array to reshape.
+ * @param {DIM} dimensions The target shape/dimensions.
  * @template T
  * @template {[number]|[number, number]|[number, number, number]|[number, number, number, number]} DIM
  * @returns {NestArray<T, DIM["length"]>} The reshaped array.
@@ -266,8 +266,8 @@ function reshape(data, dimensions) {
 
 /**
  * Transposes a tensor according to the provided axes.
- * @param {any} tensor - The input tensor to transpose.
- * @param {Array} axes - The axes to transpose the tensor along.
+ * @param {any} tensor The input tensor to transpose.
+ * @param {Array} axes The axes to transpose the tensor along.
  * @returns {Tensor} The transposed tensor.
  */
 export function transpose(tensor, axes) {
@@ -279,8 +279,8 @@ export function transpose(tensor, axes) {
 /**
  * Concatenates an array of tensors along the 0th dimension.
  *
- * @param {any} tensors - The array of tensors to concatenate.
- * @returns {Tensor} - The concatenated tensor.
+ * @param {any} tensors The array of tensors to concatenate.
+ * @returns {Tensor} The concatenated tensor.
  */
 export function cat(tensors) {
     if (tensors.length === 0) {
@@ -315,11 +315,11 @@ export function cat(tensors) {
 
 /**
  * Interpolates an Tensor to the given size.
- * @param {Tensor} input - The input tensor to interpolate. Data must be channel-first (i.e., [c, h, w])
- * @param {number[]} size - The output size of the image
- * @param {string} mode - The interpolation mode
- * @param {boolean} align_corners - Whether to align corners.
- * @returns {Tensor} - The interpolated tensor.
+ * @param {Tensor} input The input tensor to interpolate. Data must be channel-first (i.e., [c, h, w])
+ * @param {number[]} size The output size of the image
+ * @param {string} mode The interpolation mode
+ * @param {boolean} align_corners Whether to align corners.
+ * @returns {Tensor} The interpolated tensor.
  */
 export function interpolate(input, [out_height, out_width], mode = 'bilinear', align_corners = false) {
 

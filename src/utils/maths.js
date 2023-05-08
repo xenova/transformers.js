@@ -131,7 +131,7 @@ export function transpose_data(array, dims, axes) {
 /**
  * Compute the softmax of an array of numbers.
  *
- * @param {number[]} arr - The array of numbers to compute the softmax of.
+ * @param {number[]} arr The array of numbers to compute the softmax of.
  * @returns {number[]} The softmax array.
  */
 export function softmax(arr) {
@@ -152,8 +152,8 @@ export function softmax(arr) {
 
 /**
  * Calculates the logarithm of the softmax function for the input array.
- * @param {number[]} arr - The input array to calculate the log_softmax function for.
- * @returns {any} - The resulting log_softmax array.
+ * @param {number[]} arr The input array to calculate the log_softmax function for.
+ * @returns {any} The resulting log_softmax array.
  */
 export function log_softmax(arr) {
     // Compute the softmax values
@@ -167,9 +167,9 @@ export function log_softmax(arr) {
 
 /**
  * Calculates the dot product of two arrays.
- * @param {number[]} arr1 - The first array.
- * @param {number[]} arr2 - The second array.
- * @returns {number} - The dot product of arr1 and arr2.
+ * @param {number[]} arr1 The first array.
+ * @param {number[]} arr2 The second array.
+ * @returns {number} The dot product of arr1 and arr2.
  */
 export function dot(arr1, arr2) {
     return arr1.reduce((acc, val, i) => acc + val * arr2[i], 0);
@@ -179,9 +179,9 @@ export function dot(arr1, arr2) {
 /**
  * Get the top k items from an iterable, sorted by descending order
  *
- * @param {Array} items - The items to be sorted
- * @param {number} [top_k=0] - The number of top items to return (default: 0 = return all)
- * @returns {Array} - The top k items, sorted by descending order
+ * @param {Array} items The items to be sorted
+ * @param {number} [top_k=0] The number of top items to return (default: 0 = return all)
+ * @returns {Array} The top k items, sorted by descending order
  */
 export function getTopItems(items, top_k = 0) {
     // if top == 0, return all
@@ -200,8 +200,8 @@ export function getTopItems(items, top_k = 0) {
 /**
  * Computes the cosine similarity between two arrays.
  *
- * @param {number[]} arr1 - The first array.
- * @param {number[]} arr2 - The second array.
+ * @param {number[]} arr1 The first array.
+ * @param {number[]} arr2 The second array.
  * @returns {number} The cosine similarity between the two arrays.
  */
 export function cos_sim(arr1, arr2) {
@@ -222,7 +222,7 @@ export function cos_sim(arr1, arr2) {
 
 /**
  * Calculates the magnitude of a given array.
- * @param {number[]} arr - The array to calculate the magnitude of.
+ * @param {number[]} arr The array to calculate the magnitude of.
  * @returns {number} The magnitude of the array.
  */
 export function magnitude(arr) {
@@ -232,8 +232,8 @@ export function magnitude(arr) {
 
 /**
  * Returns the value and index of the minimum element in an array.
- * @param {number[]} arr - array of numbers.
- * @returns {number[]} - the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
+ * @param {number[]} arr array of numbers.
+ * @returns {number[]} the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
  * @throws {Error} If array is empty.
  */
 export function min(arr) {
@@ -252,8 +252,8 @@ export function min(arr) {
 
 /**
  * Returns the value and index of the maximum element in an array.
- * @param {number[]} arr - array of numbers.
- * @returns {number[]} - the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
+ * @param {number[]} arr array of numbers.
+ * @returns {number[]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
  * @throws {Error} If array is empty.
  */
 export function max(arr) {
@@ -276,7 +276,7 @@ export function max(arr) {
  */
 export class FFT {
     /**
-     * @param {number} size - The size of the input array. Must be a power of two and bigger than 1.
+     * @param {number} size The size of the input array. Must be a power of two and bigger than 1.
      * @throws {Error} FFT size must be a power of two and bigger than 1.
      */
     constructor(size) {
@@ -299,7 +299,7 @@ export class FFT {
             ++power;
 
         // Calculate initial step's width:
-        //   * If we are full radix-4 - it is 2x smaller to give inital len=8
+        //   * If we are full radix-4, it is 2x smaller to give inital len=8
         //   * Otherwise it is the same as `power` to give len=4
         this._width = power % 2 === 0 ? power - 1 : power;
 
@@ -317,7 +317,7 @@ export class FFT {
     /**
      * Create a complex number array with size `2 * size`
      *
-     * @returns {Float32Array} - A complex number array with size `2 * size`
+     * @returns {Float32Array} A complex number array with size `2 * size`
      */
     createComplexArray() {
         return new Float32Array(this._csize);
@@ -326,8 +326,8 @@ export class FFT {
     /**
      * Converts a complex number representation stored in a Float32Array to an array of real numbers.
      * 
-     * @param {Float32Array} complex - The complex number representation to be converted.
-     * @param {number[]} [storage] - An optional array to store the result in.
+     * @param {Float32Array} complex The complex number representation to be converted.
+     * @param {number[]} [storage] An optional array to store the result in.
      * @returns {number[]} An array of real numbers representing the input complex number representation.
      */
     fromComplexArray(complex, storage) {
@@ -339,8 +339,8 @@ export class FFT {
 
     /**
      * Convert a real-valued input array to a complex-valued output array.
-     * @param {Float32Array} input - The real-valued input array.
-     * @param {Float32Array} [storage] - Optional buffer to store the output array.
+     * @param {Float32Array} input The real-valued input array.
+     * @param {Float32Array} [storage] Optional buffer to store the output array.
      * @returns {Float32Array} The complex-valued output array.
      */
     toComplexArray(input, storage) {
@@ -354,7 +354,7 @@ export class FFT {
 
     /**
      * Completes the spectrum by adding its mirrored negative frequency components.
-     * @param {Float32Array} spectrum - The input spectrum.
+     * @param {Float32Array} spectrum The input spectrum.
      * @returns {void}
      */
     completeSpectrum(spectrum) {
@@ -369,8 +369,8 @@ export class FFT {
     /**
      * Performs a Fast Fourier Transform (FFT) on the given input data and stores the result in the output buffer.
      * 
-     * @param {Float32Array} out - The output buffer to store the result.
-     * @param {Float32Array} data - The input data to transform.
+     * @param {Float32Array} out The output buffer to store the result.
+     * @param {Float32Array} data The input data to transform.
      * 
      * @throws {Error} Input and output buffers must be different.
      * 
@@ -388,8 +388,8 @@ export class FFT {
      * The input buffer must contain real values only, while the output buffer will contain complex values. The input and
      * output buffers must be different.
      *
-     * @param {Float32Array} out - The output buffer.
-     * @param {Float32Array} data - The input buffer containing real values.
+     * @param {Float32Array} out The output buffer.
+     * @param {Float32Array} data The input buffer containing real values.
      *
      * @throws {Error} If the input and output buffers are the same.
      */
@@ -405,8 +405,8 @@ export class FFT {
      * The `out` array must be a different buffer than the `data` array. The `out` array will contain the
      * result of the transformation. The `data` array will not be modified.
      * 
-     * @param {Float32Array} out - The output buffer for the transformed data.
-     * @param {Float32Array} data - The input data to transform.
+     * @param {Float32Array} out The output buffer for the transformed data.
+     * @param {Float32Array} data The input data to transform.
      * @throws {Error} If `out` and `data` refer to the same buffer.
      * @returns {void}
      */
@@ -422,9 +422,9 @@ export class FFT {
     /**
      * Performs a radix-4 implementation of a discrete Fourier transform on a given set of data.
      *
-     * @param {Float32Array} out - The output buffer for the transformed data.
-     * @param {Float32Array} data - The input buffer of data to be transformed.
-     * @param {number} inv - A scaling factor to apply to the transform.
+     * @param {Float32Array} out The output buffer for the transformed data.
+     * @param {Float32Array} data The input buffer of data to be transformed.
+     * @param {number} inv A scaling factor to apply to the transform.
      * @returns {void}
      */
     _transform4(out, data, inv) {
@@ -520,11 +520,11 @@ export class FFT {
     /**
      * Performs a radix-2 implementation of a discrete Fourier transform on a given set of data.
      *
-     * @param {Float32Array} data - The input buffer of data to be transformed.
-     * @param {Float32Array} out - The output buffer for the transformed data.
-     * @param {number} outOff - The offset at which to write the output data.
-     * @param {number} off - The offset at which to begin reading the input data.
-     * @param {number} step - The step size for indexing the input data.
+     * @param {Float32Array} data The input buffer of data to be transformed.
+     * @param {Float32Array} out The output buffer for the transformed data.
+     * @param {number} outOff The offset at which to write the output data.
+     * @param {number} off The offset at which to begin reading the input data.
+     * @param {number} step The step size for indexing the input data.
      * @returns {void}
      */
     _singleTransform2(data, out, outOff, off, step) {
@@ -545,12 +545,12 @@ export class FFT {
     /**
      * Performs radix-4 transformation on input data of length 8
      *
-     * @param {Float32Array} data - Input data array of length 8
-     * @param {Float32Array} out - Output data array of length 8
-     * @param {number} outOff - Index of output array to start writing from
-     * @param {number} off - Index of input array to start reading from
-     * @param {number} step - Step size between elements in input array
-     * @param {number} inv - Scaling factor for inverse transform
+     * @param {Float32Array} data Input data array of length 8
+     * @param {Float32Array} out Output data array of length 8
+     * @param {number} outOff Index of output array to start writing from
+     * @param {number} off Index of input array to start reading from
+     * @param {number} step Step size between elements in input array
+     * @param {number} inv Scaling factor for inverse transform
      * 
      * @returns {void}
      */
@@ -593,9 +593,9 @@ export class FFT {
 
     /**
      * Real input radix-4 implementation
-     * @param {Float32Array} out - Output array for the transformed data
-     * @param {Float32Array} data - Input array of real data to be transformed
-     * @param {number} inv - The scale factor used to normalize the inverse transform
+     * @param {Float32Array} out Output array for the transformed data
+     * @param {Float32Array} data Input array of real data to be transformed
+     * @param {number} inv The scale factor used to normalize the inverse transform
      */
     _realTransform4(out, data, inv) {
         // Real input radix-4 implementation
@@ -704,11 +704,11 @@ export class FFT {
     /**
      * Performs a single real input radix-2 transformation on the provided data
      * 
-     * @param {Float32Array} data - The input data array
-     * @param {Float32Array} out - The output data array
-     * @param {number} outOff - The output offset
-     * @param {number} off - The input offset
-     * @param {number} step - The step
+     * @param {Float32Array} data The input data array
+     * @param {Float32Array} out The output data array
+     * @param {number} outOff The output offset
+     * @param {number} off The input offset
+     * @param {number} step The step
      * 
      * @returns {void}
      */
@@ -729,12 +729,12 @@ export class FFT {
      * Computes a single real-valued transform using radix-4 algorithm.
      * This method is only called for len=8.
      *
-     * @param {Float32Array} data - The input data array.
-     * @param {Float32Array} out - The output data array.
-     * @param {number} outOff - The offset into the output array.
-     * @param {number} off - The offset into the input array.
-     * @param {number} step - The step size for the input array.
-     * @param {number} inv - The value of inverse.
+     * @param {Float32Array} data The input data array.
+     * @param {Float32Array} out The output data array.
+     * @param {number} outOff The offset into the output array.
+     * @param {number} off The offset into the input array.
+     * @param {number} step The step size for the input array.
+     * @param {number} inv The value of inverse.
      */
     _singleRealTransform4(data, out, outOff, off, step, inv) {
         // radix-4

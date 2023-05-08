@@ -19,7 +19,7 @@ if (!globalThis.ReadableStream) {
 
 /**
  * @typedef {object} PretrainedOptions Options for loading a pretrained model.     
- * @property {boolean?} [options.quantized=true] - Whether to load the 8-bit quantized version of the model (only applicable when loading model files).
+ * @property {boolean?} [options.quantized=true] Whether to load the 8-bit quantized version of the model (only applicable when loading model files).
  * @property {function} [options.progress_callback=null] If specified, this function will be called during model construction, to provide the user with progress updates.
  * @property {object} [options.config=null] Configuration for the model to use instead of an automatically loaded configuration. Configuration can be automatically loaded when:
  * - The model is a model provided by the library (loaded with the *model id* string of a pretrained model).
@@ -135,8 +135,8 @@ class FileResponse {
     /**
      * Reads the contents of the file specified by the filePath property and returns a Promise that
      * resolves with an ArrayBuffer containing the file's contents.
-     * @returns {Promise<ArrayBuffer>} - A Promise that resolves with an ArrayBuffer containing the file's contents.
-     * @throws {Error} - If the file cannot be read.
+     * @returns {Promise<ArrayBuffer>} A Promise that resolves with an ArrayBuffer containing the file's contents.
+     * @throws {Error} If the file cannot be read.
      */
     async arrayBuffer() {
         const data = await fs.promises.readFile(this.filePath);
@@ -146,8 +146,8 @@ class FileResponse {
     /**
      * Reads the contents of the file specified by the filePath property and returns a Promise that
      * resolves with a Blob containing the file's contents.
-     * @returns {Promise<Blob>} - A Promise that resolves with a Blob containing the file's contents.
-     * @throws {Error} - If the file cannot be read.
+     * @returns {Promise<Blob>} A Promise that resolves with a Blob containing the file's contents.
+     * @throws {Error} If the file cannot be read.
      */
     async blob() {
         const data = await fs.promises.readFile(this.filePath);
@@ -157,8 +157,8 @@ class FileResponse {
     /**
      * Reads the contents of the file specified by the filePath property and returns a Promise that
      * resolves with a string containing the file's contents.
-     * @returns {Promise<string>} - A Promise that resolves with a string containing the file's contents.
-     * @throws {Error} - If the file cannot be read.
+     * @returns {Promise<string>} A Promise that resolves with a string containing the file's contents.
+     * @throws {Error} If the file cannot be read.
      */
     async text() {
         const data = await fs.promises.readFile(this.filePath, 'utf8');
@@ -169,8 +169,8 @@ class FileResponse {
      * Reads the contents of the file specified by the filePath property and returns a Promise that
      * resolves with a parsed JavaScript object containing the file's contents.
      * 
-     * @returns {Promise<object>} - A Promise that resolves with a parsed JavaScript object containing the file's contents.
-     * @throws {Error} - If the file cannot be read.
+     * @returns {Promise<object>} A Promise that resolves with a parsed JavaScript object containing the file's contents.
+     * @throws {Error} If the file cannot be read.
      */
     async json() {
         return JSON.parse(await this.text());
@@ -179,8 +179,8 @@ class FileResponse {
 
 /**
  * Determines whether the given string is a valid HTTP or HTTPS URL.
- * @param {string|URL} string - The string to test for validity as an HTTP or HTTPS URL.
- * @returns {boolean} - True if the string is a valid HTTP or HTTPS URL, false otherwise.
+ * @param {string|URL} string The string to test for validity as an HTTP or HTTPS URL.
+ * @returns {boolean} True if the string is a valid HTTP or HTTPS URL, false otherwise.
  */
 function isValidHttpUrl(string) {
     // https://stackoverflow.com/a/43467144
@@ -196,7 +196,7 @@ function isValidHttpUrl(string) {
 /**
  * Helper function to get a file, using either the Fetch API or FileSystem API.
  *
- * @param {URL|string} urlOrPath - The URL/path of the file to get.
+ * @param {URL|string} urlOrPath The URL/path of the file to get.
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
 export async function getFile(urlOrPath) {
@@ -212,11 +212,11 @@ export async function getFile(urlOrPath) {
 
 /**
  * Helper method to handle fatal errors that occur while trying to load a file from the Hugging Face Hub.
- * @param {number} status - The HTTP status code of the error.
- * @param {string} remoteURL - The URL of the file that could not be loaded.
- * @param {boolean} fatal - Whether to raise an error if the file could not be loaded.
- * @returns {null} - Returns `null` if `fatal = true`.
- * @throws {Error} - If `fatal = false`.
+ * @param {number} status The HTTP status code of the error.
+ * @param {string} remoteURL The URL of the file that could not be loaded.
+ * @param {boolean} fatal Whether to raise an error if the file could not be loaded.
+ * @returns {null} Returns `null` if `fatal = true`.
+ * @throws {Error} If `fatal = false`.
  */
 function handleError(status, remoteURL, fatal) {
     if (!fatal) {
@@ -316,8 +316,8 @@ class FileCache {
  * - a string, the *model id* of a model repo on huggingface.co.
  * - a path to a *directory* potentially containing the file.
  * @param {string} filename The name of the file to locate in `path_or_repo`.
- * @param {boolean} [fatal=true] - Whether to throw an error if the file is not found.
- * @param {PretrainedOptions} [options] - An object containing optional parameters.
+ * @param {boolean} [fatal=true] Whether to throw an error if the file is not found.
+ * @param {PretrainedOptions} [options] An object containing optional parameters.
  * 
  * @throws Will throw an error if the file is not found and `fatal` is true.
  * @returns {Promise} A Promise that resolves with the file content as a buffer.
@@ -459,11 +459,11 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
 /**
  * Fetches a JSON file from a given path and file name.
  *
- * @param {string} modelPath - The path to the directory containing the file.
- * @param {string} fileName - The name of the file to fetch.
- * @param {boolean} [fatal=true] - Whether to throw an error if the file is not found.
- * @param {PretrainedOptions} [options] - An object containing optional parameters.
- * @returns {Promise<object>} - The JSON data parsed into a JavaScript object.
+ * @param {string} modelPath The path to the directory containing the file.
+ * @param {string} fileName The name of the file to fetch.
+ * @param {boolean} [fatal=true] Whether to throw an error if the file is not found.
+ * @param {PretrainedOptions} [options] An object containing optional parameters.
+ * @returns {Promise<object>} The JSON data parsed into a JavaScript object.
  * @throws Will throw an error if the file is not found and `fatal` is true.
  */
 export async function getModelJSON(modelPath, fileName, fatal = true, options = {}) {
@@ -482,8 +482,8 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
 /**
  * Read and track progress when reading a Response object
  *
- * @param {any} response - The Response object to read
- * @param {function} progress_callback - The function to call with progress updates
+ * @param {any} response The Response object to read
+ * @param {function} progress_callback The function to call with progress updates
  * @returns {Promise<Uint8Array>} A Promise that resolves with the Uint8Array buffer
  */
 async function readResponse(response, progress_callback) {
@@ -539,7 +539,7 @@ async function readResponse(response, progress_callback) {
 /**
  * Joins multiple parts of a path into a single path, while handling leading and trailing slashes.
  *
- * @param {...string} parts - Multiple parts of a path.
+ * @param {...string} parts Multiple parts of a path.
  * @returns {string} A string representing the joined path.
  */
 function pathJoin(...parts) {

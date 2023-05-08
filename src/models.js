@@ -78,10 +78,10 @@ const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 // Helper functions
 /**
  * Constructs an InferenceSession using a model file located at the specified path.
- * @param {string} pretrained_model_name_or_path - The path to the directory containing the model file.
- * @param {string} fileName - The name of the model file.
- * @param {PretrainedOptions} options - Additional options for loading the model.
- * @returns {Promise<InferenceSession>} - A Promise that resolves to an InferenceSession object.
+ * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
+ * @param {string} fileName The name of the model file.
+ * @param {PretrainedOptions} options Additional options for loading the model.
+ * @returns {Promise<InferenceSession>} A Promise that resolves to an InferenceSession object.
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
     // TODO add option for user to force specify their desired execution provider
@@ -111,9 +111,9 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 
 /**
  * Executes an InferenceSession using the specified inputs.
- * @param {InferenceSession} session - The InferenceSession object to run.
- * @param {Object} inputs - An object that maps input names to input tensors.
- * @returns {Promise<Object>} - A Promise that resolves to an object that maps output names to output tensors.
+ * @param {InferenceSession} session The InferenceSession object to run.
+ * @param {Object} inputs An object that maps input names to input tensors.
+ * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
  */
 async function sessionRun(session, inputs) {
     try {
@@ -129,8 +129,8 @@ async function sessionRun(session, inputs) {
 
 /**
  * Replaces ONNX Tensor objects with custom Tensor objects to support additional functions.
- * @param {Object} obj - The object to replace tensor objects in.
- * @returns {Object} - The object with tensor objects replaced by custom Tensor objects.
+ * @param {Object} obj The object to replace tensor objects in.
+ * @returns {Object} The object with tensor objects replaced by custom Tensor objects.
  */
 function replaceTensors(obj) {
     // Convert ONNX Tensors with our custom Tensor class
@@ -145,9 +145,9 @@ function replaceTensors(obj) {
 
 /**
  * Prepares an attention mask for a sequence of tokens based on configuration options.
- * @param {Object} self - The calling object instance.
- * @param {Tensor} tokens - The input tokens.
- * @returns {Tensor} - The attention mask tensor.
+ * @param {Object} self The calling object instance.
+ * @param {Tensor} tokens The input tokens.
+ * @returns {Tensor} The attention mask tensor.
  */
 function _prepare_attention_mask(self, tokens) {
 
@@ -178,8 +178,8 @@ function _prepare_attention_mask(self, tokens) {
 
 /**
  * Creates a boolean tensor with a single value.
- * @param {boolean} value - The value of the tensor.
- * @returns {Tensor} - The boolean tensor.
+ * @param {boolean} value The value of the tensor.
+ * @returns {Tensor} The boolean tensor.
  */
 function boolTensor(value) {
     // Create boolean tensor
@@ -189,9 +189,9 @@ function boolTensor(value) {
 
 /**
  * Loads a model from the specified path.
- * @param {string} pretrained_model_name_or_path - The path to the model directory.
- * @param {PretrainedOptions} options - Additional options for loading the model.
- * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ * @param {string} pretrained_model_name_or_path The path to the model directory.
+ * @param {PretrainedOptions} options Additional options for loading the model.
+ * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
  */
 async function loadAutoModel(pretrained_model_name_or_path, options) {
     // Only get config.json if not already specified
@@ -206,9 +206,9 @@ async function loadAutoModel(pretrained_model_name_or_path, options) {
 
 /**
  * Loads a model from the specified path.
- * @param {string} pretrained_model_name_or_path - The path to the model directory.
- * @param {PretrainedOptions} options - Additional options for loading the model.
- * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ * @param {string} pretrained_model_name_or_path The path to the model directory.
+ * @param {PretrainedOptions} options Additional options for loading the model.
+ * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
  */
 async function loadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
@@ -220,9 +220,9 @@ async function loadModel(pretrained_model_name_or_path, options) {
 
 /**
  * Loads a sequence-to-sequence model from the specified path.
- * @param {string} pretrained_model_name_or_path - The path to the model directory.
- * @param {PretrainedOptions} options - Additional options for loading the model.
- * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ * @param {string} pretrained_model_name_or_path The path to the model directory.
+ * @param {PretrainedOptions} options Additional options for loading the model.
+ * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
  */
 async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
@@ -236,9 +236,9 @@ async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
 
 /**
  * Loads an encoder-decoder model from the specified path.
- * @param {string} pretrained_model_name_or_path - The path to the model directory.
- * @param {PretrainedOptions} options - Additional options for loading the model.
- * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ * @param {string} pretrained_model_name_or_path The path to the model directory.
+ * @param {PretrainedOptions} options Additional options for loading the model.
+ * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
  */
 async function encoderDecoderLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
@@ -252,9 +252,9 @@ async function encoderDecoderLoadModel(pretrained_model_name_or_path, options) {
 
 /**
  * Loads a decoder model from the specified path.
- * @param {string} pretrained_model_name_or_path - The path to the model directory.
- * @param {PretrainedOptions} options - Additional options for loading the model.
- * @returns {Promise<Array>} - A promise that resolves with information about the loaded model.
+ * @param {string} pretrained_model_name_or_path The path to the model directory.
+ * @param {PretrainedOptions} options Additional options for loading the model.
+ * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
  */
 async function decoderLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
@@ -267,12 +267,12 @@ async function decoderLoadModel(pretrained_model_name_or_path, options) {
 // JS doesn't support mixins, so we define some reused functions here, and allow "this" to be passed in
 /**
  * Perform forward pass on the seq2seq model.
- * @param {Object} self - The seq2seq model object.
- * @param {Object} model_inputs - The input object for the model containing encoder and decoder inputs.
- * @param {Object} options - The options
- * @param {string} [options.encoder_input_name='input_ids'] - The name of the input tensor for the encoder.
- * @param {boolean} [options.add_decoder_pkv=true] - Flag to add the decoder past key values.
- * @returns {Promise<Seq2SeqLMOutput>} - Promise that resolves with the output of the seq2seq model.
+ * @param {Object} self The seq2seq model object.
+ * @param {Object} model_inputs The input object for the model containing encoder and decoder inputs.
+ * @param {Object} options The options
+ * @param {string} [options.encoder_input_name='input_ids'] The name of the input tensor for the encoder.
+ * @param {boolean} [options.add_decoder_pkv=true] Flag to add the decoder past key values.
+ * @returns {Promise<Seq2SeqLMOutput>} Promise that resolves with the output of the seq2seq model.
  */
 async function seq2seq_forward(self, model_inputs, {
     encoder_input_name = 'input_ids',
@@ -311,11 +311,11 @@ async function seq2seq_forward(self, model_inputs, {
 
 /**
  * Start the beam search process for the seq2seq model.
- * @param {Object} self - The seq2seq model object.
- * @param {Object[]} inputTokenIds - Array of input token ids for each input sequence.
- * @param {number} numOutputTokens - The maximum number of output tokens for the model.
- * @param {boolean} [requires_attention_mask=true] - Flag to indicate if the model requires an attention mask.
- * @returns {Object[]} - Array of beam search objects.
+ * @param {Object} self The seq2seq model object.
+ * @param {Object[]} inputTokenIds Array of input token ids for each input sequence.
+ * @param {number} numOutputTokens The maximum number of output tokens for the model.
+ * @param {boolean} [requires_attention_mask=true] Flag to indicate if the model requires an attention mask.
+ * @returns {Object[]} Array of beam search objects.
  */
 function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
     let beams = [];
@@ -351,11 +351,11 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
 
 /**
  * Run beam search on the seq2seq model for a single beam.
- * @param {Object} self - The seq2seq model object.
- * @param {Object} beam - The beam search object for which to run the model.
- * @param {Object} options - options
- * @param {string} [options.input_name='input_ids'] - The name of the input tensor for the encoder.
- * @returns {Promise<Object>} - Promise that resolves with the output of the seq2seq model for the given beam.
+ * @param {Object} self The seq2seq model object.
+ * @param {Object} beam The beam search object for which to run the model.
+ * @param {Object} options options
+ * @param {string} [options.input_name='input_ids'] The name of the input tensor for the encoder.
+ * @returns {Promise<Object>} Promise that resolves with the output of the seq2seq model for the given beam.
  */
 async function seq2seqRunBeam(self, beam, {
     input_name = 'input_ids',
@@ -384,9 +384,9 @@ async function seq2seqRunBeam(self, beam, {
 
 /**
  * Forward pass of the text generation model.
- * @param {Object} self - The text generation model object.
- * @param {Object} model_inputs - The input data to be used for the forward pass.
- * @returns {Promise<Object>} - Promise that resolves with an object containing the logits and past key values.
+ * @param {Object} self The text generation model object.
+ * @param {Object} model_inputs The input data to be used for the forward pass.
+ * @returns {Promise<Object>} Promise that resolves with an object containing the logits and past key values.
  */
 async function textgen_forward(self, model_inputs) {
     let past_key_values = model_inputs.past_key_values;
@@ -406,10 +406,10 @@ async function textgen_forward(self, model_inputs) {
 
 /**
  * Starts the generation of text by initializing the beams for the given input token IDs.
- * @param {Object} self - The text generation model object.
- * @param {any} inputTokenIds - An array of input token IDs to generate text from.
- * @param {number} numOutputTokens - The maximum number of tokens to generate for each beam.
- * @param {Tensor} [inputs_attention_mask] - The attention mask tensor for the input token IDs.
+ * @param {Object} self The text generation model object.
+ * @param {any} inputTokenIds An array of input token IDs to generate text from.
+ * @param {number} numOutputTokens The maximum number of tokens to generate for each beam.
+ * @param {Tensor} [inputs_attention_mask] The attention mask tensor for the input token IDs.
  * @returns {Object[]} An array of beams initialized with the given inputs and parameters.
  */
 function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attention_mask) {
@@ -453,13 +453,13 @@ function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
 /**
  * Runs a single step of the text generation process for a given beam.
  *
- * @param {Object} self - The textgen object.
- * @param {Object} beam - The beam to run.
- * @param {Tensor} beam.input - The input tensor.
- * @param {Tensor} beam.model_input_ids - The input ids to the model.
- * @param {Tensor} beam.attention_mask - The attention mask.
- * @param {Object} beam.past_key_values - The past key values.
- * @param {number[]} beam.output_token_ids - The output token ids.
+ * @param {Object} self The textgen object.
+ * @param {Object} beam The beam to run.
+ * @param {Tensor} beam.input The input tensor.
+ * @param {Tensor} beam.model_input_ids The input ids to the model.
+ * @param {Tensor} beam.attention_mask The attention mask.
+ * @param {Object} beam.past_key_values The past key values.
+ * @param {number[]} beam.output_token_ids The output token ids.
  * @returns {Promise<Object>} The output of the generation step.
  */
 async function textgenRunBeam(self, beam) {
@@ -487,8 +487,8 @@ async function textgenRunBeam(self, beam) {
 
 /**
  * Update a beam with a new token ID.
- * @param {object} beam - The beam to update.
- * @param {number} newTokenId - The new token ID to add to the beam's output.
+ * @param {object} beam The beam to update.
+ * @param {number} newTokenId The new token ID to add to the beam's output.
  */
 function textgenUpdatebeam(beam, newTokenId) {
     beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -504,8 +504,8 @@ function textgenUpdatebeam(beam, newTokenId) {
 export class PreTrainedModel extends Callable {
     /**
      * Creates a new instance of the `PreTrainedModel` class.
-     * @param {object} config - The model configuration.
-     * @param {any} session - session for the model.
+     * @param {object} config The model configuration.
+     * @param {any} session session for the model.
      */
     constructor(config, session) {
         super();
@@ -516,7 +516,7 @@ export class PreTrainedModel extends Callable {
 
     /**
     * Disposes of all the ONNX sessions that were created during inference.
-    * @returns {Promise<unknown[]>} - An array of promises, one for each ONNX session that is being disposed.
+    * @returns {Promise<unknown[]>} An array of promises, one for each ONNX session that is being disposed.
     */
     async dispose() {
         // Dispose of all ONNX sessions sessions
@@ -535,8 +535,8 @@ export class PreTrainedModel extends Callable {
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`. 
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
-     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
+     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */
@@ -563,7 +563,7 @@ export class PreTrainedModel extends Callable {
 
     /**
      * Converts an array or Tensor of integers to an int64 Tensor.
-     * @param {Array|Tensor} items - The input integers to be converted.
+     * @param {Array|Tensor} items The input integers to be converted.
      * @returns {Tensor} The int64 Tensor with the converted values.
      * @throws {Error} If the input array is empty or the input is a batched Tensor and not all sequences have the same length.
      */
@@ -597,8 +597,8 @@ export class PreTrainedModel extends Callable {
 
     /**
      * Runs the model with the provided inputs
-     * @param {Object} model_inputs - Object containing input tensors
-     * @returns {Promise<Object>} - Object containing output tensors
+     * @param {Object} model_inputs Object containing input tensors
+     * @returns {Promise<Object>} Object containing output tensors
      */
     async _call(model_inputs) {
         return await sessionRun(this.session, model_inputs);
@@ -607,9 +607,9 @@ export class PreTrainedModel extends Callable {
     /**
      * Forward method should be implemented in subclasses.
      * @abstract
-     * @param {object} model_inputs - The input data to the model in the format specified in the ONNX model.
-     * @returns {Promise<object>} - The output data from the model in the format specified in the ONNX model.
-     * @throws {Error} - This method must be implemented in subclasses.
+     * @param {object} model_inputs The input data to the model in the format specified in the ONNX model.
+     * @returns {Promise<object>} The output data from the model in the format specified in the ONNX model.
+     * @throws {Error} This method must be implemented in subclasses.
      */
     async forward(model_inputs) {
         throw Error("forward should be implemented in subclasses.")
@@ -743,7 +743,7 @@ export class PreTrainedModel extends Callable {
    * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
    * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
    *
-   * @param {GenerationConfig} generation_config - A `GenerationConfig` object containing generation parameters.
+   * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
    * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
    */
     _get_generation_config(generation_config) {
@@ -769,11 +769,11 @@ export class PreTrainedModel extends Callable {
 
     /**
      * Generates text based on the given inputs and generation configuration using the model.
-     * @param {Tensor|Array|TypedArray} inputs - An array of input token IDs.
-     * @param {Object|null} generation_config - The generation configuration to use. If null, default configuration will be used.
-     * @param {Object|null} logits_processor - An optional logits processor to use. If null, a new LogitsProcessorList instance will be created.
-     * @param {Object} options - options
-     * @param {Object} [options.inputs_attention_mask=null] - An optional attention mask for the inputs.
+     * @param {Tensor|Array|TypedArray} inputs An array of input token IDs.
+     * @param {Object|null} generation_config The generation configuration to use. If null, default configuration will be used.
+     * @param {Object|null} logits_processor An optional logits processor to use. If null, a new LogitsProcessorList instance will be created.
+     * @param {Object} options options
+     * @param {Object} [options.inputs_attention_mask=null] An optional attention mask for the inputs.
      * @returns {Promise<Array>} An array of generated output sequences, where each sequence is an array of token IDs.
      * @throws {Error} Throws an error if the inputs array is empty.
      */
@@ -884,7 +884,7 @@ export class PreTrainedModel extends Callable {
             }
         }
 
-        // TODO - Ensure that we can return non-batched outputs
+        // TODO: Ensure that we can return non-batched outputs
 
         return this.groupBeams(beams).map(
             batch => {
@@ -900,8 +900,8 @@ export class PreTrainedModel extends Callable {
     /**
      * Groups an array of beam objects by their ids.
      *
-     * @param {Array} beams - The array of beam objects to group.
-     * @returns {Array} - An array of arrays, where each inner array contains beam objects with the same id.
+     * @param {Array} beams The array of beam objects to group.
+     * @returns {Array} An array of arrays, where each inner array contains beam objects with the same id.
      */
     groupBeams(beams) {
         // Group beams by their ids
@@ -920,9 +920,9 @@ export class PreTrainedModel extends Callable {
     /**
      * Returns an object containing past key values from the given decoder results object.
      *
-     * @param {Object} decoderResults - The decoder results object.
-     * @param {Object} pastKeyValues - The previous past key values.
-     * @returns {Object} - An object containing past key values.
+     * @param {Object} decoderResults The decoder results object.
+     * @param {Object} pastKeyValues The previous past key values.
+     * @returns {Object} An object containing past key values.
      */
     getPastKeyValues(decoderResults, pastKeyValues) {
 
@@ -948,9 +948,9 @@ export class PreTrainedModel extends Callable {
     /**
      * Adds past key values to the decoder feeds object. If pastKeyValues is null, creates new tensors for past key values.
      *
-     * @param {Object} decoderFeeds - The decoder feeds object to add past key values to.
-     * @param {Object} pastKeyValues - An object containing past key values.
-     * @param {boolean} [hasDecoder=false] - Whether the model has a decoder.
+     * @param {Object} decoderFeeds The decoder feeds object to add past key values to.
+     * @param {Object} pastKeyValues An object containing past key values.
+     * @param {boolean} [hasDecoder=false] Whether the model has a decoder.
      */
     addPastKeyValues(decoderFeeds, pastKeyValues, hasDecoder = false) {
         if (pastKeyValues === null) {
@@ -1005,8 +1005,8 @@ export class BertForMaskedLM extends BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<MaskedLMOutput>} - An object containing the model's output logits for masked language modeling.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1022,8 +1022,8 @@ export class BertForSequenceClassification extends BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1039,8 +1039,8 @@ export class BertForTokenClassification extends BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<TokenClassifierOutput>} - An object containing the model's output logits for token classification.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1056,8 +1056,8 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<QuestionAnsweringModelOutput>} - An object containing the model's output logits for question answering.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
      */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
@@ -1079,8 +1079,8 @@ export class DistilBertForSequenceClassification extends DistilBertPreTrainedMod
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1096,8 +1096,8 @@ export class DistilBertForTokenClassification extends DistilBertPreTrainedModel 
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<TokenClassifierOutput>} - An object containing the model's output logits for token classification.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1114,8 +1114,8 @@ export class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<QuestionAnsweringModelOutput>} - An object containing the model's output logits for question answering.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
      */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
@@ -1131,8 +1131,8 @@ export class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<MaskedLMOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1155,8 +1155,8 @@ export class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<MaskedLMOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1171,8 +1171,8 @@ export class MobileBertForSequenceClassification extends MobileBertPreTrainedMod
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1187,8 +1187,8 @@ export class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<QuestionAnsweringModelOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
@@ -1206,8 +1206,8 @@ export class SqueezeBertForMaskedLM extends SqueezeBertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<MaskedLMOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1218,8 +1218,8 @@ export class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedM
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1230,8 +1230,8 @@ export class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel 
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<QuestionAnsweringModelOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
@@ -1249,8 +1249,8 @@ export class AlbertForSequenceClassification extends AlbertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1261,8 +1261,8 @@ export class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<QuestionAnsweringModelOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
@@ -1273,8 +1273,8 @@ export class AlbertForMaskedLM extends AlbertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<MaskedLMOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1291,7 +1291,7 @@ export class T5PreTrainedModel extends PreTrainedModel { };
 export class T5Model extends T5PreTrainedModel {
     /**
      * Generates text based on the provided arguments.
-     * @throws {Error} - Throws an error as the current model class (T5Model) is not compatible with `.generate()`.
+     * @throws {Error} Throws an error as the current model class (T5Model) is not compatible with `.generate()`.
      * @returns {Promise<any>}
      * @param {any[]} args
      */
@@ -1309,10 +1309,10 @@ export class T5Model extends T5PreTrainedModel {
 export class T5ForConditionalGeneration extends T5PreTrainedModel {
     /**
      * Creates a new instance of the `T5ForConditionalGeneration` class.
-     * @param {object} config - The model configuration.
-     * @param {any} session - session for the model.
-     * @param {any} decoder_merged_session - session for the decoder.
-     * @param {GenerationConfig} generation_config - The generation configuration.
+     * @param {object} config The model configuration.
+     * @param {any} session session for the model.
+     * @param {any} decoder_merged_session session for the decoder.
+     * @param {GenerationConfig} generation_config The generation configuration.
      */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
@@ -1331,8 +1331,8 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
-     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
+     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<T5ForConditionalGeneration>} A new instance of the `T5ForConditionalGeneration` class.
      */
@@ -1358,8 +1358,8 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
 
     /**
      * Generates the start beams for a given set of inputs and output length.
-     * @param {number[][]} inputs - The input token IDs.
-     * @param {number} numOutputTokens - The desired output length.
+     * @param {number[][]} inputs The input token IDs.
+     * @param {number} numOutputTokens The desired output length.
      * @returns {Array} The start beams.
      */
     getStartBeams(inputs, numOutputTokens, ...args) {
@@ -1368,8 +1368,8 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
@@ -1377,8 +1377,8 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
 
     /**
      * Updates the given beam with a new token ID.
-     * @param {any} beam - The current beam.
-     * @param {number} newTokenId - The new token ID to add to the output sequence.
+     * @param {any} beam The current beam.
+     * @param {number} newTokenId The new token ID to add to the output sequence.
      */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -1386,7 +1386,7 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
 
     /**
      * Runs the forward pass of the model for a given set of inputs.
-     * @param {Object} model_inputs - The model inputs.
+     * @param {Object} model_inputs The model inputs.
      * @returns {Promise<Object>} The model output.
      */
     async forward(model_inputs) {
@@ -1421,10 +1421,10 @@ export class MT5Model extends MT5PreTrainedModel {
 export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     /**
      * Creates a new instance of the `MT5ForConditionalGeneration` class.
-     * @param {any} config - The model configuration.
-     * @param {any} session - The ONNX session containing the encoder weights.
-     * @param {any} decoder_merged_session - The ONNX session containing the merged decoder weights.
-     * @param {GenerationConfig} generation_config - The generation configuration.
+     * @param {any} config The model configuration.
+     * @param {any} session The ONNX session containing the encoder weights.
+     * @param {any} decoder_merged_session The ONNX session containing the merged decoder weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
      */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
@@ -1443,8 +1443,8 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
-     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
+     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<MT5ForConditionalGeneration>} A new instance of the `MT5ForConditionalGeneration` class.
      */
@@ -1471,10 +1471,10 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     /**
    * Generates the start beams for the given input tokens and output sequence length.
    *
-   * @param {any[]} inputs - The input sequence.
-   * @param {number} numOutputTokens - The desired length of the output sequence.
-   * @param {...*} args - Additional arguments to pass to the `seq2seqStartBeams` function.
-   * @returns {any[]} - An array of `Beam` objects representing the start beams.
+   * @param {any[]} inputs The input sequence.
+   * @param {number} numOutputTokens The desired length of the output sequence.
+   * @param {...*} args Additional arguments to pass to the `seq2seqStartBeams` function.
+   * @returns {any[]} An array of `Beam` objects representing the start beams.
    */
     getStartBeams(inputs, numOutputTokens, ...args) {
         return seq2seqStartBeams(this, inputs, numOutputTokens);
@@ -1482,8 +1482,8 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
@@ -1491,8 +1491,8 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
 
     /**
      * Updates the given beam with the new predicted token.
-     * @param {any} beam - The beam to update.
-     * @param {number} newTokenId - The index of the predicted token.
+     * @param {any} beam The beam to update.
+     * @param {number} newTokenId The index of the predicted token.
     */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -1500,8 +1500,8 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
 
     /**
     * Runs the forward pass of the model on the given inputs.
-    * @param {any} model_inputs - The model inputs.
-    * @returns {Promise<any>} - A Promise that resolves to the model outputs.
+    * @param {any} model_inputs The model inputs.
+    * @returns {Promise<any>} A Promise that resolves to the model outputs.
     */
     async forward(model_inputs) {
         return await seq2seq_forward(this, model_inputs);
@@ -1540,10 +1540,10 @@ export class BartModel extends BartPretrainedModel {
 export class BartForConditionalGeneration extends BartPretrainedModel {
     /**
      * Creates a new instance of the `BartForConditionalGeneration` class.
-     * @param {object} config - The configuration object for the Bart model.
-     * @param {object} session - The ONNX session used to execute the model.
-     * @param {object} decoder_merged_session - The ONNX session used to execute the decoder.
-     * @param {object} generation_config - The generation configuration object.
+     * @param {object} config The configuration object for the Bart model.
+     * @param {object} session The ONNX session used to execute the model.
+     * @param {object} decoder_merged_session The ONNX session used to execute the decoder.
+     * @param {object} generation_config The generation configuration object.
      */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
@@ -1561,8 +1561,8 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
-     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
+     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<BartForConditionalGeneration>} A new instance of the `BartForConditionalGeneration` class.
      */
@@ -1588,10 +1588,10 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
 
     /**
      * Returns the initial beam for generating output text.
-     * @param {object} inputs - The input object containing the encoded input text.
-     * @param {number} numOutputTokens - The maximum number of output tokens to generate.
-     * @param  {...any} args - Additional arguments to pass to the sequence-to-sequence generation function.
-     * @returns {any} - The initial beam for generating output text.
+     * @param {object} inputs The input object containing the encoded input text.
+     * @param {number} numOutputTokens The maximum number of output tokens to generate.
+     * @param  {...any} args Additional arguments to pass to the sequence-to-sequence generation function.
+     * @returns {any} The initial beam for generating output text.
      */
     getStartBeams(inputs, numOutputTokens, ...args) {
         return seq2seqStartBeams(this, inputs, numOutputTokens);
@@ -1599,8 +1599,8 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
@@ -1608,8 +1608,8 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
 
     /**
      * Updates the beam by appending the newly generated token ID to the list of output token IDs.
-     * @param {any} beam - The current beam being generated.
-     * @param {number} newTokenId - The ID of the newly generated token to append to the list of output token IDs.
+     * @param {any} beam The current beam being generated.
+     * @param {number} newTokenId The ID of the newly generated token to append to the list of output token IDs.
      */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -1617,7 +1617,7 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
 
     /**
      * Runs the forward pass of the model for a given set of inputs.
-     * @param {Object} model_inputs - The model inputs.
+     * @param {Object} model_inputs The model inputs.
      * @returns {Promise<Object>} The model output.
      */
     async forward(model_inputs) {
@@ -1629,8 +1629,8 @@ export class BartForSequenceClassification extends BartPretrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - An object containing the model's output logits for sequence classification.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1653,8 +1653,8 @@ export class RobertaForMaskedLM extends RobertaPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<MaskedLMOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1670,8 +1670,8 @@ export class RobertaForSequenceClassification extends RobertaPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
         let logits = (await super._call(model_inputs)).logits;
@@ -1687,8 +1687,8 @@ export class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
-     * @param {Object} model_inputs - The inputs to the model.
-     * @returns {Promise<QuestionAnsweringModelOutput>} - returned object
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
         let outputs = await super._call(model_inputs);
@@ -1726,10 +1726,10 @@ export class WhisperModel extends WhisperPreTrainedModel {
 export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
-     * @param {Object} config - Configuration object for the model.
-     * @param {Object} session - ONNX Session object for the model.
-     * @param {Object} decoder_merged_session - ONNX Session object for the decoder.
-     * @param {Object} generation_config - Configuration object for the generation process.
+     * @param {Object} config Configuration object for the model.
+     * @param {Object} session ONNX Session object for the model.
+     * @param {Object} decoder_merged_session ONNX Session object for the decoder.
+     * @param {Object} generation_config Configuration object for the generation process.
      */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
@@ -1749,9 +1749,9 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
     /**
      * Generates outputs based on input and generation configuration.
-     * @param {Object} inputs - Input data for the model.
-     * @param {Object} generation_config - Configuration object for the generation process.
-     * @param {Object} logits_processor - Optional logits processor object.
+     * @param {Object} inputs Input data for the model.
+     * @param {Object} generation_config Configuration object for the generation process.
+     * @param {Object} logits_processor Optional logits processor object.
      * @returns {Promise<Object>} Promise object represents the generated outputs.
      */
     async generate(
@@ -1778,8 +1778,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
-     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
+     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<WhisperForConditionalGeneration>} A new instance of the `WhisperForConditionalGeneration` class.
      */
@@ -1805,8 +1805,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
     /**
      * Gets the start beams for generating outputs.
-     * @param {Array} inputTokenIds - Array of input token IDs.
-     * @param {number} numOutputTokens - Number of output tokens to generate.
+     * @param {Array} inputTokenIds Array of input token IDs.
+     * @param {number} numOutputTokens Number of output tokens to generate.
      * @returns {Array} Array of start beams.
      */
     getStartBeams(inputTokenIds, numOutputTokens, ...args) {
@@ -1816,8 +1816,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam, {
@@ -1827,8 +1827,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
     /**
      * Updates the beam by appending the newly generated token ID to the list of output token IDs.
-     * @param {any} beam - The current beam being generated.
-     * @param {number} newTokenId - The ID of the newly generated token to append to the list of output token IDs.
+     * @param {any} beam The current beam being generated.
+     * @param {number} newTokenId The ID of the newly generated token to append to the list of output token IDs.
      */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -1836,7 +1836,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
     /**
      * Runs the forward pass of the model for a given set of inputs.
-     * @param {Object} model_inputs - The model inputs.
+     * @param {Object} model_inputs The model inputs.
      * @returns {Promise<Object>} The model output.
      */
     async forward(model_inputs) {
@@ -1855,9 +1855,9 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 export class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
-     * @param {object} config - The configuration object specifying the hyperparameters and other model settings.
-     * @param {object} session - The ONNX session containing the encoder model.
-     * @param {any} decoder_merged_session - The ONNX session containing the merged decoder model.
+     * @param {object} config The configuration object specifying the hyperparameters and other model settings.
+     * @param {object} session The ONNX session containing the encoder model.
+     * @param {any} decoder_merged_session The ONNX session containing the merged decoder model.
      */
     constructor(config, session, decoder_merged_session) {
         super(config, session);
@@ -1871,8 +1871,8 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
-     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
+     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<VisionEncoderDecoderModel>} A new instance of the `VisionEncoderDecoderModel` class.
      */
@@ -1899,9 +1899,9 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Generate beam search outputs for the given input pixels and number of output tokens.
      *
-     * @param {array} inputs - The input pixels as a Tensor.
-     * @param {number} numOutputTokens - The number of output tokens to generate.
-     * @param {...*} args - Optional additional arguments to pass to seq2seqStartBeams.
+     * @param {array} inputs The input pixels as a Tensor.
+     * @param {number} numOutputTokens The number of output tokens to generate.
+     * @param {...*} args Optional additional arguments to pass to seq2seqStartBeams.
      * @returns {any} An array of Beam objects representing the top-K output sequences.
      */
     getStartBeams(inputs, numOutputTokens, ...args) {
@@ -1910,8 +1910,8 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return seq2seqRunBeam(this, beam, {
@@ -1922,8 +1922,8 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Update the given beam with the additional predicted token ID.
      *
-     * @param {any} beam - The current beam.
-     * @param {number} newTokenId - The new predicted token ID to add to the beam's output sequence.
+     * @param {any} beam The current beam.
+     * @param {number} newTokenId The new predicted token ID to add to the beam's output sequence.
      */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
@@ -1932,7 +1932,7 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Compute the forward pass of the model on the given input tensors.
      *
-     * @param {object} model_inputs - The input tensors as an object with keys 'pixel_values' and 'decoder_input_ids'.
+     * @param {object} model_inputs The input tensors as an object with keys 'pixel_values' and 'decoder_input_ids'.
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
@@ -1981,8 +1981,8 @@ export class GPT2Model extends GPT2PreTrainedModel {
 export class GPT2LMHeadModel extends GPT2PreTrainedModel {
     /**
      * Creates a new instance of the `GPT2LMHeadModel` class.
-     * @param {object} config - The configuration of the model.
-     * @param {any} session - The ONNX session containing the model weights.
+     * @param {object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
      */
     constructor(config, session) {
         super(config, session);
@@ -1997,9 +1997,9 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 
     /**
      * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds - The input token ids.
-     * @param {number} numOutputTokens - The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask - Optional input attention mask.
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
      * @returns {any} A Beam object representing the initialized beam.
      */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
@@ -2008,8 +2008,8 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
@@ -2017,8 +2017,8 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 
     /**
      * Updates the given beam with the new generated token id.
-     * @param {any} beam - The Beam object representing the beam.
-     * @param {number} newTokenId - The new generated token id to be added to the beam.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
      */
     updateBeam(beam, newTokenId) {
         return textgenUpdatebeam(beam, newTokenId);
@@ -2026,7 +2026,7 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 
     /**
      * Forward pass for the model.
-     * @param {object} model_inputs - The inputs for the model.
+     * @param {object} model_inputs The inputs for the model.
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
@@ -2056,8 +2056,8 @@ export class GPTNeoModel extends GPTNeoPreTrainedModel {
 export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
     /**
      * Creates a new instance of the `GPTNeoForCausalLM` class.
-     * @param {object} config - The configuration of the model.
-     * @param {any} session - The ONNX session containing the model weights.
+     * @param {object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
      */
     constructor(config, session) {
         super(config, session);
@@ -2072,9 +2072,9 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 
     /**
      * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds - The input token ids.
-     * @param {number} numOutputTokens - The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask - Optional input attention mask.
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
      * @returns {any} A Beam object representing the initialized beam.
      */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
@@ -2083,8 +2083,8 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
@@ -2092,8 +2092,8 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 
     /**
      * Updates the given beam with the new generated token id.
-     * @param {any} beam - The Beam object representing the beam.
-     * @param {number} newTokenId - The new generated token id to be added to the beam.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
      */
     updateBeam(beam, newTokenId) {
         return textgenUpdatebeam(beam, newTokenId);
@@ -2101,7 +2101,7 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 
     /**
      * Forward pass for the model.
-     * @param {object} model_inputs - The inputs for the model.
+     * @param {object} model_inputs The inputs for the model.
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
@@ -2124,7 +2124,7 @@ export class CodeGenModel extends CodeGenPreTrainedModel {
      * 
      * @throws {Error} The current model class is not compatible with `.generate()`
      * 
-     * @param  {...any} args - Arguments passed to the generate function
+     * @param  {...any} args Arguments passed to the generate function
      * @returns {Promise<any>}
      */
     async generate(...args) {
@@ -2157,9 +2157,9 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 
     /**
      * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds - The input token ids.
-     * @param {number} numOutputTokens - The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask - Optional input attention mask.
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
      * @returns {any} A Beam object representing the initialized beam.
      */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
@@ -2168,8 +2168,8 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await textgenRunBeam(this, beam);
@@ -2177,8 +2177,8 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 
     /**
      * Updates the given beam with the new generated token id.
-     * @param {any} beam - The Beam object representing the beam.
-     * @param {number} newTokenId - The new generated token id to be added to the beam.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
      */
     updateBeam(beam, newTokenId) {
         return textgenUpdatebeam(beam, newTokenId);
@@ -2186,7 +2186,7 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 
     /**
      * Forward pass for the model.
-     * @param {object} model_inputs - The inputs for the model.
+     * @param {object} model_inputs The inputs for the model.
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
@@ -2224,8 +2224,8 @@ export class DetrForObjectDetection extends DetrPreTrainedModel {
 export class DetrForSegmentation extends DetrPreTrainedModel {
     /**
      * Runs the model with the provided inputs
-     * @param {Object} model_inputs - Model inputs
-     * @returns {Promise<DetrSegmentationOutput>} - Object containing segmentation outputs
+     * @param {Object} model_inputs Model inputs
+     * @returns {Promise<DetrSegmentationOutput>} Object containing segmentation outputs
      */
     async _call(model_inputs) {
         let output = (await super._call(model_inputs));
@@ -2248,9 +2248,9 @@ export class DetrObjectDetectionOutput extends ModelOutput {
 export class DetrSegmentationOutput extends ModelOutput {
 
     /**
-     * @param {Tensor} logits - The output logits of the model.
-     * @param {Tensor} pred_boxes - Predicted boxes.
-     * @param {Tensor} pred_masks - Predicted masks.
+     * @param {Tensor} logits The output logits of the model.
+     * @param {Tensor} pred_boxes Predicted boxes.
+     * @param {Tensor} pred_masks Predicted masks.
      */
     constructor(logits, pred_boxes, pred_masks) {
         super();
@@ -2286,8 +2286,8 @@ export class SamModel extends SamPreTrainedModel {
  */
 export class SamImageSegmentationOutput extends ModelOutput {
     /**
-     * @param {Tensor} iou_scores - The output logits of the model.
-     * @param {Tensor} pred_masks - Predicted boxes.
+     * @param {Tensor} iou_scores The output logits of the model.
+     * @param {Tensor} pred_masks Predicted boxes.
      */
     constructor(iou_scores, pred_masks) {
         super();
@@ -2341,8 +2341,8 @@ export class MarianMTModel extends MarianPreTrainedModel {
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
-     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
+     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<MarianMTModel>} A new instance of the `MarianMTModel` class.
      */
@@ -2368,8 +2368,8 @@ export class MarianMTModel extends MarianPreTrainedModel {
 
     /**
      * Initializes and returns the beam for text generation task
-     * @param {any[]} inputs - The input token ids.
-     * @param {number} numOutputTokens - The number of tokens to be generated.
+     * @param {any[]} inputs The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
      * @returns {any} A Beam object representing the initialized beam.
      * @param {any[]} args
      */
@@ -2379,8 +2379,8 @@ export class MarianMTModel extends MarianPreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
@@ -2447,8 +2447,8 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained model.
-     * @param {PretrainedOptions} options - Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
+     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
      * 
      * @returns {Promise<M2M100ForConditionalGeneration>} A new instance of the `M2M100ForConditionalGeneration` class.
      */
@@ -2474,8 +2474,8 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
 
     /**
      * Initializes and returns the beam for text generation task
-     * @param {any[]} inputs - The input token ids.
-     * @param {number} numOutputTokens - The number of tokens to be generated.
+     * @param {any[]} inputs The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
      * @returns {any} A Beam object representing the initialized beam.
      * @param {any[]} args
      */
@@ -2485,8 +2485,8 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
 
     /**
      * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam - The current beam being generated.
-     * @returns {Promise<any>} - The updated beam after a single generation step.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
         return await seq2seqRunBeam(this, beam);
@@ -2547,7 +2547,7 @@ export class PretrainedMixin {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing model weights, e.g., `./my_model_directory/`.
-     * @param {PretrainedOptions} options - Additional options for loading the model.
+     * @param {PretrainedOptions} options Additional options for loading the model.
      * 
      * @returns {Promise<PreTrainedModel>} A new instance of the PreTrainedModel class.
      */
@@ -2799,9 +2799,9 @@ export class AutoModelForMaskGeneration extends PretrainedMixin {
 //////////////////////////////////////////////////
 export class Seq2SeqLMOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits - The output logits of the model.
-     * @param {Tensor} past_key_values - An tensor of key/value pairs that represent the previous state of the model.
-     * @param {Tensor} encoder_outputs - The output of the encoder in a sequence-to-sequence model.
+     * @param {Tensor} logits The output logits of the model.
+     * @param {Tensor} past_key_values An tensor of key/value pairs that represent the previous state of the model.
+     * @param {Tensor} encoder_outputs The output of the encoder in a sequence-to-sequence model.
      */
     constructor(logits, past_key_values, encoder_outputs) {
         super();
@@ -2844,8 +2844,8 @@ export class MaskedLMOutput extends ModelOutput {
 
 export class QuestionAnsweringModelOutput extends ModelOutput {
     /**
-     * @param {Tensor} start_logits - The logits for start positions of the answer.
-     * @param {Tensor} end_logits - The logits for end positions of the answer.
+     * @param {Tensor} start_logits The logits for start positions of the answer.
+     * @param {Tensor} end_logits The logits for end positions of the answer.
      */
     constructor(start_logits, end_logits) {
         super();

@@ -40,9 +40,9 @@ import { Tensor } from './utils/tensor.js';
 
 /**
  * Loads a tokenizer from the specified path.
- * @param {string} pretrained_model_name_or_path - The path to the tokenizer directory.
- * @param {PretrainedOptions} options - Additional options for loading the tokenizer.
- * @returns {Promise<Array>} - A promise that resolves with information about the loaded tokenizer.
+ * @param {string} pretrained_model_name_or_path The path to the tokenizer directory.
+ * @param {PretrainedOptions} options Additional options for loading the tokenizer.
+ * @returns {Promise<Array>} A promise that resolves with information about the loaded tokenizer.
  */
 async function loadTokenizer(pretrained_model_name_or_path, options) {
 
@@ -55,8 +55,8 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
 
 /**
  * Helper method to construct a pattern from a config object.
- * @param {Object} pattern - The pattern object.
- * @returns {RegExp|string|null} - The compiled pattern.
+ * @param {Object} pattern The pattern object.
+ * @returns {RegExp|string|null} The compiled pattern.
  */
 function createPattern(pattern) {
     if (pattern.Regex) {
@@ -79,7 +79,7 @@ function createPattern(pattern) {
 export class TokenizerModel extends Callable {
     /**
      * Creates a new instance of TokenizerModel.
-     * @param {object} config - The configuration object for the TokenizerModel.
+     * @param {object} config The configuration object for the TokenizerModel.
      */
     constructor(config) {
         super();
@@ -100,8 +100,8 @@ export class TokenizerModel extends Callable {
     }
     /**
      * Instantiates a new TokenizerModel instance based on the configuration object provided.
-     * @param {object} config - The configuration object for the TokenizerModel.
-     * @param {...*} args - Optional arguments to pass to the specific TokenizerModel constructor.
+     * @param {object} config The configuration object for the TokenizerModel.
+     * @param {...*} args Optional arguments to pass to the specific TokenizerModel constructor.
      * @returns {TokenizerModel} A new instance of a TokenizerModel.
      * @throws Will throw an error if the TokenizerModel type in the config is not recognized.
      */
@@ -123,7 +123,7 @@ export class TokenizerModel extends Callable {
 
     /**
      * Internal function to call the TokenizerModel instance.
-     * @param {string[]} tokens - The tokens to encode.
+     * @param {string[]} tokens The tokens to encode.
      * @returns {number[]} The encoded token IDs.
      */
     _call(tokens) {
@@ -132,7 +132,7 @@ export class TokenizerModel extends Callable {
 
     /**
      * Encodes a list of tokens into a list of token IDs.
-     * @param {string[]} tokens - The tokens to encode.
+     * @param {string[]} tokens The tokens to encode.
      * @returns {number[]} The encoded token IDs.
      * @throws Will throw an error if not implemented in a subclass.
      */
@@ -142,7 +142,7 @@ export class TokenizerModel extends Callable {
 
     /**
      * Converts a list of tokens into a list of token IDs.
-     * @param {string[]} tokens - The tokens to convert.
+     * @param {string[]} tokens The tokens to convert.
      * @returns {number[]} The converted token IDs.
      */
     convert_tokens_to_ids(tokens) {
@@ -151,7 +151,7 @@ export class TokenizerModel extends Callable {
 
     /**
      * Converts a list of token IDs into a list of tokens.
-     * @param {number[]} ids - The token IDs to convert.
+     * @param {number[]} ids The token IDs to convert.
      * @returns {string[]} The converted tokens.
      */
     convert_ids_to_tokens(ids) {
@@ -165,10 +165,10 @@ export class TokenizerModel extends Callable {
  */
 class WordPieceTokenizer extends TokenizerModel {
     /**
-     * @param {Object} config - The configuration object.
-     * @param {Map<string, number>} config.vocab - A mapping of tokens to ids.
-     * @param {string} config.unk_token - The unknown token string.
-     * @param {string} config.continuing_subword_prefix - The prefix to use for continuing subwords.
+     * @param {Object} config The configuration object.
+     * @param {Map<string, number>} config.vocab A mapping of tokens to ids.
+     * @param {string} config.unk_token The unknown token string.
+     * @param {string} config.continuing_subword_prefix The prefix to use for continuing subwords.
      */
     constructor(config) {
         super(config);
@@ -203,7 +203,7 @@ class WordPieceTokenizer extends TokenizerModel {
 
     /**
      * Encodes an array of tokens using WordPiece encoding.
-     * @param {Array} tokens - The tokens to encode.
+     * @param {Array} tokens The tokens to encode.
      * @returns {Array} An array of encoded tokens.
      */
     encode(tokens) {
@@ -261,10 +261,10 @@ class WordPieceTokenizer extends TokenizerModel {
 class Unigram extends TokenizerModel {
     /**
      * Create a new Unigram tokenizer model.
-     * @param {object} config - The configuration object for the Unigram model.
-     * @param {number} config.unk_id - The ID of the unknown token
-     * @param {Map<string, number>} config.vocab - A mapping of tokens to scores.
-     * @param {object} moreConfig - Additional configuration object for the Unigram model.
+     * @param {object} config The configuration object for the Unigram model.
+     * @param {number} config.unk_id The ID of the unknown token
+     * @param {Map<string, number>} config.vocab A mapping of tokens to scores.
+     * @param {object} moreConfig Additional configuration object for the Unigram model.
      */
     constructor(config, moreConfig) {
         super(config);
@@ -301,7 +301,7 @@ class Unigram extends TokenizerModel {
 
     /**
      * Populates lattice nodes.
-     * @param {TokenLattice} lattice - The token lattice to populate with nodes.
+     * @param {TokenLattice} lattice The token lattice to populate with nodes.
      */
     populateNodes(lattice) {
         const sentence = lattice.sentence;
@@ -332,7 +332,7 @@ class Unigram extends TokenizerModel {
     /**
      * Encodes an array of tokens into an array of subtokens using the unigram model.
      *
-     * @param {string} normalized - The normalized string.
+     * @param {string} normalized The normalized string.
      * @returns {string[]} An array of subtokens obtained by encoding the input tokens using the unigram model.
      */
     tokenize(normalized) {
@@ -343,7 +343,7 @@ class Unigram extends TokenizerModel {
 
     /**
      * Encodes an array of tokens using WordPiece encoding.
-     * @param {Array} tokens - The tokens to encode.
+     * @param {Array} tokens The tokens to encode.
      * @returns {Array} An array of encoded tokens.
      */
     encode(tokens) {
@@ -394,11 +394,11 @@ const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
 class BPE extends TokenizerModel {
     /**
      * Create a BPE instance.
-     * @param {Object} config - The configuration object for BPE.
-     * @param {Map<string, number>} config.vocab - A mapping of tokens to ids.
-     * @param {string} config.unk_token - The unknown token used for out of vocabulary words.
-     * @param {string} config.end_of_word_suffix - The suffix to place at the end of each word.
-     * @param {Array} config.merges - An array of BPE merges as strings.
+     * @param {Object} config The configuration object for BPE.
+     * @param {Map<string, number>} config.vocab A mapping of tokens to ids.
+     * @param {string} config.unk_token The unknown token used for out of vocabulary words.
+     * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
+     * @param {Array} config.merges An array of BPE merges as strings.
      */
     constructor(config) {
         super(config);
@@ -425,8 +425,8 @@ class BPE extends TokenizerModel {
 
     /**
      * Get all the possible pairs of characters in a word.
-     * @param {string[]} word - The word to get pairs from.
-     * @returns {Array} - An array of pairs.
+     * @param {string[]} word The word to get pairs from.
+     * @returns {Array} An array of pairs.
      */
     get_pairs(word) {
         let pairs = new Set();
@@ -441,8 +441,8 @@ class BPE extends TokenizerModel {
 
     /**
      * Apply Byte-Pair-Encoding (BPE) to a given token.
-     * @param {string} token - The token to encode.
-     * @returns {string} - The BPE encoded token.
+     * @param {string} token The token to encode.
+     * @returns {string} The BPE encoded token.
      */
     bpe(token) {
         if (token in this.cache) {
@@ -508,8 +508,8 @@ class BPE extends TokenizerModel {
 
     /**
      * Encodes the input sequence of tokens using the BPE algorithm and returns the resulting subword tokens.
-     * @param {Array} tokens - The input sequence of tokens to encode.
-     * @returns {Array} - The resulting subword tokens after applying the BPE algorithm to the input sequence of tokens.
+     * @param {Array} tokens The input sequence of tokens to encode.
+     * @returns {Array} The resulting subword tokens after applying the BPE algorithm to the input sequence of tokens.
      */
     encode(tokens) {
         let outputTokens = [];
@@ -530,7 +530,7 @@ class BPE extends TokenizerModel {
  */
 class Normalizer extends Callable {
     /**
-     * @param {object} config - The configuration object for the normalizer.
+     * @param {object} config The configuration object for the normalizer.
      */
     constructor(config) {
         super();
@@ -540,9 +540,9 @@ class Normalizer extends Callable {
     /**
      * Factory method for creating normalizers from config objects.
      * @static
-     * @param {object} config - The configuration object for the normalizer.
-     * @returns {Normalizer} - A Normalizer object.
-     * @throws {Error} - If an unknown Normalizer type is specified in the config.
+     * @param {object} config The configuration object for the normalizer.
+     * @returns {Normalizer} A Normalizer object.
+     * @throws {Error} If an unknown Normalizer type is specified in the config.
      */
     static fromConfig(config) {
         if (config === null) return null;
@@ -571,9 +571,9 @@ class Normalizer extends Callable {
     /**
      * Normalize the input text.
      * @abstract
-     * @param {string} text - The text to normalize.
-     * @returns {string} - The normalized text.
-     * @throws {Error} - If this method is not implemented in a subclass.
+     * @param {string} text The text to normalize.
+     * @returns {string} The normalized text.
+     * @throws {Error} If this method is not implemented in a subclass.
      */
     normalize(text) {
         throw Error("normalize should be implemented in subclass.")
@@ -581,8 +581,8 @@ class Normalizer extends Callable {
 
     /**
      * Alias for {@link Normalizer#normalize}.
-     * @param {string} text - The text to normalize.
-     * @returns {string} - The normalized text.
+     * @param {string} text The text to normalize.
+     * @returns {string} The normalized text.
      */
     _call(text) {
         return this.normalize(text);
@@ -597,7 +597,7 @@ class Normalizer extends Callable {
 class Replace extends Normalizer {
     /**
      * Normalize the input text by replacing the pattern with the content.
-     * @param {string} text - The input text to be normalized.
+     * @param {string} text The input text to be normalized.
      * @returns {string} The normalized text after replacing the pattern with the content.
      */
     normalize(text) {
@@ -619,7 +619,7 @@ class Replace extends Normalizer {
 class NFC extends Normalizer {
     /**
      * Normalize the input text by applying Unicode normalization form C (NFC).
-     * @param {string} text - The input text to be normalized.
+     * @param {string} text The input text to be normalized.
      * @returns {string} The normalized text.
      */
     normalize(text) {
@@ -635,7 +635,7 @@ class NFC extends Normalizer {
 class NFKD extends Normalizer {
     /**
      * Normalize text using NFKD normalization.
-     * @param {string} text - The text to be normalized.
+     * @param {string} text The text to be normalized.
      * @returns {string} The normalized text.
      */
     normalize(text) {
@@ -651,7 +651,7 @@ class NFKD extends Normalizer {
 class StripAccents extends Normalizer {
     /**
      * Remove all accents from the text.
-     * @param {string} text - The input text.
+     * @param {string} text The input text.
      * @returns {string} The normalized text without accents.
      */
     normalize(text) {
@@ -667,7 +667,7 @@ class StripAccents extends Normalizer {
 class Lowercase extends Normalizer {
     /**
      * Lowercases the input string.
-     * @param {string} text - The text to normalize.
+     * @param {string} text The text to normalize.
      * @returns {string} The normalized text.
      */
     normalize(text) {
@@ -683,8 +683,8 @@ class Lowercase extends Normalizer {
 class NormalizerSequence extends Normalizer {
     /**
    * Create a new instance of NormalizerSequence.
-   * @param {object} config - The configuration object.
-   * @param {object[]} config.normalizers - An array of Normalizer configuration objects.
+   * @param {object} config The configuration object.
+   * @param {object[]} config.normalizers An array of Normalizer configuration objects.
    */
     constructor(config) {
         super(config);
@@ -692,7 +692,7 @@ class NormalizerSequence extends Normalizer {
     }
     /**
    * Apply a sequence of Normalizers to the input text.
-   * @param {string} text - The text to normalize.
+   * @param {string} text The text to normalize.
    * @returns {string} The normalized text.
    */
     normalize(text) {
@@ -712,8 +712,8 @@ class BertNormalizer extends Normalizer {
     /**
      * Adds whitespace around any CJK (Chinese, Japanese, or Korean) character in the input text.
      *
-     * @param {string} text - The input text to tokenize.
-     * @returns {string} - The tokenized text with whitespace added around CJK characters.
+     * @param {string} text The input text to tokenize.
+     * @returns {string} The tokenized text with whitespace added around CJK characters.
      */
     _tokenize_chinese_chars(text) {
         /* Adds whitespace around any CJK character. */
@@ -743,8 +743,8 @@ class BertNormalizer extends Normalizer {
      * Those alphabets are used to write space-separated words, so they are not treated specially
      * and are handled like all other languages.
      *
-     * @param {number} cp - The Unicode codepoint to check.
-     * @returns {boolean} - True if the codepoint represents a CJK character, false otherwise.
+     * @param {number} cp The Unicode codepoint to check.
+     * @returns {boolean} True if the codepoint represents a CJK character, false otherwise.
      */
     _is_chinese_char(cp) {
         return (
@@ -760,8 +760,8 @@ class BertNormalizer extends Normalizer {
     }
     /**
      * Strips accents from the given text.
-     * @param {string} text - The text to strip accents from.
-     * @returns {string} - The text with accents removed.
+     * @param {string} text The text to strip accents from.
+     * @returns {string} The text with accents removed.
      */
     stripAccents(text) {
         return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -769,8 +769,8 @@ class BertNormalizer extends Normalizer {
 
     /**
      * Normalizes the given text based on the configuration.
-     * @param {string} text - The text to normalize.
-     * @returns {string} - The normalized text.
+     * @param {string} text The text to normalize.
+     * @returns {string} The normalized text.
      */
     normalize(text) {
         // TODO use rest of config
@@ -807,7 +807,7 @@ class PreTokenizer extends Callable {
    * Factory method that returns an instance of a subclass of `PreTokenizer` based on the provided configuration.
    *
    * @static
-   * @param {Object} config - A configuration object for the pre-tokenizer.
+   * @param {Object} config A configuration object for the pre-tokenizer.
    * @returns {PreTokenizer} An instance of a subclass of `PreTokenizer`.
    * @throws {Error} If the provided configuration object does not correspond to any known pre-tokenizer.
    */
@@ -836,7 +836,7 @@ class PreTokenizer extends Callable {
    * Method that should be implemented by subclasses to define the specific pre-tokenization logic.
    *
    * @abstract
-   * @param {string} text - The text to pre-tokenize.
+   * @param {string} text The text to pre-tokenize.
    * @returns {string[]} The pre-tokenized text.
    * @throws {Error} If the method is not implemented in the subclass.
    */
@@ -846,7 +846,7 @@ class PreTokenizer extends Callable {
 
     /**
      * Tokenizes the given text into pre-tokens.
-     * @param {string|string[]} text - The text or array of texts to pre-tokenize.
+     * @param {string|string[]} text The text or array of texts to pre-tokenize.
      * @returns {string[]} An array of pre-tokens.
      */
     pre_tokenize(text) {
@@ -861,7 +861,7 @@ class PreTokenizer extends Callable {
 
     /**
      * Alias for {@link PreTokenizer#pre_tokenize}.
-     * @param {string|string[]} text - The text or array of texts to pre-tokenize.
+     * @param {string|string[]} text The text or array of texts to pre-tokenize.
      * @returns {string[]} An array of pre-tokens.
      */
     _call(text) {
@@ -877,7 +877,7 @@ class BertPreTokenizer extends PreTokenizer {
      * A PreTokenizer that splits text into wordpieces using a basic tokenization scheme
      * similar to that used in the original implementation of BERT.
      * 
-     * @param {object} config - The configuration object.
+     * @param {object} config The configuration object.
      */
     constructor(config) {
         super();
@@ -887,8 +887,8 @@ class BertPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes a single text using the BERT pre-tokenization scheme.
      * 
-     * @param {string} text - The text to tokenize.
-     * @returns {Array<string>} - An array of tokens.
+     * @param {string} text The text to tokenize.
+     * @returns {Array<string>} An array of tokens.
      */
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
@@ -903,7 +903,7 @@ class BertPreTokenizer extends PreTokenizer {
 class ByteLevelPreTokenizer extends PreTokenizer {
     /**
      * Creates a new instance of the `ByteLevelPreTokenizer` class.
-     * @param {Object} config - The configuration object.
+     * @param {Object} config The configuration object.
      */
     constructor(config) {
         super();
@@ -935,8 +935,8 @@ class ByteLevelPreTokenizer extends PreTokenizer {
 
     /**
      * Tokenizes a single piece of text using byte-level tokenization.
-     * @param {string} text - The text to tokenize.
-     * @returns {string[]} - An array of tokens.
+     * @param {string} text The text to tokenize.
+     * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
         // Split on whitespace and punctuation
@@ -962,11 +962,11 @@ class ByteLevelPreTokenizer extends PreTokenizer {
  */
 class SplitPreTokenizer extends PreTokenizer {
     /**
-     * @param {Object} config - The configuration options for the pre-tokenizer.
-     * @param {Object} config.pattern - The pattern used to split the text. Can be a string or a regex object.
-     * @param {string|undefined} config.pattern.String - The string to use for splitting. Only defined if the pattern is a string.
-     * @param {string|undefined} config.pattern.Regex - The regex to use for splitting. Only defined if the pattern is a regex.
-     * @param {'isolated'|'removed'} config.behavior - The behavior to use when splitting.
+     * @param {Object} config The configuration options for the pre-tokenizer.
+     * @param {Object} config.pattern The pattern used to split the text. Can be a string or a regex object.
+     * @param {string|undefined} config.pattern.String The string to use for splitting. Only defined if the pattern is a string.
+     * @param {string|undefined} config.pattern.Regex The regex to use for splitting. Only defined if the pattern is a regex.
+     * @param {'isolated'|'removed'} config.behavior The behavior to use when splitting.
      */
     constructor(config) {
         super();
@@ -975,7 +975,7 @@ class SplitPreTokenizer extends PreTokenizer {
 
     /**
      * Tokenizes text by splitting it using the given pattern.
-     * @param {string} text - The text to tokenize.
+     * @param {string} text The text to tokenize.
      * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
@@ -1003,7 +1003,7 @@ class SplitPreTokenizer extends PreTokenizer {
 class PostProcessor extends Callable {
 
     /**
-     * @param {Object} config - The configuration for the post-processor.
+     * @param {Object} config The configuration for the post-processor.
      */
     constructor(config) {
         super();
@@ -1013,7 +1013,7 @@ class PostProcessor extends Callable {
     /**
      * Factory method to create a PostProcessor object from a configuration object.
      *
-     * @param {Object} config - Configuration object representing a PostProcessor.
+     * @param {Object} config Configuration object representing a PostProcessor.
      * @returns {PostProcessor} A PostProcessor object created from the given configuration.
      * @throws {Error} If an unknown PostProcessor type is encountered.
      */
@@ -1036,8 +1036,8 @@ class PostProcessor extends Callable {
     /**
      * Method to be implemented in subclass to apply post-processing on the given tokens.
      *
-     * @param {Array} tokens - The input tokens to be post-processed.
-     * @param {...*} args - Additional arguments required by the post-processing logic.
+     * @param {Array} tokens The input tokens to be post-processed.
+     * @param {...*} args Additional arguments required by the post-processing logic.
      * @returns {Array} The post-processed tokens.
      * @throws {Error} If the method is not implemented in subclass.
      */
@@ -1047,8 +1047,8 @@ class PostProcessor extends Callable {
 
     /**
      * Alias for {@link PostProcessor#post_process}.
-     * @param {Array} tokens - The text or array of texts to post-process.
-     * @param {...*} args - Additional arguments required by the post-processing logic.
+     * @param {Array} tokens The text or array of texts to post-process.
+     * @param {...*} args Additional arguments required by the post-processing logic.
      * @returns {Array} An array of post-processed tokens.
      */
     _call(tokens, ...args) {
@@ -1062,9 +1062,9 @@ class PostProcessor extends Callable {
  */
 class RobertaProcessing extends PostProcessor {
     /**
-     * @param {Object} config - The configuration for the post-processor.
-     * @param {string[]} config.cls - The special tokens to add to the beginning of the input.
-     * @param {string[]} config.sep - The special tokens to add to the end of the input.
+     * @param {Object} config The configuration for the post-processor.
+     * @param {string[]} config.cls The special tokens to add to the beginning of the input.
+     * @param {string[]} config.sep The special tokens to add to the end of the input.
      */
     constructor(config) {
         super(config);
@@ -1076,8 +1076,8 @@ class RobertaProcessing extends PostProcessor {
 
     /**
      * Adds the special tokens to the beginning and end of the input.
-     * @param {string[]} tokens - The input tokens.
-     * @param {string[]|null} tokens_pair - An optional second set of input tokens.
+     * @param {string[]} tokens The input tokens.
+     * @param {string[]|null} tokens_pair An optional second set of input tokens.
      * @returns {string[]} The input tokens with the special tokens added to the beginning and end.
      */
     post_process(tokens, tokens_pair = null) {
@@ -1099,9 +1099,9 @@ class RobertaProcessing extends PostProcessor {
 class TemplateProcessing extends PostProcessor {
     /**
      * Creates a new instance of `TemplateProcessing`.
-     * @param {Object} config - The configuration options for the post processor.
-     * @param {Array} config.single - The template for a single sequence of tokens.
-     * @param {Array} config.pair - The template for a pair of sequences of tokens.
+     * @param {Object} config The configuration options for the post processor.
+     * @param {Array} config.single The template for a single sequence of tokens.
+     * @param {Array} config.pair The template for a pair of sequences of tokens.
      */
     constructor(config) {
         super(config);
@@ -1112,9 +1112,9 @@ class TemplateProcessing extends PostProcessor {
 
     /**
      * Replaces special tokens in the template with actual tokens.
-     * @param {Array} tokens - The list of tokens for the first sequence.
-     * @param {Array} [tokens_pair=null] - The list of tokens for the second sequence (optional).
-     * @returns {Array} - The list of tokens with the special tokens replaced with actual tokens.
+     * @param {Array} tokens The list of tokens for the first sequence.
+     * @param {Array} [tokens_pair=null] The list of tokens for the second sequence (optional).
+     * @returns {Array} The list of tokens with the special tokens replaced with actual tokens.
      */
     post_process(tokens, tokens_pair = null) {
         let type = tokens_pair === null ? this.single : this.pair
@@ -1144,7 +1144,7 @@ class TemplateProcessing extends PostProcessor {
 class ByteLevelPostProcessor extends PostProcessor {
     /**
      * Post process the given tokens.
-     * @param {string[]} tokens - The tokens to be post processed.
+     * @param {string[]} tokens The tokens to be post processed.
      * @returns {string[]} The post processed tokens.
      */
     post_process(tokens) {
@@ -1161,7 +1161,7 @@ class Decoder extends Callable {
     /**
     * Creates an instance of `Decoder`.
     *
-    * @param {Object} config - The configuration object.
+    * @param {Object} config The configuration object.
     */
     constructor(config) {
         super();
@@ -1174,7 +1174,7 @@ class Decoder extends Callable {
     /**
    * Creates a decoder instance based on the provided configuration.
    *
-   * @param {Object} config - The configuration object.
+   * @param {Object} config The configuration object.
    * @returns {Decoder} A decoder instance.
    * @throws {Error} If an unknown decoder type is provided.
    */
@@ -1194,7 +1194,7 @@ class Decoder extends Callable {
     /**
     * Converts a list of tokens to a string.
     *
-    * @param {string[]} tokens - The list of tokens.
+    * @param {string[]} tokens The list of tokens.
     * @returns {string} The decoded string.
     */
     convert_tokens_to_string(tokens) {
@@ -1204,7 +1204,7 @@ class Decoder extends Callable {
     /**
     * Calls the `decode` method.
     *
-    * @param {string[]} tokens - The list of tokens.
+    * @param {string[]} tokens The list of tokens.
     * @returns {string} The decoded string.
     */
     _call(tokens) {
@@ -1213,7 +1213,7 @@ class Decoder extends Callable {
 
     /**
     * Decodes a list of tokens.
-    * @param {string[]} tokens - The list of tokens.
+    * @param {string[]} tokens The list of tokens.
     * @returns {string} The decoded string.
     * @throws {Error} If the `decode` method is not implemented in the subclass.
     */
@@ -1232,9 +1232,9 @@ class WordPieceDecoder extends Decoder {
 
     /**
      * Creates a new instance of WordPieceDecoder.
-     * @param {Object} config - The configuration object.
-     * @param {string} config.prefix - The prefix used for WordPiece encoding.
-     * @param {boolean} config.cleanup - Whether to cleanup the decoded string.
+     * @param {Object} config The configuration object.
+     * @param {string} config.prefix The prefix used for WordPiece encoding.
+     * @param {boolean} config.cleanup Whether to cleanup the decoded string.
      */
     constructor(config) {
         super(config);
@@ -1244,7 +1244,7 @@ class WordPieceDecoder extends Decoder {
 
     /**
      * Converts a list of WordPiece tokens to a single string.
-     * @param {Array} tokens - The list of WordPiece tokens.
+     * @param {Array} tokens The list of WordPiece tokens.
      * @returns {string} The decoded string.
      */
     convert_tokens_to_string(tokens) {
@@ -1253,7 +1253,7 @@ class WordPieceDecoder extends Decoder {
 
     /**
      * Decodes a list of WordPiece tokens into a single string.
-     * @param {Array} tokens - The list of WordPiece tokens.
+     * @param {Array} tokens The list of WordPiece tokens.
      * @returns {string} The decoded string.
      */
     decode(tokens) {
@@ -1269,7 +1269,7 @@ class ByteLevelDecoder extends Decoder {
 
     /**
      * Create a `ByteLevelDecoder` object.
-     * @param {object} config - Configuration object.
+     * @param {object} config Configuration object.
      */
     constructor(config) {
         super(config);
@@ -1285,8 +1285,8 @@ class ByteLevelDecoder extends Decoder {
 
     /**
      * Convert an array of tokens to string by decoding each byte.
-     * @param {string[]} tokens - Array of tokens to be decoded.
-     * @returns {string} - The decoded string.
+     * @param {string[]} tokens Array of tokens to be decoded.
+     * @returns {string} The decoded string.
      */
     convert_tokens_to_string(tokens) {
         let text = tokens.join('');
@@ -1309,8 +1309,8 @@ class ByteLevelDecoder extends Decoder {
 
     /**
      * Decode an array of tokens to string.
-     * @param {string[]} tokens - Array of tokens to be decoded.
-     * @returns {string} - The decoded string.
+     * @param {string[]} tokens Array of tokens to be decoded.
+     * @returns {string} The decoded string.
      */
     decode(tokens) {
         // TODO move to base class (like HF)
@@ -1355,10 +1355,10 @@ class ByteLevelDecoder extends Decoder {
  */
 class MetaspacePreTokenizer extends PreTokenizer {
     /**
-     * @param {Object} config - The configuration object for the MetaspacePreTokenizer.
-     * @param {boolean} config.add_prefix_space - Whether to add a prefix space to the first token.
-     * @param {string} config.replacement - The character to replace spaces with.
-     * @param {string} [config.str_rep=config.replacement] - An optional string representation of the replacement character.
+     * @param {Object} config The configuration object for the MetaspacePreTokenizer.
+     * @param {boolean} config.add_prefix_space Whether to add a prefix space to the first token.
+     * @param {string} config.replacement The character to replace spaces with.
+     * @param {string} [config.str_rep=config.replacement] An optional string representation of the replacement character.
      */
     constructor(config) {
         super();
@@ -1371,7 +1371,7 @@ class MetaspacePreTokenizer extends PreTokenizer {
     /**
      * This method takes a list of normalized tokens, replaces spaces with the replacement character,
      * adds a prefix space if requested, and returns a new list of tokens.
-     * @param {string[]|string} normalizedTokens - The list of normalized tokens to pre-tokenize.
+     * @param {string[]|string} normalizedTokens The list of normalized tokens to pre-tokenize.
      * @returns {string[]} A new list of pre-tokenized tokens.
      */
     pre_tokenize(normalizedTokens) {
@@ -1399,9 +1399,9 @@ class MetaspacePreTokenizer extends PreTokenizer {
 class MetaspaceDecoder extends Decoder {
     /**
      * Constructs a new MetaspaceDecoder object.
-     * @param {Object} config - The configuration object for the MetaspaceDecoder.
-     * @param {boolean} config.add_prefix_space - Whether to add a prefix space to the decoded string.
-     * @param {string} config.replacement - The string to replace spaces with.
+     * @param {Object} config The configuration object for the MetaspaceDecoder.
+     * @param {boolean} config.add_prefix_space Whether to add a prefix space to the decoded string.
+     * @param {string} config.replacement The string to replace spaces with.
      */
     constructor(config) {
         super(config);
@@ -1412,8 +1412,8 @@ class MetaspaceDecoder extends Decoder {
 
     /**
      * Decodes the given tokens back into a string.
-     * @param {Array} tokens - The tokens to decode.
-     * @returns {string} - The decoded string.
+     * @param {Array} tokens The tokens to decode.
+     * @returns {string} The decoded string.
      */
     decode(tokens) {
         let result = [];
@@ -1432,14 +1432,14 @@ class MetaspaceDecoder extends Decoder {
  * A normalizer that applies a precompiled charsmap.
  * This is useful for applying complex normalizations in C++ and exposing them to JavaScript.
  * @extends Normalizer
- * @param {Object} config - The configuration object for the Precompiled normalizer.
- * @param {Object} config.precompiled_charsmap - The precompiled charsmap object.
+ * @param {Object} config The configuration object for the Precompiled normalizer.
+ * @param {Object} config.precompiled_charsmap The precompiled charsmap object.
  */
 class Precompiled extends Normalizer {
     /**
      * Create a new instance of Precompiled normalizer.
-     * @param {object} config - The configuration object.
-     * @param {any} config.precompiled_charsmap - Precompiled chars mapping.
+     * @param {object} config The configuration object.
+     * @param {any} config.precompiled_charsmap Precompiled chars mapping.
      */
     constructor(config) {
         super(config);
@@ -1448,8 +1448,8 @@ class Precompiled extends Normalizer {
 
     /**
      * Normalizes the given text by applying the precompiled charsmap.
-     * @param {string} text - The text to normalize.
-     * @returns {string} - The normalized text.
+     * @param {string} text The text to normalize.
+     * @returns {string} The normalized text.
      */
     normalize(text) {
         // TODO use this.charsmap
@@ -1464,8 +1464,8 @@ class Precompiled extends Normalizer {
 class PreTokenizerSequence extends PreTokenizer {
     /**
      * Creates an instance of PreTokenizerSequence.
-     * @param {object} config - The configuration object for the pre-tokenizer sequence.
-     * @param {object[]} config.pretokenizers - An array of pre-tokenizer configurations.
+     * @param {object} config The configuration object for the pre-tokenizer sequence.
+     * @param {object[]} config.pretokenizers An array of pre-tokenizer configurations.
      */
     constructor(config) {
         super();
@@ -1474,7 +1474,7 @@ class PreTokenizerSequence extends PreTokenizer {
 
     /**
      * Applies each pre-tokenizer in the sequence to the input text in turn.
-     * @param {string|string[]} text - The text(s) to pre-tokenize.
+     * @param {string|string[]} text The text(s) to pre-tokenize.
      * @returns {string[]} The pre-tokenized text.
      */
     pre_tokenize_text(text) {
@@ -1495,14 +1495,14 @@ class PreTokenizerSequence extends PreTokenizer {
 class WhitespaceSplit extends PreTokenizer {
     /**
      * Creates an instance of WhitespaceSplit.
-     * @param {object} config - The configuration object for the pre-tokenizer sequence.
+     * @param {object} config The configuration object for the pre-tokenizer sequence.
      */
     constructor(config) {
         super();
     }
     /**
      * Pre-tokenizes the input text by splitting it on whitespace characters.
-     * @param {string} text - The text to be pre-tokenized.
+     * @param {string} text The text to be pre-tokenized.
      * @returns {string[]} An array of tokens produced by splitting the input text on whitespace.
      */
     pre_tokenize_text(text) {
@@ -1513,8 +1513,8 @@ class WhitespaceSplit extends PreTokenizer {
 export class PreTrainedTokenizer extends Callable {
     /**
      * Create a new PreTrainedTokenizer instance.
-     * @param {Object} tokenizerJSON - The JSON of the tokenizer.
-     * @param {Object} tokenizerConfig - The config of the tokenizer.
+     * @param {Object} tokenizerJSON The JSON of the tokenizer.
+     * @param {Object} tokenizerConfig The config of the tokenizer.
      */
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
@@ -1533,14 +1533,14 @@ export class PreTrainedTokenizer extends Callable {
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
 
-        // TODO - maybe, allow this to be null; in which case, we use model as decoder too?
+        // TODO: maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
 
         // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
         // This is needed for cases where BPE model and ByteLevel decoder are used
         // For more information, see https://github.com/xenova/transformers.js/issues/74
-        // TODO - save this to the decoder when exporting?
+        // TODO: save this to the decoder when exporting?
         this.decoder.end_of_word_suffix = this.model.end_of_word_suffix;
 
         // Add added_tokens to model
@@ -1586,9 +1586,9 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Returns the value of the first matching key in the tokenizer config object.
-     * @param {...string} keys - One or more keys to search for in the tokenizer config object.
-     * @returns {string|null} - The value associated with the first matching key, or null if no match is found.
-     * @throws {Error} - If an object is found for a matching key and its __type property is not "AddedToken".
+     * @param {...string} keys One or more keys to search for in the tokenizer config object.
+     * @returns {string|null} The value associated with the first matching key, or null if no match is found.
+     * @throws {Error} If an object is found for a matching key and its __type property is not "AddedToken".
      */
     getToken(tokenizerConfig, ...keys) {
         for (let key of keys) {
@@ -1612,8 +1612,8 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * Loads a pre-trained tokenizer from the given `pretrained_model_name_or_path`. 
      * 
-     * @param {string} pretrained_model_name_or_path - The path to the pre-trained tokenizer.
-     * @param {PretrainedOptions} options - Additional options for loading the tokenizer. For more information, @see {@link PreTrainedTokenizer.from_pretrained}.
+     * @param {string} pretrained_model_name_or_path The path to the pre-trained tokenizer.
+     * @param {PretrainedOptions} options Additional options for loading the tokenizer. For more information, @see {@link PreTrainedTokenizer.from_pretrained}.
      * 
      * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the `pretrained_model_name_or_path`.
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the `PreTrainedTokenizer` class.
@@ -1641,7 +1641,7 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * This function can be overridden by a subclass to apply additional preprocessing
      * to a model's input data.
-     * @param {Object} inputs - An object containing input data as properties.
+     * @param {Object} inputs An object containing input data as properties.
      * @returns {Object} The modified inputs object.
      */
     prepare_model_inputs(inputs) {
@@ -1650,13 +1650,13 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Encode/tokenize the given text(s).
-     * @param {string|string[]} text - The text to tokenize.
-     * @param {object} options - An optional object containing the following properties:
-     * @param {string|string[]} [options.text_pair=null] - Optional second sequence to be encoded. If set, must be the same type as text.
-     * @param {boolean} [options.padding=false] - Whether to pad the input sequences.
-     * @param {boolean} [options.truncation=null] - Whether to truncate the input sequences.
-     * @param {number} [options.max_length=null] - Maximum length of the returned list and optionally padding length.
-     * @param {boolean} [options.return_tensor=true] - Whether to return the results as Tensors or arrays.
+     * @param {string|string[]} text The text to tokenize.
+     * @param {object} options An optional object containing the following properties:
+     * @param {string|string[]} [options.text_pair=null] Optional second sequence to be encoded. If set, must be the same type as text.
+     * @param {boolean} [options.padding=false] Whether to pad the input sequences.
+     * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
+     * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
+     * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
      * @returns {{ input_ids: number[]|number[][]|Tensor, attention_mask: any[]|Tensor }} Object to be passed to the model.
      */
     _call(
@@ -1817,7 +1817,7 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * Encodes a single text using the preprocessor pipeline of the tokenizer.
      *
-     * @param {string|null} text - The text to encode.
+     * @param {string|null} text The text to encode.
      * @returns {Array} The encoded tokens.
      */
     _encode_text(text) {
@@ -1852,8 +1852,8 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * Encodes a single text or a pair of texts using the model's tokenizer.
      *
-     * @param {string} text - The text to encode.
-     * @param {string|null} text_pair - The optional second text to encode.
+     * @param {string} text The text to encode.
+     * @param {string|null} text_pair The optional second text to encode.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
     encode(text, text_pair = null) {
@@ -1869,8 +1869,8 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Clean up a list of simple English tokenization artifacts like spaces before punctuations and abbreviated forms
-     * @param {string} text - The text to clean up.
-     * @returns {string} - The cleaned up text.
+     * @param {string} text The text to clean up.
+     * @returns {string} The cleaned up text.
      */
     clean_up_tokenization(text) {
         // Clean up a list of simple English tokenization artifacts
@@ -1889,8 +1889,8 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Decode a batch of tokenized sequences.
-     * @param {number[][]} batch - List of tokenized input sequences.
-     * @param {Object} decode_args - (Optional) Object with decoding arguments.
+     * @param {number[][]} batch List of tokenized input sequences.
+     * @param {Object} decode_args (Optional) Object with decoding arguments.
      * @returns {string[]} List of decoded sequences.
      */
     batch_decode(batch, decode_args = {}) {
@@ -1900,10 +1900,10 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * Decodes a sequence of token IDs back to a string.
      *
-     * @param {number[]} token_ids - List of token IDs to decode.
+     * @param {number[]} token_ids List of token IDs to decode.
      * @param {Object} [decode_args={}]
-     * @param {boolean} [decode_args.skip_special_tokens=false] - If true, special tokens are removed from the output string.
-     * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] - If true, spaces before punctuations and abbreviated forms are removed.
+     * @param {boolean} [decode_args.skip_special_tokens=false] If true, special tokens are removed from the output string.
+     * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] If true, spaces before punctuations and abbreviated forms are removed.
      *
      * @returns {string} The decoded string.
      * @throws {Error} If `token_ids` is not a non-empty array of integers.
@@ -1923,11 +1923,11 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Decode a single list of token ids to a string.
-     * @param {number[]} token_ids - List of token ids to decode
-     * @param {object} decode_args - Optional arguments for decoding
-     * @param {boolean} [decode_args.skip_special_tokens=false] - Whether to skip special tokens during decoding
-     * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] - Whether to clean up tokenization spaces during decoding
-     * @returns {string} - The decoded string
+     * @param {number[]} token_ids List of token ids to decode
+     * @param {object} decode_args Optional arguments for decoding
+     * @param {boolean} [decode_args.skip_special_tokens=false] Whether to skip special tokens during decoding
+     * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] Whether to clean up tokenization spaces during decoding
+     * @returns {string} The decoded string
      */
     decode_single(
         token_ids,
@@ -1960,7 +1960,7 @@ export class PreTrainedTokenizer extends Callable {
 
 /**
 * Helper method for preparing model inputs (`token_type_ids`, in particular) for BERT models
-* @param {Object} inputs - An object containing the input ids and attention mask.
+* @param {Object} inputs An object containing the input ids and attention mask.
 * @returns {Object} The prepared inputs object.
 */
 function bert_prepare_model_inputs(inputs) {
@@ -2046,9 +2046,9 @@ export class NllbTokenizer extends PreTrainedTokenizer {
 
     /**
      * Helper function to build translation inputs for an `NllbTokenizer`.
-     * @param {string|string[]} raw_inputs - The text to tokenize.
-     * @param {object} tokenizer_options - Options to be sent to the tokenizer
-     * @param {object} generate_kwargs - Generation options.
+     * @param {string|string[]} raw_inputs The text to tokenize.
+     * @param {object} tokenizer_options Options to be sent to the tokenizer
+     * @param {object} generate_kwargs Generation options.
      * @returns {object} Object to be passed to the model.
      */
     _build_translation_inputs(raw_inputs, tokenizer_options, generate_kwargs) {
@@ -2193,9 +2193,9 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
     /**
      * Decodes automatic speech recognition (ASR) sequences.
-     * @param {Array<{tokens: number[], stride: number[]}>} sequences - The sequences to decode.
-     * @param {Object} options - The options to use for decoding.
-     * @returns {Array<string|{chunks?: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} - The decoded sequences.
+     * @param {Array<{tokens: number[], stride: number[]}>} sequences The sequences to decode.
+     * @param {Object} options The options to use for decoding.
+     * @returns {Array<string|{chunks?: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} The decoded sequences.
      */
     _decode_asr(sequences, {
         return_timestamps = false,
@@ -2426,9 +2426,9 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
     /**
      * Finds the longest common sequence among the provided sequences.
-     * @param {number[][]} sequences - An array of sequences of token ids to compare.
-     * @returns {number[]} - The longest common sequence found.
-     * @throws {Error} - If there is a bug within the function.
+     * @param {number[][]} sequences An array of sequences of token ids to compare.
+     * @returns {number[]} The longest common sequence found.
+     * @throws {Error} If there is a bug within the function.
      */
     findLongestCommonSequence(sequences) {
         // It would be much harder to do O(n) because of fault tolerance.
@@ -2512,8 +2512,8 @@ export class CLIPTokenizer extends PreTrainedTokenizer { }
 export class MarianTokenizer extends PreTrainedTokenizer {
     /**
      * Create a new MarianTokenizer instance.
-     * @param {Object} tokenizerJSON - The JSON of the tokenizer.
-     * @param {Object} tokenizerConfig - The config of the tokenizer.
+     * @param {Object} tokenizerJSON The JSON of the tokenizer.
+     * @param {Object} tokenizerConfig The config of the tokenizer.
      */
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);
@@ -2532,7 +2532,7 @@ export class MarianTokenizer extends PreTrainedTokenizer {
      * must be removed before encoding with sentencepiece model.
      * @see https://github.com/huggingface/transformers/blob/12d51db243a00726a548a43cc333390ebae731e3/src/transformers/models/marian/tokenization_marian.py#L204-L213
      *
-     * @param {string|null} text - The text to encode.
+     * @param {string|null} text The text to encode.
      * @returns {Array} The encoded tokens.
      */
     _encode_text(text) {
@@ -2568,7 +2568,7 @@ class CharTrie {
 
     /**
      * Adds one or more `texts` to the trie.
-     * @param {string[]} texts - The strings to add to the trie.
+     * @param {string[]} texts The strings to add to the trie.
      */
     extend(texts) {
         for (let text of texts) {
@@ -2578,7 +2578,7 @@ class CharTrie {
 
     /**
      * Adds one or more `texts` to the trie.
-     * @param {*} text - The strings to add to the trie.
+     * @param {*} text The strings to add to the trie.
      */
     push(text) {
         let node = this.root;
@@ -2595,8 +2595,8 @@ class CharTrie {
 
     /**
      * Searches the trie for all strings with a common prefix of `text`.
-     * @param {string} text - The common prefix to search for.
-     * @yields {string} - Each string in the trie that has `text` as a prefix.
+     * @param {string} text The common prefix to search for.
+     * @yields {string} Each string in the trie that has `text` as a prefix.
      */
     *commonPrefixSearch(text) {
         let node = this.root;
@@ -2614,8 +2614,8 @@ class CharTrie {
 
 /**
  * Represents a node in a character trie.
- * @param {boolean} isLeaf - Whether the node is a leaf node or not.
- * @param {Map<string, CharTrieNode>} children - A map containing the node's children, where the key is a character and the value is a `CharTrieNode`.
+ * @param {boolean} isLeaf Whether the node is a leaf node or not.
+ * @param {Map<string, CharTrieNode>} children A map containing the node's children, where the key is a character and the value is a `CharTrieNode`.
  */
 class CharTrieNode {
     constructor(isLeaf, children) {
@@ -2636,9 +2636,9 @@ class TokenLattice {
     /**
      * Creates a new TokenLattice instance.
      *
-     * @param {string} sentence - The input sentence to be tokenized.
-     * @param {number} bosTokenId - The beginning-of-sequence token ID.
-     * @param {number} eosTokenId - The end-of-sequence token ID.
+     * @param {string} sentence The input sentence to be tokenized.
+     * @param {number} bosTokenId The beginning-of-sequence token ID.
+     * @param {number} eosTokenId The end-of-sequence token ID.
      */
     constructor(sentence, bosTokenId, eosTokenId) {
         this.sentence = sentence;
@@ -2663,10 +2663,10 @@ class TokenLattice {
     /**
      * Inserts a new token node into the token lattice.
      *
-     * @param {number} pos - The starting position of the token.
-     * @param {number} length - The length of the token.
-     * @param {number} score - The score of the token.
-     * @param {number} tokenId - The token ID of the token.
+     * @param {number} pos The starting position of the token.
+     * @param {number} length The length of the token.
+     * @param {number} score The score of the token.
+     * @param {number} tokenId The token ID of the token.
      */
     insert(pos, length, score, tokenId) {
         const nodeId = this.nodes.length;
@@ -2679,7 +2679,7 @@ class TokenLattice {
     /**
      * Implements the Viterbi algorithm to compute the most likely sequence of tokens.
      *
-     * @returns {TokenLatticeNode[]} - The array of nodes representing the most likely sequence of tokens.
+     * @returns {TokenLatticeNode[]} The array of nodes representing the most likely sequence of tokens.
      */
     viterbi() {
         const len = this.len;
@@ -2727,14 +2727,14 @@ class TokenLattice {
 
     /**
      * @param {any} node
-     * @returns {string} - The array of nodes representing the most likely sequence of tokens.
+     * @returns {string} The array of nodes representing the most likely sequence of tokens.
      */
     piece(node) {
         return this.sentence.slice(node.pos, node.pos + node.length);
     }
 
     /**
-     * @returns {Array} - The array of nodes representing the most likely sequence of tokens.
+     * @returns {Array} The array of nodes representing the most likely sequence of tokens.
      */
     tokens() {
         const nodes = this.viterbi();
@@ -2742,7 +2742,7 @@ class TokenLattice {
     }
 
     /**
-     * @returns {Array} - The array of nodes representing the most likely sequence of tokens.
+     * @returns {Array} The array of nodes representing the most likely sequence of tokens.
      */
     tokenIds() {
         const nodes = this.viterbi();
@@ -2752,11 +2752,11 @@ class TokenLattice {
 class TokenLatticeNode {
     /**
      * Represents a node in a token lattice for a given sentence.
-     * @param {number} tokenId - The ID of the token associated with this node.
-     * @param {number} nodeId - The ID of this node.
-     * @param {number} pos - The starting position of the token in the sentence.
-     * @param {number} length - The length of the token.
-     * @param {number} score - The score associated with the token.
+     * @param {number} tokenId The ID of the token associated with this node.
+     * @param {number} nodeId The ID of this node.
+     * @param {number} pos The starting position of the token in the sentence.
+     * @param {number} length The length of the token.
+     * @param {number} score The score associated with the token.
      */
     constructor(tokenId, nodeId, pos, length, score) {
         this.tokenId = tokenId;
@@ -2770,7 +2770,7 @@ class TokenLatticeNode {
 
     /**
      * Returns a clone of this node.
-     * @returns {TokenLatticeNode} - A clone of this node.
+     * @returns {TokenLatticeNode} A clone of this node.
      */
     clone() {
         const n = new TokenLatticeNode(this.tokenId, this.nodeId, this.pos, this.length, this.score);
@@ -2819,7 +2819,7 @@ export class AutoTokenizer {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing tokenizer files, e.g., `./my_model_directory/`.
-     * @param {PretrainedOptions} options - Additional options for loading the tokenizer.
+     * @param {PretrainedOptions} options Additional options for loading the tokenizer.
      * 
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */

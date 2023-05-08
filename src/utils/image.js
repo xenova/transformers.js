@@ -59,10 +59,10 @@ export class CustomImage {
 
     /**
      * Create a new CustomImage object.
-     * @param {Uint8ClampedArray} data - The pixel data.
-     * @param {number} width - The width of the image.
-     * @param {number} height - The height of the image.
-     * @param {1|2|3|4} channels - The number of channels.
+     * @param {Uint8ClampedArray} data The pixel data.
+     * @param {number} width The width of the image.
+     * @param {number} height The height of the image.
+     * @param {1|2|3|4} channels The number of channels.
      */
     constructor(data, width, height, channels) {
         this._update(data, width, height, channels);
@@ -86,8 +86,8 @@ export class CustomImage {
 
     /**
      * Read an image from a URL or file path.
-     * @param {string|URL} url - The URL or file path to read the image from.
-     * @returns {Promise<CustomImage>} - The image object.
+     * @param {string|URL} url The URL or file path to read the image from.
+     * @returns {Promise<CustomImage>} The image object.
      */
     static async fromURL(url) {
         let response = await getFile(url);
@@ -97,8 +97,8 @@ export class CustomImage {
 
     /**
      * Helper method to create a new Image from a blob.
-     * @param {Blob} blob - The blob to read the image from.
-     * @returns {Promise<CustomImage>} - The image object.
+     * @param {Blob} blob The blob to read the image from.
+     * @returns {Promise<CustomImage>} The image object.
      */
     static async fromBlob(blob) {
         if (BROWSER_ENV) {
@@ -122,7 +122,7 @@ export class CustomImage {
 
     /**
      * Convert the image to grayscale format.
-     * @returns {CustomImage} - `this` to support chaining.
+     * @returns {CustomImage} `this` to support chaining.
      */
     grayscale() {
         if (this.channels === 1) {
@@ -149,7 +149,7 @@ export class CustomImage {
 
     /**
      * Convert the image to RGB format.
-     * @returns {CustomImage} - `this` to support chaining.
+     * @returns {CustomImage} `this` to support chaining.
      */
     rgb() {
         if (this.channels === 3) {
@@ -182,7 +182,7 @@ export class CustomImage {
 
     /**
      * Convert the image to RGBA format.
-     * @returns {CustomImage} - `this` to support chaining.
+     * @returns {CustomImage} `this` to support chaining.
      */
     rgba() {
         if (this.channels === 4) {
@@ -217,11 +217,11 @@ export class CustomImage {
 
     /**
      * Resize the image to the given dimensions. This method uses the canvas API to perform the resizing.
-     * @param {number} width - The width of the new image.
-     * @param {number} height - The height of the new image.
-     * @param {object} options - Additional options for resizing.
-     * @param {0|1|2|3|4|5|string} [options.resample] - The resampling method to use.
-     * @returns {Promise<CustomImage>} - `this` to support chaining.
+     * @param {number} width The width of the new image.
+     * @param {number} height The height of the new image.
+     * @param {object} options Additional options for resizing.
+     * @param {0|1|2|3|4|5|string} [options.resample] The resampling method to use.
+     * @returns {Promise<CustomImage>} `this` to support chaining.
      */
     async resize(width, height, {
         resample = 2,
@@ -486,10 +486,10 @@ export class CustomImage {
 
     /**
      * Helper method to update the image data.
-     * @param {Uint8ClampedArray} data - The new image data.
-     * @param {number} width - The new width of the image.
-     * @param {number} height - The new height of the image.
-     * @param {1|2|3|4} channels - The new number of channels of the image.
+     * @param {Uint8ClampedArray} data The new image data.
+     * @param {number} width The new width of the image.
+     * @param {number} height The new height of the image.
+     * @param {1|2|3|4} channels The new number of channels of the image.
      */
     _update(data, width, height, channels = null) {
         this.data = data;
@@ -503,7 +503,7 @@ export class CustomImage {
 
     /**
      * Clone the image
-     * @returns {CustomImage} - The cloned image
+     * @returns {CustomImage} The cloned image
      */
     clone() {
         return new CustomImage(this.data.slice(), this.width, this.height, this.channels);
@@ -511,8 +511,8 @@ export class CustomImage {
 
     /**
      * Helper method for converting image to have a certain number of channels
-     * @param {number} numChannels - The number of channels. Must be 1, 3, or 4.
-     * @returns {CustomImage} - `this` to support chaining.
+     * @param {number} numChannels The number of channels. Must be 1, 3, or 4.
+     * @returns {CustomImage} `this` to support chaining.
      */
     convert(numChannels) {
         if (this.channels === numChannels) return this; // Already correct number of channels
@@ -535,8 +535,8 @@ export class CustomImage {
 
     /**
      * Save the image to the given path. This method is only available in environments with access to the FileSystem.
-     * @param {string|Buffer|URL} path - The path to save the image to.
-     * @param {string} [mime='image/png'] - The mime type of the image.
+     * @param {string|Buffer|URL} path The path to save the image to.
+     * @param {string} [mime='image/png'] The mime type of the image.
      */
     save(path, mime = 'image/png') {
         if (!env.useFS) {
