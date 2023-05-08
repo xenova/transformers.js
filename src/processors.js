@@ -21,6 +21,7 @@
  */
 import {
     Callable,
+    calculateDimensions,
 } from './utils/core.js';
 
 import {
@@ -90,10 +91,12 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.do_resize = this.config.do_resize;
         this.size = this.config.size;
 
-        // TODO use these
         this.do_center_crop = this.config.do_center_crop;
         this.crop_size = this.config.crop_size;
         this.do_convert_rgb = this.config.do_convert_rgb ?? true;
+
+        this.pad_size = this.config.pad_size;
+        this.do_pad = (this.config.do_pad ?? false) && this.pad_size;
     }
 
     /**
@@ -136,21 +139,24 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
             // If `longest_edge` and `shortest_edge` are set, maintain aspect ratio and resize to `shortest_edge`
             // while keeping the largest dimension <= `longest_edge`
-            if (shortest_edge !== undefined) {
+            if (shortest_edge !== undefined || longest_edge !== undefined) {
                 // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
                 // Try resize so that shortest edge is `this.shortest_edge` (target)
-                const ratio = Math.max(shortest_edge / srcWidth, shortest_edge / srcHeight);
-                const newWidth = srcWidth * ratio;
-                const newHeight = srcHeight * ratio;
+                const shortResizeFactor = shortest_edge === undefined
+                    ? 1 // If `shortest_edge` is not set, don't upscale
+                    : Math.max(shortest_edge / srcWidth, shortest_edge / srcHeight);
+
+                const newWidth = srcWidth * shortResizeFactor;
+                const newHeight = srcHeight * shortResizeFactor;
 
                 // The new width and height might be greater than `this.longest_edge`, so
                 // we downscale again to ensure the largest dimension is `this.longest_edge` 
-                const downscaleFactor = longest_edge === undefined
+                const longResizeFactor = longest_edge === undefined
                     ? 1 // If `longest_edge` is not set, don't downscale
-                    : Math.min(longest_edge / newWidth, longest_edge / newHeight, 1);
+                    : Math.min(longest_edge / newWidth, longest_edge / newHeight);
 
                 // Perform resize
-                image = await image.resize(Math.floor(newWidth * downscaleFactor), Math.floor(newHeight * downscaleFactor), {
+                image = await image.resize(Math.floor(newWidth * longResizeFactor), Math.floor(newHeight * longResizeFactor), {
                     resample: this.resample,
                 });
 
@@ -177,6 +183,18 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             }
 
             image = await image.center_crop(crop_width, crop_height);
+        }
+
+        let reshaped_input_size = [image.height, image.width];
+
+        // TODO is it okay to pad before rescaling/normalizing?
+        if (this.do_pad) {
+            let left = 0;
+            let right = this.pad_size.width - image.width;
+            let top = 0;
+            let bottom = this.pad_size.height - image.height;
+
+            image = await image.pad([left, right, top, bottom]);
         }
 
         const pixelData = Float32Array.from(image.data);
@@ -214,7 +232,11 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         let img = new Tensor('float32', pixelData, imgDims);
         let transposed = transpose(img, [2, 0, 1]); // hwc -> chw
 
-        return transposed;
+        return {
+            original_size: [srcHeight, srcWidth],
+            reshaped_input_size: reshaped_input_size,
+            pixel_values: transposed,
+        }
     }
 
     /**
@@ -222,20 +244,30 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * URLs, preprocesses each image, and concatenates the resulting
      * features into a single Tensor.
      * @param {any} images - The URL(s) of the image(s) to extract features from.
-     * @returns {Promise<Object>} An object containing the concatenated pixel values of the preprocessed images.
+     * @returns {Promise<Object>} An object containing the concatenated pixel values (and other metadata) of the preprocessed images.
      */
     async _call(images) {
         if (!Array.isArray(images)) {
             images = [images];
         }
-        images = await Promise.all(images.map(x => this.preprocess(x)));
 
-        images.forEach(x => x.dims = [1, ...x.dims]); // add batch dimension
+        let imageData = await Promise.all(images.map(x => this.preprocess(x)));
 
-        images = cat(images);
-        // TODO concatenate on dim=0
+        // TODO:
+
+        // Concatenate pixel values
+        // TEMP: Add batch dimension so that concat works
+        imageData.forEach(x => x.pixel_values.dims = [1, ...x.pixel_values.dims]);
+        let pixel_values = cat(imageData.map(x => x.pixel_values));
+
         return {
-            pixel_values: images
+            pixel_values: pixel_values,
+
+            // Original sizes of images
+            original_sizes: imageData.map(x => x.original_size),
+
+            // Reshaped sizes of images, before padding or cropping
+            reshaped_input_sizes: imageData.map(x => x.reshaped_input_size),
         }
     }
 
@@ -624,6 +656,132 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
     }
 }
 
+export class SamImageProcessor extends ImageFeatureExtractor {
+    async _call(images, input_points) {
+        let {
+            pixel_values,
+            original_sizes,
+            reshaped_input_sizes,
+        } = await super._call(images);
+
+        let shape = calculateDimensions(input_points);
+
+        if (shape.length === 3) {
+            // Correct user's input
+            shape = [1, ...shape];
+            input_points = [input_points];
+        } else if (shape.length !== 4) {
+            throw Error("The input_points must be a 4D tensor of shape `batch_size`, `point_batch_size`, `nb_points_per_image`, `2`.")
+        }
+
+        // Reshape input points
+        for (let i = 0; i < input_points.length; ++i) { // batch_size
+            let originalImageSize = original_sizes[i];
+            let reshapedImageSize = reshaped_input_sizes[i];
+
+            let resizeFactors = [
+                reshapedImageSize[0] / originalImageSize[0],
+                reshapedImageSize[1] / originalImageSize[1]
+            ]
+
+            for (let j = 0; j < input_points[i].length; ++j) { // point_batch_size
+                for (let k = 0; k < input_points[i][j].length; ++k) { // nb_points_per_image
+                    for (let w = 0; w < input_points[i][j][k].length; ++w) { // 2
+                        input_points[i][j][k][w] *= resizeFactors[w];
+                    }
+                }
+            }
+        }
+
+        let input_points_tensor = new Tensor(
+            'int64',
+            BigInt64Array.from(input_points.flat(Infinity)
+                .map(x => BigInt(Math.round(x)))),
+            shape
+        )
+
+        // TODO - allowed to be floats?
+        // let input_points_tensor = new Tensor(
+        //     'float32',
+        //     Float32Array.from(input_points.flat(Infinity)),
+        //     shape
+        // )
+
+        return {
+            pixel_values,
+            original_sizes: original_sizes,
+            reshaped_input_sizes: reshaped_input_sizes,
+            input_points: input_points_tensor
+        }
+    }
+
+    /**
+     * Remove padding and upscale masks to the original image size.
+     * @param {Tensor} masks Batched masks from the mask_decoder in (batch_size, num_channels, height, width) format.
+     * @param {*} original_sizes The original sizes of each image before it was resized to the model's expected input shape, in (height, width) format.
+     * @param {*} reshaped_input_sizes The size of each image as it is fed to the model, in (height, width) format. Used to remove padding.
+     * @param {object} options Optional parameters for post-processing.
+     * @param {number} options.mask_threshold The threshold to use for binarizing the masks.
+     * @param {boolean} options.binarize Whether to binarize the masks.
+     * @param {number} options.pad_size The target size the images were padded to before being passed to the model. If `null`, the target size is assumed to be the processor's `pad_size`.
+     * @returns {Tensor} Batched masks in batch_size, num_channels, height, width) format, where (height, width) is given by original_size.
+     */
+    post_process_masks(masks, original_sizes, reshaped_input_sizes, {
+        mask_threshold = 0.0,
+        binarize = true,
+        pad_size = null,
+    } = {}) {
+        // masks: [1, 1, 3, 256, 256]
+
+        let output_masks = [];
+
+        pad_size = pad_size ?? this.pad_size;
+
+        let target_image_size = [pad_size.height, pad_size.width];
+
+        for (let i = 0; i < original_sizes.length; ++i) {
+            let original_size = original_sizes[i];
+            let reshaped_input_size = reshaped_input_sizes[i];
+
+            let mask = masks.get(i); // [b, c, h, w]
+
+            // TODO - improve
+            let interpolated_masks = [];
+            for (let j = 0; j < mask.dims[0]; ++j) {
+                let m = mask.get(j); // 3d tensor
+
+                // Upscale mask to padded size
+                let interpolated_mask = interpolate(m, target_image_size, 'bilinear', false);
+
+                // Crop mask
+                interpolated_mask = interpolated_mask.slice(null, [0, reshaped_input_size[0]], [0, reshaped_input_size[1]]);
+
+                // Downscale mask
+                interpolated_mask = interpolate(mask, original_size, 'bilinear', false);
+
+                if (binarize) {
+                    interpolated_mask = new Tensor(
+                        'bool',
+                        Array.from(interpolated_mask.data).map(x => x > mask_threshold),
+                        interpolated_mask.dims
+                    )
+                }
+
+                // add back batch dim for concat
+                interpolated_mask.dims = [1, ...interpolated_mask.dims];
+
+                interpolated_masks.push(interpolated_mask);
+            }
+
+            let concatenated = cat(interpolated_masks);
+            output_masks.push(concatenated);
+        }
+
+        return output_masks;
+
+    }
+}
+
 
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
@@ -990,6 +1148,20 @@ export class Processor extends Callable {
     }
 }
 
+export class SamProcessor extends Processor {
+
+    async _call(images, input_points) {
+        return await this.feature_extractor(images, input_points);
+    }
+
+    /**
+     * @borrows SamImageProcessor#post_process_masks as post_process_masks
+     */
+    post_process_masks(...args) {
+        return this.feature_extractor.post_process_masks(...args);
+    }
+}
+
 /**
  * Represents a WhisperProcessor that extracts features from an audio input.
  * @extends Processor
@@ -1021,10 +1193,13 @@ export class AutoProcessor {
         'WhisperFeatureExtractor': WhisperFeatureExtractor,
         'ViTFeatureExtractor': ViTFeatureExtractor,
         'DetrFeatureExtractor': DetrFeatureExtractor,
+
+        'SamImageProcessor': SamImageProcessor,
     }
 
     static PROCESSOR_CLASS_MAPPING = {
         'WhisperProcessor': WhisperProcessor,
+        'SamProcessor': SamProcessor,
     }
 
     /**
@@ -1058,7 +1233,10 @@ export class AutoProcessor {
             revision,
         })
 
-        let feature_extractor_class = this.FEATURE_EXTRACTOR_CLASS_MAPPING[preprocessorConfig.feature_extractor_type];
+        // Determine feature extractor class
+        // TODO: Ensure backwards compatibility with old configs
+        let key = preprocessorConfig.feature_extractor_type ?? preprocessorConfig.image_processor_type;
+        let feature_extractor_class = this.FEATURE_EXTRACTOR_CLASS_MAPPING[key];
 
         if (!feature_extractor_class) {
             if (preprocessorConfig.size !== undefined) {

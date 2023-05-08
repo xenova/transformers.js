@@ -127,7 +127,74 @@ export class Tensor extends ONNXTensor {
         return new Tensor(this.type, this.data.slice(), this.dims.slice());
     }
 
-    // TODO add .slice()
+    slice(...slices) {
+        // This allows for slicing with ranges and numbers
+        let newTensorDims = [];
+        let newOffsets = [];
+
+        // slices is an array of numbers or arrays of numbers
+        // e.g., slices = [0, [1, 3], null, [0, 3]]
+        for (let sliceIndex = 0; sliceIndex < this.dims.length; ++sliceIndex) {
+            let slice = slices[sliceIndex];
+
+            if (slice === null || slice === undefined) {
+                // null or undefined means take the whole dimension
+                newOffsets.push([0, this.dims[sliceIndex]]);
+                newTensorDims.push(this.dims[sliceIndex]);
+
+            } else if (typeof slice === 'number') {
+                if (slice < 0 || slice >= this.dims[sliceIndex]) {
+                    throw new Error(`IndexError: index ${slice} is out of bounds for dimension ${sliceIndex} with size ${this.dims[sliceIndex]}`);
+                }
+
+                // A number means take a single element
+                newOffsets.push([slice, slice + 1]);
+
+            } else if (Array.isArray(slice) && slice.length === 2) {
+                // An array of length 2 means take a range of elements
+
+                if (slice[0] > slice[1]) {
+                    throw new Error(`Invalid slice: ${slice}`);
+                }
+
+                let offsets = [
+                    Math.max(slice[0], 0),
+                    Math.min(slice[1], this.dims[sliceIndex])
+                ];
+
+                newOffsets.push(offsets);
+                newTensorDims.push(offsets[1] - offsets[0]);
+
+            } else {
+                throw new Error(`Invalid slice: ${slice}`);
+            }
+        }
+
+        let newDims = newOffsets.map(([start, end]) => end - start);
+        let newBufferSize = newDims.reduce((a, b) => a * b);
+
+        // Allocate memory
+        let data = new this.data.constructor(newBufferSize);
+
+        // Precompute strides
+        const stride = new Array(this.dims.length);
+        for (let i = newDims.length - 1, s2 = 1; i >= 0; --i) {
+            stride[i] = s2;
+            s2 *= this.dims[i];
+        }
+
+        for (let i = 0; i < newBufferSize; ++i) {
+            let originalIndex = 0;
+            for (let j = newDims.length - 1, num = i; j >= 0; --j) {
+                const size = newDims[j];
+                originalIndex += ((num % size) + newOffsets[j][0]) * stride[j];
+                num = Math.floor(num / size);
+            }
+            data[i] = this.data[originalIndex];
+        }
+        return new Tensor(this.type, data, newTensorDims);
+
+    }
 
     /**
      * Return a transposed version of this Tensor, according to the provided dimensions.

@@ -298,6 +298,56 @@ export class CustomImage {
 
     }
 
+    async pad([left, right, top, bottom]) {
+        left = Math.max(left, 0);
+        right = Math.max(right, 0);
+        top = Math.max(top, 0);
+        bottom = Math.max(bottom, 0);
+
+        if (left === 0 && right === 0 && top === 0 && bottom === 0) {
+            // No padding needed
+            return this;
+        }
+
+        if (BROWSER_ENV) {
+            // Store number of channels before padding
+            let numChannels = this.channels;
+
+            // Create canvas object for this image
+            let canvas = this.toCanvas();
+
+            let newWidth = this.width + left + right;
+            let newHeight = this.height + top + bottom;
+
+            // Create a new canvas of the desired size.
+            const ctx = createCanvasFunction(newWidth, newHeight).getContext('2d');
+
+            // Draw image to context, padding in the process
+            ctx.drawImage(canvas,
+                0, 0, this.width, this.height,
+                left, top, newWidth, newHeight
+            );
+
+            // Create image from the padded data
+            let paddedImage = new CustomImage(
+                ctx.getImageData(0, 0, newWidth, newHeight).data,
+                newWidth, newHeight, 4);
+
+            // Convert back so that image has the same number of channels as before
+            return paddedImage.convert(numChannels);
+
+        } else {
+            let img = sharp(this.data, {
+                raw: {
+                    width: this.width,
+                    height: this.height,
+                    channels: this.channels
+                }
+            }).extend({ left, right, top, bottom });
+            return await loadImageFunction(img);
+        }
+    }
+
     async center_crop(crop_width, crop_height) {
         // If the image is already the desired size, return it
         if (this.width === crop_width && this.height === crop_height) {

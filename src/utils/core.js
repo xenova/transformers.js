@@ -117,3 +117,18 @@ export function exists(x) {
     return x !== undefined && x !== null;
 }
 
+/**
+ * Calculates the dimensions of a nested array.
+ *
+ * @param {Array} arr - The nested array to calculate dimensions for.
+ * @returns {Array} - An array containing the dimensions of the input array.
+ */
+export function calculateDimensions(arr) {
+    const dimensions = [];
+    let current = arr;
+    while (Array.isArray(current)) {
+        dimensions.push(current.length);
+        current = current[0];
+    }
+    return dimensions;
+}
