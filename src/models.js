@@ -557,6 +557,7 @@ export class PreTrainedModel extends Callable {
             revision,
         });
 
+        // @ts-ignore
         return new this(...info);
     }
 
@@ -763,15 +764,19 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-   * Generates text based on the given inputs and generation configuration using the model.
-   * @param {Array} inputs - An array of input token IDs.
-   * @param {Object|null} generation_config - The generation configuration to use. If null, default configuration will be used.
-   * @param {Object|null} logits_processor - An optional logits processor to use. If null, a new LogitsProcessorList instance will be created.
-   * @param {Object} options - options
-   * @param {Object} [options.inputs_attention_mask=null] - An optional attention mask for the inputs.
-   * @returns {Promise<Array>} An array of generated output sequences, where each sequence is an array of token IDs.
-   * @throws {Error} Throws an error if the inputs array is empty.
-   */
+     * @typedef {import('./utils/maths.js').TypedArray} TypedArray
+     */
+
+    /**
+     * Generates text based on the given inputs and generation configuration using the model.
+     * @param {Tensor|Array|TypedArray} inputs - An array of input token IDs.
+     * @param {Object|null} generation_config - The generation configuration to use. If null, default configuration will be used.
+     * @param {Object|null} logits_processor - An optional logits processor to use. If null, a new LogitsProcessorList instance will be created.
+     * @param {Object} options - options
+     * @param {Object} [options.inputs_attention_mask=null] - An optional attention mask for the inputs.
+     * @returns {Promise<Array>} An array of generated output sequences, where each sequence is an array of token IDs.
+     * @throws {Error} Throws an error if the inputs array is empty.
+     */
     async generate(
         inputs,
         generation_config = null,
@@ -812,6 +817,7 @@ export class PreTrainedModel extends Callable {
 
         let sampler = Sampler.getSampler(generation_config);
 
+        // @ts-ignore
         let beams = this.getStartBeams(inputs, numOutputTokens, inputs_attention_mask);
 
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
@@ -824,6 +830,7 @@ export class PreTrainedModel extends Callable {
                     continue
                 }
 
+                // @ts-ignore
                 let output = await this.runBeam(beam);
 
                 // Logits are of the form [batch_size, out_seq_length, vocab_size]
@@ -848,6 +855,7 @@ export class PreTrainedModel extends Callable {
                     let newBeam = { ...beam };
 
                     // update new beam
+                    // @ts-ignore
                     this.updateBeam(newBeam, newTokenId);
 
                     newBeam.score += logProb;
@@ -948,20 +956,26 @@ export class PreTrainedModel extends Callable {
         if (pastKeyValues === null) {
             // TODO support batches (i.e., batch_size > 1)
             if (hasDecoder) {
+                // @ts-ignore
                 let encoder_dims = [1, this.num_encoder_heads, 0, this.encoder_dim_kv];
+                // @ts-ignore
                 for (let i = 0; i < this.num_encoder_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
                     decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor('float32', [], encoder_dims)
                 }
 
+                // @ts-ignore
                 let decoder_dims = [1, this.num_decoder_heads, 0, this.decoder_dim_kv];
+                // @ts-ignore
                 for (let i = 0; i < this.num_decoder_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor('float32', [], decoder_dims)
                     decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor('float32', [], decoder_dims)
                 }
 
             } else {
+                // @ts-ignore
                 let dims = [1, this.num_heads, 0, this.dim_kv]
+                // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
                     decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
@@ -1338,6 +1352,7 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
             local_files_only,
             revision,
         });
+        // @ts-ignore
         return new this(...info);
     }
 
@@ -1449,6 +1464,7 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
             local_files_only,
             revision,
         });
+        // @ts-ignore
         return new this(...info);
     }
 
@@ -1566,6 +1582,7 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
             local_files_only,
             revision,
         });
+        // @ts-ignore
         return new this(...info);
     }
 
@@ -1782,6 +1799,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             local_files_only,
             revision,
         });
+        // @ts-ignore
         return new this(...info);
     }
 
@@ -1874,6 +1892,7 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
             local_files_only,
             revision,
         });
+        // @ts-ignore
         return new this(...info);
     }
 
@@ -2249,7 +2268,7 @@ export class SamModel extends SamPreTrainedModel {
     /**
      * @param {object} model_inputs
      * @param {Tensor} model_inputs.pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
-     * @param {Tensor} model_input_ids.input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`. This is used by the prompt encoder to encode the prompt.
+     * @param {Tensor} model_inputs.input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`. This is used by the prompt encoder to encode the prompt.
      * @todo Add support for `input_labels`, `input_boxes`, `input_masks`, and `image_embeddings`.
      */
     async _call(model_inputs) {
@@ -2343,6 +2362,7 @@ export class MarianMTModel extends MarianPreTrainedModel {
             local_files_only,
             revision,
         });
+        // @ts-ignore
         return new this(...info);
     }
 
@@ -2448,6 +2468,7 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
             local_files_only,
             revision,
         });
+        // @ts-ignore
         return new this(...info);
     }
 

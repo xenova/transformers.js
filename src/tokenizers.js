@@ -87,6 +87,16 @@ export class TokenizerModel extends Callable {
 
         /** @type {string[]} */
         this.vocab = [];
+
+        /**
+         * A mapping of tokens to ids.
+         * @type {Map<string, number>}
+         */
+        this.tokens_to_ids = new Map();
+
+        this.unk_token_id = undefined;
+        this.unk_token = undefined;
+        this.end_of_word_suffix = undefined;
     }
     /**
      * Instantiates a new TokenizerModel instance based on the configuration object provided.
@@ -100,11 +110,11 @@ export class TokenizerModel extends Callable {
             case 'WordPiece':
                 return new WordPieceTokenizer(config);
             case 'Unigram':
-                // TODO: fix error below
+                // @ts-ignore
                 return new Unigram(config, ...args);
 
             case 'BPE':
-                // TODO: fix error below
+                // @ts-ignore
                 return new BPE(config, ...args);
             default:
                 throw new Error(`Unknown TokenizerModel type: ${config.type}`);
@@ -252,6 +262,7 @@ class Unigram extends TokenizerModel {
     /**
      * Create a new Unigram tokenizer model.
      * @param {object} config - The configuration object for the Unigram model.
+     * @param {number} config.unk_id - The ID of the unknown token
      * @param {Map<string, number>} config.vocab - A mapping of tokens to scores.
      * @param {object} moreConfig - Additional configuration object for the Unigram model.
      */
@@ -992,6 +1003,14 @@ class SplitPreTokenizer extends PreTokenizer {
 class PostProcessor extends Callable {
 
     /**
+     * @param {Object} config - The configuration for the post-processor.
+     */
+    constructor(config) {
+        super();
+        this.config = config;
+    }
+
+    /**
      * Factory method to create a PostProcessor object from a configuration object.
      *
      * @param {Object} config - Configuration object representing a PostProcessor.
@@ -1048,12 +1067,11 @@ class RobertaProcessing extends PostProcessor {
      * @param {string[]} config.sep - The special tokens to add to the end of the input.
      */
     constructor(config) {
-        super();
-        this.config = config;
+        super(config);
+        // TODO use all of config: add_prefix_space, trim_offsets
 
-        // TODO use all of config:
-        // add_prefix_space, cls, sep, trim_offsets
-
+        this.cls = config.cls[0];
+        this.sep = config.sep[0];
     }
 
     /**
@@ -1063,12 +1081,12 @@ class RobertaProcessing extends PostProcessor {
      * @returns {string[]} The input tokens with the special tokens added to the beginning and end.
      */
     post_process(tokens, tokens_pair = null) {
-        tokens = [this.config.cls[0], ...tokens, this.config.sep[0]]
+        tokens = [this.cls, ...tokens, this.sep]
 
         // NOTE: It is intended to add 2 EOS tokens after the first set of tokens
         // https://github.com/huggingface/tokenizers/issues/983
         if (tokens_pair !== null) {
-            tokens = [...tokens, this.config.sep[0], ...tokens_pair, this.config.sep[0]]
+            tokens = [...tokens, this.sep, ...tokens_pair, this.sep]
         }
         return tokens;
     }
@@ -1086,8 +1104,10 @@ class TemplateProcessing extends PostProcessor {
      * @param {Array} config.pair - The template for a pair of sequences of tokens.
      */
     constructor(config) {
-        super();
-        this.config = config;
+        super(config);
+
+        this.single = config.single;
+        this.pair = config.pair;
     }
 
     /**
@@ -1097,7 +1117,7 @@ class TemplateProcessing extends PostProcessor {
      * @returns {Array} - The list of tokens with the special tokens replaced with actual tokens.
      */
     post_process(tokens, tokens_pair = null) {
-        let type = tokens_pair === null ? this.config.single : this.config.pair
+        let type = tokens_pair === null ? this.single : this.pair
 
         let toReturn = [];
         for (let item of type) {
@@ -1123,15 +1143,6 @@ class TemplateProcessing extends PostProcessor {
  */
 class ByteLevelPostProcessor extends PostProcessor {
     /**
-     * Create a new instance of ByteLevelPostProcessor.
-     * @param {object} config - Configuration object.
-     */
-    constructor(config) {
-        super();
-        this.config = config;
-    }
-
-    /**
      * Post process the given tokens.
      * @param {string[]} tokens - The tokens to be post processed.
      * @returns {string[]} The post processed tokens.
@@ -1155,6 +1166,9 @@ class Decoder extends Callable {
     constructor(config) {
         super();
         this.config = config;
+
+        this.added_tokens = [];
+        this.end_of_word_suffix = null;
     }
 
     /**
@@ -1522,9 +1536,6 @@ export class PreTrainedTokenizer extends Callable {
         // TODO - maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
-        // Slight hack, but it prevents code duplication:
-        // Add added_tokens to this.decoder
-        this.decoder.added_tokens = [];
 
         // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
         // This is needed for cases where BPE model and ByteLevel decoder are used
@@ -1538,6 +1549,9 @@ export class PreTrainedTokenizer extends Callable {
         for (let addedToken of tokenizerJSON.added_tokens) {
             let id = addedToken.id;
             let content = addedToken.content;
+
+            // Slight hack, but it prevents code duplication:
+            // Add added_tokens to this.decoder
             this.decoder.added_tokens.push(content);
 
             this.model.tokens_to_ids.set(content, id);
@@ -1620,6 +1634,7 @@ export class PreTrainedTokenizer extends Callable {
             revision,
         })
 
+        // @ts-ignore
         return new this(...info);
     }
 

@@ -93,7 +93,7 @@ export class Pipeline extends Callable {
      * @returns {Promise<void>} - A promise that resolves when the model has been disposed.
      */
     async dispose() {
-        return await this.model.dispose();
+        await this.model.dispose();
     }
 
     /**
@@ -236,9 +236,9 @@ export class QuestionAnsweringPipeline extends Pipeline {
      * @param {string|string[]} context - The context(s) where the answer(s) can be found.
      * @param {object} options - An optional object containing the following properties:
      * @param {number} [options.topk=1] - The number of top answer predictions to be returned.
-     * @todo fix error below
      * @returns {Promise<any>} - A promise that resolves to an array or object containing the predicted answers and scores.
      */
+    // @ts-ignore
     async _call(question, context, {
         topk = 1
     } = {}) {
@@ -388,6 +388,7 @@ export class Text2TextGenerationPipeline extends Pipeline {
         if (this instanceof TranslationPipeline && '_build_translation_inputs' in this.tokenizer) {
             // TODO - move to Translation pipeline?
             // Currently put here to avoid code duplication
+            // @ts-ignore
             input_ids = this.tokenizer._build_translation_inputs(texts, tokenizer_options, generate_kwargs).input_ids;
 
         } else {
@@ -514,9 +515,9 @@ export class ZeroShotClassificationPipeline extends Pipeline {
     /**
      * @param {any[]} texts
      * @param {string[]} candidate_labels
-     * @todo fix error below
      * @return {Promise<*>}
      */
+    // @ts-ignore
     async _call(texts, candidate_labels, {
         hypothesis_template = "This example is {}.",
         multi_label = false,
@@ -809,6 +810,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             }
 
             // Merge text chunks
+            // @ts-ignore
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
                 time_precision: time_precision,
                 return_timestamps: return_timestamps,
@@ -926,7 +928,7 @@ export class ImageClassificationPipeline extends Pipeline {
 export class ImageSegmentationPipeline extends Pipeline {
     /**
      * Create a new ImageSegmentationPipeline.
-     * @param {PreTrainedTokenizer} task - The task of the pipeline.
+     * @param {string} task - The task of the pipeline.
      * @param {PreTrainedModel} model - The model to use for classification.
      * @param {Processor} processor - The function to preprocess images.
      */
@@ -1057,9 +1059,9 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
      * @param {Array} candidate_labels - The candidate labels.
      * @param {Object} options - The options for the classification.
      * @param {string} [options.hypothesis_template] - The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
-     * @todo fix error below
      * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
      */
+    // @ts-ignore
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
@@ -1101,7 +1103,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 
 export class ObjectDetectionPipeline extends Pipeline {
     /**
-     * @param {PreTrainedTokenizer} task
+     * @param {string} task
      * @param {PreTrainedModel} model
      * @param {Processor} processor
      */
@@ -1129,6 +1131,7 @@ export class ObjectDetectionPipeline extends Pipeline {
         let inputs = await this.processor(images);
         let output = await this.model(inputs);
 
+        // @ts-ignore
         let processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSizes);
 
         // Add labels

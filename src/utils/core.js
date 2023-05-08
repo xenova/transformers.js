@@ -89,7 +89,7 @@ export function isString(text) {
 
 /**
  * Check if a value is a typed array.
- * @param {*} text - The value to check.
+ * @param {*} val - The value to check.
  * @returns {boolean} - True if the value is a `TypedArray`, false otherwise.
  * 
  * Adapted from https://stackoverflow.com/a/71091338/13989043

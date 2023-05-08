@@ -13,6 +13,7 @@ import { env } from '../env.js';
 import { dispatchCallback } from './core.js';
 
 if (!globalThis.ReadableStream) {
+    // @ts-ignore
     globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16
 }
 

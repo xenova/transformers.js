@@ -1,3 +1,4 @@
+// @ts-nocheck
 
 /**
  * @file Entry point for the Transformers.js library. Only the exports from this file

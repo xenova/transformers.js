@@ -361,7 +361,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
                 if (score > threshold) {
                     // Some class has a high enough probability
                     /** @type {number[]} */
-                    let box = bbox.get(j);
+                    let box = bbox.get(j).data;
 
                     // convert to [x0, y0, x1, y1] format
                     box = this.center_to_corners_format(box)
@@ -718,13 +718,15 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     /**
      * Remove padding and upscale masks to the original image size.
      * @param {Tensor} masks Batched masks from the mask_decoder in (batch_size, num_channels, height, width) format.
-     * @param {*} original_sizes The original sizes of each image before it was resized to the model's expected input shape, in (height, width) format.
-     * @param {*} reshaped_input_sizes The size of each image as it is fed to the model, in (height, width) format. Used to remove padding.
+     * @param {number[][]} original_sizes The original sizes of each image before it was resized to the model's expected input shape, in (height, width) format.
+     * @param {number[][]} reshaped_input_sizes The size of each image as it is fed to the model, in (height, width) format. Used to remove padding.
      * @param {object} options Optional parameters for post-processing.
-     * @param {number} options.mask_threshold The threshold to use for binarizing the masks.
-     * @param {boolean} options.binarize Whether to binarize the masks.
-     * @param {number} options.pad_size The target size the images were padded to before being passed to the model. If `null`, the target size is assumed to be the processor's `pad_size`.
-     * @returns {Tensor} Batched masks in batch_size, num_channels, height, width) format, where (height, width) is given by original_size.
+     * @param {number} [options.mask_threshold] The threshold to use for binarizing the masks.
+     * @param {boolean} [options.binarize] Whether to binarize the masks.
+     * @param {object} [options.pad_size] The target size the images were padded to before being passed to the model. If `null`, the target size is assumed to be the processor's `pad_size`.
+     * @param {number} [options.pad_size.height] The height the images were padded to.
+     * @param {number} [options.pad_size.width] The width the images were padded to.
+     * @returns {Tensor[]} Batched masks in batch_size, num_channels, height, width) format, where (height, width) is given by original_size.
      */
     post_process_masks(masks, original_sizes, reshaped_input_sizes, {
         mask_threshold = 0.0,
@@ -1158,6 +1160,7 @@ export class SamProcessor extends Processor {
      * @borrows SamImageProcessor#post_process_masks as post_process_masks
      */
     post_process_masks(...args) {
+        // @ts-ignore
         return this.feature_extractor.post_process_masks(...args);
     }
 }

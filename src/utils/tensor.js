@@ -24,7 +24,7 @@ const ONNXTensor = ONNX.Tensor;
 export class Tensor extends ONNXTensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
-     * @param  {[string, Array|AnyTypedArray, number[]]|[ONNXTensor]} args 
+     * @param {[string, Array|AnyTypedArray, number[]]|[ONNXTensor]} args
      */
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
@@ -59,7 +59,7 @@ export class Tensor extends ONNXTensor {
     /**
      * Index into a Tensor object, returning either a Tensor or a scalar value.
      * @param {number} index - The index to access.
-     * @returns {Tensor|number} - The data at the specified index.
+     * @returns {Tensor} - The data at the specified index.
      */
     get(index) {
         const iterDims = this.dims.slice(1);

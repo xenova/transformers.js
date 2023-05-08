@@ -9,7 +9,7 @@
  */
 
 /**
- * @typedef {Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array} TypedArray
+ * @typedef {Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float32Array} TypedArray
  * @typedef {BigInt64Array | BigUint64Array} BigTypedArray
  * @typedef {TypedArray | BigTypedArray} AnyTypedArray
  */
@@ -286,7 +286,7 @@ export class FFT {
 
         this._csize = size << 1;
 
-        this.table = new Float64Array(this.size * 2);
+        this.table = new Float32Array(this.size * 2);
         for (let i = 0; i < this.table.length; i += 2) {
             const angle = Math.PI * i / this.size;
             this.table[i] = Math.cos(angle);
@@ -317,16 +317,16 @@ export class FFT {
     /**
      * Create a complex number array with size `2 * size`
      *
-     * @returns {Float64Array} - A complex number array with size `2 * size`
+     * @returns {Float32Array} - A complex number array with size `2 * size`
      */
     createComplexArray() {
-        return new Float64Array(this._csize);
+        return new Float32Array(this._csize);
     }
 
     /**
-     * Converts a complex number representation stored in a Float64Array to an array of real numbers.
+     * Converts a complex number representation stored in a Float32Array to an array of real numbers.
      * 
-     * @param {Float64Array} complex - The complex number representation to be converted.
+     * @param {Float32Array} complex - The complex number representation to be converted.
      * @param {number[]} [storage] - An optional array to store the result in.
      * @returns {number[]} An array of real numbers representing the input complex number representation.
      */
@@ -339,9 +339,9 @@ export class FFT {
 
     /**
      * Convert a real-valued input array to a complex-valued output array.
-     * @param {Float64Array} input - The real-valued input array.
-     * @param {Float64Array} [storage] - Optional buffer to store the output array.
-     * @returns {Float64Array} The complex-valued output array.
+     * @param {Float32Array} input - The real-valued input array.
+     * @param {Float32Array} [storage] - Optional buffer to store the output array.
+     * @returns {Float32Array} The complex-valued output array.
      */
     toComplexArray(input, storage) {
         const res = storage || this.createComplexArray();
@@ -354,7 +354,7 @@ export class FFT {
 
     /**
      * Completes the spectrum by adding its mirrored negative frequency components.
-     * @param {Float64Array} spectrum - The input spectrum.
+     * @param {Float32Array} spectrum - The input spectrum.
      * @returns {void}
      */
     completeSpectrum(spectrum) {
@@ -369,8 +369,8 @@ export class FFT {
     /**
      * Performs a Fast Fourier Transform (FFT) on the given input data and stores the result in the output buffer.
      * 
-     * @param {Float64Array} out - The output buffer to store the result.
-     * @param {Float64Array} data - The input data to transform.
+     * @param {Float32Array} out - The output buffer to store the result.
+     * @param {Float32Array} data - The input data to transform.
      * 
      * @throws {Error} Input and output buffers must be different.
      * 
@@ -388,8 +388,8 @@ export class FFT {
      * The input buffer must contain real values only, while the output buffer will contain complex values. The input and
      * output buffers must be different.
      *
-     * @param {Float64Array} out - The output buffer.
-     * @param {Float64Array} data - The input buffer containing real values.
+     * @param {Float32Array} out - The output buffer.
+     * @param {Float32Array} data - The input buffer containing real values.
      *
      * @throws {Error} If the input and output buffers are the same.
      */
@@ -405,8 +405,8 @@ export class FFT {
      * The `out` array must be a different buffer than the `data` array. The `out` array will contain the
      * result of the transformation. The `data` array will not be modified.
      * 
-     * @param {Float64Array} out - The output buffer for the transformed data.
-     * @param {Float64Array} data - The input data to transform.
+     * @param {Float32Array} out - The output buffer for the transformed data.
+     * @param {Float32Array} data - The input data to transform.
      * @throws {Error} If `out` and `data` refer to the same buffer.
      * @returns {void}
      */
@@ -422,8 +422,8 @@ export class FFT {
     /**
      * Performs a radix-4 implementation of a discrete Fourier transform on a given set of data.
      *
-     * @param {Float64Array} out - The output buffer for the transformed data.
-     * @param {Float64Array} data - The input buffer of data to be transformed.
+     * @param {Float32Array} out - The output buffer for the transformed data.
+     * @param {Float32Array} data - The input buffer of data to be transformed.
      * @param {number} inv - A scaling factor to apply to the transform.
      * @returns {void}
      */
@@ -520,8 +520,8 @@ export class FFT {
     /**
      * Performs a radix-2 implementation of a discrete Fourier transform on a given set of data.
      *
-     * @param {Float64Array} data - The input buffer of data to be transformed.
-     * @param {Float64Array} out - The output buffer for the transformed data.
+     * @param {Float32Array} data - The input buffer of data to be transformed.
+     * @param {Float32Array} out - The output buffer for the transformed data.
      * @param {number} outOff - The offset at which to write the output data.
      * @param {number} off - The offset at which to begin reading the input data.
      * @param {number} step - The step size for indexing the input data.
@@ -545,8 +545,8 @@ export class FFT {
     /**
      * Performs radix-4 transformation on input data of length 8
      *
-     * @param {Float64Array} data - Input data array of length 8
-     * @param {Float64Array} out - Output data array of length 8
+     * @param {Float32Array} data - Input data array of length 8
+     * @param {Float32Array} out - Output data array of length 8
      * @param {number} outOff - Index of output array to start writing from
      * @param {number} off - Index of input array to start reading from
      * @param {number} step - Step size between elements in input array
@@ -593,8 +593,8 @@ export class FFT {
 
     /**
      * Real input radix-4 implementation
-     * @param {Float64Array} out - Output array for the transformed data
-     * @param {Float64Array} data - Input array of real data to be transformed
+     * @param {Float32Array} out - Output array for the transformed data
+     * @param {Float32Array} data - Input array of real data to be transformed
      * @param {number} inv - The scale factor used to normalize the inverse transform
      */
     _realTransform4(out, data, inv) {
@@ -704,8 +704,8 @@ export class FFT {
     /**
      * Performs a single real input radix-2 transformation on the provided data
      * 
-     * @param {Float64Array} data - The input data array
-     * @param {Float64Array} out - The output data array
+     * @param {Float32Array} data - The input data array
+     * @param {Float32Array} out - The output data array
      * @param {number} outOff - The output offset
      * @param {number} off - The input offset
      * @param {number} step - The step
@@ -729,8 +729,8 @@ export class FFT {
      * Computes a single real-valued transform using radix-4 algorithm.
      * This method is only called for len=8.
      *
-     * @param {Float64Array} data - The input data array.
-     * @param {Float64Array} out - The output data array.
+     * @param {Float32Array} data - The input data array.
+     * @param {Float32Array} out - The output data array.
      * @param {number} outOff - The offset into the output array.
      * @param {number} off - The offset into the input array.
      * @param {number} step - The step size for the input array.
