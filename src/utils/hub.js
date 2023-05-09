@@ -18,10 +18,10 @@ if (!globalThis.ReadableStream) {
 }
 
 /**
- * @typedef {object} PretrainedOptions Options for loading a pretrained model.     
+ * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     
  * @property {boolean?} [options.quantized=true] Whether to load the 8-bit quantized version of the model (only applicable when loading model files).
  * @property {function} [options.progress_callback=null] If specified, this function will be called during model construction, to provide the user with progress updates.
- * @property {object} [options.config=null] Configuration for the model to use instead of an automatically loaded configuration. Configuration can be automatically loaded when:
+ * @property {Object} [options.config=null] Configuration for the model to use instead of an automatically loaded configuration. Configuration can be automatically loaded when:
  * - The model is a model provided by the library (loaded with the *model id* string of a pretrained model).
  * - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a configuration JSON file named *config.json* is found in the directory.
  * @property {string} [options.cache_dir=null] Path to a directory in which a downloaded pretrained model configuration should be cached if the standard cache should not be used.
@@ -169,7 +169,7 @@ class FileResponse {
      * Reads the contents of the file specified by the filePath property and returns a Promise that
      * resolves with a parsed JavaScript object containing the file's contents.
      * 
-     * @returns {Promise<object>} A Promise that resolves with a parsed JavaScript object containing the file's contents.
+     * @returns {Promise<Object>} A Promise that resolves with a parsed JavaScript object containing the file's contents.
      * @throws {Error} If the file cannot be read.
      */
     async json() {
@@ -463,7 +463,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
  * @param {string} fileName The name of the file to fetch.
  * @param {boolean} [fatal=true] Whether to throw an error if the file is not found.
  * @param {PretrainedOptions} [options] An object containing optional parameters.
- * @returns {Promise<object>} The JSON data parsed into a JavaScript object.
+ * @returns {Promise<Object>} The JSON data parsed into a JavaScript object.
  * @throws Will throw an error if the file is not found and `fatal` is true.
  */
 export async function getModelJSON(modelPath, fileName, fatal = true, options = {}) {

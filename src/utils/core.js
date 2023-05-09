@@ -23,8 +23,8 @@ export function dispatchCallback(progress_callback, data) {
 /**
  * Reverses the keys and values of an object.
  *
- * @param {object} data The object to reverse.
- * @returns {object} The reversed object.
+ * @param {Object} data The object to reverse.
+ * @returns {Object} The reversed object.
  * @see https://ultimatecourses.com/blog/reverse-object-keys-and-values-in-javascript
  */
 export function reverseDictionary(data) {
@@ -68,8 +68,8 @@ export const Callable = /** @type {any} */ (class {
      * This method should be implemented in subclasses to provide the
      * functionality of the callable object.
      *
-     * @throws {Error} If the subclass does not implement the `_call` method.
      * @param {any[]} args
+     * @throws {Error} If the subclass does not implement the `_call` method.
      */
     _call(...args) {
         throw Error('Must implement _call method in subclass')

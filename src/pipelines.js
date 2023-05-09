@@ -124,9 +124,9 @@ export class TextClassificationPipeline extends Pipeline {
     /**
      * Executes the text classification task.
      * @param {any} texts The input texts to be classified.
-     * @param {object} options An optional object containing the following properties:
+     * @param {Object} options An optional object containing the following properties:
      * @param {number} [options.topk=1] The number of top predictions to be returned.
-     * @returns {Promise<object[]|object>} A promise that resolves to an array or object containing the predicted labels and scores.
+     * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted labels and scores.
      */
     async _call(texts, {
         topk = 1
@@ -165,8 +165,8 @@ export class TokenClassificationPipeline extends Pipeline {
     /**
      * Executes the token classification task.
      * @param {any} texts The input texts to be classified.
-     * @param {object} options An optional object containing the following properties:
-     * @returns {Promise<object[]|object>} A promise that resolves to an array or object containing the predicted labels and scores.
+     * @param {Object} options An optional object containing the following properties:
+     * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted labels and scores.
      */
     async _call(texts, {
         ignore_labels = ['O'], // TODO init param?
@@ -235,7 +235,7 @@ export class QuestionAnsweringPipeline extends Pipeline {
      * Executes the question answering task.
      * @param {string|string[]} question The question(s) to be answered.
      * @param {string|string[]} context The context(s) where the answer(s) can be found.
-     * @param {object} options An optional object containing the following properties:
+     * @param {Object} options An optional object containing the following properties:
      * @param {number} [options.topk=1] The number of top answer predictions to be returned.
      * @returns {Promise<any>} A promise that resolves to an array or object containing the predicted answers and scores.
      */
@@ -298,9 +298,9 @@ export class FillMaskPipeline extends Pipeline {
     /**
      * Fill the masked token in the text(s) given as inputs.
      * @param {any} texts The masked input texts.
-     * @param {object} options An optional object containing the following properties:
+     * @param {Object} options An optional object containing the following properties:
      * @param {number} [options.topk=5] The number of top predictions to be returned.
-     * @returns {Promise<object[]|object>} A promise that resolves to an array or object containing the predicted tokens and scores.
+     * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted tokens and scores.
      */
     async _call(texts, {
         topk = 5
@@ -441,7 +441,7 @@ export class TextGenerationPipeline extends Pipeline {
     /**
      * Generates text based on an input prompt.
      * @param {any} texts The input prompt or prompts to generate text from.
-     * @param {object} [generate_kwargs={}] Additional arguments for text generation.
+     * @param {Object} [generate_kwargs={}] Additional arguments for text generation.
      * @returns {Promise<any>} The generated text or texts.
      */
     async _call(texts, generate_kwargs = {}) {

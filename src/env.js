@@ -1,5 +1,5 @@
 /**
- * @file Module used to configure Transformers.js. For the full list of possible options, @see {@link env}.
+ * @file Module used to configure Transformers.js.
  * 
  * **Example:** Disable remote models.
  * ```javascript
@@ -30,7 +30,7 @@ import { ONNX } from './backends/onnx.js';
 const { env: onnx_env } = ONNX;
 
 
-// check if various APIs are available (depends on environment)
+// Check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
 const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
@@ -46,13 +46,13 @@ const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
     ? path.join(__dirname, '/.cache/')
     : null;
 
-// set local model path, based on available APIs
+// Set local model path, based on available APIs
 const DEFAULT_LOCAL_MODEL_PATH = '/models/';
 const localModelPath = RUNNING_LOCALLY
     ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
-// First, set path to wasm files. This is needed when running in a web worker.
+// Set path to wasm files. This is needed when running in a web worker.
 // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
 // We use remote wasm files by default to make it easier for newer users.
 // In practice, users should probably self-host the necessary .wasm files.
@@ -62,8 +62,8 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
 
 
 /**
- * Global variable used to control exection, with suitable defaults
- * @property {object} backends Expose environment variables of different backends,
+ * Global variable used to control exection. This provides users a simple way to configure Transformers.js.
+ * @property {Object} backends Expose environment variables of different backends,
  * allowing users to set these variables if they want to.
  * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
  * @property {string} remotePathTemplate Path template to fill in and append to `remoteHost` when loading models.
@@ -105,7 +105,7 @@ export const env = {
 
 
 /**
- * @param {object} obj
+ * @param {Object} obj
  * @private
  */
 function isEmpty(obj) {

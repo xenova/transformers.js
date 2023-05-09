@@ -49,7 +49,7 @@ export class FeatureExtractor extends Callable {
     /**
      * Constructs a new FeatureExtractor instance.
      *
-     * @param {object} config The configuration for the feature extractor.
+     * @param {Object} config The configuration for the feature extractor.
      */
     constructor(config) {
         super();
@@ -67,7 +67,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     /**
      * Constructs a new ViTFeatureExtractor instance.
      *
-     * @param {object} config The configuration for the feature extractor.
+     * @param {Object} config The configuration for the feature extractor.
      * @param {number[]} config.image_mean The mean values for image normalization.
      * @param {number[]} config.image_std The standard deviation values for image normalization.
      * @param {boolean} config.do_rescale Whether to rescale the image pixel values to the [0,1] range.
@@ -319,10 +319,11 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
     }
 
     /**
-     * @param {object} outputs The outputs of the model that must be post-processed
+     * Post-processes the outputs of the model (for object detection).
+     * @param {Object} outputs The outputs of the model that must be post-processed
      * @param {Tensor} outputs.logits The logits
      * @param {Tensor} outputs.pred_boxes The predicted boxes.
-     * @return {object[]}
+     * @return {Object[]} An array of objects containing the post-processed outputs.
      */
     post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
         const out_logits = outputs.logits;
@@ -720,10 +721,10 @@ export class SamImageProcessor extends ImageFeatureExtractor {
      * @param {Tensor} masks Batched masks from the mask_decoder in (batch_size, num_channels, height, width) format.
      * @param {number[][]} original_sizes The original sizes of each image before it was resized to the model's expected input shape, in (height, width) format.
      * @param {number[][]} reshaped_input_sizes The size of each image as it is fed to the model, in (height, width) format. Used to remove padding.
-     * @param {object} options Optional parameters for post-processing.
+     * @param {Object} options Optional parameters for post-processing.
      * @param {number} [options.mask_threshold] The threshold to use for binarizing the masks.
      * @param {boolean} [options.binarize] Whether to binarize the masks.
-     * @param {object} [options.pad_size] The target size the images were padded to before being passed to the model. If `null`, the target size is assumed to be the processor's `pad_size`.
+     * @param {Object} [options.pad_size] The target size the images were padded to before being passed to the model. If `null`, the target size is assumed to be the processor's `pad_size`.
      * @param {number} [options.pad_size.height] The height the images were padded to.
      * @param {number} [options.pad_size.width] The width the images were padded to.
      * @returns {Tensor[]} Batched masks in batch_size, num_channels, height, width) format, where (height, width) is given by original_size.

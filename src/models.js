@@ -523,7 +523,7 @@ async function textgenRunBeam(self, beam) {
 
 /**
  * Update a beam with a new token ID.
- * @param {object} beam The beam to update.
+ * @param {Object} beam The beam to update.
  * @param {number} newTokenId The new token ID to add to the beam's output.
  */
 function textgenUpdatebeam(beam, newTokenId) {
@@ -540,7 +540,7 @@ function textgenUpdatebeam(beam, newTokenId) {
 export class PreTrainedModel extends Callable {
     /**
      * Creates a new instance of the `PreTrainedModel` class.
-     * @param {object} config The model configuration.
+     * @param {Object} config The model configuration.
      * @param {any} session session for the model.
      */
     constructor(config, session) {
@@ -609,8 +609,8 @@ export class PreTrainedModel extends Callable {
     /**
      * Forward method should be implemented in subclasses.
      * @abstract
-     * @param {object} model_inputs The input data to the model in the format specified in the ONNX model.
-     * @returns {Promise<object>} The output data from the model in the format specified in the ONNX model.
+     * @param {Object} model_inputs The input data to the model in the format specified in the ONNX model.
+     * @returns {Promise<Object>} The output data from the model in the format specified in the ONNX model.
      * @throws {Error} This method must be implemented in subclasses.
      */
     async forward(model_inputs) {
@@ -1311,7 +1311,7 @@ export class T5Model extends T5PreTrainedModel {
 export class T5ForConditionalGeneration extends T5PreTrainedModel {
     /**
      * Creates a new instance of the `T5ForConditionalGeneration` class.
-     * @param {object} config The model configuration.
+     * @param {Object} config The model configuration.
      * @param {any} session session for the model.
      * @param {any} decoder_merged_session session for the decoder.
      * @param {GenerationConfig} generation_config The generation configuration.
@@ -1542,10 +1542,10 @@ export class BartModel extends BartPretrainedModel {
 export class BartForConditionalGeneration extends BartPretrainedModel {
     /**
      * Creates a new instance of the `BartForConditionalGeneration` class.
-     * @param {object} config The configuration object for the Bart model.
-     * @param {object} session The ONNX session used to execute the model.
-     * @param {object} decoder_merged_session The ONNX session used to execute the decoder.
-     * @param {object} generation_config The generation configuration object.
+     * @param {Object} config The configuration object for the Bart model.
+     * @param {Object} session The ONNX session used to execute the model.
+     * @param {Object} decoder_merged_session The ONNX session used to execute the decoder.
+     * @param {Object} generation_config The generation configuration object.
      */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
@@ -1590,7 +1590,7 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
 
     /**
      * Returns the initial beam for generating output text.
-     * @param {object} inputs The input object containing the encoded input text.
+     * @param {Object} inputs The input object containing the encoded input text.
      * @param {number} numOutputTokens The maximum number of output tokens to generate.
      * @param  {...any} args Additional arguments to pass to the sequence-to-sequence generation function.
      * @returns {any} The initial beam for generating output text.
@@ -1857,8 +1857,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 export class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
-     * @param {object} config The configuration object specifying the hyperparameters and other model settings.
-     * @param {object} session The ONNX session containing the encoder model.
+     * @param {Object} config The configuration object specifying the hyperparameters and other model settings.
+     * @param {Object} session The ONNX session containing the encoder model.
      * @param {any} decoder_merged_session The ONNX session containing the merged decoder model.
      */
     constructor(config, session, decoder_merged_session) {
@@ -1934,7 +1934,7 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
     /**
      * Compute the forward pass of the model on the given input tensors.
      *
-     * @param {object} model_inputs The input tensors as an object with keys 'pixel_values' and 'decoder_input_ids'.
+     * @param {Object} model_inputs The input tensors as an object with keys 'pixel_values' and 'decoder_input_ids'.
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
@@ -1983,7 +1983,7 @@ export class GPT2Model extends GPT2PreTrainedModel {
 export class GPT2LMHeadModel extends GPT2PreTrainedModel {
     /**
      * Creates a new instance of the `GPT2LMHeadModel` class.
-     * @param {object} config The configuration of the model.
+     * @param {Object} config The configuration of the model.
      * @param {any} session The ONNX session containing the model weights.
      */
     constructor(config, session) {
@@ -2028,7 +2028,7 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 
     /**
      * Forward pass for the model.
-     * @param {object} model_inputs The inputs for the model.
+     * @param {Object} model_inputs The inputs for the model.
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
@@ -2058,7 +2058,7 @@ export class GPTNeoModel extends GPTNeoPreTrainedModel {
 export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
     /**
      * Creates a new instance of the `GPTNeoForCausalLM` class.
-     * @param {object} config The configuration of the model.
+     * @param {Object} config The configuration of the model.
      * @param {any} session The ONNX session containing the model weights.
      */
     constructor(config, session) {
@@ -2103,7 +2103,7 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 
     /**
      * Forward pass for the model.
-     * @param {object} model_inputs The inputs for the model.
+     * @param {Object} model_inputs The inputs for the model.
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
@@ -2143,8 +2143,8 @@ export class CodeGenModel extends CodeGenPreTrainedModel {
 export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
     /**
      * Creates a new instance of the `CodeGenForCausalLM` class.
-    * @param {object} config The model configuration object.
-    * @param {object} session The ONNX session object.
+    * @param {Object} config The model configuration object.
+    * @param {Object} session The ONNX session object.
     */
     constructor(config, session) {
         super(config, session);
@@ -2188,7 +2188,7 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 
     /**
      * Forward pass for the model.
-     * @param {object} model_inputs The inputs for the model.
+     * @param {Object} model_inputs The inputs for the model.
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
@@ -2268,7 +2268,7 @@ export class DetrSegmentationOutput extends ModelOutput {
 export class SamPreTrainedModel extends PreTrainedModel { }
 export class SamModel extends SamPreTrainedModel {
     /**
-     * @param {object} model_inputs
+     * @param {Object} model_inputs
      * @param {Tensor} model_inputs.pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
      * @param {Tensor} model_inputs.input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`. This is used by the prompt encoder to encode the prompt.
      * @todo Add support for `input_labels`, `input_boxes`, `input_masks`, and `image_embeddings`.
@@ -2321,8 +2321,8 @@ export class MarianModel extends MarianPreTrainedModel {
 export class MarianMTModel extends MarianPreTrainedModel {
     /**
      * Creates a new instance of the `MarianMTModel` class.
-    * @param {object} config The model configuration object.
-    * @param {object} session The ONNX session object.
+    * @param {Object} config The model configuration object.
+    * @param {Object} session The ONNX session object.
     * @param {any} decoder_merged_session 
     * @param {any} generation_config 
     */
@@ -2427,8 +2427,8 @@ export class M2M100Model extends M2M100PreTrainedModel {
 export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
     /**
      * Creates a new instance of the `M2M100ForConditionalGeneration` class.
-    * @param {object} config The model configuration object.
-    * @param {object} session The ONNX session object.
+    * @param {Object} config The model configuration object.
+    * @param {Object} session The ONNX session object.
     * @param {any} decoder_merged_session 
     * @param {any} generation_config 
     */

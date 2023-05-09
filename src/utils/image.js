@@ -219,7 +219,7 @@ export class CustomImage {
      * Resize the image to the given dimensions. This method uses the canvas API to perform the resizing.
      * @param {number} width The width of the new image.
      * @param {number} height The height of the new image.
-     * @param {object} options Additional options for resizing.
+     * @param {Object} options Additional options for resizing.
      * @param {0|1|2|3|4|5|string} [options.resample] The resampling method to use.
      * @returns {Promise<CustomImage>} `this` to support chaining.
      */

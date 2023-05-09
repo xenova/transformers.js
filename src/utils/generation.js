@@ -190,7 +190,7 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
 export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
     /**
      * Constructs a new WhisperTimeStampLogitsProcessor.
-     * @param {object} generate_config The config object passed to the `generate()` method of a transformer model.
+     * @param {Object} generate_config The config object passed to the `generate()` method of a transformer model.
      * @param {number} generate_config.eos_token_id The ID of the end-of-sequence token.
      * @param {number} generate_config.no_timestamps_token_id The ID of the token used to indicate that a token should not have a timestamp.
      * @param {number[][]} [generate_config.forced_decoder_ids] An array of two-element arrays representing decoder IDs that are forced to appear in the output. The second element of each array indicates whether the token is a timestamp.
@@ -384,13 +384,13 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
     }
 }
 
-
+/**
+ * Class that holds a configuration for a generation task.
+ */
 export class GenerationConfig {
     /**
      * Create a GenerationConfig object
-     * @constructor
      * @param {Object} [kwargs={}] The configuration parameters. If not set, the default values are used.
-     * 
      * @param {number} [kwargs.max_length=20] The maximum length the generated tokens can have. Corresponds to the length of the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
      * @param {number} [kwargs.max_new_tokens=null] The maximum numbers of tokens to generate, ignoring the number of tokens in the prompt.
      * @param {number} [kwargs.min_length=0] The minimum length of the sequence to be generated. Corresponds to the length of the input prompt + `min_new_tokens`. Its effect is overridden by `min_new_tokens`, if also set.
@@ -589,7 +589,7 @@ export class Sampler extends Callable {
 
     /**
      * Returns a Sampler object based on the specified options.
-     * @param {object} generation_config An object containing options for the sampler.
+     * @param {Object} generation_config An object containing options for the sampler.
      * @returns {Sampler} A Sampler object.
      */
     static getSampler(generation_config) {

@@ -79,7 +79,7 @@ function createPattern(pattern) {
 export class TokenizerModel extends Callable {
     /**
      * Creates a new instance of TokenizerModel.
-     * @param {object} config The configuration object for the TokenizerModel.
+     * @param {Object} config The configuration object for the TokenizerModel.
      */
     constructor(config) {
         super();
@@ -98,9 +98,10 @@ export class TokenizerModel extends Callable {
         this.unk_token = undefined;
         this.end_of_word_suffix = undefined;
     }
+
     /**
      * Instantiates a new TokenizerModel instance based on the configuration object provided.
-     * @param {object} config The configuration object for the TokenizerModel.
+     * @param {Object} config The configuration object for the TokenizerModel.
      * @param {...*} args Optional arguments to pass to the specific TokenizerModel constructor.
      * @returns {TokenizerModel} A new instance of a TokenizerModel.
      * @throws Will throw an error if the TokenizerModel type in the config is not recognized.
@@ -261,10 +262,10 @@ class WordPieceTokenizer extends TokenizerModel {
 class Unigram extends TokenizerModel {
     /**
      * Create a new Unigram tokenizer model.
-     * @param {object} config The configuration object for the Unigram model.
+     * @param {Object} config The configuration object for the Unigram model.
      * @param {number} config.unk_id The ID of the unknown token
      * @param {Map<string, number>} config.vocab A mapping of tokens to scores.
-     * @param {object} moreConfig Additional configuration object for the Unigram model.
+     * @param {Object} moreConfig Additional configuration object for the Unigram model.
      */
     constructor(config, moreConfig) {
         super(config);
@@ -530,7 +531,7 @@ class BPE extends TokenizerModel {
  */
 class Normalizer extends Callable {
     /**
-     * @param {object} config The configuration object for the normalizer.
+     * @param {Object} config The configuration object for the normalizer.
      */
     constructor(config) {
         super();
@@ -540,7 +541,7 @@ class Normalizer extends Callable {
     /**
      * Factory method for creating normalizers from config objects.
      * @static
-     * @param {object} config The configuration object for the normalizer.
+     * @param {Object} config The configuration object for the normalizer.
      * @returns {Normalizer} A Normalizer object.
      * @throws {Error} If an unknown Normalizer type is specified in the config.
      */
@@ -683,8 +684,8 @@ class Lowercase extends Normalizer {
 class NormalizerSequence extends Normalizer {
     /**
    * Create a new instance of NormalizerSequence.
-   * @param {object} config The configuration object.
-   * @param {object[]} config.normalizers An array of Normalizer configuration objects.
+   * @param {Object} config The configuration object.
+   * @param {Object[]} config.normalizers An array of Normalizer configuration objects.
    */
     constructor(config) {
         super(config);
@@ -877,7 +878,7 @@ class BertPreTokenizer extends PreTokenizer {
      * A PreTokenizer that splits text into wordpieces using a basic tokenization scheme
      * similar to that used in the original implementation of BERT.
      * 
-     * @param {object} config The configuration object.
+     * @param {Object} config The configuration object.
      */
     constructor(config) {
         super();
@@ -1269,7 +1270,7 @@ class ByteLevelDecoder extends Decoder {
 
     /**
      * Create a `ByteLevelDecoder` object.
-     * @param {object} config Configuration object.
+     * @param {Object} config Configuration object.
      */
     constructor(config) {
         super(config);
@@ -1438,7 +1439,7 @@ class MetaspaceDecoder extends Decoder {
 class Precompiled extends Normalizer {
     /**
      * Create a new instance of Precompiled normalizer.
-     * @param {object} config The configuration object.
+     * @param {Object} config The configuration object.
      * @param {any} config.precompiled_charsmap Precompiled chars mapping.
      */
     constructor(config) {
@@ -1464,8 +1465,8 @@ class Precompiled extends Normalizer {
 class PreTokenizerSequence extends PreTokenizer {
     /**
      * Creates an instance of PreTokenizerSequence.
-     * @param {object} config The configuration object for the pre-tokenizer sequence.
-     * @param {object[]} config.pretokenizers An array of pre-tokenizer configurations.
+     * @param {Object} config The configuration object for the pre-tokenizer sequence.
+     * @param {Object[]} config.pretokenizers An array of pre-tokenizer configurations.
      */
     constructor(config) {
         super();
@@ -1495,7 +1496,7 @@ class PreTokenizerSequence extends PreTokenizer {
 class WhitespaceSplit extends PreTokenizer {
     /**
      * Creates an instance of WhitespaceSplit.
-     * @param {object} config The configuration object for the pre-tokenizer sequence.
+     * @param {Object} config The configuration object for the pre-tokenizer sequence.
      */
     constructor(config) {
         super();
@@ -1651,7 +1652,7 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * Encode/tokenize the given text(s).
      * @param {string|string[]} text The text to tokenize.
-     * @param {object} options An optional object containing the following properties:
+     * @param {Object} options An optional object containing the following properties:
      * @param {string|string[]} [options.text_pair=null] Optional second sequence to be encoded. If set, must be the same type as text.
      * @param {boolean} [options.padding=false] Whether to pad the input sequences.
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
@@ -1924,7 +1925,7 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * Decode a single list of token ids to a string.
      * @param {number[]} token_ids List of token ids to decode
-     * @param {object} decode_args Optional arguments for decoding
+     * @param {Object} decode_args Optional arguments for decoding
      * @param {boolean} [decode_args.skip_special_tokens=false] Whether to skip special tokens during decoding
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] Whether to clean up tokenization spaces during decoding
      * @returns {string} The decoded string
@@ -2047,9 +2048,9 @@ export class NllbTokenizer extends PreTrainedTokenizer {
     /**
      * Helper function to build translation inputs for an `NllbTokenizer`.
      * @param {string|string[]} raw_inputs The text to tokenize.
-     * @param {object} tokenizer_options Options to be sent to the tokenizer
-     * @param {object} generate_kwargs Generation options.
-     * @returns {object} Object to be passed to the model.
+     * @param {Object} tokenizer_options Options to be sent to the tokenizer
+     * @param {Object} generate_kwargs Generation options.
+     * @returns {Object} Object to be passed to the model.
      */
     _build_translation_inputs(raw_inputs, tokenizer_options, generate_kwargs) {
 
