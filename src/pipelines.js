@@ -71,15 +71,16 @@ async function prepareImages(images) {
 }
 
 /**
- * Pipeline class for executing a natural language processing task.
+ * The Pipeline class is the class from which all pipelines inherit.
+ * Refer to this class for methods shared across different pipelines.
  * @extends Callable
  */
 export class Pipeline extends Callable {
     /**
-     * Creates a new instance of Pipeline.
-     * @param {string} task The natural language processing task to be performed.
-     * @param {PreTrainedTokenizer} tokenizer The tokenizer object to be used for tokenizing input texts.
-     * @param {PreTrainedModel} model The model object to be used for processing input texts.
+     * Create a new Pipeline.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
+     * @param {PreTrainedModel} model The model to use.
      */
     constructor(task, tokenizer, model) {
         super();
@@ -97,7 +98,7 @@ export class Pipeline extends Callable {
     }
 
     /**
-     * Executes the natural language processing task.
+     * Executes the task associated with the pipeline.
      * @param {any} texts The input texts to be processed.
      * @returns {Promise<any>} A promise that resolves to an array containing the inputs and outputs of the task.
      */
@@ -116,7 +117,7 @@ export class Pipeline extends Callable {
 }
 
 /**
- * TextClassificationPipeline class for executing a text classification task.
+ * Text classification pipeline using any `ModelForSequenceClassification`.
  * @extends Pipeline
  */
 export class TextClassificationPipeline extends Pipeline {
@@ -157,7 +158,7 @@ export class TextClassificationPipeline extends Pipeline {
 
 
 /**
- * TokenClassificationPipeline class for executing a token classification task.
+ * Named Entity Recognition pipeline using any `ModelForTokenClassification`.
  * @extends Pipeline
  */
 export class TokenClassificationPipeline extends Pipeline {
@@ -226,7 +227,7 @@ export class TokenClassificationPipeline extends Pipeline {
     }
 }
 /**
- * QuestionAnsweringPipeline class for executing a question answering task.
+ * Question Answering pipeline using any `ModelForQuestionAnswering`.
  * @extends Pipeline
  */
 export class QuestionAnsweringPipeline extends Pipeline {
@@ -290,18 +291,20 @@ export class QuestionAnsweringPipeline extends Pipeline {
 }
 
 /**
- * Class representing a fill-mask pipeline for natural language processing.
+ * Masked language modeling prediction pipeline using any `ModelWithLMHead`.
  * @extends Pipeline
  */
 export class FillMaskPipeline extends Pipeline {
     /**
-     * @param {any} texts
+     * Fill the masked token in the text(s) given as inputs.
+     * @param {any} texts The masked input texts.
+     * @param {object} options An optional object containing the following properties:
+     * @param {number} [options.topk=5] The number of top predictions to be returned.
+     * @returns {Promise<object[]|object>} A promise that resolves to an array or object containing the predicted tokens and scores.
      */
     async _call(texts, {
         topk = 5
     } = {}) {
-        // Fill the masked token in the text(s) given as inputs.
-
         // Run tokenization
         let [inputs, outputs] = await super._call(texts);
 
@@ -430,7 +433,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
 }
 
 /**
- * A pipeline for generating text based on an input prompt.
+ * Language generation pipeline using any `ModelWithLMHead`.
+ * This pipeline predicts the words that will follow a specified text prompt.
  * @extends Pipeline
  */
 export class TextGenerationPipeline extends Pipeline {
@@ -480,15 +484,19 @@ export class TextGenerationPipeline extends Pipeline {
 }
 
 /**
- * Class representing an Zero Shot Classification Pipeline that should only be used with zero shot classification tasks.
+ * NLI-based zero-shot classification pipeline using a `ModelForSequenceClassification`
+ * trained on NLI (natural language inference) tasks. Equivalent of `text-classification`
+ * pipelines, but these models don't require a hardcoded number of potential classes, they
+ * can be chosen at runtime. It usually means it's slower but it is **much** more flexible.
  * @extends Pipeline
  */
 export class ZeroShotClassificationPipeline extends Pipeline {
 
     /**
-     * @param {string} task
-     * @param {PreTrainedTokenizer} tokenizer
-     * @param {PreTrainedModel} model
+     * Create a new ZeroShotClassificationPipeline.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
+     * @param {PreTrainedModel} model The model to use.
      */
     constructor(task, tokenizer, model) {
         super(task, tokenizer, model);
@@ -515,7 +523,14 @@ export class ZeroShotClassificationPipeline extends Pipeline {
     /**
      * @param {any[]} texts
      * @param {string[]} candidate_labels
-     * @return {Promise<*>}
+     * @param {Object} options Additional options:
+     * @param {string} [options.hypothesis_template="This example is {}."] The template used to turn each
+     * candidate label into an NLI-style hypothesis. The candidate label will replace the {} placeholder.
+     * @param {boolean} [options.multi_label=false] Whether or not multiple candidate labels can be true.
+     * If `false`, the scores are normalized such that the sum of the label likelihoods for each sequence
+     * is 1. If `true`, the labels are considered independent and probabilities are normalized for each
+     * candidate by doing a softmax of the entailment score vs. the contradiction score.
+     * @return {Promise<Object|Object[]>} The prediction(s), as a map (or list of maps) from label to score.
      */
     // @ts-ignore
     async _call(texts, candidate_labels, {
@@ -588,8 +603,11 @@ export class ZeroShotClassificationPipeline extends Pipeline {
 
 
 /**
- * Class representing a Feature Extraction Pipeline. This can be used with `sentence-transformers`.
- * Alternatively, if you want to get the raw outputs from the model, use `AutoModel.from_pretrained(...)`.
+ * Feature extraction pipeline using no model head. This pipeline extracts the hidden
+ * states from the base transformer, which can be used as features in downstream tasks.
+ * 
+ * This can be used with `sentence-transformers`. If you want to get the raw outputs
+ * from the model, use `AutoModel.from_pretrained(...)`.
  * @extends Pipeline
  * 
  * @todo Make sure this works for other models than `sentence-transformers`.
@@ -683,17 +701,17 @@ export class FeatureExtractionPipeline extends Pipeline {
 }
 
 /**
- * A class representing an automatic speech recognition pipeline.
+ * Pipeline that aims at extracting spoken text contained within some audio.
  * @extends Pipeline
  */
 export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
     /**
-     * Creates an instance of AutomaticSpeechRecognitionPipeline.
-     * @param {string} task The type of the task for this pipeline.
-     * @param {PreTrainedTokenizer} tokenizer The tokenizer to be used for pre-processing inputs.
-     * @param {PreTrainedModel} model The model to be used for the task.
-     * @param {Processor} processor The processor to be used for pre-processing audio inputs.
+     * Create a new AutomaticSpeechRecognitionPipeline.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
+     * @param {PreTrainedModel} model The model to use.
+     * @param {Processor} processor The processor to use.
      */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
@@ -824,16 +842,16 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 }
 
 /**
- * A pipeline for performing image-to-text tasks.
+ * Image To Text pipeline using a `AutoModelForVision2Seq`. This pipeline predicts a caption for a given image.
  * @extends Pipeline
  */
 export class ImageToTextPipeline extends Pipeline {
     /**
-     * Create an instance of ImageToTextPipeline.
-     * @param {string} task The task name.
+     * Create a new ImageToTextPipeline.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
      * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
-     * @param {PreTrainedModel} model The generator model to use.
-     * @param {Processor} processor The image processor to use.
+     * @param {PreTrainedModel} model The model to use.
+     * @param {Processor} processor The processor to use.
      */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
@@ -841,7 +859,10 @@ export class ImageToTextPipeline extends Pipeline {
     }
 
     /**
-     * @param {any[]} images
+     * Assign labels to the image(s) passed as inputs.
+     * @param {any[]} images The images to be captioned.
+     * @param {Object} [generate_kwargs={}] Optional generation arguments.
+     * @returns {Promise<Object|Object[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
      */
     async _call(images, generate_kwargs = {}) {
         let isBatched = Array.isArray(images);
@@ -867,15 +888,16 @@ export class ImageToTextPipeline extends Pipeline {
 }
 
 /**
- * A class representing an image classification pipeline.
+ * Image classification pipeline using any `AutoModelForImageClassification`.
+ * This pipeline predicts the class of an image.
  * @extends Pipeline
  */
 export class ImageClassificationPipeline extends Pipeline {
     /**
      * Create a new ImageClassificationPipeline.
-     * @param {string} task The task of the pipeline.
-     * @param {PreTrainedModel} model The model to use for classification.
-     * @param {Processor} processor The function to preprocess images.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} model The model to use.
+     * @param {Processor} processor The processor to use.
      */
     constructor(task, model, processor) {
         super(task, null, model); // TODO tokenizer
@@ -922,15 +944,16 @@ export class ImageClassificationPipeline extends Pipeline {
 }
 
 /**
- * ImageSegmentationPipeline class for executing an image-segmentation task.
+ * Image segmentation pipeline using any `AutoModelForXXXSegmentation`.
+ * This pipeline predicts masks of objects and their classes.
  * @extends Pipeline
  */
 export class ImageSegmentationPipeline extends Pipeline {
     /**
      * Create a new ImageSegmentationPipeline.
-     * @param {string} task The task of the pipeline.
-     * @param {PreTrainedModel} model The model to use for classification.
-     * @param {Processor} processor The function to preprocess images.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} model The model to use.
+     * @param {Processor} processor The processor to use.
      */
     constructor(task, model, processor) {
         super(task, null, model); // TODO tokenizer
@@ -1036,17 +1059,18 @@ export class ImageSegmentationPipeline extends Pipeline {
 
 
 /**
- * Class representing a zero-shot image classification pipeline.
+ * Zero shot image classification pipeline. This pipeline predicts the class of
+ * an image when you provide an image and a set of `candidate_labels`.
  * @extends Pipeline
  */
 export class ZeroShotImageClassificationPipeline extends Pipeline {
 
     /**
-     * Create a zero-shot image classification pipeline.
-     * @param {string} task The task of the pipeline.
+     * Create a new ZeroShotImageClassificationPipeline.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
      * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
      * @param {PreTrainedModel} model The model to use.
-     * @param {Processor} processor The image processing function.
+     * @param {Processor} processor The processor to use.
      */
     constructor(task, tokenizer, model, processor) {
         super(task, tokenizer, model);
@@ -1100,12 +1124,17 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
     }
 }
 
-
+/**
+ * Object detection pipeline using any `AutoModelForObjectDetection`.
+ * This pipeline predicts bounding boxes of objects and their classes.
+ * @extends Pipeline
+ */
 export class ObjectDetectionPipeline extends Pipeline {
     /**
-     * @param {string} task
-     * @param {PreTrainedModel} model
-     * @param {Processor} processor
+     * Create a new ObjectDetectionPipeline.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} model The model to use.
+     * @param {Processor} processor The processor to use.
      */
     constructor(task, model, processor) {
         super(task, null, model); // TODO tokenizer
@@ -1113,11 +1142,15 @@ export class ObjectDetectionPipeline extends Pipeline {
     }
 
     /**
-     * @param {any[]} images
+     * Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
+     * @param {any[]} images The input images.
+     * @param {Object} options The options for the object detection.
+     * @param {number} [options.threshold=0.9] The threshold used to filter boxes by score.
+     * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
      */
     async _call(images, {
-        threshold = 0.5,
-        percentage = false, // get in percentage (true) or in pixels (false)
+        threshold = 0.9,
+        percentage = false,
     } = {}) {
         let isBatched = Array.isArray(images);
 
@@ -1354,7 +1387,7 @@ const TASK_ALIASES = {
 /**
  * Utility factory method to build a [`Pipeline`] object.
  *
- * @param {string} task The task defining which pipeline will be returned.
+ * @param {string} task The task of the pipeline.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
  * @param {PretrainedOptions} [options] Optional parameters for the pipeline.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
