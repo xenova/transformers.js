@@ -47,6 +47,20 @@ class Headers extends Object {
 
 class FileResponse {
     /**
+     * Mapping from file extensions to MIME types.
+     */
+    _CONTENT_TYPE_MAP = {
+        'txt': 'text/plain',
+        'html': 'text/html',
+        'css': 'text/css',
+        'js': 'text/javascript',
+        'json': 'application/json',
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+    }
+    /**
      * Creates a new `FileResponse` object.
      * @param {string|URL} filePath
      */
@@ -88,37 +102,9 @@ class FileResponse {
     updateContentType() {
         // Set content-type header based on file extension
         const extension = this.filePath.toString().split('.').pop().toLowerCase();
-        switch (extension) {
-            case 'txt':
-                this.headers['content-type'] = 'text/plain';
-                break;
-            case 'html':
-                this.headers['content-type'] = 'text/html';
-                break;
-            case 'css':
-                this.headers['content-type'] = 'text/css';
-                break;
-            case 'js':
-                this.headers['content-type'] = 'text/javascript';
-                break;
-            case 'json':
-                this.headers['content-type'] = 'application/json';
-                break;
-            case 'png':
-                this.headers['content-type'] = 'image/png';
-                break;
-            case 'jpg':
-            case 'jpeg':
-                this.headers['content-type'] = 'image/jpeg';
-                break;
-            case 'gif':
-                this.headers['content-type'] = 'image/gif';
-                break;
-            default:
-                this.headers['content-type'] = 'application/octet-stream';
-                break;
-        }
+        this.headers['content-type'] = this._CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
     }
+
     /**
      * Clone the current FileResponse object.
      * @returns {FileResponse} A new FileResponse object with the same properties as the current object.
