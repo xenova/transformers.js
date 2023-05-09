@@ -143,6 +143,42 @@ function replaceTensors(obj) {
     return obj;
 }
 
+
+/**
+ * Converts an array or Tensor of integers to an int64 Tensor.
+ * @param {Array|Tensor} items The input integers to be converted.
+ * @returns {Tensor} The int64 Tensor with the converted values.
+ * @throws {Error} If the input array is empty or the input is a batched Tensor and not all sequences have the same length.
+ * @private
+ */
+function toI64Tensor(items) {
+    if (items instanceof Tensor) {
+        return items;
+    }
+    // items is an array
+    if (items.length === 0) {
+        throw Error("items must be non-empty");
+    }
+
+    if (Array.isArray(items[0])) {
+        // batched
+        if (items.some(x => x.length !== items[0].length)) {
+            throw Error("Unable to create tensor, you should probably activate truncation and/or padding with 'padding=True' and/or 'truncation=True' to have batched tensors with the same length.")
+        }
+
+        return new Tensor('int64',
+            BigInt64Array.from(items.flat().map(x => BigInt(x))),
+            [items.length, items[0].length]
+        );
+    } else {
+        //flat
+        return new Tensor('int64',
+            BigInt64Array.from(items.map(x => BigInt(x))),
+            [1, items.length]
+        );
+    }
+}
+
 /**
  * Prepares an attention mask for a sequence of tokens based on configuration options.
  * @param {Object} self The calling object instance.
@@ -364,7 +400,7 @@ async function seq2seqRunBeam(self, beam, {
     // 1. Prepare
     let model_inputs = {
         [input_name]: beam.inputs,
-        decoder_input_ids: self.toI64Tensor(beam.output_token_ids.slice(-1)),
+        decoder_input_ids: toI64Tensor(beam.output_token_ids.slice(-1)),
         encoder_outputs: beam.encoder_outputs,
         past_key_values: beam.past_key_values,
     }
@@ -559,40 +595,6 @@ export class PreTrainedModel extends Callable {
 
         // @ts-ignore
         return new this(...info);
-    }
-
-    /**
-     * Converts an array or Tensor of integers to an int64 Tensor.
-     * @param {Array|Tensor} items The input integers to be converted.
-     * @returns {Tensor} The int64 Tensor with the converted values.
-     * @throws {Error} If the input array is empty or the input is a batched Tensor and not all sequences have the same length.
-     */
-    toI64Tensor(items) {
-        if (items instanceof Tensor) {
-            return items;
-        }
-        // items is an array
-        if (items.length === 0) {
-            throw Error("items must be non-empty");
-        }
-
-        if (Array.isArray(items[0])) {
-            // batched
-            if (items.some(x => x.length !== items[0].length)) {
-                throw Error("Unable to create tensor, you should probably activate truncation and/or padding with 'padding=True' and/or 'truncation=True' to have batched tensors with the same length.")
-            }
-
-            return new Tensor('int64',
-                BigInt64Array.from(items.flat().map(x => BigInt(x))),
-                [items.length, items[0].length]
-            );
-        } else {
-            //flat
-            return new Tensor('int64',
-                BigInt64Array.from(items.map(x => BigInt(x))),
-                [1, items.length]
-            );
-        }
     }
 
     /**
