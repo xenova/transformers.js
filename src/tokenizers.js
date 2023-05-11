@@ -2036,6 +2036,20 @@ export class RobertaTokenizer extends PreTrainedTokenizer { }
 
 export class BloomTokenizer extends PreTrainedTokenizer { }
 
+
+/**
+ * The NllbTokenizer class is used to tokenize text for NLLB ("No Language Left Behind") models.
+ * 
+ * No Language Left Behind (NLLB) is a first-of-its-kind, AI breakthrough project
+ * that open-sources models capable of delivering high-quality translations directly
+ * between any pair of 200+ languages — including low-resource languages like Asturian,
+ * Luganda, Urdu and more. It aims to help people communicate with anyone, anywhere,
+ * regardless of their language preferences. For more information, check out their
+ * [paper](https://arxiv.org/abs/2207.04672).
+ * 
+ * For a list of supported languages (along with their language codes),
+ * @see {@link https://github.com/facebookresearch/flores/blob/main/flores200/README.md#languages-in-flores-200}
+ */
 export class NllbTokenizer extends PreTrainedTokenizer {
 
     constructor(tokenizerJSON, tokenizerConfig) {
