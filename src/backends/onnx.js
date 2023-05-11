@@ -17,8 +17,8 @@
  */
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
-import ONNX_NODE from 'onnxruntime-node';
-import ONNX_WEB from 'onnxruntime-web';
+import * as ONNX_NODE from 'onnxruntime-node';
+import * as ONNX_WEB from 'onnxruntime-web';
 
 export let ONNX;
 
@@ -27,7 +27,7 @@ export const executionProviders = [
     'wasm'
 ];
 
-if (typeof process !== 'undefined') {
+if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
     ONNX = ONNX_NODE;
 
@@ -46,3 +46,7 @@ if (typeof process !== 'undefined') {
         ONNX.env.wasm.simd = false;
     }
 }
+
+// We select the default export if it exists, otherwise we use the named export.
+// This allows us to run in both node and browser environments.
+ONNX = ONNX.default ?? ONNX;
