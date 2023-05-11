@@ -40,6 +40,7 @@ import {
 import {
     Callable,
     isString,
+    dispatchCallback,
 } from './utils/core.js';
 import {
     softmax,
@@ -1457,6 +1458,13 @@ export async function pipeline(
     // Load tokenizer and model
     let items = await Promise.all(promises)
     // TODO: fix error below
+
+    dispatchCallback(progress_callback, {
+        'status': 'ready',
+        'task': task,
+        'model': model,
+    });
+
     return new pipelineClass(task, ...items);
 
 }
