@@ -6,7 +6,7 @@ on:
 
 jobs:
   delete:
-    uses: xenova/doc-builder/.github/workflows/delete_doc_comment.yml@main
+    uses: huggingface/doc-builder/.github/workflows/delete_doc_comment.yml@xenova-test
     with:
       pr_number: ${{ github.event.number }}
       package: transformers.js
