@@ -1,4 +1,6 @@
+
 # Transformers.js
+
 
 [![npm](https://img.shields.io/npm/v/@xenova/transformers)](https://www.npmjs.com/package/@xenova/transformers)
 [![downloads](https://img.shields.io/npm/dw/@xenova/transformers)](https://www.npmjs.com/package/@xenova/transformers)
@@ -15,11 +17,11 @@ Transformers.js is designed to be functionally equivalent to Hugging Face's [tra
 
 Transformers.js uses [ONNX Runtime](https://onnxruntime.ai/) to run models in the browser. The best part about it, is that you can easily [convert](#convert-your-models-to-onnx) your pretrained PyTorch, TensorFlow, or JAX models to ONNX using [🤗 Optimum](https://github.com/huggingface/optimum#onnx--onnx-runtime). 
 
-
 For more information, check out the full [documentation](https://huggingface.co/docs/transformers.js).
 
 
 ## Quick tour
+
 
 It's super simple to translate from existing code! Just like the python library, we support the `pipeline` API. Pipelines group together a pretrained model with preprocessing of inputs and postprocessing of outputs, making it the easiest way to run models with the library.
 
@@ -45,7 +47,7 @@ out = pipe('I love transformers!')
 <td>
 
 ```javascript
-import { pipeline } from "@xenova/transformers";
+import { pipeline } from '@xenova/transformers';
 
 // Allocate a pipeline for sentiment-analysis
 let pipe = await pipeline('sentiment-analysis');
@@ -67,6 +69,8 @@ let pipe = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-
 
 
 ## Installation
+
+
 To install via [NPM](https://www.npmjs.com/package/@xenova/transformers), run:
 ```bash
 npm i @xenova/transformers
@@ -79,28 +83,31 @@ Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN
 </script>
 ```
 
+
 ## Examples
-**[TODO]** Want to jump straight in? Get started with one of our sample applications/templates:
 
-| Platform          | Description | Source code                   |
-|-------------------|-------------|-------------------------------|
-| Vanilla JS        | TODO        | [link](./examples/demo-site/) |
-| Browser extension | TODO        | [link](./examples/extension/) |
-| React             | TODO        | [link](./examples/react/)     |
-| Electron          | TODO        | [link](./examples/electron/)  |
-| Next.js           | TODO        | [link](./examples/next/)      |
-| Node.js           | TODO        | [link](./examples/node/)      |
+Want to jump straight in? Get started with one of our sample applications/templates:
 
+| Platform          | Description                          | Source code                   |
+|-------------------|--------------------------------------|-------------------------------|
+| React             | Multilingual translation application | [link](./examples/react-translator/) |
+| Browser extension | Text classification extension        | [link](./examples/extension/) |
+| Electron          | Text classification application      | [link](./examples/electron/)  |
+| Next.js           | *Coming soon*                        | [link](./examples/next/)      |
+| Node.js           | *Coming soon*                        | [link](./examples/node/)      |
 
 
 ## Custom usage
+
+
+
 By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/), which should work out-of-the-box. You can customize this as follows:
 
 
 ### Settings
 
 ```javascript
-import { env } from "@xenova/transformers";
+import { env } from '@xenova/transformers';
 
 // Specify a custom location for models (defaults to '/models/').
 env.localModelPath = '/path/to/models/';
@@ -112,10 +119,11 @@ env.allowRemoteModels = false;
 env.backends.onnx.wasm.wasmPaths = '/path/to/files/';
 ```
 
-For a full list of available settings, check out the [docs](https://huggingface.co/docs/transformers.js).
+For a full list of available settings, check out the [API Reference](https://huggingface.co/docs/transformers.js/api/env).
 
 ### Convert your models to ONNX
-We recommend using our [conversion script](./scripts/convert.py) to convert your PyTorch, TensorFlow, or JAX models to ONNX. Behind the scenes, it uses [🤗 Optimum](https://huggingface.co/docs/optimum) to perform conversion and quantization of your model in a single command:
+
+We recommend using our [conversion script](https://github.com/xenova/transformers.js/blob/main/scripts/convert.py) to convert your PyTorch, TensorFlow, or JAX models to ONNX in a single command. Behind the scenes, it uses [🤗 Optimum](https://huggingface.co/docs/optimum) to perform conversion and quantization of your model.
 
 ```bash
 python -m scripts.convert --quantize --model_id <model_name_or_path>
@@ -138,14 +146,16 @@ bert-base-uncased/
     └── model_quantized.onnx
 ```
 
-Check out the [documentation](https://huggingface.co/docs/transformers.js) for the full list of options.
 
 ## Supported tasks/models
 
-Here is the list of all tasks and models currently supported by Transformers.js. If you don't see your task/model listed here or it is not yet supported, feel free to open up a feature request [here](https://github.com/xenova/transformers.js/issues/new/choose).
+Here is the list of all tasks and models currently supported by Transformers.js.
+If you don't see your task/model listed here or it is not yet supported, feel free
+to open up a feature request [here](https://github.com/xenova/transformers.js/issues/new/choose).
 
 
 ### Tasks
+
 #### Natual Language Processing
 
 | Task                     | ID | Description | Supported? |
@@ -177,6 +187,7 @@ Here is the list of all tasks and models currently supported by Transformers.js.
 | [Unconditional Image Generation](https://huggingface.co/tasks/unconditional-image-generation)      |  n/a   | Generating images with no condition in any context (like a prompt text or another image). | ❌ |
 
 #### Audio
+
 | Task                     | ID | Description | Supported? |
 |--------------------------|----|-------------|------------|
 | [Audio Classification](https://huggingface.co/tasks/audio-classification)         |  `audio-classification`  | Assigning a label or class to a given audio. | ❌ |
@@ -186,6 +197,7 @@ Here is the list of all tasks and models currently supported by Transformers.js.
 
 
 #### Tabular
+
 | Task                     | ID | Description | Supported? |
 |--------------------------|----|-------------|------------|
 | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         |  n/a  | Classifying a target category (a group) based on set of attributes. | ❌ |
@@ -193,6 +205,7 @@ Here is the list of all tasks and models currently supported by Transformers.js.
 
 
 #### Multimodal
+
 | Task                     | ID | Description | Supported? |
 |--------------------------|----|-------------|------------|
 | [Document Question Answering](https://huggingface.co/tasks/document-question-answering)         | `document-question-answering`  | Answering questions on document images. | ❌ |
@@ -204,12 +217,15 @@ Here is the list of all tasks and models currently supported by Transformers.js.
 
 
 #### Reinforcement Learning
+
 | Task                     | ID | Description | Supported? |
 |--------------------------|----|-------------|------------|
 | [Reinforcement Learning](https://huggingface.co/tasks/reinforcement-learning)   |  n/a  | Learning from actions by interacting with an environment through trial and error and receiving rewards (negative or positive) as feedback. | ❌ |
 
 
+
 ### Models
+
 1. **[ALBERT](https://huggingface.co/docs/transformers/model_doc/albert)** (from Google Research and the Toyota Technological Institute at Chicago) released with the paper [ALBERT: A Lite BERT for Self-supervised Learning of Language Representations](https://arxiv.org/abs/1909.11942), by Zhenzhong Lan, Mingda Chen, Sebastian Goodman, Kevin Gimpel, Piyush Sharma, Radu Soricut.
 1. **[BART](https://huggingface.co/docs/transformers/model_doc/bart)** (from Facebook) released with the paper [BART: Denoising Sequence-to-Sequence Pre-training for Natural Language Generation, Translation, and Comprehension](https://arxiv.org/abs/1910.13461) by Mike Lewis, Yinhan Liu, Naman Goyal, Marjan Ghazvininejad, Abdelrahman Mohamed, Omer Levy, Ves Stoyanov and Luke Zettlemoyer.
 1. **[BERT](https://huggingface.co/docs/transformers/model_doc/bert)** (from Google) released with the paper [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) by Jacob Devlin, Ming-Wei Chang, Kenton Lee and Kristina Toutanova.
@@ -229,4 +245,5 @@ Here is the list of all tasks and models currently supported by Transformers.js.
 1. **[T5v1.1](https://huggingface.co/docs/transformers/model_doc/t5v1.1)** (from Google AI) released in the repository [google-research/text-to-text-transfer-transformer](https://github.com/google-research/text-to-text-transfer-transformer/blob/main/released_checkpoints.md#t511) by Colin Raffel and Noam Shazeer and Adam Roberts and Katherine Lee and Sharan Narang and Michael Matena and Yanqi Zhou and Wei Li and Peter J. Liu.
 1. **[Vision Transformer (ViT)](https://huggingface.co/docs/transformers/model_doc/vit)** (from Google AI) released with the paper [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929) by Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, Neil Houlsby.
 1. **[Whisper](https://huggingface.co/docs/transformers/model_doc/whisper)** (from OpenAI) released with the paper [Robust Speech Recognition via Large-Scale Weak Supervision](https://cdn.openai.com/papers/whisper.pdf) by Alec Radford, Jong Wook Kim, Tao Xu, Greg Brockman, Christine McLeavey, Ilya Sutskever.
+
 
