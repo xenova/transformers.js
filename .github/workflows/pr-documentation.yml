@@ -11,6 +11,7 @@ jobs:
   build:
     uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@xenova-test
     with:
+      repo_owner: xenova
       commit_sha: ${{ github.sha }}
       pr_number: ${{ github.event.number }}
       package: transformers.js
