@@ -70,10 +70,10 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
  * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
  * @property {string} localModelPath Path to load local models from. Defaults to `/models/`.
- * @property {boolean} useFS Whether to use the file system to load files. By default, it is true available.
+ * @property {boolean} useFS Whether to use the file system to load files. By default, it is `true` if available.
  * @property {string} __dirname Directory name of module. Useful for resolving local paths.
- * @property {boolean} useBrowserCache Whether to use Cache API to cache models. By default, it is true if available.
- * @property {boolean} useFSCache Whether to use the file system to cache files. By default, it is true available.
+ * @property {boolean} useBrowserCache Whether to use Cache API to cache models. By default, it is `true` if available.
+ * @property {boolean} useFSCache Whether to use the file system to cache files. By default, it is `true` if available.
  * @property {string} cacheDir The directory to use for caching files with the file system. By default, it is `./.cache`.
 */
 export const env = {
