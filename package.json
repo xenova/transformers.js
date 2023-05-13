@@ -6,14 +6,15 @@
   "types": "./types/transformers.d.ts",
   "type": "module",
   "scripts": {
-    "webpack": "webpack",
     "typegen": "tsc ./src/transformers.js --allowJs --declaration --emitDeclarationOnly --declarationMap --outDir types",
     "dev": "webpack serve --no-client-overlay",
+    "build": "webpack && npm run typegen",
     "generate-tests": "python tests/generate_tests.py",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
-    "build": "npm run webpack && npm run typegen",
-    "docs": "npx jsdoc-to-markdown --files ./src/**.js",
-    "docs-preview": "doc-builder preview Transformers.js ./docs/source/ --not_python_module"
+    "readme": "python ./docs/scripts/build_readme.py",
+    "docs-api": "node ./docs/scripts/generate.js",
+    "docs-preview": "doc-builder preview transformers.js ./docs/source/ --not_python_module",
+    "docs-build": "doc-builder build transformers.js ./docs/source/ --not_python_module --build_dir ./docs/build/ --repo_owner xenova"
   },
   "repository": {
     "type": "git",
