@@ -6,11 +6,9 @@ import url from 'url';
 
 import jsdoc2md from 'jsdoc-to-markdown';
 
-const root = path.dirname(path.dirname(path.dirname(url.fileURLToPath(import.meta.url))));
-
 // input and output paths
-const inputFile = path.join(root, '/src/**/*.js');
-const outputDir = path.join(root, '/docs/source/api/');
+const inputFile = './src/**/*.js';
+const outputDir = './docs/source/api/';
 
 // get template data
 const templateData = jsdoc2md.getTemplateDataSync({ files: inputFile })
