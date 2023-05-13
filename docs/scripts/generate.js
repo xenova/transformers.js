@@ -6,12 +6,22 @@ import url from 'url';
 
 import jsdoc2md from 'jsdoc-to-markdown';
 
+const docs = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
+const root = path.dirname(docs);
+
+// jsdoc config file
+const conf = path.join(docs, 'jsdoc-conf.json');
+
 // input and output paths
-const inputFile = './src/**/*.js';
-const outputDir = './docs/source/api/';
+const inputFile = path.join(root, '/src/**/*.js');
+const outputDir = path.join(root, '/docs/source/api/');
+
 
 // get template data
-const templateData = jsdoc2md.getTemplateDataSync({ files: inputFile })
+const templateData = jsdoc2md.getTemplateDataSync({
+    files: inputFile,
+    configure: conf
+})
 
 // reduce templateData to an array of module names
 const moduleNames = templateData.reduce(
@@ -35,6 +45,7 @@ for (const moduleName of moduleNames) {
         'name-format': 'backticks',
         'no-cache': true,
         'separators': true,
+        'configure': conf,
     });
 
     // Post-processing
