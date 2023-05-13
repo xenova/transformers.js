@@ -15,6 +15,6 @@ jobs:
       commit_sha: ${{ github.sha }}
       pr_number: ${{ github.event.number }}
       package: transformers.js
-      path_to_docs: transformers.js/docs
+      path_to_docs: transformers.js/docs/source
       pre_command: cd transformers.js && npm install && npm run docs-api
       additional_args: --not_python_module

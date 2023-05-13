@@ -12,6 +12,6 @@ jobs:
       repo_owner: xenova
       commit_sha: ${{ github.sha }}
       package: transformers.js
-      path_to_docs: transformers.js/docs
+      path_to_docs: transformers.js/docs/source
       pre_command: cd transformers.js && npm install && npm run docs-api
       additional_args: --not_python_module
