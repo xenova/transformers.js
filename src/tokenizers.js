@@ -72,6 +72,26 @@ function createPattern(pattern) {
 }
 
 /**
+ * Clean up a list of simple English tokenization artifacts like spaces before punctuations and abbreviated forms
+ * @param {string} text The text to clean up.
+ * @returns {string} The cleaned up text.
+ */
+function clean_up_tokenization(text) {
+    // Clean up a list of simple English tokenization artifacts
+    // like spaces before punctuations and abbreviated forms
+    return text.replace(/ \./g, '.')
+        .replace(/ \?/g, '?')
+        .replace(/ \!/g, '!')
+        .replace(/ ,/g, ',')
+        .replace(/ \' /g, "'")
+        .replace(/ n\'t/g, "n't")
+        .replace(/ \'m/g, "'m")
+        .replace(/ \'s/g, "'s")
+        .replace(/ \'ve/g, "'ve")
+        .replace(/ \'re/g, "'re");
+}
+
+/**
  * Abstract base class for tokenizer models.
  *
  * @extends Callable
@@ -421,6 +441,10 @@ class BPE extends TokenizerModel {
 
         this.byte_fallback = this.config.byte_fallback ?? false;
 
+        if (this.byte_fallback) {
+            this.text_encoder = new TextEncoder();
+        }
+
         this.cache = Object.create(null);
     }
 
@@ -517,7 +541,21 @@ class BPE extends TokenizerModel {
 
         for (let token of tokens) {
             let bpe_token_list = this.bpe(token).split(' ');
-            outputTokens.push(...bpe_token_list);
+
+            for (let t of bpe_token_list) {
+                if (this.tokens_to_ids.has(t)) {
+                    outputTokens.push(t);
+                } else {
+                    if (this.byte_fallback) {
+                        outputTokens.push(
+                            ...Array.from(this.text_encoder.encode(t))
+                                .map(x => `<0x${x.toString(16).toUpperCase().padStart(2, '0')}>`)
+                        );
+                    } else {
+                        outputTokens.push(this.unk_token);
+                    }
+                }
+            }
         }
 
         return outputTokens;
@@ -564,6 +602,8 @@ class Normalizer extends Callable {
                 return new StripAccents(config);
             case 'Lowercase':
                 return new Lowercase(config);
+            case 'Prepend':
+                return new Prepend(config);
             default:
                 throw new Error(`Unknown Normalizer type: ${config.type}`);
         }
@@ -607,7 +647,7 @@ class Replace extends Normalizer {
             return text;
         }
 
-        text = text.replace(pattern, this.config.content)
+        text = text.replaceAll(pattern, this.config.content)
 
         return text;
     }
@@ -678,6 +718,22 @@ class Lowercase extends Normalizer {
 }
 
 /**
+ * A Normalizer that prepends a string to the input string.
+ * @extends Normalizer
+ */
+class Prepend extends Normalizer {
+    /**
+     * Prepends the input string.
+     * @param {string} text The text to normalize.
+     * @returns {string} The normalized text.
+     */
+    normalize(text) {
+        text = this.config.prepend + text;
+        return text;
+    }
+}
+
+/**
  * A Normalizer that applies a sequence of Normalizers.
  * @extends Normalizer
  */
@@ -697,11 +753,9 @@ class NormalizerSequence extends Normalizer {
    * @returns {string} The normalized text.
    */
     normalize(text) {
-        // TODO use reduce?
-        for (let normalizer of this.normalizers) {
-            text = normalizer.normalize(text);
-        }
-        return text;
+        return this.normalizers.reduce((t, normalizer) => {
+            return normalizer.normalize(t);
+        }, text);
     }
 }
 
@@ -813,6 +867,8 @@ class PreTokenizer extends Callable {
    * @throws {Error} If the provided configuration object does not correspond to any known pre-tokenizer.
    */
     static fromConfig(config) {
+        if (config === null) return null;
+
         switch (config.type) {
             case 'BertPreTokenizer':
                 return new BertPreTokenizer(config);
@@ -1187,19 +1243,22 @@ class Decoder extends Callable {
                 return new MetaspaceDecoder(config);
             case 'ByteLevel':
                 return new ByteLevelDecoder(config);
+
+            case 'Replace':
+                return new ReplaceDecoder(config);
+            case 'ByteFallback':
+                return new ByteFallback(config);
+            case 'Fuse':
+                return new FuseDecoder(config);
+            case 'Strip':
+                return new StripDecoder(config);
+
+            case 'Sequence':
+                return new DecoderSequence(config);
+
             default:
                 throw new Error(`Unknown Decoder type: ${config.type}`);
         }
-    }
-
-    /**
-    * Converts a list of tokens to a string.
-    *
-    * @param {string[]} tokens The list of tokens.
-    * @returns {string} The decoded string.
-    */
-    convert_tokens_to_string(tokens) {
-        return tokens.join('').trim();
     }
 
     /**
@@ -1216,13 +1275,135 @@ class Decoder extends Callable {
     * Decodes a list of tokens.
     * @param {string[]} tokens The list of tokens.
     * @returns {string} The decoded string.
-    * @throws {Error} If the `decode` method is not implemented in the subclass.
     */
     decode(tokens) {
-        throw Error("decode should be implemented in subclass.")
+        return this.decode_chain(tokens).join('');
     }
 
+    /**
+     * Apply the decoder to a list of tokens.
+     * 
+     * @param {string[]} tokens The list of tokens.
+     * @returns {string[]} The decoded list of tokens.
+     * @throws {Error} If the `decode_chain` method is not implemented in the subclass.
+     */
+    decode_chain(tokens) {
+        throw Error("`decode_chain` should be implemented in subclass.")
+    }
 
+}
+
+class ReplaceDecoder extends Decoder {
+    constructor(config) {
+        super(config);
+    }
+
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        let pattern = createPattern(this.config.pattern);
+        if (pattern === null) {
+            return tokens;
+        }
+
+        return tokens.map(token => token.replaceAll(pattern, this.config.content))
+    }
+}
+
+
+class ByteFallback extends Decoder {
+    constructor(config) {
+        super(config);
+
+        this.text_decoder = new TextDecoder();
+    }
+
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+
+        let new_tokens = [];
+        let previous_byte_tokens = [];
+
+        for (let token of tokens) {
+            let bytes = null;
+            if (token.length === 6 && token.startsWith('<0x') && token.endsWith('>')) {
+                let byte = parseInt(token.slice(3, 5), 16);
+                if (!isNaN(byte)) {
+                    bytes = byte;
+                }
+            }
+            if (bytes !== null) {
+                previous_byte_tokens.push(bytes);
+            } else {
+                if (previous_byte_tokens.length > 0) {
+                    let string = this.text_decoder.decode(Uint8Array.from(previous_byte_tokens));
+                    new_tokens.push(string);
+                    previous_byte_tokens = [];
+                }
+                new_tokens.push(token);
+            }
+        }
+        if (previous_byte_tokens.length > 0) {
+            let string = this.text_decoder.decode(Uint8Array.from(previous_byte_tokens));
+            new_tokens.push(string);
+            previous_byte_tokens = [];
+        }
+
+        return new_tokens;
+    }
+}
+
+/**
+ * Fuse simply fuses all tokens into one big string.
+ * It's usually the last decoding step anyway, but this decoder
+ * exists incase some decoders need to happen after that step
+ */
+class FuseDecoder extends Decoder {
+    constructor(config) {
+        super(config);
+    }
+
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        return [tokens.join('')];
+    }
+}
+
+class StripDecoder extends Decoder {
+    constructor(config) {
+        super(config);
+
+        this.content = this.config.content;
+        this.start = this.config.start;
+        this.stop = this.config.stop;
+    }
+
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        return tokens.map(token => {
+            let start_cut = 0;
+            for (let i = 0; i < this.start; ++i) {
+                if (token[i] === this.content) {
+                    start_cut = i + 1;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+
+            let stop_cut = token.length;
+            for (let i = 0; i < this.stop; ++i) {
+                const index = token.length - i - 1;
+                if (token[index] === this.content) {
+                    stop_cut = index;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+
+            return token.slice(start_cut, stop_cut)
+        });
+    }
 }
 
 /**
@@ -1239,26 +1420,26 @@ class WordPieceDecoder extends Decoder {
      */
     constructor(config) {
         super(config);
-        this.convertRegex = new RegExp(` ${config.prefix}`, 'g');
         this.cleanup = config.cleanup;
     }
 
-    /**
-     * Converts a list of WordPiece tokens to a single string.
-     * @param {Array} tokens The list of WordPiece tokens.
-     * @returns {string} The decoded string.
-     */
-    convert_tokens_to_string(tokens) {
-        return tokens.join(' ').replace(this.convertRegex, '').trim();
-    }
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        return tokens.map((token, i) => {
+            if (i !== 0) {
+                if (token.startsWith(this.config.prefix)) {
+                    // NOTE: .replace() is intended; only replace first occurrence
+                    token = token.replace(this.config.prefix, '');
+                } else {
+                    token = ' ' + token;
+                }
+            }
+            if (this.cleanup) {
+                token = clean_up_tokenization(token)
+            }
 
-    /**
-     * Decodes a list of WordPiece tokens into a single string.
-     * @param {Array} tokens The list of WordPiece tokens.
-     * @returns {string} The decoded string.
-     */
-    decode(tokens) {
-        return this.convert_tokens_to_string(tokens);
+            return token;
+        });
     }
 }
 
@@ -1308,12 +1489,8 @@ class ByteLevelDecoder extends Decoder {
         return decoded_text;
     }
 
-    /**
-     * Decode an array of tokens to string.
-     * @param {string[]} tokens Array of tokens to be decoded.
-     * @returns {string} The decoded string.
-     */
-    decode(tokens) {
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
         // TODO move to base class (like HF)
         // tokens === filtered_tokens
 
@@ -1343,10 +1520,36 @@ class ByteLevelDecoder extends Decoder {
         }
 
         // TODO add spaces_between_special_tokens and clean_up_tokenization_spaces options
-        let text = sub_texts.join('');
 
-        return text;
+        return sub_texts;
     }
+}
+
+
+/**
+ * Apply a sequence of decoders.
+ * @extends Decoder
+ */
+class DecoderSequence extends Decoder {
+
+    /**
+     * Creates a new instance of DecoderSequence.
+     * @param {Object} config The configuration object.
+     * @param {Decoder[]} config.decoders The list of decoders to apply.
+     */
+    constructor(config) {
+        super(config);
+        this.decoders = config.decoders.map(x => Decoder.fromConfig(x));
+    }
+
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        // Use reduce to apply each decoder to the tokens
+        return this.decoders.reduce((toks, decoder) => {
+            return decoder.decode_chain(toks);
+        }, tokens);
+    }
+
 }
 
 /**
@@ -1383,7 +1586,7 @@ class MetaspacePreTokenizer extends PreTokenizer {
 
         const result = [];
         for (let token of normalizedTokens) {
-            let normalized = token.replace(' ', this.strRep);
+            let normalized = token.replaceAll(' ', this.strRep);
             if (this.addPrefixSpace && !normalized.startsWith(this.replacement)) {
                 normalized = this.strRep + normalized;
             }
@@ -1411,21 +1614,17 @@ class MetaspaceDecoder extends Decoder {
         this.replacement = config.replacement;
     }
 
-    /**
-     * Decodes the given tokens back into a string.
-     * @param {Array} tokens The tokens to decode.
-     * @returns {string} The decoded string.
-     */
-    decode(tokens) {
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
         let result = [];
         for (let i = 0; i < tokens.length; ++i) {
-            let normalized = tokens[i].replace(this.replacement, ' ');
+            let normalized = tokens[i].replaceAll(this.replacement, ' ');
             if (this.addPrefixSpace && i == 0 && normalized.startsWith(' ')) {
                 normalized = normalized.substring(1);
             }
             result.push(normalized);
         }
-        return this.convert_tokens_to_string(result);
+        return result;
     }
 }
 
@@ -1842,7 +2041,8 @@ export class PreTrainedTokenizer extends Callable {
                 if (this.normalizer !== null) {
                     x = this.normalizer(x);
                 }
-                let sectionTokens = this.pre_tokenizer(x);
+
+                let sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x) : [x];
                 return this.model(sectionTokens);
             }
         }).flat();
@@ -1866,26 +2066,6 @@ export class PreTrainedTokenizer extends Callable {
         let ids = this.model.convert_tokens_to_ids(combinedTokens);
 
         return ids
-    }
-
-    /**
-     * Clean up a list of simple English tokenization artifacts like spaces before punctuations and abbreviated forms
-     * @param {string} text The text to clean up.
-     * @returns {string} The cleaned up text.
-     */
-    clean_up_tokenization(text) {
-        // Clean up a list of simple English tokenization artifacts
-        // like spaces before punctuations and abbreviated forms
-        return text.replace(/ \./g, '.')
-            .replace(/ \?/g, '?')
-            .replace(/ \!/g, '!')
-            .replace(/ ,/g, ',')
-            .replace(/ \' /g, "'")
-            .replace(/ n\'t/g, "n't")
-            .replace(/ \'m/g, "'m")
-            .replace(/ \'s/g, "'s")
-            .replace(/ \'ve/g, "'ve")
-            .replace(/ \'re/g, "'re");
     }
 
     /**
@@ -1943,15 +2123,9 @@ export class PreTrainedTokenizer extends Callable {
         }
 
         let decoded = this.decoder(tokens); // tokens === filtered_tokens
-
-        if ('cleanup' in this.decoder && this.decoder.cleanup !== clean_up_tokenization_spaces) {
-            console.warn(`clean_up_tokenization_spaces disagrees with decoder's cleanup setting. Overriding to use decoder's cleanup setting (${this.decoder.cleanup})`)
-            // @ts-ignore
-            clean_up_tokenization_spaces = this.decoder.cleanup;
-        }
-
-        if (clean_up_tokenization_spaces) {
-            decoded = this.clean_up_tokenization(decoded);
+        if (clean_up_tokenization_spaces && (!('cleanup' in this.decoder) || !this.decoder.cleanup)) {
+            // Only perform cleanup if not already been performed
+            decoded = clean_up_tokenization(decoded);
         }
 
         return decoded;
@@ -2035,7 +2209,7 @@ export class BartTokenizer extends PreTrainedTokenizer { }
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
 export class BloomTokenizer extends PreTrainedTokenizer { }
-
+export class LlamaTokenizer extends PreTrainedTokenizer { }
 
 /**
  * The NllbTokenizer class is used to tokenize text for NLLB ("No Language Left Behind") models.
@@ -2820,6 +2994,7 @@ export class AutoTokenizer {
 
         'BloomTokenizer': BloomTokenizer,
         'NllbTokenizer': NllbTokenizer,
+        'LlamaTokenizer': LlamaTokenizer,
     }
 
 
