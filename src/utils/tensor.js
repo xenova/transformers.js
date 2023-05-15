@@ -33,8 +33,28 @@ export class Tensor extends ONNXTensor {
 
         } else {
             // Create new
-            super(...args)
+            super(...args);
         }
+
+        return new Proxy(this, {
+            get: (obj, key) => {
+                if (typeof key === 'string') {
+                    let index = Number(key);
+                    if (Number.isInteger(index)) {
+                        // key is an integer (i.e., index)
+                        return obj._getitem(index);
+                    }
+                }
+                // @ts-ignore
+                return obj[key];
+            },
+            set: (obj, key, value) => {
+                // TODO allow setting of data
+
+                // @ts-ignore
+                return obj[key] = value;
+            }
+        });
     }
 
     /**
@@ -57,17 +77,26 @@ export class Tensor extends ONNXTensor {
     }
 
     /**
-     * Index into a Tensor object, returning either a Tensor or a scalar value.
+     * Index into a Tensor object.
      * @param {number} index The index to access.
      * @returns {Tensor} The data at the specified index.
      */
-    get(index) {
-        const iterDims = this.dims.slice(1);
+    _getitem(index) {
+        const [iterLength, ...iterDims] = this.dims;
+
+        if (index >= iterLength || index < -iterLength) {
+            throw new Error(`Index ${index} is out of bounds for dimension 0 with size ${iterLength}`);
+        }
+        if (index < 0) {
+            // Negative indexing
+            index += iterLength;
+        }
+
         if (iterDims.length > 0) {
             const iterSize = iterDims.reduce((a, b) => a * b);
             return this._subarray(index, iterSize, iterDims);
         } else {
-            return this.data[index];
+            return new Tensor(this.type, [this.data[index]], iterDims);
         }
     }
 
@@ -94,6 +123,19 @@ export class Tensor extends ONNXTensor {
     _subarray(index, iterSize, iterDims) {
         let data = this.data.subarray(index * iterSize, (index + 1) * iterSize);
         return new Tensor(this.type, data, iterDims);
+    }
+
+    /**
+     * Returns the value of this tensor as a standard JavaScript Number. This only works
+     * for tensors with one element. For other cases, see `Tensor.tolist()`.
+     * @returns {number} The value of this tensor as a standard JavaScript Number.
+     * @throws {Error} If the tensor has more than one element.
+     */
+    item() {
+        if (this.data.length !== 1) {
+            throw new Error(`a Tensor with ${this.data.length} elements cannot be converted to Scalar`);
+        }
+        return this.data[0];
     }
 
     /**
@@ -204,6 +246,8 @@ export class Tensor extends ONNXTensor {
     transpose(...dims) {
         return transpose(this, dims);
     }
+
+    // TODO add .max() and .min() methods
 }
 
 /**

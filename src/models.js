@@ -460,7 +460,7 @@ function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
 
         let attn_mask;
         if (inputs_attention_mask) {
-            attn_mask = inputs_attention_mask.get(beamId)
+            attn_mask = inputs_attention_mask[beamId];
             attn_mask.dims = [1, ...attn_mask.dims]
 
         } else {
@@ -842,7 +842,7 @@ export class PreTrainedModel extends Callable {
                 let extractedLogits = [];
                 for (const batch of output.logits) {
                     // Extract logits corresponding to the last token
-                    let lastLogits = batch.get(batch.dims[0] - 1);
+                    let lastLogits = batch[-1];
 
                     // Add back batch dimension (needed for `cat`)
                     lastLogits.dims = [1, ...lastLogits.dims];

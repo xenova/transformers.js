@@ -187,13 +187,13 @@ export class TokenClassificationPipeline extends Pipeline {
 
         let toReturn = [];
         for (let i = 0; i < logits.dims[0]; ++i) {
-            let ids = inputs.input_ids.get(i);
-            let batch = logits.get(i);
+            let ids = inputs.input_ids[i];
+            let batch = logits[i];
 
             // List of tokens that aren't ignored
             let tokens = [];
             for (let j = 0; j < batch.dims[0]; ++j) {
-                let tokenData = batch.get(j);
+                let tokenData = batch[j];
                 let topScoreIndex = max(tokenData.data)[1];
 
                 let entity = id2label[topScoreIndex];
@@ -203,7 +203,7 @@ export class TokenClassificationPipeline extends Pipeline {
                 }
 
                 // TODO add option to keep special tokens?
-                let word = tokenizer.decode([ids.get(j)], { skip_special_tokens: true });
+                let word = tokenizer.decode([ids[j].item()], { skip_special_tokens: true });
                 if (word === '') {
                     // Was a special token. So, we skip it.
                     continue;
@@ -253,13 +253,13 @@ export class QuestionAnsweringPipeline extends Pipeline {
 
         let toReturn = [];
         for (let j = 0; j < output.start_logits.dims[0]; ++j) {
-            let ids = inputs.input_ids.get(j);
+            let ids = inputs.input_ids[j];
             let sepIndex = ids.indexOf(this.tokenizer.sep_token_id);
 
-            let s1 = Array.from(softmax(output.start_logits.get(j).data))
+            let s1 = Array.from(softmax(output.start_logits[j].data))
                 .map((x, i) => [x, i])
                 .filter(x => x[1] > sepIndex);
-            let e1 = Array.from(softmax(output.end_logits.get(j).data))
+            let e1 = Array.from(softmax(output.end_logits[j].data))
                 .map((x, i) => [x, i])
                 .filter(x => x[1] > sepIndex);
 
@@ -319,14 +319,14 @@ export class FillMaskPipeline extends Pipeline {
         let toReturn = [];
 
         for (let i = 0; i < inputs.input_ids.dims[0]; ++i) {
-            let ids = inputs.input_ids.get(i);
+            let ids = inputs.input_ids[i];
             let mask_token_index = ids.indexOf(this.tokenizer.mask_token_id)
 
             if (mask_token_index === -1) {
                 throw Error(`Mask token (${tokenizer.mask_token}) not found in text.`)
             }
-            let logits = outputs.logits.get(i);
-            let itemLogits = logits.get(mask_token_index);
+            let logits = outputs.logits[i];
+            let itemLogits = logits[mask_token_index];
 
             let scores = getTopItems(softmax(itemLogits.data), topk);
 

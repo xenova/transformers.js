@@ -341,11 +341,11 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
                 classes: [],
                 scores: []
             }
-            let logits = out_logits.get(i);
-            let bbox = out_bbox.get(i);
+            let logits = out_logits[i];
+            let bbox = out_bbox[i];
 
             for (let j = 0; j < num_boxes; ++j) {
-                let logit = logits.get(j);
+                let logit = logits[j];
 
                 // Get most probable class
                 let maxIndex = max(logit.data)[1];
@@ -362,7 +362,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
                 if (score > threshold) {
                     // Some class has a high enough probability
                     /** @type {number[]} */
-                    let box = bbox.get(j).data;
+                    let box = bbox[j].data;
 
                     // convert to [x0, y0, x1, y1] format
                     box = this.center_to_corners_format(box)
@@ -395,8 +395,8 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         let pred_labels_item = [];
 
         for (let j = 0; j < class_logits.dims[0]; ++j) {
-            let cls = class_logits.get(j);
-            let mask = mask_logits.get(j);
+            let cls = class_logits[j];
+            let mask = mask_logits[j];
 
             let pred_label = max(cls.data)[1];
             if (pred_label === num_labels) {
@@ -609,8 +609,8 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         for (let i = 0; i < batch_size; ++i) {
             let target_size = target_sizes !== null ? target_sizes[i] : null;
 
-            let class_logits = class_queries_logits.get(i);
-            let mask_logits = mask_probs.get(i);
+            let class_logits = class_queries_logits[i];
+            let mask_logits = mask_probs[i];
 
             let [mask_probs_item, pred_scores_item, pred_labels_item] = this.remove_low_and_no_objects(class_logits, mask_logits, threshold, num_labels);
 
@@ -746,12 +746,12 @@ export class SamImageProcessor extends ImageFeatureExtractor {
             let original_size = original_sizes[i];
             let reshaped_input_size = reshaped_input_sizes[i];
 
-            let mask = masks.get(i); // [b, c, h, w]
+            let mask = masks[i]; // [b, c, h, w]
 
             // TODO: improve
             let interpolated_masks = [];
             for (let j = 0; j < mask.dims[0]; ++j) {
-                let m = mask.get(j); // 3d tensor
+                let m = mask[j]; // 3d tensor
 
                 // Upscale mask to padded size
                 let interpolated_mask = interpolate(m, target_image_size, 'bilinear', false);
