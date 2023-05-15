@@ -19,10 +19,19 @@ describe('Tokenizers', () => {
             let tokenizer = await AutoTokenizer.from_pretrained(m(tokenizerName));
 
             for (let test of tests) {
-                let encoded = await tokenizer(test.input, {
+
+                // Test encoding
+                let encoded = tokenizer(test.input, {
                     return_tensor: false
                 });
-                expect(encoded).toEqual(test.target);
+                expect(encoded).toEqual(test.encoded);
+
+                // Test decoding
+                let decoded_with_special = tokenizer.decode(encoded.input_ids, { skip_special_tokens: false });
+                expect(decoded_with_special).toEqual(test.decoded_with_special);
+
+                let decoded_without_special = tokenizer.decode(encoded.input_ids, { skip_special_tokens: true });
+                expect(decoded_without_special).toEqual(test.decoded_without_special);
             }
         });
     }
