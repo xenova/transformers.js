@@ -3,7 +3,8 @@ name: Build documentation
 on:
   workflow_dispatch:
   push:
-    branches: [ main, docs ]
+    branches:
+      - main
 
 jobs:
   build:
