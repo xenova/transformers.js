@@ -3,11 +3,12 @@ name: Build documentation
 on:
   workflow_dispatch:
   push:
-    branches: [ main, docs ]
+    branches:
+      - main
 
 jobs:
   build:
-    uses: huggingface/doc-builder/.github/workflows/build_main_documentation.yml@xenova-test
+    uses: huggingface/doc-builder/.github/workflows/build_main_documentation.yml@main
     with:
       repo_owner: xenova
       commit_sha: ${{ github.sha }}
