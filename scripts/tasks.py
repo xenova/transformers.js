@@ -49,6 +49,8 @@ SUPPORTED_MODELS = {
 
         'sentence-transformers/all-MiniLM-L6-v2',
         'sentence-transformers/all-MiniLM-L12-v2',
+        'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+        'sentence-transformers/paraphrase-MiniLM-L6-v2',
 
         'ckiplab/bert-base-chinese-ner',
         'ckiplab/bert-base-chinese-ws',
