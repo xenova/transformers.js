@@ -1,0 +1,35 @@
+name: Unit tests
+
+on:
+  push:
+    branches: [ main, docs ]
+  pull_request:
+    branches: [ main, docs ]
+
+env:
+  TESTING_REMOTELY: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, latest, node]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm ci
+      - run: npm run build
+      - run: pip install -r scripts/requirements.txt
+      
+      # Setup the testing environment
+      - run: npm run generate-tests
+      - run: git lfs install && git clone https://huggingface.co/Xenova/t5-small ./models/t5-small
+
+      # Actually run tests
+      - run: npm run test

@@ -1,36 +1,48 @@
-# Transformers.js
 
 
-[![npm](https://img.shields.io/npm/v/@xenova/transformers)](https://www.npmjs.com/package/@xenova/transformers)
-[![downloads](https://img.shields.io/npm/dw/@xenova/transformers)](https://www.npmjs.com/package/@xenova/transformers)
-[![license](https://img.shields.io/github/license/xenova/transformers.js)](https://github.com/xenova/transformers.js/blob/main/LICENSE)
+<p align="center">
+    <br/>
+    <picture> 
+        <source media="(prefers-color-scheme: dark)" srcset="https://huggingface.co/datasets/Xenova/transformers.js-docs/raw/main/transformersjs-dark.svg" width="500" style="max-width: 100%;">
+        <source media="(prefers-color-scheme: light)" srcset="https://huggingface.co/datasets/Xenova/transformers.js-docs/raw/main/transformersjs-light.svg" width="500" style="max-width: 100%;">
+        <img alt="transformers.js javascript library logo" src="https://huggingface.co/datasets/Xenova/transformers.js-docs/raw/main/transformersjs-light.svg" width="500" style="max-width: 100%;">
+    </picture>
+    <br/>
+</p>
+
+<p align="center">
+    <a href="https://www.npmjs.com/package/@xenova/transformers">
+        <img alt="NPM" src="https://img.shields.io/npm/v/@xenova/transformers">
+    </a>
+    <a href="https://www.npmjs.com/package/@xenova/transformers">
+        <img alt="Downloads" src="https://img.shields.io/npm/dw/@xenova/transformers">
+    </a>
+    <a href="https://github.com/xenova/transformers.js/blob/main/LICENSE">
+        <img alt="License" src="https://img.shields.io/github/license/xenova/transformers.js">
+    </a>
+    <a href="https://huggingface.co/docs/transformers.js/index">
+        <img alt="Documentation" src="https://img.shields.io/website/http/huggingface.co/docs/transformers.js/index.svg?down_color=red&down_message=offline&up_message=online">
+    </a>
+</p>
 
 
-Run 🤗 Transformers in your browser! We currently support [BERT](https://huggingface.co/docs/transformers/model_doc/bert), [ALBERT](https://huggingface.co/docs/transformers/model_doc/albert), [DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert), [MobileBERT](https://huggingface.co/docs/transformers/model_doc/mobilebert), [SqueezeBERT](https://huggingface.co/docs/transformers/model_doc/squeezebert), [T5](https://huggingface.co/docs/transformers/model_doc/t5), [T5v1.1](https://huggingface.co/docs/transformers/model_doc/t5v1.1), [FLAN-T5](https://huggingface.co/docs/transformers/model_doc/flan-t5), [mT5](https://huggingface.co/docs/transformers/model_doc/mt5), [BART](https://huggingface.co/docs/transformers/model_doc/bart), [MarianMT](https://huggingface.co/docs/transformers/model_doc/marian), [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2), [GPT Neo](https://huggingface.co/docs/transformers/model_doc/gpt_neo), [CodeGen](https://huggingface.co/docs/transformers/model_doc/codegen), [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper), [CLIP](https://huggingface.co/docs/transformers/model_doc/clip), [Vision Transformer](https://huggingface.co/docs/transformers/model_doc/vit), [VisionEncoderDecoder](https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder), and [DETR](https://huggingface.co/docs/transformers/model_doc/detr) models, for a variety of tasks including: masked language modelling, text classification, token classification, zero-shot classification, text-to-text generation, translation, summarization, question answering, text generation, automatic speech recognition, image classification, zero-shot image classification, image-to-text, image segmentation, and object detection.
+State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!
 
-![teaser](https://user-images.githubusercontent.com/26504141/221056008-e906614e-e6f0-4e10-b0a8-7d5c99e955b4.gif)
+Transformers.js is designed to be functionally equivalent to Hugging Face's [transformers](https://github.com/huggingface/transformers) python library, meaning you can run the same pretrained models using a very similar API. These models support common tasks in different modalities, such as:
+  - 📝 **Natural Language Processing**: text classification, named entity recognition, question answering, language modeling, summarization, translation, multiple choice, and text generation.
+  - 🖼️ **Computer Vision**: image classification, object detection, and segmentation.
+  - 🗣️ **Audio**: automatic speech recognition and audio classification.
+  - 🐙 **Multimodal**: zero-shot image classification.
 
-Check out our demo at [https://xenova.github.io/transformers.js/](https://xenova.github.io/transformers.js/). As you'll see, everything runs inside the browser!
+Transformers.js uses [ONNX Runtime](https://onnxruntime.ai/) to run models in the browser. The best part about it, is that you can easily [convert](#convert-your-models-to-onnx) your pretrained PyTorch, TensorFlow, or JAX models to ONNX using [🤗 Optimum](https://github.com/huggingface/optimum#onnx--onnx-runtime). 
 
-## Getting Started
+For more information, check out the full [documentation](https://huggingface.co/docs/transformers.js).
 
-### Installation
-If you use [npm](https://www.npmjs.com/package/@xenova/transformers), you can install it using:
-```bash
-npm i @xenova/transformers
-```
 
-Alternatively, you can use it in a `<script>` tag from a CDN, for example:
-```html
-<!-- Using jsDelivr -->
-<script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
+## Quick tour
 
-<!-- or UNPKG -->
-<script src="https://www.unpkg.com/@xenova/transformers/dist/transformers.min.js"></script>
-```
 
-### Basic example
-It's super easy to translate from existing code!
+It's super simple to translate from existing code! Just like the python library, we support the `pipeline` API. Pipelines group together a pretrained model with preprocessing of inputs and postprocessing of outputs, making it the easiest way to run models with the library.
 
 <table>
 <tr>
@@ -54,7 +66,7 @@ out = pipe('I love transformers!')
 <td>
 
 ```javascript
-import { pipeline } from "@xenova/transformers";
+import { pipeline } from '@xenova/transformers';
 
 // Allocate a pipeline for sentiment-analysis
 let pipe = await pipeline('sentiment-analysis');
@@ -68,67 +80,189 @@ let out = await pipe('I love transformers!');
 </table>
 
 
-In the same way as the Python library, you can use a different model by providing its name as the second argument to the pipeline function. For example:
+You can also use a different model by specifying the model id or path as the second argument to the `pipeline` function. For example:
 ```javascript
 // Use a different model for sentiment-analysis
 let pipe = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');
 ```
 
 
-### Custom setup
-By default, Transformers.js uses [hosted models](https://huggingface.co/Xenova/transformers.js/tree/main/quantized) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/), which should work out-of-the-box. You can override this behaviour as follows:
-```javascript
-import { env } from "@xenova/transformers";
+## Installation
 
-// Use a different host for models.
-// - `remoteURL` defaults to use the HuggingFace Hub
-// - `localURL` defaults to '/models/onnx/quantized/'
-env.remoteURL = 'https://www.example.com/';
-env.localURL = '/path/to/models/';
 
-// Set whether to use remote or local models. Defaults to true.
-//  - If true, use the path specified by `env.remoteURL`.
-//  - If false, use the path specified by `env.localURL`.
-env.remoteModels = false;
-
-// Set parent path of .wasm files. Defaults to use a CDN.
-env.onnx.wasm.wasmPaths = '/path/to/files/';
+To install via [NPM](https://www.npmjs.com/package/@xenova/transformers), run:
+```bash
+npm i @xenova/transformers
 ```
 
-#### Node.js
-
-This library uses `onnxruntime-web` as its default backend. However, if your application runs with Node.js, you can install `onnxruntime-node` in your project (using `npm i onnxruntime-node`) to obtain a massive boost in performance (>5x in some cases). The CPU execution provider is much faster than WASM executor provider, most likely due to [this issue](https://github.com/microsoft/onnxruntime/issues/10311).
-
-
-## Usage
-
-### Convert your PyTorch models to ONNX
-We use [ONNX Runtime](https://onnxruntime.ai/) to run the models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using our conversion script). In general, the command will look something like this:
+Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN or static hosting. For example, using [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules), you can import the library with:
+```html
+<script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.0.0/';
+</script>
 ```
-python -m scripts.convert --model_id <hf_model_id> --from_hub --quantize --task <task>
-```
-
-For example, to use `bert-base-uncased` for masked language modelling, you can use the command:
-```
-python -m scripts.convert --model_id bert-base-uncased --from_hub --quantize --task masked-lm
-```
-
-If you want to use a local model, remove the `--from_hub` flag from above and place your PyTorch model in the `./models/pytorch/` folder. You can also choose a different location by specifying the parent input folder with `--input_parent_dir /path/to/parent_dir/` (note: without the model id). 
-
-
-Alternatively, you can find some of the models we have already converted [here](https://huggingface.co/Xenova/transformers.js). For example, to use `bert-base-uncased` for masked language modelling, you can use the model found at [https://huggingface.co/Xenova/transformers.js/tree/main/quantized/bert-base-uncased/masked-lm](https://huggingface.co/Xenova/transformers.js/tree/main/quantized/bert-base-uncased/masked-lm).
-
-*Note:* We recommend quantizing the model (`--quantize`) to reduce model size and improve inference speeds (at the expense of a slight decrease in accuracy). For more information, run the help command: `python -m scripts.convert -h`.
-
-
-### Options
-*Coming soon...*
 
 
 ## Examples
-*Coming soon... In the meantime, check out the source code for the demo [here](https://github.com/xenova/transformers.js/blob/main/assets/js/worker.js).*
 
-## Credit
-Inspired by https://github.com/praeclarum/transformers-js
+Want to jump straight in? Get started with one of our sample applications/templates:
+
+| Platform          | Description                      | Source code                   |
+|-------------------|----------------------------------|-------------------------------|
+| React             | Multilingual translation website | [link](./examples/react-translator/) |
+| Browser extension | Text classification extension    | [link](./examples/extension/) |
+| Electron          | Text classification application  | [link](./examples/electron/)  |
+| Next.js           | *Coming soon*                    | [link](./examples/next/)      |
+| Node.js           | *Coming soon*                    | [link](./examples/node/)      |
+
+
+## Custom usage
+
+
+
+By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/), which should work out-of-the-box. You can customize this as follows:
+
+
+### Settings
+
+```javascript
+import { env } from '@xenova/transformers';
+
+// Specify a custom location for models (defaults to '/models/').
+env.localModelPath = '/path/to/models/';
+
+// Disable the loading of remote models from the Hugging Face Hub:
+env.allowRemoteModels = false;
+
+// Set location of .wasm files. Defaults to use a CDN.
+env.backends.onnx.wasm.wasmPaths = '/path/to/files/';
+```
+
+For a full list of available settings, check out the [API Reference](https://huggingface.co/docs/transformers.js/api/env).
+
+### Convert your models to ONNX
+
+We recommend using our [conversion script](https://github.com/xenova/transformers.js/blob/main/scripts/convert.py) to convert your PyTorch, TensorFlow, or JAX models to ONNX in a single command. Behind the scenes, it uses [🤗 Optimum](https://huggingface.co/docs/optimum) to perform conversion and quantization of your model.
+
+```bash
+python -m scripts.convert --quantize --model_id <model_name_or_path>
+```
+
+For example, convert and quantize [bert-base-uncased](https://huggingface.co/bert-base-uncased) using:
+```bash
+python -m scripts.convert --quantize --model_id bert-base-uncased
+```
+
+This will save the following files to `./models/`:
+
+```
+bert-base-uncased/
+├── config.json
+├── tokenizer.json
+├── tokenizer_config.json
+└── onnx/
+    ├── model.onnx
+    └── model_quantized.onnx
+```
+
+
+## Supported tasks/models
+
+Here is the list of all tasks and models currently supported by Transformers.js.
+If you don't see your task/model listed here or it is not yet supported, feel free
+to open up a feature request [here](https://github.com/xenova/transformers.js/issues/new/choose).
+
+
+### Tasks
+
+#### Natual Language Processing
+
+| Task                     | ID | Description | Supported? |
+|--------------------------|----|-------------|------------|
+| [Conversational](https://huggingface.co/tasks/conversational)           | `conversational`  | Generating conversational text that is relevant, coherent and knowledgable given a prompt. | ❌ |
+| [Fill-Mask](https://huggingface.co/tasks/fill-mask)                     | `fill-mask`   | Masking some of the words in a sentence and predicting which words should replace those masks. | ✅ |
+| [Question Answering](https://huggingface.co/tasks/question-answering)   | `question-answering`   | Retrieve the answer to a question from a given text. | ✅ |
+| [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity) | `sentence-similarity`  | Determining how similar two texts are. | ✅ |
+| [Summarization](https://huggingface.co/tasks/summarization)             |  `summarization`  | Producing a shorter version of a document while preserving its important information. | ✅ |
+| [Table Question Answering](https://huggingface.co/tasks/table-question-answering) |  `table-question-answering`  | Answering a question about information from a given table. | ❌ |
+| [Text Classification](https://huggingface.co/tasks/text-classification)      | `text-classification` or `sentiment-analysis`  | Assigning a label or class to a given text. | ✅ |
+| [Text Generation](https://huggingface.co/tasks/text-generation#completion-generation-models)          | `text-generation`  | Producing new text by predicting the next word in a sequence. | ✅ |
+| [Text-to-text Generation](https://huggingface.co/tasks/text-generation#text-to-text-generation-models)  | `text2text-generation`  | Converting one text sequence into another text sequence. | ✅ |
+| [Token Classification](https://huggingface.co/tasks/token-classification)     | `token-classification` or `ner`  | Assigning a label to each token in a text. | ✅ |
+| [Translation](https://huggingface.co/tasks/translation)              |  `translation`  | Converting text from one language to another. | ✅ |
+| [Zero-Shot Classification](https://huggingface.co/tasks/zero-shot-classification) | `zero-shot-classification`  | Classifying text into classes that are unseen during training.  | ✅ |
+
+#### Vision
+
+| Task                     | ID | Description | Supported? |
+|--------------------------|----|-------------|------------|
+| [Depth Estimation](https://huggingface.co/tasks/depth-estimation)         |  `depth-estimation`  | Predicting the depth of objects present in an image. | ❌ |
+| [Image Classification](https://huggingface.co/tasks/image-classification)                | `image-classification`   | Assigning a label or class to an entire image. | ✅ |
+| [Image Segmentation](https://huggingface.co/tasks/image-segmentation)       | `image-segmentation`   | Divides an image into segments where each pixel is mapped to an object. This task has multiple variants such as instance segmentation, panoptic segmentation and semantic segmentation. | ✅ |
+| [Image-to-Image](https://huggingface.co/tasks/image-to-image)      |  `image-to-image` | Transforming a source image to match the characteristics of a target image or a target image domain. | ❌ |
+| [Mask Generation](https://huggingface.co/tasks/mask-generation)            |  `mask-generation`  | Generate masks for the objects in an image. | ❌ |
+| [Object Detection](https://huggingface.co/tasks/object-detection)            | `object-detection`   | Identify objects of certain defined classes within an image. | ✅ |
+| [Video Classification](https://huggingface.co/tasks/video-classification) |  n/a  | Assigning a label or class to an entire video. | ❌ |
+| [Unconditional Image Generation](https://huggingface.co/tasks/unconditional-image-generation)      |  n/a   | Generating images with no condition in any context (like a prompt text or another image). | ❌ |
+
+#### Audio
+
+| Task                     | ID | Description | Supported? |
+|--------------------------|----|-------------|------------|
+| [Audio Classification](https://huggingface.co/tasks/audio-classification)         |  `audio-classification`  | Assigning a label or class to a given audio. | ❌ |
+| [Audio-to-Audio](https://huggingface.co/tasks/audio-to-audio)         |  n/a  | Generating audio from an input audio source. | ❌ |
+| [Automatic Speech Recognition](https://huggingface.co/tasks/automatic-speech-recognition)         | `automatic-speech-recognition`  | Transcribing a given audio into text. | ✅ |
+| [Text-to-Speech](https://huggingface.co/tasks/text-to-speech)         |  n/a  | Generating natural-sounding speech given text input. | ❌ |
+
+
+#### Tabular
+
+| Task                     | ID | Description | Supported? |
+|--------------------------|----|-------------|------------|
+| [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         |  n/a  | Classifying a target category (a group) based on set of attributes. | ❌ |
+| [Tabular Regression](https://huggingface.co/tasks/tabular-regression)         |  n/a  | Predicting a numerical value given a set of attributes. | ❌ |
+
+
+#### Multimodal
+
+| Task                     | ID | Description | Supported? |
+|--------------------------|----|-------------|------------|
+| [Document Question Answering](https://huggingface.co/tasks/document-question-answering)         | `document-question-answering`  | Answering questions on document images. | ❌ |
+| [Feature Extraction](https://huggingface.co/tasks/feature-extraction)         |  `feature-extraction`  | Transforming raw data into numerical features that can be processed while preserving the information in the original dataset. | ✅ |
+| [Image-to-Text](https://huggingface.co/tasks/image-to-text)         |  `image-to-text`  | Output text from a given image. | ✅ |
+| [Text-to-Image](https://huggingface.co/tasks/text-to-image)         |  `text-to-image`  | Generates images from input text.  | ❌ |
+| [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)         |  `visual-question-answering`  | Answering open-ended questions based on an image. | ❌ |
+| [Zero-Shot Image Classification](https://huggingface.co/tasks/zero-shot-image-classification) | `zero-shot-image-classification`  | Classifying images into classes that are unseen during training. | ✅ |
+
+
+#### Reinforcement Learning
+
+| Task                     | ID | Description | Supported? |
+|--------------------------|----|-------------|------------|
+| [Reinforcement Learning](https://huggingface.co/tasks/reinforcement-learning)   |  n/a  | Learning from actions by interacting with an environment through trial and error and receiving rewards (negative or positive) as feedback. | ❌ |
+
+
+
+### Models
+
+1. **[ALBERT](https://huggingface.co/docs/transformers/model_doc/albert)** (from Google Research and the Toyota Technological Institute at Chicago) released with the paper [ALBERT: A Lite BERT for Self-supervised Learning of Language Representations](https://arxiv.org/abs/1909.11942), by Zhenzhong Lan, Mingda Chen, Sebastian Goodman, Kevin Gimpel, Piyush Sharma, Radu Soricut.
+1. **[BART](https://huggingface.co/docs/transformers/model_doc/bart)** (from Facebook) released with the paper [BART: Denoising Sequence-to-Sequence Pre-training for Natural Language Generation, Translation, and Comprehension](https://arxiv.org/abs/1910.13461) by Mike Lewis, Yinhan Liu, Naman Goyal, Marjan Ghazvininejad, Abdelrahman Mohamed, Omer Levy, Ves Stoyanov and Luke Zettlemoyer.
+1. **[BERT](https://huggingface.co/docs/transformers/model_doc/bert)** (from Google) released with the paper [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) by Jacob Devlin, Ming-Wei Chang, Kenton Lee and Kristina Toutanova.
+1. **[CLIP](https://huggingface.co/docs/transformers/model_doc/clip)** (from OpenAI) released with the paper [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020) by Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, Ilya Sutskever.
+1. **[CodeGen](https://huggingface.co/docs/transformers/model_doc/codegen)** (from Salesforce) released with the paper [A Conversational Paradigm for Program Synthesis](https://arxiv.org/abs/2203.13474) by Erik Nijkamp, Bo Pang, Hiroaki Hayashi, Lifu Tu, Huan Wang, Yingbo Zhou, Silvio Savarese, Caiming Xiong.
+1. **[DETR](https://huggingface.co/docs/transformers/model_doc/detr)** (from Facebook) released with the paper [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872) by Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, Sergey Zagoruyko.
+1. **[DistilBERT](https://huggingface.co/docs/transformers/model_doc/distilbert)** (from HuggingFace), released together with the paper [DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter](https://arxiv.org/abs/1910.01108) by Victor Sanh, Lysandre Debut and Thomas Wolf. The same method has been applied to compress GPT2 into [DistilGPT2](https://github.com/huggingface/transformers/tree/main/examples/research_projects/distillation), RoBERTa into [DistilRoBERTa](https://github.com/huggingface/transformers/tree/main/examples/research_projects/distillation), Multilingual BERT into [DistilmBERT](https://github.com/huggingface/transformers/tree/main/examples/research_projects/distillation) and a German version of DistilBERT.
+1. **[FLAN-T5](https://huggingface.co/docs/transformers/model_doc/flan-t5)** (from Google AI) released in the repository [google-research/t5x](https://github.com/google-research/t5x/blob/main/docs/models.md#flan-t5-checkpoints) by Hyung Won Chung, Le Hou, Shayne Longpre, Barret Zoph, Yi Tay, William Fedus, Eric Li, Xuezhi Wang, Mostafa Dehghani, Siddhartha Brahma, Albert Webson, Shixiang Shane Gu, Zhuyun Dai, Mirac Suzgun, Xinyun Chen, Aakanksha Chowdhery, Sharan Narang, Gaurav Mishra, Adams Yu, Vincent Zhao, Yanping Huang, Andrew Dai, Hongkun Yu, Slav Petrov, Ed H. Chi, Jeff Dean, Jacob Devlin, Adam Roberts, Denny Zhou, Quoc V. Le, and Jason Wei
+1. **[GPT Neo](https://huggingface.co/docs/transformers/model_doc/gpt_neo)** (from EleutherAI) released in the repository [EleutherAI/gpt-neo](https://github.com/EleutherAI/gpt-neo) by Sid Black, Stella Biderman, Leo Gao, Phil Wang and Connor Leahy.
+1. **[GPT-2](https://huggingface.co/docs/transformers/model_doc/gpt2)** (from OpenAI) released with the paper [Language Models are Unsupervised Multitask Learners](https://blog.openai.com/better-language-models/) by Alec Radford*, Jeffrey Wu*, Rewon Child, David Luan, Dario Amodei** and Ilya Sutskever**.
+1. **[MarianMT](https://huggingface.co/docs/transformers/model_doc/marian)** Machine translation models trained using [OPUS](http://opus.nlpl.eu/) data by Jörg Tiedemann. The [Marian Framework](https://marian-nmt.github.io/) is being developed by the Microsoft Translator Team.
+1. **[MobileBERT](https://huggingface.co/docs/transformers/model_doc/mobilebert)** (from CMU/Google Brain) released with the paper [MobileBERT: a Compact Task-Agnostic BERT for Resource-Limited Devices](https://arxiv.org/abs/2004.02984) by Zhiqing Sun, Hongkun Yu, Xiaodan Song, Renjie Liu, Yiming Yang, and Denny Zhou.
+1. **[MT5](https://huggingface.co/docs/transformers/model_doc/mt5)** (from Google AI) released with the paper [mT5: A massively multilingual pre-trained text-to-text transformer](https://arxiv.org/abs/2010.11934) by Linting Xue, Noah Constant, Adam Roberts, Mihir Kale, Rami Al-Rfou, Aditya Siddhant, Aditya Barua, Colin Raffel.
+1. **[NLLB](https://huggingface.co/docs/transformers/model_doc/nllb)** (from Meta) released with the paper [No Language Left Behind: Scaling Human-Centered Machine Translation](https://arxiv.org/abs/2207.04672) by the NLLB team.
+1. **[SqueezeBERT](https://huggingface.co/docs/transformers/model_doc/squeezebert)** (from Berkeley) released with the paper [SqueezeBERT: What can computer vision teach NLP about efficient neural networks?](https://arxiv.org/abs/2006.11316) by Forrest N. Iandola, Albert E. Shaw, Ravi Krishna, and Kurt W. Keutzer.
+1. **[T5](https://huggingface.co/docs/transformers/model_doc/t5)** (from Google AI) released with the paper [Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer](https://arxiv.org/abs/1910.10683) by Colin Raffel and Noam Shazeer and Adam Roberts and Katherine Lee and Sharan Narang and Michael Matena and Yanqi Zhou and Wei Li and Peter J. Liu.
+1. **[T5v1.1](https://huggingface.co/docs/transformers/model_doc/t5v1.1)** (from Google AI) released in the repository [google-research/text-to-text-transfer-transformer](https://github.com/google-research/text-to-text-transfer-transformer/blob/main/released_checkpoints.md#t511) by Colin Raffel and Noam Shazeer and Adam Roberts and Katherine Lee and Sharan Narang and Michael Matena and Yanqi Zhou and Wei Li and Peter J. Liu.
+1. **[Vision Transformer (ViT)](https://huggingface.co/docs/transformers/model_doc/vit)** (from Google AI) released with the paper [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929) by Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, Neil Houlsby.
+1. **[Whisper](https://huggingface.co/docs/transformers/model_doc/whisper)** (from OpenAI) released with the paper [Robust Speech Recognition via Large-Scale Weak Supervision](https://cdn.openai.com/papers/whisper.pdf) by Alec Radford, Jong Wook Kim, Tao Xu, Greg Brockman, Christine McLeavey, Ilya Sutskever.
 
 

@@ -1,0 +1,11 @@
+# Place your WASM files here.
+# You can download them from: https://www.jsdelivr.com/package/npm/@xenova/transformers?tab=files&path=dist
+# Copy the following files to this directory:
+# - ort-wasm.wasm
+# - ort-wasm-simd.wasm
+# - ort-wasm-simd-threaded.wasm
+# - ort-wasm-threaded.wasm
+# 
+# Depending on your application, you may not need all of them.
+*
+!.gitignore

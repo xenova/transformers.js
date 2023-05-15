@@ -1,8 +1,11 @@
-const webpack = require('webpack');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
-const TerserPlugin = require('terser-webpack-plugin');
+import CopyWebpackPlugin from 'copy-webpack-plugin';
+import TerserPlugin from 'terser-webpack-plugin';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-module.exports = {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default {
     mode: 'development',
     devtool: 'source-map',
     entry: {
@@ -14,13 +17,11 @@ module.exports = {
     output: {
         filename: '[name].js',
         path: __dirname,
+        library: {
+            type: 'module',
+        },
     },
     plugins: [
-        // Do not include node modules when bundling for the browser
-        new webpack.IgnorePlugin({
-            resourceRegExp: /^onnxruntime-node$|^node:/
-        }),
-
         // Copy .wasm files to dist folder
         new CopyWebpackPlugin({
             patterns: [
@@ -43,5 +44,8 @@ module.exports = {
             directory: __dirname
         },
         port: 8080
+    },
+    experiments: {
+        outputModule: true,
     },
 };

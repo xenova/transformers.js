@@ -1,0 +1,54 @@
+- local: index
+  title: 🤗 Transformers.js
+- sections:
+  - local: installation
+    title: Installation
+  - local: pipelines
+    title: The pipeline API
+  - local: custom_usage
+    title: Custom usage
+  title: Get started
+- sections:
+  - local: tutorials/react
+    title: Building a React Application
+  - local: tutorials/browser-extension
+    title: Building a Browser Extension
+  - local: tutorials/electron
+    title: Building an Electron Application
+  title: Tutorials
+- sections:
+  - local: api/transformers
+    title: Index
+  - local: api/pipelines
+    title: Pipelines
+  - local: api/models
+    title: Models
+  - local: api/tokenizers
+    title: Tokenizers
+  - local: api/processors
+    title: Processors
+  - local: api/env
+    title: Environment variables
+  - sections:
+    - local: api/backends/onnx
+      title: ONNX
+    title: Backends
+    isExpanded: false
+  - sections:
+    - local: api/utils/core
+      title: Core
+    - local: api/utils/hub
+      title: Hub
+    - local: api/utils/image
+      title: Image
+    - local: api/utils/audio
+      title: Audio
+    - local: api/utils/tensor
+      title: Tensor
+    - local: api/utils/maths
+      title: Maths
+    - local: api/utils/generation
+      title: Generation
+    title: Utilities
+    isExpanded: false
+  title: API Reference

@@ -1,5 +1,18 @@
 {
+    // Only include files in the src directory
+    "include": [
+        "src/**/*"
+    ],
     "compilerOptions": {
-        "checkJs": true
+        // Tells the compiler to check JS files
+        "checkJs": true,
+        "target": "esnext",
+        "module": "esnext",
+        "moduleResolution": "nodenext",
+    },
+    "typeAcquisition": {
+        "include": [
+            "jest"
+        ]
     }
 }

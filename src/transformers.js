@@ -1,70 +1,25 @@
+// @ts-nocheck
 
-const {
-    AutoTokenizer,
-    BertTokenizer,
-    DistilBertTokenizer,
-    T5Tokenizer,
-    GPT2Tokenizer
-} = require("./tokenizers.js");
-const {
-    AutoModel,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoModelForSeq2SeqLM,
-    AutoModelForCausalLM,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForVision2Seq,
-    AutoModelForImageClassification,
-    AutoModelForObjectDetection,
-} = require("./models.js");
+/**
+ * @file Entry point for the Transformers.js library. Only the exports from this file
+ * are available to the end user, and are grouped as follows:
+ * 
+ * 1. [Pipelines](./pipelines)
+ * 2. [Environment variables](./env)
+ * 3. [Models](./models)
+ * 4. [Tokenizers](./tokenizers)
+ * 5. [Processors](./processors)
+ * 
+ * @module transformers
+ */
 
-const {
-    AutoProcessor
-} = require("./processors.js");
-const {
-    pipeline
-} = require("./pipelines.js");
-const { env } = require('./env.js');
+export * from './pipelines.js';
+export * from './env.js';
+export * from './models.js';
+export * from './tokenizers.js';
+export * from './processors.js';
 
-const { Tensor } = require('./tensor_utils.js');
-
-const moduleExports = {
-    // Tokenizers
-    AutoTokenizer,
-    BertTokenizer,
-    DistilBertTokenizer,
-    T5Tokenizer,
-    GPT2Tokenizer,
-
-    // Models
-    AutoModel,
-    AutoModelForSeq2SeqLM,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoModelForCausalLM,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForVision2Seq,
-    AutoModelForImageClassification,
-    AutoModelForObjectDetection,
-
-    // Processors
-    AutoProcessor,
-
-    // other
-    pipeline,
-    Tensor,
-
-    // environment variables
-    env
-};
-
-// Allow global access to these variables
-if (typeof self !== 'undefined') {
-    // Used by web workers
-    Object.assign(self, moduleExports);
-}
-
-// Used by other modules
-module.exports = moduleExports
+export * from './utils/audio.js';
+export * from './utils/image.js';
+export * from './utils/tensor.js';
+export * from './utils/maths.js';

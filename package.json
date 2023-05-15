@@ -1,17 +1,20 @@
 {
   "name": "@xenova/transformers",
-  "version": "1.4.3",
-  "description": "Run 🤗 Transformers in your browser! We currently support BERT, ALBERT, DistilBERT, MobileBERT, SqueezeBERT, T5, T5v1.1, FLAN-T5, mT5, BART, MarianMT, GPT2, GPT Neo, CodeGen, Whisper, CLIP, Vision Transformer, VisionEncoderDecoder, and DETR models, for a variety of tasks including: masked language modelling, text classification, token classification, zero-shot classification, text-to-text generation, translation, summarization, question answering, text generation, automatic speech recognition, image classification, zero-shot image classification, image-to-text, image segmentation, and object detection.",
+  "version": "2.0.0-alpha.0",
+  "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
-  "directories": {
-    "test": "tests"
-  },
+  "types": "./types/transformers.d.ts",
+  "type": "module",
   "scripts": {
-    "webpack": "webpack",
-    "typegen": "tsc ./src/transformers.js --outDir dist/types --allowJs --declaration --emitDeclarationOnly",
+    "typegen": "tsc ./src/transformers.js --allowJs --declaration --emitDeclarationOnly --declarationMap --outDir types",
     "dev": "webpack serve --no-client-overlay",
-    "test": "node tests/index.js",
-    "build": "npm run webpack && npm run typegen"
+    "build": "webpack && npm run typegen",
+    "generate-tests": "python tests/generate_tests.py",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
+    "readme": "python ./docs/scripts/build_readme.py",
+    "docs-api": "node ./docs/scripts/generate.js",
+    "docs-preview": "doc-builder preview transformers.js ./docs/source/ --not_python_module",
+    "docs-build": "doc-builder build transformers.js ./docs/source/ --not_python_module --build_dir ./docs/build/ --repo_owner xenova"
   },
   "repository": {
     "type": "git",
@@ -37,22 +40,33 @@
     "onnxruntime-node": "^1.14.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.1",
+    "catharsis": "github:xenova/catharsis",
     "copy-webpack-plugin": "^11.0.0",
+    "jest": "^29.5.0",
+    "jest-environment-node": "^29.5.0",
+    "jsdoc-to-markdown": "^8.0.0",
     "typescript": "^5.0.2",
-    "webpack": "^5.76.0",
-    "webpack-cli": "^5.0.1",
-    "webpack-dev-server": "^4.11.1"
+    "webpack": "^5.80.0",
+    "webpack-cli": "^5.0.2",
+    "webpack-dev-server": "^4.13.3"
   },
   "files": [
     "src",
     "dist",
-    "tests",
+    "types",
     "README.md",
     "LICENSE"
   ],
   "browser": {
     "fs": false,
     "path": false,
-    "sharp": false
+    "url": false,
+    "sharp": false,
+    "onnxruntime-node": false,
+    "stream/web": false
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
