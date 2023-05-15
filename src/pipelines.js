@@ -669,7 +669,7 @@ export class FeatureExtractionPipeline extends Pipeline {
      */
     _normalize(tensor) {
         for (let batch of tensor) {
-            let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b))
+            let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b, 0))
 
             for (let i = 0; i < batch.data.length; ++i) {
                 batch.data[i] /= norm;
