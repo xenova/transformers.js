@@ -2,9 +2,11 @@ name: Unit tests
 
 on:
   push:
-    branches: [ main, docs ]
+    branches:
+      - main
   pull_request:
-    branches: [ main, docs ]
+    branches:
+      - main
 
 env:
   TESTING_REMOTELY: true
