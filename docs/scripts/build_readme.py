@@ -34,13 +34,13 @@ to open up a feature request [here](https://github.com/xenova/transformers.js/is
 
 
 FILES_TO_INCLUDE = dict(
-    intro='./docs/source/snippets/0_introduction.snippet',
-    quick_tour='./docs/source/snippets/1_quick-tour.snippet',
-    installation='./docs/source/snippets/2_installation.snippet',
-    examples='./docs/source/snippets/3_examples.snippet',
-    custom_usage='./docs/source/snippets/4_custom-usage.snippet',
-    tasks='./docs/source/snippets/5_supported-tasks.snippet',
-    models='./docs/source/snippets/6_supported-models.snippet',
+    intro='./docs/snippets/0_introduction.snippet',
+    quick_tour='./docs/snippets/1_quick-tour.snippet',
+    installation='./docs/snippets/2_installation.snippet',
+    examples='./docs/snippets/3_examples.snippet',
+    custom_usage='./docs/snippets/4_custom-usage.snippet',
+    tasks='./docs/snippets/5_supported-tasks.snippet',
+    models='./docs/snippets/6_supported-models.snippet',
 )
 
 # Map of custom links to replace, typically used for links to other sections of the README.
