@@ -115,9 +115,12 @@ SUPPORTED_MODELS = {
         'distilroberta-base',
         'roberta-large-mnli',
 
-        # TODO:
-        # https://github.com/huggingface/optimum/issues/1028
-        # 'sentence-transformers/all-distilroberta-v1',
+        'sentence-transformers/all-distilroberta-v1',
+    },
+    'sam': {
+        'facebook/sam-vit-base',
+        'facebook/sam-vit-large',
+        'facebook/sam-vit-huge',
     },
     'squeezebert': {
         'squeezebert/squeezebert-uncased',
