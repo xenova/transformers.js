@@ -65,5 +65,8 @@
     "sharp": false,
     "onnxruntime-node": false,
     "stream/web": false
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
