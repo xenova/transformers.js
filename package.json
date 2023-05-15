@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "2.0.0-alpha.0",
+  "version": "2.0.0-alpha.1",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
@@ -68,5 +68,9 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "jsdelivr": {
+    "main": "./dist/transformers.min.js"
+  },
+  "unpkg": "./dist/transformers.min.js"
 }
