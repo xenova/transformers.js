@@ -64,7 +64,6 @@ import {
 
 import {
     Tensor,
-    cat
 } from './utils/tensor.js';
 
 import { executionProviders, ONNX } from './backends/onnx.js';
@@ -839,16 +838,9 @@ export class PreTrainedModel extends Callable {
                 // In most cases, this will be [batch_size, 1, vocab_size]
                 // So, we select the last token's logits:
                 // (equivalent to `logits = outputs.logits[:, -1, :]`)
-                let extractedLogits = [];
-                for (const batch of output.logits) {
-                    // Extract logits corresponding to the last token
-                    let lastLogits = batch[-1];
+                let logits = output.logits.slice(null, -1, null);
 
-                    // Add back batch dimension (needed for `cat`)
-                    lastLogits.dims = [1, ...lastLogits.dims];
-                    extractedLogits.push(lastLogits)
-                }
-                let logits = cat(extractedLogits);
+                // Apply logits processor
                 logits_processor(beam.output_token_ids, logits);
 
                 let sampledTokens = sampler(logits);

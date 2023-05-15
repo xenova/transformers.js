@@ -185,8 +185,11 @@ export class Tensor extends ONNXTensor {
                 newTensorDims.push(this.dims[sliceIndex]);
 
             } else if (typeof slice === 'number') {
-                if (slice < 0 || slice >= this.dims[sliceIndex]) {
+                if (slice < -this.dims[sliceIndex] || slice >= this.dims[sliceIndex]) {
                     throw new Error(`IndexError: index ${slice} is out of bounds for dimension ${sliceIndex} with size ${this.dims[sliceIndex]}`);
+                }
+                if (slice < 0) {
+                    slice += this.dims[sliceIndex];
                 }
 
                 // A number means take a single element
