@@ -43,6 +43,9 @@ MODELS_TO_TEST = {
         "gpt2",
         "distilgpt2",
     ],
+    "llama": [
+        "hf-internal-testing/llama-tokenizer",
+    ],
     "m2m_100": [
         "facebook/nllb-200-distilled-600M",
     ],
@@ -58,8 +61,7 @@ MODELS_TO_TEST = {
         "distilroberta-base",
         "roberta-large-mnli",
 
-        # TODO add back
-        # "sentence-transformers/all-distilroberta-v1",
+        "sentence-transformers/all-distilroberta-v1",
     ],
     "squeezebert": [
         "squeezebert/squeezebert-uncased",
@@ -92,6 +94,10 @@ TOKENIZER_TEST_DATA = {
         "def main():\n\tpass",
         "This\n\nis\na\ntest.",
         "let a = obj.toString();\ntoString();",
+        'Hi  Hello',
+        "trailing space   ",
+        "   leading space",
+        "生活的真谛是",
     ],
     "custom": {},
 }
@@ -115,8 +121,20 @@ def generate_tokenizer_tests():
 
             # Run tokenizer on test cases
             for text in shared_texts + custom_texts:
-                tokens = tokenizer(text).data
-                tokenizer_results.append({"input": text, "target": tokens})
+                # TODO: add with_pair option
+
+                encoded = tokenizer(text).data
+                decoded_with_special = tokenizer.decode(
+                    encoded["input_ids"], skip_special_tokens=False)
+                decoded_without_special = tokenizer.decode(
+                    encoded["input_ids"], skip_special_tokens=True)
+
+                tokenizer_results.append(dict(
+                    input=text,
+                    encoded=encoded,
+                    decoded_with_special=decoded_with_special,
+                    decoded_without_special=decoded_without_special,
+                ))
 
             results[tokenizer_name] = tokenizer_results
 
