@@ -1,6 +1,14 @@
 
-# Transformers.js
 
+<p align="center">
+    <br/>
+    <picture> 
+        <source media="(prefers-color-scheme: dark)" srcset="https://huggingface.co/datasets/Xenova/transformers.js-docs/raw/main/transformersjs-dark.svg" width="500" style="max-width: 100%;">
+        <source media="(prefers-color-scheme: light)" srcset="https://huggingface.co/datasets/Xenova/transformers.js-docs/raw/main/transformersjs-light.svg" width="500" style="max-width: 100%;">
+        <img alt="transformers.js javascript library logo" src="https://huggingface.co/datasets/Xenova/transformers.js-docs/raw/main/transformersjs-light.svg" width="500" style="max-width: 100%;">
+    </picture>
+    <br/>
+</p>
 
 <p align="center">
     <a href="https://www.npmjs.com/package/@xenova/transformers">
@@ -99,13 +107,13 @@ Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN
 
 Want to jump straight in? Get started with one of our sample applications/templates:
 
-| Platform          | Description                          | Source code                   |
-|-------------------|--------------------------------------|-------------------------------|
-| React             | Multilingual translation application | [link](./examples/react-translator/) |
-| Browser extension | Text classification extension        | [link](./examples/extension/) |
-| Electron          | Text classification application      | [link](./examples/electron/)  |
-| Next.js           | *Coming soon*                        | [link](./examples/next/)      |
-| Node.js           | *Coming soon*                        | [link](./examples/node/)      |
+| Platform          | Description                      | Source code                   |
+|-------------------|----------------------------------|-------------------------------|
+| React             | Multilingual translation website | [link](./examples/react-translator/) |
+| Browser extension | Text classification extension    | [link](./examples/extension/) |
+| Electron          | Text classification application  | [link](./examples/electron/)  |
+| Next.js           | *Coming soon*                    | [link](./examples/next/)      |
+| Node.js           | *Coming soon*                    | [link](./examples/node/)      |
 
 
 ## Custom usage
