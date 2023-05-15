@@ -1,7 +1,7 @@
 {
   "name": "@xenova/transformers",
-  "version": "1.5.0.dev",
-  "description": "Run 🤗 Transformers in your browser! We currently support BERT, ALBERT, DistilBERT, MobileBERT, SqueezeBERT, T5, T5v1.1, FLAN-T5, mT5, BART, MarianMT, GPT2, GPT Neo, CodeGen, Whisper, CLIP, Vision Transformer, VisionEncoderDecoder, and DETR models, for a variety of tasks including: masked language modelling, text classification, token classification, zero-shot classification, text-to-text generation, translation, summarization, question answering, text generation, automatic speech recognition, image classification, zero-shot image classification, image-to-text, image segmentation, and object detection.",
+  "version": "2.0.0-alpha.0",
+  "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
   "type": "module",
@@ -55,7 +55,6 @@
     "src",
     "dist",
     "types",
-    "tests",
     "README.md",
     "LICENSE"
   ],
