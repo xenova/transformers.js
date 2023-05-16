@@ -14,7 +14,7 @@ import './theme.css';
 import './style.css';
 
 // Initialise worker
-const worker = new Worker('./worker.js', {
+const worker = new Worker(new URL('./worker.js', import.meta.url), {
   type: 'module',
 });
 
