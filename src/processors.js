@@ -1087,14 +1087,14 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
         const log_spec = new Float32Array(mel_spec.length);
 
         let maxLogSpec = 0;
-        for (let i = 0; i < mel_spec.length; i++) {
+        for (let i = 0; i < mel_spec.length; ++i) {
             const clipped = Math.max(a_min, mel_spec[i]);
             const log10 = Math.log10(clipped);
             log_spec[i] = log10;
             maxLogSpec = Math.max(log10, maxLogSpec)
         }
 
-        for (let i = 0; i < log_spec.length; i++) {
+        for (let i = 0; i < log_spec.length; ++i) {
             log_spec[i] = Math.max(log_spec[i], maxLogSpec - 8);
             log_spec[i] = (log_spec[i] + 4) / 4;
         }
