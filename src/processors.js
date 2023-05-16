@@ -38,6 +38,7 @@ import {
 import { Tensor, transpose, cat, interpolate } from './utils/tensor.js';
 
 import { CustomImage } from './utils/image.js';
+import { getMelFilters } from './utils/audio.js';
 
 
 /**
@@ -1017,6 +1018,14 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
     }
 
     /**
+     * Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
+     */
+    get melFilters() {
+        const { sampling_rate, n_fft, feature_size, mel_filters } = this.config;
+        return mel_filters ?? getMelFilters(sampling_rate, n_fft, feature_size);
+    }
+    
+    /**
      * Computes the log-Mel spectrogram of the provided audio waveform.
      * @param {Float32Array} waveform The audio waveform to process.
      * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
@@ -1050,7 +1059,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        const mel_filters = this.config.mel_filters
+        const mel_filters = this.melFilters;
         const num_mel_filters = mel_filters.length;
 
         const mel_spec = new Float32Array(num_mel_filters * d1);

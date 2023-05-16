@@ -269,6 +269,28 @@ export function max(arr) {
     return [max, indexOfMax];
 }
 
+/**
+ * Code adapted from https://github.com/numpy/numpy/blob/25908cacd19915bf3ddd659c28be28a41bd97a54/numpy/fft/helper.py#L173-L221
+ * Original Python doc: Original Python doc: https://numpy.org/doc/stable/reference/generated/numpy.fft.rfftfreq.html
+ * @example
+ * rfftfreq(400, 1 / 16000) // (201) [0, 40, 80, 120, 160, 200, ..., 8000]
+ * @param {number} n Window length
+ * @param {number} [d = 1.0] Sample spacing (inverse of the sampling rate). Defaults to 1.
+ * @throws {TypeError}
+ * @returns {number[]} Array of length `Math.floor(n / 2) + 1;` containing the sample frequencies.
+ */
+ export function rfftfreq(n, d = 1.0) {
+    if (!Number.isInteger(n)) {
+        throw new TypeError(`n should be an integer, but ${n} given.`);
+    }
+    const val = 1.0 / (n * d);
+    const len = Math.floor(n / 2) + 1;
+    const results = new Array(len);
+    for (let i = 0; i < len; i++) {
+      results[i] = i * val;
+    }
+    return results;
+}
 
 /**
  * FFT class provides functionality for performing Fast Fourier Transform on arrays
