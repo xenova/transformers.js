@@ -21,6 +21,10 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
+# Set base path
+env:
+  BASE_PATH: "/transformers.js/"
+
 jobs:
   # Single deploy job since we're just deploying
   deploy:
