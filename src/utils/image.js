@@ -37,7 +37,7 @@ if (BROWSER_ENV) {
 
     loadImageFunction = async (/**@type {sharp.Sharp}*/img) => {
         let { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
-        return new CustomImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
+        return new RawImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
     }
 
 } else {
@@ -55,10 +55,10 @@ const RESAMPLING_MAPPING = {
     5: 'hamming',
 }
 
-export class CustomImage {
+export class RawImage {
 
     /**
-     * Create a new CustomImage object.
+     * Create a new `RawImage` object.
      * @param {Uint8ClampedArray} data The pixel data.
      * @param {number} width The width of the image.
      * @param {number} height The height of the image.
@@ -70,11 +70,11 @@ export class CustomImage {
 
     /**
      * Helper method for reading an image from a variety of input types.
-     * @param {CustomImage|string|URL} input 
+     * @param {RawImage|string|URL} input 
      * @returns The image object.
      */
     static async read(input) {
-        if (input instanceof CustomImage) {
+        if (input instanceof RawImage) {
             return input;
         } else if (isString(input) || input instanceof URL) {
             return await this.fromURL(input);
@@ -87,7 +87,7 @@ export class CustomImage {
     /**
      * Read an image from a URL or file path.
      * @param {string|URL} url The URL or file path to read the image from.
-     * @returns {Promise<CustomImage>} The image object.
+     * @returns {Promise<RawImage>} The image object.
      */
     static async fromURL(url) {
         let response = await getFile(url);
@@ -98,7 +98,7 @@ export class CustomImage {
     /**
      * Helper method to create a new Image from a blob.
      * @param {Blob} blob The blob to read the image from.
-     * @returns {Promise<CustomImage>} The image object.
+     * @returns {Promise<RawImage>} The image object.
      */
     static async fromBlob(blob) {
         if (BROWSER_ENV) {
@@ -122,7 +122,7 @@ export class CustomImage {
 
     /**
      * Convert the image to grayscale format.
-     * @returns {CustomImage} `this` to support chaining.
+     * @returns {RawImage} `this` to support chaining.
      */
     grayscale() {
         if (this.channels === 1) {
@@ -149,7 +149,7 @@ export class CustomImage {
 
     /**
      * Convert the image to RGB format.
-     * @returns {CustomImage} `this` to support chaining.
+     * @returns {RawImage} `this` to support chaining.
      */
     rgb() {
         if (this.channels === 3) {
@@ -182,7 +182,7 @@ export class CustomImage {
 
     /**
      * Convert the image to RGBA format.
-     * @returns {CustomImage} `this` to support chaining.
+     * @returns {RawImage} `this` to support chaining.
      */
     rgba() {
         if (this.channels === 4) {
@@ -221,7 +221,7 @@ export class CustomImage {
      * @param {number} height The height of the new image.
      * @param {Object} options Additional options for resizing.
      * @param {0|1|2|3|4|5|string} [options.resample] The resampling method to use.
-     * @returns {Promise<CustomImage>} `this` to support chaining.
+     * @returns {Promise<RawImage>} `this` to support chaining.
      */
     async resize(width, height, {
         resample = 2,
@@ -246,7 +246,7 @@ export class CustomImage {
             ctx.drawImage(canvas, 0, 0, width, height);
 
             // Create image from the resized data
-            let resizedImage = new CustomImage(ctx.getImageData(0, 0, width, height).data, width, height, 4);
+            let resizedImage = new RawImage(ctx.getImageData(0, 0, width, height).data, width, height, 4);
 
             // Convert back so that image has the same number of channels as before
             return resizedImage.convert(numChannels);
@@ -329,7 +329,7 @@ export class CustomImage {
             );
 
             // Create image from the padded data
-            let paddedImage = new CustomImage(
+            let paddedImage = new RawImage(
                 ctx.getImageData(0, 0, newWidth, newHeight).data,
                 newWidth, newHeight, 4);
 
@@ -394,7 +394,7 @@ export class CustomImage {
             );
 
             // Create image from the resized data
-            let resizedImage = new CustomImage(ctx.getImageData(0, 0, crop_width, crop_height).data, crop_width, crop_height, 4);
+            let resizedImage = new RawImage(ctx.getImageData(0, 0, crop_width, crop_height).data, crop_width, crop_height, 4);
 
             // Convert back so that image has the same number of channels as before
             return resizedImage.convert(numChannels);
@@ -503,16 +503,16 @@ export class CustomImage {
 
     /**
      * Clone the image
-     * @returns {CustomImage} The cloned image
+     * @returns {RawImage} The cloned image
      */
     clone() {
-        return new CustomImage(this.data.slice(), this.width, this.height, this.channels);
+        return new RawImage(this.data.slice(), this.width, this.height, this.channels);
     }
 
     /**
      * Helper method for converting image to have a certain number of channels
      * @param {number} numChannels The number of channels. Must be 1, 3, or 4.
-     * @returns {CustomImage} `this` to support chaining.
+     * @returns {RawImage} `this` to support chaining.
      */
     convert(numChannels) {
         if (this.channels === numChannels) return this; // Already correct number of channels

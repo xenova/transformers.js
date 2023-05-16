@@ -37,7 +37,7 @@ import {
 
 import { Tensor, transpose, cat, interpolate } from './utils/tensor.js';
 
-import { CustomImage } from './utils/image.js';
+import { RawImage } from './utils/image.js';
 import { getMelFilters } from './utils/audio.js';
 
 
@@ -103,7 +103,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     /**
      * Preprocesses the given image.
      *
-     * @param {CustomImage} image The image to preprocess.
+     * @param {RawImage} image The image to preprocess.
      * @returns {Promise<any>} The preprocessed image as a Tensor.
      */
     async preprocess(image) {

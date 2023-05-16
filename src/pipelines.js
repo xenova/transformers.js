@@ -53,7 +53,7 @@ import {
     read_audio
 } from './utils/audio.js';
 import { Tensor } from './utils/tensor.js';
-import { CustomImage } from './utils/image.js';
+import { RawImage } from './utils/image.js';
 
 /**
  * Prepare images for further tasks.
@@ -67,7 +67,7 @@ async function prepareImages(images) {
     }
 
     // Possibly convert any non-images to images
-    images = await Promise.all(images.map(x => CustomImage.read(x)));
+    images = await Promise.all(images.map(x => RawImage.read(x)));
     return images;
 }
 
@@ -1038,7 +1038,7 @@ export class ImageSegmentationPipeline extends Pipeline {
                     }
                 }
 
-                let mask = new CustomImage(maskData, segmentation.dims[1], segmentation.dims[0], 1)
+                let mask = new RawImage(maskData, segmentation.dims[1], segmentation.dims[0], 1)
 
                 annotation.push({
                     score: segment.score,
