@@ -33,9 +33,7 @@
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
             <li class="nav-item"><a class="nav-link" href="#demo">Demo</a></li>
-            <li class="nav-item"><a class="nav-link" href="#getting-started">Getting Started</a></li>
-            <li class="nav-item"><a class="nav-link" href="#usage">Usage</a></li>
-            <li class="nav-item"><a class="nav-link" href="#examples">Examples</a></li>
+            <li class="nav-item"><a class="nav-link" href="#quick-tour">Quick tour</a></li>
           </ul>
         </div>
       </div>
@@ -65,7 +63,8 @@
                 Run <span class="text-white">🤗</span> Transformers in your browser!
               </p>
               <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
-                <a class="btn btn-primary btn-lg px-4 me-sm-3" href="#getting-started">Get Started</a>
+                <a class="btn btn-primary btn-lg px-4 me-sm-3"
+                  href="https://huggingface.co/docs/transformers.js">Documentation</a>
                 <a class="btn btn-outline-light btn-lg px-4" href="https://github.com/xenova/transformers.js">
                   <i class="bi bi-github"></i> View Source
                 </a>
@@ -81,7 +80,7 @@
       <div class="container px-5 my-4">
         <div class="mb-2">
           <h2 class="fw-bolder">Demo</h2>
-          <p class="lead mb-0">Don't believe us? Play around with some of these models:</p>
+          <p class="lead mb-0">Play around with some of these models:</p>
         </div>
         <div class="row justify-content-center">
           <label>Task: </label>
@@ -377,8 +376,7 @@
                 <input class="mt-2 form-control" style="display: none;" type="file" id="image-file" name="image-file"
                   accept="image/*">
 
-                <img id="image-viewer" class="w-100 p-4" src="./images/football-match.jpg"
-                  crossorigin="anonymous">
+                <img id="image-viewer" class="w-100 p-4" src="./images/football-match.jpg" crossorigin="anonymous">
               </div>
 
               <div class="col-lg-6">
@@ -439,8 +437,7 @@
                 <input class="mt-2 form-control" style="display: none;" type="file" id="zsic-file" name="zsic-file"
                   accept="image/*">
 
-                <img id="zsic-viewer" class="w-100 p-4" src="./images/football-match.jpg"
-                  crossorigin="anonymous">
+                <img id="zsic-viewer" class="w-100 p-4" src="./images/football-match.jpg" crossorigin="anonymous">
 
               </div>
 
@@ -531,25 +528,24 @@
 
 
     <!-- Teaser section-->
-    <section class="py-4 border-bottom" id="getting-started">
+    <section class="py-4 border-bottom" id="quick-tour">
       <div class="container px-5 my-4">
         <div class="mb-3">
-          <h2 class="fw-bolder">Getting Started</h2>
+          <h2 class="fw-bolder">Quick tour</h2>
         </div>
         <div class="mb-3">
           <h5 class="mb-2">Installation</h5>
-          If you use <a href="https://www.npmjs.com/package/@xenova/transformers">npm</a>,
-          you can install it using:
+          To install via <a href="https://www.npmjs.com/package/@xenova/transformers">NPM</a>, run:
           <pre><code class="language-bash">npm i @xenova/transformers</code></pre>
 
-          Alternatively, you can use it in a
-          <code>&lt;script&gt;</code>
-          tag from a CDN, for example:
-          <pre><code class="language-html">&lt;!-- Using jsDelivr --&gt;
-&lt;script src=&quot;https://cdn.jsdelivr.net/npm/@xenova/transformers&quot;&gt;&lt;/script&gt;
+          Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN
+          or static hosting. For example, using 
+          <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules">ES Modules</a>,
+          you can import the library with:
 
-&lt;!-- or UNPKG --&gt;
-&lt;script src=&quot;https://www.unpkg.com/@xenova/transformers&quot;&gt;&lt;/script&gt;</code></pre>
+          <pre><code class="language-html">&lt;script type=&quot;module&quot;&gt;
+    import { pipeline } from &#39;https://cdn.jsdelivr.net/npm/@xenova/transformers&#39;;
+&lt;/script&gt;</code></pre>
         </div>
 
         <div class="mb-3">
@@ -583,480 +579,10 @@ let out = await pipe('I love transformers!');
           name as the second argument to the pipeline function. For example:
           <pre><code class="language-js">// Use a different model for sentiment-analysis
 let pipe = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');</code></pre>
-        </div>
 
-        <div class="mb-3">
-          <h5 class="mb-2">Custom setup</h5>
-          By default, Transformers.js uses hosted <a
-            href="https://huggingface.co/Xenova/transformers.js/tree/main/quantized">models</a>
-          precompiled
-          <a href="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/">WASM binaries</a>,
-          which should work out-of-the-box. You can override this behaviour as follows:
-          <pre><code class="language-js">import { env } from '@xenova/transformers';
-
-// Use a different host for models.
-// - `remoteURL` defaults to use the HuggingFace Hub
-// - `localURL` defaults to '/models/onnx/quantized/'
-env.remoteURL = 'https://www.example.com/';
-env.localURL = '/path/to/models/';
-
-// Set whether to use remote or local models. Defaults to true.
-//  - If true, use the path specified by `env.remoteURL`.
-//  - If false, use the path specified by `env.localURL`.
-env.remoteModels = false;
-
-// Set parent path of .wasm files. Defaults to use a CDN.
-env.onnx.wasm.wasmPaths = '/path/to/files/';</code></pre>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Usage section-->
-    <section class="py-4 border-bottom" id="usage">
-      <div class="container px-5 my-4">
-        <div class="mb-3">
-          <h2 class="fw-bolder">Usage</h2>
-          <p class="lead mb-2">We currently support the following
-            <a href="https://huggingface.co/docs/hub/models-tasks">tasks</a> and
-            <a href="https://huggingface.co/models">models</a>, which can be used with the
-            <a href="https://huggingface.co/docs/transformers/main_classes/pipelines">pipeline</a>
-            function.
-          </p>
-          <ol class="list-group list-group-numbered">
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">sentiment-analysis (a.k.a. text-classification)</div>
-                Supported models: <code>distilbert-base-uncased-finetuned-sst-2-english</code>,
-                <code>nlptown/bert-base-multilingual-uncased-sentiment</code>,
-                <code>distilgpt2</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/tasks/sequence_classification">
-                  Text Classification docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">token-classification (a.k.a. ner)</div>
-                Supported models:
-                <code>Davlan/bert-base-multilingual-cased-ner-hrl</code>,
-                <code>Davlan/distilbert-base-multilingual-cased-ner-hrl</code>,
-                <code>ckiplab/bert-base-chinese-ner</code>,
-                <code>ckiplab/bert-base-chinese-ws</code>,
-                <code>ckiplab/bert-base-chinese-pos</code>,
-                <code>dslim/bert-base-NER</code>,
-                <code>dslim/bert-base-NER-uncased</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/tasks/token_classification">
-                  Token Classification docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">zero-shot-classification</div>
-                Supported models:
-                <code>roberta-large-mnli</code>,
-                <code>typeform/distilbert-base-uncased-mnli</code>,
-                <code>typeform/mobilebert-uncased-mnli</code>,
-                <code>squeezebert/squeezebert-mnli</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/tasks/zero-shot-classification">
-                  Zero-shot classification docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">question-answering</div>
-                Supported models: <code>distilbert-base-cased-distilled-squad</code>,
-                <code>distilbert-base-uncased-distilled-squad</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/tasks/question_answering">
-                  Question Answering docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">fill-mask</div>
-                Supported models: <code>xlm-roberta-base</code>, <code>albert-large-v2</code>,
-                <code>albert-base-v2</code>, <code>distilroberta-base</code>, <code>roberta-base</code>,
-                <code>bert-base-cased</code>, <code>bert-base-uncased</code>,
-                <code>bert-base-multilingual-uncased</code>, <code>bert-base-multilingual-cased</code>,
-                <code>distilbert-base-cased</code>,
-                <code>distilbert-base-uncased</code>,
-                <code>google/mobilebert-uncased</code>,
-                <code>squeezebert/squeezebert-uncased</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/tasks/language_modeling">
-                  Language Modelling docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">summarization</div>
-                Supported models:
-                <code>t5-small</code>,
-                <code>t5-base</code>,
-                <code>t5-v1_1-small</code>,
-                <code>t5-v1_1-base</code>,
-                <code>facebook/bart-large-cnn</code>,
-                <code>sshleifer/distilbart-cnn-6-6</code>,
-                <code>sshleifer/distilbart-cnn-12-6</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/tasks/summarization">
-                  Summarization docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">translation (or translation_en_to_de, translation_en_to_fr,
-                  translation_en_to_ro)</div>
-                Supported models:
-                <code>t5-small</code>,
-                <code>t5-base</code>,
-                <code>t5-v1_1-small</code>,
-                <code>t5-v1_1-base</code>,
-                and many <a
-                  href="https://huggingface.co/Xenova/transformers.js/tree/main/quantized/Helsinki-NLP">Helsinki-NLP
-                  models</a>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/tasks/translation">
-                  Translation docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">text2text-generation</div>
-                Supported models:
-                <code>google/flan-t5-small</code>,
-                <code>google/flan-t5-base</code>,
-                <code>t5-small</code>,
-                <code>t5-base</code>,
-                <code>google/t5-v1_1-small</code>,
-                <code>google/t5-v1_1-base</code>,
-                <code>google/mt5-small</code>,
-                <code>facebook/bart-large-cnn</code>,
-                <code>sshleifer/distilbart-cnn-6-6</code>,
-                <code>sshleifer/distilbart-cnn-12-6</code>,
-                <code>humarin/chatgpt_paraphraser_on_T5_base</code>,
-                <code>eugenesiow/bart-paraphrase</code>,
-                <code>ramsrigouthamg/t5_sentence_paraphraser</code>,
-                and many <a
-                  href="https://huggingface.co/Xenova/transformers.js/tree/main/quantized/Helsinki-NLP">Helsinki-NLP
-                  models</a>.
-                For more information, check out the
-                <a href="https://huggingface.co/tasks/text-generation#text-to-text-generation-models">
-                  Text Generation docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">text-generation</div>
-                Supported models:
-                <code>gpt2</code>,
-                <code>distilgpt2</code>,
-                <code>EleutherAI/gpt-neo-125M</code>,
-                <code>Salesforce/codegen-350M-mono</code>,
-                <code>Salesforce/codegen-350M-multi</code>,
-                <code>Salesforce/codegen-350M-nl</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/tasks/text-generation#completion-generation-models">
-                  Text Generation docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">automatic-speech-recognition</div>
-                Supported models:
-                <code>openai/whisper-tiny.en</code>,
-                <code>openai/whisper-tiny</code>,
-                <code>openai/whisper-small.en</code>,
-                <code>openai/whisper-small</code>,
-                <code>openai/whisper-base.en</code>,
-                <code>openai/whisper-base</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/tasks/asr">
-                  Automatic Speech Recognition docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">image-to-text</div>
-                Supported models:
-                <code>nlpconnect/vit-gpt2-image-captioning</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/tasks/image-to-text">
-                  Image-to-Text docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">image-classification</div>
-                Supported models:
-                <code>google/vit-base-patch16-224</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/tasks/image_classification">
-                  Image Classification docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">zero-shot-image-classification</div>
-                Supported models:
-                <code>openai/clip-vit-base-patch16</code>,
-                <code>openai/clip-vit-base-patch32</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/tasks/zero-shot-image-classification">
-                  Zero-Shot Image Classification</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">image-segmentation</div>
-                Supported models:
-                <code>facebook/detr-resnet-50-panoptic</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/tasks/image-segmentation">
-                  Image segmentation docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">object-detection</div>
-                Supported models: <code>facebook/detr-resnet-50</code>,
-                <code>facebook/detr-resnet-101</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/tasks/object-detection">
-                  Object detection docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">embeddings</div>
-                Supported models:
-                <code>sentence-transformers/all-MiniLM-L6-v2</code>,
-                <code>sentence-transformers/all-MiniLM-L12-v2</code>,
-                <code>sentence-transformers/all-distilroberta-v1</code>,
-                <code>sentence-transformers/paraphrase-albert-base-v2</code>,
-                <code>sentence-transformers/paraphrase-albert-small-v2</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/blog/getting-started-with-embeddings">
-                  Embeddings docs</a>.
-              </div>
-            </li>
-          </ol>
           <br>
-          <p class="lead mb-2">The following
-            <a href="https://huggingface.co/docs/transformers/model_summary">model types</a>
-            are supported:
-          </p>
-          <ol class="list-group list-group-numbered">
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">BERT</div>
-                Tasks: Masked language modelling
-                (<code>AutoModelForMaskedLM</code>),
-                question answering
-                (<code>AutoModelForQuestionAnswering</code>), and
-                sequence classification
-                (<code>AutoModelForSequenceClassification</code>).
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/bert">BERT docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">ALBERT</div>
-                Tasks: Masked language modelling
-                <code>(AutoModelForMaskedLM)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/albert">ALBERT docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">DistilBERT</div>
-                Tasks: Masked language modelling
-                <code>(AutoModelForMaskedLM)</code>,
-                question answering
-                <code>(AutoModelForQuestionAnswering)</code>, and
-                sequence classification
-                <code>(AutoModelForSequenceClassification)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/distilbert">DistilBERT
-                  docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">MobileBERT</div>
-                Tasks: Masked language modelling
-                <code>(AutoModelForMaskedLM)</code>,
-                question answering
-                <code>(AutoModelForQuestionAnswering)</code>, and
-                sequence classification
-                <code>(AutoModelForSequenceClassification)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/mobilebert">MobileBERT
-                  docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">SqueezeBERT</div>
-                Tasks: Masked language modelling
-                <code>(AutoModelForMaskedLM)</code> and
-                sequence classification
-                <code>(AutoModelForSequenceClassification)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/squeezebert">SqueezeBERT
-                  docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">T5</div>
-                Tasks: Sequence-to-sequence for
-                translation/summarization
-                <code>(AutoModelForSeq2SeqLM)</code>.
-                For more information, check out the <a href="https://huggingface.co/docs/transformers/model_doc/t5">T5
-                  docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">T5v1.1</div>
-                Tasks: Sequence-to-sequence
-                <code>(AutoModelForSeq2SeqLM)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/t5v1.1">T5v1.1 docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">FLAN-T5</div>
-                Tasks: Sequence-to-sequence for over 1000 tasks
-                <code>(AutoModelForSeq2SeqLM)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/flan-t5">FLAN-T5 docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">mT5</div>
-                Tasks: Sequence-to-sequence
-                <code>(AutoModelForSeq2SeqLM)</code>.
-                For more information, check out the <a href="https://huggingface.co/docs/transformers/model_doc/mt5">mT5
-                  docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">BART</div>
-                Tasks: Sequence-to-sequence for summarization
-                <code>(AutoModelForSeq2SeqLM)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/bart">BART docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">MarianMT</div>
-                Tasks: Sequence-to-sequence
-                <code>(AutoModelForSeq2SeqLM)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/marian">MarianMT docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">GPT2/DistilGPT2</div>
-                Tasks: Text generation
-                <code>(AutoModelForCausalLM)</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/model_doc/gpt2">GPT2 docs</a> or
-                <a href="https://huggingface.co/distilgpt2">DistilGPT2 docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">GPT Neo</div>
-                Tasks: Text generation
-                <code>(AutoModelForCausalLM)</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/model_doc/gpt_neo">GPT Neo docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">CodeGen</div>
-                Tasks: Text generation
-                <code>(AutoModelForCausalLM)</code>.
-                For more information, check out the
-                <a href="https://huggingface.co/docs/transformers/model_doc/codegen">CodeGen docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">Whisper</div>
-                Tasks: Automatic speech recognition
-                <code>(AutoModelForSeq2SeqLM)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/whisper">Whisper docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">CLIP</div>
-                Tasks: Zero-shot Image classification
-                <code>(AutoModel)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/clip">CLIP
-                  docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">Vision Transformer (ViT)</div>
-                Tasks: Image classification
-                <code>(AutoModelForImageClassification)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/vit">Vision Transformer
-                  docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">VisionEncoderDecoderModel</div>
-                Tasks: Image to text
-                <code>(AutoModelForVision2Seq)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder">Vision
-                  Encoder Decoder Models docs</a>.
-              </div>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div class="ms-2 me-auto">
-                <div class="fw-bold">DETR</div>
-                Tasks: Object detection
-                <code>(AutoModelForObjectDetection)</code>.
-                For more information, check out the <a
-                  href="https://huggingface.co/docs/transformers/model_doc/detr">DETR docs</a>.
-              </div>
-            </li>
-          </ol>
-          <br>
-          <p class="mb-2">Don't see your model type or task supported? Raise an
-            <a href="https://github.com/xenova/transformers.js/issues/new">issue</a> on GitHub, and if there's
-            enough demand, we will add it!
-
-            <br>
-            <br>
-            We use <a href="https://onnxruntime.ai/">ONNX Runtime</a> to run the
-            models in the browser, so you must first convert your PyTorch model to ONNX (which can be done using
-            our
-            <a href="https://github.com/xenova/transformers.js/blob/main/scripts/convert.py">conversion
-              script</a>).
-          </p>
+          For the full list of available tasks and models, check out the
+          <a href="https://huggingface.co/docs/transformers.js/index#supported-tasksmodels">documentation</a>.
         </div>
       </div>
     </section>
