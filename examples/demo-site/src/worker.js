@@ -1,23 +1,10 @@
 
-///////////////////////////////////////////////////////////////
-// Worker.js file for doing all transformer-based computations
-// Needed to ensure the UI thread is not blocked when running
-///////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
+// Worker.js file for doing all transformer-based computations //
+// Needed to ensure the UI thread is not blocked when running  //
+/////////////////////////////////////////////////////////////////
 
-// Import transformers.js library
-import { pipeline, env } from '/dist/transformers.js';
-
-// Detect whether running locally or remotely (e.g., GitHub pages)
-const RUNNING_LOCALLY = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
-
-// To speed up development when running locally, we should:
-//  1. use the local model files (instead of remote files)
-//  2. load the wasm files from the local dist folder (instead of wasm files from CDN)
-env.remoteModels = !RUNNING_LOCALLY;
-
-if (RUNNING_LOCALLY) {
-    env.backends.onnx.wasm.wasmPaths = '/dist/';
-}
+import { pipeline } from "@xenova/transformers";
 
 // Define task function mapping
 const TASK_FUNCTION_MAPPING = {
@@ -42,7 +29,7 @@ self.addEventListener('message', async (event) => {
     const data = event.data;
     let fn = TASK_FUNCTION_MAPPING[data.task];
 
-    if (!fn) return
+    if (!fn) return;
 
     let result = await fn(data);
     self.postMessage({
@@ -66,6 +53,11 @@ class PipelineFactory {
         this.model = model;
     }
 
+    /**
+     * Get pipeline instance
+     * @param {*} progressCallback 
+     * @returns {Promise}
+     */
     static getInstance(progressCallback = null) {
         if (this.task === null || this.model === null) {
             throw Error("Must set task and model")
@@ -82,73 +74,73 @@ class PipelineFactory {
 
 class TranslationPipelineFactory extends PipelineFactory {
     static task = 'translation';
-    static model = 't5-small';
+    static model = 'Xenova/t5-small';
 }
 
 class TextGenerationPipelineFactory extends PipelineFactory {
     static task = 'text-generation';
-    static model = 'distilgpt2';
+    static model = 'Xenova/distilgpt2';
 }
 
 class CodeCompletionPipelineFactory extends PipelineFactory {
     static task = 'text-generation';
-    static model = 'Salesforce/codegen-350M-mono';
+    static model = 'Xenova/codegen-350M-mono';
 }
 
 class MaskedLMPipelineFactory extends PipelineFactory {
     static task = 'fill-mask';
-    static model = 'bert-base-cased';
+    static model = 'Xenova/bert-base-cased';
 }
 
 class SequenceClassificationPipelineFactory extends PipelineFactory {
     static task = 'text-classification';
-    static model = 'nlptown/bert-base-multilingual-uncased-sentiment';
+    static model = 'Xenova/bert-base-multilingual-uncased-sentiment';
 }
 
 class TokenClassificationPipelineFactory extends PipelineFactory {
     static task = 'token-classification';
-    static model = 'Davlan/bert-base-multilingual-cased-ner-hrl';
+    static model = 'Xenova/bert-base-multilingual-cased-ner-hrl';
 }
 
 class ZeroShotClassificationPipelineFactory extends PipelineFactory {
     static task = 'zero-shot-classification';
-    static model = 'typeform/distilbert-base-uncased-mnli';
+    static model = 'Xenova/distilbert-base-uncased-mnli';
 }
 
 class QuestionAnsweringPipelineFactory extends PipelineFactory {
     static task = 'question-answering';
-    static model = 'distilbert-base-cased-distilled-squad';
+    static model = 'Xenova/distilbert-base-cased-distilled-squad';
 }
 
 class SummarizationPipelineFactory extends PipelineFactory {
     static task = 'summarization';
-    static model = 'sshleifer/distilbart-cnn-6-6';
+    static model = 'Xenova/distilbart-cnn-6-6';
 }
 
 class AutomaticSpeechRecognitionPipelineFactory extends PipelineFactory {
     static task = 'automatic-speech-recognition';
-    static model = 'openai/whisper-tiny.en';
+    static model = 'Xenova/whisper-tiny.en';
 }
 
 class ImageToTextPipelineFactory extends PipelineFactory {
     static task = 'image-to-text';
-    static model = 'nlpconnect/vit-gpt2-image-captioning';
+    static model = 'Xenova/vit-gpt2-image-captioning';
 }
 
 class ImageClassificationPipelineFactory extends PipelineFactory {
     static task = 'image-classification';
-    static model = 'google/vit-base-patch16-224';
+    static model = 'Xenova/vit-base-patch16-224';
 }
 
 
 class ZeroShotImageClassificationPipelineFactory extends PipelineFactory {
     static task = 'zero-shot-image-classification';
-    static model = 'openai/clip-vit-base-patch16';
+    static model = 'Xenova/clip-vit-base-patch16';
 }
 
 class ObjectDetectionPipelineFactory extends PipelineFactory {
     static task = 'object-detection';
-    static model = 'facebook/detr-resnet-50';
+    static model = 'Xenova/detr-resnet-50';
 }
 
 async function translate(data) {
