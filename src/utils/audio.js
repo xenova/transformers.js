@@ -10,6 +10,7 @@
 import {
     getFile,
 } from './hub.js';
+import { rfftfreq } from './maths.js';
 
 export async function read_audio(url, sampling_rate) {
     // Attempting to load from path/url
@@ -60,4 +61,63 @@ export async function read_audio(url, sampling_rate) {
     }
 
     return audio;
+}
+
+/**
+ * @param {number} sr - The sampling rate.
+ * @param {number} n_fft
+ * @param {number} n_mels
+ * @param {Float32ArrayConstructor | Float64ArrayConstructor} dtype The data type.
+ * @returns 
+ */
+ export function getMelFilters(sr, n_fft, n_mels = 128, dtype = Float32Array) {
+    // Initialize the weights
+    n_mels = Math.floor(n_mels);
+    let weights = new Array(n_mels).fill(0).map(() => new dtype(Math.floor(1 + n_fft / 2)));
+
+    // Center freqs of each FFT bin
+    let fftfreqs = rfftfreq(n_fft, 1 / sr);
+
+    // 'Center freqs' of mel bands - uniformly spaced between limits
+    let min_mel = 0.0;
+    let max_mel = 45.245640471924965;
+
+    let mels = Array.from({ length: n_mels + 2 }, (v, k) => k * ((max_mel - min_mel) / (n_mels + 1)) + min_mel);
+
+    // Fill in the linear scale
+    let f_min = 0.0;
+    let f_sp = 200.0 / 3;
+    let freqs = mels.map(v => f_min + f_sp * v);
+
+    // And now the nonlinear scale
+    let min_log_hz = 1000.0; // beginning of log region (Hz)
+    let min_log_mel = (min_log_hz - f_min) / f_sp; // same (Mels)
+    let logstep = Math.log(6.4) / 27.0; // step size for log region
+
+    // If we have vector data, vectorize
+    let log_t = mels.map(v => v >= min_log_mel);
+    freqs.forEach((v, i) => {
+      if (log_t[i]) {
+        freqs[i] = min_log_hz * Math.exp(logstep * (mels[i] - min_log_mel));
+      }
+    })
+
+    let mel_f = freqs;
+
+    let fdiff = mel_f.slice(1).map((v, i) => v - mel_f[i]);
+    let ramps = mel_f.map(v => fftfreqs.map(k => v - k));
+
+    for (let i = 0; i < n_mels; i++) {
+      // lower and upper slopes for all bins
+      let lower = ramps[i].map(v => -v / fdiff[i]);
+      let upper = ramps[i + 2].map(v => v / fdiff[i + 1]);
+
+      // .. then intersect them with each other and zero
+      weights[i] = lower.map((v, j) => Math.max(0, Math.min(v, upper[j])));
+    }
+
+    // Slaney-style mel is scaled to be approx constant energy per channel
+    let enorm = mel_f.slice(2, n_mels + 2).map((v, i) => 2.0 / (v - mel_f[i]));
+    weights = weights.map((v, i) => v.map(k => k * enorm[i]));
+    return weights;
 }
