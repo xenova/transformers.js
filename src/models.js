@@ -152,7 +152,7 @@ async function sessionRun(session, inputs) {
     } catch (e) {
         // This usually occurs when the inputs are of the wrong type.
         console.error(`An error occurred during model execution: "${e}".`);
-        console.error('Inputs given to model:', inputs);
+        console.error('Inputs given to model:', checkedInputs);
         throw e;
     }
 }
