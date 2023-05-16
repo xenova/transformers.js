@@ -64,60 +64,69 @@ export async function read_audio(url, sampling_rate) {
 }
 
 /**
- * @param {number} sr - The sampling rate.
- * @param {number} n_fft
- * @param {number} n_mels
- * @param {Float32ArrayConstructor | Float64ArrayConstructor} dtype The data type.
- * @returns 
+ * Creates a frequency bin conversion matrix used to obtain a mel spectrogram.
+ * @param {number} sr Sample rate of the audio waveform.
+ * @param {number} n_fft Number of frequencies used to compute the spectrogram (should be the same as in `stft`).
+ * @param {number} n_mels Number of mel filters to generate.
+ * @returns {number[][]} Projection matrix to go from a spectrogram to a mel spectrogram.
  */
- export function getMelFilters(sr, n_fft, n_mels = 128, dtype = Float32Array) {
-    // Initialize the weights
+export function getMelFilters(sr, n_fft, n_mels = 128) {
     n_mels = Math.floor(n_mels);
-    let weights = new Array(n_mels).fill(0).map(() => new dtype(Math.floor(1 + n_fft / 2)));
+
+    // Initialize the weights
+    const mel_size = Math.floor(1 + n_fft / 2);
+    const weights = new Array(n_mels);
 
     // Center freqs of each FFT bin
-    let fftfreqs = rfftfreq(n_fft, 1 / sr);
+    const fftfreqs = rfftfreq(n_fft, 1 / sr);
 
     // 'Center freqs' of mel bands - uniformly spaced between limits
-    let min_mel = 0.0;
-    let max_mel = 45.245640471924965;
-
-    let mels = Array.from({ length: n_mels + 2 }, (v, k) => k * ((max_mel - min_mel) / (n_mels + 1)) + min_mel);
+    const min_mel = 0.0;
+    const max_mel = 45.245640471924965;
+    const mel_range = max_mel - min_mel;
+    const mel_scale = mel_range / (n_mels + 1);
 
     // Fill in the linear scale
-    let f_min = 0.0;
-    let f_sp = 200.0 / 3;
-    let freqs = mels.map(v => f_min + f_sp * v);
+    const f_min = 0.0;
+    const f_sp = 200.0 / 3;
+    const freqs = new Array(n_mels + 2);
 
     // And now the nonlinear scale
-    let min_log_hz = 1000.0; // beginning of log region (Hz)
-    let min_log_mel = (min_log_hz - f_min) / f_sp; // same (Mels)
-    let logstep = Math.log(6.4) / 27.0; // step size for log region
+    const min_log_hz = 1000.0; // beginning of log region (Hz)
+    const min_log_mel = (min_log_hz - f_min) / f_sp; // same (Mels)
+    const logstep = Math.log(6.4) / 27.0; // step size for log region
 
-    // If we have vector data, vectorize
-    let log_t = mels.map(v => v >= min_log_mel);
-    freqs.forEach((v, i) => {
-      if (log_t[i]) {
-        freqs[i] = min_log_hz * Math.exp(logstep * (mels[i] - min_log_mel));
-      }
-    })
-
-    let mel_f = freqs;
-
-    let fdiff = mel_f.slice(1).map((v, i) => v - mel_f[i]);
-    let ramps = mel_f.map(v => fftfreqs.map(k => v - k));
-
-    for (let i = 0; i < n_mels; i++) {
-      // lower and upper slopes for all bins
-      let lower = ramps[i].map(v => -v / fdiff[i]);
-      let upper = ramps[i + 2].map(v => v / fdiff[i + 1]);
-
-      // .. then intersect them with each other and zero
-      weights[i] = lower.map((v, j) => Math.max(0, Math.min(v, upper[j])));
+    const ramps = new Array(freqs.length);
+    for (let i = 0; i < freqs.length; ++i) {
+        const mel = i * mel_scale + min_mel;
+        if (mel >= min_log_mel) {
+            freqs[i] = min_log_hz * Math.exp(logstep * (mel - min_log_mel));
+        } else {
+            freqs[i] = f_min + f_sp * mel;
+        }
+        ramps[i] = fftfreqs.map(k => freqs[i] - k);
     }
 
-    // Slaney-style mel is scaled to be approx constant energy per channel
-    let enorm = mel_f.slice(2, n_mels + 2).map((v, i) => 2.0 / (v - mel_f[i]));
-    weights = weights.map((v, i) => v.map(k => k * enorm[i]));
+    const fdiffinv = freqs.slice(1).map((v, i) => 1 / (v - freqs[i]));
+
+    for (let i = 0; i < weights.length; ++i) {
+        weights[i] = new Array(mel_size);
+
+        const a = fdiffinv[i];
+        const b = fdiffinv[i + 1];
+        const c = ramps[i];
+        const d = ramps[i + 2];
+
+        // Slaney-style mel is scaled to be approx constant energy per channel
+        const enorm = 2.0 / (freqs[i + 2] - freqs[i]);
+
+        for (let j = 0; j < weights[i].length; ++j) {
+            // lower and upper slopes for all bins
+            const lower = -c[j] * a;
+            const upper = d[j] * b;
+            weights[i][j] = Math.max(0, Math.min(lower, upper)) * enorm;
+        }
+    }
+
     return weights;
 }
