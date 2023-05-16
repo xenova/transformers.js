@@ -65,10 +65,12 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
  * Global variable used to control exection. This provides users a simple way to configure Transformers.js.
  * @property {Object} backends Expose environment variables of different backends,
  * allowing users to set these variables if they want to.
- * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
- * @property {string} remotePathTemplate Path template to fill in and append to `remoteHost` when loading models.
  * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
+ * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
+ * @property {string} remotePathTemplate Path template to fill in and append to `remoteHost` when loading models.
+ * @property {boolean} allowLocalModels Whether to allow loading of local files, defaults to `true`.
+ * If set to `false`, it will skip the local file check and try to load the model from the remote host.
  * @property {string} localModelPath Path to load local models from. Defaults to `/models/`.
  * @property {boolean} useFS Whether to use the file system to load files. By default, it is `true` if available.
  * @property {string} __dirname Directory name of module. Useful for resolving local paths.
@@ -89,9 +91,11 @@ export const env = {
     __dirname,
 
     /////////////////// Model settings ///////////////////
+    allowRemoteModels: true,
     remoteHost: 'https://huggingface.co/',
     remotePathTemplate: '{model}/resolve/{revision}/',
-    allowRemoteModels: true,
+
+    allowLocalModels: true,
     localModelPath: localModelPath,
     useFS: FS_AVAILABLE,
 

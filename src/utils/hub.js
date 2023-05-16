@@ -310,6 +310,16 @@ class FileCache {
  */
 export async function getModelFile(path_or_repo_id, filename, fatal = true, options = {}) {
 
+    if (!env.allowLocalModels) {
+        // User has disabled local models, so we just make sure other settings are correct.
+
+        if (options.local_files_only) {
+            throw Error("Invalid configuration detected: local models are disabled (`env.allowLocalModels=false`) but you have requested to only use local models (`local_files_only=true`).")
+        } else if (!env.allowRemoteModels) {
+            throw Error("Invalid configuration detected: both local and remote models are disabled. Fix by setting `env.allowLocalModels` or `env.allowRemoteModels` to `true`.")
+        }
+    }
+
     // Initiate file retrieval
     dispatchCallback(options.progress_callback, {
         status: 'initiate',
@@ -352,20 +362,31 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
 
         let isURL = isValidHttpUrl(request);
         let localPath = pathJoin(env.localModelPath, request);
-        // If request is a valid HTTP URL, we skip the local file check. Otherwise, we
-        // try to get the file locally.
-        if (!isURL) {
-            response = await getFile(localPath);
-        } else if (options.local_files_only) {
-            throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`);
-        } else if (!env.allowRemoteModels) {
-            throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${request}.`);
+
+        if (env.allowLocalModels) {
+            // Accessing local models is enabled, so we try to get the file locally.
+            // If request is a valid HTTP URL, we skip the local file check. Otherwise, we try to get the file locally.
+            if (!isURL) {
+                try {
+                    response = await getFile(localPath);
+                } catch (e) {
+                    // Something went wrong while trying to get the file locally.
+                    // NOTE: error handling is done in the next step (since `response` will be undefined)
+                    console.warn(`Unable to load from local path "${localPath}": "${e}"`);
+                }
+            } else if (options.local_files_only) {
+                throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`);
+            } else if (!env.allowRemoteModels) {
+                throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${request}.`);
+            }
         }
 
         if (response === undefined || response.status === 404) {
             // File not found locally. This means either:
+            // - The user has disabled local file access (`env.allowLocalModels=false`)
             // - the path is a valid HTTP url (`response === undefined`)
-            // - the path is not a valid HTTP url and the file is not present locally on the file system/server (`response.status === 404`)
+            // - the path is not a valid HTTP url and the file is not present on the file system or local server (`response.status === 404`)
+
             if (options.local_files_only || !env.allowRemoteModels) {
                 // User requested local files only, but the file is not found locally.
                 if (fatal) {
