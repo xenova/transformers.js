@@ -110,16 +110,47 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 
 /**
  * Executes an InferenceSession using the specified inputs.
+ * NOTE: `inputs` must contain at least the input names of the model.
+ *  - If additional inputs are passed, they will be ignored.
+ *  - If inputs are missing, an error will be thrown.
+ * 
  * @param {InferenceSession} session The InferenceSession object to run.
  * @param {Object} inputs An object that maps input names to input tensors.
  * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
  */
 async function sessionRun(session, inputs) {
+
+    // First, check that all inputs are provided
+    // NOTE: Only create a shallow copy
+    const checkedInputs = {};
+    const missingInputs = [];
+    for (let inputName of session.inputNames) {
+        if (inputs[inputName] === undefined) {
+            missingInputs.push(inputName);
+        } else {
+            checkedInputs[inputName] = inputs[inputName];
+        }
+    }
+    if (missingInputs.length > 0) {
+        throw new Error(
+            `An error occurred during model execution: "Missing the following inputs: ${missingInputs.join(', ')}.`);
+    }
+
+    const numInputsProvided = Object.keys(inputs).length;
+    const numInputsNeeded = session.inputNames.length;
+    if (numInputsProvided > numInputsNeeded) {
+        // No missing inputs, but too many inputs were provided.
+        // Warn the user and ignore the extra inputs.
+        let ignored = Object.keys(inputs).filter(inputName => !session.inputNames.includes(inputName));
+        console.warn(`WARNING: Too many inputs were provided (${numInputsProvided} > ${numInputsNeeded}). The following inputs will be ignored: "${ignored.join(', ')}".`);
+    }
+
     try {
-        let output = await session.run(inputs);
+        let output = await session.run(checkedInputs);
         output = replaceTensors(output);
         return output;
     } catch (e) {
+        // This usually occurs when the inputs are of the wrong type.
         console.error(`An error occurred during model execution: "${e}".`);
         console.error('Inputs given to model:', inputs);
         throw e;
