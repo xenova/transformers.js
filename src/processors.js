@@ -789,6 +789,12 @@ export class SamImageProcessor extends ImageFeatureExtractor {
 
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
+    constructor(config) {
+        super(config);
+
+        // Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
+        this.config.mel_filters ??= getMelFilters(this.config.sampling_rate, this.config.n_fft, this.config.feature_size);
+    }
     /**
      * Calculates the index offset for a given index and window size.
      * @param {number} i The index.
@@ -1018,14 +1024,6 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
     }
 
     /**
-     * Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
-     */
-    get melFilters() {
-        const { sampling_rate, n_fft, feature_size, mel_filters } = this.config;
-        return mel_filters ?? getMelFilters(sampling_rate, n_fft, feature_size);
-    }
-    
-    /**
      * Computes the log-Mel spectrogram of the provided audio waveform.
      * @param {Float32Array} waveform The audio waveform to process.
      * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
@@ -1059,7 +1057,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        const mel_filters = this.melFilters;
+        const mel_filters = this.config.mel_filters;
         const num_mel_filters = mel_filters.length;
 
         const mel_spec = new Float32Array(num_mel_filters * d1);
