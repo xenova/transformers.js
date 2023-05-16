@@ -46,8 +46,8 @@ It's super simple to translate from existing code! Just like the python library,
 
 <table>
 <tr>
-<th width="440px"><b>Python (original)</b></th>
-<th width="440px"><b>Javascript (ours)</b></th>
+<th width="440px" align="center"><b>Python (original)</b></th>
+<th width="440px" align="center"><b>Javascript (ours)</b></th>
 </tr>
 <tr>
 <td>
