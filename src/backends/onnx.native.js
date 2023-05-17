@@ -17,36 +17,10 @@
  */
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
-import * as ONNX_NODE from 'onnxruntime-node';
-import * as ONNX_WEB from 'onnxruntime-web';
+export * as ONNX_RN from 'onnxruntime-react-native';
 
-export let ONNX;
-
-export const executionProviders = [
-    // 'webgpu',
-    'wasm'
-];
-
-if (typeof process !== 'undefined' && process?.release?.name === 'node') {
-    // Running in a node-like environment.
-    ONNX = ONNX_NODE;
-
-    // Add `cpu` execution provider, with higher precedence that `wasm`.
-    executionProviders.unshift('cpu');
-
-} else {
-    // Running in a browser-environment
-    ONNX = ONNX_WEB;
-
-    // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
-    // As a temporary fix, we disable it for now.
-    // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
-    const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
-    if (isIOS) {
-        ONNX.env.wasm.simd = false;
-    }
-}
+export const executionProviders = ['cpu'];
 
 // We select the default export if it exists, otherwise we use the named export.
 // This allows us to run in both node and browser environments.
-ONNX = ONNX.default ?? ONNX;
+ONNX = ONNX_RN.default ?? ONNX_RN;
