@@ -56,9 +56,9 @@ function fetchBinary(url) {
                 xhr.responseURL :
                 reqOptions.headers.get('X-Request-URL');
 
-            const body = 'response' in xhr ? xhr.response : xhr.responseText;
+            const body = Buffer.from(xhr.response);
 
-            resolve(new Response(Buffer.from(body).toString('base64'), reqOptions));
+            resolve(new Response(body.toString('base64'), reqOptions));
         };
 
         xhr.onerror = () => reject(new TypeError('Network request failed'));
