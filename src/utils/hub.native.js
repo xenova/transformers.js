@@ -5,12 +5,33 @@
  * @module utils/hub
  */
 
-import fs from 'react-native-fs';
-import path from 'path';
+import RNFS from 'react-native-fs';
 
 import { env } from '../env';
 import { dispatchCallback } from './core';
 import { handleError } from './hub-utils';
+import { Buffer } from 'buffer';
+
+/**
+ * Parse HTTP headers.
+ * 
+ * @function parseHeaders
+ * @param {string} rawHeaders
+ * @returns {Headers}
+ */
+function parseHeaders(rawHeaders) {
+    const headers = new Headers();
+    const preProcessedHeaders = rawHeaders.replace(/\r?\n[\t ]+/g, ' ');
+    preProcessedHeaders.split(/\r?\n/).forEach((line) => {
+        const parts = line.split(':');
+        const key = parts.shift().trim();
+        if (key) {
+            const value = parts.join(':').trim();
+            headers.append(key, value);
+        }
+    });
+    return headers;
+}
 
 /**
  * Makes an HTTP request.
@@ -21,7 +42,7 @@ import { handleError } from './hub-utils';
  */
 function fetchBinary(url) {
     return new Promise((resolve, reject) => {
-        const request = new Request(path);
+        const request = new Request(url);
         const xhr = new XMLHttpRequest();
 
         xhr.onload = () => {
@@ -36,12 +57,13 @@ function fetchBinary(url) {
                 reqOptions.headers.get('X-Request-URL');
 
             const body = 'response' in xhr ? xhr.response : xhr.responseText;
+            console.log(body);
 
             resolve(new Response(body, reqOptions));
         };
 
         xhr.onerror = () => reject(new TypeError('Network request failed'));
-        xhr.ontimeout = () => reject(new TypeError('Network request failed'));
+        xhr.ontimeout = () => reject(new TypeError('Request timeout'));
 
         xhr.open(request.method, request.url, true);
 
@@ -82,13 +104,14 @@ const CONTENT_TYPE_MAP = {
  * @param {object} options
  * @returns {Promise<Response>}
  */
-async function readFile(path) {
-    const stat = await fs.stat(path);
+async function readFile(filePath) {
+    const stat = await RNFS.stat(filePath.toString());
     const headers = new Headers();
     headers.append('content-length', stat.size);
-    const extension = path.toString().split('.').pop().toLowerCase();
-    headers.append('content-type', CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream');
-    const content = await fs.readFile(path, 'base64')
+    const extension = filePath.toString().split('.').pop().toLowerCase();
+    const type = CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
+    headers.append('content-type', type);
+    const content = await RNFS.readFile(path, 'base64')
     const { buffer } = Buffer.from(content);
     const reqOptions = {
         status: 200,
@@ -105,14 +128,12 @@ async function readFile(path) {
  * @returns {boolean} True if the string is a valid HTTP or HTTPS URL, false otherwise.
  */
 function isValidHttpUrl(string) {
-    // https://stackoverflow.com/a/43467144
-    let url;
     try {
-        url = new URL(string);
+        new URL(string);
+        return /^https?:/.test(string);
     } catch (_) {
         return false;
     }
-    return url.protocol === "http:" || url.protocol === "https:";
 }
 
 /**
@@ -128,7 +149,7 @@ export async function getFile(urlOrPath) {
         return readFile(urlOrPath);
 
     } else {
-        return fetch(urlOrPath);
+        return fetchBinary(urlOrPath);
     }
 }
 
@@ -148,7 +169,7 @@ class FileCache {
      */
     async match(request) {
 
-        let filePath = path.join(this.path, request);
+        let filePath = pathJoin(this.path, request);
 
         if (await RNFS.exists(filePath)) {
             return readFile(filePath);
@@ -166,10 +187,10 @@ class FileCache {
     async put(request, response) {
         const buffer = Buffer.from(await response.arrayBuffer());
 
-        let outputPath = path.join(this.path, request);
+        let outputPath = pathJoin(this.path, request);
 
         try {
-            await RNFS.mkdir(path.dirname(outputPath));
+            await RNFS.mkdir(outputPath.replace(/[^/]*$/, ''));
             await RNFS.writeFile(outputPath, buffer.toString('base64'), 'base64');
 
         } catch (err) {

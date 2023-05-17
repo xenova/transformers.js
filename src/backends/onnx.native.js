@@ -17,7 +17,9 @@
  */
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
-export * as ONNX_RN from 'onnxruntime-react-native';
+import * as ONNX_RN from 'onnxruntime-react-native';
+
+export let ONNX;
 
 export const executionProviders = ['cpu'];
 

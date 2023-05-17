@@ -15,7 +15,7 @@ import { env } from '../env';
 
 import encode from 'image-encode';
 import decode from 'image-decode';
-import resize 'resize-image-data';
+import resize from 'resize-image-data';
 import { Buffer } from 'buffer';
 
 
