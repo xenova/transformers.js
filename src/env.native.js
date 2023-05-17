@@ -23,6 +23,7 @@
  */
 
 import RNFS from 'react-native-fs';
+import { Buffer } from 'buffer';
 
 import { ONNX } from './backends/onnx';
 const { env: onnx_env } = ONNX;
@@ -66,6 +67,7 @@ export const env = {
 
         // TensorFlow.js
         tfjs: {},
+        Uint8Array: Buffer,
     },
 
     __dirname,
@@ -78,7 +80,6 @@ export const env = {
     allowLocalModels: true,
     localModelPath: localModelPath,
     useFS: FS_AVAILABLE,
-    allowFallback: false,
 
     /////////////////// Cache settings ///////////////////
     useBrowserCache: false,

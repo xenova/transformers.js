@@ -34,6 +34,10 @@ import {
 import { min } from './utils/maths';
 import { Tensor } from './utils/tensor';
 
+import { env } from './env';
+
+const { backends: { Uint8Array } } = env;
+
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
  */
@@ -1520,7 +1524,7 @@ class ByteLevelDecoder extends Decoder {
     convert_tokens_to_string(tokens) {
         let text = tokens.join('');
 
-        let byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
+        let byteArray = Uint8Array.from([...text].map(c => this.byte_decoder[c]));
         let decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
     }
