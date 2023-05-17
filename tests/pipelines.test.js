@@ -983,7 +983,7 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'openai/clip-vit-base-patch16',
+            'openai/clip-vit-base-patch32',
         ];
 
         it(models[0], async () => {
