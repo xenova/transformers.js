@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "2.0.0",
+  "version": "2.0.0-alpha.4",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
@@ -40,7 +40,7 @@
     "image-decode": "^1.2.2",
     "image-encode": "^1.3.1",
     "onnxruntime-node": "^1.14.0",
-    "onnxruntime-react-native": "^1.15.0-dev.20230502-abdd4f518a",
+    "onnxruntime-react-native": "^1.14.0",
     "react-native-fs": "^2.20.0",
     "resize-image-data": "^0.3.1"
   },
