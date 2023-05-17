@@ -97,6 +97,7 @@ export const env = {
     allowLocalModels: true,
     localModelPath: localModelPath,
     useFS: FS_AVAILABLE,
+    allowFallback: true,
 
     /////////////////// Cache settings ///////////////////
     useBrowserCache: WEB_CACHE_AVAILABLE,

@@ -58,7 +58,7 @@ function fetchBinary(url) {
 
             const body = 'response' in xhr ? xhr.response : xhr.responseText;
 
-            resolve(new Response(body, reqOptions));
+            resolve(new Response(Buffer.from(body).toString('base64'), reqOptions));
         };
 
         xhr.onerror = () => reject(new TypeError('Network request failed'));
@@ -103,7 +103,7 @@ const CONTENT_TYPE_MAP = {
  * @param {object} options
  * @returns {Promise<Response>}
  */
-async function readFile(filePath) {
+async function readFile(filePath, allowFilePath = false) {
     const path = filePath.toString()
     const stat = await RNFS.stat(path);
     const headers = new Headers();
@@ -111,15 +111,20 @@ async function readFile(filePath) {
     const extension = path.split('.').pop().toLowerCase();
     const type = CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
     headers.append('content-type', type);
-    const content = await RNFS.readFile(path, 'base64')
-    const { buffer } = Buffer.from(content);
+    headers.append('rn-is-local', '1');
+    let content;
     const reqOptions = {
         status: 200,
         statusText: 'OK',
         headers,
-        url: path,
+        url: `file://${path}`,
     };
-    return new Response(buffer, reqOptions);
+    if (stat.size < 1024000 || type !== 'application/octet-stream') {
+        const content = await RNFS.readFile(path, 'base64');
+        return new Response(content, reqOptions);
+    } else {
+        return new Response('', reqOptions);
+    }
 }
 
 /**
@@ -147,7 +152,6 @@ export async function getFile(urlOrPath) {
 
     if (env.useFS && !isValidHttpUrl(urlOrPath)) {
         return readFile(urlOrPath);
-
     } else {
         return fetchBinary(urlOrPath);
     }
@@ -185,14 +189,13 @@ class FileCache {
      * @returns {Promise<void>}
      */
     async put(request, response) {
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const content = await response.text();
 
         let outputPath = pathJoin(this.path, request);
 
         try {
             await RNFS.mkdir(outputPath.replace(/[^/]*$/, ''));
-            await RNFS.writeFile(outputPath, buffer.toString('base64'), 'base64');
-
+            await RNFS.writeFile(outputPath, content, 'base64');
         } catch (err) {
             console.warn('An error occurred while writing the file to cache:', err)
         }
@@ -241,15 +244,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
 
     // First, check if the a caching backend is available
     // If no caching mechanism available, will download the file every time
-    let cache;
-    if (!cache && env.useFSCache) {
-        // TODO throw error if not available
-
-        // If `cache_dir` is not specified, use the default cache directory
-        cache = new FileCache(options.cache_dir ?? env.cacheDir);
-    }
+    let cache = new FileCache(options.cache_dir ?? env.cacheDir);
 
     const request = pathJoin(path_or_repo_id, filename);
+
+    /** @type {boolean} */
+    let cacheSaved = false;
 
     /** @type {Response} */
     let responseToCache;
@@ -283,6 +283,8 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                 throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`);
             } else if (!env.allowRemoteModels) {
                 throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${request}.`);
+            } else if (!env.useFSCache) {
+                throw new Error(`Load model from memory may cause crash, please set \`env.useFSCache=ture\``);
             }
         }
 
@@ -319,7 +321,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         }
 
 
-        if (cache && response instanceof Response && response.status === 200) {
+        if (cache && response.headers.get('rn-is-local') !== '1' && response.status === 200) {
             // only clone if cache available, and response is valid
             responseToCache = response.clone();
         }
@@ -352,6 +354,9 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         (await cache.match(request) === undefined)
     ) {
         await cache.put(request, responseToCache)
+            .then(() => {
+                cacheSaved = true;
+            })
             .catch(err => {
                 // Do not crash if unable to add to cache (e.g., QuotaExceededError).
                 // Rather, log a warning and proceed with execution.
@@ -365,7 +370,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         file: filename
     });
 
-    return buffer;
+    // Return URL if not need decode (e.g. .onnx file)
+    if (response.headers.get('content-type') === 'application/octet-stream') {
+        return cacheSaved ? responseToCache.url : response.url;
+    } else {
+        return buffer;
+    }
 }
 
 /**
@@ -384,7 +394,7 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
         // Return empty object
         return {}
     }
-    return JSON.parse(Buffer.from(buffer));
+    return JSON.parse(Buffer.from(buffer, 'base64'));
 }
 
 /**
@@ -395,7 +405,7 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
  * @returns {Promise<Uint8Array>} A Promise that resolves with the Uint8Array buffer
  */
 async function readResponse(response, progress_callback) {
-    return await response.arrayBuffer();
+    return await response.text();
 }
 
 /**
