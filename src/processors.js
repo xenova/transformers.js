@@ -22,23 +22,23 @@
 import {
     Callable,
     calculateDimensions,
-} from './utils/core.js';
+} from './utils/core';
 
 import {
     getModelJSON,
-} from './utils/hub.js';
+} from './utils/hub';
 
 import {
     max,
     softmax,
     FFT
-} from './utils/maths.js';
+} from './utils/maths';
 
 
-import { Tensor, transpose, cat, interpolate } from './utils/tensor.js';
+import { Tensor, transpose, cat, interpolate } from './utils/tensor';
 
-import { RawImage } from './utils/image.js';
-import { getMelFilters } from './utils/audio.js';
+import { RawImage } from './utils/image';
+import { getMelFilters } from './utils/audio';
 
 
 /**

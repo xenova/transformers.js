@@ -5,163 +5,98 @@
  * @module utils/hub
  */
 
-import fs from 'fs';
+import fs from 'react-native-fs';
 import path from 'path';
-import stream from 'stream/web';
 
 import { env } from '../env';
 import { dispatchCallback } from './core';
 import { handleError } from './hub-utils';
 
-if (!globalThis.ReadableStream) {
-    // @ts-ignore
-    globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16
+/**
+ * Makes an HTTP request.
+ * 
+ * @function fetchBinary
+ * @param {string|URL} path
+ * @returns {Promise<Response>}
+ */
+function fetchBinary(url) {
+    return new Promise((resolve, reject) => {
+        const request = new Request(path);
+        const xhr = new XMLHttpRequest();
+
+        xhr.onload = () => {
+            const reqOptions = {
+                status: xhr.status,
+                statusText: xhr.statusText,
+                headers: parseHeaders(xhr.getAllResponseHeaders() || ''),
+                url: '',
+            };
+            reqOptions.url = 'responseURL' in xhr ?
+                xhr.responseURL :
+                reqOptions.headers.get('X-Request-URL');
+
+            const body = 'response' in xhr ? xhr.response : xhr.responseText;
+
+            resolve(new Response(body, reqOptions));
+        };
+
+        xhr.onerror = () => reject(new TypeError('Network request failed'));
+        xhr.ontimeout = () => reject(new TypeError('Network request failed'));
+
+        xhr.open(request.method, request.url, true);
+
+        if (request.credentials === 'include') {
+            xhr.withCredentials = true;
+        } else if (request.credentials === 'omit') {
+            xhr.withCredentials = false;
+        }
+
+        xhr.responseType = 'arraybuffer';
+
+        request.headers.forEach((value, name) => {
+            xhr.setRequestHeader(name, value);
+        });
+
+        xhr.send(request._bodyInit ?? null);
+    });
+}
+
+const CONTENT_TYPE_MAP = {
+    'txt': 'text/plain',
+    'html': 'text/html',
+    'css': 'text/css',
+    'js': 'text/javascript',
+    'json': 'application/json',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
 }
 
 /**
- * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     
- * @property {boolean?} [options.quantized=true] Whether to load the 8-bit quantized version of the model (only applicable when loading model files).
- * @property {function} [options.progress_callback=null] If specified, this function will be called during model construction, to provide the user with progress updates.
- * @property {Object} [options.config=null] Configuration for the model to use instead of an automatically loaded configuration. Configuration can be automatically loaded when:
- * - The model is a model provided by the library (loaded with the *model id* string of a pretrained model).
- * - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a configuration JSON file named *config.json* is found in the directory.
- * @property {string} [options.cache_dir=null] Path to a directory in which a downloaded pretrained model configuration should be cached if the standard cache should not be used.
- * @property {boolean} [options.local_files_only=false] Whether or not to only look at local files (e.g., not try downloading the model).
- * @property {string} [options.revision='main'] The specific model version to use. It can be a branch name, a tag name, or a commit id,
- * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
+ * Makes an FS request.
+ * 
+ * @async
+ * @function readFile
+ * @param {string|URL} path
+ * @param {object} options
+ * @returns {Promise<Response>}
  */
-
-class Headers extends Object {
-    constructor(...args) {
-        super();
-        Object.assign(this, args);
-    }
-
-    get(key) {
-        return this[key];
-    }
-
-    clone() {
-        return new Headers(this);
-    }
-}
-
-class FileResponse {
-    /**
-     * Mapping from file extensions to MIME types.
-     */
-    _CONTENT_TYPE_MAP = {
-        'txt': 'text/plain',
-        'html': 'text/html',
-        'css': 'text/css',
-        'js': 'text/javascript',
-        'json': 'application/json',
-        'png': 'image/png',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'gif': 'image/gif',
-    }
-    /**
-     * Creates a new `FileResponse` object.
-     * @param {string|URL} filePath
-     */
-    constructor(filePath) {
-        this.filePath = filePath;
-        this.headers = new Headers();
-
-        this.exists = fs.existsSync(filePath);
-        if (this.exists) {
-            this.status = 200;
-            this.statusText = 'OK';
-
-            let stats = fs.statSync(filePath);
-            this.headers['content-length'] = stats.size;
-
-            this.updateContentType();
-
-            let self = this;
-            this.body = new ReadableStream({
-                start(controller) {
-                    self.arrayBuffer().then(buffer => {
-                        controller.enqueue(new Uint8Array(buffer));
-                        controller.close();
-                    })
-                }
-            });
-        } else {
-            this.status = 404;
-            this.statusText = 'Not Found';
-            this.body = null;
-        }
-    }
-
-    /**
-     * Updates the 'content-type' header property of the response based on the extension of
-     * the file specified by the filePath property of the current object.
-     * @returns {void}
-     */
-    updateContentType() {
-        // Set content-type header based on file extension
-        const extension = this.filePath.toString().split('.').pop().toLowerCase();
-        this.headers['content-type'] = this._CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
-    }
-
-    /**
-     * Clone the current FileResponse object.
-     * @returns {FileResponse} A new FileResponse object with the same properties as the current object.
-     */
-    clone() {
-        let response = new FileResponse(this.filePath);
-        response.exists = this.exists;
-        response.status = this.status;
-        response.statusText = this.statusText;
-        response.headers = this.headers.clone();
-        return response;
-    }
-
-    /**
-     * Reads the contents of the file specified by the filePath property and returns a Promise that
-     * resolves with an ArrayBuffer containing the file's contents.
-     * @returns {Promise<ArrayBuffer>} A Promise that resolves with an ArrayBuffer containing the file's contents.
-     * @throws {Error} If the file cannot be read.
-     */
-    async arrayBuffer() {
-        const data = await fs.promises.readFile(this.filePath);
-        return data.buffer;
-    }
-
-    /**
-     * Reads the contents of the file specified by the filePath property and returns a Promise that
-     * resolves with a Blob containing the file's contents.
-     * @returns {Promise<Blob>} A Promise that resolves with a Blob containing the file's contents.
-     * @throws {Error} If the file cannot be read.
-     */
-    async blob() {
-        const data = await fs.promises.readFile(this.filePath);
-        return new Blob([data], { type: this.headers['content-type'] });
-    }
-
-    /**
-     * Reads the contents of the file specified by the filePath property and returns a Promise that
-     * resolves with a string containing the file's contents.
-     * @returns {Promise<string>} A Promise that resolves with a string containing the file's contents.
-     * @throws {Error} If the file cannot be read.
-     */
-    async text() {
-        const data = await fs.promises.readFile(this.filePath, 'utf8');
-        return data;
-    }
-
-    /**
-     * Reads the contents of the file specified by the filePath property and returns a Promise that
-     * resolves with a parsed JavaScript object containing the file's contents.
-     * 
-     * @returns {Promise<Object>} A Promise that resolves with a parsed JavaScript object containing the file's contents.
-     * @throws {Error} If the file cannot be read.
-     */
-    async json() {
-        return JSON.parse(await this.text());
-    }
+async function readFile(path) {
+    const stat = await fs.stat(path);
+    const headers = new Headers();
+    headers.append('content-length', stat.size);
+    const extension = path.toString().split('.').pop().toLowerCase();
+    headers.append('content-type', CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream');
+    const content = await fs.readFile(path, 'base64')
+    const { buffer } = Buffer.from(content);
+    const reqOptions = {
+        status: 200,
+        statusText: 'OK',
+        headers,
+        url: path,
+    };
+    return new Response(buffer, reqOptions);
 }
 
 /**
@@ -190,7 +125,7 @@ export async function getFile(urlOrPath) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
     if (env.useFS && !isValidHttpUrl(urlOrPath)) {
-        return new FileResponse(urlOrPath);
+        return readFile(urlOrPath);
 
     } else {
         return fetch(urlOrPath);
@@ -214,10 +149,9 @@ class FileCache {
     async match(request) {
 
         let filePath = path.join(this.path, request);
-        let file = new FileResponse(filePath);
 
-        if (file.exists) {
-            return file;
+        if (await RNFS.exists(filePath)) {
+            return readFile(filePath);
         } else {
             return undefined;
         }
@@ -235,8 +169,8 @@ class FileCache {
         let outputPath = path.join(this.path, request);
 
         try {
-            await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
-            await fs.promises.writeFile(outputPath, buffer);
+            await RNFS.mkdir(path.dirname(outputPath));
+            await RNFS.writeFile(outputPath, buffer.toString('base64'), 'base64');
 
         } catch (err) {
             console.warn('An error occurred while writing the file to cache:', err)
@@ -287,13 +221,6 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     // First, check if the a caching backend is available
     // If no caching mechanism available, will download the file every time
     let cache;
-    if (!cache && env.useBrowserCache) {
-        if (typeof caches === 'undefined') {
-            throw Error('Browser cache is not available in this environment.')
-        }
-        cache = await caches.open('transformers-cache');
-    }
-
     if (!cache && env.useFSCache) {
         // TODO throw error if not available
 
@@ -436,11 +363,7 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
         // Return empty object
         return {}
     }
-
-    let decoder = new TextDecoder('utf-8');
-    let jsonData = decoder.decode(buffer);
-
-    return JSON.parse(jsonData);
+    return JSON.parse(Buffer.from(buffer));
 }
 
 /**
@@ -451,53 +374,7 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
  * @returns {Promise<Uint8Array>} A Promise that resolves with the Uint8Array buffer
  */
 async function readResponse(response, progress_callback) {
-    // Read and track progress when reading a Response object
-
-    const contentLength = response.headers.get('Content-Length');
-    if (contentLength === null) {
-        console.warn('Unable to determine content-length from response headers. Will expand buffer when needed.')
-    }
-    let total = parseInt(contentLength ?? '0');
-    let buffer = new Uint8Array(total);
-    let loaded = 0;
-
-    const reader = response.body.getReader();
-    async function read() {
-        const { done, value } = await reader.read();
-        if (done) return;
-
-        let newLoaded = loaded + value.length;
-        if (newLoaded > total) {
-            total = newLoaded;
-
-            // Adding the new data will overflow buffer.
-            // In this case, we extend the buffer
-            let newBuffer = new Uint8Array(total);
-
-            // copy contents
-            newBuffer.set(buffer);
-
-            buffer = newBuffer;
-        }
-        buffer.set(value, loaded)
-        loaded = newLoaded;
-
-        const progress = (loaded / total) * 100;
-
-        // Call your function here
-        progress_callback({
-            progress: progress,
-            loaded: loaded,
-            total: total,
-        })
-
-        return read();
-    }
-
-    // Actually read
-    await read();
-
-    return buffer;
+    return await response.arrayBuffer();
 }
 
 /**

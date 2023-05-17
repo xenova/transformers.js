@@ -42,12 +42,12 @@ import {
     Callable,
     isIntegralNumber,
     isTypedArray,
-} from './utils/core.js';
+} from './utils/core';
 
 import {
     getModelFile,
     getModelJSON,
-} from './utils/hub.js';
+} from './utils/hub';
 
 import {
     LogitsProcessorList,
@@ -60,13 +60,13 @@ import {
     RepetitionPenaltyLogitsProcessor,
 
     Sampler,
-} from './utils/generation.js';
+} from './utils/generation';
 
 import {
     Tensor,
-} from './utils/tensor.js';
+} from './utils/tensor';
 
-import { executionProviders, ONNX } from './backends/onnx.js';
+import { executionProviders, ONNX } from './backends/onnx';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 /**

@@ -16,7 +16,7 @@
 import {
     AutoTokenizer,
     PreTrainedTokenizer,
-} from './tokenizers.js';
+} from './tokenizers';
 import {
     AutoModel,
     AutoModelForSequenceClassification,
@@ -30,30 +30,30 @@ import {
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
     PreTrainedModel,
-} from './models.js';
+} from './models';
 import {
     AutoProcessor,
     Processor
-} from './processors.js';
+} from './processors';
 
 
 import {
     Callable,
     isString,
     dispatchCallback,
-} from './utils/core.js';
+} from './utils/core';
 import {
     softmax,
     max,
     getTopItems,
     cos_sim,
     dot
-} from './utils/maths.js';
+} from './utils/maths';
 import {
     read_audio
-} from './utils/audio.js';
-import { Tensor } from './utils/tensor.js';
-import { RawImage } from './utils/image.js';
+} from './utils/audio';
+import { Tensor } from './utils/tensor';
+import { RawImage } from './utils/image';
 
 /**
  * Prepare images for further tasks.

@@ -9,9 +9,9 @@
  */
 
 import fs from 'fs';
-import { isString } from './core.js';
-import { getFile } from './hub.js';
-import { env } from '../env.js';
+import { isString } from './core';
+import { getFile } from './hub';
+import { env } from '../env';
 
 // Will be empty (or not used) if running in browser or web-worker
 import sharp from 'sharp';

@@ -7,12 +7,12 @@
  * @module utils/tensor
  */
 
-import { ONNX } from '../backends/onnx.js';
+import { ONNX } from '../backends/onnx';
 
 import {
     interpolate_data,
     transpose_data
-} from './maths.js';
+} from './maths';
 
 
 /**

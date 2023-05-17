@@ -26,13 +26,14 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 
-import { ONNX } from './backends/onnx.js';
+import { ONNX } from './backends/onnx';
 const { env: onnx_env } = ONNX;
 
+const IS_REACT_NATIVE = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
 
 // Check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
-const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
+const FS_AVAILABLE = !isEmpty(fs) || IS_REACT_NATIVE; // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
