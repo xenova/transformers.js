@@ -23,8 +23,6 @@
  */
 
 import RNFS from 'react-native-fs';
-import path from 'path';
-import url from 'url';
 
 import { ONNX } from './backends/onnx';
 const { env: onnx_env } = ONNX;
@@ -80,6 +78,7 @@ export const env = {
     allowLocalModels: true,
     localModelPath: localModelPath,
     useFS: FS_AVAILABLE,
+    allowFallback: false,
 
     /////////////////// Cache settings ///////////////////
     useBrowserCache: false,

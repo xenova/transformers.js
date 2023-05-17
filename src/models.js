@@ -66,6 +66,8 @@ import {
     Tensor,
 } from './utils/tensor';
 
+import { env } from './env';
+
 import { executionProviders, ONNX } from './backends/onnx';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
@@ -93,7 +95,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
         });
     } catch (err) {
         // If the execution provided was only wasm, throw the error
-        if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
+        if (!env.allowFallback || executionProviders.length === 1 && executionProviders[0] === 'wasm') {
             throw err;
         }
 
