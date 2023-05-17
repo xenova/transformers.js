@@ -37,7 +37,7 @@ function parseHeaders(rawHeaders) {
  * Makes an HTTP request.
  * 
  * @function fetchBinary
- * @param {string|URL} path
+ * @param {string|URL} url
  * @returns {Promise<Response>}
  */
 function fetchBinary(url) {
@@ -57,7 +57,6 @@ function fetchBinary(url) {
                 reqOptions.headers.get('X-Request-URL');
 
             const body = 'response' in xhr ? xhr.response : xhr.responseText;
-            console.log(body);
 
             resolve(new Response(body, reqOptions));
         };
@@ -105,10 +104,11 @@ const CONTENT_TYPE_MAP = {
  * @returns {Promise<Response>}
  */
 async function readFile(filePath) {
-    const stat = await RNFS.stat(filePath.toString());
+    const path = filePath.toString()
+    const stat = await RNFS.stat(path);
     const headers = new Headers();
     headers.append('content-length', stat.size);
-    const extension = filePath.toString().split('.').pop().toLowerCase();
+    const extension = path.split('.').pop().toLowerCase();
     const type = CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
     headers.append('content-type', type);
     const content = await RNFS.readFile(path, 'base64')
