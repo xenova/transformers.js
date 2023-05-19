@@ -516,6 +516,9 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     /** @type {Response | FileResponse} */
     let response;
 
+    /** @type {boolean} */
+    let useDownloadAPI = false;
+
     if (cache) {
         // Cache available, so we try to get the file from the cache.
         response = await cache.match(request);
@@ -573,16 +576,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                 filename
             );
             if (IS_REACT_NATIVE && getMIME(filename) === 'application/octet-stream') {
-                const cachePath = path.join(options.cache_dir ?? env.cacheDir, request);
-                await downloadFile(remoteURL, cachePath, data => {
-                    dispatchCallback(options.progress_callback, {
-                        status: 'progress',
-                        ...data,
-                        name: path_or_repo_id,
-                        file: filename
-                    })
-                })
-                response = await getFile(cachePath);
+                useDownloadAPI = true;
             } else {
                 response = await getFile(remoteURL);
             }
@@ -606,6 +600,19 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         name: path_or_repo_id,
         file: filename
     })
+
+    if (useDownloadAPI) {
+        const cachePath = path.join(options.cache_dir ?? env.cacheDir, request);
+        await downloadFile(remoteURL, cachePath, data => {
+            dispatchCallback(options.progress_callback, {
+                status: 'progress',
+                ...data,
+                name: path_or_repo_id,
+                file: filename
+            })
+        });
+        response = await getFile(cachePath);
+    }
 
     const buffer = await readResponse(response, data => {
         dispatchCallback(options.progress_callback, {
