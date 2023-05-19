@@ -579,10 +579,9 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                 useDownloadAPI = true;
             } else {
                 response = await getFile(remoteURL);
-            }
-
-            if (response.status !== 200) {
-                return handleError(response.status, remoteURL, fatal);
+                if (response.status !== 200) {
+                    return handleError(response.status, remoteURL, fatal);
+                }
             }
         }
 
@@ -612,6 +611,9 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             })
         });
         response = await getFile(cachePath);
+        if (response.status !== 200) {
+            return handleError(response.status, remoteURL, fatal);
+        }
     }
 
     const buffer = await readResponse(response, data => {
