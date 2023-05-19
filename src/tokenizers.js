@@ -986,7 +986,7 @@ class BertPreTokenizer extends PreTokenizer {
     constructor(config) {
         super();
         // TODO use config
-        this.pattern = /\p{L}+|[^\s\p{L}]/gu;
+        this.pattern = /[\p{L}\p{N}]+|[^\s\p{L}\p{N}]/gu;
     }
     /**
      * Tokenizes a single text using the BERT pre-tokenization scheme.
