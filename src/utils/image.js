@@ -12,10 +12,10 @@ import fs from 'fs';
 import { isString } from './core.js';
 import { getFile } from './hub.js';
 import { env } from '../env.js';
+import { interpolate_data } from './maths.js'
 
 import encode from 'image-encode';
 import decode from 'image-decode';
-import resize from 'resize-image-data';
 import { Buffer } from 'buffer';
 
 // Will be empty (or not used) if running in browser or web-worker
@@ -245,8 +245,8 @@ export class RawImage {
         let resampleMethod = RESAMPLING_MAPPING[resample] ?? resample;
 
         if (IS_REACT_NATIVE) {
-            const data = resize(this.rgba().data, width, height, resampleMethod);
-            return new RawImage(data, width, height, 4);
+            const newData = interpolate_data(this.data, [this.width, this.height, this.channels], [width, height], resampleMethod);
+            return new RawImage(newData, width, height, this.channels);
         } else if (BROWSER_ENV) {
             // TODO use `resample` in browser environment
 
