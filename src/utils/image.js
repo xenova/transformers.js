@@ -245,7 +245,7 @@ export class RawImage {
         let resampleMethod = RESAMPLING_MAPPING[resample] ?? resample;
 
         if (IS_REACT_NATIVE) {
-            const newData = interpolate_data(this.data, [this.width, this.height, this.channels], [width, height], resampleMethod);
+            const newData = interpolate_data(this.data, [this.channels, this.height, this.width], [height, width], resampleMethod);
             return new RawImage(newData, width, height, this.channels);
         } else if (BROWSER_ENV) {
             // TODO use `resample` in browser environment
