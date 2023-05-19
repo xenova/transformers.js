@@ -98,6 +98,9 @@ TOKENIZER_TEST_DATA = {
         "trailing space   ",
         "   leading space",
         "生活的真谛是",
+        "The company was founded in 2016.",
+        "test $1 R2 #3 €4 £5 ¥6 ₣7 ₹8 ₱9 test",
+        "I bought an apple for $1.00 at the store.",
     ],
     "custom": {},
 }
