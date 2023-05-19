@@ -27,7 +27,35 @@ const IS_REACT_NATIVE = typeof navigator !== 'undefined' && navigator.product ==
 let createCanvasFunction;
 let ImageDataClass;
 let loadImageFunction;
-if (BROWSER_ENV) {
+if (IS_REACT_NATIVE) {
+    // Optional Support `@flyskywhy/react-native-browser-polyfill` for better performance
+    if (typeof document !== 'undefined' && typeof Image !== 'undefined') {
+        loadImageFunction = async (/**@type {URL|string}*/url) => {
+            const info = await new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(image, 0, 0);
+                    const { data } = ctx.getImageData(0, 0, image.width, image.height);
+                    resolve({ data, width: image.width, height: image.height });
+                }
+                image.onerror = reject;
+                image.src = url;
+            });
+            return new RawImage(new Uint8ClampedArray(info.data), info.width, info.height, 4);
+        };
+        createCanvasFunction = (/** @type {number} */ width, /** @type {number} */ height) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            return canvas;
+        };
+        ImageDataClass = global.ImageData;
+    }
+} else if (BROWSER_ENV) {
     // Running in browser or web-worker
     createCanvasFunction = (/** @type {number} */ width, /** @type {number} */ height) => {
         if (!self.OffscreenCanvas) {
@@ -96,10 +124,15 @@ export class RawImage {
      * @returns {Promise<RawImage>} The image object.
      */
     static async fromURL(url) {
-        let response = await getFile(url);
         if (IS_REACT_NATIVE) {
-            return this.fromBlob(response);
+            if (loadImageFunction) {
+                return await loadImageFunction(url);
+            } else {
+                let response = await getFile(url);
+                return this.fromBlob(response);
+            }
         } else {
+            let response = await getFile(url);
             let blob = await response.blob();
             return this.fromBlob(blob);
         }
@@ -516,7 +549,8 @@ export class RawImage {
     }
 
     toCanvas() {
-        if (IS_REACT_NATIVE) throw new Error('toCanvas is not supported in React Native');
+        if (IS_REACT_NATIVE && createCanvasFunction === undefined)
+            throw new Error('toCanvas is not supported');
         // Clone, and convert data to RGBA before drawing to canvas.
         // This is because the canvas API only supports RGBA
         let cloned = this.clone().rgba();
