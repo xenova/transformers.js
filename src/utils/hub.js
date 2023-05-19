@@ -63,6 +63,17 @@ const CONTENT_TYPE_MAP = {
     'gif': 'image/gif',
 }
 
+/**
+ * Returns the MIME type for the file specified by the given path.
+ * 
+ * @param {string} path The path to the file.
+ * @returns {string} The MIME type for the file specified by the given path.
+ */
+function getMIME(path) {
+    const extension = path.split('.').pop().toLowerCase();
+    return CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
+}
+
 class FileResponse {
     /**
      * Creates a new `FileResponse` object.
@@ -106,7 +117,7 @@ class FileResponse {
     updateContentType() {
         // Set content-type header based on file extension
         const extension = this.filePath.toString().split('.').pop().toLowerCase();
-        this.headers['content-type'] = CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
+        this.headers['content-type'] = getMIME(this.filePath);
     }
 
     /**
@@ -251,8 +262,7 @@ async function readFile(filePath, allowFilePath = false) {
     const stat = await fs.stat(path);
     const headers = new Headers();
     headers.append('content-length', stat.size);
-    const extension = path.split('.').pop().toLowerCase();
-    const type = CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
+    const type = getMIME(path);
     headers.append('content-type', type);
     headers.append('rn-is-local', '1');
     let content;
@@ -287,6 +297,31 @@ function isValidHttpUrl(string) {
     return IS_REACT_NATIVE
         ? /^https?:/.test(string)
         : url.protocol === "http:" || url.protocol === "https:";
+}
+
+/**
+ * Helper function to download a file.
+ *
+ * @param {URL|string} fromUrl The URL/path of the file to download.
+ * @param {string} toFile The path of the file to download to.
+ * @param {function} progress_callback A callback function that is called with progress information.
+ * @returns {Promise}
+ */
+export async function downloadFile(fromUrl, toFile, progress_callback) {
+    await fs.mkdir(path.dirname(toFile));
+    const { jobId, promise } = fs.downloadFile({
+        fromUrl,
+        toFile,
+        progressInterval: 200,
+        progress: ({ contentLength, bytesWritten }) => {
+            progress_callback({
+                progress: bytesWritten / contentLength,
+                loaded: bytesWritten,
+                total: contentLength,
+            });
+        },
+    });
+    await promise;
 }
 
 /**
@@ -537,7 +572,20 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                     .replace('{revision}', options.revision ?? 'main'),
                 filename
             );
-            response = await getFile(remoteURL);
+            if (IS_REACT_NATIVE && getMIME(filename) === 'application/octet-stream') {
+                const cachePath = path.join(options.cache_dir ?? env.cacheDir, request);
+                await downloadFile(remoteURL, cachePath, data => {
+                    dispatchCallback(options.progress_callback, {
+                        status: 'progress',
+                        ...data,
+                        name: path_or_repo_id,
+                        file: filename
+                    })
+                })
+                response = await getFile(cachePath);
+            } else {
+                response = await getFile(remoteURL);
+            }
 
             if (response.status !== 200) {
                 return handleError(response.status, remoteURL, fatal);
