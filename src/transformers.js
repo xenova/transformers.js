@@ -13,13 +13,13 @@
  * @module transformers
  */
 
-export * from './pipelines';
-export * from './env';
-export * from './models';
-export * from './tokenizers';
-export * from './processors';
+export * from './pipelines.js';
+export * from './env.js';
+export * from './models.js';
+export * from './tokenizers.js';
+export * from './processors.js';
 
-export * from './utils/audio';
-export * from './utils/image';
-export * from './utils/tensor';
-export * from './utils/maths';
+export * from './utils/audio.js';
+export * from './utils/image.js';
+export * from './utils/tensor.js';
+export * from './utils/maths.js';

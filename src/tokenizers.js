@@ -25,16 +25,16 @@ import {
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
-} from './utils/core';
+} from './utils/core.js';
 
 import {
     getModelJSON,
-} from './utils/hub';
+} from './utils/hub.js';
 
-import { min } from './utils/maths';
-import { Tensor } from './utils/tensor';
+import { min } from './utils/maths.js';
+import { Tensor } from './utils/tensor.js';
 
-import { env } from './env';
+import { env } from './env.js';
 
 const { backends: { Uint8Array } } = env;
 

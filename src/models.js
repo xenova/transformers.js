@@ -42,12 +42,12 @@ import {
     Callable,
     isIntegralNumber,
     isTypedArray,
-} from './utils/core';
+} from './utils/core.js';
 
 import {
     getModelFile,
     getModelJSON,
-} from './utils/hub';
+} from './utils/hub.js';
 
 import {
     LogitsProcessorList,
@@ -60,15 +60,15 @@ import {
     RepetitionPenaltyLogitsProcessor,
 
     Sampler,
-} from './utils/generation';
+} from './utils/generation.js';
 
 import {
     Tensor,
-} from './utils/tensor';
+} from './utils/tensor.js';
 
-import { env } from './env';
+import { env } from './env.js';
 
-import { executionProviders, ONNX } from './backends/onnx';
+import { executionProviders, ONNX } from './backends/onnx.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 /**
@@ -154,7 +154,14 @@ async function sessionRun(session, inputs) {
     } catch (e) {
         // This usually occurs when the inputs are of the wrong type.
         console.error(`An error occurred during model execution: "${e}".`);
-        console.error('Inputs given to model:', checkedInputs);
+        // Not log full data, it may cause crash in React Native
+        console.error(
+            'Inputs given to model:',
+            Object.fromEntries(
+                Object.entries(checkedInputs)
+                    .map(([key, tensor]) => [key, { dims: tensor.dims, type: tensor.type }])
+            )
+        );
         throw e;
     }
 }

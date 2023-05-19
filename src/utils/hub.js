@@ -8,15 +8,17 @@
 import fs from 'fs';
 import path from 'path';
 import stream from 'stream/web';
+import { Buffer } from 'buffer';
 
-import { env } from '../env';
-import { dispatchCallback } from './core';
-import { handleError } from './hub-utils';
+import { env } from '../env.js';
+import { dispatchCallback } from './core.js';
 
 if (!globalThis.ReadableStream) {
     // @ts-ignore
     globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16
 }
+
+const IS_REACT_NATIVE = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
 
 /**
  * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     
@@ -31,7 +33,7 @@ if (!globalThis.ReadableStream) {
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
  */
 
-class Headers extends Object {
+class FileHeaders extends Object {
     constructor(...args) {
         super();
         Object.assign(this, args);
@@ -42,32 +44,33 @@ class Headers extends Object {
     }
 
     clone() {
-        return new Headers(this);
+        return new FileHeaders(this);
     }
 }
 
+/**
+ * Mapping from file extensions to MIME types.
+ */
+const CONTENT_TYPE_MAP = {
+    'txt': 'text/plain',
+    'html': 'text/html',
+    'css': 'text/css',
+    'js': 'text/javascript',
+    'json': 'application/json',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+}
+
 class FileResponse {
-    /**
-     * Mapping from file extensions to MIME types.
-     */
-    _CONTENT_TYPE_MAP = {
-        'txt': 'text/plain',
-        'html': 'text/html',
-        'css': 'text/css',
-        'js': 'text/javascript',
-        'json': 'application/json',
-        'png': 'image/png',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'gif': 'image/gif',
-    }
     /**
      * Creates a new `FileResponse` object.
      * @param {string|URL} filePath
      */
     constructor(filePath) {
         this.filePath = filePath;
-        this.headers = new Headers();
+        this.headers = new FileHeaders();
 
         this.exists = fs.existsSync(filePath);
         if (this.exists) {
@@ -103,7 +106,7 @@ class FileResponse {
     updateContentType() {
         // Set content-type header based on file extension
         const extension = this.filePath.toString().split('.').pop().toLowerCase();
-        this.headers['content-type'] = this._CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
+        this.headers['content-type'] = CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
     }
 
     /**
@@ -165,6 +168,110 @@ class FileResponse {
 }
 
 /**
+ * Parse HTTP headers.
+ * 
+ * @function parseHeaders
+ * @param {string} rawHeaders
+ * @returns {Headers}
+ */
+function parseHeaders(rawHeaders) {
+    const headers = new Headers();
+    const preProcessedHeaders = rawHeaders.replace(/\r?\n[\t ]+/g, ' ');
+    preProcessedHeaders.split(/\r?\n/).forEach((line) => {
+        const parts = line.split(':');
+        const key = parts.shift().trim();
+        if (key) {
+            const value = parts.join(':').trim();
+            headers.append(key, value);
+        }
+    });
+    return headers;
+}
+
+/**
+ * Makes an HTTP request.
+ * 
+ * @function fetchBinary
+ * @param {string|URL} url
+ * @returns {Promise<Response>}
+ */
+function fetchBinary(url) {
+    return new Promise((resolve, reject) => {
+        const request = new Request(url);
+        const xhr = new XMLHttpRequest();
+
+        xhr.onload = () => {
+            const reqOptions = {
+                status: xhr.status,
+                statusText: xhr.statusText,
+                headers: parseHeaders(xhr.getAllResponseHeaders() || ''),
+                url: '',
+            };
+            reqOptions.url = 'responseURL' in xhr ?
+                xhr.responseURL :
+                reqOptions.headers.get('x-request-url');
+
+            const body = Buffer.from(xhr.response);
+
+            resolve(new Response(body.buffer, reqOptions));
+        };
+
+        xhr.onerror = () => reject(new TypeError('Network request failed'));
+        xhr.ontimeout = () => reject(new TypeError('Request timeout'));
+
+        xhr.open(request.method, request.url, true);
+
+        if (request.credentials === 'include') {
+            xhr.withCredentials = true;
+        } else if (request.credentials === 'omit') {
+            xhr.withCredentials = false;
+        }
+
+        xhr.responseType = 'arraybuffer';
+
+        request.headers.forEach((value, name) => {
+            xhr.setRequestHeader(name, value);
+        });
+
+        xhr.send(request._bodyInit ?? null);
+    });
+}
+
+/**
+ * Makes an FS request for ReactNative.
+ * 
+ * @async
+ * @function readFile
+ * @param {string|URL} path
+ * @param {object} options
+ * @returns {Promise<Response>}
+ */
+async function readFile(filePath, allowFilePath = false) {
+    const path = filePath.toString()
+    const stat = await fs.stat(path);
+    const headers = new Headers();
+    headers.append('content-length', stat.size);
+    const extension = path.split('.').pop().toLowerCase();
+    const type = CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
+    headers.append('content-type', type);
+    headers.append('rn-is-local', '1');
+    let content;
+    const reqOptions = {
+        status: 200,
+        statusText: 'OK',
+        headers,
+        url: `file://${path}`,
+    };
+    // Prevent load binary data into JS side
+    if (type !== 'application/octet-stream') {
+        const content = await fs.readFile(path, 'base64');
+        return new Response(Buffer.from(content, 'base64').buffer, reqOptions);
+    } else {
+        return new Response('', reqOptions);
+    }
+}
+
+/**
  * Determines whether the given string is a valid HTTP or HTTPS URL.
  * @param {string|URL} string The string to test for validity as an HTTP or HTTPS URL.
  * @returns {boolean} True if the string is a valid HTTP or HTTPS URL, false otherwise.
@@ -177,7 +284,9 @@ function isValidHttpUrl(string) {
     } catch (_) {
         return false;
     }
-    return url.protocol === "http:" || url.protocol === "https:";
+    return IS_REACT_NATIVE
+        ? /^https?:/.test(string)
+        : url.protocol === "http:" || url.protocol === "https:";
 }
 
 /**
@@ -189,11 +298,62 @@ function isValidHttpUrl(string) {
 export async function getFile(urlOrPath) {
     // Helper function to get a file, using either the Fetch API or FileSystem API
 
-    if (env.useFS && !isValidHttpUrl(urlOrPath)) {
-        return new FileResponse(urlOrPath);
-
+    if (IS_REACT_NATIVE) {
+        if (env.useFS && !isValidHttpUrl(urlOrPath)) {
+            return readFile(urlOrPath);
+        } else {
+            return fetchBinary(urlOrPath);
+        }
     } else {
-        return fetch(urlOrPath);
+        if (env.useFS && !isValidHttpUrl(urlOrPath)) {
+            return new FileResponse(urlOrPath);
+        } else {
+            return fetch(urlOrPath);
+        }
+    }
+}
+
+/**
+ * Helper method to handle fatal errors that occur while trying to load a file from the Hugging Face Hub.
+ * @param {number} status The HTTP status code of the error.
+ * @param {string} remoteURL The URL of the file that could not be loaded.
+ * @param {boolean} fatal Whether to raise an error if the file could not be loaded.
+ * @returns {null} Returns `null` if `fatal = true`.
+ * @throws {Error} If `fatal = false`.
+ */
+function handleError(status, remoteURL, fatal) {
+    if (!fatal) {
+        // File was not loaded correctly, but it is optional.
+        // TODO in future, cache the response?
+        return null;
+    }
+
+    switch (status) {
+        // 4xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
+        case 400:
+            throw Error(`Bad request error occurred while trying to load file: "${remoteURL}".`)
+        case 401:
+            throw Error(`Unauthorized access to file: "${remoteURL}".`)
+        case 403:
+            throw Error(`Forbidden access to file: "${remoteURL}".`)
+        case 404:
+            throw Error(`Could not locate file: "${remoteURL}".`)
+        case 408:
+            throw Error(`Request timeout error occurred while trying to load file: "${remoteURL}".`)
+
+        // 5xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+        case 500:
+            throw Error(`Internal server error error occurred while trying to load file: "${remoteURL}".`)
+        case 502:
+            throw Error(`Bad gateway error occurred while trying to load file: "${remoteURL}".`)
+        case 503:
+            throw Error(`Service unavailable error occurred while trying to load file: "${remoteURL}".`)
+        case 504:
+            throw Error(`Gateway timeout error occurred while trying to load file: "${remoteURL}".`)
+
+        // Other:
+        default:
+            throw Error(`Error (${status}) occurred while trying to load file: "${remoteURL}".`)
     }
 }
 
@@ -214,12 +374,20 @@ class FileCache {
     async match(request) {
 
         let filePath = path.join(this.path, request);
-        let file = new FileResponse(filePath);
 
-        if (file.exists) {
-            return file;
+        if (IS_REACT_NATIVE) {
+            if (await fs.exists(filePath)) {
+                return readFile(filePath);
+            } else {
+                return undefined;
+            }
         } else {
-            return undefined;
+            let file = new FileResponse(filePath);
+            if (file.exists) {
+                return file;
+            } else {
+                return undefined;
+            }
         }
     }
 
@@ -235,9 +403,13 @@ class FileCache {
         let outputPath = path.join(this.path, request);
 
         try {
-            await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
-            await fs.promises.writeFile(outputPath, buffer);
-
+            if (IS_REACT_NATIVE) {
+                await fs.mkdir(path.dirname(outputPath));
+                await fs.writeFile(outputPath, buffer.toString('base64'), 'base64');
+            } else {
+                await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
+                await fs.promises.writeFile(outputPath, buffer);
+            }
         } catch (err) {
             console.warn('An error occurred while writing the file to cache:', err)
         }
@@ -335,6 +507,8 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                 throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`);
             } else if (!env.allowRemoteModels) {
                 throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${request}.`);
+            } else if (IS_REACT_NATIVE && !env.useFSCache) {
+                throw new Error(`ReactNative cannot load remote files without a cache. Please enable \`env.useFSCache\` to enable caching.`);
             }
         }
 
@@ -371,7 +545,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         }
 
 
-        if (cache && response instanceof Response && response.status === 200) {
+        if (cache && response.headers.get('rn-is-local') !== '1' && response instanceof Response && response.status === 200) {
             // only clone if cache available, and response is valid
             responseToCache = response.clone();
         }
@@ -417,7 +591,15 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         file: filename
     });
 
-    return buffer;
+    // Return local file if not need decode (e.g. .onnx file)
+    if (
+        IS_REACT_NATIVE &&
+        response.headers.get('content-type') === 'application/octet-stream'
+    ) {
+        return await cache.match(request).then(res => res.url);
+    } else {
+        return buffer;
+    }
 }
 
 /**
@@ -437,9 +619,10 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
         return {}
     }
 
+    if (IS_REACT_NATIVE) return JSON.parse(Buffer.from(buffer));
+
     let decoder = new TextDecoder('utf-8');
     let jsonData = decoder.decode(buffer);
-
     return JSON.parse(jsonData);
 }
 
@@ -451,8 +634,17 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
  * @returns {Promise<Uint8Array>} A Promise that resolves with the Uint8Array buffer
  */
 async function readResponse(response, progress_callback) {
-    // Read and track progress when reading a Response object
+    if (IS_REACT_NATIVE) {
+        if (
+            response.headers.get('content-type') !== 'application/octet-stream' ||
+            response.headers.get('rn-is-local') !== '1'
+        )
+            return await response.arrayBuffer();
+        else
+            return response.url;
+    }
 
+    // Read and track progress when reading a Response object
     const contentLength = response.headers.get('Content-Length');
     if (contentLength === null) {
         console.warn('Unable to determine content-length from response headers. Will expand buffer when needed.')

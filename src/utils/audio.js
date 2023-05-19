@@ -9,8 +9,8 @@
 
 import {
     getFile,
-} from './hub';
-import { rfftfreq } from './maths';
+} from './hub.js';
+import { rfftfreq } from './maths.js';
 
 export async function read_audio(url, sampling_rate) {
     // Attempting to load from path/url

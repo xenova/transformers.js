@@ -9,14 +9,20 @@
  */
 
 import fs from 'fs';
-import { isString } from './core';
-import { getFile } from './hub';
-import { env } from '../env';
+import { isString } from './core.js';
+import { getFile } from './hub.js';
+import { env } from '../env.js';
+
+import encode from 'image-encode';
+import decode from 'image-decode';
+import resize from 'resize-image-data';
+import { Buffer } from 'buffer';
 
 // Will be empty (or not used) if running in browser or web-worker
 import sharp from 'sharp';
 
 const BROWSER_ENV = typeof self !== 'undefined';
+const IS_REACT_NATIVE = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
 
 let createCanvasFunction;
 let ImageDataClass;
@@ -37,7 +43,7 @@ if (BROWSER_ENV) {
 
     loadImageFunction = async (/**@type {sharp.Sharp}*/img) => {
         let { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
-        return new RawImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
+        return new CustomImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
     }
 
 } else {
@@ -55,10 +61,10 @@ const RESAMPLING_MAPPING = {
     5: 'hamming',
 }
 
-export class RawImage {
+export class CustomImage {
 
     /**
-     * Create a new `RawImage` object.
+     * Create a new CustomImage object.
      * @param {Uint8ClampedArray} data The pixel data.
      * @param {number} width The width of the image.
      * @param {number} height The height of the image.
@@ -70,11 +76,11 @@ export class RawImage {
 
     /**
      * Helper method for reading an image from a variety of input types.
-     * @param {RawImage|string|URL} input 
+     * @param {CustomImage|string|URL} input 
      * @returns The image object.
      */
     static async read(input) {
-        if (input instanceof RawImage) {
+        if (input instanceof CustomImage) {
             return input;
         } else if (isString(input) || input instanceof URL) {
             return await this.fromURL(input);
@@ -87,21 +93,29 @@ export class RawImage {
     /**
      * Read an image from a URL or file path.
      * @param {string|URL} url The URL or file path to read the image from.
-     * @returns {Promise<RawImage>} The image object.
+     * @returns {Promise<CustomImage>} The image object.
      */
     static async fromURL(url) {
         let response = await getFile(url);
-        let blob = await response.blob();
-        return this.fromBlob(blob);
+        if (IS_REACT_NATIVE) {
+            return this.fromBlob(response);
+        } else {
+            let blob = await response.blob();
+            return this.fromBlob(blob);
+        }
     }
 
     /**
      * Helper method to create a new Image from a blob.
      * @param {Blob} blob The blob to read the image from.
-     * @returns {Promise<RawImage>} The image object.
+     * @returns {Promise<CustomImage>} The image object.
      */
     static async fromBlob(blob) {
-        if (BROWSER_ENV) {
+        if (IS_REACT_NATIVE) {
+            const buffer = await blob.arrayBuffer();
+            const { data, width, height } = decode(buffer);
+            return new CustomImage(new Uint8ClampedArray(data), width, height, 4);
+        } else if (BROWSER_ENV) {
             // Running in environment with canvas
             let img = await loadImageFunction(blob);
 
@@ -122,7 +136,7 @@ export class RawImage {
 
     /**
      * Convert the image to grayscale format.
-     * @returns {RawImage} `this` to support chaining.
+     * @returns {CustomImage} `this` to support chaining.
      */
     grayscale() {
         if (this.channels === 1) {
@@ -149,7 +163,7 @@ export class RawImage {
 
     /**
      * Convert the image to RGB format.
-     * @returns {RawImage} `this` to support chaining.
+     * @returns {CustomImage} `this` to support chaining.
      */
     rgb() {
         if (this.channels === 3) {
@@ -182,7 +196,7 @@ export class RawImage {
 
     /**
      * Convert the image to RGBA format.
-     * @returns {RawImage} `this` to support chaining.
+     * @returns {CustomImage} `this` to support chaining.
      */
     rgba() {
         if (this.channels === 4) {
@@ -221,7 +235,7 @@ export class RawImage {
      * @param {number} height The height of the new image.
      * @param {Object} options Additional options for resizing.
      * @param {0|1|2|3|4|5|string} [options.resample] The resampling method to use.
-     * @returns {Promise<RawImage>} `this` to support chaining.
+     * @returns {Promise<CustomImage>} `this` to support chaining.
      */
     async resize(width, height, {
         resample = 2,
@@ -230,7 +244,10 @@ export class RawImage {
         // Ensure resample method is a string
         let resampleMethod = RESAMPLING_MAPPING[resample] ?? resample;
 
-        if (BROWSER_ENV) {
+        if (IS_REACT_NATIVE) {
+            const data = resize(this.rgba().data, width, height, resampleMethod);
+            return new CustomImage(data, width, height, 4);
+        } else if (BROWSER_ENV) {
             // TODO use `resample` in browser environment
 
             // Store number of channels before resizing
@@ -246,7 +263,7 @@ export class RawImage {
             ctx.drawImage(canvas, 0, 0, width, height);
 
             // Create image from the resized data
-            let resizedImage = new RawImage(ctx.getImageData(0, 0, width, height).data, width, height, 4);
+            let resizedImage = new CustomImage(ctx.getImageData(0, 0, width, height).data, width, height, 4);
 
             // Convert back so that image has the same number of channels as before
             return resizedImage.convert(numChannels);
@@ -309,7 +326,24 @@ export class RawImage {
             return this;
         }
 
-        if (BROWSER_ENV) {
+        if (IS_REACT_NATIVE) {
+            const channels = this.channels;
+            const data = this.data;
+            const width = this.width + left + right;
+            const height = this.height + top + bottom;
+            const paddedData = new Uint8ClampedArray(width * height * channels);
+            // copy data
+            for (let i = 0; i < data.length; i += channels) {
+                const x = i % (this.width * channels);
+                const y = (i - x) / (this.width * channels);
+                const paddedIndex = ((y + top) * width + (x + left)) * channels;
+                for (let j = 0; j < channels; j++) {
+                    paddedData[paddedIndex + j] = data[i + j];
+                }
+            }
+            return new CustomImage(paddedData, width, height, channels);
+
+        } else if (BROWSER_ENV) {
             // Store number of channels before padding
             let numChannels = this.channels;
 
@@ -329,7 +363,7 @@ export class RawImage {
             );
 
             // Create image from the padded data
-            let paddedImage = new RawImage(
+            let paddedImage = new CustomImage(
                 ctx.getImageData(0, 0, newWidth, newHeight).data,
                 newWidth, newHeight, 4);
 
@@ -358,8 +392,20 @@ export class RawImage {
         let width_offset = (this.width - crop_width) / 2;
         let height_offset = (this.height - crop_height) / 2;
 
-
-        if (BROWSER_ENV) {
+        if (IS_REACT_NATIVE) {
+            let channels = this.channels;
+            let data = this.data;
+            let croppedData = new Uint8ClampedArray(crop_width * crop_height * channels);
+            for (let i = 0; i < croppedData.length; i += channels) {
+                let x = i % (crop_width * channels);
+                let y = (i - x) / (crop_width * channels);
+                let croppedIndex = ((y + height_offset) * this.width + (x + width_offset)) * channels;
+                for (let j = 0; j < channels; j++) {
+                    croppedData[i + j] = data[croppedIndex + j];
+                }
+            }
+            return new CustomImage(croppedData, crop_width, crop_height, channels);
+        } else if (BROWSER_ENV) {
             // Store number of channels before resizing
             let numChannels = this.channels;
 
@@ -394,7 +440,7 @@ export class RawImage {
             );
 
             // Create image from the resized data
-            let resizedImage = new RawImage(ctx.getImageData(0, 0, crop_width, crop_height).data, crop_width, crop_height, 4);
+            let resizedImage = new CustomImage(ctx.getImageData(0, 0, crop_width, crop_height).data, crop_width, crop_height, 4);
 
             // Convert back so that image has the same number of channels as before
             return resizedImage.convert(numChannels);
@@ -470,6 +516,7 @@ export class RawImage {
     }
 
     toCanvas() {
+        if (IS_REACT_NATIVE) throw new Error('toCanvas is not supported in React Native');
         // Clone, and convert data to RGBA before drawing to canvas.
         // This is because the canvas API only supports RGBA
         let cloned = this.clone().rgba();
@@ -503,16 +550,16 @@ export class RawImage {
 
     /**
      * Clone the image
-     * @returns {RawImage} The cloned image
+     * @returns {CustomImage} The cloned image
      */
     clone() {
-        return new RawImage(this.data.slice(), this.width, this.height, this.channels);
+        return new CustomImage(this.data.slice(), this.width, this.height, this.channels);
     }
 
     /**
      * Helper method for converting image to have a certain number of channels
      * @param {number} numChannels The number of channels. Must be 1, 3, or 4.
-     * @returns {RawImage} `this` to support chaining.
+     * @returns {CustomImage} `this` to support chaining.
      */
     convert(numChannels) {
         if (this.channels === numChannels) return this; // Already correct number of channels
@@ -543,8 +590,13 @@ export class RawImage {
             throw new Error('Unable to save the image because filesystem is disabled in this environment.')
         }
 
-        let canvas = this.toCanvas();
-        const buffer = canvas.toBuffer(mime);
-        fs.writeFileSync(path, buffer);
+        if (IS_REACT_NATIVE) {
+            const buf = Buffer.from(encode(this.rgba().data, mime));
+            fs.writeFile(path, buf.toString('base64'), 'base64');
+        } else {
+            let canvas = this.toCanvas();
+            const buffer = canvas.toBuffer(mime);
+            fs.writeFileSync(path, buffer);
+        }
     }
 }

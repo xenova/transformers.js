@@ -6,17 +6,17 @@
  * 
  * @module utils/generation
  */
-import { Tensor } from './tensor';
+import { Tensor } from './tensor.js';
 import {
     Callable,
     exists,
-} from './core';
+} from './core.js';
 import {
     max,
     softmax,
     log_softmax,
     getTopItems,
-} from './maths';
+} from './maths.js';
 
 /**
  * A class representing a list of logits processors. A logits processor is a function that modifies the logits
