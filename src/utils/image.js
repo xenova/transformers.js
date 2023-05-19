@@ -61,7 +61,7 @@ const RESAMPLING_MAPPING = {
     5: 'hamming',
 }
 
-export class CustomImage {
+export class RawImage {
 
     /**
      * Create a new CustomImage object.
