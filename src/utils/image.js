@@ -30,13 +30,17 @@ let loadImageFunction;
 if (IS_REACT_NATIVE) {
     // Optional Support `@flyskywhy/react-native-browser-polyfill` for better performance
     if (typeof document !== 'undefined' && typeof Image !== 'undefined') {
+        createCanvasFunction = (/** @type {number} */ width, /** @type {number} */ height) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            return canvas;
+        };
         loadImageFunction = async (/**@type {URL|string}*/url) => {
             const info = await new Promise((resolve, reject) => {
                 const image = new Image();
                 image.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = image.width;
-                    canvas.height = image.height;
+                    const canvas = createCanvasFunction(image.width, image.height);
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(image, 0, 0);
                     const { data } = ctx.getImageData(0, 0, image.width, image.height);
@@ -46,12 +50,6 @@ if (IS_REACT_NATIVE) {
                 image.src = url;
             });
             return new RawImage(new Uint8ClampedArray(info.data), info.width, info.height, 4);
-        };
-        createCanvasFunction = (/** @type {number} */ width, /** @type {number} */ height) => {
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            return canvas;
         };
         ImageDataClass = global.ImageData;
     }
