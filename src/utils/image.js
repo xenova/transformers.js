@@ -49,7 +49,7 @@ if (IS_REACT_NATIVE) {
                 image.onerror = reject;
                 image.src = url;
             });
-            return new RawImage(new Uint8ClampedArray(info.data), info.width, info.height, 4);
+            return new RawImage(info.data, info.width, info.height, 4);
         };
         ImageDataClass = global.ImageData;
     }
