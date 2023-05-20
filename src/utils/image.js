@@ -123,7 +123,7 @@ export class RawImage {
      */
     static async fromURL(url) {
         if (IS_REACT_NATIVE) {
-            if (loadImageFunction) {
+            if (env.useGCanvas && loadImageFunction) {
                 return await loadImageFunction(url);
             } else {
                 let response = await getFile(url);
