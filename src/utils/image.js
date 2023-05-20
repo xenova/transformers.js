@@ -12,7 +12,7 @@ import fs from 'fs';
 import { isString } from './core.js';
 import { getFile } from './hub.js';
 import { env } from '../env.js';
-import { interpolate_data } from './maths.js'
+import { transpose_data, interpolate_data } from './maths.js';
 
 import encode from 'image-encode';
 import decode from 'image-decode';
@@ -278,17 +278,23 @@ export class RawImage {
         let resampleMethod = RESAMPLING_MAPPING[resample] ?? resample;
 
         if (IS_REACT_NATIVE) {
-            const newData = new Uint8ClampedArray(width * height * this.channels);
-            const ratioX = this.width / width;
-            const ratioY = this.height / height;
-            for (let i = 0; i < newData.length; i += this.channels) {
-                const x = Math.floor(i / this.channels) % width;
-                const y = Math.floor(i / this.channels / width);
-                const pixelIndex = Math.floor((Math.floor(y * ratioY) * this.width + Math.floor(x * ratioX)) * this.channels);
-                for (let j = 0; j < this.channels; j++) {
-                    newData[i + j] = this.data[pixelIndex + j];
-                }
-            }
+            // WHC -> CHW
+            const [trsnsposed] = transpose_data(
+                this.data,
+                [this.width, this.height, this.channels],
+                [2, 0, 1]
+            );
+            const resized = interpolate_data(
+                trsnsposed,
+                [this.channels, this.height, this.width],
+                [height, width]
+            );
+            // CHW -> WHC
+            const [newData] = transpose_data(
+                resized,
+                [this.channels, height, width],
+                [1, 2, 0]
+            );
             return new RawImage(newData, width, height, this.channels);
         } else if (BROWSER_ENV) {
             // TODO use `resample` in browser environment
