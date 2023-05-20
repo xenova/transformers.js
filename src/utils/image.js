@@ -278,7 +278,17 @@ export class RawImage {
         let resampleMethod = RESAMPLING_MAPPING[resample] ?? resample;
 
         if (IS_REACT_NATIVE) {
-            const newData = interpolate_data(this.data, [this.channels, this.height, this.width], [height, width], resampleMethod);
+            const newData = new Uint8ClampedArray(width * height * this.channels);
+            const ratioX = this.width / width;
+            const ratioY = this.height / height;
+            for (let i = 0; i < newData.length; i += this.channels) {
+                const x = Math.floor(i / this.channels) % width;
+                const y = Math.floor(i / this.channels / width);
+                const pixelIndex = Math.floor((Math.floor(y * ratioY) * this.width + Math.floor(x * ratioX)) * this.channels);
+                for (let j = 0; j < this.channels; j++) {
+                    newData[i + j] = this.data[pixelIndex + j];
+                }
+            }
             return new RawImage(newData, width, height, this.channels);
         } else if (BROWSER_ENV) {
             // TODO use `resample` in browser environment
@@ -365,13 +375,12 @@ export class RawImage {
             const width = this.width + left + right;
             const height = this.height + top + bottom;
             const paddedData = new Uint8ClampedArray(width * height * channels);
-            // copy data
             for (let i = 0; i < data.length; i += channels) {
-                const x = i % (this.width * channels);
-                const y = (i - x) / (this.width * channels);
-                const paddedIndex = ((y + top) * width + (x + left)) * channels;
+                const x = Math.floor(i / channels) % this.width;
+                const y = Math.floor(i / channels / this.width);
+                const pixelIndex = (y * width + x) * channels;
                 for (let j = 0; j < channels; j++) {
-                    paddedData[paddedIndex + j] = data[i + j];
+                    paddedData[pixelIndex + j] = data[i + j];
                 }
             }
             return new RawImage(paddedData, width, height, channels);
@@ -430,11 +439,11 @@ export class RawImage {
             let data = this.data;
             let croppedData = new Uint8ClampedArray(crop_width * crop_height * channels);
             for (let i = 0; i < croppedData.length; i += channels) {
-                let x = i % (crop_width * channels);
-                let y = (i - x) / (crop_width * channels);
-                let croppedIndex = ((y + height_offset) * this.width + (x + width_offset)) * channels;
+                const x = Math.floor(i / channels) % crop_width;
+                const y = Math.floor(i / channels / crop_width);
+                const pixelIndex = ((y + height_offset) * this.width + (x + width_offset)) * channels;
                 for (let j = 0; j < channels; j++) {
-                    croppedData[i + j] = data[croppedIndex + j];
+                    croppedData[i + j] = data[pixelIndex + j];
                 }
             }
             return new RawImage(croppedData, crop_width, crop_height, channels);
