@@ -53,6 +53,9 @@
     "webpack-cli": "^5.0.2",
     "webpack-dev-server": "^4.13.3"
   },
+  "overrides": {
+    "jpeg-js": "^0.4.4"
+  },
   "files": [
     "src",
     "dist",
