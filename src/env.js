@@ -36,8 +36,6 @@ const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
 const FS_AVAILABLE = !isEmpty(fs) || IS_REACT_NATIVE; // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
-const GCANVAS_AVAILABLE = IS_REACT_NATIVE && typeof document !== 'undefined' && typeof Image !== 'undefined';
-
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 
 let __dirname = './';
@@ -108,7 +106,7 @@ export const env = {
     useFS: FS_AVAILABLE,
 
     allowFallback: !IS_REACT_NATIVE,
-    useGCanvas: GCANVAS_AVAILABLE,
+    useGCanvas: true,
 
     /////////////////// Cache settings ///////////////////
     useBrowserCache: WEB_CACHE_AVAILABLE,
