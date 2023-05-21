@@ -71,6 +71,8 @@ import { env } from './env.js';
 import { executionProviders, ONNX } from './backends/onnx.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
+const IS_BROWSER = typeof navigator !== 'undefined' && navigator.product !== 'ReactNative';
+
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
  */
@@ -157,7 +159,7 @@ async function sessionRun(session, inputs) {
         // Not log full data, it may cause crash in React Native
         console.error(
             'Inputs given to model:',
-            Object.fromEntries(
+            IS_BROWSER ? checkedInputs : Object.fromEntries(
                 Object.entries(checkedInputs)
                     .map(([key, tensor]) => [key, { dims: tensor.dims, type: tensor.type }])
             )
