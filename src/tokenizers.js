@@ -20,6 +20,8 @@
  * @module tokenizers
  */
 
+import XRegExp from 'xregexp';
+
 import {
     Callable,
     reverseDictionary,
@@ -64,7 +66,7 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
  */
 function createPattern(pattern) {
     if (pattern.Regex) {
-        return new RegExp(pattern.Regex, 'gu');
+        return XRegExp(pattern.Regex, 'gu');
 
     } else if (pattern.String) {
         return pattern.String;
