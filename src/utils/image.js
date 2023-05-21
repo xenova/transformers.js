@@ -276,24 +276,37 @@ export class RawImage {
         let resampleMethod = RESAMPLING_MAPPING[resample] ?? resample;
 
         if (IS_REACT_NATIVE) {
-            // WHC -> CHW
-            const [trsnsposed] = transpose_data(
-                this.data,
-                [this.width, this.height, this.channels],
-                [2, 0, 1]
-            );
-            const resized = interpolate_data(
-                trsnsposed,
-                [this.channels, this.height, this.width],
-                [height, width]
-            );
-            // CHW -> WHC
-            const [newData] = transpose_data(
-                resized,
-                [this.channels, height, width],
-                [1, 2, 0]
-            );
-            return new RawImage(newData, width, height, this.channels);
+            if (createCanvasFunction !== undefined && env.useGCanvas) {
+                // Running in environment with canvas
+                let canvas = createCanvasFunction(this.width, this.height);
+                let ctx = canvas.getContext('2d');
+                let imageData = this.toImageData();
+                ctx.putImageData(imageData, 0, 0);
+                ctx.drawImage(canvas, 0, 0, this.width, this.height, 0, 0, width, height);
+                let newImageData = ctx.getImageData(0, 0, width, height);
+                const resized = new RawImage(newImageData.data, width, height, 4);
+                return resized.convert(this.channels);
+            } else {
+                // Running in environment without canvas
+                // WHC -> CHW
+                const [trsnsposed] = transpose_data(
+                    this.data,
+                    [this.width, this.height, this.channels],
+                    [2, 0, 1]
+                );
+                const resized = interpolate_data(
+                    trsnsposed,
+                    [this.channels, this.height, this.width],
+                    [height, width]
+                );
+                // CHW -> WHC
+                const [newData] = transpose_data(
+                    resized,
+                    [this.channels, height, width],
+                    [1, 2, 0]
+                );
+                return new RawImage(newData, width, height, this.channels);
+            }
         } else if (BROWSER_ENV) {
             // TODO use `resample` in browser environment
 
@@ -374,20 +387,34 @@ export class RawImage {
         }
 
         if (IS_REACT_NATIVE) {
-            const channels = this.channels;
-            const data = this.data;
-            const width = this.width + left + right;
-            const height = this.height + top + bottom;
-            const paddedData = new Uint8ClampedArray(width * height * channels);
-            for (let i = 0; i < data.length; i += channels) {
-                const x = Math.floor(i / channels) % this.width;
-                const y = Math.floor(i / channels / this.width);
-                const pixelIndex = (y * width + x) * channels;
-                for (let j = 0; j < channels; j++) {
-                    paddedData[pixelIndex + j] = data[i + j];
+            if (createCanvasFunction !== undefined && env.useGCanvas) {
+                // Running in environment with canvas
+                let newWidth = this.width + left + right;
+                let newHeight = this.height + top + bottom;
+                let canvas = createCanvasFunction(newWidth, newHeight);
+                let ctx = canvas.getContext('2d');
+                let imageData = this.toImageData();
+                ctx.putImageData(imageData, left, top);
+                let newImageData = ctx.getImageData(0, 0, newWidth, newHeight);
+                const padded = new RawImage(newImageData.data, newWidth, newHeight, 4);
+                return padded.convert(this.channels);
+            } else {
+                // Running in environment without canvas
+                const channels = this.channels;
+                const data = this.data;
+                const width = this.width + left + right;
+                const height = this.height + top + bottom;
+                const paddedData = new Uint8ClampedArray(width * height * channels);
+                for (let i = 0; i < data.length; i += channels) {
+                    const x = Math.floor(i / channels) % this.width;
+                    const y = Math.floor(i / channels / this.width);
+                    const pixelIndex = (y * width + x) * channels;
+                    for (let j = 0; j < channels; j++) {
+                        paddedData[pixelIndex + j] = data[i + j];
+                    }
                 }
+                return new RawImage(paddedData, width, height, channels);
             }
-            return new RawImage(paddedData, width, height, channels);
 
         } else if (BROWSER_ENV) {
             // Store number of channels before padding
@@ -439,18 +466,30 @@ export class RawImage {
         let height_offset = (this.height - crop_height) / 2;
 
         if (IS_REACT_NATIVE) {
-            let channels = this.channels;
-            let data = this.data;
-            let croppedData = new Uint8ClampedArray(crop_width * crop_height * channels);
-            for (let i = 0; i < croppedData.length; i += channels) {
-                const x = Math.floor(i / channels) % crop_width;
-                const y = Math.floor(i / channels / crop_width);
-                const pixelIndex = ((y + height_offset) * this.width + (x + width_offset)) * channels;
-                for (let j = 0; j < channels; j++) {
-                    croppedData[i + j] = data[pixelIndex + j];
+            if (createCanvasFunction !== undefined && env.useGCanvas) {
+                // Running in environment with canvas
+                let canvas = createCanvasFunction(crop_width, crop_height);
+                let ctx = canvas.getContext('2d');
+                let imageData = this.toImageData();
+                ctx.putImageData(imageData, -width_offset, -height_offset);
+                let newImageData = ctx.getImageData(0, 0, crop_width, crop_height);
+                const cropped = new RawImage(newImageData.data, crop_width, crop_height, 4);
+                return cropped.convert(this.channels);
+            } else {
+                // Running in environment without canvas
+                let channels = this.channels;
+                let data = this.data;
+                let croppedData = new Uint8ClampedArray(crop_width * crop_height * channels);
+                for (let i = 0; i < croppedData.length; i += channels) {
+                    const x = Math.floor(i / channels) % crop_width;
+                    const y = Math.floor(i / channels / crop_width);
+                    const pixelIndex = ((y + height_offset) * this.width + (x + width_offset)) * channels;
+                    for (let j = 0; j < channels; j++) {
+                        croppedData[i + j] = data[pixelIndex + j];
+                    }
                 }
+                return new RawImage(croppedData, crop_width, crop_height, channels);
             }
-            return new RawImage(croppedData, crop_width, crop_height, channels);
         } else if (BROWSER_ENV) {
             // Store number of channels before resizing
             let numChannels = this.channels;
@@ -559,6 +598,16 @@ export class RawImage {
 
             return await loadImageFunction(img);
         }
+    }
+
+    toImageData() {
+        if (IS_REACT_NATIVE && ImageDataClass === undefined)
+            throw new Error('toImageData is not supported');
+        // Clone, and convert data to RGBA before create ImageData object.
+        // This is because the ImageData API only supports RGBA
+        let cloned = this.clone().rgba();
+
+        return new ImageDataClass(cloned.data, cloned.width, cloned.height);
     }
 
     toCanvas() {
