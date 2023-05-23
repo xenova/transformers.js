@@ -37,7 +37,7 @@
     "sharp": "^0.32.0"
   },
   "optionalDependencies": {
-    "onnxruntime-node": "^1.14.0"
+    "onnxruntime-node-gpu": "^1.14.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
@@ -63,7 +63,7 @@
     "path": false,
     "url": false,
     "sharp": false,
-    "onnxruntime-node": false,
+    "onnxruntime-node-gpu": false,
     "stream/web": false
   },
   "publishConfig": {

@@ -1,21 +1,22 @@
 /**
  * @file Pipelines provide a high-level, easy to use, API for running machine learning models.
- * 
+ *
  * **Example:** Instantiate pipeline using the `pipeline` function.
  * ```javascript
  * import { pipeline } from '@xenova/transformers';
- * 
+ *
  * let pipeline = await pipeline('sentiment-analysis');
  * let result = await pipeline('I love transformers!');
  * // [{'label': 'POSITIVE', 'score': 0.999817686}]
  * ```
- * 
+ *
  * @module pipelines
  */
 
 import {
     AutoTokenizer,
     PreTrainedTokenizer,
+    StableDiffusionClipTokenizer,
 } from './tokenizers.js';
 import {
     AutoModel,
@@ -30,6 +31,7 @@ import {
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
     PreTrainedModel,
+    AutoModelForStableDiffusion,
 } from './models.js';
 import {
     AutoProcessor,
@@ -606,11 +608,11 @@ export class ZeroShotClassificationPipeline extends Pipeline {
 /**
  * Feature extraction pipeline using no model head. This pipeline extracts the hidden
  * states from the base transformer, which can be used as features in downstream tasks.
- * 
+ *
  * This can be used with `sentence-transformers`. If you want to get the raw outputs
  * from the model, use `AutoModel.from_pretrained(...)`.
  * @extends Pipeline
- * 
+ *
  * @todo Make sure this works for other models than `sentence-transformers`.
  */
 export class FeatureExtractionPipeline extends Pipeline {
@@ -661,7 +663,7 @@ export class FeatureExtractionPipeline extends Pipeline {
     }
 
     /**
-     * Private method to normalize the input tensor along dim=1. 
+     * Private method to normalize the input tensor along dim=1.
      * NOTE: only works for tensors of shape [batchSize, embedDim]. Operates in-place.
      * @param {any} tensor Tensor of shape [batchSize, embedDim]
      * @returns {any} Returns the same Tensor object after performing normalization.
@@ -888,6 +890,51 @@ export class ImageToTextPipeline extends Pipeline {
     }
 }
 
+
+/**
+ * Image To Text pipeline using a `AutoModelForVision2Seq`. This pipeline predicts a caption for a given image.
+ * @extends Pipeline
+ */
+export class TextToImagePipeline extends Pipeline {
+    /**
+     * Create a new TextToImagePipeline.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
+     * @param {PreTrainedModel} model The model to use.
+     * @param {Processor} processor The processor to use.
+     */
+    constructor(task, tokenizer, model) {
+        super(task, tokenizer, model);
+    }
+
+    async encodePrompt (prompt) {
+        const tokens = this.tokenizer(prompt, { return_tensor: true })
+        const encoded = await sessionRun(textEncoder, { input_ids: tokens })
+        return encoded.last_hidden_state
+    }
+
+    async getPromptEmbeds (prompt, negativePrompt) {
+        const promptEmbeds = await this.encodePrompt(prompt)
+        const negativePromptEmbeds = await this.encodePrompt(negativePrompt || '')
+
+        // const newShape = [...promptEmbeds.dims]
+        // newShape[0] = 2
+        return promptEmbeds + negativePromptEmbeds
+    }
+
+    /**
+     * Assign labels to the image(s) passed as inputs.
+     * @param {any[]} texts The images to be captioned.
+     * @param {Object} [generate_kwargs={prompt, negativePrompt, guidanceScale, width, height}] Optional generation arguments.
+     * @returns {Promise<Object|Object[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
+     */
+    async _call(generate_kwargs = {}) {
+        this.model.tokenizer = this.tokenizer
+        // Run model
+        return this.model(generate_kwargs)
+    }
+}
+
 /**
  * Image classification pipeline using any `AutoModelForImageClassification`.
  * This pipeline predicts the class of an image.
@@ -1093,7 +1140,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
         let isBatched = Array.isArray(images);
         images = await prepareImages(images);
 
-        // Insert label into hypothesis template 
+        // Insert label into hypothesis template
         let texts = candidate_labels.map(
             x => hypothesis_template.replace('{}', x)
         );
@@ -1371,6 +1418,16 @@ const SUPPORTED_TASKS = {
             "model": "Xenova/all-MiniLM-L6-v2",
         },
         "type": "text",
+    },
+
+    "text-to-image": {
+        "tokenizer": StableDiffusionClipTokenizer,
+        "pipeline": TextToImagePipeline,
+        "model": AutoModelForStableDiffusion,
+        "default": {
+            "model": "aislamov/stable-diffusion-2-1-base-onnx",
+        },
+        "type": "multimodal",
     },
 }
 

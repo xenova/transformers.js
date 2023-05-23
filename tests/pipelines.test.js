@@ -1115,4 +1115,36 @@ describe('Pipelines', () => {
             await detector.dispose();
         }, MAX_TEST_EXECUTION_TIME);
     });
+
+    describe('Text-to-image generation', () => {
+
+        // List all models which will be tested
+        const models = [
+            'aislamov/stable-diffusion-2-1-base-onnx',
+        ];
+
+        fit(models[0], async () => {
+            let sd = await pipeline(
+              'text-to-image',
+              m(models[0]),
+            );
+
+            // single
+            {
+                const width = 512
+                const height = 512
+                const output = await sd({
+                    prompt: "an astronaut riding a horse",
+                    num_inference_steps: 2,
+                    width,
+                    height,
+                })
+
+                expect(output[0].dims).toEqual([1, 512, 512, 3]);
+            }
+
+            await sd.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
 });

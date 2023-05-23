@@ -5,7 +5,7 @@
 import * as types from "node:util/types";
 
 // Import onnxruntime-node's default backend
-import { onnxruntimeBackend } from "onnxruntime-node/dist/backend";
+import { onnxruntimeBackend } from "onnxruntime-node-gpu/dist/backend";
 import ONNX_COMMON from "onnxruntime-common";
 
 export function init() {

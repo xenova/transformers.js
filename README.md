@@ -38,6 +38,28 @@ Transformers.js uses [ONNX Runtime](https://onnxruntime.ai/) to run models in th
 
 For more information, check out the full [documentation](https://huggingface.co/docs/transformers.js).
 
+## GPU acceleration in Node.js:
+
+**Windows**:
+```javascript
+import { env } from './env.js'
+env.backends.onnx.getExecutionProviders().unshift('directml')
+```
+
+**Linux**:
+1. Install CUDA https://docs.nvidia.com/cuda/cuda-installation-guide-linux/
+2. Install cuDNN https://developer.nvidia.com/rdp/cudnn-archive
+3. Install onnxruntime-linux-x64-gpu-1.14.1 https://github.com/microsoft/onnxruntime/releases/tag/v1.14.1
+```javascript
+import { env } from './env.js'
+env.backends.onnx.getExecutionProviders().unshift('cuda')
+```
+
+**MacOS**:
+```javascript
+import { env } from './env.js'
+env.backends.onnx.getExecutionProviders().unshift('coreml')
+```
 
 ## Quick tour
 
@@ -230,7 +252,7 @@ to open up a feature request [here](https://github.com/xenova/transformers.js/is
 | [Document Question Answering](https://huggingface.co/tasks/document-question-answering)         | `document-question-answering`  | Answering questions on document images. | ❌ |
 | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)         |  `feature-extraction`  | Transforming raw data into numerical features that can be processed while preserving the information in the original dataset. | ✅ |
 | [Image-to-Text](https://huggingface.co/tasks/image-to-text)         |  `image-to-text`  | Output text from a given image. | ✅ |
-| [Text-to-Image](https://huggingface.co/tasks/text-to-image)         |  `text-to-image`  | Generates images from input text.  | ❌ |
+| [Text-to-Image](https://huggingface.co/tasks/text-to-image)         |  `text-to-image`  | Generates images from input text.  | ✅ |
 | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)         |  `visual-question-answering`  | Answering open-ended questions based on an image. | ❌ |
 | [Zero-Shot Image Classification](https://huggingface.co/tasks/zero-shot-image-classification) | `zero-shot-image-classification`  | Classifying images into classes that are unseen during training. | ✅ |
 

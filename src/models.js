@@ -1,9 +1,9 @@
 
 /**
  * @file Definitions of all models available in Transformers.js.
- * 
+ *
  * **Example:** Load and run an `AutoModel`.
- * 
+ *
  * ```javascript
  * import { AutoModel, AutoTokenizer } from '@xenova/transformers';
  *
@@ -19,13 +19,13 @@
  * //     size: 183132,
  * // }
  * ```
- * 
+ *
  * We also provide other `AutoModel`s (listed below), which you can use in the same way as the Python library. For example:
- * 
+ *
  * **Example:** Load and run a `AutoModelForSeq2SeqLM`.
  * ```javascript
  * import { AutoModelForSeq2SeqLM, AutoTokenizer } from '@xenova/transformers';
- * 
+ *
  * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/t5-small');
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('Xenova/t5-small');
  *
@@ -34,7 +34,7 @@
  * let decoded = await tokenizer.decode(outputs[0][0], { skip_special_tokens: true });
  * // 'Ich liebe Transformatoren!'
  * ```
- * 
+ *
  * @module models
  */
 
@@ -63,10 +63,13 @@ import {
 } from './utils/generation.js';
 
 import {
+    cat,
+    randomNormalTensor,
     Tensor,
 } from './utils/tensor.js';
 
 import { executionProviders, ONNX } from './backends/onnx.js';
+import { PNDMScheduler } from './schedulers/PNDMScheduler.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 /**
@@ -80,11 +83,12 @@ const { InferenceSession, Tensor: ONNXTensor } = ONNX;
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
  * @param {string} fileName The name of the model file.
  * @param {PretrainedOptions} options Additional options for loading the model.
+ * @param {boolean} noOnnxPrefix Do not include "onnx" prefix in the model name
  * @returns {Promise<InferenceSession>} A Promise that resolves to an InferenceSession object.
  */
-async function constructSession(pretrained_model_name_or_path, fileName, options) {
+async function constructSession(pretrained_model_name_or_path, fileName, options, noOnnxPrefix = false) {
     // TODO add option for user to force specify their desired execution provider
-    let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
+    let modelFileName = `${noOnnxPrefix ? '' : 'onnx'}/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
     let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
     try {
@@ -113,7 +117,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
  * NOTE: `inputs` must contain at least the input names of the model.
  *  - If additional inputs are passed, they will be ignored.
  *  - If inputs are missing, an error will be thrown.
- * 
+ *
  * @param {InferenceSession} session The InferenceSession object to run.
  * @param {Object} inputs An object that maps input names to input tensors.
  * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
@@ -327,6 +331,18 @@ async function decoderLoadModel(pretrained_model_name_or_path, options) {
         options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
         constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
     ])
+    return info;
+}
+
+async function stableDiffusionLoadModel(pretrained_model_name_or_path, options) {
+    options.quantized = false;
+    let info = await Promise.all([
+        options.config ?? getModelJSON(pretrained_model_name_or_path, 'model_index.json', true, options),
+        getModelJSON(pretrained_model_name_or_path, 'scheduler/scheduler_config.json', true, options),
+        constructSession(pretrained_model_name_or_path, 'text_encoder/model', options, true),
+        constructSession(pretrained_model_name_or_path, 'unet/model', options, true),
+        constructSession(pretrained_model_name_or_path, 'vae_decoder/model', options, true),
+    ]);
     return info;
 }
 
@@ -599,11 +615,11 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`. 
-     * 
+     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
      * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
+     *
      * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -648,8 +664,8 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-     * @param {GenerationConfig} generation_config 
-     * @param {number} input_ids_seq_length 
+     * @param {GenerationConfig} generation_config
+     * @param {number} input_ids_seq_length
      * @returns {LogitsProcessorList}
      */
     _get_logits_processor(
@@ -1355,10 +1371,10 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
 
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
      * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
+     *
      * @returns {Promise<T5ForConditionalGeneration>} A new instance of the `T5ForConditionalGeneration` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -1426,7 +1442,7 @@ export class MT5PreTrainedModel extends PreTrainedModel { };
 
 export class MT5Model extends MT5PreTrainedModel {
     /**
-     * 
+     *
      * @param  {...any} args
      * @returns {Promise<any>}
      * @throws {Error}
@@ -1467,10 +1483,10 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
 
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
      * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
+     *
      * @returns {Promise<MT5ForConditionalGeneration>} A new instance of the `MT5ForConditionalGeneration` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -1540,14 +1556,14 @@ export class BartPretrainedModel extends PreTrainedModel { };
 
 /**
  * BART encoder and decoder model.
- * 
+ *
  * @hideconstructor
  * @extends BartPretrainedModel
  */
 export class BartModel extends BartPretrainedModel {
     /**
      * Throws an error because the current model class (BartModel) is not compatible with `.generate()`.
-     * 
+     *
      * @throws {Error} The current model class (BartModel) is not compatible with `.generate()`.
      * @returns {Promise<any>}
      */
@@ -1585,10 +1601,10 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
     }
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
      * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
+     *
      * @returns {Promise<BartForConditionalGeneration>} A new instance of the `BartForConditionalGeneration` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -1802,10 +1818,10 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
      * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
+     *
      * @returns {Promise<WhisperForConditionalGeneration>} A new instance of the `WhisperForConditionalGeneration` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -1895,10 +1911,10 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
 
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
      * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
+     *
      * @returns {Promise<VisionEncoderDecoderModel>} A new instance of the `VisionEncoderDecoderModel` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -1987,8 +2003,8 @@ export class GPT2PreTrainedModel extends PreTrainedModel { }
  */
 export class GPT2Model extends GPT2PreTrainedModel {
     /**
-     * 
-     * @param  {...any} args 
+     *
+     * @param  {...any} args
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -2066,8 +2082,8 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 export class GPTNeoPreTrainedModel extends PreTrainedModel { }
 export class GPTNeoModel extends GPTNeoPreTrainedModel {
     /**
-     * 
-     * @param  {...any} args 
+     *
+     * @param  {...any} args
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -2139,16 +2155,16 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 export class CodeGenPreTrainedModel extends PreTrainedModel { }
 /**
  * CodeGenModel is a class representing a code generation model without a language model head.
- * 
+ *
  * @extends CodeGenPreTrainedModel
  */
 export class CodeGenModel extends CodeGenPreTrainedModel {
     /**
      * Throws an error indicating that the current model class is not compatible with `.generate()`,
      * as it doesn't have a language model head.
-     * 
+     *
      * @throws {Error} The current model class is not compatible with `.generate()`
-     * 
+     *
      * @param  {...any} args Arguments passed to the generate function
      * @returns {Promise<any>}
      */
@@ -2306,7 +2322,7 @@ export class SamModel extends SamPreTrainedModel {
 
 /**
  * Base class for Segment-Anything model's output.
- * 
+ *
  * @extends ModelOutput
  */
 export class SamImageSegmentationOutput extends ModelOutput {
@@ -2329,8 +2345,8 @@ export class MarianPreTrainedModel extends PreTrainedModel { };
 
 export class MarianModel extends MarianPreTrainedModel {
     /**
-     * 
-     * @param  {...any} args 
+     *
+     * @param  {...any} args
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -2346,8 +2362,8 @@ export class MarianMTModel extends MarianPreTrainedModel {
      * Creates a new instance of the `MarianMTModel` class.
     * @param {Object} config The model configuration object.
     * @param {Object} session The ONNX session object.
-    * @param {any} decoder_merged_session 
-    * @param {any} generation_config 
+    * @param {any} decoder_merged_session
+    * @param {any} generation_config
     */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
@@ -2365,10 +2381,10 @@ export class MarianMTModel extends MarianPreTrainedModel {
 
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
      * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
+     *
      * @returns {Promise<MarianMTModel>} A new instance of the `MarianMTModel` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -2435,8 +2451,8 @@ export class M2M100PreTrainedModel extends PreTrainedModel { };
 
 export class M2M100Model extends M2M100PreTrainedModel {
     /**
-     * 
-     * @param  {...any} args 
+     *
+     * @param  {...any} args
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -2452,8 +2468,8 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
      * Creates a new instance of the `M2M100ForConditionalGeneration` class.
     * @param {Object} config The model configuration object.
     * @param {Object} session The ONNX session object.
-    * @param {any} decoder_merged_session 
-    * @param {any} generation_config 
+    * @param {any} decoder_merged_session
+    * @param {any} generation_config
     */
     constructor(config, session, decoder_merged_session, generation_config) {
         super(config, session);
@@ -2471,10 +2487,10 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
 
     /**
      * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
      * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
+     *
      * @returns {Promise<M2M100ForConditionalGeneration>} A new instance of the `M2M100ForConditionalGeneration` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -2551,7 +2567,7 @@ export class PretrainedMixin {
     static MODEL_CLASS_MAPPING = Object.create(null);
 
     /**
-     * Whether to attempt to instantiate the base class (`PretrainedModel`) if 
+     * Whether to attempt to instantiate the base class (`PretrainedModel`) if
      * the model type is not found in the mapping.
      */
     static BASE_IF_FAIL = false;
@@ -2563,17 +2579,17 @@ export class PretrainedMixin {
 
     /**
      * Instantiate one of the model classes of the library from a pretrained model.
-     * 
+     *
      * The model class to instantiate is selected based on the `model_type` property of the config object
      * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
      * - A string, the *model id* of a pretrained model hosted inside a model repo on huggingface.co.
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing model weights, e.g., `./my_model_directory/`.
      * @param {PretrainedOptions} options Additional options for loading the model.
-     * 
+     *
      * @returns {Promise<PreTrainedModel>} A new instance of the PreTrainedModel class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
@@ -2613,7 +2629,7 @@ export class PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModel.from_pretrained('bert-base-uncased');
  */
@@ -2644,7 +2660,7 @@ export class AutoModel extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained sequence classification models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english');
  */
@@ -2664,7 +2680,7 @@ export class AutoModelForSequenceClassification extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained token classification models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForTokenClassification.from_pretrained('Davlan/distilbert-base-multilingual-cased-ner-hrl');
  */
@@ -2680,7 +2696,7 @@ export class AutoModelForTokenClassification extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained sequence-to-sequence models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
  */
@@ -2699,7 +2715,7 @@ export class AutoModelForSeq2SeqLM extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained causal language models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForCausalLM.from_pretrained('gpt2');
  */
@@ -2715,7 +2731,7 @@ export class AutoModelForCausalLM extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained masked language models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForMaskedLM.from_pretrained('bert-base-uncased');
  */
@@ -2734,7 +2750,7 @@ export class AutoModelForMaskedLM extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained question answering models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad');
  */
@@ -2753,7 +2769,7 @@ export class AutoModelForQuestionAnswering extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained vision-to-sequence models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForVision2Seq.from_pretrained('nlpconnect/vit-gpt2-image-captioning');
  */
@@ -2767,7 +2783,7 @@ export class AutoModelForVision2Seq extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained image classification models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForImageClassification.from_pretrained('google/vit-base-patch16-224');
  */
@@ -2781,7 +2797,7 @@ export class AutoModelForImageClassification extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained image segmentation models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForImageSegmentation.from_pretrained('facebook/detr-resnet-50-panoptic');
  */
@@ -2795,7 +2811,7 @@ export class AutoModelForImageSegmentation extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForObjectDetection.from_pretrained('facebook/detr-resnet-50');
  */
@@ -2809,7 +2825,7 @@ export class AutoModelForObjectDetection extends PretrainedMixin {
 /**
  * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
- * 
+ *
  * @example
  * let model = await AutoModelForMaskGeneration.from_pretrained('Xenova/sam-vit-base');
  */
@@ -2819,6 +2835,143 @@ export class AutoModelForMaskGeneration extends PretrainedMixin {
         'sam': SamModel,
     }
 }
+
+/**
+ * Helper class which is used to instantiate pretrained text-to-image models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ *
+ * @example
+ * let model = await AutoModelForStableDiffusion.from_pretrained('aislamov/stable-diffusion-2-1-base-onnx');
+ */
+export class AutoModelForStableDiffusion extends PretrainedMixin {
+    static LOAD_FUNCTION = stableDiffusionLoadModel;
+    static async from_pretrained(pretrained_model_name_or_path, {
+        quantized = true,
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        if (this.LOAD_FUNCTION === null) {
+            throw new Error("`LOAD_FUNCTION` not implemented for this model");
+        }
+
+        const [info, schedulerConfig, textEncoder, unet, vaeDecoder] = await stableDiffusionLoadModel(pretrained_model_name_or_path, {
+            quantized,
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        });
+        return new StableDiffusionModel(info, schedulerConfig, textEncoder, unet, vaeDecoder);
+    }
+}
+
+export class StableDiffusionModel extends PreTrainedModel {
+    constructor(config, schedulerConfig, textEncoder, unet, vaeDecoder) {
+        super(config);
+        this.config = config;
+        this.textEncoder = textEncoder;
+        this.unet = unet;
+        this.vaeDecoder = vaeDecoder;
+        this.schedulerConfig = schedulerConfig;
+        this.scheduler = new PNDMScheduler({
+              prediction_type: 'epsilon',
+              ...schedulerConfig,
+          },
+          schedulerConfig.num_train_timesteps,
+          schedulerConfig.beta_start,
+          schedulerConfig.beta_end,
+          schedulerConfig.beta_schedule
+        );
+    }
+
+    async encodePrompt (prompt) {
+        const tokens = this.tokenizer(
+          prompt,
+          {
+              return_tensor: true,
+              padding: true,
+              max_length: this.tokenizer.model_max_length,
+              return_tensor_dtype: 'int32'
+          },
+        );
+        const encoded = await sessionRun(this.textEncoder, { input_ids: tokens.input_ids });
+        return encoded.last_hidden_state
+    }
+
+    async getPromptEmbeds (prompt, negativePrompt) {
+        const promptEmbeds = await this.encodePrompt(prompt)
+        const negativePromptEmbeds = await this.encodePrompt(negativePrompt || '')
+
+        return cat([negativePromptEmbeds, promptEmbeds])
+    }
+
+    async _call(model_inputs) {
+        const width = model_inputs.width || 512
+        const height = model_inputs.height || 512
+        const batchSize = 1
+        const guidanceScale = model_inputs.guidance_scale || 7.5
+        this.scheduler.setTimesteps(model_inputs.num_inference_steps || 30)
+        const promptEmbeds = await this.getPromptEmbeds(model_inputs.prompt, model_inputs.negativePrompt)
+
+        const latentShape = [batchSize, 4, width / 8, height / 8]
+        let latents = randomNormalTensor(latentShape, undefined, undefined, 'float32')
+
+        const doClassifierFreeGuidance = guidanceScale > 1
+        for (const step of this.scheduler.timesteps.data) {
+            // for some reason v1.4 takes int64 as timestep input. ideally we should get input dtype from the model
+            // but currently onnxruntime-node does not give out types, only input names
+            const timestep = model_inputs.sd_v1 == 2
+              ? new Tensor(BigInt64Array.from([BigInt(step)]), [1])
+              : new Tensor('float32', [step])
+
+            const latentInput = doClassifierFreeGuidance ? cat([latents, latents.clone()]) : latents
+
+            let noise = await sessionRun(
+              this.unet,
+              { sample: await latentInput, timestep, encoder_hidden_states: promptEmbeds },
+            )
+
+            let noisePred = noise.out_sample
+            if (doClassifierFreeGuidance) {
+                const [noisePredUncond, noisePredText] = [
+                    noisePred.slice([0, 1]),
+                    noisePred.slice([1, 2]),
+                ]
+                noisePred = noisePredUncond.add(noisePredText.sub(noisePredUncond).mul(guidanceScale))
+            }
+
+            const schedulerOutput = this.scheduler.step(
+              noisePred,
+              step,
+              latents,
+            )
+            latents = schedulerOutput
+        }
+        latents = latents.mul(1 / 0.18215)
+
+        const decoded = await sessionRun(
+          this.vaeDecoder,
+          { latent_sample: latents }
+        )
+
+        const images = decoded.sample
+          .div(2)
+          .add(0.5)
+          .mul(255)
+          .round()
+          .clipByValue(0, 255)
+          .transpose(0, 2, 3, 1)
+          // .split(batchSize)
+
+        // let's return array to support batch size > 1 later
+        return [images]
+    }
+}
+
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -2838,7 +2991,7 @@ export class Seq2SeqLMOutput extends ModelOutput {
 
 export class SequenceClassifierOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits 
+     * @param {Tensor} logits
      */
     constructor(logits) {
         super();
@@ -2848,7 +3001,7 @@ export class SequenceClassifierOutput extends ModelOutput {
 
 export class TokenClassifierOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits 
+     * @param {Tensor} logits
      */
     constructor(logits) {
         super();
@@ -2859,7 +3012,7 @@ export class TokenClassifierOutput extends ModelOutput {
 
 export class MaskedLMOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits 
+     * @param {Tensor} logits
      */
     constructor(logits) {
         super();

@@ -1,9 +1,9 @@
 /**
  * @file Helper module for `Tensor` processing.
- * 
- * These functions and classes are only used internally, 
+ *
+ * These functions and classes are only used internally,
  * meaning an end-user shouldn't need to access anything here.
- * 
+ *
  * @module utils/tensor
  */
 
@@ -115,9 +115,9 @@ export class Tensor extends ONNXTensor {
     }
 
     /**
-     * @param {number} index 
-     * @param {number} iterSize 
-     * @param {any} iterDims 
+     * @param {number} index
+     * @param {number} iterSize
+     * @param {any} iterDims
      * @returns {Tensor}
      */
     _subarray(index, iterSize, iterDims) {
@@ -167,6 +167,10 @@ export class Tensor extends ONNXTensor {
 
     clone() {
         return new Tensor(this.type, this.data.slice(), this.dims.slice());
+    }
+
+    reverse() {
+        return new Tensor(this.type, this.data.reverse(), this.dims.slice());
     }
 
     slice(...slices) {
@@ -250,12 +254,199 @@ export class Tensor extends ONNXTensor {
         return transpose(this, dims);
     }
 
+    sub (value) {
+        return this.clone().sub_(value);
+    }
+
+    sub_ (value) {
+        if (typeof value === 'number') {
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] -= value;
+            }
+        } else if (value instanceof Tensor) {
+            if (!this.dims === value.dims) {
+                throw new Error('Cannot subtract tensors of different sizes');
+            }
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] -= value.data[i];
+            }
+        } else {
+            throw new Error('Invalid argument');
+        }
+        return this;
+    }
+
+    add (value) {
+        return this.clone().add_(value);
+    }
+
+    add_ (value) {
+        if (typeof value === 'number') {
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] += value;
+            }
+        } else if (value instanceof Tensor) {
+            if (!this.dims === value.dims) {
+                throw new Error('Cannot subtract tensors of different sizes');
+            }
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] += value.data[i];
+            }
+        } else {
+            throw new Error('Invalid argument');
+        }
+        return this;
+    }
+
+    cumprod (dim) {
+        return this.clone().cumprod_(dim);
+    }
+
+    cumprod_ (dim) {
+        const newDims = this.dims.slice();
+        //const newStrides = this.strides.slice();
+        if (dim === undefined) {
+            dim = this.dims.length - 1;
+        }
+        if (dim < 0 || dim >= this.dims.length) {
+            throw new Error(`Invalid dimension: ${dim}`);
+        }
+        const size = newDims[dim];
+        for (let i = 1; i < size; ++i) {
+            for (let j = 0; j < this.data.length / size; ++j) {
+                const index = j * size + i;
+                this.data[index] *= this.data[index - 1];
+            }
+        }
+        // newDims[dim] = 1;
+        //newStrides[dim] = 0;
+        return this;
+    }
+
+    mul (value) {
+        return this.clone().mul_(value);
+    }
+
+    mul_ (value) {
+        if (typeof value === 'number') {
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] *= value;
+            }
+        } else if (value instanceof Tensor) {
+            if (!this.dims === value.dims) {
+                throw new Error('Cannot multiply tensors of different sizes');
+            }
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] *= value.data[i];
+            }
+        } else {
+            throw new Error('Invalid argument');
+        }
+        return this;
+    }
+
+    div (value) {
+        return this.clone().div_(value);
+    }
+
+    div_ (value) {
+        if (typeof value === 'number') {
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] /= value;
+            }
+        } else if (value instanceof Tensor) {
+            if (!this.dims === value.dims) {
+                throw new Error('Cannot multiply tensors of different sizes');
+            }
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] /= value.data[i];
+            }
+        } else {
+            throw new Error('Invalid argument');
+        }
+        return this;
+    }
+
+    pow (value) {
+        return this.clone().pow_(value);
+    }
+
+    pow_ (value) {
+        if (typeof value === 'number') {
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] = Math.pow(this.data[i], value);
+            }
+        } else if (value instanceof Tensor) {
+            if (!this.dims === value.dims) {
+                throw new Error('Cannot multiply tensors of different sizes');
+            }
+            for (let i = 0; i < this.data.length; ++i) {
+                this.data[i] = Math.pow(this.data[i], value.data[i]);
+            }
+        } else {
+            throw new Error('Invalid argument');
+        }
+        return this;
+    }
+
+    round () {
+        return this.clone().round_();
+    }
+
+    round_ () {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = Math.round(this.data[i]);
+        }
+        return this;
+    }
+
+    tile (reps) {
+        return this.clone().tile_(reps);
+    }
+
+    tile_ (reps) {
+        if (typeof reps === 'number') {
+            reps = [reps];
+        }
+        if (reps.length < this.dims.length) {
+            throw new Error('Invalid number of repetitions');
+        }
+        const newDims = [];
+        const newStrides = [];
+        for (let i = 0; i < this.dims.length; ++i) {
+            newDims.push(this.dims[i] * reps[i]);
+            newStrides.push(this.strides[i]);
+        }
+        const newData = new this.data.constructor(newDims.reduce((a, b) => a * b));
+        for (let i = 0; i < newData.length; ++i) {
+            let index = 0;
+            for (let j = 0; j < this.dims.length; ++j) {
+                index += Math.floor(i / newDims[j]) * this.strides[j];
+            }
+            newData[i] = this.data[index];
+        }
+        return new Tensor(this.type, newData, newDims, newStrides);
+    }
+
+    clipByValue (min, max) {
+        return this.clone().clipByValue_(min, max);
+    }
+
+    clipByValue_ (min, max) {
+        if (max < min) {
+            throw new Error('Invalid arguments');
+        }
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = Math.min(Math.max(this.data[i], min), max);
+        }
+        return this;
+    }
     // TODO add .max() and .min() methods
 }
 
 /**
  * This creates a nested array of a given type and depth (see examples).
- * 
+ *
  * @example
  *   NestArray<string, 1>; // string[]
  * @example
@@ -348,6 +539,11 @@ export function cat(tensors) {
         total += t.data.length;
     }
 
+    if (tensorShape.length === 1) {
+        // 1D tensors are concatenated into a 1D tensor
+        tensorShape = [total];
+    }
+
     // Create output tensor of same type as first
     let data = new tensors[0].data.constructor(total);
 
@@ -383,4 +579,37 @@ export function interpolate(input, [out_height, out_width], mode = 'bilinear', a
         align_corners
     );
     return new Tensor(input.type, output, [in_channels, out_height, out_width]);
+}
+
+export function range (start, end, step = 1, type = 'float32') {
+    let data = [];
+    for (let i = start; i < end; i += step) {
+        data.push(i);
+    }
+    return new Tensor(type, data, [data.length]);
+}
+
+export function linspace(start, end, num, type = 'float32') {
+    const arr = [];
+    const step = (end - start) / (num - 1);
+    for (let i = 0; i < num; i++) {
+        arr.push(start + step * i);
+    }
+    return new Tensor(type, arr, [num]);
+}
+
+function randomNormal() {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    let num = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+    return num;
+}
+
+export function randomNormalTensor(shape, mean = 0, std = 1, type = 'float32') {
+    let data = [];
+    for (let i = 0; i < shape.reduce((a, b) => a * b); i++) {
+        data.push(randomNormal() * std + mean);
+    }
+    return new Tensor(type, data, shape);
 }

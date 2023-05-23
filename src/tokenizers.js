@@ -1,12 +1,12 @@
 
 /**
  * @file Tokenizers are used to prepare textual inputs for a model.
- * 
+ *
  * **Example:** Create an `AutoTokenizer` and use it to tokenize a sentence.
  * This will automatically detect the tokenizer type based on the tokenizer class defined in `tokenizer.json`.
  * ```javascript
  * import { AutoTokenizer } from '@xenova/transformers';
- * 
+ *
  * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
  * let { input_ids } = await tokenizer('I love transformers!');
  * // Tensor {
@@ -16,7 +16,7 @@
  * //   size: 6,
  * // }
  * ```
- * 
+ *
  * @module tokenizers
  */
 
@@ -29,6 +29,7 @@ import {
 
 import {
     getModelJSON,
+    getModelTextFile,
 } from './utils/hub.js';
 
 import { min } from './utils/maths.js';
@@ -980,7 +981,7 @@ class BertPreTokenizer extends PreTokenizer {
     /**
      * A PreTokenizer that splits text into wordpieces using a basic tokenization scheme
      * similar to that used in the original implementation of BERT.
-     * 
+     *
      * @param {Object} config The configuration object.
      */
     constructor(config) {
@@ -990,7 +991,7 @@ class BertPreTokenizer extends PreTokenizer {
     }
     /**
      * Tokenizes a single text using the BERT pre-tokenization scheme.
-     * 
+     *
      * @param {string} text The text to tokenize.
      * @returns {Array<string>} An array of tokens.
      */
@@ -1329,7 +1330,7 @@ class Decoder extends Callable {
 
     /**
      * Apply the decoder to a list of tokens.
-     * 
+     *
      * @param {string[]} tokens The list of tokens.
      * @returns {string[]} The decoded list of tokens.
      * @throws {Error} If the `decode_chain` method is not implemented in the subclass.
@@ -1814,6 +1815,16 @@ export class PreTrainedTokenizer extends Callable {
         this.pad_token = this.getToken(tokenizerConfig, 'pad_token', 'eos_token');
         this.pad_token_id = this.model.tokens_to_ids.get(this.pad_token);
 
+        this.bos_token = this.getToken(tokenizerConfig, 'bos_token');
+        if (this.bos_token) {
+            this.bos_token_id = this.model.tokens_to_ids.get(this.bos_token);
+        }
+
+        this.eos_token = this.getToken(tokenizerConfig, 'eos_token');
+        if (this.eos_token) {
+            this.eos_token_id = this.model.tokens_to_ids.get(this.eos_token);
+        }
+
         this.sep_token = this.getToken(tokenizerConfig, 'sep_token');
         this.sep_token_id = this.model.tokens_to_ids.get(this.sep_token);
 
@@ -1854,11 +1865,11 @@ export class PreTrainedTokenizer extends Callable {
     }
 
     /**
-     * Loads a pre-trained tokenizer from the given `pretrained_model_name_or_path`. 
-     * 
+     * Loads a pre-trained tokenizer from the given `pretrained_model_name_or_path`.
+     *
      * @param {string} pretrained_model_name_or_path The path to the pre-trained tokenizer.
      * @param {PretrainedOptions} options Additional options for loading the tokenizer. For more information, @see {@link PreTrainedTokenizer.from_pretrained}.
-     * 
+     *
      * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the `pretrained_model_name_or_path`.
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the `PreTrainedTokenizer` class.
      */
@@ -1915,6 +1926,7 @@ export class PreTrainedTokenizer extends Callable {
             truncation = null,
             max_length = null,
             return_tensor = true, // Different to HF
+            return_tensor_dtype = 'int64',
         } = {},
     ) {
 
@@ -1966,6 +1978,16 @@ export class PreTrainedTokenizer extends Callable {
 
         // Ensure it is less than model max length
         max_length = Math.min(max_length, this.model_max_length)
+
+        if (this.bos_token_id) {
+            // Add the BOS token
+            tokens = tokens.map(x => [this.bos_token_id].concat(x));
+        }
+
+        if (this.eos_token_id) {
+            // Add the EOS token
+            tokens = tokens.map(x => x.concat([this.eos_token_id]));
+        }
 
         /** @type {any[]|Tensor} */
         let attention_mask = [];
@@ -2026,16 +2048,29 @@ export class PreTrainedTokenizer extends Callable {
             // whether we have a single input or multiple inputs.
             let dims = [tokens.length, tokens[0].length];
 
-            tokens = new Tensor('int64',
-                BigInt64Array.from(tokens.flat().map(BigInt)),
-                dims
-            );
+            if (return_tensor_dtype === 'int32') {
+                tokens = new Tensor(return_tensor_dtype,
+                    Int32Array.from(tokens.flat()),
+                    dims
+                );
 
-            attention_mask = new Tensor(
-                'int64',
-                BigInt64Array.from(attention_mask.flat().map(BigInt)),
-                dims
-            )
+                attention_mask = new Tensor(
+                    return_tensor_dtype,
+                    Int32Array.from(attention_mask.flat()),
+                    dims
+                )
+            } else {
+                tokens = new Tensor(return_tensor_dtype,
+                  BigInt64Array.from(tokens.flat().map(BigInt)),
+                  dims
+                );
+
+                attention_mask = new Tensor(
+                  return_tensor_dtype,
+                  BigInt64Array.from(attention_mask.flat().map(BigInt)),
+                  dims
+                )
+            }
         } else {
             // If not returning a tensor, we match the input type
             if (!Array.isArray(text)) {
@@ -2070,6 +2105,7 @@ export class PreTrainedTokenizer extends Callable {
         // Actual function which does encoding, for a single text
         // First, we take care of special tokens. Needed to avoid issues arising from
         // normalization and/or pretokenization (which may not preserve special tokens)
+        // const sections = text.split(this.added_tokens_regex).filter(x => x);
         const sections = text.split(this.added_tokens_regex).filter(x => x);
 
         let tokens = sections.map(x => {
@@ -2265,14 +2301,14 @@ export class LlamaTokenizer extends PreTrainedTokenizer {
 }
 /**
  * The NllbTokenizer class is used to tokenize text for NLLB ("No Language Left Behind") models.
- * 
+ *
  * No Language Left Behind (NLLB) is a first-of-its-kind, AI breakthrough project
  * that open-sources models capable of delivering high-quality translations directly
  * between any pair of 200+ languages — including low-resource languages like Asturian,
  * Luganda, Urdu and more. It aims to help people communicate with anyone, anywhere,
  * regardless of their language preferences. For more information, check out their
  * [paper](https://arxiv.org/abs/2207.04672).
- * 
+ *
  * For a list of supported languages (along with their language codes),
  * @see {@link https://github.com/facebookresearch/flores/blob/main/flores200/README.md#languages-in-flores-200}
  */
@@ -2743,8 +2779,88 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     }
 }
 export class CodeGenTokenizer extends PreTrainedTokenizer { }
-export class CLIPTokenizer extends PreTrainedTokenizer { }
+export class CLIPTokenizer extends PreTrainedTokenizer {
+    constructor (tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig)
+        this.added_tokens_regex = /<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+/gui;
+        this.pad_token_id = 0;
+    }
 
+    _encode_text(text) {
+        if (text === null) return null;
+
+        // Actual function which does encoding, for a single text
+        // First, we take care of special tokens. Needed to avoid issues arising from
+        // normalization and/or pretokenization (which may not preserve special tokens)
+        const sections = [...text.matchAll(this.added_tokens_regex)].map(x => x[0]);
+
+        let tokens = sections.map(x => {
+            if (this.added_tokens.includes(x)) {
+                // Ignore added tokens
+                return x
+            } else {
+                if (this.remove_space === true) {
+                    x = x.trim().split(/\s+/).join(' ');
+                }
+
+                if (this.normalizer !== null) {
+                    x = this.normalizer(x);
+                }
+
+                let sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x) : [x];
+
+                let tokens = this.model(sectionTokens);
+
+                return tokens;
+            }
+        }).flat();
+
+        return tokens;
+    }
+}
+
+export class StableDiffusionClipTokenizer extends CLIPTokenizer {
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+
+        let [vocab, tokens, merges, tokenizerConfig] = await Promise.all([
+            getModelJSON(pretrained_model_name_or_path, 'tokenizer/vocab.json', true, options),
+            getModelJSON(pretrained_model_name_or_path, 'tokenizer/special_tokens_map.json', true, options),
+            getModelTextFile(pretrained_model_name_or_path, 'tokenizer/merges.txt', true, options),
+            getModelJSON(pretrained_model_name_or_path, 'tokenizer/tokenizer_config.json', true, options),
+        ])
+        const tokenizerJSON = {
+            normalizer: {
+                type: 'Lowercase',
+            },
+            pre_tokenizer: {
+                type: 'WhitespaceSplit',
+            },
+            post_processor: {
+                type: 'ByteLevel',
+            },
+            decoder: {
+                type: 'ByteLevel',
+            },
+            model: {
+                type: 'BPE',
+                vocab,
+                use_regex: true,
+                end_of_word_suffix: '</w>',
+                merges: merges.split('\n').slice(1, 49152 - 256 - 2 + 1),
+            },
+            added_tokens: [],
+        }
+        // Some tokenizers are saved with the "Fast" suffix, so we remove that if present.
+        // let tokenizerName = tokenizerConfig.tokenizer_class.replace(/Fast$/, '');
+
+        // let cls = this.TOKENIZER_CLASS_MAPPING[tokenizerName];
+        // if (!cls) {
+        //     console.warn(`Unknown tokenizer class "${tokenizerName}", attempting to construct from base class.`);
+        //     cls = PreTrainedTokenizer;
+        // }
+        return new CLIPTokenizer(tokenizerJSON, tokenizerConfig);
+    }
+}
 
 /**
  * @todo This model is not yet supported by Hugging Face's "fast" tokenizers library (https://github.com/huggingface/tokenizers).
@@ -3027,7 +3143,7 @@ class TokenLatticeNode {
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
- * 
+ *
  * @example
  * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
  */
@@ -3055,17 +3171,17 @@ export class AutoTokenizer {
 
     /**
      * Instantiate one of the tokenizer classes of the library from a pretrained model.
-     * 
+     *
      * The tokenizer class to instantiate is selected based on the `tokenizer_class` property of the config object
      * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
-     * 
+     *
      * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
      * - A string, the *model id* of a pretrained tokenizer hosted inside a model repo on huggingface.co.
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing tokenizer files, e.g., `./my_model_directory/`.
      * @param {PretrainedOptions} options Additional options for loading the tokenizer.
-     * 
+     *
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
