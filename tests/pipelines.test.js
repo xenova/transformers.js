@@ -1123,7 +1123,7 @@ describe('Pipelines', () => {
             'aislamov/stable-diffusion-2-1-base-onnx',
         ];
 
-        fit(models[0], async () => {
+        it(models[0], async () => {
             let sd = await pipeline(
               'text-to-image',
               m(models[0]),

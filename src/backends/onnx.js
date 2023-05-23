@@ -22,7 +22,7 @@ import * as ONNX_WEB from 'onnxruntime-web';
 
 export let ONNX;
 
-export const executionProviders = [
+export let executionProviders = [
     // 'webgpu',
     'wasm'
 ];
@@ -31,8 +31,20 @@ if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
     ONNX = ONNX_NODE;
 
-    // Add `cpu` execution provider, with higher precedence that `wasm`.
-    executionProviders.unshift('cpu');
+    // Add `cpu` and os-specific execution provider
+    switch (process.platform) {
+        case 'darwin':
+            executionProviders = ['coreml', 'cpu'];
+            break;
+        case 'linux':
+            executionProviders = ['cuda', 'cpu']
+            break;
+        case 'win32':
+            executionProviders = ['directml', 'cpu']
+            break
+        default:
+            executionProviders = ['cpu']
+    }
 
 } else {
     // Running in a browser-environment
@@ -50,6 +62,3 @@ if (typeof process !== 'undefined' && process?.release?.name === 'node') {
 // We select the default export if it exists, otherwise we use the named export.
 // This allows us to run in both node and browser environments.
 ONNX = ONNX.default ?? ONNX;
-ONNX.env.getExecutionProviders = () => {
-    return executionProviders;
-};

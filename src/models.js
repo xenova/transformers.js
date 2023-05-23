@@ -2913,8 +2913,8 @@ export class StableDiffusionModel extends PreTrainedModel {
         const width = model_inputs.width || 512
         const height = model_inputs.height || 512
         const batchSize = 1
-        const guidanceScale = model_inputs.guidance_scale || 7.5
-        this.scheduler.setTimesteps(model_inputs.num_inference_steps || 30)
+        const guidanceScale = model_inputs.guidanceScale || 7.5
+        this.scheduler.setTimesteps(model_inputs.numInferenceSteps || 30)
         const promptEmbeds = await this.getPromptEmbeds(model_inputs.prompt, model_inputs.negativePrompt)
 
         const latentShape = [batchSize, 4, width / 8, height / 8]
@@ -2924,7 +2924,7 @@ export class StableDiffusionModel extends PreTrainedModel {
         for (const step of this.scheduler.timesteps.data) {
             // for some reason v1.4 takes int64 as timestep input. ideally we should get input dtype from the model
             // but currently onnxruntime-node does not give out types, only input names
-            const timestep = model_inputs.sd_v1 == 2
+            const timestep = model_inputs.sdV1 == 2
               ? new Tensor(BigInt64Array.from([BigInt(step)]), [1])
               : new Tensor('float32', [step])
 

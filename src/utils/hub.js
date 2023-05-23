@@ -428,15 +428,19 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         file: filename
     })
 
-    const buffer = await readResponse(response, data => {
-        dispatchCallback(options.progress_callback, {
-            status: 'progress',
-            ...data,
-            name: path_or_repo_id,
-            file: filename
+    // in node.js it is inefficient to read big model files into memory and pass to ONNX runtime,
+    // so we'll just return filename
+    let buffer = response.filePath
+    if (!process.env) {
+        buffer = await readResponse(response, data => {
+            dispatchCallback(options.progress_callback, {
+                status: 'progress',
+                ...data,
+                name: path_or_repo_id,
+                file: filename
+            })
         })
-    })
-
+    }
 
     if (
         // Only cache web responses
@@ -475,9 +479,13 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
  */
 export async function getModelTextFile(modelPath, fileName, fatal = true, options = {}) {
     let buffer = await getModelFile(modelPath, fileName, fatal, options);
-    if (buffer === null) {
+    if (buffer === null || buffer === undefined) {
         // Return empty object
-        return {}
+        return null
+    }
+
+    if (!ArrayBuffer.isView(buffer)) {
+        buffer = await fs.promises.readFile(buffer)
     }
 
     let decoder = new TextDecoder('utf-8');
@@ -496,6 +504,11 @@ export async function getModelTextFile(modelPath, fileName, fatal = true, option
  */
 export async function getModelJSON(modelPath, fileName, fatal = true, options = {}) {
     let jsonData = await getModelTextFile(modelPath, fileName, fatal, options);
+
+    if (jsonData === null || jsonData === undefined) {
+        // Return empty object
+        return null
+    }
 
     return JSON.parse(jsonData);
 }

@@ -32,7 +32,7 @@ Transformers.js is designed to be functionally equivalent to Hugging Face's [tra
   - 📝 **Natural Language Processing**: text classification, named entity recognition, question answering, language modeling, summarization, translation, multiple choice, and text generation.
   - 🖼️ **Computer Vision**: image classification, object detection, and segmentation.
   - 🗣️ **Audio**: automatic speech recognition and audio classification.
-  - 🐙 **Multimodal**: zero-shot image classification.
+  - 🐙 **Multimodal**: zero-shot image classification and text-to-image generation.
 
 Transformers.js uses [ONNX Runtime](https://onnxruntime.ai/) to run models in the browser. The best part about it, is that you can easily [convert](#convert-your-models-to-onnx) your pretrained PyTorch, TensorFlow, or JAX models to ONNX using [🤗 Optimum](https://github.com/huggingface/optimum#onnx--onnx-runtime). 
 
@@ -40,26 +40,14 @@ For more information, check out the full [documentation](https://huggingface.co/
 
 ## GPU acceleration in Node.js:
 
-**Windows**:
-```javascript
-import { env } from './env.js'
-env.backends.onnx.getExecutionProviders().unshift('directml')
-```
+**Windows and macOS**:
+
+Works out of the box
 
 **Linux**:
 1. Install CUDA https://docs.nvidia.com/cuda/cuda-installation-guide-linux/
 2. Install cuDNN https://developer.nvidia.com/rdp/cudnn-archive
 3. Install onnxruntime-linux-x64-gpu-1.14.1 https://github.com/microsoft/onnxruntime/releases/tag/v1.14.1
-```javascript
-import { env } from './env.js'
-env.backends.onnx.getExecutionProviders().unshift('cuda')
-```
-
-**MacOS**:
-```javascript
-import { env } from './env.js'
-env.backends.onnx.getExecutionProviders().unshift('coreml')
-```
 
 ## Quick tour
 

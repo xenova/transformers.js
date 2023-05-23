@@ -892,7 +892,7 @@ export class ImageToTextPipeline extends Pipeline {
 
 
 /**
- * Image To Text pipeline using a `AutoModelForVision2Seq`. This pipeline predicts a caption for a given image.
+ * Text To Image pipeline using a `AutoModelForStableDiffusion`. This pipeline generates image from text
  * @extends Pipeline
  */
 export class TextToImagePipeline extends Pipeline {
@@ -907,26 +907,17 @@ export class TextToImagePipeline extends Pipeline {
         super(task, tokenizer, model);
     }
 
-    async encodePrompt (prompt) {
-        const tokens = this.tokenizer(prompt, { return_tensor: true })
-        const encoded = await sessionRun(textEncoder, { input_ids: tokens })
-        return encoded.last_hidden_state
-    }
-
-    async getPromptEmbeds (prompt, negativePrompt) {
-        const promptEmbeds = await this.encodePrompt(prompt)
-        const negativePromptEmbeds = await this.encodePrompt(negativePrompt || '')
-
-        // const newShape = [...promptEmbeds.dims]
-        // newShape[0] = 2
-        return promptEmbeds + negativePromptEmbeds
-    }
-
     /**
      * Assign labels to the image(s) passed as inputs.
-     * @param {any[]} texts The images to be captioned.
-     * @param {Object} [generate_kwargs={prompt, negativePrompt, guidanceScale, width, height}] Optional generation arguments.
-     * @returns {Promise<Object|Object[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
+     * @param {Object} generate_kwargs Generation arguments.
+     * @param {Object} [generate_kwargs.prompt] Prompt for image generation
+     * @param {Object} [generate_kwargs.negativePrompt] Negative prompt
+     * @param {Object} [generate_kwargs.guidanceScale] Guidance scale
+     * @param {Object} [generate_kwargs.numInferenceSteps] Number of inference steps for sampler
+     * @param {Object} [generate_kwargs.width] Image width
+     * @param {Object} [generate_kwargs.height] Image height
+     * @param {Object} [generate_kwargs.sdV1] Set to true if using StableDiffusion 1.X
+     * @returns {Promise<Tensor[]>} A Promise with images that can be saved with sharp(result[0].data, { raw: { width, height, channels: 3 } }).toFile('test.jpg')
      */
     async _call(generate_kwargs = {}) {
         this.model.tokenizer = this.tokenizer
