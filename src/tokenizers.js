@@ -2783,7 +2783,9 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     }
 }
 export class CodeGenTokenizer extends PreTrainedTokenizer { }
-export class CLIPTokenizer extends PreTrainedTokenizer {
+export class CLIPTokenizer extends PreTrainedTokenizer {}
+
+export class StableDiffusionClipTokenizer extends CLIPTokenizer {
     constructor (tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig)
         this.added_tokens_regex = /<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+/gui;
@@ -2821,9 +2823,7 @@ export class CLIPTokenizer extends PreTrainedTokenizer {
 
         return tokens;
     }
-}
 
-export class StableDiffusionClipTokenizer extends CLIPTokenizer {
     static async from_pretrained(pretrained_model_name_or_path, options = {}) {
 
         let [vocab, tokens, merges, tokenizerConfig] = await Promise.all([
@@ -2854,15 +2854,8 @@ export class StableDiffusionClipTokenizer extends CLIPTokenizer {
             },
             added_tokens: [],
         }
-        // Some tokenizers are saved with the "Fast" suffix, so we remove that if present.
-        // let tokenizerName = tokenizerConfig.tokenizer_class.replace(/Fast$/, '');
 
-        // let cls = this.TOKENIZER_CLASS_MAPPING[tokenizerName];
-        // if (!cls) {
-        //     console.warn(`Unknown tokenizer class "${tokenizerName}", attempting to construct from base class.`);
-        //     cls = PreTrainedTokenizer;
-        // }
-        return new CLIPTokenizer(tokenizerJSON, tokenizerConfig);
+        return new StableDiffusionClipTokenizer(tokenizerJSON, tokenizerConfig);
     }
 }
 
