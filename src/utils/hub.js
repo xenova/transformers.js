@@ -1,7 +1,7 @@
 
 /**
  * @file Utility functions to interact with the Hugging Face Hub (https://huggingface.co/models)
- * 
+ *
  * @module utils/hub
  */
 
@@ -18,7 +18,7 @@ if (!globalThis.ReadableStream) {
 }
 
 /**
- * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     
+ * @typedef {Object} PretrainedOptions Options for loading a pretrained model.
  * @property {boolean?} [options.quantized=true] Whether to load the 8-bit quantized version of the model (only applicable when loading model files).
  * @property {function} [options.progress_callback=null] If specified, this function will be called during model construction, to provide the user with progress updates.
  * @property {Object} [options.config=null] Configuration for the model to use instead of an automatically loaded configuration. Configuration can be automatically loaded when:
@@ -154,7 +154,7 @@ class FileResponse {
     /**
      * Reads the contents of the file specified by the filePath property and returns a Promise that
      * resolves with a parsed JavaScript object containing the file's contents.
-     * 
+     *
      * @returns {Promise<Object>} A Promise that resolves with a parsed JavaScript object containing the file's contents.
      * @throws {Error} If the file cannot be read.
      */
@@ -243,7 +243,7 @@ function handleError(status, remoteURL, fatal) {
 class FileCache {
     /**
      * Instantiate a `FileCache` object.
-     * @param {string} path 
+     * @param {string} path
      */
     constructor(path) {
         this.path = path;
@@ -251,7 +251,7 @@ class FileCache {
 
     /**
      * Checks whether the given request is in the cache.
-     * @param {string} request 
+     * @param {string} request
      * @returns {Promise<FileResponse | undefined>}
      */
     async match(request) {
@@ -268,8 +268,8 @@ class FileCache {
 
     /**
      * Adds the given response to the cache.
-     * @param {string} request 
-     * @param {Response|FileResponse} response 
+     * @param {string} request
+     * @param {Response|FileResponse} response
      * @returns {Promise<void>}
      */
     async put(request, response) {
@@ -294,17 +294,17 @@ class FileCache {
     // matchAll(request?: RequestInfo | URL, options?: CacheQueryOptions): Promise<ReadonlyArray<Response>>;
 }
 /**
- * 
+ *
  * Retrieves a file from either a remote URL using the Fetch API or from the local file system using the FileSystem API.
  * If the filesystem is available and `env.useCache = true`, the file will be downloaded and cached.
- * 
+ *
  * @param {string} path_or_repo_id This can be either:
  * - a string, the *model id* of a model repo on huggingface.co.
  * - a path to a *directory* potentially containing the file.
  * @param {string} filename The name of the file to locate in `path_or_repo`.
  * @param {boolean} [fatal=true] Whether to throw an error if the file is not found.
  * @param {PretrainedOptions} [options] An object containing optional parameters.
- * 
+ *
  * @throws Will throw an error if the file is not found and `fatal` is true.
  * @returns {Promise} A Promise that resolves with the file content as a buffer.
  */
@@ -428,15 +428,19 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         file: filename
     })
 
-    const buffer = await readResponse(response, data => {
-        dispatchCallback(options.progress_callback, {
-            status: 'progress',
-            ...data,
-            name: path_or_repo_id,
-            file: filename
+    // in node.js it is inefficient to read big model files into memory and pass to ONNX runtime,
+    // so we'll just return filename
+    let buffer = response.filePath
+    if (!process.env) {
+        buffer = await readResponse(response, data => {
+            dispatchCallback(options.progress_callback, {
+                status: 'progress',
+                ...data,
+                name: path_or_repo_id,
+                file: filename
+            })
         })
-    })
-
+    }
 
     if (
         // Only cache web responses
@@ -464,6 +468,31 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
 }
 
 /**
+ * Fetches a text file from a given path and file name.
+ *
+ * @param {string} modelPath The path to the directory containing the file.
+ * @param {string} fileName The name of the file to fetch.
+ * @param {boolean} [fatal=true] Whether to throw an error if the file is not found.
+ * @param {PretrainedOptions} [options] An object containing optional parameters.
+ * @returns {Promise<Object>} The text string
+ * @throws Will throw an error if the file is not found and `fatal` is true.
+ */
+export async function getModelTextFile(modelPath, fileName, fatal = true, options = {}) {
+    let buffer = await getModelFile(modelPath, fileName, fatal, options);
+    if (buffer === null || buffer === undefined) {
+        // Return empty object
+        return null
+    }
+
+    if (!ArrayBuffer.isView(buffer)) {
+        buffer = await fs.promises.readFile(buffer)
+    }
+
+    let decoder = new TextDecoder('utf-8');
+    return decoder.decode(buffer);
+}
+
+/**
  * Fetches a JSON file from a given path and file name.
  *
  * @param {string} modelPath The path to the directory containing the file.
@@ -474,14 +503,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
  * @throws Will throw an error if the file is not found and `fatal` is true.
  */
 export async function getModelJSON(modelPath, fileName, fatal = true, options = {}) {
-    let buffer = await getModelFile(modelPath, fileName, fatal, options);
-    if (buffer === null) {
+    let jsonData = await getModelTextFile(modelPath, fileName, fatal, options);
+
+    if (jsonData === null || jsonData === undefined) {
         // Return empty object
         return {}
     }
-
-    let decoder = new TextDecoder('utf-8');
-    let jsonData = decoder.decode(buffer);
 
     return JSON.parse(jsonData);
 }
