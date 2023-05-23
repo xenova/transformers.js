@@ -38,17 +38,6 @@ Transformers.js uses [ONNX Runtime](https://onnxruntime.ai/) to run models in th
 
 For more information, check out the full [documentation](https://huggingface.co/docs/transformers.js).
 
-## GPU acceleration in Node.js:
-
-**Windows and macOS**:
-
-Works out of the box
-
-**Linux**:
-1. Install CUDA https://docs.nvidia.com/cuda/cuda-installation-guide-linux/
-2. Install cuDNN https://developer.nvidia.com/rdp/cudnn-archive
-3. Install onnxruntime-linux-x64-gpu-1.14.1 https://github.com/microsoft/onnxruntime/releases/tag/v1.14.1
-
 ## Quick tour
 
 
@@ -111,6 +100,17 @@ Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN
     import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers';
 </script>
 ```
+
+## GPU acceleration in Node.js:
+
+**Windows and macOS**:
+
+Works out of the box
+
+**Linux**:
+1. Install CUDA https://docs.nvidia.com/cuda/cuda-installation-guide-linux/
+2. Install cuDNN https://developer.nvidia.com/rdp/cudnn-archive
+3. Install onnxruntime-linux-x64-gpu-1.14.1 https://github.com/microsoft/onnxruntime/releases/tag/v1.14.1
 
 
 ## Examples
