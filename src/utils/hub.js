@@ -269,21 +269,25 @@ class FileCache {
     /**
      * Adds the given response to the cache.
      * @param {string} request
-     * @param {Response|FileResponse} response
-     * @returns {Promise<void>}
+     * @param {Response|FileResponse|Buffer} response
+     * @returns {Promise<string|null>}
      */
     async put(request, response) {
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const buffer = Buffer.isBuffer(response) || ArrayBuffer.isView(response)
+          ? response
+          : Buffer.from(await response.arrayBuffer());
 
         let outputPath = path.join(this.path, request);
 
         try {
             await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
             await fs.promises.writeFile(outputPath, buffer);
-
+            return outputPath;
         } catch (err) {
             console.warn('An error occurred while writing the file to cache:', err)
         }
+
+        return null;
     }
 
     // TODO add the rest?
@@ -357,6 +361,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         response = await cache.match(request);
     }
 
+    let responseOrBufferToCache;
     if (response === undefined) {
         // Caching not available, or file is not cached, so we perform the request
 
@@ -414,9 +419,10 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         }
 
 
-        if (cache && response instanceof Response && response.status === 200) {
+        // let's clone the response only if it succeeded, and we are in browser environment
+        if (cache && response instanceof Response && response.status === 200 && typeof window !== 'undefined') {
             // only clone if cache available, and response is valid
-            responseToCache = response.clone();
+            responseOrBufferToCache = response.clone();
         }
     }
 
@@ -429,9 +435,13 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     })
 
     // in node.js it is inefficient to read big model files into memory and pass to ONNX runtime,
-    // so we'll just return filename
-    let buffer = response.filePath
-    if (!process.env) {
+    // so we'll try to return filename if cache write succeeded
+    let filePath = response.filePath;
+    let buffer;
+
+    // file path is only set if FileResponse on server-side is returned
+    // or if we don't have cache, so we are going to read it here and dispatch progress events
+    if (!filePath) {
         buffer = await readResponse(response, data => {
             dispatchCallback(options.progress_callback, {
                 status: 'progress',
@@ -442,15 +452,22 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         })
     }
 
+    // let's replace the response with the buffer in node.js
+    // that way we won't need to read it again and save memory
+    // but browser cache requires Response object
+    if (typeof window === 'undefined' && buffer) {
+        responseOrBufferToCache = buffer;
+    }
+
     if (
-        // Only cache web responses
-        // i.e., do not cache FileResponses (prevents duplication)
-        responseToCache
+        // Only cache web responses and buffer result we got on cache miss
+        responseOrBufferToCache
         &&
         // Check again whether request is in cache. If not, we add the response to the cache
         (await cache.match(request) === undefined)
     ) {
-        await cache.put(request, responseToCache)
+        // this will return void in browser and filename when FileCache is used
+        filePath = await cache.put(request, responseOrBufferToCache)
             .catch(err => {
                 // Do not crash if unable to add to cache (e.g., QuotaExceededError).
                 // Rather, log a warning and proceed with execution.
@@ -464,6 +481,10 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         file: filename
     });
 
+    // might be null if cache failed for some reason
+    if (filePath) {
+        return filePath
+    }
     return buffer;
 }
 
