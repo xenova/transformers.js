@@ -986,7 +986,12 @@ class BertPreTokenizer extends PreTokenizer {
     constructor(config) {
         super();
         // TODO use config
-        this.pattern = /\p{L}+|[^\s\p{L}]/gu;
+
+        // Construct a pattern which matches the rust implementation:
+        // https://github.com/huggingface/tokenizers/blob/b4fcc9ce6e4ad5806e82826f816acfdfdc4fcc67/tokenizers/src/pre_tokenizers/bert.rs#L11
+        // Equivalent to removing whitespace and splitting on punctuation (both \p{P} and other ascii characters)
+        const punctuation = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E'
+        this.pattern = new RegExp(`[^\\s${punctuation}]+|[${punctuation}]`, 'gu');
     }
     /**
      * Tokenizes a single text using the BERT pre-tokenization scheme.
@@ -995,7 +1000,6 @@ class BertPreTokenizer extends PreTokenizer {
      * @returns {Array<string>} An array of tokens.
      */
     pre_tokenize_text(text) {
-        // Split on whitespace and punctuation
         return text.trim().match(this.pattern) || [];
     }
 }

@@ -292,7 +292,7 @@ async function token_classification(data) {
     let currentChunk = { type: '', text: [] };
 
     for (let i = 0; i < outputs.length; i++) {
-        let word = pipeline.tokenizer.model.tokens_to_ids[outputs[i].word];
+        let word = pipeline.tokenizer.model.tokens_to_ids.get(outputs[i].word);
         let entity = outputs[i].entity;
 
         if (entity.startsWith('B-')) { // beginning of a new chunk
