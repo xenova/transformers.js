@@ -27,12 +27,14 @@ export const executionProviders = [
 ];
 
 if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
+    // Running in a react native environment.
     import('onnxruntime-react-native');
     executionProviders.unshift('cpu');
 
 } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
     import('onnxruntime-node');
+    import('onnxruntime-web');
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
     executionProviders.unshift('cpu');
