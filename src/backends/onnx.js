@@ -17,7 +17,9 @@
  */
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
-export * as ONNX from 'onnxruntime-common';
+import * as ONNX_COMMON from 'onnxruntime-common';
+
+export const ONNX = ONNX_COMMON.default ?? ONNX_COMMON;
 
 export const executionProviders = [
     // 'webgpu',
@@ -43,6 +45,6 @@ if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
     // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
     const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
     if (isIOS) {
-        ONNX.env.wasm.simd = false;
+        ONNX_COMMON.env.wasm.simd = false;
     }
 }
