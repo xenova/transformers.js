@@ -350,8 +350,8 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
 
     const request = pathJoin(path_or_repo_id, filename);
 
-    /** @type {Response} */
-    let responseToCache;
+    /** @type {Response | Uint8Array} */
+    let responseOrBufferToCache;
 
     /** @type {Response | FileResponse} */
     let response;
@@ -361,7 +361,6 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         response = await cache.match(request);
     }
 
-    let responseOrBufferToCache;
     if (response === undefined) {
         // Caching not available, or file is not cached, so we perform the request
 
