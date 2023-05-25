@@ -44,7 +44,8 @@
     "sharp": "^0.32.0"
   },
   "optionalDependencies": {
-    "onnxruntime-node": "^1.14.0"
+    "onnxruntime-node": "^1.14.0",
+    "onnxruntime-react-native": "^1.14.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
