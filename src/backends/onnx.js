@@ -25,9 +25,15 @@ export const executionProviders = [
     'wasm'
 ];
 
+function setupRuntime(module) {
+    // We select the default export if it exists, otherwise we use the named export.
+    // This allows us to run in both node and browser environments.
+    ONNX = module.default ?? module;
+}
+
 if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
     import('onnxruntime-react-native').then((ONNX_RN) => {
-        ONNX = ONNX_RN;
+        setupRuntime(ONNX_RN);
         executionProviders.unshift('cpu');
     });
 } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
@@ -36,25 +42,21 @@ if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
         import('onnxruntime-node'),
         import('onnxruntime-web')
     ]).then(([ONNX_NODE]) => {
-        ONNX = ONNX_NODE;
+        setupRuntime(ONNX_NODE);
         // Add `cpu` execution provider, with higher precedence that `wasm`.
         executionProviders.unshift('cpu');
     });
 } else {
     // Running in a browser-environment
     import('onnxruntime-web').then((ONNX_WEB) => {
-        ONNX = ONNX_WEB;
+        setupRuntime(ONNX_WEB);
+
+        // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
+        // As a temporary fix, we disable it for now.
+        // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
+        const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
+        if (isIOS) {
+            ONNX.env.wasm.simd = false;
+        }
     });
-
-    // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
-    // As a temporary fix, we disable it for now.
-    // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
-    const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
-    if (isIOS) {
-        ONNX.env.wasm.simd = false;
-    }
 }
-
-// We select the default export if it exists, otherwise we use the named export.
-// This allows us to run in both node and browser environments.
-ONNX = ONNX.default ?? ONNX;
