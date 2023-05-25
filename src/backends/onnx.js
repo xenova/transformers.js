@@ -17,8 +17,6 @@
  */
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
-import * as ONNX_NODE from 'onnxruntime-node';
-import * as ONNX_WEB from 'onnxruntime-web';
 
 export let ONNX;
 
@@ -27,19 +25,26 @@ export const executionProviders = [
     'wasm'
 ];
 
-if (
-    (typeof process !== 'undefined' && process?.release?.name === 'node') ||
-    (typeof navigator !== 'undefined' && navigator.product === 'ReactNative')
-) {
+if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
+    import('onnxruntime-react-native').then((ONNX_RN) => {
+        ONNX = ONNX_RN;
+        executionProviders.unshift('cpu');
+    });
+} else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
-    ONNX = ONNX_NODE;
-
-    // Add `cpu` execution provider, with higher precedence that `wasm`.
-    executionProviders.unshift('cpu');
-
+    Promise.all([
+        import('onnxruntime-node'),
+        import('onnxruntime-web')
+    ]).then(([ONNX_NODE]) => {
+        ONNX = ONNX_NODE;
+        // Add `cpu` execution provider, with higher precedence that `wasm`.
+        executionProviders.unshift('cpu');
+    });
 } else {
     // Running in a browser-environment
-    ONNX = ONNX_WEB;
+    import('onnxruntime-web').then((ONNX_WEB) => {
+        ONNX = ONNX_WEB;
+    });
 
     // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
     // As a temporary fix, we disable it for now.
