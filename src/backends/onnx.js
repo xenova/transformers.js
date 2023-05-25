@@ -33,7 +33,7 @@ function setupRuntime(module) {
 }
 
 if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-    import('onnxruntime-react-native').then(() => {
+    import('onnxruntime-react-native').then((ONNX_RN) => {
         setupRuntime(ONNX_RN);
         executionProviders.unshift('cpu');
     });
