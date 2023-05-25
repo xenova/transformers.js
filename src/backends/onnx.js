@@ -17,47 +17,32 @@
  */
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
-import * as ONNX_COMMON from 'onnxruntime-common';
-
-export let ONNX = ONNX_COMMON;
+export * as ONNX from 'onnxruntime-common';
 
 export const executionProviders = [
     // 'webgpu',
     'wasm'
 ];
 
-function setupRuntime(module) {
-    // We select the default export if it exists, otherwise we use the named export.
-    // This allows us to run in both node and browser environments.
-    ONNX = module.default ?? module;
-}
-
 if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-    import('onnxruntime-react-native').then((ONNX_RN) => {
-        setupRuntime(ONNX_RN);
-        executionProviders.unshift('cpu');
-    });
+    import('onnxruntime-react-native');
+    executionProviders.unshift('cpu');
+
 } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
-    Promise.all([
-        import('onnxruntime-node'),
-        import('onnxruntime-web')
-    ]).then(([ONNX_NODE]) => {
-        setupRuntime(ONNX_NODE);
-        // Add `cpu` execution provider, with higher precedence that `wasm`.
-        executionProviders.unshift('cpu');
-    });
+    import('onnxruntime-node');
+
+    // Add `cpu` execution provider, with higher precedence that `wasm`.
+    executionProviders.unshift('cpu');
 } else {
     // Running in a browser-environment
-    import('onnxruntime-web').then((ONNX_WEB) => {
-        setupRuntime(ONNX_WEB);
+    import('onnxruntime-web');
 
-        // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
-        // As a temporary fix, we disable it for now.
-        // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
-        const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
-        if (isIOS) {
-            ONNX.env.wasm.simd = false;
-        }
-    });
+    // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
+    // As a temporary fix, we disable it for now.
+    // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
+    const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
+    if (isIOS) {
+        ONNX.env.wasm.simd = false;
+    }
 }

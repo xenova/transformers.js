@@ -77,7 +77,6 @@
     "url": false,
     "sharp": false,
     "onnxruntime-node": false,
-    "onnxruntime-react-native": false,
     "stream/web": false
   },
   "publishConfig": {
