@@ -17,8 +17,9 @@
  */
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
+import * as ONNX_COMMON from 'onnxruntime-common';
 
-export let ONNX;
+export let ONNX = ONNX_COMMON;
 
 export const executionProviders = [
     // 'webgpu',
@@ -32,7 +33,7 @@ function setupRuntime(module) {
 }
 
 if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-    import('onnxruntime-react-native').then((ONNX_RN) => {
+    import('onnxruntime-react-native').then(() => {
         setupRuntime(ONNX_RN);
         executionProviders.unshift('cpu');
     });
