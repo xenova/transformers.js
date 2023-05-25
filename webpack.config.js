@@ -48,10 +48,4 @@ export default {
     experiments: {
         outputModule: true,
     },
-    resolve: {
-        alias: {
-            'image-decode': false,
-            'image-encode': false,
-        },
-    },
 };

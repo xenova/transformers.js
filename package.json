@@ -71,10 +71,13 @@
   ],
   "browser": {
     "fs": false,
+    "image-decode": false,
+    "image-encode": false,
     "path": false,
     "url": false,
     "sharp": false,
     "onnxruntime-node": false,
+    "onnxruntime-react-native": false,
     "stream/web": false
   },
   "publishConfig": {
