@@ -19,7 +19,7 @@
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
 import * as ONNX_COMMON from 'onnxruntime-common';
 
-export const ONNX = ONNX_COMMON.default ?? ONNX_COMMON;
+export const ONNX = ONNX_COMMON?.default ?? ONNX_COMMON;
 
 export const executionProviders = [
     // 'webgpu',
