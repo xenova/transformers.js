@@ -52,7 +52,10 @@ import {
 import {
     read_audio
 } from './utils/audio.js';
-import { Tensor } from './utils/tensor.js';
+import {
+    Tensor,
+    mean_pooling,
+} from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
 
 /**
@@ -607,87 +610,79 @@ export class ZeroShotClassificationPipeline extends Pipeline {
  * Feature extraction pipeline using no model head. This pipeline extracts the hidden
  * states from the base transformer, which can be used as features in downstream tasks.
  * 
- * This can be used with `sentence-transformers`. If you want to get the raw outputs
- * from the model, use `AutoModel.from_pretrained(...)`.
- * @extends Pipeline
+ * **Example:** Run feature extraction with `bert-base-uncased` (without pooling/normalization).
+ * ```javascript
+ * let extractor = await pipeline('feature-extraction', 'Xenova/bert-base-uncased', { revision: 'default' });
+ * let result = await extractor('This is a simple test.');
+ * console.log(result);
+ * // Tensor {
+ * //     type: 'float32',
+ * //     data: Float32Array [0.05939924716949463, 0.021655935794115067, ...],
+ * //     dims: [1, 8, 768]
+ * // }
+ * ```
  * 
- * @todo Make sure this works for other models than `sentence-transformers`.
+ * **Example:** Run feature extraction with `bert-base-uncased` (with pooling/normalization).
+ * ```javascript
+ * let extractor = await pipeline('feature-extraction', 'Xenova/bert-base-uncased', { revision: 'default' });
+ * let result = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
+ * console.log(result);
+ * // Tensor {
+ * //     type: 'float32',
+ * //     data: Float32Array [0.03373778983950615, -0.010106077417731285, ...],
+ * //     dims: [1, 768]
+ * // }
+ * ```
+ * 
+ * **Example:** Calculating embeddings with `sentence-transformers` models.
+ * ```javascript
+ * let extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+ * let result = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
+ * console.log(result);
+ * // Tensor {
+ * //     type: 'float32',
+ * //     data: Float32Array [0.09094982594251633, -0.014774246141314507, ...],
+ * //     dims: [1, 384]
+ * // }
+ * ```
+ * @extends Pipeline
  */
 export class FeatureExtractionPipeline extends Pipeline {
-    /**
-     * Private method to perform mean pooling of the last hidden state followed by a normalization step.
-     * @param {Tensor} last_hidden_state Tensor of shape [batchSize, seqLength, embedDim]
-     * @param {Tensor} attention_mask Tensor of shape [batchSize, seqLength]
-     * @returns {Tensor} Returns a new Tensor of shape [batchSize, embedDim].
-     * @private
-     */
-    _mean_pooling(last_hidden_state, attention_mask) {
-        // last_hidden_state: [batchSize, seqLength, embedDim]
-        // attention_mask:    [batchSize, seqLength]
-
-        let shape = [last_hidden_state.dims[0], last_hidden_state.dims[2]];
-        let returnedData = new last_hidden_state.data.constructor(shape[0] * shape[1])
-        let [batchSize, seqLength, embedDim] = last_hidden_state.dims;
-
-        let outIndex = 0;
-        for (let i = 0; i < batchSize; ++i) {
-            let offset = i * embedDim * seqLength;
-
-            for (let k = 0; k < embedDim; ++k) {
-                let sum = 0;
-                let count = 0;
-
-                let attnMaskOffset = i * seqLength;
-                let offset2 = offset + k;
-                // Pool over all words in sequence
-                for (let j = 0; j < seqLength; ++j) {
-                    // index into attention mask
-                    let attn = Number(attention_mask.data[attnMaskOffset + j]);
-
-                    count += attn;
-                    sum += last_hidden_state.data[offset2 + j * embedDim] * attn;
-                }
-
-                let avg = sum / count;
-                returnedData[outIndex++] = avg;
-            }
-        }
-
-        return new Tensor(
-            last_hidden_state.type,
-            returnedData,
-            shape
-        )
-    }
 
     /**
-     * Private method to normalize the input tensor along dim=1. 
-     * NOTE: only works for tensors of shape [batchSize, embedDim]. Operates in-place.
-     * @param {any} tensor Tensor of shape [batchSize, embedDim]
-     * @returns {any} Returns the same Tensor object after performing normalization.
-     * @private
+     * Extract the features of the input(s).
+     * 
+     * @param {string|string[]} texts The input texts
+     * @param {Object} options Additional options:
+     * @param {string} [options.pooling="none"] The pooling method to use. Can be one of: "none", "mean".
+     * @param {boolean} [options.normalize=false] Whether or not to normalize the embeddings in the last dimension.
+     * @returns The features computed by the model.
      */
-    _normalize(tensor) {
-        for (let batch of tensor) {
-            let norm = Math.sqrt(batch.data.reduce((a, b) => a + b * b, 0))
-
-            for (let i = 0; i < batch.data.length; ++i) {
-                batch.data[i] /= norm;
-            }
-        }
-        return tensor;
-    }
-
-    /**
-     * Method to perform mean pooling and normalization of the input texts.
-     * @param {string[]} texts An array of texts to embed.
-     * @returns {Promise<Tensor>} Returns a new Tensor of shape [batchSize, embedDim].
-     */
-    async _call(texts) {
+    async _call(texts, {
+        pooling = 'none',
+        normalize = false,
+    } = {}) {
         let [inputs, outputs] = await super._call(texts);
 
-        // Perform mean pooling, followed by a normalization step
-        return this._normalize(this._mean_pooling(outputs.last_hidden_state, inputs.attention_mask));
+        // TODO: Provide warning to the user that they might be using model which was not exported
+        // specifically for feature extraction
+        // console.log(this.model.config)
+        // console.log(outputs)
+
+        let result = outputs.last_hidden_state ?? outputs.logits;
+        if (pooling === 'none') {
+            // Skip pooling
+        } else if (pooling === 'mean') {
+            result = mean_pooling(result, inputs.attention_mask);
+        } else {
+            throw Error(`Pooling method '${pooling}' not supported.`);
+        }
+
+        if (normalize) {
+            result = result.normalize(2, -1);
+        }
+
+        return result;
     }
 
     /**
@@ -700,6 +695,11 @@ export class FeatureExtractionPipeline extends Pipeline {
         return is_normalised ? dot(arr1, arr2) : cos_sim(arr1, arr2);
     }
 }
+
+// TODO
+// export class SentenceSimilarityPipeline extends Pipeline {
+// }
+
 
 /**
  * Pipeline that aims at extracting spoken text contained within some audio.
@@ -997,8 +997,8 @@ export class ImageSegmentationPipeline extends Pipeline {
         images = await prepareImages(images);
         let imageSizes = images.map(x => [x.height, x.width]);
 
-        let { pixel_values, pixel_mask} = await this.processor(images);
-        let output = await this.model({ pixel_values, pixel_mask});
+        let { pixel_values, pixel_mask } = await this.processor(images);
+        let output = await this.model({ pixel_values, pixel_mask });
 
         let fn = null;
         if (subtask !== null) {
@@ -1460,7 +1460,6 @@ export async function pipeline(
 
     // Load tokenizer and model
     let items = await Promise.all(promises)
-    // TODO: fix error below
 
     dispatchCallback(progress_callback, {
         'status': 'ready',
