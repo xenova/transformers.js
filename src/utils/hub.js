@@ -28,6 +28,7 @@ if (!globalThis.ReadableStream) {
  * @property {boolean} [options.local_files_only=false] Whether or not to only look at local files (e.g., not try downloading the model).
  * @property {string} [options.revision='main'] The specific model version to use. It can be a branch name, a tag name, or a commit id,
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
+ * NOTE: This setting is ignored for local requests.
  */
 
 class Headers extends Object {
@@ -344,7 +345,13 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         cache = new FileCache(options.cache_dir ?? env.cacheDir);
     }
 
-    const request = pathJoin(path_or_repo_id, filename);
+    // NOTE: requestID is just a string to identify the specific model used (used for caching purposes)
+    // We form a unique ID by merging base64 encoded strings of:
+    // - the path to the model (either a model id or a local path, e.g., "bert-base-uncased")
+    // - the filename (e.g., tokenizer.json)
+    // - the revision (e.g., main)
+    // - whether the model is quantized (true or false)
+    let requestID = generateID(path_or_repo_id, filename, options.revision, options.quantized);
 
     /** @type {Response} */
     let responseToCache;
@@ -354,14 +361,15 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
 
     if (cache) {
         // Cache available, so we try to get the file from the cache.
-        response = await cache.match(request);
+        response = await cache.match(requestID);
     }
 
     if (response === undefined) {
         // Caching not available, or file is not cached, so we perform the request
+        let requestURL = pathJoin(path_or_repo_id, filename);
 
-        let isURL = isValidHttpUrl(request);
-        let localPath = pathJoin(env.localModelPath, request);
+        let isURL = isValidHttpUrl(requestURL);
+        let localPath = pathJoin(env.localModelPath, requestURL);
 
         if (env.allowLocalModels) {
             // Accessing local models is enabled, so we try to get the file locally.
@@ -375,9 +383,9 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                     console.warn(`Unable to load from local path "${localPath}": "${e}"`);
                 }
             } else if (options.local_files_only) {
-                throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`);
+                throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${requestURL}.`);
             } else if (!env.allowRemoteModels) {
-                throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${request}.`);
+                throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${requestURL}.`);
             }
         }
 
@@ -444,13 +452,13 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         responseToCache
         &&
         // Check again whether request is in cache. If not, we add the response to the cache
-        (await cache.match(request) === undefined)
+        (await cache.match(requestID) === undefined)
     ) {
-        await cache.put(request, responseToCache)
+        await cache.put(requestID, responseToCache)
             .catch(err => {
                 // Do not crash if unable to add to cache (e.g., QuotaExceededError).
                 // Rather, log a warning and proceed with execution.
-                console.warn(`Unable to add ${request} to browser cache: ${err}.`);
+                console.warn(`Unable to add response to browser cache: ${err}.`);
             });
     }
 
@@ -561,4 +569,14 @@ function pathJoin(...parts) {
         return part;
     })
     return parts.join('/');
+}
+
+/**
+ * Helper function to generate an identifier for model files (used for caching).
+ * @param  {...any} parts Parts to encode
+ * @returns An ID which encodes the parts
+ * @private
+ */
+function generateID(...parts) {
+    return parts.map(x => btoa(x.toString()).replaceAll('=', '')).join('-');
 }
