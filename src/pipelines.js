@@ -46,8 +46,6 @@ import {
     softmax,
     max,
     getTopItems,
-    cos_sim,
-    dot
 } from './utils/maths.js';
 import {
     read_audio
@@ -683,16 +681,6 @@ export class FeatureExtractionPipeline extends Pipeline {
         }
 
         return result;
-    }
-
-    /**
-     * @param {number[]} arr1
-     * @param {number[]} arr2
-     */
-    cos_sim(arr1, arr2, is_normalised = false) {
-        // Compute cosine similarity. If `is_normalised`, then
-        // use the dot product instead of the cosine similarity
-        return is_normalised ? dot(arr1, arr2) : cos_sim(arr1, arr2);
     }
 }
 
