@@ -187,7 +187,6 @@ function isValidHttpUrl(string) {
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
 export async function getFile(urlOrPath) {
-    // Helper function to get a file, using either the Fetch API or FileSystem API
 
     if (env.useFS && !isValidHttpUrl(urlOrPath)) {
         return new FileResponse(urlOrPath);
@@ -294,6 +293,21 @@ class FileCache {
     // match(request: RequestInfo | URL, options?: CacheQueryOptions): Promise<Response | undefined>;
     // matchAll(request?: RequestInfo | URL, options?: CacheQueryOptions): Promise<ReadonlyArray<Response>>;
 }
+
+/**
+ * 
+ * @param {FileCache|Cache} cache The cache to search
+ * @param {string} name The name of the item to search for
+ * @returns {Promise<FileResponse|Response|undefined>} The item from the cache, or undefined if not found.
+ */
+async function tryCache(cache, name) {
+    try {
+        return await cache.match(name);
+    } catch (e) {
+        return undefined;
+    }
+}
+
 /**
  * 
  * Retrieves a file from either a remote URL using the Fetch API or from the local file system using the FileSystem API.
@@ -345,31 +359,46 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         cache = new FileCache(options.cache_dir ?? env.cacheDir);
     }
 
-    // NOTE: requestID is just a string to identify the specific model used (used for caching purposes)
-    // We form a unique ID by merging base64 encoded strings of:
-    // - the path to the model (either a model id or a local path, e.g., "bert-base-uncased")
-    // - the filename (e.g., tokenizer.json)
-    // - the revision (e.g., main)
-    // - whether the model is quantized (true or false)
-    let requestID = generateID(path_or_repo_id, filename, options.revision, options.quantized);
+    const revision = options.revision ?? 'main';
 
-    /** @type {Response} */
+    let requestURL = pathJoin(path_or_repo_id, filename);
+    let localPath = pathJoin(env.localModelPath, requestURL);
+
+    let remoteURL = pathJoin(
+        env.remoteHost,
+        env.remotePathTemplate
+            .replaceAll('{model}', path_or_repo_id)
+            .replaceAll('{revision}', revision),
+        filename
+    );
+
+    // Choose cache key for filesystem cache
+    // When using the main revision (default), we use the request URL as the cache key.
+    // If a specific revision is requested, we account for this in the cache key.
+    let fsCacheKey = revision === 'main' ? requestURL : pathJoin(path_or_repo_id, revision, filename);
+
+    /** @type {string} */
+    let cacheKey;
+
+    /** @type {Response|undefined} */
     let responseToCache;
 
-    /** @type {Response | FileResponse} */
+    /** @type {Response|FileResponse|undefined} */
     let response;
 
     if (cache) {
-        // Cache available, so we try to get the file from the cache.
-        response = await cache.match(requestID);
+        // A caching system is available, so we try to get the file from it.
+
+        // 1. We first try to get from cache using the local path. In some environments (like deno),
+        // non-URL cache keys are not allowed. In these cases, `response` will be undefined.
+        // 2. If no response is found, we try to get from cache using the remote URL.
+        response = (await tryCache(cache, localPath)) ?? (await tryCache(cache, fsCacheKey));
     }
 
     if (response === undefined) {
         // Caching not available, or file is not cached, so we perform the request
-        let requestURL = pathJoin(path_or_repo_id, filename);
 
         let isURL = isValidHttpUrl(requestURL);
-        let localPath = pathJoin(env.localModelPath, requestURL);
 
         if (env.allowLocalModels) {
             // Accessing local models is enabled, so we try to get the file locally.
@@ -377,6 +406,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             if (!isURL) {
                 try {
                     response = await getFile(localPath);
+                    cacheKey = localPath;
                 } catch (e) {
                     // Something went wrong while trying to get the file locally.
                     // NOTE: error handling is done in the next step (since `response` will be undefined)
@@ -407,14 +437,11 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             }
 
             // File not found locally, so we try to download it from the remote server
-            let remoteURL = pathJoin(
-                env.remoteHost,
-                env.remotePathTemplate
-                    .replace('{model}', path_or_repo_id)
-                    .replace('{revision}', options.revision ?? 'main'),
-                filename
-            );
             response = await getFile(remoteURL);
+
+            // If using file cache, we use the cache key we generated earlier, otherwise if
+            // using browser cache, we use the remote URL as the cache key
+            cacheKey = cache instanceof FileCache ? fsCacheKey : remoteURL;
 
             if (response.status !== 200) {
                 return handleError(response.status, remoteURL, fatal);
@@ -449,12 +476,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     if (
         // Only cache web responses
         // i.e., do not cache FileResponses (prevents duplication)
-        responseToCache
+        responseToCache && cacheKey
         &&
         // Check again whether request is in cache. If not, we add the response to the cache
-        (await cache.match(requestID) === undefined)
+        (await cache.match(cacheKey) === undefined)
     ) {
-        await cache.put(requestID, responseToCache)
+        await cache.put(cacheKey, responseToCache)
             .catch(err => {
                 // Do not crash if unable to add to cache (e.g., QuotaExceededError).
                 // Rather, log a warning and proceed with execution.
@@ -569,14 +596,4 @@ function pathJoin(...parts) {
         return part;
     })
     return parts.join('/');
-}
-
-/**
- * Helper function to generate an identifier for model files (used for caching).
- * @param  {...any} parts Parts to encode
- * @returns An ID which encodes the parts
- * @private
- */
-function generateID(...parts) {
-    return parts.map(x => btoa(x.toString()).replaceAll('=', '')).join('-');
 }
