@@ -196,6 +196,20 @@ export async function getFile(urlOrPath) {
     }
 }
 
+const ERROR_MAPPING = {
+    // 4xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
+    400: 'Bad request error occurred while trying to load file',
+    401: 'Unauthorized access to file',
+    403: 'Forbidden access to file',
+    404: 'Could not locate file',
+    408: 'Request timeout error occurred while trying to load file',
+
+    // 5xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+    500: 'Internal server error error occurred while trying to load file',
+    502: 'Bad gateway error occurred while trying to load file',
+    503: 'Service unavailable error occurred while trying to load file',
+    504: 'Gateway timeout error occurred while trying to load file',
+}
 /**
  * Helper method to handle fatal errors that occur while trying to load a file from the Hugging Face Hub.
  * @param {number} status The HTTP status code of the error.
@@ -211,33 +225,8 @@ function handleError(status, remoteURL, fatal) {
         return null;
     }
 
-    switch (status) {
-        // 4xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
-        case 400:
-            throw Error(`Bad request error occurred while trying to load file: "${remoteURL}".`)
-        case 401:
-            throw Error(`Unauthorized access to file: "${remoteURL}".`)
-        case 403:
-            throw Error(`Forbidden access to file: "${remoteURL}".`)
-        case 404:
-            throw Error(`Could not locate file: "${remoteURL}".`)
-        case 408:
-            throw Error(`Request timeout error occurred while trying to load file: "${remoteURL}".`)
-
-        // 5xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
-        case 500:
-            throw Error(`Internal server error error occurred while trying to load file: "${remoteURL}".`)
-        case 502:
-            throw Error(`Bad gateway error occurred while trying to load file: "${remoteURL}".`)
-        case 503:
-            throw Error(`Service unavailable error occurred while trying to load file: "${remoteURL}".`)
-        case 504:
-            throw Error(`Gateway timeout error occurred while trying to load file: "${remoteURL}".`)
-
-        // Other:
-        default:
-            throw Error(`Error (${status}) occurred while trying to load file: "${remoteURL}".`)
-    }
+    const message = ERROR_MAPPING[status] ?? `Error (${status}) occurred while trying to load file`;
+    throw Error(`${message}: "${remoteURL}".`);
 }
 
 class FileCache {
