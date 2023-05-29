@@ -58,7 +58,7 @@ const localModelPath = RUNNING_LOCALLY
 // In practice, users should probably self-host the necessary .wasm files.
 onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
     ? path.join(__dirname, '/dist/')
-    : 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/';
+    : 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.0.2/dist/';
 
 
 /**
