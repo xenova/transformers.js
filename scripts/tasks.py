@@ -51,6 +51,12 @@ SUPPORTED_MODELS = {
         'sentence-transformers/all-MiniLM-L12-v2',
         'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
         'sentence-transformers/paraphrase-MiniLM-L6-v2',
+        'sentence-transformers/paraphrase-MiniLM-L3-v2',
+        'sentence-transformers/bert-base-nli-mean-tokens',
+        'sentence-transformers/multi-qa-MiniLM-L6-cos-v1',
+        'sentence-transformers/multi-qa-distilbert-cos-v1',
+        'sentence-transformers/xlm-r-100langs-bert-base-nli-stsb-mean-tokens',
+        # 'sentence-transformers/LaBSE', TODO
 
         'ckiplab/bert-base-chinese-ner',
         'ckiplab/bert-base-chinese-ws',
@@ -84,6 +90,12 @@ SUPPORTED_MODELS = {
         'distilbert-base-uncased-finetuned-sst-2-english',
         'typeform/distilbert-base-uncased-mnli',
         'Davlan/distilbert-base-multilingual-cased-ner-hrl',
+
+        'sentence-transformers/distiluse-base-multilingual-cased-v1',
+        'sentence-transformers/distiluse-base-multilingual-cased-v2',
+        'sentence-transformers/distilbert-base-nli-mean-tokens',
+        'sentence-transformers/distilbert-base-nli-stsb-mean-tokens',
+        'sentence-transformers/msmarco-distilbert-base-v4',
     },
     'gpt-neo': {
         'EleutherAI/gpt-neo-125M',
@@ -107,6 +119,14 @@ SUPPORTED_MODELS = {
         # https://github.com/huggingface/optimum/issues/1027
         # 'google/mobilebert-uncased',
     },
+    'mpnet': {
+        'sentence-transformers/all-mpnet-base-v2',
+        'sentence-transformers/nli-mpnet-base-v2',
+        'sentence-transformers/paraphrase-mpnet-base-v2',
+        'sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
+        'sentence-transformers/multi-qa-mpnet-base-cos-v1',
+        'sentence-transformers/multi-qa-mpnet-base-dot-v1',
+    },
     'mt5': {
         'google/mt5-small',
         'google/mt5-base',
@@ -118,6 +138,7 @@ SUPPORTED_MODELS = {
         'roberta-large-mnli',
 
         'sentence-transformers/all-distilroberta-v1',
+        'sentence-transformers/all-roberta-large-v1',
     },
     'sam': {
         'facebook/sam-vit-base',
