@@ -118,8 +118,10 @@ def quantize(model_names_or_paths):
             model_input=model,
             model_output=os.path.join(
                 directory_path, f'{file_name_without_extension}_quantized.onnx'),
-            per_channel=False,
-            reduce_range=False,
+
+            # TODO allow user to specify these or choose based on hardware
+            per_channel=True,
+            reduce_range=True,
 
             weight_type=weight_type,
             optimize_model=False,
