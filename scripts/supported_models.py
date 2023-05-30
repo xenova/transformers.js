@@ -80,6 +80,10 @@ SUPPORTED_MODELS = {
         'distilgpt2',
         'MBZUAI/LaMini-Cerebras-256M',
         'MBZUAI/LaMini-Cerebras-590M',
+        'MBZUAI/LaMini-GPT-124M',
+    ],
+    'm2m_100': [
+        'facebook/nllb-200-distilled-600M',
     ],
     # TODO:
     # 'marian': [
@@ -116,8 +120,9 @@ SUPPORTED_MODELS = {
     ],
     'sam': [
         'facebook/sam-vit-base',
-        'facebook/sam-vit-large',
-        'facebook/sam-vit-huge',
+        # TODO:
+        # 'facebook/sam-vit-large',
+        # 'facebook/sam-vit-huge',
     ],
     'squeezebert': [
         'squeezebert/squeezebert-uncased',
