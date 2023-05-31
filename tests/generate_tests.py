@@ -156,6 +156,9 @@ def generate_config_tests():
 
             results[config_name] = config.to_dict()
 
+            # TODO: Remove after https://github.com/huggingface/transformers/issues/23876 fixed
+            results[config_name].pop('torch_dtype', None)
+
     return results
 
 
