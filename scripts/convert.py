@@ -70,18 +70,6 @@ class ConversionArguments:
             "help": 'The device to use to do the export.'
         }
     )
-    merge_decoders: bool = field(
-        default=True,
-        metadata={
-            "help": "Whether to fuse decoder ONNX model and decoder with past ONNX model into one ONNX model with if logic"
-        }
-    )
-    overwrite: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to overwriting existing models"
-        }
-    )
     skip_validation: bool = field(
         default=False,
         metadata={
@@ -193,6 +181,8 @@ def main():
         model_name_or_path=model_id,
         output=output_model_folder,
         task=conv_args.task,
+        opset=conv_args.opset,
+        device=conv_args.device,
         do_validation=not conv_args.skip_validation,
     )
 
