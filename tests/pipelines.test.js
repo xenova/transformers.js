@@ -529,7 +529,7 @@ describe('Pipelines', () => {
                 });
 
                 let expected = [
-                    { 'translation_text': 'مرحباً عالمياً' }
+                    { 'translation_text': 'مرحباً، يا عالم!' }
                 ];
 
                 compare(translation, expected);
