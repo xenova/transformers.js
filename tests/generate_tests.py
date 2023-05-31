@@ -6,7 +6,7 @@ import os
 
 from transformers import AutoTokenizer, AutoConfig
 
-from scripts.tasks import SUPPORTED_MODELS
+from scripts.supported_models import SUPPORTED_MODELS
 
 MODELS_TO_TEST = {
     "albert": [

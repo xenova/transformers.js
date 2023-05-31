@@ -1,5 +1,5 @@
 
-import { pipeline } from '../src/transformers.js';
+import { pipeline, cos_sim } from '../src/transformers.js';
 import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
 
 
@@ -529,7 +529,7 @@ describe('Pipelines', () => {
                 });
 
                 let expected = [
-                    { 'translation_text': 'مرحباً عالمياً' }
+                    { 'translation_text': 'مرحباً، يا عالم!' }
                 ];
 
                 compare(translation, expected);
@@ -704,7 +704,6 @@ describe('Pipelines', () => {
         // List all models which will be tested
         const models = [
             'sentence-transformers/all-MiniLM-L6-v2',
-
         ];
 
         it(models[0], async () => {
@@ -717,21 +716,22 @@ describe('Pipelines', () => {
                 'The quick brown fox jumps over the lazy dog.'
             ]
 
-            // compare features
+            // Without pooling or normalization
             {
+
                 let output = await extractor(sentences);
+                expect(output.dims).toHaveLength(3);
+            }
+
+            // With pooling and normalization + compare features
+            {
+                let output = await extractor(sentences, { pooling: 'mean', normalize: true });
+                expect(output.dims).toHaveLength(2);
 
                 // Convert Tensor to JS list
                 output = output.tolist();
 
-                // Compute pairwise cosine similarity
-                // for (let i = 0; i < sentences.length; ++i) {
-                //     for (let j = i + 1; j < sentences.length; ++j) {
-                //         console.log(`(${i},${j}):`, extractor.cos_sim(output[i], output[j]))
-                //     }
-                // }
-
-                let pairwiseScores = [[output[0], output[1]], [output[0], output[2]], [output[1], output[2]]].map(x => extractor.cos_sim(...x))
+                let pairwiseScores = [[output[0], output[1]], [output[0], output[2]], [output[1], output[2]]].map(x => cos_sim(...x))
 
                 let expected = [0.502872309810269, 0.11088411026413121, 0.09602621986931259]
                 compare(pairwiseScores, expected);
