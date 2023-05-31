@@ -82,6 +82,12 @@ class ConversionArguments:
             "help": "Whether to overwriting existing models"
         }
     )
+    skip_validation: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to skip validation of the converted model"
+        }
+    )
 
 
 def quantize(model_names_or_paths):
@@ -187,6 +193,7 @@ def main():
         model_name_or_path=model_id,
         output=output_model_folder,
         task=conv_args.task,
+        do_validation=not conv_args.skip_validation,
     )
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
