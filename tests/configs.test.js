@@ -2,11 +2,9 @@
 
 import { AutoConfig, env } from '../src/transformers.js';
 import { getFile } from '../src/utils/hub.js';
-import { init, m } from './init.js';
+import { m } from './init.js';
 
 // Initialise the testing environment
-init();
-
 env.allowLocalModels=false;
 env.useFSCache=false;
 
