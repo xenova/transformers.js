@@ -191,7 +191,16 @@ export async function getFile(urlOrPath) {
     if (env.useFS && !isValidHttpUrl(urlOrPath)) {
         return new FileResponse(urlOrPath);
 
+    } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
+        const IS_CI = !!process.env?.TESTING_REMOTELY;
+        const version = env.version;
+        return fetch(urlOrPath, {
+            headers: {
+                'User-Agent': `transformers.js/${version}; is_ci/${IS_CI};`
+            }
+        });
     } else {
+        // Running in a browser-environment, so we use default headers
         return fetch(urlOrPath);
     }
 }
