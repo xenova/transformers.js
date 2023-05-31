@@ -194,11 +194,25 @@ export async function getFile(urlOrPath) {
     } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
         const IS_CI = !!process.env?.TESTING_REMOTELY;
         const version = env.version;
-        return fetch(urlOrPath, {
-            headers: {
-                'User-Agent': `transformers.js/${version}; is_ci/${IS_CI};`
+
+        // DEBUGGING:
+        const fetchWithRedirect = async (url) => {
+            console.log('Fetching:', url);
+            try {
+                const response = await fetch(url, { redirect: 'manual' });
+                if (response.status >= 300 && response.status < 400) {
+                    const redirectUrl = response.headers.get('location');
+                    console.log('Redirect URL:', redirectUrl);
+                    return fetchWithRedirect(redirectUrl);
+                } else {
+                    console.log(`No redirect: (${response.status})`)
+                    return response;
+                }
+            } catch (error) {
+                console.error('Error:', error);
             }
-        });
+        };
+        return fetchWithRedirect(urlOrPath);
     } else {
         // Running in a browser-environment, so we use default headers
         return fetch(urlOrPath);
