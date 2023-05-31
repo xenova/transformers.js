@@ -37,6 +37,12 @@ SUPPORTED_MODELS = {
         'ckiplab/bert-base-chinese-pos',
         'dslim/bert-base-NER',
         'dslim/bert-base-NER-uncased',
+
+        'allenai/scibert_scivocab_uncased',
+        'ProsusAI/finbert',
+        'emilyalsentzer/Bio_ClinicalBERT',
+        'SpanBERT/spanbert-large-cased',
+        'SpanBERT/spanbert-base-cased',
     ],
     # TODO:
     # 'blenderbot-small': [
@@ -149,6 +155,10 @@ SUPPORTED_MODELS = {
     'vit': [
         'google/vit-base-patch16-224-in21k',
         'google/vit-base-patch16-224',
+        'facebook/dino-vitb16',
+        'facebook/dino-vits8',
+        'facebook/dino-vitb8',
+        'facebook/dino-vits16',
     ],
     'whisper': [
         'openai/whisper-tiny',
