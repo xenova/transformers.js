@@ -4,7 +4,9 @@
 import json
 import os
 
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig
+
+from scripts.tasks import SUPPORTED_MODELS
 
 MODELS_TO_TEST = {
     "albert": [
@@ -144,6 +146,19 @@ def generate_tokenizer_tests():
     return results
 
 
+def generate_config_tests():
+    results = {}
+    for model_type, config_names in SUPPORTED_MODELS.items():
+
+        for config_name in config_names:
+            # Load config
+            config = AutoConfig.from_pretrained(config_name)
+
+            results[config_name] = config.to_dict()
+
+    return results
+
+
 def main():
     # TODO add option to cache generated data + force build tests
 
@@ -152,9 +167,12 @@ def main():
     )
 
     tokenizer_tests = generate_tokenizer_tests()
-
     with open(os.path.join(data_dir, "tokenizer_tests.json"), "w", encoding="utf-8") as fp:
         json.dump(tokenizer_tests, fp)
+
+    config_tests = generate_config_tests()
+    with open(os.path.join(data_dir, "config_tests.json"), "w", encoding="utf-8") as fp:
+        json.dump(config_tests, fp)
 
 
 if __name__ == "__main__":
