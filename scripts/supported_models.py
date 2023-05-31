@@ -1,45 +1,19 @@
-from .extra.marian import SUPPORTED_HELSINKI_NLP_MODELS
-
-SUPPORTED_TASKS = {
-    # map tasks to automodels
-    'default': 'AutoModel',
-    'masked-lm': 'AutoModelForMaskedLM',
-    'causal-lm': 'AutoModelForCausalLM',
-    'seq2seq-lm': 'AutoModelForSeq2SeqLM',
-    'sequence-classification': 'AutoModelForSequenceClassification',
-    'token-classification': 'AutoModelForTokenClassification',
-    # 'multiple-choice': 'AutoModelForMultipleChoice',
-    'object-detection': 'AutoModelForObjectDetection',
-    'question-answering': 'AutoModelForQuestionAnswering',
-    'image-classification': 'AutoModelForImageClassification',
-    'image-segmentation': 'AutoModelForImageSegmentation',
-    # 'masked-im': 'AutoModelForMaskedImageModeling',
-    # 'semantic-segmentation': 'AutoModelForSemanticSegmentation',
-    'speech2seq-lm': 'AutoModelForSpeechSeq2Seq',
-    # 'audio-classification': 'AutoModelForAudioClassification',
-    # 'audio-frame-classification': 'AutoModelForAudioFrameClassification',
-    # 'audio-ctc': 'AutoModelForCTC',
-    # 'audio-xvector': 'AutoModelForAudioXVector',
-    'vision2seq-lm': 'AutoModelForVision2Seq',
-    # 'stable-diffusion': 'StableDiffusionPipeline',
-    'zero-shot-image-classification': 'AutoModelForZeroShotImageClassification',
-    'zero-shot-object-detection': 'AutoModelForZeroShotObjectDetection',
-}
+# from .extra.marian import SUPPORTED_HELSINKI_NLP_MODELS
 
 SUPPORTED_MODELS = {
-    'albert': {
+    'albert': [
         'albert-base-v2',
         'albert-large-v2',
         'sentence-transformers/paraphrase-albert-small-v2',
         'sentence-transformers/paraphrase-albert-base-v2',
-    },
+    ],
 
-    'bart': {
+    'bart': [
         'sshleifer/distilbart-cnn-6-6',
         'facebook/bart-large-cnn',
         'facebook/bart-large-mnli',
-    },
-    'bert': {
+    ],
+    'bert': [
         'bert-base-uncased',
         'bert-base-cased',
         'bert-base-multilingual-uncased',
@@ -63,26 +37,26 @@ SUPPORTED_MODELS = {
         'ckiplab/bert-base-chinese-pos',
         'dslim/bert-base-NER',
         'dslim/bert-base-NER-uncased',
-    },
+    ],
     # TODO:
-    # 'blenderbot-small': {
+    # 'blenderbot-small': [
     #     'facebook/blenderbot_small-90M',
-    # },
-    'clip': {
+    # ],
+    'clip': [
         'openai/clip-vit-base-patch16',
         'openai/clip-vit-base-patch32',
-    },
-    'codegen': {
+    ],
+    'codegen': [
         'Salesforce/codegen-350M-mono',
         'Salesforce/codegen-350M-multi',
         'Salesforce/codegen-350M-nl',
-    },
-    'detr': {
+    ],
+    'detr': [
         'facebook/detr-resnet-50',
         'facebook/detr-resnet-101',
         'facebook/detr-resnet-50-panoptic',
-    },
-    'distilbert': {
+    ],
+    'distilbert': [
         'distilbert-base-uncased',
         'distilbert-base-cased',
         'distilbert-base-uncased-distilled-squad',
@@ -96,42 +70,46 @@ SUPPORTED_MODELS = {
         'sentence-transformers/distilbert-base-nli-mean-tokens',
         'sentence-transformers/distilbert-base-nli-stsb-mean-tokens',
         'sentence-transformers/msmarco-distilbert-base-v4',
-    },
-    'gpt-neo': {
+    ],
+    'gpt-neo': [
         'EleutherAI/gpt-neo-125M',
         'MBZUAI/LaMini-Neo-125M',
-    },
-    'gpt2': {
+    ],
+    'gpt2': [
         'gpt2',
         'distilgpt2',
         'MBZUAI/LaMini-Cerebras-256M',
         'MBZUAI/LaMini-Cerebras-590M',
-    },
+        'MBZUAI/LaMini-GPT-124M',
+    ],
+    'm2m_100': [
+        'facebook/nllb-200-distilled-600M',
+    ],
     # TODO:
-    # 'marian': {
+    # 'marian': [
     #     f'Helsinki-NLP/opus-mt-{x}'
     #     for x in SUPPORTED_HELSINKI_NLP_MODELS
-    # },
-    'mobilebert': {
+    # ],
+    'mobilebert': [
         'typeform/mobilebert-uncased-mnli',
 
         # TODO:
         # https://github.com/huggingface/optimum/issues/1027
         # 'google/mobilebert-uncased',
-    },
-    'mpnet': {
+    ],
+    'mpnet': [
         'sentence-transformers/all-mpnet-base-v2',
         'sentence-transformers/nli-mpnet-base-v2',
         'sentence-transformers/paraphrase-mpnet-base-v2',
         'sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
         'sentence-transformers/multi-qa-mpnet-base-cos-v1',
         'sentence-transformers/multi-qa-mpnet-base-dot-v1',
-    },
-    'mt5': {
+    ],
+    'mt5': [
         'google/mt5-small',
         'google/mt5-base',
-    },
-    'roberta': {
+    ],
+    'roberta': [
         'xlm-roberta-base',
         'roberta-base',
         'distilroberta-base',
@@ -139,17 +117,17 @@ SUPPORTED_MODELS = {
 
         'sentence-transformers/all-distilroberta-v1',
         'sentence-transformers/all-roberta-large-v1',
-    },
-    'sam': {
+    ],
+    'sam': [
         'facebook/sam-vit-base',
         'facebook/sam-vit-large',
         'facebook/sam-vit-huge',
-    },
-    'squeezebert': {
+    ],
+    'squeezebert': [
         'squeezebert/squeezebert-uncased',
         'squeezebert/squeezebert-mnli',
-    },
-    't5': {
+    ],
+    't5': [
         't5-small',
         't5-base',
         'google/t5-v1_1-small',
@@ -164,22 +142,26 @@ SUPPORTED_MODELS = {
         'MBZUAI/LaMini-T5-61M',
         'MBZUAI/LaMini-T5-223M',
         'MBZUAI/LaMini-T5-738M',
-    },
-    'vision-encoder-decoder': {
+    ],
+    'vision-encoder-decoder': [
         'nlpconnect/vit-gpt2-image-captioning',
-    },
-    'vit': {
+    ],
+    'vit': [
         'google/vit-base-patch16-224-in21k',
         'google/vit-base-patch16-224',
-    },
-    'whisper': {
+    ],
+    'whisper': [
         'openai/whisper-tiny',
         'openai/whisper-tiny.en',
         'openai/whisper-base',
         'openai/whisper-base.en',
         'openai/whisper-small',
         'openai/whisper-small.en',
-    },
+        'openai/whisper-medium',
+        'openai/whisper-medium.en',
+        'openai/whisper-large',
+        'openai/whisper-large-v2',
+    ],
 }
 
 
