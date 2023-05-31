@@ -264,34 +264,34 @@ describe('Pipelines', () => {
                 let outputs = await unmasker(texts[0]);
                 let expected = [
                     {
-                        "score": 0.9318257570266724,
-                        "token": 2051,
-                        "token_str": "time",
-                        "sequence": "once upon a time."
+                        score: 0.9496445655822754,
+                        token: 2051,
+                        token_str: 'time',
+                        sequence: 'once upon a time.'
                     },
                     {
-                        "score": 0.009929785504937172,
-                        "token": 13342,
-                        "token_str": "mattress",
-                        "sequence": "once upon a mattress."
+                        score: 0.01029531005769968,
+                        token: 13342,
+                        token_str: 'mattress',
+                        sequence: 'once upon a mattress.'
                     },
                     {
-                        "score": 0.0021786263678222895,
-                        "token": 3959,
-                        "token_str": "dream",
-                        "sequence": "once upon a dream."
+                        score: 0.0013969476567581296,
+                        token: 6480,
+                        token_str: 'lifetime',
+                        sequence: 'once upon a lifetime.'
                     },
                     {
-                        "score": 0.001881834352388978,
-                        "token": 2940,
-                        "token_str": "hill",
-                        "sequence": "once upon a hill."
+                        score: 0.0008216543938033283,
+                        token: 2504,
+                        token_str: 'level',
+                        sequence: 'once upon a level.'
                     },
                     {
-                        "score": 0.0017424898687750101,
-                        "token": 2154,
-                        "token_str": "day",
-                        "sequence": "once upon a day."
+                        score: 0.0007674929802305996,
+                        token: 2940,
+                        token_str: 'hill',
+                        sequence: 'once upon a hill.'
                     }
                 ];
                 compare(outputs, expected);
@@ -305,65 +305,65 @@ describe('Pipelines', () => {
 
                 let expected = [[
                     {
-                        "score": 0.9828392863273621,
-                        "token": 2051,
-                        "token_str": "time",
-                        "sequence": "once upon a time."
+                        score: 0.9918821454048157,
+                        token: 2051,
+                        token_str: 'time',
+                        sequence: 'once upon a time.'
                     },
                     {
-                        "score": 0.0027356224600225687,
-                        "token": 13342,
-                        "token_str": "mattress",
-                        "sequence": "once upon a mattress."
+                        score: 0.0010219492251053452,
+                        token: 13342,
+                        token_str: 'mattress',
+                        sequence: 'once upon a mattress.'
                     },
                     {
-                        "score": 0.00038447941187769175,
-                        "token": 2504,
-                        "token_str": "level",
-                        "sequence": "once upon a level."
+                        score: 0.00024931252119131386,
+                        token: 2096,
+                        token_str: 'while',
+                        sequence: 'once upon a while.'
                     },
                     {
-                        "score": 0.0003801222483161837,
-                        "token": 2940,
-                        "token_str": "hill",
-                        "sequence": "once upon a hill."
+                        score: 0.00015193592116702348,
+                        token: 2558,
+                        token_str: 'period',
+                        sequence: 'once upon a period.'
                     },
                     {
-                        "score": 0.0003801104612648487,
-                        "token": 6480,
-                        "token_str": "lifetime",
-                        "sequence": "once upon a lifetime."
+                        score: 0.00015131247346289456,
+                        token: 6480,
+                        token_str: 'lifetime',
+                        sequence: 'once upon a lifetime.'
                     }
                 ], [
                     {
-                        "score": 0.3269098699092865,
-                        "token": 2414,
-                        "token_str": "london",
-                        "sequence": "london is the capital of england."
+                        score: 0.29160282015800476,
+                        token: 2414,
+                        token_str: 'london',
+                        sequence: 'london is the capital of england.'
                     },
                     {
-                        "score": 0.06448942422866821,
-                        "token": 2009,
-                        "token_str": "it",
-                        "sequence": "it is the capital of england."
+                        score: 0.06457117199897766,
+                        token: 2009,
+                        token_str: 'it',
+                        sequence: 'it is the capital of england.'
                     },
                     {
-                        "score": 0.03533688560128212,
-                        "token": 7067,
-                        "token_str": "bristol",
-                        "sequence": "bristol is the capital of england."
+                        score: 0.031988438218832016,
+                        token: 6484,
+                        token_str: 'birmingham',
+                        sequence: 'birmingham is the capital of england.'
                     },
                     {
-                        "score": 0.025355694815516472,
-                        "token": 5087,
-                        "token_str": "manchester",
-                        "sequence": "manchester is the capital of england."
+                        score: 0.0317111536860466,
+                        token: 7067,
+                        token_str: 'bristol',
+                        sequence: 'bristol is the capital of england.'
                     },
                     {
-                        "score": 0.023570900782942772,
-                        "token": 6484,
-                        "token_str": "birmingham",
-                        "sequence": "birmingham is the capital of england."
+                        score: 0.030000191181898117,
+                        token: 5087,
+                        token_str: 'manchester',
+                        sequence: 'manchester is the capital of england.'
                     }
                 ]];
 

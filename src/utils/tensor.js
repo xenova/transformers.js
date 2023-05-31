@@ -19,6 +19,7 @@ import {
  * @typedef {import('./maths.js').AnyTypedArray} AnyTypedArray
  */
 
+/** @type {Object} */
 const ONNXTensor = ONNX.Tensor;
 
 export class Tensor extends ONNXTensor {
