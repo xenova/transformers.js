@@ -120,9 +120,8 @@ SUPPORTED_MODELS = {
     ],
     'sam': [
         'facebook/sam-vit-base',
-        # TODO:
-        # 'facebook/sam-vit-large',
-        # 'facebook/sam-vit-huge',
+        'facebook/sam-vit-large',
+        'facebook/sam-vit-huge',
     ],
     'squeezebert': [
         'squeezebert/squeezebert-uncased',
@@ -158,6 +157,10 @@ SUPPORTED_MODELS = {
         'openai/whisper-base.en',
         'openai/whisper-small',
         'openai/whisper-small.en',
+        'openai/whisper-medium',
+        'openai/whisper-medium.en',
+        'openai/whisper-large',
+        'openai/whisper-large-v2',
     ],
 }
 
