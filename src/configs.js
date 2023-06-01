@@ -1,7 +1,7 @@
 
 /**
- * @file Helper module for using model configs. See {@link https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig}
- * for corresponding Python documentation.
+ * @file Helper module for using model configs. For more information, see the corresponding
+ * [Python documentation](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig).
  * 
  * **Example:** Load an `AutoConfig`.
  * 
