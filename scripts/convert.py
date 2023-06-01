@@ -70,16 +70,10 @@ class ConversionArguments:
             "help": 'The device to use to do the export.'
         }
     )
-    merge_decoders: bool = field(
-        default=True,
-        metadata={
-            "help": "Whether to fuse decoder ONNX model and decoder with past ONNX model into one ONNX model with if logic"
-        }
-    )
-    overwrite: bool = field(
+    skip_validation: bool = field(
         default=False,
         metadata={
-            "help": "Whether to overwriting existing models"
+            "help": "Whether to skip validation of the converted model"
         }
     )
 
@@ -118,8 +112,10 @@ def quantize(model_names_or_paths):
             model_input=model,
             model_output=os.path.join(
                 directory_path, f'{file_name_without_extension}_quantized.onnx'),
-            per_channel=False,
-            reduce_range=False,
+
+            # TODO allow user to specify these or choose based on hardware
+            per_channel=True,
+            reduce_range=True,
 
             weight_type=weight_type,
             optimize_model=False,
@@ -185,6 +181,9 @@ def main():
         model_name_or_path=model_id,
         output=output_model_folder,
         task=conv_args.task,
+        opset=conv_args.opset,
+        device=conv_args.device,
+        do_validation=not conv_args.skip_validation,
     )
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.

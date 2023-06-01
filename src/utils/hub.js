@@ -28,6 +28,7 @@ if (!globalThis.ReadableStream) {
  * @property {boolean} [options.local_files_only=false] Whether or not to only look at local files (e.g., not try downloading the model).
  * @property {string} [options.revision='main'] The specific model version to use. It can be a branch name, a tag name, or a commit id,
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
+ * NOTE: This setting is ignored for local requests.
  */
 
 class Headers extends Object {
@@ -186,12 +187,20 @@ function isValidHttpUrl(string) {
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
 export async function getFile(urlOrPath) {
-    // Helper function to get a file, using either the Fetch API or FileSystem API
 
     if (env.useFS && !isValidHttpUrl(urlOrPath)) {
         return new FileResponse(urlOrPath);
 
+    } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
+        const IS_CI = !!process.env?.TESTING_REMOTELY;
+        const version = env.version;
+        return fetch(urlOrPath, {
+            headers: {
+                'User-Agent': `transformers.js/${version}; is_ci/${IS_CI};`
+            }
+        });
     } else {
+        // Running in a browser-environment, so we use default headers
         return fetch(urlOrPath);
     }
 }
@@ -282,6 +291,21 @@ class FileCache {
     // match(request: RequestInfo | URL, options?: CacheQueryOptions): Promise<Response | undefined>;
     // matchAll(request?: RequestInfo | URL, options?: CacheQueryOptions): Promise<ReadonlyArray<Response>>;
 }
+
+/**
+ * 
+ * @param {FileCache|Cache} cache The cache to search
+ * @param {string} name The name of the item to search for
+ * @returns {Promise<FileResponse|Response|undefined>} The item from the cache, or undefined if not found.
+ */
+async function tryCache(cache, name) {
+    try {
+        return await cache.match(name);
+    } catch (e) {
+        return undefined;
+    }
+}
+
 /**
  * 
  * Retrieves a file from either a remote URL using the Fetch API or from the local file system using the FileSystem API.
@@ -333,24 +357,46 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         cache = new FileCache(options.cache_dir ?? env.cacheDir);
     }
 
-    const request = pathJoin(path_or_repo_id, filename);
+    const revision = options.revision ?? 'main';
 
-    /** @type {Response} */
+    let requestURL = pathJoin(path_or_repo_id, filename);
+    let localPath = pathJoin(env.localModelPath, requestURL);
+
+    let remoteURL = pathJoin(
+        env.remoteHost,
+        env.remotePathTemplate
+            .replaceAll('{model}', path_or_repo_id)
+            .replaceAll('{revision}', revision),
+        filename
+    );
+
+    // Choose cache key for filesystem cache
+    // When using the main revision (default), we use the request URL as the cache key.
+    // If a specific revision is requested, we account for this in the cache key.
+    let fsCacheKey = revision === 'main' ? requestURL : pathJoin(path_or_repo_id, revision, filename);
+
+    /** @type {string} */
+    let cacheKey;
+
+    /** @type {Response|undefined} */
     let responseToCache;
 
-    /** @type {Response | FileResponse} */
+    /** @type {Response|FileResponse|undefined} */
     let response;
 
     if (cache) {
-        // Cache available, so we try to get the file from the cache.
-        response = await cache.match(request);
+        // A caching system is available, so we try to get the file from it.
+
+        // 1. We first try to get from cache using the local path. In some environments (like deno),
+        // non-URL cache keys are not allowed. In these cases, `response` will be undefined.
+        // 2. If no response is found, we try to get from cache using the remote URL.
+        response = (await tryCache(cache, localPath)) ?? (await tryCache(cache, fsCacheKey));
     }
 
     if (response === undefined) {
         // Caching not available, or file is not cached, so we perform the request
 
-        let isURL = isValidHttpUrl(request);
-        let localPath = pathJoin(env.localModelPath, request);
+        let isURL = isValidHttpUrl(requestURL);
 
         if (env.allowLocalModels) {
             // Accessing local models is enabled, so we try to get the file locally.
@@ -358,15 +404,16 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             if (!isURL) {
                 try {
                     response = await getFile(localPath);
+                    cacheKey = localPath;
                 } catch (e) {
                     // Something went wrong while trying to get the file locally.
                     // NOTE: error handling is done in the next step (since `response` will be undefined)
                     console.warn(`Unable to load from local path "${localPath}": "${e}"`);
                 }
             } else if (options.local_files_only) {
-                throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`);
+                throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${requestURL}.`);
             } else if (!env.allowRemoteModels) {
-                throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${request}.`);
+                throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${requestURL}.`);
             }
         }
 
@@ -388,14 +435,11 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             }
 
             // File not found locally, so we try to download it from the remote server
-            let remoteURL = pathJoin(
-                env.remoteHost,
-                env.remotePathTemplate
-                    .replace('{model}', path_or_repo_id)
-                    .replace('{revision}', options.revision ?? 'main'),
-                filename
-            );
             response = await getFile(remoteURL);
+
+            // If using file cache, we use the cache key we generated earlier, otherwise if
+            // using browser cache, we use the remote URL as the cache key
+            cacheKey = cache instanceof FileCache ? fsCacheKey : remoteURL;
 
             if (response.status !== 200) {
                 return handleError(response.status, remoteURL, fatal);
@@ -430,16 +474,16 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     if (
         // Only cache web responses
         // i.e., do not cache FileResponses (prevents duplication)
-        responseToCache
+        responseToCache && cacheKey
         &&
         // Check again whether request is in cache. If not, we add the response to the cache
-        (await cache.match(request) === undefined)
+        (await cache.match(cacheKey) === undefined)
     ) {
-        await cache.put(request, responseToCache)
+        await cache.put(cacheKey, responseToCache)
             .catch(err => {
                 // Do not crash if unable to add to cache (e.g., QuotaExceededError).
                 // Rather, log a warning and proceed with execution.
-                console.warn(`Unable to add ${request} to browser cache: ${err}.`);
+                console.warn(`Unable to add response to browser cache: ${err}.`);
             });
     }
 
