@@ -47,6 +47,10 @@ async function loadConfig(pretrained_model_name_or_path, options) {
     return info;
 }
 
+/**
+ * Base class for all configuration classes. For more information, see the corresponding
+ * [Python documentation](https://huggingface.co/docs/transformers/main/en/main_classes/configuration#transformers.PretrainedConfig).
+ */
 export class PretrainedConfig {
     // NOTE: Typo in original
 
@@ -59,6 +63,7 @@ export class PretrainedConfig {
 
         Object.assign(this, configJSON);
     }
+
     /**
      * Loads a pre-trained config from the given `pretrained_model_name_or_path`. 
      * 
