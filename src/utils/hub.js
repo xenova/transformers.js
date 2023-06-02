@@ -295,15 +295,19 @@ class FileCache {
 /**
  * 
  * @param {FileCache|Cache} cache The cache to search
- * @param {string} name The name of the item to search for
+ * @param {string[]} names The names of the item to search for
  * @returns {Promise<FileResponse|Response|undefined>} The item from the cache, or undefined if not found.
  */
-async function tryCache(cache, name) {
-    try {
-        return await cache.match(name);
-    } catch (e) {
-        return undefined;
+async function tryCache(cache, ...names) {
+    for (let name of names) {
+        try {
+            let result = await cache.match(name);
+            if (result) return result;
+        } catch (e) {
+            continue;
+        }
     }
+    return undefined;
 }
 
 /**
@@ -377,6 +381,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
 
     /** @type {string} */
     let cacheKey;
+    let proposedCacheKey = cache instanceof FileCache ? fsCacheKey : remoteURL;
 
     /** @type {Response|undefined} */
     let responseToCache;
@@ -386,11 +391,10 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
 
     if (cache) {
         // A caching system is available, so we try to get the file from it.
-
-        // 1. We first try to get from cache using the local path. In some environments (like deno),
-        // non-URL cache keys are not allowed. In these cases, `response` will be undefined.
-        // 2. If no response is found, we try to get from cache using the remote URL.
-        response = (await tryCache(cache, localPath)) ?? (await tryCache(cache, fsCacheKey));
+        //  1. We first try to get from cache using the local path. In some environments (like deno),
+        //     non-URL cache keys are not allowed. In these cases, `response` will be undefined.
+        //  2. If no response is found, we try to get from cache using the remote URL or file system cache.
+        response = await tryCache(cache, localPath, proposedCacheKey);
     }
 
     if (response === undefined) {
@@ -404,7 +408,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             if (!isURL) {
                 try {
                     response = await getFile(localPath);
-                    cacheKey = localPath;
+                    cacheKey = localPath; // Update the cache key to be the local path
                 } catch (e) {
                     // Something went wrong while trying to get the file locally.
                     // NOTE: error handling is done in the next step (since `response` will be undefined)
@@ -437,13 +441,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             // File not found locally, so we try to download it from the remote server
             response = await getFile(remoteURL);
 
-            // If using file cache, we use the cache key we generated earlier, otherwise if
-            // using browser cache, we use the remote URL as the cache key
-            cacheKey = cache instanceof FileCache ? fsCacheKey : remoteURL;
-
             if (response.status !== 200) {
                 return handleError(response.status, remoteURL, fatal);
             }
+
+            // Success! We use the proposed cache key from earlier
+            cacheKey = proposedCacheKey;
         }
 
 
@@ -485,6 +488,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                 // Rather, log a warning and proceed with execution.
                 console.warn(`Unable to add response to browser cache: ${err}.`);
             });
+
     }
 
     dispatchCallback(options.progress_callback, {
