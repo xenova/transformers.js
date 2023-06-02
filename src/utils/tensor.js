@@ -19,6 +19,7 @@ import {
  * @typedef {import('./maths.js').AnyTypedArray} AnyTypedArray
  */
 
+/** @type {Object} */
 const ONNXTensor = ONNX.Tensor;
 
 export class Tensor extends ONNXTensor {
@@ -147,7 +148,7 @@ export class Tensor extends ONNXTensor {
     }
 
     /**
-     * Return a new Tensor the sigmoid function applied to each element.
+     * Return a new Tensor with the sigmoid function applied to each element.
      * @returns {Tensor} The tensor with the sigmoid function applied.
      */
     sigmoid() {
@@ -251,6 +252,194 @@ export class Tensor extends ONNXTensor {
     }
 
     // TODO add .max() and .min() methods
+
+    /**
+     * Returns the sum of each row of the input tensor in the given dimension dim.
+     * 
+     * @param {number} [dim=null] The dimension or dimensions to reduce. If `null`, all dimensions are reduced.
+     * @param {boolean} keepdim Whether the output tensor has `dim` retained or not.
+     * @returns The summed tensor
+     */
+    sum(dim = null, keepdim = false) {
+        return this.norm(1, dim, keepdim);
+    }
+
+    /**
+     * Returns the matrix norm or vector norm of a given tensor.
+     * @param {number|string} [p='fro'] The order of norm
+     * @param {number} [dim=null] Specifies which dimension of the tensor to calculate the norm across.
+     * If dim is None, the norm will be calculated across all dimensions of input.
+     * @param {boolean} [keepdim=false] Whether the output tensors have dim retained or not.
+     * @returns {Tensor} The norm of the tensor.
+     */
+    norm(p = 'fro', dim = null, keepdim = false) {
+        if (p === 'fro') {
+            // NOTE: Since we only support integer dims, Frobenius norm produces the same result as p=2.
+            p = 2;
+        } else if (typeof p === 'string') {
+            throw Error(`Unsupported norm: ${p}`);
+        }
+
+        if (dim === null) {
+            // @ts-ignore
+            let val = this.data.reduce((a, b) => a + (b ** p), 0) ** (1 / p);
+            return new Tensor(this.type, [val], [1]);
+        }
+
+        if (dim < 0) {
+            // Negative indexing
+            dim += this.dims.length;
+        }
+
+
+        // Calculate the shape of the resulting array after summation
+        const resultDims = this.dims.slice(); // Copy the original dimensions
+        resultDims[dim] = 1; // Remove the specified axis
+
+        // Create a new array to store the accumulated values
+        const result = new this.data.constructor(this.data.length / this.dims[dim]);
+
+        // Iterate over the data array
+        for (let i = 0; i < this.data.length; ++i) {
+
+            // Calculate the index in the resulting array
+            let resultIndex = 0;
+
+            for (let j = this.dims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
+                const size = this.dims[j];
+                if (j !== dim) {
+                    const index = num % size;
+                    resultIndex += index * resultMultiplier;
+                    resultMultiplier *= resultDims[j];
+                }
+                num = Math.floor(num / size);
+            }
+
+            // Accumulate the value at the current index
+            result[resultIndex] += (this.data[i]) ** p;
+        }
+
+        if (p !== 1) {
+            for (let i = 0; i < result.length; ++i) {
+                result[i] = result[i] ** (1 / p);
+            }
+        }
+
+        if (!keepdim) {
+            resultDims.splice(dim, 1);
+        }
+
+        return new Tensor(this.type, result, resultDims);
+    }
+
+    /**
+     * Performs `L_p` normalization of inputs over specified dimension. Operates in place.
+     * @param {number} [p=2] The exponent value in the norm formulation
+     * @param {number} [dim=1] The dimension to reduce
+     * @returns {Tensor} `this` for operation chaining.
+     */
+    normalize_(p = 2.0, dim = 1) {
+        if (dim < 0) {
+            // Negative indexing
+            dim += this.dims.length;
+        }
+
+        const norm = this.norm(p, dim, true);
+
+        for (let i = 0; i < this.data.length; ++i) {
+
+            // Calculate the index in the resulting array
+            let resultIndex = 0;
+
+            for (let j = this.dims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
+                const size = this.dims[j];
+                if (j !== dim) {
+                    const index = num % size;
+                    resultIndex += index * resultMultiplier;
+                    resultMultiplier *= this.dims[j];
+                }
+                num = Math.floor(num / size);
+            }
+
+            // Divide by normalized value
+            this.data[i] /= norm.data[resultIndex];
+        }
+
+        return this;
+    }
+
+    /**
+     * Performs `L_p` normalization of inputs over specified dimension.
+     * @param {number} [p=2] The exponent value in the norm formulation
+     * @param {number} [dim=1] The dimension to reduce
+     * @returns {Tensor} The normalized tensor.
+     */
+    normalize(p = 2.0, dim = 1) {
+        return this.clone().normalize_(p, dim);
+    }
+
+    /**
+     * Compute and return the stride of this tensor.
+     * Stride is the jump necessary to go from one element to the next one in the specified dimension dim.
+     * @returns {number[]} The stride of this tensor.
+     */
+    stride() {
+        const stride = new Array(this.dims.length);
+        for (let i = this.dims.length - 1, s2 = 1; i >= 0; --i) {
+            stride[i] = s2;
+            s2 *= this.dims[i];
+        }
+        return stride;
+    }
+
+    /**
+     * Returns a tensor with all specified dimensions of input of size 1 removed.
+     * 
+     * NOTE: The returned tensor shares the storage with the input tensor, so changing the contents of one will change the contents of the other.
+     * If you would like a copy, use `tensor.clone()` before squeezing.
+     * 
+     * @param {number} [dim=null] If given, the input will be squeezed only in the specified dimensions.
+     * @returns The squeezed tensor
+     */
+    squeeze(dim = null) {
+        return new Tensor(
+            this.type,
+            this.data,
+            calc_squeeze_dims(this.dims, dim)
+        )
+    }
+
+    /**
+     * In-place version of @see {@link Tensor.squeeze}
+     */
+    squeeze_(dim = null) {
+        this.dims = calc_squeeze_dims(this.dims, dim);
+        return this;
+    }
+
+    /**
+     * Returns a new tensor with a dimension of size one inserted at the specified position.
+     * 
+     * NOTE: The returned tensor shares the same underlying data with this tensor.
+     * 
+     * @param {number} dim The index at which to insert the singleton dimension
+     * @returns The unsqueezed tensor
+     */
+    unsqueeze(dim = null) {
+        return new Tensor(
+            this.type,
+            this.data,
+            calc_unsqueeze_dims(this.dims, dim)
+        );
+    }
+
+    /**
+     * In-place version of @see {@link Tensor.unsqueeze}
+     */
+    unsqueeze_(dim = null) {
+        this.dims = calc_unsqueeze_dims(this.dims, dim);
+        return this;
+    }
 }
 
 /**
@@ -383,4 +572,93 @@ export function interpolate(input, [out_height, out_width], mode = 'bilinear', a
         align_corners
     );
     return new Tensor(input.type, output, [in_channels, out_height, out_width]);
+}
+
+/**
+ * Perform mean pooling of the last hidden state followed by a normalization step.
+ * @param {Tensor} last_hidden_state Tensor of shape [batchSize, seqLength, embedDim]
+ * @param {Tensor} attention_mask Tensor of shape [batchSize, seqLength]
+ * @returns {Tensor} Returns a new Tensor of shape [batchSize, embedDim].
+ */
+export function mean_pooling(last_hidden_state, attention_mask) {
+    // last_hidden_state: [batchSize, seqLength, embedDim]
+    // attention_mask:    [batchSize, seqLength]
+
+    let shape = [last_hidden_state.dims[0], last_hidden_state.dims[2]];
+    let returnedData = new last_hidden_state.data.constructor(shape[0] * shape[1]);
+    let [batchSize, seqLength, embedDim] = last_hidden_state.dims;
+
+    let outIndex = 0;
+    for (let i = 0; i < batchSize; ++i) {
+        let offset = i * embedDim * seqLength;
+
+        for (let k = 0; k < embedDim; ++k) {
+            let sum = 0;
+            let count = 0;
+
+            let attnMaskOffset = i * seqLength;
+            let offset2 = offset + k;
+            // Pool over all words in sequence
+            for (let j = 0; j < seqLength; ++j) {
+                // index into attention mask
+                let attn = Number(attention_mask.data[attnMaskOffset + j]);
+
+                count += attn;
+                sum += last_hidden_state.data[offset2 + j * embedDim] * attn;
+            }
+
+            let avg = sum / count;
+            returnedData[outIndex++] = avg;
+        }
+    }
+
+    return new Tensor(
+        last_hidden_state.type,
+        returnedData,
+        shape
+    )
+}
+
+/**
+ * Helper function to calculate new dimensions when performing a squeeze operation.
+ * @param {number[]} dims The dimensions of the tensor.
+ * @param {number|number[]|null} dim The dimension(s) to squeeze.
+ * @returns The new dimensions.
+ * @private
+ */
+function calc_squeeze_dims(dims, dim) {
+    dims = dims.slice();
+    if (dim === null) {
+        dims = dims.filter((d) => d !== 1);
+    } else if (typeof dim === 'number') {
+        if (dims[dim] === 1) {
+            dims.splice(dim, 1);
+        }
+    } else if (Array.isArray(dim)) {
+        dims = dims.filter((x, i) => {
+            return x !== 1 || !dim.includes(i);
+        });
+    }
+    return dims;
+}
+
+/**
+ * Helper function to calculate new dimensions when performing an unsqueeze operation.
+ * @param {number[]} dims The dimensions of the tensor.
+ * @param {number} dim The dimension to unsqueeze.
+ * @returns The new dimensions.
+ * @private
+ */
+function calc_unsqueeze_dims(dims, dim) {
+    // TODO: add bounds error checking
+
+    dims = dims.slice();
+    if (dim < 0) {
+        // Negative indexing, ensuring positive index
+        dim = ((dim % dims.length) + dims.length) % dims.length;
+    }
+
+    // Insert 1 into specified dimension
+    dims.splice(dim, 0, 1);
+    return dims;
 }

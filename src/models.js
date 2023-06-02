@@ -39,6 +39,10 @@
  */
 
 import {
+    AutoConfig,
+} from './configs.js';
+
+import {
     Callable,
     isIntegralNumber,
     isTypedArray,
@@ -271,8 +275,7 @@ function boolTensor(value) {
  * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
  */
 async function loadAutoModel(pretrained_model_name_or_path, options) {
-    // Only get config.json if not already specified
-    let config = options.config ?? await getModelJSON(pretrained_model_name_or_path, 'config.json', true, options);
+    let config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options)
 
     let modelName = config.is_encoder_decoder ? 'encoder_model' : 'model';
 
@@ -289,7 +292,7 @@ async function loadAutoModel(pretrained_model_name_or_path, options) {
  */
 async function loadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
-        options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
+        AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
         constructSession(pretrained_model_name_or_path, 'model', options)
     ]);
     return info;
@@ -303,7 +306,7 @@ async function loadModel(pretrained_model_name_or_path, options) {
  */
 async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
-        options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
+        AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
         constructSession(pretrained_model_name_or_path, 'encoder_model', options),
         constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
         getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
@@ -319,7 +322,7 @@ async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
  */
 async function encoderDecoderLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
-        options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
+        AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
         constructSession(pretrained_model_name_or_path, 'encoder_model', options),
         constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
     ])
@@ -335,7 +338,7 @@ async function encoderDecoderLoadModel(pretrained_model_name_or_path, options) {
  */
 async function decoderLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
-        options.config ?? getModelJSON(pretrained_model_name_or_path, 'config.json', true, options),
+        AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
         constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
     ])
     return info;
