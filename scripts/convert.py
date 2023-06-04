@@ -45,7 +45,7 @@ class ConversionArguments:
         }
     )
 
-    task: Optional[str] = field(
+    task: str = field(
         default='auto',
         metadata={
             "help": (
