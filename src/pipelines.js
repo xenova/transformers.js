@@ -51,7 +51,6 @@ import {
     read_audio
 } from './utils/audio.js';
 import {
-    Tensor,
     mean_pooling,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
@@ -400,7 +399,7 @@ export class Text2TextGenerationPipeline extends Pipeline {
             input_ids = this.tokenizer(texts, tokenizer_options).input_ids;
         }
 
-        let outputTokenIds = (await this.model.generate(input_ids, generate_kwargs)).flat();
+        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs);
 
         /**
          * @type {any[]}
@@ -461,26 +460,23 @@ export class TextGenerationPipeline extends Pipeline {
         let input_ids = inputs.input_ids;
         let attention_mask = inputs.attention_mask;
 
-        /**
-         * @type {any[]}
-         */
         let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, null, {
             inputs_attention_mask: attention_mask
         });
 
-        let toReturn = outputTokenIds.map((outTokens, i) => {
-            let startText = texts[i].trim();
-            let decoded = this.tokenizer.batch_decode(outTokens, {
-                skip_special_tokens: true,
-            }).map(x => {
-                return {
-                    generated_text: startText + x
-                }
-            });
-
-            return decoded
+        const trimmedTexts = texts.map(x => x.trim());
+        const decoded = this.tokenizer.batch_decode(outputTokenIds, {
+            skip_special_tokens: true,
         });
+        const toReturn = Array.from({ length: texts.length }, _ => []);
+        for (let i = 0; i < decoded.length; ++i) {
+            const textIndex = Math.floor(i / outputTokenIds.length * trimmedTexts.length);
+            let startText = trimmedTexts[textIndex];
 
+            toReturn[textIndex].push({
+                generated_text: startText + decoded[i]
+            });
+        }
         return (stringInput && toReturn.length === 1) ? toReturn[0] : toReturn;
     }
 }
@@ -726,12 +722,12 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
      * Asynchronously processes audio and generates text transcription using the model.
      * @param {Array} audio The audio to be transcribed. Can be a single Float32Array or an array of Float32Arrays.
      * @param {Object} [kwargs={}] Optional arguments.
-     * @param {boolean} [kwargs.return_timestamps] Whether to return timestamps or not. Default is false.
+     * @param {boolean} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
      * @param {number} [kwargs.chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
-     * @param {number} [kwargs.stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to chunk_length_s / 6.
+     * @param {number} [kwargs.stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
      * @param {function} [kwargs.chunk_callback] Callback function to be called with each chunk processed.
-     * @param {boolean} [kwargs.force_full_sequences] Whether to force outputting full sequences or not. Default is false.
-     * @returns {Promise<Object>} A Promise that resolves to an object containing the transcription text and optionally timestamps if return_timestamps is true.
+     * @param {boolean} [kwargs.force_full_sequences] Whether to force outputting full sequences or not. Default is `false`.
+     * @returns {Promise<Object>} A Promise that resolves to an object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
      */
     async _call(audio, kwargs = {}) {
         let return_timestamps = kwargs.return_timestamps ?? false;
@@ -806,7 +802,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 let data = await this.model.generate(chunk.input_features, kwargs);
 
                 // Get top beam
-                chunk.tokens = data[0].flat()
+                chunk.tokens = data[0];
 
                 // convert stride to seconds
                 chunk.stride = chunk.stride.map(x => x / sampling_rate);
@@ -863,7 +859,7 @@ export class ImageToTextPipeline extends Pipeline {
         let toReturn = [];
         for (let batch of pixel_values) {
             batch.dims = [1, ...batch.dims]
-            let output = (await this.model.generate(batch, generate_kwargs)).flat();
+            let output = await this.model.generate(batch, generate_kwargs);
             let decoded = this.tokenizer.batch_decode(output, {
                 skip_special_tokens: true,
             }).map(x => {

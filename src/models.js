@@ -389,6 +389,13 @@ async function seq2seq_forward(self, model_inputs, {
 function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
     let beams = [];
     let beamId = 0;
+
+    // decoder_input_ids == output_token_ids
+    let decoder_input_ids = self.config.decoder_start_token_id;
+    if (!Array.isArray(decoder_input_ids)) {
+        decoder_input_ids = [decoder_input_ids];
+    }
+
     for (let tokens of inputTokenIds) {
         // TODO: Improve
         // Currently, just add back batch dimension.
@@ -401,8 +408,7 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
             encoder_outputs: null,
             past_key_values: null,
 
-            // decoder_input_ids == output_token_ids
-            output_token_ids: [self.config.decoder_start_token_id],
+            output_token_ids: decoder_input_ids,
             done: false,
             score: 0,
             id: beamId++ // assign unique id to beams
@@ -809,7 +815,7 @@ export class PreTrainedModel extends Callable {
      * @param {Object|null} logits_processor An optional logits processor to use. If null, a new LogitsProcessorList instance will be created.
      * @param {Object} options options
      * @param {Object} [options.inputs_attention_mask=null] An optional attention mask for the inputs.
-     * @returns {Promise<Array>} An array of generated output sequences, where each sequence is an array of token IDs.
+     * @returns {Promise<number[][]>} An array of generated output sequences, where each sequence is an array of token IDs.
      * @throws {Error} Throws an error if the inputs array is empty.
      */
     async generate(
@@ -850,6 +856,8 @@ export class PreTrainedModel extends Callable {
         let numOutputTokens = 1;
         const maxOutputTokens = numOutputTokens + (generation_config.max_new_tokens ?? Infinity);
 
+        // Only use max length if max_new_tokens is not provided
+        const useMaxLength = Number.isInteger(generation_config.max_length) && (generation_config.max_new_tokens ?? null) === null;
         let sampler = Sampler.getSampler(generation_config);
 
         // @ts-ignore
@@ -859,8 +867,13 @@ export class PreTrainedModel extends Callable {
             let newest_beams = [];
             for (let beam of beams) {
                 if (beam.done) {
-                    // TODO add length penalty (for ending early)
                     // Add this beam back into the pool
+                    newest_beams.push(beam);
+                    continue
+                }
+                if (useMaxLength && beam.output_token_ids.length >= generation_config.max_length) {
+                    // Set this beam to done and add it back into the pool
+                    beam.done = true;
                     newest_beams.push(beam);
                     continue
                 }
@@ -899,7 +912,7 @@ export class PreTrainedModel extends Callable {
             // Next, we get the best beams, per ID
             newest_beams = this.groupBeams(newest_beams).map(
                 group => group
-                    .sort((a, b) => b.score - a.score)      // sort based on score
+                    .sort((a, b) => b.score - a.score)      // sort by score
                     .slice(0, generation_config.num_beams)  // remove outside beam width
             );
 
@@ -922,7 +935,7 @@ export class PreTrainedModel extends Callable {
                     return [batch[0].output_token_ids];
                 }
             }
-        )
+        ).flat(); // Flatten across batches (depth=1)
     }
 
     /**
