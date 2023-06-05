@@ -248,7 +248,8 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
         // if sum of probability over timestamps is above any other token, sample timestamp
         const logprobs = log_softmax(logits.data);
         const timestamp_logprob = Math.log(logprobs.subarray(this.timestamp_begin).map(Math.exp).reduce((a, b) => a + b));
-        const max_text_token_logprob = Math.max(...logprobs.subarray(0, this.timestamp_begin));
+        const max_text_token_logprob = max(logprobs.subarray(0, this.timestamp_begin))[0];
+
         if (timestamp_logprob > max_text_token_logprob) {
             logits.data.subarray(0, this.timestamp_begin).fill(-Infinity);
         }

@@ -28,6 +28,7 @@ if (!globalThis.ReadableStream) {
  * @property {boolean} [options.local_files_only=false] Whether or not to only look at local files (e.g., not try downloading the model).
  * @property {string} [options.revision='main'] The specific model version to use. It can be a branch name, a tag name, or a commit id,
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
+ * NOTE: This setting is ignored for local requests.
  */
 
 class Headers extends Object {
@@ -186,16 +187,38 @@ function isValidHttpUrl(string) {
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
 export async function getFile(urlOrPath) {
-    // Helper function to get a file, using either the Fetch API or FileSystem API
 
     if (env.useFS && !isValidHttpUrl(urlOrPath)) {
         return new FileResponse(urlOrPath);
 
+    } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
+        const IS_CI = !!process.env?.TESTING_REMOTELY;
+        const version = env.version;
+        return fetch(urlOrPath, {
+            headers: {
+                'User-Agent': `transformers.js/${version}; is_ci/${IS_CI};`
+            }
+        });
     } else {
+        // Running in a browser-environment, so we use default headers
         return fetch(urlOrPath);
     }
 }
 
+const ERROR_MAPPING = {
+    // 4xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
+    400: 'Bad request error occurred while trying to load file',
+    401: 'Unauthorized access to file',
+    403: 'Forbidden access to file',
+    404: 'Could not locate file',
+    408: 'Request timeout error occurred while trying to load file',
+
+    // 5xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+    500: 'Internal server error error occurred while trying to load file',
+    502: 'Bad gateway error occurred while trying to load file',
+    503: 'Service unavailable error occurred while trying to load file',
+    504: 'Gateway timeout error occurred while trying to load file',
+}
 /**
  * Helper method to handle fatal errors that occur while trying to load a file from the Hugging Face Hub.
  * @param {number} status The HTTP status code of the error.
@@ -211,33 +234,8 @@ function handleError(status, remoteURL, fatal) {
         return null;
     }
 
-    switch (status) {
-        // 4xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
-        case 400:
-            throw Error(`Bad request error occurred while trying to load file: "${remoteURL}".`)
-        case 401:
-            throw Error(`Unauthorized access to file: "${remoteURL}".`)
-        case 403:
-            throw Error(`Forbidden access to file: "${remoteURL}".`)
-        case 404:
-            throw Error(`Could not locate file: "${remoteURL}".`)
-        case 408:
-            throw Error(`Request timeout error occurred while trying to load file: "${remoteURL}".`)
-
-        // 5xx errors (https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
-        case 500:
-            throw Error(`Internal server error error occurred while trying to load file: "${remoteURL}".`)
-        case 502:
-            throw Error(`Bad gateway error occurred while trying to load file: "${remoteURL}".`)
-        case 503:
-            throw Error(`Service unavailable error occurred while trying to load file: "${remoteURL}".`)
-        case 504:
-            throw Error(`Gateway timeout error occurred while trying to load file: "${remoteURL}".`)
-
-        // Other:
-        default:
-            throw Error(`Error (${status}) occurred while trying to load file: "${remoteURL}".`)
-    }
+    const message = ERROR_MAPPING[status] ?? `Error (${status}) occurred while trying to load file`;
+    throw Error(`${message}: "${remoteURL}".`);
 }
 
 class FileCache {
@@ -293,6 +291,25 @@ class FileCache {
     // match(request: RequestInfo | URL, options?: CacheQueryOptions): Promise<Response | undefined>;
     // matchAll(request?: RequestInfo | URL, options?: CacheQueryOptions): Promise<ReadonlyArray<Response>>;
 }
+
+/**
+ * 
+ * @param {FileCache|Cache} cache The cache to search
+ * @param {string[]} names The names of the item to search for
+ * @returns {Promise<FileResponse|Response|undefined>} The item from the cache, or undefined if not found.
+ */
+async function tryCache(cache, ...names) {
+    for (let name of names) {
+        try {
+            let result = await cache.match(name);
+            if (result) return result;
+        } catch (e) {
+            continue;
+        }
+    }
+    return undefined;
+}
+
 /**
  * 
  * Retrieves a file from either a remote URL using the Fetch API or from the local file system using the FileSystem API.
@@ -344,24 +361,46 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         cache = new FileCache(options.cache_dir ?? env.cacheDir);
     }
 
-    const request = pathJoin(path_or_repo_id, filename);
+    const revision = options.revision ?? 'main';
 
-    /** @type {Response} */
+    let requestURL = pathJoin(path_or_repo_id, filename);
+    let localPath = pathJoin(env.localModelPath, requestURL);
+
+    let remoteURL = pathJoin(
+        env.remoteHost,
+        env.remotePathTemplate
+            .replaceAll('{model}', path_or_repo_id)
+            .replaceAll('{revision}', revision),
+        filename
+    );
+
+    // Choose cache key for filesystem cache
+    // When using the main revision (default), we use the request URL as the cache key.
+    // If a specific revision is requested, we account for this in the cache key.
+    let fsCacheKey = revision === 'main' ? requestURL : pathJoin(path_or_repo_id, revision, filename);
+
+    /** @type {string} */
+    let cacheKey;
+    let proposedCacheKey = cache instanceof FileCache ? fsCacheKey : remoteURL;
+
+    /** @type {Response|undefined} */
     let responseToCache;
 
-    /** @type {Response | FileResponse} */
+    /** @type {Response|FileResponse|undefined} */
     let response;
 
     if (cache) {
-        // Cache available, so we try to get the file from the cache.
-        response = await cache.match(request);
+        // A caching system is available, so we try to get the file from it.
+        //  1. We first try to get from cache using the local path. In some environments (like deno),
+        //     non-URL cache keys are not allowed. In these cases, `response` will be undefined.
+        //  2. If no response is found, we try to get from cache using the remote URL or file system cache.
+        response = await tryCache(cache, localPath, proposedCacheKey);
     }
 
     if (response === undefined) {
         // Caching not available, or file is not cached, so we perform the request
 
-        let isURL = isValidHttpUrl(request);
-        let localPath = pathJoin(env.localModelPath, request);
+        let isURL = isValidHttpUrl(requestURL);
 
         if (env.allowLocalModels) {
             // Accessing local models is enabled, so we try to get the file locally.
@@ -369,15 +408,16 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             if (!isURL) {
                 try {
                     response = await getFile(localPath);
+                    cacheKey = localPath; // Update the cache key to be the local path
                 } catch (e) {
                     // Something went wrong while trying to get the file locally.
                     // NOTE: error handling is done in the next step (since `response` will be undefined)
                     console.warn(`Unable to load from local path "${localPath}": "${e}"`);
                 }
             } else if (options.local_files_only) {
-                throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${request}.`);
+                throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${requestURL}.`);
             } else if (!env.allowRemoteModels) {
-                throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${request}.`);
+                throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${requestURL}.`);
             }
         }
 
@@ -399,18 +439,14 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             }
 
             // File not found locally, so we try to download it from the remote server
-            let remoteURL = pathJoin(
-                env.remoteHost,
-                env.remotePathTemplate
-                    .replace('{model}', path_or_repo_id)
-                    .replace('{revision}', options.revision ?? 'main'),
-                filename
-            );
             response = await getFile(remoteURL);
 
             if (response.status !== 200) {
                 return handleError(response.status, remoteURL, fatal);
             }
+
+            // Success! We use the proposed cache key from earlier
+            cacheKey = proposedCacheKey;
         }
 
 
@@ -441,17 +477,18 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     if (
         // Only cache web responses
         // i.e., do not cache FileResponses (prevents duplication)
-        responseToCache
+        responseToCache && cacheKey
         &&
         // Check again whether request is in cache. If not, we add the response to the cache
-        (await cache.match(request) === undefined)
+        (await cache.match(cacheKey) === undefined)
     ) {
-        await cache.put(request, responseToCache)
+        await cache.put(cacheKey, responseToCache)
             .catch(err => {
                 // Do not crash if unable to add to cache (e.g., QuotaExceededError).
                 // Rather, log a warning and proceed with execution.
-                console.warn(`Unable to add ${request} to browser cache: ${err}.`);
+                console.warn(`Unable to add response to browser cache: ${err}.`);
             });
+
     }
 
     dispatchCallback(options.progress_callback, {

@@ -29,6 +29,7 @@ import url from 'url';
 import { ONNX } from './backends/onnx.js';
 const { env: onnx_env } = ONNX;
 
+const VERSION = '2.1.1';
 
 // Check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
@@ -58,13 +59,15 @@ const localModelPath = RUNNING_LOCALLY
 // In practice, users should probably self-host the necessary .wasm files.
 onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
     ? path.join(__dirname, '/dist/')
-    : 'https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/';
+    : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
 
 
 /**
  * Global variable used to control exection. This provides users a simple way to configure Transformers.js.
  * @property {Object} backends Expose environment variables of different backends,
  * allowing users to set these variables if they want to.
+ * @property {string} __dirname Directory name of module. Useful for resolving local paths.
+ * @property {string} version This version of Transformers.js.
  * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
  * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
@@ -73,7 +76,6 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
  * If set to `false`, it will skip the local file check and try to load the model from the remote host.
  * @property {string} localModelPath Path to load local models from. Defaults to `/models/`.
  * @property {boolean} useFS Whether to use the file system to load files. By default, it is `true` if available.
- * @property {string} __dirname Directory name of module. Useful for resolving local paths.
  * @property {boolean} useBrowserCache Whether to use Cache API to cache models. By default, it is `true` if available.
  * @property {boolean} useFSCache Whether to use the file system to cache files. By default, it is `true` if available.
  * @property {string} cacheDir The directory to use for caching files with the file system. By default, it is `./.cache`.
@@ -89,6 +91,7 @@ export const env = {
     },
 
     __dirname,
+    version: VERSION,
 
     /////////////////// Model settings ///////////////////
     allowRemoteModels: true,

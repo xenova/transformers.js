@@ -17,9 +17,11 @@
  */
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
+// In either case, we select the default export if it exists, otherwise we use the named export.
 import * as ONNX_NODE from 'onnxruntime-node';
 import * as ONNX_WEB from 'onnxruntime-web';
 
+/** @type {module} The ONNX runtime module. */
 export let ONNX;
 
 export const executionProviders = [
@@ -29,14 +31,14 @@ export const executionProviders = [
 
 if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
-    ONNX = ONNX_NODE;
+    ONNX = ONNX_NODE.default ?? ONNX_NODE;
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
     executionProviders.unshift('cpu');
 
 } else {
     // Running in a browser-environment
-    ONNX = ONNX_WEB;
+    ONNX = ONNX_WEB.default ?? ONNX_WEB;
 
     // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
     // As a temporary fix, we disable it for now.
@@ -46,7 +48,3 @@ if (typeof process !== 'undefined' && process?.release?.name === 'node') {
         ONNX.env.wasm.simd = false;
     }
 }
-
-// We select the default export if it exists, otherwise we use the named export.
-// This allows us to run in both node and browser environments.
-ONNX = ONNX.default ?? ONNX;

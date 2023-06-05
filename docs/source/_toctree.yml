@@ -29,6 +29,8 @@
     title: Tokenizers
   - local: api/processors
     title: Processors
+  - local: api/configs
+    title: Configs
   - local: api/env
     title: Environment variables
   - sections:
