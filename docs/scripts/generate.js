@@ -51,6 +51,9 @@ for (const moduleName of moduleNames) {
     // Post-processing
     output = output.replace(/(^#+\s.+)/gm, '$1\n'); // Add new line after each header
 
+    // Replace all generated marker names with ids (for linking), and add group class
+    output = output.replace(/<a name="(\S+)"><\/a>/g, '<a id="$1" class="group"></a>');
+
     // Unescape some of the characters which jsdoc2md escapes:
     // TODO: May need to extend this list
     output = output.replace(/\\([|_&*])/gm, '$1');
