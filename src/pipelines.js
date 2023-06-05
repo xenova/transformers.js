@@ -790,12 +790,12 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
         let language = pop(kwargs, 'language', null);
         let task = pop(kwargs, 'task', null);
 
-        if (language || task) {
+        if (language || task || return_timestamps) {
             if (kwargs.forced_decoder_ids) {
-                throw new Error("Cannot specify `language`/`task` and `forced_decoder_ids` at the same time.")
+                throw new Error("Cannot specify `language`/`task`/`return_timestamps` and `forced_decoder_ids` at the same time.")
             }
             // @ts-ignore
-            kwargs.forced_decoder_ids = this.tokenizer.get_decoder_prompt_ids({ language, task })
+            kwargs.forced_decoder_ids = this.tokenizer.get_decoder_prompt_ids({ language, task, no_timestamps: !return_timestamps })
         }
 
         let single = !Array.isArray(audio);
