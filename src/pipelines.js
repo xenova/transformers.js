@@ -41,6 +41,7 @@ import {
     Callable,
     isString,
     dispatchCallback,
+    pop,
 } from './utils/core.js';
 import {
     softmax,
@@ -687,6 +688,44 @@ export class FeatureExtractionPipeline extends Pipeline {
 
 /**
  * Pipeline that aims at extracting spoken text contained within some audio.
+ *
+ * **Example:** Transcribe English.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * let output = await transcriber(url);
+ * // { text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country." }
+ * ```
+ * 
+ * **Example:** Transcribe English w/ timestamps.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * let output = await transcriber(url, { return_timestamps: true });
+ * // {
+ * //   text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country."
+ * //   chunks: [
+ * //     { timestamp: [0, 8],  text: " And so my fellow Americans ask not what your country can do for you" }
+ * //     { timestamp: [8, 11], text: " ask what you can do for your country." }
+ * //   ]
+ * // }
+ * ```
+ * 
+ * **Example:** Transcribe French.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
+ * let output = await transcriber(url, { language: 'french', task: 'transcribe' });
+ * // { text: " J'adore, j'aime, je n'aime pas, je déteste." }
+ * ```
+ * 
+ * **Example:** Translate French to English.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
+ * let output = await transcriber(url, { language: 'french', task: 'translate' });
+ * // { text: " I love, I like, I don't like, I hate." }
+ * ```
  * @extends Pipeline
  */
 export class AutomaticSpeechRecognitionPipeline extends Pipeline {
@@ -707,7 +746,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
      * Preprocesses the input audio for the AutomaticSpeechRecognitionPipeline.
      * @param {any} audio The audio to be preprocessed.
      * @param {number} sampling_rate The sampling rate of the audio.
-     * @returns {Promise<string | ArrayBuffer>} A promise that resolves to the preprocessed audio data.
+     * @returns {Promise<Float32Array>} A promise that resolves to the preprocessed audio data.
      * @private
      */
     async _preprocess(audio, sampling_rate) {
@@ -719,14 +758,26 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
     }
 
     /**
+     * @typedef {import('./utils/tensor.js').Tensor} Tensor
+     * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[]}} Chunk
+     * 
+     * @callback ChunkCallback
+     * @param {Chunk} chunk The chunk to process.
+     */
+
+    /**
      * Asynchronously processes audio and generates text transcription using the model.
-     * @param {Array} audio The audio to be transcribed. Can be a single Float32Array or an array of Float32Arrays.
+     * @param {Float32Array|Float32Array[]} audio The audio to be transcribed. Can be a single Float32Array or an array of Float32Arrays.
      * @param {Object} [kwargs={}] Optional arguments.
      * @param {boolean} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
      * @param {number} [kwargs.chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
      * @param {number} [kwargs.stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
-     * @param {function} [kwargs.chunk_callback] Callback function to be called with each chunk processed.
+     * @param {ChunkCallback} [kwargs.chunk_callback] Callback function to be called with each chunk processed.
      * @param {boolean} [kwargs.force_full_sequences] Whether to force outputting full sequences or not. Default is `false`.
+     * @param {string} [kwargs.language] The source language. Default is `null`, meaning it should be auto-detected. Use this to potentially improve performance if the source language is known.
+     * @param {string} [kwargs.task] The task to perform. Default is `null`, meaning it should be auto-detected.
+     * @param {number[][]} [kwargs.forced_decoder_ids] A list of pairs of integers which indicates a mapping from generation indices to token indices
+     * that will be forced before sampling. For example, [[1, 123]] means the second generated token will always be a token of index 123.
      * @returns {Promise<Object>} A Promise that resolves to an object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
      */
     async _call(audio, kwargs = {}) {
@@ -736,13 +787,21 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
         let chunk_callback = kwargs.chunk_callback ?? null;
         let force_full_sequences = kwargs.force_full_sequences ?? false;
 
-        // TODO
-        // task = 'transcribe',
-        // language = 'en',
+        let language = pop(kwargs, 'language', null);
+        let task = pop(kwargs, 'task', null);
 
-        let single = !Array.isArray(audio)
+        if (language || task) {
+            if (kwargs.forced_decoder_ids) {
+                throw new Error("Cannot specify `language`/`task` and `forced_decoder_ids` at the same time.")
+            }
+            // @ts-ignore
+            kwargs.forced_decoder_ids = this.tokenizer.get_decoder_prompt_ids({ language, task })
+        }
+
+        let single = !Array.isArray(audio);
         if (single) {
-            audio = [audio]
+            // @ts-ignore
+            audio = [audio];
         }
 
         const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
@@ -752,7 +811,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
         for (let aud of audio) {
             aud = await this._preprocess(aud, sampling_rate)
 
-            /** @type {any[]} */
+            /** @type {Chunk[]} */
             let chunks = [];
             if (chunk_length_s > 0) {
                 if (stride_length_s === null) {
@@ -1363,6 +1422,7 @@ const TASK_ALIASES = {
     "sentiment-analysis": "text-classification",
     "ner": "token-classification",
     "vqa": "visual-question-answering",
+    "asr": "automatic-speech-recognition",
 
     // Add for backwards compatibility
     "embeddings": "feature-extraction",

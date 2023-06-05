@@ -12,9 +12,13 @@ import {
 } from './hub.js';
 import { rfftfreq } from './maths.js';
 
+/**
+ * Helper function to read audio from a path/URL.
+ * @param {string|URL} url The path/URL to load the audio from.
+ * @param {number} sampling_rate The sampling rate to use when decoding the audio.
+ * @returns {Promise<Float32Array>} The decoded audio as a `Float32Array`.
+ */
 export async function read_audio(url, sampling_rate) {
-    // Attempting to load from path/url
-
     if (typeof AudioContext === 'undefined') {
         // Running in node or an environment without AudioContext
         throw Error(
@@ -23,8 +27,12 @@ export async function read_audio(url, sampling_rate) {
             "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
         )
     }
+
     const response = await (await getFile(url)).arrayBuffer();
     const audioCTX = new AudioContext({ sampleRate: sampling_rate });
+    if(typeof sampling_rate === 'undefined') {
+        console.warn(`No sampling rate provided, using default of ${audioCTX.sampleRate}Hz.`)
+    }
     const decoded = await audioCTX.decodeAudioData(response);
     let audio;
 

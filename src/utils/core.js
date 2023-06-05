@@ -132,3 +132,23 @@ export function calculateDimensions(arr) {
     }
     return dimensions;
 }
+
+/**
+ * Replicate python's .pop() method for objects.
+ * @param {Object} obj The object to pop from.
+ * @param {string} key The key to pop.
+ * @param {*} defaultValue The default value to return if the key does not exist.
+ * @returns {*} The value of the popped key.
+ * @throws {Error} If the key does not exist and no default value is provided.
+ */
+export function pop(obj, key, defaultValue = undefined) {
+    const value = obj[key];
+    if (value !== undefined) {
+        delete obj[key];
+        return value;
+    }
+    if (defaultValue === undefined) {
+        throw Error(`Key ${key} does not exist in object.`)
+    }
+    return defaultValue;
+}
