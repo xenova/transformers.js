@@ -151,6 +151,7 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
             logits.data.fill(-Infinity)
             logits.data[this.bos_token_id] = 0;
         }
+        return logits;
     }
 }
 
@@ -180,6 +181,40 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     _call(input_ids, logits) {
         // console.log('call ForcedEOSTokenLogitsProcessor')
         // TODO
+    }
+}
+
+/**
+ * A LogitsProcessor that suppresses a list of tokens as soon as the `generate` function starts
+ * generating using `begin_index` tokens. This should ensure that the tokens defined by
+ * `begin_suppress_tokens` at not sampled at the begining of the generation.
+ * @extends LogitsProcessor
+ */
+export class SuppressTokensAtBeginLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a SuppressTokensAtBeginLogitsProcessor.
+     * @param {number[]} begin_suppress_tokens The IDs of the tokens to suppress.
+     * @param {number} begin_index The number of tokens to generate before suppressing tokens.
+     */
+    constructor(begin_suppress_tokens, begin_index) {
+        super();
+        this.begin_suppress_tokens = begin_suppress_tokens;
+        this.begin_index = begin_index;
+    }
+
+    /**
+     * Apply the BOS token forcing to the logits.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
+     * @returns {Object} The logits with BOS token forcing.
+     */
+    _call(input_ids, logits) {
+        if (input_ids.length === this.begin_index) {
+            for (let token_id of this.begin_suppress_tokens) {
+                logits.data[token_id] = -Infinity;
+            }
+        }
+        return logits;
     }
 }
 

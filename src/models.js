@@ -59,6 +59,7 @@ import {
     ForceTokensLogitsProcessor,
     ForcedBOSTokenLogitsProcessor,
     ForcedEOSTokenLogitsProcessor,
+    SuppressTokensAtBeginLogitsProcessor,
     WhisperTimeStampLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
     RepetitionPenaltyLogitsProcessor,
@@ -658,7 +659,7 @@ export class PreTrainedModel extends Callable {
 
     /**
      * @param {GenerationConfig} generation_config 
-     * @param {number} input_ids_seq_length 
+     * @param {number} input_ids_seq_length The starting sequence length for the input ids.
      * @returns {LogitsProcessorList}
      */
     _get_logits_processor(
@@ -755,14 +756,17 @@ export class PreTrainedModel extends Callable {
         //     processors.push(new SuppressTokensLogitsProcessor(generation_config.suppress_tokens));
         // }
 
-        // if (generation_config.begin_suppress_tokens !== null) {
-        //     let begin_index = input_ids_seq_length;
-        //     begin_index = (input_ids_seq_length > 1 || generation_config.forced_bos_token_id === null) ? begin_index : begin_index + 1;
-        //     if (generation_config.forced_decoder_ids !== null) {
-        //         begin_index += generation_config.forced_decoder_ids[generation_config.forced_decoder_ids.length - 1][0];
-        //     }
-        //     processors.push(new SuppressTokensAtBeginLogitsProcessor(generation_config.begin_suppress_tokens, begin_index));
-        // }
+        if (generation_config.begin_suppress_tokens !== null) {
+            let begin_index = (input_ids_seq_length > 1 || generation_config.forced_bos_token_id === null)
+                ? input_ids_seq_length
+                : input_ids_seq_length + 1;
+
+            if (generation_config.forced_decoder_ids !== null) {
+                // generation starts after the last token that is forced
+                begin_index += generation_config.forced_decoder_ids[generation_config.forced_decoder_ids.length - 1][0];
+            }
+            processors.push(new SuppressTokensAtBeginLogitsProcessor(generation_config.begin_suppress_tokens, begin_index));
+        }
 
         if (generation_config.forced_decoder_ids !== null) {
             processors.push(new ForceTokensLogitsProcessor(generation_config.forced_decoder_ids));
@@ -831,8 +835,21 @@ export class PreTrainedModel extends Callable {
             throw Error(`\`inputs\` must be a Tensor, TypedArray, or Array, but is "${inputs.constructor.name}".`);
         }
 
-        if (inputs.length === 0) {
-            throw Error("Must supply a non-empty array of input token ids.")
+        let input_ids_seq_length;
+
+        // Prepare `input_ids` which will be used for auto-regressive generation
+        // TODO: Update to align with HF transformers' implementation
+        if (this.config.is_encoder_decoder) {
+            // Generating from the encoder outputs
+            input_ids_seq_length = 0;
+
+        } else {
+            input_ids_seq_length = inputs instanceof Tensor ? inputs.dims[0] : inputs.length;
+
+            // decoder-only
+            if (input_ids_seq_length === 0) {
+                throw Error("Must supply a non-empty array of input token ids.")
+            }
         }
 
         // Update generation config with defaults
@@ -840,13 +857,10 @@ export class PreTrainedModel extends Callable {
 
         logits_processor = logits_processor ?? new LogitsProcessorList()
 
-        // TODO Update generation config
-        // this.generation_config
-
         // Update logits processor
         logits_processor = this._get_logits_processor(
             generation_config,
-            inputs.length,
+            input_ids_seq_length,
             logits_processor
         )
 
