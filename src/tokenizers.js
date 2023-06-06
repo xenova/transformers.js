@@ -2837,6 +2837,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         }
 
         if (task) {
+            task = task.toLowerCase();
             if (task !== 'transcribe' && task !== 'translate') {
                 throw new Error(`Task "${task}" is not supported. Must be one of: ["transcribe", "translate"]`);
             }
