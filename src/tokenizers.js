@@ -2861,7 +2861,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             forced_decoder_ids.push(no_timestamps_id);
         }
 
-        return forced_decoder_ids.map((x, i) => [i + 1, x]);
+        return forced_decoder_ids.map((x, i) => [i + 1, x]).filter(x => x[1] !== null);
 
     }
 }
