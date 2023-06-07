@@ -16,3 +16,5 @@ jobs:
       path_to_docs: transformers.js/docs/source
       pre_command: cd transformers.js && npm install && npm run docs-api
       additional_args: --not_python_module
+    secrets:
+      hf_token: ${{ secrets.HF_DOC_BUILD_PUSH }}
