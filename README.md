@@ -107,9 +107,10 @@ Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN
 
 Want to jump straight in? Get started with one of our sample applications/templates:
 
-| Platform          | Description                      | Source code                   |
+| Name              | Description                      | Source code                   |
 |-------------------|----------------------------------|-------------------------------|
 | React             | Multilingual translation website | [link](./examples/react-translator/) |
+| Whisper Web       | Speech recognition w/ Whisper    | [link](https://github.com/xenova/whisper-web) |
 | Browser extension | Text classification extension    | [link](./examples/extension/) |
 | Electron          | Text classification application  | [link](./examples/electron/)  |
 | Node.js           | Sentiment analysis API           | [link](./examples/node/)      |
