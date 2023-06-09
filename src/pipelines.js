@@ -230,6 +230,20 @@ export class TokenClassificationPipeline extends Pipeline {
 }
 /**
  * Question Answering pipeline using any `ModelForQuestionAnswering`.
+ * 
+ * **Example:** Run question answering with `distilbert-base-uncased-distilled-squad`.
+ * ```javascript
+ * let question = 'Who was Jim Henson?';
+ * let context = 'Jim Henson was a nice puppet.';
+ * 
+ * let answerer = await pipeline('question-answering', 'Xenova/distilbert-base-uncased-distilled-squad');
+ * let outputs = await answerer(question, context);
+ * console.log(outputs);
+ * // {
+ * //     "answer": "a nice puppet",
+ * //     "score": 0.5768911502526741
+ * // }
+ * ```
  * @extends Pipeline
  */
 export class QuestionAnsweringPipeline extends Pipeline {
