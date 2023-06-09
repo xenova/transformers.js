@@ -2329,112 +2329,133 @@ export class NllbTokenizer extends PreTrainedTokenizer {
 }
 
 
+const WHISPER_LANGUAGES = [
+    ["en", "english"],
+    ["zh", "chinese"],
+    ["de", "german"],
+    ["es", "spanish"],
+    ["ru", "russian"],
+    ["ko", "korean"],
+    ["fr", "french"],
+    ["ja", "japanese"],
+    ["pt", "portuguese"],
+    ["tr", "turkish"],
+    ["pl", "polish"],
+    ["ca", "catalan"],
+    ["nl", "dutch"],
+    ["ar", "arabic"],
+    ["sv", "swedish"],
+    ["it", "italian"],
+    ["id", "indonesian"],
+    ["hi", "hindi"],
+    ["fi", "finnish"],
+    ["vi", "vietnamese"],
+    ["he", "hebrew"],
+    ["uk", "ukrainian"],
+    ["el", "greek"],
+    ["ms", "malay"],
+    ["cs", "czech"],
+    ["ro", "romanian"],
+    ["da", "danish"],
+    ["hu", "hungarian"],
+    ["ta", "tamil"],
+    ["no", "norwegian"],
+    ["th", "thai"],
+    ["ur", "urdu"],
+    ["hr", "croatian"],
+    ["bg", "bulgarian"],
+    ["lt", "lithuanian"],
+    ["la", "latin"],
+    ["mi", "maori"],
+    ["ml", "malayalam"],
+    ["cy", "welsh"],
+    ["sk", "slovak"],
+    ["te", "telugu"],
+    ["fa", "persian"],
+    ["lv", "latvian"],
+    ["bn", "bengali"],
+    ["sr", "serbian"],
+    ["az", "azerbaijani"],
+    ["sl", "slovenian"],
+    ["kn", "kannada"],
+    ["et", "estonian"],
+    ["mk", "macedonian"],
+    ["br", "breton"],
+    ["eu", "basque"],
+    ["is", "icelandic"],
+    ["hy", "armenian"],
+    ["ne", "nepali"],
+    ["mn", "mongolian"],
+    ["bs", "bosnian"],
+    ["kk", "kazakh"],
+    ["sq", "albanian"],
+    ["sw", "swahili"],
+    ["gl", "galician"],
+    ["mr", "marathi"],
+    ["pa", "punjabi"],
+    ["si", "sinhala"],
+    ["km", "khmer"],
+    ["sn", "shona"],
+    ["yo", "yoruba"],
+    ["so", "somali"],
+    ["af", "afrikaans"],
+    ["oc", "occitan"],
+    ["ka", "georgian"],
+    ["be", "belarusian"],
+    ["tg", "tajik"],
+    ["sd", "sindhi"],
+    ["gu", "gujarati"],
+    ["am", "amharic"],
+    ["yi", "yiddish"],
+    ["lo", "lao"],
+    ["uz", "uzbek"],
+    ["fo", "faroese"],
+    ["ht", "haitian creole"],
+    ["ps", "pashto"],
+    ["tk", "turkmen"],
+    ["nn", "nynorsk"],
+    ["mt", "maltese"],
+    ["sa", "sanskrit"],
+    ["lb", "luxembourgish"],
+    ["my", "myanmar"],
+    ["bo", "tibetan"],
+    ["tl", "tagalog"],
+    ["mg", "malagasy"],
+    ["as", "assamese"],
+    ["tt", "tatar"],
+    ["haw", "hawaiian"],
+    ["ln", "lingala"],
+    ["ha", "hausa"],
+    ["ba", "bashkir"],
+    ["jw", "javanese"],
+    ["su", "sundanese"],
+]
+
+// @ts-ignore
+const WHISPER_LANGUAGE_MAPPING = new Map(WHISPER_LANGUAGES);
+// @ts-ignore
+const WHISPER_TO_LANGUAGE_CODE_MAPPING = new Map([
+    ...WHISPER_LANGUAGES.map(([k, v]) => [v, k]),
+    ...[
+        ["burmese", "my"],
+        ["valencian", "ca"],
+        ["flemish", "nl"],
+        ["haitian", "ht"],
+        ["letzeburgesch", "lb"],
+        ["pushto", "ps"],
+        ["panjabi", "pa"],
+        ["moldavian", "ro"],
+        ["moldovan", "ro"],
+        ["sinhalese", "si"],
+        ["castilian", "es"],
+    ]
+]);
+
 /**
  * WhisperTokenizer tokenizer
  * @extends PreTrainedTokenizer
  */
 export class WhisperTokenizer extends PreTrainedTokenizer {
-    static LANGUAGES = {
-        "en": "english",
-        "zh": "chinese",
-        "de": "german",
-        "es": "spanish",
-        "ru": "russian",
-        "ko": "korean",
-        "fr": "french",
-        "ja": "japanese",
-        "pt": "portuguese",
-        "tr": "turkish",
-        "pl": "polish",
-        "ca": "catalan",
-        "nl": "dutch",
-        "ar": "arabic",
-        "sv": "swedish",
-        "it": "italian",
-        "id": "indonesian",
-        "hi": "hindi",
-        "fi": "finnish",
-        "vi": "vietnamese",
-        "he": "hebrew",
-        "uk": "ukrainian",
-        "el": "greek",
-        "ms": "malay",
-        "cs": "czech",
-        "ro": "romanian",
-        "da": "danish",
-        "hu": "hungarian",
-        "ta": "tamil",
-        "no": "norwegian",
-        "th": "thai",
-        "ur": "urdu",
-        "hr": "croatian",
-        "bg": "bulgarian",
-        "lt": "lithuanian",
-        "la": "latin",
-        "mi": "maori",
-        "ml": "malayalam",
-        "cy": "welsh",
-        "sk": "slovak",
-        "te": "telugu",
-        "fa": "persian",
-        "lv": "latvian",
-        "bn": "bengali",
-        "sr": "serbian",
-        "az": "azerbaijani",
-        "sl": "slovenian",
-        "kn": "kannada",
-        "et": "estonian",
-        "mk": "macedonian",
-        "br": "breton",
-        "eu": "basque",
-        "is": "icelandic",
-        "hy": "armenian",
-        "ne": "nepali",
-        "mn": "mongolian",
-        "bs": "bosnian",
-        "kk": "kazakh",
-        "sq": "albanian",
-        "sw": "swahili",
-        "gl": "galician",
-        "mr": "marathi",
-        "pa": "punjabi",
-        "si": "sinhala",
-        "km": "khmer",
-        "sn": "shona",
-        "yo": "yoruba",
-        "so": "somali",
-        "af": "afrikaans",
-        "oc": "occitan",
-        "ka": "georgian",
-        "be": "belarusian",
-        "tg": "tajik",
-        "sd": "sindhi",
-        "gu": "gujarati",
-        "am": "amharic",
-        "yi": "yiddish",
-        "lo": "lao",
-        "uz": "uzbek",
-        "fo": "faroese",
-        "ht": "haitian creole",
-        "ps": "pashto",
-        "tk": "turkmen",
-        "nn": "nynorsk",
-        "mt": "maltese",
-        "sa": "sanskrit",
-        "lb": "luxembourgish",
-        "my": "myanmar",
-        "bo": "tibetan",
-        "tl": "tagalog",
-        "mg": "malagasy",
-        "as": "assamese",
-        "tt": "tatar",
-        "haw": "hawaiian",
-        "ln": "lingala",
-        "ha": "hausa",
-        "ba": "bashkir",
-        "jw": "javanese",
-        "su": "sundanese",
-    }
 
     /**
      * Decodes automatic speech recognition (ASR) sequences.
@@ -2541,7 +2562,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                 if (all_special_ids.has(token)) {
                     const text = this.decode([token]);
                     if (text[0] === "[" && text[text.length - 1] === "]") {
-                        const language = WhisperTokenizer.LANGUAGES[text.slice(1, -1)];
+                        const language = WHISPER_LANGUAGE_MAPPING.get(text.slice(1, -1));
 
                         if (language !== undefined) {
                             // 1/ Indeed some language
@@ -2744,6 +2765,105 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         }
         totalSequence.push(...leftSequence);
         return totalSequence;
+    }
+
+    /**
+     * Helper function to build translation inputs for a `WhisperTokenizer`,
+     * depending on the language, task, and whether to predict timestamp tokens.
+     * 
+     * Used to override the prefix tokens appended to the start of the label sequence.
+     * 
+     * **Example: Get ids for a language**
+     * ```javascript
+     * // instantiate the tokenizer and set the prefix token to Spanish
+     * let tokenizer = await WhisperTokenizer.from_pretrained('Xenova/whisper-tiny');
+     * let forced_decoder_ids = tokenizer.get_decoder_prompt_ids({ language: 'spanish' });
+     * // [(1, 50262), (2, 50363)]
+     * ```
+     * 
+     * @param {Object} options Options to generate the decoder prompt.
+     * @param {string} [options.language] The language of the transcription text.
+     * The corresponding language id token is appended to the start of the sequence for multilingual
+     * speech recognition and speech translation tasks, e.g. for "Spanish" the token "<|es|>" is appended
+     * to the start of sequence.
+     * @param {string} [options.task] Task identifier to append at the start of sequence (if any).
+     * This should be used for mulitlingual fine-tuning, with "transcribe" for speech recognition and
+     * "translate" for speech translation.
+     * @param {boolean} [options.no_timestamps] Whether to add the <|notimestamps|> token at the start of the sequence.
+     * @returns {number[][]} The decoder prompt ids.
+     */
+    get_decoder_prompt_ids({
+        language = null,
+        task = null,
+        no_timestamps = true,
+    } = {}) {
+
+        // <|lang_id|> <|task|> <|notimestamps|>
+
+        let forced_decoder_ids = [];
+
+        if (language) {
+            // User wishes to specify the language
+            language = language.toLowerCase();
+
+            // Map to code from user-friendly name (e.g., "english" -> "en")
+            let language_code = WHISPER_TO_LANGUAGE_CODE_MAPPING.get(language);
+
+            if (language_code === undefined) {
+                // User provided something that is not a language name
+
+                if (WHISPER_LANGUAGE_MAPPING.has(language)) {
+                    // User provided the language code directly (e.g., "en")
+                    language_code = language;
+
+                } else {
+                    // User provided something that is not a language code or name
+                    const is_language_code = language.length === 2;
+                    const langs = is_language_code ? WHISPER_LANGUAGE_MAPPING.keys() : WHISPER_LANGUAGE_MAPPING.values();
+
+                    throw new Error(`Language "${language}" is not supported. Must be one of: ${JSON.stringify(langs)}`);
+                }
+            }
+
+            let language_token_id = this.model.tokens_to_ids.get(`<|${language_code}|>`);
+            if (language_token_id === undefined) {
+                throw new Error(`Unable to find language "${language_code}" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.`)
+            }
+
+            forced_decoder_ids.push(language_token_id);
+        } else {
+            // No token will be forced, which leaves the model to predict the language
+            forced_decoder_ids.push(null);
+        }
+
+        if (task) {
+            task = task.toLowerCase();
+            if (task !== 'transcribe' && task !== 'translate') {
+                throw new Error(`Task "${task}" is not supported. Must be one of: ["transcribe", "translate"]`);
+            }
+
+            let task_token_id = this.model.tokens_to_ids.get(`<|${task}|>`);
+            if (task_token_id === undefined) {
+                throw new Error(`Unable to find task "${task}" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.`)
+            }
+
+            forced_decoder_ids.push(task_token_id);
+        } else {
+            // No token will be forced, which leaves the model to predict the task
+            forced_decoder_ids.push(null);
+        }
+
+        if (no_timestamps) {
+            let no_timestamps_id = this.model.tokens_to_ids.get(`<|notimestamps|>`);
+            if (no_timestamps_id === undefined) {
+                throw new Error('Unable to find "<|notimestamps|>" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.')
+            }
+
+            forced_decoder_ids.push(no_timestamps_id);
+        }
+
+        return forced_decoder_ids.map((x, i) => [i + 1, x]).filter(x => x[1] !== null);
+
     }
 }
 export class CodeGenTokenizer extends PreTrainedTokenizer { }
