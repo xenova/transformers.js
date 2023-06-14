@@ -86,6 +86,7 @@ const { InferenceSession, Tensor: ONNXTensor } = ONNX;
  * @param {string} fileName The name of the model file.
  * @param {PretrainedOptions} options Additional options for loading the model.
  * @returns {Promise<InferenceSession>} A Promise that resolves to an InferenceSession object.
+ * @private
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
     // TODO add option for user to force specify their desired execution provider
@@ -122,6 +123,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
  * @param {InferenceSession} session The InferenceSession object to run.
  * @param {Object} inputs An object that maps input names to input tensors.
  * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
+ * @private
  */
 async function sessionRun(session, inputs) {
 
@@ -166,6 +168,7 @@ async function sessionRun(session, inputs) {
  * Replaces ONNX Tensor objects with custom Tensor objects to support additional functions.
  * @param {Object} obj The object to replace tensor objects in.
  * @returns {Object} The object with tensor objects replaced by custom Tensor objects.
+ * @private
  */
 function replaceTensors(obj) {
     // Convert ONNX Tensors with our custom Tensor class
@@ -219,6 +222,7 @@ function toI64Tensor(items) {
  * @param {Object} self The calling object instance.
  * @param {Tensor} tokens The input tokens.
  * @returns {Tensor} The attention mask tensor.
+ * @private
  */
 function _prepare_attention_mask(self, tokens) {
 
@@ -251,6 +255,7 @@ function _prepare_attention_mask(self, tokens) {
  * Creates a boolean tensor with a single value.
  * @param {boolean} value The value of the tensor.
  * @returns {Tensor} The boolean tensor.
+ * @private
  */
 function boolTensor(value) {
     // Create boolean tensor
@@ -263,6 +268,7 @@ function boolTensor(value) {
  * @param {string} pretrained_model_name_or_path The path to the model directory.
  * @param {PretrainedOptions} options Additional options for loading the model.
  * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
+ * @private
  */
 async function loadAutoModel(pretrained_model_name_or_path, options) {
     let config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options)
@@ -279,6 +285,7 @@ async function loadAutoModel(pretrained_model_name_or_path, options) {
  * @param {string} pretrained_model_name_or_path The path to the model directory.
  * @param {PretrainedOptions} options Additional options for loading the model.
  * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
+ * @private
  */
 async function loadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
@@ -293,6 +300,7 @@ async function loadModel(pretrained_model_name_or_path, options) {
  * @param {string} pretrained_model_name_or_path The path to the model directory.
  * @param {PretrainedOptions} options Additional options for loading the model.
  * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
+ * @private
  */
 async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
@@ -309,6 +317,7 @@ async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
  * @param {string} pretrained_model_name_or_path The path to the model directory.
  * @param {PretrainedOptions} options Additional options for loading the model.
  * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
+ * @private
  */
 async function encoderDecoderLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
@@ -325,6 +334,7 @@ async function encoderDecoderLoadModel(pretrained_model_name_or_path, options) {
  * @param {string} pretrained_model_name_or_path The path to the model directory.
  * @param {PretrainedOptions} options Additional options for loading the model.
  * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
+ * @private
  */
 async function decoderLoadModel(pretrained_model_name_or_path, options) {
     let info = await Promise.all([
@@ -343,6 +353,7 @@ async function decoderLoadModel(pretrained_model_name_or_path, options) {
  * @param {string} [options.encoder_input_name='input_ids'] The name of the input tensor for the encoder.
  * @param {boolean} [options.add_decoder_pkv=true] Flag to add the decoder past key values.
  * @returns {Promise<Seq2SeqLMOutput>} Promise that resolves with the output of the seq2seq model.
+ * @private
  */
 async function seq2seq_forward(self, model_inputs, {
     encoder_input_name = 'input_ids',
@@ -386,6 +397,7 @@ async function seq2seq_forward(self, model_inputs, {
  * @param {number} numOutputTokens The maximum number of output tokens for the model.
  * @param {boolean} [requires_attention_mask=true] Flag to indicate if the model requires an attention mask.
  * @returns {Object[]} Array of beam search objects.
+ * @private
  */
 function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
     let beams = [];
@@ -432,6 +444,7 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
  * @param {Object} options options
  * @param {string} [options.input_name='input_ids'] The name of the input tensor for the encoder.
  * @returns {Promise<Object>} Promise that resolves with the output of the seq2seq model for the given beam.
+ * @private
  */
 async function seq2seqRunBeam(self, beam, {
     input_name = 'input_ids',
@@ -463,6 +476,7 @@ async function seq2seqRunBeam(self, beam, {
  * @param {Object} self The text generation model object.
  * @param {Object} model_inputs The input data to be used for the forward pass.
  * @returns {Promise<CausalLMOutputWithPast>} Promise that resolves with an object containing the logits and past key values.
+ * @private
  */
 async function textgen_forward(self, model_inputs) {
     let past_key_values = model_inputs.past_key_values;
@@ -487,6 +501,7 @@ async function textgen_forward(self, model_inputs) {
  * @param {number} numOutputTokens The maximum number of tokens to generate for each beam.
  * @param {Tensor} [inputs_attention_mask] The attention mask tensor for the input token IDs.
  * @returns {Object[]} An array of beams initialized with the given inputs and parameters.
+ * @private
  */
 function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attention_mask) {
     let beams = [];
@@ -537,6 +552,7 @@ function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
  * @param {Object} beam.past_key_values The past key values.
  * @param {number[]} beam.output_token_ids The output token ids.
  * @returns {Promise<Object>} The output of the generation step.
+ * @private
  */
 async function textgenRunBeam(self, beam) {
     let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
@@ -565,6 +581,7 @@ async function textgenRunBeam(self, beam) {
  * Update a beam with a new token ID.
  * @param {Object} beam The beam to update.
  * @param {number} newTokenId The new token ID to add to the beam's output.
+ * @private
  */
 function textgenUpdatebeam(beam, newTokenId) {
     beam.output_token_ids = [...beam.output_token_ids, newTokenId];
