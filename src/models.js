@@ -578,6 +578,8 @@ function textgenUpdatebeam(beam, newTokenId) {
  * @extends Callable
  */
 export class PreTrainedModel extends Callable {
+    static LOAD_FUNCTION = loadAutoModel;
+
     /**
      * Creates a new instance of the `PreTrainedModel` class.
      * @param {Object} config The model configuration.
@@ -624,7 +626,7 @@ export class PreTrainedModel extends Callable {
         local_files_only = false,
         revision = 'main',
     } = {}) {
-        let info = await loadAutoModel(pretrained_model_name_or_path, {
+        let info = await this.LOAD_FUNCTION(pretrained_model_name_or_path, {
             quantized,
             progress_callback,
             config,
@@ -2034,6 +2036,8 @@ export class GPT2Model extends GPT2PreTrainedModel {
  * @extends GPT2PreTrainedModel
  */
 export class GPT2LMHeadModel extends GPT2PreTrainedModel {
+    static LOAD_FUNCTION = decoderLoadModel;
+
     /**
      * Creates a new instance of the `GPT2LMHeadModel` class.
      * @param {Object} config The configuration of the model.
@@ -2109,6 +2113,8 @@ export class GPTNeoModel extends GPTNeoPreTrainedModel {
 }
 
 export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
+    static LOAD_FUNCTION = decoderLoadModel;
+
     /**
      * Creates a new instance of the `GPTNeoForCausalLM` class.
      * @param {Object} config The configuration of the model.
@@ -2194,6 +2200,8 @@ export class CodeGenModel extends CodeGenPreTrainedModel {
  * @extends CodeGenPreTrainedModel
  */
 export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
+    static LOAD_FUNCTION = decoderLoadModel;
+
     /**
      * Creates a new instance of the `CodeGenForCausalLM` class.
     * @param {Object} config The model configuration object.
