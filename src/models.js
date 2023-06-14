@@ -1066,8 +1066,8 @@ export class BertForMaskedLM extends BertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new MaskedLMOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new MaskedLMOutput(logits);
     }
 }
 
@@ -1083,8 +1083,8 @@ export class BertForSequenceClassification extends BertPreTrainedModel {
      * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new SequenceClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new SequenceClassifierOutput(logits);
     }
 }
 
@@ -1100,8 +1100,8 @@ export class BertForTokenClassification extends BertPreTrainedModel {
      * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new TokenClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new TokenClassifierOutput(logits);
     }
 }
 
@@ -1117,8 +1117,8 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
      */
     async _call(model_inputs) {
-        let outputs = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+        let { start_logits, end_logits } = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(start_logits, end_logits);
     }
 }
 //////////////////////////////////////////////////
@@ -1140,8 +1140,8 @@ export class DistilBertForSequenceClassification extends DistilBertPreTrainedMod
      * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new SequenceClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new SequenceClassifierOutput(logits);
     }
 }
 
@@ -1157,8 +1157,8 @@ export class DistilBertForTokenClassification extends DistilBertPreTrainedModel 
      * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new TokenClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new TokenClassifierOutput(logits);
     }
 }
 
@@ -1175,8 +1175,8 @@ export class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
      */
     async _call(model_inputs) {
-        let outputs = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+        let { start_logits, end_logits } = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(start_logits, end_logits);
     }
 }
 
@@ -1192,8 +1192,8 @@ export class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new MaskedLMOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new MaskedLMOutput(logits);
     }
 }
 //////////////////////////////////////////////////
@@ -1216,8 +1216,8 @@ export class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new MaskedLMOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new MaskedLMOutput(logits);
     }
 }
 
@@ -1232,8 +1232,8 @@ export class MobileBertForSequenceClassification extends MobileBertPreTrainedMod
      * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new SequenceClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new SequenceClassifierOutput(logits);
     }
 }
 
@@ -1248,8 +1248,8 @@ export class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
-        let outputs = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+        let { start_logits, end_logits } = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(start_logits, end_logits);
     }
 }
 //////////////////////////////////////////////////
@@ -1267,8 +1267,8 @@ export class SqueezeBertForMaskedLM extends SqueezeBertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new MaskedLMOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new MaskedLMOutput(logits);
     }
 }
 export class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedModel {
@@ -1279,8 +1279,8 @@ export class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedM
      * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new SequenceClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new SequenceClassifierOutput(logits);
     }
 }
 export class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel {
@@ -1291,8 +1291,8 @@ export class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel 
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
-        let outputs = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+        let { start_logits, end_logits } = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(start_logits, end_logits);
     }
 }
 //////////////////////////////////////////////////
@@ -1310,8 +1310,8 @@ export class AlbertForSequenceClassification extends AlbertPreTrainedModel {
      * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new SequenceClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new SequenceClassifierOutput(logits);
     }
 }
 export class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
@@ -1322,8 +1322,8 @@ export class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
-        let outputs = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+        let { start_logits, end_logits } = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(start_logits, end_logits);
     }
 }
 export class AlbertForMaskedLM extends AlbertPreTrainedModel {
@@ -1334,8 +1334,8 @@ export class AlbertForMaskedLM extends AlbertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new MaskedLMOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new MaskedLMOutput(logits);
     }
 }
 //////////////////////////////////////////////////
@@ -1690,8 +1690,8 @@ export class BartForSequenceClassification extends BartPretrainedModel {
      * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new SequenceClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new SequenceClassifierOutput(logits);
     }
 }
 
@@ -1714,8 +1714,8 @@ export class RobertaForMaskedLM extends RobertaPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new MaskedLMOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new MaskedLMOutput(logits);
     }
 }
 
@@ -1731,8 +1731,8 @@ export class RobertaForSequenceClassification extends RobertaPreTrainedModel {
      * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new SequenceClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new SequenceClassifierOutput(logits);
     }
 }
 
@@ -1748,8 +1748,8 @@ export class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
-        let outputs = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(outputs.start_logits, outputs.end_logits);
+        let { start_logits, end_logits } = await super._call(model_inputs);
+        return new QuestionAnsweringModelOutput(start_logits, end_logits);
     }
 }
 //////////////////////////////////////////////////
@@ -2266,8 +2266,8 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
      * @param {any} model_inputs
      */
     async _call(model_inputs) {
-        let logits = (await super._call(model_inputs)).logits;
-        return new SequenceClassifierOutput(logits)
+        let { logits } = await super._call(model_inputs);
+        return new SequenceClassifierOutput(logits);
     }
 }
 //////////////////////////////////////////////////
@@ -2279,8 +2279,8 @@ export class DetrForObjectDetection extends DetrPreTrainedModel {
      * @param {any} model_inputs
      */
     async _call(model_inputs) {
-        let output = (await super._call(model_inputs));
-        return new DetrObjectDetectionOutput(output.logits, output.pred_boxes)
+        let { logits, pred_boxes } = await super._call(model_inputs);
+        return new DetrObjectDetectionOutput(logits, pred_boxes);
     }
 }
 
@@ -2291,8 +2291,8 @@ export class DetrForSegmentation extends DetrPreTrainedModel {
      * @returns {Promise<DetrSegmentationOutput>} Object containing segmentation outputs
      */
     async _call(model_inputs) {
-        let output = (await super._call(model_inputs));
-        return new DetrSegmentationOutput(output.logits, output.pred_boxes, output.pred_masks);
+        let { logits, pred_boxes, pred_masks } = await super._call(model_inputs);
+        return new DetrSegmentationOutput(logits, pred_boxes, pred_masks);
     }
 }
 
@@ -2336,8 +2336,8 @@ export class SamModel extends SamPreTrainedModel {
      */
     async _call(model_inputs) {
         // TODO split into encoder and decoder
-        let output = (await super._call(model_inputs));
-        return new SamImageSegmentationOutput(output.iou_scores, output.pred_masks);
+        let { iou_scores, pred_masks } = await super._call(model_inputs);
+        return new SamImageSegmentationOutput(iou_scores, pred_masks);
     }
 }
 
