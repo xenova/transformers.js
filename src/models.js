@@ -462,7 +462,7 @@ async function seq2seqRunBeam(self, beam, {
  * Forward pass of the text generation model.
  * @param {Object} self The text generation model object.
  * @param {Object} model_inputs The input data to be used for the forward pass.
- * @returns {Promise<Object>} Promise that resolves with an object containing the logits and past key values.
+ * @returns {Promise<CausalLMOutputWithPast>} Promise that resolves with an object containing the logits and past key values.
  */
 async function textgen_forward(self, model_inputs) {
     let past_key_values = model_inputs.past_key_values;
@@ -477,7 +477,7 @@ async function textgen_forward(self, model_inputs) {
     let logits = decoderResults.logits;
 
     past_key_values = self.getPastKeyValues(decoderResults, past_key_values);
-    return { logits, past_key_values };
+    return new CausalLMOutputWithPast(logits, past_key_values);
 }
 
 /**
@@ -640,12 +640,32 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
+     * Whether this model can generate sequences with `.generate()`.
+     * @returns {boolean} `true` if this model can generate sequences, `false` otherwise.
+     */
+    can_generate() {
+        if (!('generate' in this)) return false;
+
+        if (this.config.is_encoder_decoder) {
+            return 'decoder_merged_session' in this;
+        } else {
+            return 'session' in this;
+        }
+    }
+    /**
      * Runs the model with the provided inputs
      * @param {Object} model_inputs Object containing input tensors
      * @returns {Promise<Object>} Object containing output tensors
      */
     async _call(model_inputs) {
-        return await sessionRun(this.session, model_inputs);
+        // TODO: prepare inputs
+        if (this.config.is_encoder_decoder || !('generate' in this)) {
+            // Either encoder-decoder or encoder-only model.
+            return await sessionRun(this.session, model_inputs);
+        } else {
+            // Decoder-only model.
+            return await textgen_forward(this, model_inputs);
+        }
     }
 
     /**
@@ -1010,7 +1030,9 @@ export class PreTrainedModel extends Callable {
      * @param {boolean} [hasDecoder=false] Whether the model has a decoder.
      */
     addPastKeyValues(decoderFeeds, pastKeyValues, hasDecoder = false) {
-        if (pastKeyValues === null) {
+        if (pastKeyValues) {
+            Object.assign(decoderFeeds, pastKeyValues)
+        } else {
             // TODO support batches (i.e., batch_size > 1)
             if (hasDecoder) {
                 // @ts-ignore
@@ -1038,9 +1060,6 @@ export class PreTrainedModel extends Callable {
                     decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
                 }
             }
-
-        } else {
-            Object.assign(decoderFeeds, pastKeyValues)
         }
     }
 }
@@ -2914,5 +2933,22 @@ export class QuestionAnsweringModelOutput extends ModelOutput {
         super();
         this.start_logits = start_logits;
         this.end_logits = end_logits;
+    }
+}
+
+
+/**
+ * Base class for causal language model (or autoregressive) outputs.
+ */
+export class CausalLMOutputWithPast extends ModelOutput {
+    /**
+     * @param {Tensor} logits Prediction scores of the language modeling head (scores for each vocabulary token before softmax).
+     * @param {Tensor} past_key_values Contains pre-computed hidden-states (key and values in the self-attention blocks)
+     * that can be used (see `past_key_values` input) to speed up sequential decoding.
+     */
+    constructor(logits, past_key_values) {
+        super();
+        this.logits = logits;
+        this.past_key_values = past_key_values;
     }
 }
