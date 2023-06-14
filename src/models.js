@@ -171,8 +171,6 @@ async function sessionRun(session, inputs) {
  * @private
  */
 function replaceTensors(obj) {
-    // Convert ONNX Tensors with our custom Tensor class
-    // to support additional functions
     for (let prop in obj) {
         if (obj[prop] instanceof ONNXTensor) {
             obj[prop] = new Tensor(obj[prop]);
@@ -258,7 +256,6 @@ function _prepare_attention_mask(self, tokens) {
  * @private
  */
 function boolTensor(value) {
-    // Create boolean tensor
     return new Tensor('bool', [value], [1]);
 }
 
