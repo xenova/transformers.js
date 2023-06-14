@@ -640,27 +640,14 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-     * Whether this model can generate sequences with `.generate()`.
-     * @returns {boolean} `true` if this model can generate sequences, `false` otherwise.
-     */
-    can_generate() {
-        if (!('generate' in this)) return false;
-
-        if (this.config.is_encoder_decoder) {
-            return 'decoder_merged_session' in this;
-        } else {
-            return 'session' in this;
-        }
-    }
-    /**
      * Runs the model with the provided inputs
      * @param {Object} model_inputs Object containing input tensors
      * @returns {Promise<Object>} Object containing output tensors
      */
     async _call(model_inputs) {
         // TODO: prepare inputs
-        if (this.config.is_encoder_decoder || !('generate' in this)) {
-            // Either encoder-decoder or encoder-only model.
+        if (this.config.is_encoder_decoder || !('decoder_merged_session' in this)) {
+            // Either encoder-decoder or encoder-only model. In both cases, call the encoder.
             return await sessionRun(this.session, model_inputs);
         } else {
             // Decoder-only model.
