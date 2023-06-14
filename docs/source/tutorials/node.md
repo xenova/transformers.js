@@ -45,7 +45,7 @@ We'll also create a helper class called `MyClassificationPipeline` control the l
 
 ### ECMAScript modules (ESM)
 
-To indicate that your project uses ECMAScript modules, you need to add `type: "module"` to your `package.json`:
+To indicate that your project uses ECMAScript modules, you need to add `"type": "module"` to your `package.json`:
 
 ```json
 {
