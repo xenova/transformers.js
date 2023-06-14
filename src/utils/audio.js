@@ -23,14 +23,14 @@ export async function read_audio(url, sampling_rate) {
         // Running in node or an environment without AudioContext
         throw Error(
             "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
-            "As a result, audio data must be passed directly to the processor. " +
-            "If you are running in node.js, you can use an external library (e.g., https://github.com/audiojs/web-audio-api) to do this."
+            "Instead audio data must be passed directly to the pipeline/processor. " +
+            "For more information and some example code, see https://huggingface.co/docs/transformers.js/tutorials/node-audio-processing."
         )
     }
 
     const response = await (await getFile(url)).arrayBuffer();
     const audioCTX = new AudioContext({ sampleRate: sampling_rate });
-    if(typeof sampling_rate === 'undefined') {
+    if (typeof sampling_rate === 'undefined') {
         console.warn(`No sampling rate provided, using default of ${audioCTX.sampleRate}Hz.`)
     }
     const decoded = await audioCTX.decodeAudioData(response);
