@@ -352,7 +352,7 @@ async function decoderLoadModel(pretrained_model_name_or_path, options) {
  * @returns {Promise<Seq2SeqLMOutput>} Promise that resolves with the output of the seq2seq model.
  * @private
  */
-async function seq2seq_forward(self, model_inputs, {
+async function seq2seqForward(self, model_inputs, {
     encoder_input_name = 'input_ids',
     add_decoder_pkv = true
 } = {}) {
@@ -469,13 +469,13 @@ async function seq2seqRunBeam(self, beam, {
 }
 
 /**
- * Forward pass of the text generation model.
- * @param {Object} self The text generation model object.
+ * Forward pass of a decoder model.
+ * @param {Object} self The decoder model.
  * @param {Object} model_inputs The input data to be used for the forward pass.
  * @returns {Promise<CausalLMOutputWithPast>} Promise that resolves with an object containing the logits and past key values.
  * @private
  */
-async function textgen_forward(self, model_inputs) {
+async function decoderForward(self, model_inputs) {
     let past_key_values = model_inputs.past_key_values;
     let decoderFeeds = {
         input_ids: model_inputs.input_ids,
@@ -500,7 +500,7 @@ async function textgen_forward(self, model_inputs) {
  * @returns {Object[]} An array of beams initialized with the given inputs and parameters.
  * @private
  */
-function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attention_mask) {
+function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attention_mask) {
     let beams = [];
 
     let beamId = 0;
@@ -541,7 +541,7 @@ function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
 /**
  * Runs a single step of the text generation process for a given beam.
  *
- * @param {Object} self The textgen object.
+ * @param {Object} self The decoder object.
  * @param {Object} beam The beam to run.
  * @param {Tensor} beam.input The input tensor.
  * @param {Tensor} beam.model_input_ids The input ids to the model.
@@ -551,7 +551,7 @@ function textgenStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
  * @returns {Promise<Object>} The output of the generation step.
  * @private
  */
-async function textgenRunBeam(self, beam) {
+async function decoderRunBeam(self, beam) {
     let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
 
     // 1. Prepare
@@ -580,7 +580,7 @@ async function textgenRunBeam(self, beam) {
  * @param {number} newTokenId The new token ID to add to the beam's output.
  * @private
  */
-function textgenUpdatebeam(beam, newTokenId) {
+function decoderUpdatebeam(beam, newTokenId) {
     beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     beam.model_input_ids = new Tensor('int64', [BigInt(newTokenId)], [1, 1]);
 }
@@ -665,7 +665,7 @@ export class PreTrainedModel extends Callable {
             return await sessionRun(this.session, model_inputs);
         } else {
             // Decoder-only model.
-            return await textgen_forward(this, model_inputs);
+            return await decoderForward(this, model_inputs);
         }
     }
 
@@ -677,6 +677,8 @@ export class PreTrainedModel extends Callable {
      * @throws {Error} This method must be implemented in subclasses.
      */
     async forward(model_inputs) {
+        sessionRun();
+        
         throw Error("forward should be implemented in subclasses.")
     }
 
@@ -1467,7 +1469,7 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
      * @returns {Promise<Object>} The model output.
      */
     async forward(model_inputs) {
-        return await seq2seq_forward(this, model_inputs);
+        return await seq2seqForward(this, model_inputs);
     }
 }
 //////////////////////////////////////////////////
@@ -1581,7 +1583,7 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     * @returns {Promise<any>} A Promise that resolves to the model outputs.
     */
     async forward(model_inputs) {
-        return await seq2seq_forward(this, model_inputs);
+        return await seq2seqForward(this, model_inputs);
     }
 }
 //////////////////////////////////////////////////
@@ -1698,7 +1700,7 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
      * @returns {Promise<Object>} The model output.
      */
     async forward(model_inputs) {
-        return await seq2seq_forward(this, model_inputs);
+        return await seq2seqForward(this, model_inputs);
     }
 }
 
@@ -1917,7 +1919,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * @returns {Promise<Object>} The model output.
      */
     async forward(model_inputs) {
-        return await seq2seq_forward(this, model_inputs, {
+        return await seq2seqForward(this, model_inputs, {
             encoder_input_name: 'input_features',
         });
     }
@@ -2013,7 +2015,7 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
-        return await seq2seq_forward(this, model_inputs, {
+        return await seq2seqForward(this, model_inputs, {
             encoder_input_name: 'pixel_values',
             add_decoder_pkv: false
         })
@@ -2082,7 +2084,7 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
      * @returns {any} A Beam object representing the initialized beam.
      */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
     }
 
     /**
@@ -2091,7 +2093,7 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
      * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
-        return await textgenRunBeam(this, beam);
+        return await decoderRunBeam(this, beam);
     }
 
     /**
@@ -2100,7 +2102,7 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
      * @param {number} newTokenId The new generated token id to be added to the beam.
      */
     updateBeam(beam, newTokenId) {
-        return textgenUpdatebeam(beam, newTokenId);
+        return decoderUpdatebeam(beam, newTokenId);
     }
 
     /**
@@ -2109,7 +2111,7 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
-        return await textgen_forward(this, model_inputs)
+        return await decoderForward(this, model_inputs)
     }
 
 }
@@ -2159,7 +2161,7 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
      * @returns {any} A Beam object representing the initialized beam.
      */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
     }
 
     /**
@@ -2168,7 +2170,7 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
      * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
-        return await textgenRunBeam(this, beam);
+        return await decoderRunBeam(this, beam);
     }
 
     /**
@@ -2177,7 +2179,7 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
      * @param {number} newTokenId The new generated token id to be added to the beam.
      */
     updateBeam(beam, newTokenId) {
-        return textgenUpdatebeam(beam, newTokenId);
+        return decoderUpdatebeam(beam, newTokenId);
     }
 
     /**
@@ -2186,7 +2188,7 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
-        return await textgen_forward(this, model_inputs)
+        return await decoderForward(this, model_inputs)
     }
 }
 
@@ -2246,7 +2248,7 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
      * @returns {any} A Beam object representing the initialized beam.
      */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return textgenStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
     }
 
     /**
@@ -2255,7 +2257,7 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
      * @returns {Promise<any>} The updated beam after a single generation step.
      */
     async runBeam(beam) {
-        return await textgenRunBeam(this, beam);
+        return await decoderRunBeam(this, beam);
     }
 
     /**
@@ -2264,7 +2266,7 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
      * @param {number} newTokenId The new generated token id to be added to the beam.
      */
     updateBeam(beam, newTokenId) {
-        return textgenUpdatebeam(beam, newTokenId);
+        return decoderUpdatebeam(beam, newTokenId);
     }
 
     /**
@@ -2273,7 +2275,7 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
-        return await textgen_forward(this, model_inputs)
+        return await decoderForward(this, model_inputs)
     }
 
 }
@@ -2482,7 +2484,7 @@ export class MarianMTModel extends MarianPreTrainedModel {
      * @returns {Promise<Seq2SeqLMOutput>}
      */
     async forward(model_inputs) {
-        return await seq2seq_forward(this, model_inputs);
+        return await seq2seqForward(this, model_inputs);
     }
 }
 //////////////////////////////////////////////////
@@ -2588,7 +2590,7 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
      * @returns {Promise<Seq2SeqLMOutput>}
      */
     async forward(model_inputs) {
-        return await seq2seq_forward(this, model_inputs);
+        return await seq2seqForward(this, model_inputs);
     }
 }
 //////////////////////////////////////////////////
