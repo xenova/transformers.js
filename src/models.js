@@ -205,19 +205,14 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 }
 
 /**
- * Executes an InferenceSession using the specified inputs.
- * NOTE: `inputs` must contain at least the input names of the model.
- *  - If additional inputs are passed, they will be ignored.
- *  - If inputs are missing, an error will be thrown.
- * 
- * @param {InferenceSession} session The InferenceSession object to run.
- * @param {Object} inputs An object that maps input names to input tensors.
- * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
+ * Validate model inputs
+ * @param {InferenceSession} session The InferenceSession object that will be run.
+ * @param {Object} inputs The inputs to check.
+ * @returns {Promise<Object>} A Promise that resolves to the checked inputs.
+ * @throws {Error} If any inputs are missing.
  * @private
  */
-async function sessionRun(session, inputs) {
-
-    // First, check that all inputs are provided
+async function validateInputs(session, inputs) {
     // NOTE: Only create a shallow copy
     const checkedInputs = {};
     const missingInputs = [];
@@ -242,6 +237,22 @@ async function sessionRun(session, inputs) {
         console.warn(`WARNING: Too many inputs were provided (${numInputsProvided} > ${numInputsNeeded}). The following inputs will be ignored: "${ignored.join(', ')}".`);
     }
 
+    return checkedInputs;
+}
+
+/**
+ * Executes an InferenceSession using the specified inputs.
+ * NOTE: `inputs` must contain at least the input names of the model.
+ *  - If additional inputs are passed, they will be ignored.
+ *  - If inputs are missing, an error will be thrown.
+ * 
+ * @param {InferenceSession} session The InferenceSession object to run.
+ * @param {Object} inputs An object that maps input names to input tensors.
+ * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
+ * @private
+ */
+async function sessionRun(session, inputs) {
+    const checkedInputs = await validateInputs(session, inputs);
     try {
         let output = await session.run(checkedInputs);
         output = replaceTensors(output);
@@ -478,7 +489,7 @@ async function encoderForward(self, model_inputs) {
     if (self.session.inputNames.includes('attention_mask')) {
         encoderFeeds.attention_mask = model_inputs.attention_mask;
     }
-    return await sessionRun(self.session, encoderFeeds);;
+    return await sessionRun(self.session, encoderFeeds);
 }
 
 
