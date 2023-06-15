@@ -78,8 +78,89 @@ const { InferenceSession, Tensor: ONNXTensor } = ONNX;
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
  */
 
+
+//////////////////////////////////////////////////
+// Model types: used internally
+class ModelType { };
+
+// Either encoder-only or encoder-decoder (and will be decided by `model.config.is_encoder_decoder`)
+class EncoderModelType extends ModelType { };
+class EncoderOnlyModelType extends EncoderModelType { };
+class EncoderDecoderModelType extends EncoderModelType { };
+class Seq2SeqModelType extends EncoderDecoderModelType { };
+class DecoderOnlyModelType extends ModelType { };
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // Helper functions
+function issubclass(a, b) {
+    return a === b || a.prototype instanceof b;
+}
+/**
+ * Loads an model from the specified path.
+ * @param {Object} cls The class of the model.
+ * @param {string} pretrained_model_name_or_path The path to the model directory.
+ * @param {PretrainedOptions} options Additional options for loading the model.
+ * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
+ * @private
+ */
+async function load(cls, pretrained_model_name_or_path, options) {
+    const cModelType = cls.MODEL_TYPE;
+    if (cls.MODEL_TYPE === null) {
+        throw new Error("`MODEL_TYPE` not implemented for this model.");
+    }
+    if (issubclass(cModelType, DecoderOnlyModelType)) {
+        return await Promise.all([
+            AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+            constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+        ]);
+
+    } else if (issubclass(cModelType, Seq2SeqModelType)) {
+        return await Promise.all([
+            AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+            constructSession(pretrained_model_name_or_path, 'encoder_model', options),
+            constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+            getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
+        ]);
+
+    } else if (issubclass(cModelType, EncoderDecoderModelType)) {
+        return await Promise.all([
+            AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+            constructSession(pretrained_model_name_or_path, 'encoder_model', options),
+            constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+        ]);
+
+    } else if (issubclass(cModelType, EncoderOnlyModelType)) {
+        return await Promise.all([
+            AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+            constructSession(pretrained_model_name_or_path, 'model', options)
+        ]);
+
+    } else if (issubclass(cModelType, EncoderModelType)) {
+        let config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options)
+        let modelName = config.is_encoder_decoder ? 'encoder_model' : 'model';
+        let session = await constructSession(pretrained_model_name_or_path, modelName, options);
+        return [config, session];
+    } else {
+        throw Error(`Unable to determine model type: ${cModelType?.constructor?.name}`);
+    }
+}
+
+/**
+ * Helper function to determine which `call` method to run for a specific model.
+ * @param {Object} self The calling object
+ * @param {Object} model_inputs The inputs to be sent to the model
+ * @returns {Promise<ModelOutput>} The model output
+ */
+async function call(self, model_inputs) {
+    if (issubclass(self.constructor.MODEL_TYPE, DecoderOnlyModelType)) {
+        return await decoderForward(self, model_inputs);
+    } else {
+        return await sessionRun(self.session, model_inputs);
+    }
+}
+
 /**
  * Constructs an InferenceSession using a model file located at the specified path.
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
@@ -222,7 +303,7 @@ function toI64Tensor(items) {
  * @returns {Tensor} The attention mask tensor.
  * @private
  */
-function _prepare_attention_mask(self, tokens) {
+function prepareAttentionMask(self, tokens) {
 
     // Prepare attention mask
     let pad_token_id = self.config.pad_token_id ?? null;
@@ -259,88 +340,6 @@ function boolTensor(value) {
     return new Tensor('bool', [value], [1]);
 }
 
-
-/**
- * Loads a model from the specified path.
- * @param {string} pretrained_model_name_or_path The path to the model directory.
- * @param {PretrainedOptions} options Additional options for loading the model.
- * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
- * @private
- */
-async function loadAutoModel(pretrained_model_name_or_path, options) {
-    let config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options)
-
-    let modelName = config.is_encoder_decoder ? 'encoder_model' : 'model';
-
-    let session = await constructSession(pretrained_model_name_or_path, modelName, options);
-
-    return [config, session];
-}
-
-/**
- * Loads a model from the specified path.
- * @param {string} pretrained_model_name_or_path The path to the model directory.
- * @param {PretrainedOptions} options Additional options for loading the model.
- * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
- * @private
- */
-async function loadModel(pretrained_model_name_or_path, options) {
-    let info = await Promise.all([
-        AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-        constructSession(pretrained_model_name_or_path, 'model', options)
-    ]);
-    return info;
-}
-
-/**
- * Loads a sequence-to-sequence model from the specified path.
- * @param {string} pretrained_model_name_or_path The path to the model directory.
- * @param {PretrainedOptions} options Additional options for loading the model.
- * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
- * @private
- */
-async function seq2seqLoadModel(pretrained_model_name_or_path, options) {
-    let info = await Promise.all([
-        AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-        constructSession(pretrained_model_name_or_path, 'encoder_model', options),
-        constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
-        getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
-    ]);
-    return info;
-}
-
-/**
- * Loads an encoder-decoder model from the specified path.
- * @param {string} pretrained_model_name_or_path The path to the model directory.
- * @param {PretrainedOptions} options Additional options for loading the model.
- * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
- * @private
- */
-async function encoderDecoderLoadModel(pretrained_model_name_or_path, options) {
-    let info = await Promise.all([
-        AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-        constructSession(pretrained_model_name_or_path, 'encoder_model', options),
-        constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
-    ])
-    return info;
-}
-
-
-/**
- * Loads a decoder model from the specified path.
- * @param {string} pretrained_model_name_or_path The path to the model directory.
- * @param {PretrainedOptions} options Additional options for loading the model.
- * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
- * @private
- */
-async function decoderLoadModel(pretrained_model_name_or_path, options) {
-    let info = await Promise.all([
-        AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-        constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
-    ])
-    return info;
-}
-
 // JS doesn't support mixins, so we define some reused functions here, and allow "this" to be passed in
 /**
  * Perform forward pass on the seq2seq model.
@@ -359,7 +358,7 @@ async function seq2seqForward(self, model_inputs, {
     let encoderOutputs = model_inputs.encoder_outputs;
     let pastKeyValues = model_inputs.past_key_values;
 
-    if (encoderOutputs === null) {
+    if (!encoderOutputs) {
         const encoderFeeds = {
             [encoder_input_name]: model_inputs[encoder_input_name],
         }
@@ -425,7 +424,7 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
         }
 
         if (requires_attention_mask) {
-            start.attention_mask = _prepare_attention_mask(self, tokens);
+            start.attention_mask = prepareAttentionMask(self, tokens);
         }
 
         beams.push(start);
@@ -516,7 +515,7 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
             attn_mask.dims = [1, ...attn_mask.dims]
 
         } else {
-            attn_mask = _prepare_attention_mask(self, tokens)
+            attn_mask = prepareAttentionMask(self, tokens)
         }
 
         let start = {
@@ -592,7 +591,7 @@ function decoderUpdatebeam(beam, newTokenId) {
  * @extends Callable
  */
 export class PreTrainedModel extends Callable {
-    static LOAD_FUNCTION = loadAutoModel;
+    static MODEL_TYPE = EncoderModelType;
 
     /**
      * Creates a new instance of the `PreTrainedModel` class.
@@ -640,7 +639,7 @@ export class PreTrainedModel extends Callable {
         local_files_only = false,
         revision = 'main',
     } = {}) {
-        let info = await this.LOAD_FUNCTION(pretrained_model_name_or_path, {
+        let info = await load(this, pretrained_model_name_or_path, {
             quantized,
             progress_callback,
             config,
@@ -659,14 +658,7 @@ export class PreTrainedModel extends Callable {
      * @returns {Promise<Object>} Object containing output tensors
      */
     async _call(model_inputs) {
-        // TODO: prepare inputs
-        if (this.config.is_encoder_decoder || !('decoder_merged_session' in this)) {
-            // Either encoder-decoder or encoder-only model. In both cases, call the encoder.
-            return await sessionRun(this.session, model_inputs);
-        } else {
-            // Decoder-only model.
-            return await decoderForward(this, model_inputs);
-        }
+        return await call(this, model_inputs);
     }
 
     /**
@@ -677,8 +669,6 @@ export class PreTrainedModel extends Callable {
      * @throws {Error} This method must be implemented in subclasses.
      */
     async forward(model_inputs) {
-        sessionRun();
-        
         throw Error("forward should be implemented in subclasses.")
     }
 
@@ -1386,6 +1376,8 @@ export class T5Model extends T5PreTrainedModel {
  * @extends T5PreTrainedModel
  */
 export class T5ForConditionalGeneration extends T5PreTrainedModel {
+    static MODEL_TYPE = Seq2SeqModelType;
+
     /**
      * Creates a new instance of the `T5ForConditionalGeneration` class.
      * @param {Object} config The model configuration.
@@ -1405,34 +1397,6 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
         this.num_encoder_layers = this.config.num_layers;
         this.num_encoder_heads = this.config.num_heads;
         this.encoder_dim_kv = this.config.d_kv;
-    }
-
-    /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
-     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
-     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
-     * @returns {Promise<T5ForConditionalGeneration>} A new instance of the `T5ForConditionalGeneration` class.
-     */
-    static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
-        progress_callback = null,
-        config = null,
-        cache_dir = null,
-        local_files_only = false,
-        revision = 'main',
-    } = {}) {
-        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
-            quantized,
-            progress_callback,
-            config,
-            cache_dir,
-            local_files_only,
-            revision,
-        });
-        // @ts-ignore
-        return new this(...info);
     }
 
     /**
@@ -1498,6 +1462,8 @@ export class MT5Model extends MT5PreTrainedModel {
  * @extends MT5PreTrainedModel
  */
 export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
+    static MODEL_TYPE = Seq2SeqModelType;
+
     /**
      * Creates a new instance of the `MT5ForConditionalGeneration` class.
      * @param {any} config The model configuration.
@@ -1517,34 +1483,6 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
         this.num_encoder_layers = this.config.num_layers;
         this.num_encoder_heads = this.config.num_heads;
         this.encoder_dim_kv = this.config.d_kv;
-    }
-
-    /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
-     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
-     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
-     * @returns {Promise<MT5ForConditionalGeneration>} A new instance of the `MT5ForConditionalGeneration` class.
-     */
-    static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
-        progress_callback = null,
-        config = null,
-        cache_dir = null,
-        local_files_only = false,
-        revision = 'main',
-    } = {}) {
-        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
-            quantized,
-            progress_callback,
-            config,
-            cache_dir,
-            local_files_only,
-            revision,
-        });
-        // @ts-ignore
-        return new this(...info);
     }
 
     /**
@@ -1617,6 +1555,8 @@ export class BartModel extends BartPretrainedModel {
  * @extends BartPretrainedModel
  */
 export class BartForConditionalGeneration extends BartPretrainedModel {
+    static MODEL_TYPE = Seq2SeqModelType;
+
     /**
      * Creates a new instance of the `BartForConditionalGeneration` class.
      * @param {Object} config The configuration object for the Bart model.
@@ -1636,33 +1576,6 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
         this.num_encoder_layers = this.config.encoder_layers;
         this.num_encoder_heads = this.config.encoder_attention_heads;
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
-    }
-    /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
-     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
-     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
-     * @returns {Promise<BartForConditionalGeneration>} A new instance of the `BartForConditionalGeneration` class.
-     */
-    static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
-        progress_callback = null,
-        config = null,
-        cache_dir = null,
-        local_files_only = false,
-        revision = 'main',
-    } = {}) {
-        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
-            quantized,
-            progress_callback,
-            config,
-            cache_dir,
-            local_files_only,
-            revision,
-        });
-        // @ts-ignore
-        return new this(...info);
     }
 
     /**
@@ -1803,6 +1716,8 @@ export class WhisperModel extends WhisperPreTrainedModel {
  * @extends WhisperPreTrainedModel
  */
 export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
+    static MODEL_TYPE = Seq2SeqModelType;
+
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
      * @param {Object} config Configuration object for the model.
@@ -1852,34 +1767,6 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         }
 
         return super.generate(inputs, generation_config, logits_processor)
-    }
-
-    /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
-     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
-     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
-     * @returns {Promise<WhisperForConditionalGeneration>} A new instance of the `WhisperForConditionalGeneration` class.
-     */
-    static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
-        progress_callback = null,
-        config = null,
-        cache_dir = null,
-        local_files_only = false,
-        revision = 'main',
-    } = {}) {
-        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
-            quantized,
-            progress_callback,
-            config,
-            cache_dir,
-            local_files_only,
-            revision,
-        });
-        // @ts-ignore
-        return new this(...info);
     }
 
     /**
@@ -1945,34 +1832,6 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
         this.num_layers = this.config.decoder.n_layer;
         this.num_heads = this.config.decoder.n_head;
         this.dim_kv = this.config.decoder.n_embd / this.num_heads;
-    }
-
-    /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
-     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
-     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
-     * @returns {Promise<VisionEncoderDecoderModel>} A new instance of the `VisionEncoderDecoderModel` class.
-     */
-    static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
-        progress_callback = null,
-        config = null,
-        cache_dir = null,
-        local_files_only = false,
-        revision = 'main',
-    } = {}) {
-        let info = await encoderDecoderLoadModel(pretrained_model_name_or_path, {
-            quantized,
-            progress_callback,
-            config,
-            cache_dir,
-            local_files_only,
-            revision,
-        });
-        // @ts-ignore
-        return new this(...info);
     }
 
     /**
@@ -2058,7 +1917,7 @@ export class GPT2Model extends GPT2PreTrainedModel {
  * @extends GPT2PreTrainedModel
  */
 export class GPT2LMHeadModel extends GPT2PreTrainedModel {
-    static LOAD_FUNCTION = decoderLoadModel;
+    static MODEL_TYPE = DecoderOnlyModelType;
 
     /**
      * Creates a new instance of the `GPT2LMHeadModel` class.
@@ -2135,7 +1994,7 @@ export class GPTNeoModel extends GPTNeoPreTrainedModel {
 }
 
 export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
-    static LOAD_FUNCTION = decoderLoadModel;
+    static MODEL_TYPE = DecoderOnlyModelType;
 
     /**
      * Creates a new instance of the `GPTNeoForCausalLM` class.
@@ -2222,7 +2081,7 @@ export class CodeGenModel extends CodeGenPreTrainedModel {
  * @extends CodeGenPreTrainedModel
  */
 export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
-    static LOAD_FUNCTION = decoderLoadModel;
+    static MODEL_TYPE = DecoderOnlyModelType;
 
     /**
      * Creates a new instance of the `CodeGenForCausalLM` class.
@@ -2402,6 +2261,8 @@ export class MarianModel extends MarianPreTrainedModel {
 }
 
 export class MarianMTModel extends MarianPreTrainedModel {
+    static MODEL_TYPE = Seq2SeqModelType;
+
     /**
      * Creates a new instance of the `MarianMTModel` class.
     * @param {Object} config The model configuration object.
@@ -2421,34 +2282,6 @@ export class MarianMTModel extends MarianPreTrainedModel {
         this.num_encoder_layers = this.config.encoder_layers;
         this.num_encoder_heads = this.config.encoder_attention_heads;
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
-    }
-
-    /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
-     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
-     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
-     * @returns {Promise<MarianMTModel>} A new instance of the `MarianMTModel` class.
-     */
-    static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
-        progress_callback = null,
-        config = null,
-        cache_dir = null,
-        local_files_only = false,
-        revision = 'main',
-    } = {}) {
-        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
-            quantized,
-            progress_callback,
-            config,
-            cache_dir,
-            local_files_only,
-            revision,
-        });
-        // @ts-ignore
-        return new this(...info);
     }
 
     /**
@@ -2508,6 +2341,8 @@ export class M2M100Model extends M2M100PreTrainedModel {
 }
 
 export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
+    static MODEL_TYPE = Seq2SeqModelType;
+
     /**
      * Creates a new instance of the `M2M100ForConditionalGeneration` class.
     * @param {Object} config The model configuration object.
@@ -2529,33 +2364,6 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 
-    /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`.
-     * 
-     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
-     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
-     * 
-     * @returns {Promise<M2M100ForConditionalGeneration>} A new instance of the `M2M100ForConditionalGeneration` class.
-     */
-    static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
-        progress_callback = null,
-        config = null,
-        cache_dir = null,
-        local_files_only = false,
-        revision = 'main',
-    } = {}) {
-        let info = await seq2seqLoadModel(pretrained_model_name_or_path, {
-            quantized,
-            progress_callback,
-            config,
-            cache_dir,
-            local_files_only,
-            revision,
-        });
-        // @ts-ignore
-        return new this(...info);
-    }
 
     /**
      * Initializes and returns the beam for text generation task
@@ -2617,9 +2425,9 @@ export class PretrainedMixin {
     static BASE_IF_FAIL = false;
 
     /**
-     * The function to use to load the pretrained model.
+     * The type of model. We set this to null since we require each `AutoModel` to override this.
      */
-    static LOAD_FUNCTION = null;
+    static MODEL_TYPE = null;
 
     /**
      * Instantiate one of the model classes of the library from a pretrained model.
@@ -2634,7 +2442,7 @@ export class PretrainedMixin {
      * - A path to a *directory* containing model weights, e.g., `./my_model_directory/`.
      * @param {PretrainedOptions} options Additional options for loading the model.
      * 
-     * @returns {Promise<PreTrainedModel>} A new instance of the PreTrainedModel class.
+     * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
         quantized = true,
@@ -2644,11 +2452,7 @@ export class PretrainedMixin {
         local_files_only = false,
         revision = 'main',
     } = {}) {
-        if (this.LOAD_FUNCTION === null) {
-            throw new Error("`LOAD_FUNCTION` not implemented for this model");
-        }
-
-        let info = await this.LOAD_FUNCTION(pretrained_model_name_or_path, {
+        let info = await load(this, pretrained_model_name_or_path, {
             quantized,
             progress_callback,
             config,
@@ -2678,7 +2482,7 @@ export class PretrainedMixin {
  * let model = await AutoModel.from_pretrained('bert-base-uncased');
  */
 export class AutoModel extends PretrainedMixin {
-    static LOAD_FUNCTION = loadAutoModel;
+    static MODEL_TYPE = EncoderModelType; // Assume to be an encoder-only or encoder-decoder model.
     static BASE_IF_FAIL = true;
     static MODEL_CLASS_MAPPING = {
         'bert': BertModel,
@@ -2709,7 +2513,7 @@ export class AutoModel extends PretrainedMixin {
  * let model = await AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english');
  */
 export class AutoModelForSequenceClassification extends PretrainedMixin {
-    static LOAD_FUNCTION = loadModel;
+    static MODEL_TYPE = EncoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForSequenceClassification,
         'albert': AlbertForSequenceClassification,
@@ -2729,7 +2533,7 @@ export class AutoModelForSequenceClassification extends PretrainedMixin {
  * let model = await AutoModelForTokenClassification.from_pretrained('Davlan/distilbert-base-multilingual-cased-ner-hrl');
  */
 export class AutoModelForTokenClassification extends PretrainedMixin {
-    static LOAD_FUNCTION = loadModel;
+    static MODEL_TYPE = EncoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForTokenClassification,
         'distilbert': DistilBertForTokenClassification,
@@ -2745,7 +2549,7 @@ export class AutoModelForTokenClassification extends PretrainedMixin {
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
  */
 export class AutoModelForSeq2SeqLM extends PretrainedMixin {
-    static LOAD_FUNCTION = seq2seqLoadModel;
+    static MODEL_TYPE = Seq2SeqModelType;
     static MODEL_CLASS_MAPPING = {
         't5': T5ForConditionalGeneration,
         'mt5': MT5ForConditionalGeneration,
@@ -2764,7 +2568,7 @@ export class AutoModelForSeq2SeqLM extends PretrainedMixin {
  * let model = await AutoModelForCausalLM.from_pretrained('gpt2');
  */
 export class AutoModelForCausalLM extends PretrainedMixin {
-    static LOAD_FUNCTION = decoderLoadModel;
+    static MODEL_TYPE = DecoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'gpt2': GPT2LMHeadModel,
         'gpt_neo': GPTNeoForCausalLM,
@@ -2780,7 +2584,7 @@ export class AutoModelForCausalLM extends PretrainedMixin {
  * let model = await AutoModelForMaskedLM.from_pretrained('bert-base-uncased');
  */
 export class AutoModelForMaskedLM extends PretrainedMixin {
-    static LOAD_FUNCTION = loadAutoModel;
+    static MODEL_TYPE = EncoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForMaskedLM,
         'albert': AlbertForMaskedLM,
@@ -2799,7 +2603,7 @@ export class AutoModelForMaskedLM extends PretrainedMixin {
  * let model = await AutoModelForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad');
  */
 export class AutoModelForQuestionAnswering extends PretrainedMixin {
-    static LOAD_FUNCTION = loadModel;
+    static MODEL_TYPE = EncoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'bert': BertForQuestionAnswering,
         'albert': AlbertForQuestionAnswering,
@@ -2818,7 +2622,7 @@ export class AutoModelForQuestionAnswering extends PretrainedMixin {
  * let model = await AutoModelForVision2Seq.from_pretrained('nlpconnect/vit-gpt2-image-captioning');
  */
 export class AutoModelForVision2Seq extends PretrainedMixin {
-    static LOAD_FUNCTION = encoderDecoderLoadModel;
+    static MODEL_TYPE = EncoderDecoderModelType;
     static MODEL_CLASS_MAPPING = {
         'vision-encoder-decoder': VisionEncoderDecoderModel
     }
@@ -2832,7 +2636,7 @@ export class AutoModelForVision2Seq extends PretrainedMixin {
  * let model = await AutoModelForImageClassification.from_pretrained('google/vit-base-patch16-224');
  */
 export class AutoModelForImageClassification extends PretrainedMixin {
-    static LOAD_FUNCTION = loadModel;
+    static MODEL_TYPE = EncoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'vit': ViTForImageClassification,
     }
@@ -2846,7 +2650,7 @@ export class AutoModelForImageClassification extends PretrainedMixin {
  * let model = await AutoModelForImageSegmentation.from_pretrained('facebook/detr-resnet-50-panoptic');
  */
 export class AutoModelForImageSegmentation extends PretrainedMixin {
-    static LOAD_FUNCTION = loadModel;
+    static MODEL_TYPE = EncoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForSegmentation,
     }
@@ -2860,7 +2664,7 @@ export class AutoModelForImageSegmentation extends PretrainedMixin {
  * let model = await AutoModelForObjectDetection.from_pretrained('facebook/detr-resnet-50');
  */
 export class AutoModelForObjectDetection extends PretrainedMixin {
-    static LOAD_FUNCTION = loadModel;
+    static MODEL_TYPE = EncoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'detr': DetrForObjectDetection,
     }
@@ -2874,7 +2678,7 @@ export class AutoModelForObjectDetection extends PretrainedMixin {
  * let model = await AutoModelForMaskGeneration.from_pretrained('Xenova/sam-vit-base');
  */
 export class AutoModelForMaskGeneration extends PretrainedMixin {
-    static LOAD_FUNCTION = loadModel;
+    static MODEL_TYPE = EncoderOnlyModelType;
     static MODEL_CLASS_MAPPING = {
         'sam': SamModel,
     }
