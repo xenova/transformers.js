@@ -84,9 +84,8 @@ const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 class ModelType { };
 
 // Either encoder-only or encoder-decoder (and will be decided by `model.config.is_encoder_decoder`)
-class EncoderModelType extends ModelType { };
-class EncoderOnlyModelType extends EncoderModelType { };
-class EncoderDecoderModelType extends EncoderModelType { };
+class EncoderOnlyModelType extends ModelType { };
+class EncoderDecoderModelType extends ModelType { };
 class Seq2SeqModelType extends EncoderDecoderModelType { };
 class DecoderOnlyModelType extends ModelType { };
 //////////////////////////////////////////////////
@@ -95,66 +94,9 @@ class DecoderOnlyModelType extends ModelType { };
 //////////////////////////////////////////////////
 // Helper functions
 
-/**
- * Determines whether `a` is a subclass of `b`.
- * @param {any} a The first item
- * @param {any} b The second item
- * @returns Whether `a` is a subclass of `b`.
- * @private
- */
-function issubclass(a, b) {
-    return a === b || a.prototype instanceof b;
-}
-
-/**
- * Loads an model from the specified path.
- * @param {Object} cls The class of the model.
- * @param {string} pretrained_model_name_or_path The path to the model directory.
- * @param {PretrainedOptions} options Additional options for loading the model.
- * @returns {Promise<Array>} A promise that resolves with information about the loaded model.
- * @private
- */
-async function load(cls, pretrained_model_name_or_path, options) {
-    const cModelType = cls.MODEL_TYPE;
-    if (cls.MODEL_TYPE === null) {
-        throw new Error("`MODEL_TYPE` not implemented for this model.");
-    }
-    if (issubclass(cModelType, DecoderOnlyModelType)) {
-        return await Promise.all([
-            AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-            constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
-        ]);
-
-    } else if (issubclass(cModelType, Seq2SeqModelType)) {
-        return await Promise.all([
-            AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-            constructSession(pretrained_model_name_or_path, 'encoder_model', options),
-            constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
-            getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
-        ]);
-
-    } else if (issubclass(cModelType, EncoderDecoderModelType)) {
-        return await Promise.all([
-            AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-            constructSession(pretrained_model_name_or_path, 'encoder_model', options),
-            constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
-        ]);
-
-    } else if (issubclass(cModelType, EncoderOnlyModelType)) {
-        return await Promise.all([
-            AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-            constructSession(pretrained_model_name_or_path, 'model', options)
-        ]);
-
-    } else if (issubclass(cModelType, EncoderModelType)) {
-        let config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options)
-        let modelName = config.is_encoder_decoder ? 'encoder_model' : 'model';
-        let session = await constructSession(pretrained_model_name_or_path, modelName, options);
-        return [config, session];
-    } else {
-        throw Error(`Unable to determine model type: ${cModelType?.constructor?.name}`);
-    }
-}
+// Will be populated later
+const MODEL_TYPE_MAPPING = new Map();
+const MODEL_CLASS_MAPPING = new Map();
 
 /**
  * Helper function to determine which `forward` method to run for a specific model.
@@ -163,7 +105,7 @@ async function load(cls, pretrained_model_name_or_path, options) {
  * @returns {Promise<Object>} The model output
  */
 async function forward(self, model_inputs) {
-    if (issubclass(self.constructor.MODEL_TYPE, DecoderOnlyModelType)) {
+    if (MODEL_TYPE_MAPPING.get(self.constructor.name) === DecoderOnlyModelType) {
         return await decoderForward(self, model_inputs);
     } else {
         return await encoderForward(self, model_inputs);
@@ -507,7 +449,7 @@ async function decoderForward(self, model_inputs) {
         attention_mask: model_inputs.attention_mask,
         use_cache_branch: boolTensor(past_key_values !== null)
     }
-    self.addPastKeyValues(decoderFeeds, past_key_values)
+    self.addPastKeyValues(decoderFeeds, past_key_values);
 
     let decoderResults = await sessionRun(self.session, decoderFeeds);
     let logits = decoderResults.logits;
@@ -617,7 +559,6 @@ function decoderUpdatebeam(beam, newTokenId) {
  * @extends Callable
  */
 export class PreTrainedModel extends Callable {
-    static MODEL_TYPE = EncoderModelType;
 
     /**
      * Creates a new instance of the `PreTrainedModel` class.
@@ -634,11 +575,9 @@ export class PreTrainedModel extends Callable {
     /**
     * Disposes of all the ONNX sessions that were created during inference.
     * @returns {Promise<unknown[]>} An array of promises, one for each ONNX session that is being disposed.
+    * @todo Use https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
     */
     async dispose() {
-        // Dispose of all ONNX sessions sessions
-        // TODO use: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
-
         let promises = [];
         for (let key of Object.keys(this)) {
             let item = this[key];
@@ -650,10 +589,17 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-     * Loads a pre-trained model from the given `pretrained_model_name_or_path`. 
+     * Instantiate one of the model classes of the library from a pretrained model.
      * 
-     * @param {string} pretrained_model_name_or_path The path to the pre-trained model.
-     * @param {PretrainedOptions} options Additional options for loading the model. For more information, @see {@link PreTrainedModel.from_pretrained}.
+     * The model class to instantiate is selected based on the `model_type` property of the config object
+     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
+     * 
+     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
+     * - A string, the *model id* of a pretrained model hosted inside a model repo on huggingface.co.
+     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+     *   user or organization name, like `dbmdz/bert-base-german-cased`.
+     * - A path to a *directory* containing model weights, e.g., `./my_model_directory/`.
+     * @param {PretrainedOptions} options Additional options for loading the model.
      * 
      * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */
@@ -665,14 +611,50 @@ export class PreTrainedModel extends Callable {
         local_files_only = false,
         revision = 'main',
     } = {}) {
-        let info = await load(this, pretrained_model_name_or_path, {
+
+        let options = {
             quantized,
             progress_callback,
             config,
             cache_dir,
             local_files_only,
             revision,
-        });
+        }
+
+        let modelType = MODEL_TYPE_MAPPING.get(this.name);
+
+        let info;
+        if (modelType === DecoderOnlyModelType) {
+            info = await Promise.all([
+                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+            ]);
+
+        } else if (modelType === Seq2SeqModelType) {
+            info = await Promise.all([
+                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+                constructSession(pretrained_model_name_or_path, 'encoder_model', options),
+                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+                getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
+            ]);
+
+        } else if (modelType === EncoderDecoderModelType) {
+            info = await Promise.all([
+                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+                constructSession(pretrained_model_name_or_path, 'encoder_model', options),
+                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+            ]);
+
+        } else if (modelType === EncoderOnlyModelType) {
+            info = await Promise.all([
+                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+                constructSession(pretrained_model_name_or_path, 'model', options)
+            ]);
+
+        } else {
+            console.warn('Malformed class definition.', this);
+            throw Error(`Unable to load model: ${pretrained_model_name_or_path}. Please report this bug at https://github.com/xenova/transformers.js/issues/new/choose.`);
+        }
 
         // @ts-ignore
         return new this(...info);
@@ -1401,7 +1383,6 @@ export class T5Model extends T5PreTrainedModel {
  * @extends T5PreTrainedModel
  */
 export class T5ForConditionalGeneration extends T5PreTrainedModel {
-    static MODEL_TYPE = Seq2SeqModelType;
 
     /**
      * Creates a new instance of the `T5ForConditionalGeneration` class.
@@ -1487,7 +1468,6 @@ export class MT5Model extends MT5PreTrainedModel {
  * @extends MT5PreTrainedModel
  */
 export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
-    static MODEL_TYPE = Seq2SeqModelType;
 
     /**
      * Creates a new instance of the `MT5ForConditionalGeneration` class.
@@ -1580,7 +1560,6 @@ export class BartModel extends BartPretrainedModel {
  * @extends BartPretrainedModel
  */
 export class BartForConditionalGeneration extends BartPretrainedModel {
-    static MODEL_TYPE = Seq2SeqModelType;
 
     /**
      * Creates a new instance of the `BartForConditionalGeneration` class.
@@ -1737,7 +1716,6 @@ export class WhisperModel extends WhisperPreTrainedModel {
  * @extends WhisperPreTrainedModel
  */
 export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
-    static MODEL_TYPE = Seq2SeqModelType;
 
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
@@ -1911,14 +1889,28 @@ export class CLIPModel extends CLIPPreTrainedModel {
 
 //////////////////////////////////////////////////
 // GPT2 models
-export class GPT2PreTrainedModel extends PreTrainedModel { }
-/**
- * GPT2Model is not compatible with `.generate()`, as it doesn't have a language model head.
- * @extends GPT2PreTrainedModel
- */
-export class GPT2Model extends GPT2PreTrainedModel {
+export class GPT2PreTrainedModel extends PreTrainedModel {
     /**
-     * 
+     * Creates a new instance of the `GPT2PreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.n_embd / this.num_heads;
+    }
+}
+
+export class GPT2Model extends GPT2PreTrainedModel {
+
+    /**
+     * GPT2Model is not compatible with `.generate()`, as it doesn't have a language model head.
      * @param  {...any} args 
      * @throws {Error}
      * @returns {Promise<any>}
@@ -1935,23 +1927,6 @@ export class GPT2Model extends GPT2PreTrainedModel {
  * @extends GPT2PreTrainedModel
  */
 export class GPT2LMHeadModel extends GPT2PreTrainedModel {
-    static MODEL_TYPE = DecoderOnlyModelType;
-
-    /**
-     * Creates a new instance of the `GPT2LMHeadModel` class.
-     * @param {Object} config The configuration of the model.
-     * @param {any} session The ONNX session containing the model weights.
-     */
-    constructor(config, session) {
-        super(config, session);
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd / this.num_heads;
-    }
 
     /**
      * Initializes and returns the beam for text generation task
@@ -1996,7 +1971,23 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 // TODO
 // }
 //////////////////////////////////////////////////
-export class GPTNeoPreTrainedModel extends PreTrainedModel { }
+export class GPTNeoPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `GPTNeoPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_heads;
+        this.num_layers = this.config.num_layers;
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
 export class GPTNeoModel extends GPTNeoPreTrainedModel {
     /**
      * 
@@ -2012,23 +2003,6 @@ export class GPTNeoModel extends GPTNeoPreTrainedModel {
 }
 
 export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
-    static MODEL_TYPE = DecoderOnlyModelType;
-
-    /**
-     * Creates a new instance of the `GPTNeoForCausalLM` class.
-     * @param {Object} config The configuration of the model.
-     * @param {any} session The ONNX session containing the model weights.
-     */
-    constructor(config, session) {
-        super(config, session);
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_heads;
-        this.num_layers = this.config.num_layers;
-        this.dim_kv = this.config.hidden_size / this.num_heads;
-    }
 
     /**
      * Initializes and returns the beam for text generation task
@@ -2071,7 +2045,23 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
 
 //////////////////////////////////////////////////
 // CodeGen models
-export class CodeGenPreTrainedModel extends PreTrainedModel { }
+export class CodeGenPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `CodeGenPreTrainedModel` class.
+    * @param {Object} config The model configuration object.
+    * @param {Object} session The ONNX session object.
+    */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.n_embd / this.num_heads;
+    }
+}
 /**
  * CodeGenModel is a class representing a code generation model without a language model head.
  * 
@@ -2099,23 +2089,6 @@ export class CodeGenModel extends CodeGenPreTrainedModel {
  * @extends CodeGenPreTrainedModel
  */
 export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
-    static MODEL_TYPE = DecoderOnlyModelType;
-
-    /**
-     * Creates a new instance of the `CodeGenForCausalLM` class.
-    * @param {Object} config The model configuration object.
-    * @param {Object} session The ONNX session object.
-    */
-    constructor(config, session) {
-        super(config, session);
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd / this.num_heads;
-    }
 
     /**
      * Initializes and returns the beam for text generation task
@@ -2275,7 +2248,6 @@ export class MarianModel extends MarianPreTrainedModel {
 }
 
 export class MarianMTModel extends MarianPreTrainedModel {
-    static MODEL_TYPE = Seq2SeqModelType;
 
     /**
      * Creates a new instance of the `MarianMTModel` class.
@@ -2355,7 +2327,6 @@ export class M2M100Model extends M2M100PreTrainedModel {
 }
 
 export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
-    static MODEL_TYPE = Seq2SeqModelType;
 
     /**
      * Creates a new instance of the `M2M100ForConditionalGeneration` class.
@@ -2429,8 +2400,9 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
 export class PretrainedMixin {
     /**
      * Mapping from model type to model class.
+     * @type {Map<string, Object>[]}
      */
-    static MODEL_CLASS_MAPPING = Object.create(null);
+    static MODEL_CLASS_MAPPINGS = null;
 
     /**
      * Whether to attempt to instantiate the base class (`PretrainedModel`) if 
@@ -2438,26 +2410,8 @@ export class PretrainedMixin {
      */
     static BASE_IF_FAIL = false;
 
-    /**
-     * The type of model. We set this to null since we require each `AutoModel` to override this.
-     */
-    static MODEL_TYPE = null;
 
-    /**
-     * Instantiate one of the model classes of the library from a pretrained model.
-     * 
-     * The model class to instantiate is selected based on the `model_type` property of the config object
-     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
-     * 
-     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
-     * - A string, the *model id* of a pretrained model hosted inside a model repo on huggingface.co.
-     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
-     *   user or organization name, like `dbmdz/bert-base-german-cased`.
-     * - A path to a *directory* containing model weights, e.g., `./my_model_directory/`.
-     * @param {PretrainedOptions} options Additional options for loading the model.
-     * 
-     * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
-     */
+    /** @type {PreTrainedModel.from_pretrained} */
     static async from_pretrained(pretrained_model_name_or_path, {
         quantized = true,
         progress_callback = null,
@@ -2466,25 +2420,158 @@ export class PretrainedMixin {
         local_files_only = false,
         revision = 'main',
     } = {}) {
-        let info = await load(this, pretrained_model_name_or_path, {
+
+        let options = {
             quantized,
             progress_callback,
             config,
             cache_dir,
             local_files_only,
             revision,
-        });
-
-        let cls = this.MODEL_CLASS_MAPPING[info[0].model_type];
-        if (!cls) {
-            if (this.BASE_IF_FAIL) {
-                console.warn(`Unknown model class "${info[0].model_type}", attempting to construct from base class.`);
-                cls = PreTrainedModel;
-            } else {
-                throw Error(`Unsupported model type: ${info[0].model_type}`)
-            }
         }
-        return new cls(...info);
+        config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
+
+        if (!this.MODEL_CLASS_MAPPINGS) {
+            throw new Error("`MODEL_CLASS_MAPPINGS` not implemented for this type of `AutoClass`: " + this.name);
+        }
+
+        let modelClass;
+        for (let MODEL_CLASS_MAPPING of this.MODEL_CLASS_MAPPINGS) {
+            modelClass = MODEL_CLASS_MAPPING.get(config.model_type);
+            if (!modelClass) {
+                continue; // Item not found in this mapping
+            }
+
+            return await modelClass.from_pretrained(pretrained_model_name_or_path, options);
+        }
+
+        if (this.BASE_IF_FAIL) {
+            console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
+            return await PreTrainedModel.from_pretrained(pretrained_model_name_or_path, options);
+        } else {
+            throw Error(`Unsupported model type: ${config.model_type}`)
+        }
+    }
+}
+
+const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
+    ['bert', BertModel],
+    ['albert', AlbertModel],
+    ['distilbert', DistilBertModel],
+    ['roberta', RobertaModel],
+    ['clip', CLIPModel],
+    ['mobilebert', MobileBertModel],
+    ['squeezebert', SqueezeBertModel],
+
+    ['sam', SamModel], // TODO change to encoder-decoder when model is split correctly
+]);
+
+const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
+    ['t5', T5Model],
+    ['mt5', MT5Model],
+    ['bart', BartModel],
+    ['marian', MarianModel],
+    ['whisper', WhisperModel],
+    ['m2m_100', M2M100Model],
+]);
+
+
+const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
+    ['gpt2', GPT2Model],
+    ['gpt_neo', GPTNeoModel],
+    ['codegen', CodeGenModel],
+]);
+
+const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
+    ['bert', BertForSequenceClassification],
+    ['albert', AlbertForSequenceClassification],
+    ['distilbert', DistilBertForSequenceClassification],
+    ['roberta', RobertaForSequenceClassification],
+    ['bart', BartForSequenceClassification],
+    ['mobilebert', MobileBertForSequenceClassification],
+    ['squeezebert', SqueezeBertForSequenceClassification],
+]);
+
+const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
+    ['bert', BertForTokenClassification],
+    ['distilbert', DistilBertForTokenClassification],
+]);
+
+const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
+    ['t5', T5ForConditionalGeneration],
+    ['mt5', MT5ForConditionalGeneration],
+    ['bart', BartForConditionalGeneration],
+    ['whisper', WhisperForConditionalGeneration],
+    ['marian', MarianMTModel],
+    ['m2m_100', M2M100ForConditionalGeneration],
+]);
+
+const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
+    ['gpt2', GPT2LMHeadModel],
+    ['gpt_neo', GPTNeoForCausalLM],
+    ['codegen', CodeGenForCausalLM],
+]);
+
+const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
+    ['bert', BertForMaskedLM],
+    ['albert', AlbertForMaskedLM],
+    ['distilbert', DistilBertForMaskedLM],
+    ['roberta', RobertaForMaskedLM],
+    ['mobilebert', MobileBertForMaskedLM],
+    ['squeezebert', SqueezeBertForMaskedLM],
+]);
+
+const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
+    ['bert', BertForQuestionAnswering],
+    ['albert', AlbertForQuestionAnswering],
+    ['distilbert', DistilBertForQuestionAnswering],
+    ['roberta', RobertaForQuestionAnswering],
+    ['mobilebert', MobileBertForQuestionAnswering],
+    ['squeezebert', SqueezeBertForQuestionAnswering],
+]);
+
+const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
+    ['vision-encoder-decoder', VisionEncoderDecoderModel],
+]);
+
+const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
+    ['vit', ViTForImageClassification],
+]);
+
+const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
+    ['detr', DetrForObjectDetection],
+]);
+
+const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
+    ['detr', DetrForSegmentation],
+]);
+
+const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
+    ['sam', SamModel],
+]);
+
+const MODEL_CLASS_TYPE_MAPPING = [
+    [MODEL_MAPPING_NAMES_ENCODER_ONLY, EncoderOnlyModelType],
+    [MODEL_MAPPING_NAMES_ENCODER_DECODER, EncoderDecoderModelType],
+    [MODEL_MAPPING_NAMES_DECODER_ONLY, DecoderOnlyModelType],
+    [MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES, Seq2SeqModelType],
+    [MODEL_WITH_LM_HEAD_MAPPING_NAMES, DecoderOnlyModelType],
+    [MODEL_FOR_MASKED_LM_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES, EncoderDecoderModelType],
+    [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, EncoderOnlyModelType],
+];
+
+for (let [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
+    // @ts-ignore
+    for (let [name, model] of mappings.entries()) {
+        MODEL_TYPE_MAPPING.set(model.name, type);
+        MODEL_CLASS_MAPPING.set(model.name, name);
     }
 }
 
@@ -2496,27 +2583,8 @@ export class PretrainedMixin {
  * let model = await AutoModel.from_pretrained('bert-base-uncased');
  */
 export class AutoModel extends PretrainedMixin {
-    static MODEL_TYPE = EncoderModelType; // Assume to be an encoder-only or encoder-decoder model.
+    static MODEL_CLASS_MAPPINGS = [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_MAPPING_NAMES_ENCODER_DECODER, MODEL_MAPPING_NAMES_DECODER_ONLY];
     static BASE_IF_FAIL = true;
-    static MODEL_CLASS_MAPPING = {
-        'bert': BertModel,
-        'albert': AlbertModel,
-        'distilbert': DistilBertModel,
-        't5': T5Model,
-        'mt5': MT5Model,
-        'gpt2': GPT2Model,
-        'gpt_neo': GPTNeoModel,
-        'codegen': CodeGenModel,
-        'bart': BartModel,
-        'roberta': RobertaModel,
-        'whisper': WhisperModel,
-        'clip': CLIPModel,
-        'mobilebert': MobileBertModel,
-        'squeezebert': SqueezeBertModel,
-        'marian': MarianModel,
-        'm2m_100': M2M100Model,
-        'sam': SamModel,
-    }
 }
 
 /**
@@ -2527,16 +2595,7 @@ export class AutoModel extends PretrainedMixin {
  * let model = await AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english');
  */
 export class AutoModelForSequenceClassification extends PretrainedMixin {
-    static MODEL_TYPE = EncoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'bert': BertForSequenceClassification,
-        'albert': AlbertForSequenceClassification,
-        'distilbert': DistilBertForSequenceClassification,
-        'roberta': RobertaForSequenceClassification,
-        'bart': BartForSequenceClassification,
-        'mobilebert': MobileBertForSequenceClassification,
-        'squeezebert': SqueezeBertForSequenceClassification,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES];
 }
 
 /**
@@ -2547,13 +2606,8 @@ export class AutoModelForSequenceClassification extends PretrainedMixin {
  * let model = await AutoModelForTokenClassification.from_pretrained('Davlan/distilbert-base-multilingual-cased-ner-hrl');
  */
 export class AutoModelForTokenClassification extends PretrainedMixin {
-    static MODEL_TYPE = EncoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'bert': BertForTokenClassification,
-        'distilbert': DistilBertForTokenClassification,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES];
 }
-
 
 /**
  * Helper class which is used to instantiate pretrained sequence-to-sequence models with the `from_pretrained` function.
@@ -2563,15 +2617,7 @@ export class AutoModelForTokenClassification extends PretrainedMixin {
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
  */
 export class AutoModelForSeq2SeqLM extends PretrainedMixin {
-    static MODEL_TYPE = Seq2SeqModelType;
-    static MODEL_CLASS_MAPPING = {
-        't5': T5ForConditionalGeneration,
-        'mt5': MT5ForConditionalGeneration,
-        'bart': BartForConditionalGeneration,
-        'whisper': WhisperForConditionalGeneration,
-        'marian': MarianMTModel,
-        'm2m_100': M2M100ForConditionalGeneration,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES];
 }
 
 /**
@@ -2582,12 +2628,7 @@ export class AutoModelForSeq2SeqLM extends PretrainedMixin {
  * let model = await AutoModelForCausalLM.from_pretrained('gpt2');
  */
 export class AutoModelForCausalLM extends PretrainedMixin {
-    static MODEL_TYPE = DecoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'gpt2': GPT2LMHeadModel,
-        'gpt_neo': GPTNeoForCausalLM,
-        'codegen': CodeGenForCausalLM,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_WITH_LM_HEAD_MAPPING_NAMES];
 }
 
 /**
@@ -2598,15 +2639,7 @@ export class AutoModelForCausalLM extends PretrainedMixin {
  * let model = await AutoModelForMaskedLM.from_pretrained('bert-base-uncased');
  */
 export class AutoModelForMaskedLM extends PretrainedMixin {
-    static MODEL_TYPE = EncoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'bert': BertForMaskedLM,
-        'albert': AlbertForMaskedLM,
-        'distilbert': DistilBertForMaskedLM,
-        'roberta': RobertaForMaskedLM,
-        'mobilebert': MobileBertForMaskedLM,
-        'squeezebert': SqueezeBertForMaskedLM,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_MASKED_LM_MAPPING_NAMES];
 }
 
 /**
@@ -2617,15 +2650,7 @@ export class AutoModelForMaskedLM extends PretrainedMixin {
  * let model = await AutoModelForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad');
  */
 export class AutoModelForQuestionAnswering extends PretrainedMixin {
-    static MODEL_TYPE = EncoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'bert': BertForQuestionAnswering,
-        'albert': AlbertForQuestionAnswering,
-        'distilbert': DistilBertForQuestionAnswering,
-        'roberta': RobertaForQuestionAnswering,
-        'mobilebert': MobileBertForQuestionAnswering,
-        'squeezebert': SqueezeBertForQuestionAnswering,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES];
 }
 
 /**
@@ -2636,10 +2661,7 @@ export class AutoModelForQuestionAnswering extends PretrainedMixin {
  * let model = await AutoModelForVision2Seq.from_pretrained('nlpconnect/vit-gpt2-image-captioning');
  */
 export class AutoModelForVision2Seq extends PretrainedMixin {
-    static MODEL_TYPE = EncoderDecoderModelType;
-    static MODEL_CLASS_MAPPING = {
-        'vision-encoder-decoder': VisionEncoderDecoderModel
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES];
 }
 
 /**
@@ -2650,10 +2672,7 @@ export class AutoModelForVision2Seq extends PretrainedMixin {
  * let model = await AutoModelForImageClassification.from_pretrained('google/vit-base-patch16-224');
  */
 export class AutoModelForImageClassification extends PretrainedMixin {
-    static MODEL_TYPE = EncoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'vit': ViTForImageClassification,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES];
 }
 
 /**
@@ -2664,10 +2683,7 @@ export class AutoModelForImageClassification extends PretrainedMixin {
  * let model = await AutoModelForImageSegmentation.from_pretrained('facebook/detr-resnet-50-panoptic');
  */
 export class AutoModelForImageSegmentation extends PretrainedMixin {
-    static MODEL_TYPE = EncoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'detr': DetrForSegmentation,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES];
 }
 
 /**
@@ -2678,10 +2694,7 @@ export class AutoModelForImageSegmentation extends PretrainedMixin {
  * let model = await AutoModelForObjectDetection.from_pretrained('facebook/detr-resnet-50');
  */
 export class AutoModelForObjectDetection extends PretrainedMixin {
-    static MODEL_TYPE = EncoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'detr': DetrForObjectDetection,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES];
 }
 
 /**
@@ -2692,10 +2705,7 @@ export class AutoModelForObjectDetection extends PretrainedMixin {
  * let model = await AutoModelForMaskGeneration.from_pretrained('Xenova/sam-vit-base');
  */
 export class AutoModelForMaskGeneration extends PretrainedMixin {
-    static MODEL_TYPE = EncoderOnlyModelType;
-    static MODEL_CLASS_MAPPING = {
-        'sam': SamModel,
-    }
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES];
 }
 //////////////////////////////////////////////////
 
