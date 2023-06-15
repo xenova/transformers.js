@@ -355,20 +355,18 @@ function boolTensor(value) {
  * @param {Object} self The seq2seq model object.
  * @param {Object} model_inputs The input object for the model containing encoder and decoder inputs.
  * @param {Object} options The options
- * @param {string} [options.encoder_input_name='input_ids'] The name of the input tensor for the encoder.
  * @param {boolean} [options.add_decoder_pkv=true] Flag to add the decoder past key values.
  * @returns {Promise<Seq2SeqLMOutput>} Promise that resolves with the output of the seq2seq model.
  * @private
  */
 async function seq2seqForward(self, model_inputs, {
-    encoder_input_name = 'input_ids',
     add_decoder_pkv = true
 } = {}) {
     let { encoder_outputs, past_key_values } = model_inputs;
 
     if (!encoder_outputs) {
         // Encoder outputs are not given, so we must compute them.
-        encoder_outputs = (await encoderForward(self, model_inputs, encoder_input_name)).last_hidden_state;
+        encoder_outputs = (await encoderForward(self, model_inputs)).last_hidden_state;
     }
     let decoderFeeds = {
         input_ids: model_inputs.decoder_input_ids,
@@ -472,19 +470,15 @@ async function seq2seqRunBeam(self, beam, {
  * Forward pass of an encoder model.
  * @param {Object} self The encoder model.
  * @param {Object} model_inputs The input data to be used for the forward pass.
- * @returns {Promise<BaseModelOutput>} Promise that resolves with an object containing the model's outputs.
+ * @returns {Promise<Object>} Promise that resolves with an object containing the model's outputs.
  * @private
  */
-async function encoderForward(self, model_inputs, encoder_input_name = 'input_ids') {
-    const encoderFeeds = {
-        [encoder_input_name]: model_inputs[encoder_input_name],
-    }
-
+async function encoderForward(self, model_inputs) {
+    const encoderFeeds = { ...model_inputs }; // Shallow copy
     if (self.session.inputNames.includes('attention_mask')) {
         encoderFeeds.attention_mask = model_inputs.attention_mask;
     }
-    const encoderResults = await sessionRun(self.session, encoderFeeds);
-    return new BaseModelOutput(encoderResults);
+    return await sessionRun(self.session, encoderFeeds);;
 }
 
 
@@ -1822,9 +1816,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * @returns {Promise<Object>} The model output.
      */
     async forward(model_inputs) {
-        return await seq2seqForward(this, model_inputs, {
-            encoder_input_name: 'input_features',
-        });
+        return await seq2seqForward(this, model_inputs);
     }
 }
 //////////////////////////////////////////////////
@@ -1891,7 +1883,6 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
      */
     async forward(model_inputs) {
         return await seq2seqForward(this, model_inputs, {
-            encoder_input_name: 'pixel_values',
             add_decoder_pkv: false
         })
     }
