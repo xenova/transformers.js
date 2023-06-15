@@ -94,9 +94,18 @@ class DecoderOnlyModelType extends ModelType { };
 
 //////////////////////////////////////////////////
 // Helper functions
+
+/**
+ * Determines whether `a` is a subclass of `b`.
+ * @param {any} a The first item
+ * @param {any} b The second item
+ * @returns Whether `a` is a subclass of `b`.
+ * @private
+ */
 function issubclass(a, b) {
     return a === b || a.prototype instanceof b;
 }
+
 /**
  * Loads an model from the specified path.
  * @param {Object} cls The class of the model.
@@ -148,16 +157,16 @@ async function load(cls, pretrained_model_name_or_path, options) {
 }
 
 /**
- * Helper function to determine which `call` method to run for a specific model.
+ * Helper function to determine which `forward` method to run for a specific model.
  * @param {Object} self The calling object
  * @param {Object} model_inputs The inputs to be sent to the model
- * @returns {Promise<ModelOutput>} The model output
+ * @returns {Promise<Object>} The model output
  */
-async function call(self, model_inputs) {
+async function forward(self, model_inputs) {
     if (issubclass(self.constructor.MODEL_TYPE, DecoderOnlyModelType)) {
         return await decoderForward(self, model_inputs);
     } else {
-        return await sessionRun(self.session, model_inputs);
+        return await encoderForward(self, model_inputs);
     }
 }
 
@@ -342,7 +351,7 @@ function boolTensor(value) {
 
 // JS doesn't support mixins, so we define some reused functions here, and allow "this" to be passed in
 /**
- * Perform forward pass on the seq2seq model.
+ * Perform forward pass on the seq2seq model (both encoder and decoder).
  * @param {Object} self The seq2seq model object.
  * @param {Object} model_inputs The input object for the model containing encoder and decoder inputs.
  * @param {Object} options The options
@@ -355,35 +364,27 @@ async function seq2seqForward(self, model_inputs, {
     encoder_input_name = 'input_ids',
     add_decoder_pkv = true
 } = {}) {
-    let encoderOutputs = model_inputs.encoder_outputs;
-    let pastKeyValues = model_inputs.past_key_values;
+    let { encoder_outputs, past_key_values } = model_inputs;
 
-    if (!encoderOutputs) {
-        const encoderFeeds = {
-            [encoder_input_name]: model_inputs[encoder_input_name],
-        }
-
-        if (self.session.inputNames.includes('attention_mask')) {
-            encoderFeeds.attention_mask = model_inputs.attention_mask
-        }
-        const encoderResults = await sessionRun(self.session, encoderFeeds);
-        encoderOutputs = encoderResults.last_hidden_state;
+    if (!encoder_outputs) {
+        // Encoder outputs are not given, so we must compute them.
+        encoder_outputs = (await encoderForward(self, model_inputs, encoder_input_name)).last_hidden_state;
     }
     let decoderFeeds = {
         input_ids: model_inputs.decoder_input_ids,
-        encoder_hidden_states: encoderOutputs,
-        use_cache_branch: boolTensor(pastKeyValues !== null)
+        encoder_hidden_states: encoder_outputs,
+        use_cache_branch: boolTensor(past_key_values !== null)
     };
 
     if (self.decoder_merged_session.inputNames.includes('encoder_attention_mask')) {
         decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
     }
-    self.addPastKeyValues(decoderFeeds, pastKeyValues, add_decoder_pkv);
+    self.addPastKeyValues(decoderFeeds, past_key_values, add_decoder_pkv);
 
     const decoderResults = await sessionRun(self.decoder_merged_session, decoderFeeds);
     let logits = decoderResults.logits;
-    pastKeyValues = self.getPastKeyValues(decoderResults, pastKeyValues);
-    return new Seq2SeqLMOutput(logits, pastKeyValues, encoderOutputs);
+    past_key_values = self.getPastKeyValues(decoderResults, past_key_values);
+    return new Seq2SeqLMOutput({ logits, past_key_values, encoder_outputs });
 }
 
 /**
@@ -468,10 +469,30 @@ async function seq2seqRunBeam(self, beam, {
 }
 
 /**
+ * Forward pass of an encoder model.
+ * @param {Object} self The encoder model.
+ * @param {Object} model_inputs The input data to be used for the forward pass.
+ * @returns {Promise<BaseModelOutput>} Promise that resolves with an object containing the model's outputs.
+ * @private
+ */
+async function encoderForward(self, model_inputs, encoder_input_name = 'input_ids') {
+    const encoderFeeds = {
+        [encoder_input_name]: model_inputs[encoder_input_name],
+    }
+
+    if (self.session.inputNames.includes('attention_mask')) {
+        encoderFeeds.attention_mask = model_inputs.attention_mask;
+    }
+    const encoderResults = await sessionRun(self.session, encoderFeeds);
+    return new BaseModelOutput(encoderResults);
+}
+
+
+/**
  * Forward pass of a decoder model.
  * @param {Object} self The decoder model.
  * @param {Object} model_inputs The input data to be used for the forward pass.
- * @returns {Promise<CausalLMOutputWithPast>} Promise that resolves with an object containing the logits and past key values.
+ * @returns {Promise<Object>} Promise that resolves with an object containing the logits and past key values.
  * @private
  */
 async function decoderForward(self, model_inputs) {
@@ -487,7 +508,7 @@ async function decoderForward(self, model_inputs) {
     let logits = decoderResults.logits;
 
     past_key_values = self.getPastKeyValues(decoderResults, past_key_values);
-    return new CausalLMOutputWithPast(logits, past_key_values);
+    return { logits, past_key_values };
 }
 
 /**
@@ -658,18 +679,18 @@ export class PreTrainedModel extends Callable {
      * @returns {Promise<Object>} Object containing output tensors
      */
     async _call(model_inputs) {
-        return await call(this, model_inputs);
+        return await this.forward(model_inputs);
     }
 
     /**
-     * Forward method should be implemented in subclasses.
-     * @abstract
+     * Forward method for a pretrained model. If not overridden by a subclass, the correct forward method
+     * will be chosen based on the model type.
      * @param {Object} model_inputs The input data to the model in the format specified in the ONNX model.
      * @returns {Promise<Object>} The output data from the model in the format specified in the ONNX model.
      * @throws {Error} This method must be implemented in subclasses.
      */
     async forward(model_inputs) {
-        throw Error("forward should be implemented in subclasses.")
+        return await forward(this, model_inputs);
     }
 
     /**
@@ -1060,7 +1081,23 @@ export class PreTrainedModel extends Callable {
 // Base model output class
 export class ModelOutput { }
 
-
+/**
+ * Base class for model's outputs, with potential hidden states and attentions.
+ */
+export class BaseModelOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.last_hidden_state Sequence of hidden-states at the output of the last layer of the model.
+     * @param {Tensor} [output.hidden_states] Hidden-states of the model at the output of each layer plus the optional initial embedding outputs.
+     * @param {Tensor} [output.attentions] Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
+     */
+    constructor({ last_hidden_state, hidden_states = null, attentions = null }) {
+        super();
+        this.last_hidden_state = last_hidden_state;
+        this.hidden_states = hidden_states;
+        this.attentions = attentions;
+    }
+}
 //////////////////////////////////////////////////
 // Bert models
 export class BertPreTrainedModel extends PreTrainedModel { }
@@ -1078,8 +1115,7 @@ export class BertForMaskedLM extends BertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new MaskedLMOutput(logits);
+        return new MaskedLMOutput(await super._call(model_inputs));
     }
 }
 
@@ -1095,8 +1131,7 @@ export class BertForSequenceClassification extends BertPreTrainedModel {
      * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new SequenceClassifierOutput(logits);
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 
@@ -1112,8 +1147,7 @@ export class BertForTokenClassification extends BertPreTrainedModel {
      * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new TokenClassifierOutput(logits);
+        return new TokenClassifierOutput(await super._call(model_inputs));
     }
 }
 
@@ -1129,8 +1163,7 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
      */
     async _call(model_inputs) {
-        let { start_logits, end_logits } = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(start_logits, end_logits);
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -1152,8 +1185,7 @@ export class DistilBertForSequenceClassification extends DistilBertPreTrainedMod
      * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new SequenceClassifierOutput(logits);
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 
@@ -1169,8 +1201,7 @@ export class DistilBertForTokenClassification extends DistilBertPreTrainedModel 
      * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new TokenClassifierOutput(logits);
+        return new TokenClassifierOutput(await super._call(model_inputs));
     }
 }
 
@@ -1187,8 +1218,7 @@ export class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
      */
     async _call(model_inputs) {
-        let { start_logits, end_logits } = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(start_logits, end_logits);
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
     }
 }
 
@@ -1204,8 +1234,7 @@ export class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new MaskedLMOutput(logits);
+        return new MaskedLMOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -1228,8 +1257,7 @@ export class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new MaskedLMOutput(logits);
+        return new MaskedLMOutput(await super._call(model_inputs));
     }
 }
 
@@ -1244,8 +1272,7 @@ export class MobileBertForSequenceClassification extends MobileBertPreTrainedMod
      * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new SequenceClassifierOutput(logits);
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 
@@ -1260,8 +1287,7 @@ export class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
-        let { start_logits, end_logits } = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(start_logits, end_logits);
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -1279,8 +1305,7 @@ export class SqueezeBertForMaskedLM extends SqueezeBertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new MaskedLMOutput(logits);
+        return new MaskedLMOutput(await super._call(model_inputs));
     }
 }
 export class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedModel {
@@ -1291,8 +1316,7 @@ export class SqueezeBertForSequenceClassification extends SqueezeBertPreTrainedM
      * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new SequenceClassifierOutput(logits);
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 export class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel {
@@ -1303,8 +1327,7 @@ export class SqueezeBertForQuestionAnswering extends SqueezeBertPreTrainedModel 
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
-        let { start_logits, end_logits } = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(start_logits, end_logits);
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -1322,8 +1345,7 @@ export class AlbertForSequenceClassification extends AlbertPreTrainedModel {
      * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new SequenceClassifierOutput(logits);
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 export class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
@@ -1334,8 +1356,7 @@ export class AlbertForQuestionAnswering extends AlbertPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
-        let { start_logits, end_logits } = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(start_logits, end_logits);
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
     }
 }
 export class AlbertForMaskedLM extends AlbertPreTrainedModel {
@@ -1346,8 +1367,7 @@ export class AlbertForMaskedLM extends AlbertPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new MaskedLMOutput(logits);
+        return new MaskedLMOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -1625,8 +1645,7 @@ export class BartForSequenceClassification extends BartPretrainedModel {
      * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new SequenceClassifierOutput(logits);
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 
@@ -1649,8 +1668,7 @@ export class RobertaForMaskedLM extends RobertaPreTrainedModel {
      * @returns {Promise<MaskedLMOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new MaskedLMOutput(logits);
+        return new MaskedLMOutput(await super._call(model_inputs));
     }
 }
 
@@ -1666,8 +1684,7 @@ export class RobertaForSequenceClassification extends RobertaPreTrainedModel {
      * @returns {Promise<SequenceClassifierOutput>} returned object
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new SequenceClassifierOutput(logits);
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 
@@ -1683,8 +1700,7 @@ export class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
      */
     async _call(model_inputs) {
-        let { start_logits, end_logits } = await super._call(model_inputs);
-        return new QuestionAnsweringModelOutput(start_logits, end_logits);
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -1970,7 +1986,7 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
-        return await decoderForward(this, model_inputs)
+        return await decoderForward(this, model_inputs);
     }
 
 }
@@ -2047,7 +2063,7 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
-        return await decoderForward(this, model_inputs)
+        return await decoderForward(this, model_inputs);
     }
 }
 
@@ -2134,7 +2150,7 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
      * @returns {Promise<any>} The output tensor of the model.
      */
     async forward(model_inputs) {
-        return await decoderForward(this, model_inputs)
+        return await decoderForward(this, model_inputs);
     }
 
 }
@@ -2147,8 +2163,7 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
      * @param {any} model_inputs
      */
     async _call(model_inputs) {
-        let { logits } = await super._call(model_inputs);
-        return new SequenceClassifierOutput(logits);
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -2160,8 +2175,7 @@ export class DetrForObjectDetection extends DetrPreTrainedModel {
      * @param {any} model_inputs
      */
     async _call(model_inputs) {
-        let { logits, pred_boxes } = await super._call(model_inputs);
-        return new DetrObjectDetectionOutput(logits, pred_boxes);
+        return new DetrObjectDetectionOutput(await super._call(model_inputs));
     }
 }
 
@@ -2172,17 +2186,18 @@ export class DetrForSegmentation extends DetrPreTrainedModel {
      * @returns {Promise<DetrSegmentationOutput>} Object containing segmentation outputs
      */
     async _call(model_inputs) {
-        let { logits, pred_boxes, pred_masks } = await super._call(model_inputs);
-        return new DetrSegmentationOutput(logits, pred_boxes, pred_masks);
+        return new DetrSegmentationOutput(await super._call(model_inputs));
     }
 }
 
 export class DetrObjectDetectionOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits
-     * @param {Tensor} pred_boxes
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Classification logits (including no-object) for all queries.
+     * @param {Tensor} output.pred_boxes Normalized boxes coordinates for all queries, represented as (center_x, center_y, width, height).
+     * These values are normalized in [0, 1], relative to the size of each individual image in the batch (disregarding possible padding).
      */
-    constructor(logits, pred_boxes) {
+    constructor({ logits, pred_boxes }) {
         super();
         this.logits = logits;
         this.pred_boxes = pred_boxes;
@@ -2190,13 +2205,13 @@ export class DetrObjectDetectionOutput extends ModelOutput {
 }
 
 export class DetrSegmentationOutput extends ModelOutput {
-
     /**
-     * @param {Tensor} logits The output logits of the model.
-     * @param {Tensor} pred_boxes Predicted boxes.
-     * @param {Tensor} pred_masks Predicted masks.
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits The output logits of the model.
+     * @param {Tensor} output.pred_boxes Predicted boxes.
+     * @param {Tensor} output.pred_masks Predicted masks.
      */
-    constructor(logits, pred_boxes, pred_masks) {
+    constructor({ logits, pred_boxes, pred_masks }) {
         super();
         this.logits = logits;
         this.pred_boxes = pred_boxes;
@@ -2216,24 +2231,21 @@ export class SamModel extends SamPreTrainedModel {
      * @todo Add support for `input_labels`, `input_boxes`, `input_masks`, and `image_embeddings`.
      */
     async _call(model_inputs) {
-        // TODO split into encoder and decoder
-        let { iou_scores, pred_masks } = await super._call(model_inputs);
-        return new SamImageSegmentationOutput(iou_scores, pred_masks);
+        return new SamImageSegmentationOutput(await super._call(model_inputs));
     }
 }
 
 
 /**
  * Base class for Segment-Anything model's output.
- * 
- * @extends ModelOutput
  */
 export class SamImageSegmentationOutput extends ModelOutput {
     /**
-     * @param {Tensor} iou_scores The output logits of the model.
-     * @param {Tensor} pred_masks Predicted boxes.
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.iou_scores The output logits of the model.
+     * @param {Tensor} output.pred_masks Predicted boxes.
      */
-    constructor(iou_scores, pred_masks) {
+    constructor({ iou_scores, pred_masks }) {
         super();
         this.iou_scores = iou_scores;
         this.pred_masks = pred_masks;
@@ -2688,11 +2700,12 @@ export class AutoModelForMaskGeneration extends PretrainedMixin {
 //////////////////////////////////////////////////
 export class Seq2SeqLMOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits The output logits of the model.
-     * @param {Tensor} past_key_values An tensor of key/value pairs that represent the previous state of the model.
-     * @param {Tensor} encoder_outputs The output of the encoder in a sequence-to-sequence model.
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits The output logits of the model.
+     * @param {Tensor} output.past_key_values An tensor of key/value pairs that represent the previous state of the model.
+     * @param {Tensor} output.encoder_outputs The output of the encoder in a sequence-to-sequence model.
      */
-    constructor(logits, past_key_values, encoder_outputs) {
+    constructor({ logits, past_key_values, encoder_outputs }) {
         super();
         this.logits = logits;
         this.past_key_values = past_key_values;
@@ -2700,43 +2713,58 @@ export class Seq2SeqLMOutput extends ModelOutput {
     }
 }
 
+/**
+ * Base class for outputs of sentence classification models.
+ */
 export class SequenceClassifierOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits 
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits classification (or regression if config.num_labels==1) scores (before SoftMax).
      */
-    constructor(logits) {
+    constructor({ logits }) {
         super();
         this.logits = logits;
     }
 }
 
+/**
+ * Base class for outputs of token classification models.
+ */
 export class TokenClassifierOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits 
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Classification scores (before SoftMax).
      */
-    constructor(logits) {
+    constructor({ logits }) {
         super();
         this.logits = logits;
     }
 }
 
-
+/**
+ * Base class for masked language models outputs.
+ */
 export class MaskedLMOutput extends ModelOutput {
     /**
-     * @param {Tensor} logits 
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
      */
-    constructor(logits) {
+    constructor({ logits }) {
         super();
         this.logits = logits;
     }
 }
 
+/**
+ * Base class for outputs of question answering models.
+ */
 export class QuestionAnsweringModelOutput extends ModelOutput {
     /**
-     * @param {Tensor} start_logits The logits for start positions of the answer.
-     * @param {Tensor} end_logits The logits for end positions of the answer.
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.start_logits Span-start scores (before SoftMax).
+     * @param {Tensor} output.end_logits Span-end scores (before SoftMax).
      */
-    constructor(start_logits, end_logits) {
+    constructor({ start_logits, end_logits }) {
         super();
         this.start_logits = start_logits;
         this.end_logits = end_logits;
@@ -2749,11 +2777,12 @@ export class QuestionAnsweringModelOutput extends ModelOutput {
  */
 export class CausalLMOutputWithPast extends ModelOutput {
     /**
-     * @param {Tensor} logits Prediction scores of the language modeling head (scores for each vocabulary token before softmax).
-     * @param {Tensor} past_key_values Contains pre-computed hidden-states (key and values in the self-attention blocks)
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Prediction scores of the language modeling head (scores for each vocabulary token before softmax).
+     * @param {Tensor} output.past_key_values Contains pre-computed hidden-states (key and values in the self-attention blocks)
      * that can be used (see `past_key_values` input) to speed up sequential decoding.
      */
-    constructor(logits, past_key_values) {
+    constructor({ logits, past_key_values }) {
         super();
         this.logits = logits;
         this.past_key_values = past_key_values;
