@@ -440,6 +440,45 @@ export class Tensor extends ONNXTensor {
         this.dims = calc_unsqueeze_dims(this.dims, dim);
         return this;
     }
+
+    flatten_(start_dim = 0, end_dim = -1) {
+        // TODO validate inputs
+        end_dim = (end_dim + this.dims.length) % this.dims.length;
+
+        let dimsToKeepBefore = this.dims.slice(0, start_dim);
+        let dimsToFlatten = this.dims.slice(start_dim, end_dim + 1);
+        let dimsToKeepAfter = this.dims.slice(end_dim + 1);
+
+        this.dims = [...dimsToKeepBefore, dimsToFlatten.reduce((a, b) => a * b, 1), ...dimsToKeepAfter]
+        return this;
+    }
+
+    flatten(start_dim = 0, end_dim = -1) {
+        return this.clone().flatten_(start_dim, end_dim);
+    }
+
+    view(...dims) {
+        // TODO: validate dims
+        let inferredIndex = -1;
+        for (let i = 0; i < dims.length; ++i) {
+            if (dims[i] === -1) {
+                if (inferredIndex !== -1) {
+                    throw new Error("Only one dimension can be inferred");
+                }
+                inferredIndex = i;
+            }
+        }
+
+        if (inferredIndex !== -1) {
+            // Some dimension must be inferred
+            const productOther = dims.reduce((product, curr, index) => {
+                return index !== inferredIndex ? product * curr : product
+            }, 1);
+
+            dims[inferredIndex] = this.data.length / productOther;
+        }
+        return new Tensor(this.type, this.data, dims); // NOTE: uses same underlying storage
+    }
 }
 
 /**
