@@ -446,9 +446,15 @@ async function decoderForward(self, model_inputs) {
     let past_key_values = model_inputs.past_key_values;
     let decoderFeeds = {
         input_ids: model_inputs.input_ids,
-        attention_mask: model_inputs.attention_mask,
         use_cache_branch: boolTensor(past_key_values !== null)
     }
+
+    if (decoderFeeds.attention_mask) {
+        decoderFeeds.attention_mask = model_inputs.attention_mask;
+    } else {
+        decoderFeeds.attention_mask = prepareAttentionMask(self, model_inputs.input_ids);
+    }
+
     self.addPastKeyValues(decoderFeeds, past_key_values);
 
     let decoderResults = await sessionRun(self.session, decoderFeeds);
