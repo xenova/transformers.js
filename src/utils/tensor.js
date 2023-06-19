@@ -441,6 +441,9 @@ export class Tensor extends ONNXTensor {
         return this;
     }
 
+    /**
+     * In-place version of @see {@link Tensor.flatten}
+     */
     flatten_(start_dim = 0, end_dim = -1) {
         // TODO validate inputs
         end_dim = (end_dim + this.dims.length) % this.dims.length;
@@ -453,10 +456,23 @@ export class Tensor extends ONNXTensor {
         return this;
     }
 
+    /**
+     * Flattens input by reshaping it into a one-dimensional tensor.
+     * If `start_dim` or `end_dim` are passed, only dimensions starting with `start_dim`
+     * and ending with `end_dim` are flattened. The order of elements in input is unchanged.
+     * @param {*} start_dim the first dim to flatten
+     * @param {*} end_dim the last dim to flatten
+     * @returns The flattened tensor.
+     */
     flatten(start_dim = 0, end_dim = -1) {
         return this.clone().flatten_(start_dim, end_dim);
     }
 
+    /**
+     * Returns a new tensor with the same data as the `self` tensor but of a different `shape`.
+     * @param  {...number} dims the desired size
+     * @returns {Tensor} The tensor with the same data but different shape
+     */
     view(...dims) {
         // TODO: validate dims
         let inferredIndex = -1;
