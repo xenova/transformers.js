@@ -460,8 +460,8 @@ export class Tensor extends ONNXTensor {
      * Flattens input by reshaping it into a one-dimensional tensor.
      * If `start_dim` or `end_dim` are passed, only dimensions starting with `start_dim`
      * and ending with `end_dim` are flattened. The order of elements in input is unchanged.
-     * @param {*} start_dim the first dim to flatten
-     * @param {*} end_dim the last dim to flatten
+     * @param {number} start_dim the first dim to flatten
+     * @param {number} end_dim the last dim to flatten
      * @returns The flattened tensor.
      */
     flatten(start_dim = 0, end_dim = -1) {
