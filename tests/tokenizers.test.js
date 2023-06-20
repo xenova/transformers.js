@@ -33,3 +33,13 @@ describe('Tokenizers', () => {
         });
     }
 });
+
+describe('Edge cases', () => {
+    it('should not crash when encoding a very long string', async () => {
+        let tokenizer = await AutoTokenizer.from_pretrained('t5-small');
+
+        let text = String.prototype.repeat.call('Hello world! ', 50000);
+        let encoded = await tokenizer(text);
+        expect(encoded.input_ids.data.length).toBeGreaterThan(100000);
+    });
+});
