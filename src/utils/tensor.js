@@ -440,6 +440,61 @@ export class Tensor extends ONNXTensor {
         this.dims = calc_unsqueeze_dims(this.dims, dim);
         return this;
     }
+
+    /**
+     * In-place version of @see {@link Tensor.flatten}
+     */
+    flatten_(start_dim = 0, end_dim = -1) {
+        // TODO validate inputs
+        end_dim = (end_dim + this.dims.length) % this.dims.length;
+
+        let dimsToKeepBefore = this.dims.slice(0, start_dim);
+        let dimsToFlatten = this.dims.slice(start_dim, end_dim + 1);
+        let dimsToKeepAfter = this.dims.slice(end_dim + 1);
+
+        this.dims = [...dimsToKeepBefore, dimsToFlatten.reduce((a, b) => a * b, 1), ...dimsToKeepAfter]
+        return this;
+    }
+
+    /**
+     * Flattens input by reshaping it into a one-dimensional tensor.
+     * If `start_dim` or `end_dim` are passed, only dimensions starting with `start_dim`
+     * and ending with `end_dim` are flattened. The order of elements in input is unchanged.
+     * @param {number} start_dim the first dim to flatten
+     * @param {number} end_dim the last dim to flatten
+     * @returns The flattened tensor.
+     */
+    flatten(start_dim = 0, end_dim = -1) {
+        return this.clone().flatten_(start_dim, end_dim);
+    }
+
+    /**
+     * Returns a new tensor with the same data as the `self` tensor but of a different `shape`.
+     * @param  {...number} dims the desired size
+     * @returns {Tensor} The tensor with the same data but different shape
+     */
+    view(...dims) {
+        // TODO: validate dims
+        let inferredIndex = -1;
+        for (let i = 0; i < dims.length; ++i) {
+            if (dims[i] === -1) {
+                if (inferredIndex !== -1) {
+                    throw new Error("Only one dimension can be inferred");
+                }
+                inferredIndex = i;
+            }
+        }
+
+        if (inferredIndex !== -1) {
+            // Some dimension must be inferred
+            const productOther = dims.reduce((product, curr, index) => {
+                return index !== inferredIndex ? product * curr : product
+            }, 1);
+
+            dims[inferredIndex] = this.data.length / productOther;
+        }
+        return new Tensor(this.type, this.data, dims); // NOTE: uses same underlying storage
+    }
 }
 
 /**
