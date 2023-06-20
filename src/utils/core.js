@@ -152,3 +152,13 @@ export function pop(obj, key, defaultValue = undefined) {
     }
     return defaultValue;
 }
+
+/**
+ * Efficiently merge arrays, creating a new copy.
+ * Adapted from https://stackoverflow.com/a/6768642/13989043
+ * @param  {...any} arrs Arrays to merge.
+ * @returns The merged array.
+ */
+export function mergeArrays(...arrs) {
+    return Array.prototype.concat.apply([], arrs);
+}
