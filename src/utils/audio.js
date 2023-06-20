@@ -23,7 +23,7 @@ export async function read_audio(url, sampling_rate) {
         // Running in node or an environment without AudioContext
         throw Error(
             "Unable to load audio from path/URL since `AudioContext` is not available in your environment. " +
-            "Instead audio data must be passed directly to the pipeline/processor. " +
+            "Instead, audio data should be passed directly to the pipeline/processor. " +
             "For more information and some example code, see https://huggingface.co/docs/transformers.js/tutorials/node-audio-processing."
         )
     }
