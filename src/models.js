@@ -427,9 +427,9 @@ async function seq2seqRunBeam(self, beam, {
  * @private
  */
 async function encoderForward(self, model_inputs) {
-    const encoderFeeds = { ...model_inputs }; // Shallow copy
-    if (self.session.inputNames.includes('attention_mask')) {
-        encoderFeeds.attention_mask = model_inputs.attention_mask;
+    let encoderFeeds = {};
+    for (let key of self.session.inputNames) {
+        encoderFeeds[key] = model_inputs[key];
     }
     return await sessionRun(self.session, encoderFeeds);
 }
