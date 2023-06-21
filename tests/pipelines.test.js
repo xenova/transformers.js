@@ -704,37 +704,39 @@ describe('Pipelines', () => {
 
     describe('Speech-to-text generation', () => {
 
+        const loadAudio = async (url) => {
+            // NOTE: Since the Web Audio API is not available in Node.js, we will need to use the `wavefile` library to obtain the raw audio data.
+            // For more information, see: https://huggingface.co/docs/transformers.js/tutorials/node-audio-processing
+            let wavefile = (await import('wavefile')).default;
+
+            // Load audio data
+            let buffer = Buffer.from(await fetch(url).then(x => x.arrayBuffer()))
+
+            // Read .wav file and convert it to required format
+            let wav = new wavefile.WaveFile(buffer);
+            wav.toBitDepth('32f'); // Pipeline expects input as a Float32Array
+            wav.toSampleRate(16000); // Whisper expects audio with a sampling rate of 16000
+            let audioData = wav.getSamples();
+            if (Array.isArray(audioData)) {
+                // For this demo, if there are multiple channels for the audio file, we just select the first one.
+                // In practice, you'd probably want to convert all channels to a single channel (e.g., stereo -> mono).
+                audioData = audioData[0];
+            }
+            return audioData;
+        }
         // List all models which will be tested
         const models = [
-            'openai/whisper-tiny.en',
+            'openai/whisper-tiny.en', // English-only
+            'openai/whisper-small', // Multilingual
         ];
 
         it(models[0], async () => {
             let transcriber = await pipeline('automatic-speech-recognition', m(models[0]));
 
-            let audioData;
-            {
-                // NOTE: Since the Web Audio API is not available in Node.js, we will need to use the `wavefile` library to obtain the raw audio data.
-                // For more information, see: https://huggingface.co/docs/transformers.js/tutorials/node-audio-processing
-                let wavefile = (await import('wavefile')).default;
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+            let audioData = await loadAudio(url);
 
-                // Load audio data
-                let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
-                let buffer = Buffer.from(await fetch(url).then(x => x.arrayBuffer()))
-
-                // Read .wav file and convert it to required format
-                let wav = new wavefile.WaveFile(buffer);
-                wav.toBitDepth('32f'); // Pipeline expects input as a Float32Array
-                wav.toSampleRate(16000); // Whisper expects audio with a sampling rate of 16000
-                audioData = wav.getSamples();
-                if (Array.isArray(audioData)) {
-                    // For this demo, if there are multiple channels for the audio file, we just select the first one.
-                    // In practice, you'd probably want to convert all channels to a single channel (e.g., stereo -> mono).
-                    audioData = audioData[0];
-                }
-            }
-
-            { // English transcription
+            { // Transcribe English
                 let output = await transcriber(audioData);
                 expect(output.text.length).toBeGreaterThan(50);
                 // { text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country." }
@@ -751,6 +753,27 @@ describe('Pipelines', () => {
                 //     { timestamp: [8, 11], text: " ask what you can do for your country." }
                 //   ]
                 // }
+            }
+            await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it(models[1], async () => {
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[1]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.wav';
+            let audioData = await loadAudio(url);
+
+            { // Transcribe French
+                let output = await transcriber(audioData, { language: 'french', task: 'transcribe' });
+                expect(output.text.length).toBeGreaterThan(20);
+                // { text: " J'adore, j'aime, je n'aime pas, je déteste." }
+            }
+
+            { // Translate French to English.
+                let output = await transcriber(audioData, { language: 'french', task: 'translate' });
+                expect(output.text.length).toBeGreaterThan(20);
+                // { text: " I love, I like, I don't like, I hate." }
             }
             await transcriber.dispose();
 
