@@ -1,4 +1,5 @@
 
+import json
 import os
 import shutil
 from dataclasses import dataclass, field
@@ -77,8 +78,21 @@ class ConversionArguments:
         }
     )
 
+    per_channel: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether to quantize weights per channel"
+        }
+    )
+    reduce_range: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether to quantize weights with 7-bits. It may improve the accuracy for some models running on non-VNNI machine, especially for per-channel mode"
+        }
+    )
 
-def quantize(model_names_or_paths):
+
+def quantize(model_names_or_paths, conv_args: ConversionArguments):
     """
     Quantize the weights of the model from float32 to int8 to allow very efficient inference on modern CPU
 
@@ -89,6 +103,12 @@ def quantize(model_names_or_paths):
         onnx_model_path: Path to location the exported ONNX model is stored
     Returns: The Path generated for the quantized
     """
+
+    quant_config = dict(
+        per_channel=conv_args.per_channel,
+        reduce_range=conv_args.reduce_range,
+        per_model_config={}
+    )
 
     for model in tqdm(model_names_or_paths, desc='Quantizing'):
         directory_path = os.path.dirname(model)
@@ -113,9 +133,8 @@ def quantize(model_names_or_paths):
             model_output=os.path.join(
                 directory_path, f'{file_name_without_extension}_quantized.onnx'),
 
-            # TODO allow user to specify these or choose based on hardware
-            per_channel=True,
-            reduce_range=True,
+            per_channel=conv_args.per_channel,
+            reduce_range=conv_args.reduce_range,
 
             weight_type=weight_type,
             optimize_model=False,
@@ -126,6 +145,15 @@ def quantize(model_names_or_paths):
                 EnableSubgraph=True
             )
         )
+
+        quant_config['per_model_config'][file_name_without_extension] = dict(
+            op_types=list(op_types),
+            weight_type=str(weight_type),
+        )
+
+    # Save quantization config
+    with open(os.path.join(directory_path, 'quant_config.json'), 'w') as fp:
+        json.dump(quant_config, fp, indent=4)
 
 
 def copy_if_exists(model_path, file_name, destination):
@@ -192,7 +220,7 @@ def main():
             os.path.join(output_model_folder, x)
             for x in os.listdir(output_model_folder)
             if x.endswith('.onnx') and not x.endswith('_quantized.onnx')
-        ])
+        ], conv_args)
 
     # Step 3. Move .onnx files to the 'onnx' subfolder
     os.makedirs(os.path.join(output_model_folder, 'onnx'), exist_ok=True)
