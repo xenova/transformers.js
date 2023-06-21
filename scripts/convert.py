@@ -92,6 +92,21 @@ class ConversionArguments:
     )
 
 
+def get_operators(model):
+    operators = set()
+
+    def traverse_graph(graph):
+        for node in graph.node:
+            operators.add(node.op_type)
+            for attr in node.attribute:
+                if attr.type == onnx.AttributeProto.GRAPH:
+                    subgraph = attr.g
+                    traverse_graph(subgraph)
+
+    traverse_graph(model.graph)
+    return operators
+
+
 def quantize(model_names_or_paths, conv_args: ConversionArguments):
     """
     Quantize the weights of the model from float32 to int8 to allow very efficient inference on modern CPU
@@ -124,8 +139,8 @@ def quantize(model_names_or_paths, conv_args: ConversionArguments):
         #  - https://github.com/microsoft/onnxruntime/issues/3130#issuecomment-1105200621
         #  - https://github.com/microsoft/onnxruntime/issues/2339
 
-        model_nodes = onnx.load_model(model).graph.node
-        op_types = set([node.op_type for node in model_nodes])
+        loaded_model = onnx.load_model(model)
+        op_types = get_operators(loaded_model)
         weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
 
         quantize_dynamic(
