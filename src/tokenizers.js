@@ -2612,7 +2612,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                             // This is an issue in the underlying model output
                             // Let's just skip it so it becomes
                         } else {
-                            chunk.timestamp[1] = time;
+                            chunk.timestamp[1] = rounded_time;
 
                             // Handling merges
                             previous_tokens.push(current_tokens)
