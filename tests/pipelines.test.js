@@ -733,9 +733,24 @@ describe('Pipelines', () => {
                     audioData = audioData[0];
                 }
             }
-            {
+
+            { // English transcription
                 let output = await transcriber(audioData);
                 expect(output.text.length).toBeGreaterThan(50);
+                // { text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country." }
+            }
+
+            { // Transcribe English w/ timestamps.
+                let output = await transcriber(audioData, { return_timestamps: true });
+                expect(output.text.length).toBeGreaterThan(50);
+                expect(output.chunks.length).toBeGreaterThan(0);
+                // {
+                //   text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country."
+                //   chunks: [
+                //     { timestamp: [0, 8],  text: " And so my fellow Americans ask not what your country can do for you" }
+                //     { timestamp: [8, 11], text: " ask what you can do for your country." }
+                //   ]
+                // }
             }
             await transcriber.dispose();
 
