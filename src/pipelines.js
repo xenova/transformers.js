@@ -956,7 +956,7 @@ export class ImageToTextPipeline extends Pipeline {
  * **Example:** Classify an image.
  * ```javascript
  * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
- * let url = 'https://hf.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
  * let outputs = await classifier(url);
  * // Array(1) [
  * //   {label: 'tiger, Panthera tigris', score: 0.632695734500885},
@@ -966,7 +966,7 @@ export class ImageToTextPipeline extends Pipeline {
  * **Example:** Classify an image and return top `n` classes.
  * ```javascript
  * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
- * let url = 'https://hf.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
  * let outputs = await classifier(url, { topk: 3 });
  * // Array(3) [
  * //   {label: 'tiger, Panthera tigris', score: 0.632695734500885},
@@ -978,7 +978,7 @@ export class ImageToTextPipeline extends Pipeline {
  * **Example:** Classify an image and return all classes.
  * ```javascript
  * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
- * let url = 'https://hf.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
  * let outputs = await classifier(url, { topk: 0 });
  * // Array(1000) [
  * //   {label: 'tiger, Panthera tigris', score: 0.632695734500885},
