@@ -59,14 +59,14 @@ export class FeatureExtractor extends Callable {
 }
 
 /**
- * Feature extractor for Vision Transformer (ViT) models.
+ * Feature extractor for image models.
  *
  * @extends FeatureExtractor
  */
 export class ImageFeatureExtractor extends FeatureExtractor {
 
     /**
-     * Constructs a new ViTFeatureExtractor instance.
+     * Constructs a new ImageFeatureExtractor instance.
      *
      * @param {Object} config The configuration for the feature extractor.
      * @param {number[]} config.image_mean The mean values for image normalization.
@@ -275,6 +275,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 }
 
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
+export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 
 /**
  * Detr Feature Extractor.
@@ -1226,6 +1227,7 @@ export class AutoProcessor {
     static FEATURE_EXTRACTOR_CLASS_MAPPING = {
         'WhisperFeatureExtractor': WhisperFeatureExtractor,
         'ViTFeatureExtractor': ViTFeatureExtractor,
+        'MobileViTFeatureExtractor': MobileViTFeatureExtractor,
         'DetrFeatureExtractor': DetrFeatureExtractor,
 
         'SamImageProcessor': SamImageProcessor,
