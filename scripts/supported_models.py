@@ -103,6 +103,16 @@ SUPPORTED_MODELS = {
         # https://github.com/huggingface/optimum/issues/1027
         # 'google/mobilebert-uncased',
     ],
+    'mobilevit':[
+        'apple/mobilevit-small',
+        'apple/mobilevit-x-small',
+        'apple/mobilevit-xx-small',
+
+        # TODO: https://github.com/huggingface/optimum/issues/1127
+        # 'apple/deeplabv3-mobilevit-small',
+        # 'apple/deeplabv3-mobilevit-x-small',
+        # 'apple/deeplabv3-mobilevit-xx-small',
+    ],
     'mpnet': [
         'sentence-transformers/all-mpnet-base-v2',
         'sentence-transformers/nli-mpnet-base-v2',
