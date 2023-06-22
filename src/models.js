@@ -217,6 +217,8 @@ function replaceTensors(obj) {
     for (let prop in obj) {
         if (obj[prop] instanceof ONNXTensor) {
             obj[prop] = new Tensor(obj[prop]);
+        } else if (typeof obj[prop] === 'object') {
+            replaceTensors(obj[prop]);
         }
     }
     return obj;
