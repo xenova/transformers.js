@@ -43,6 +43,8 @@ SUPPORTED_MODELS = {
         'emilyalsentzer/Bio_ClinicalBERT',
         'SpanBERT/spanbert-large-cased',
         'SpanBERT/spanbert-base-cased',
+
+        'deepset/sentence_bert',
     ],
     # TODO:
     # 'blenderbot-small': [
@@ -108,10 +110,9 @@ SUPPORTED_MODELS = {
         'apple/mobilevit-x-small',
         'apple/mobilevit-xx-small',
 
-        # TODO: https://github.com/huggingface/optimum/issues/1127
-        # 'apple/deeplabv3-mobilevit-small',
-        # 'apple/deeplabv3-mobilevit-x-small',
-        # 'apple/deeplabv3-mobilevit-xx-small',
+        'apple/deeplabv3-mobilevit-small',
+        'apple/deeplabv3-mobilevit-x-small',
+        'apple/deeplabv3-mobilevit-xx-small',
     ],
     'mpnet': [
         'sentence-transformers/all-mpnet-base-v2',
