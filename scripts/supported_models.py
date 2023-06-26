@@ -52,7 +52,13 @@ SUPPORTED_MODELS = {
         'DeepPavlov/rubert-base-cased',
         'monologg/kobert',
 
+        'intfloat/e5-small',
         'intfloat/e5-small-v2',
+        'intfloat/e5-base',
+        'intfloat/e5-base-v2',
+        'intfloat/e5-large',
+        'intfloat/e5-large-v2',
+        'intfloat/multilingual-e5-base',
     ],
     # TODO:
     # 'bloom':[
@@ -172,6 +178,11 @@ SUPPORTED_MODELS = {
         'MBZUAI/LaMini-T5-61M',
         'MBZUAI/LaMini-T5-223M',
         'MBZUAI/LaMini-T5-738M',
+
+        'sentence-transformers/sentence-t5-large',
+        'hkunlp/instructor-base',
+        'hkunlp/instructor-large',
+        # 'hkunlp/instructor-xl', # TODO
     ],
     'vision-encoder-decoder': [
         'nlpconnect/vit-gpt2-image-captioning',
