@@ -36,7 +36,11 @@ TOKENIZER_TEST_DATA = {
         "test $1 R2 #3 €4 £5 ¥6 ₣7 ₹8 ₱9 test",
         "I bought an apple for $1.00 at the store.",
     ],
-    "custom": {},
+    "custom": {
+        "tiiuae/falcon-7b": [
+            "12 and 123 and 1234", # Special case for splitting on 3 numbers
+        ]
+    },
 }
 
 
