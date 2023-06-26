@@ -45,7 +45,20 @@ SUPPORTED_MODELS = {
         'SpanBERT/spanbert-base-cased',
 
         'deepset/sentence_bert',
+
+        'cambridgeltl/SapBERT-from-PubMedBERT-fulltext',
+        'indobenchmark/indobert-base-p1',
+        'GanjinZero/UMLSBert_ENG',
+        'DeepPavlov/rubert-base-cased',
+        'monologg/kobert',
+
+        'intfloat/e5-small-v2',
     ],
+    # TODO:
+    # 'bloom':[
+    #     'bigscience/bloom-560m',
+    #     'bigscience/bloomz-560m',
+    # ],
     # TODO:
     # 'blenderbot-small': [
     #     'facebook/blenderbot_small-90M',
