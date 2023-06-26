@@ -1003,7 +1003,7 @@ class BertPreTokenizer extends PreTokenizer {
      * Tokenizes a single text using the BERT pre-tokenization scheme.
      * 
      * @param {string} text The text to tokenize.
-     * @returns {Array<string>} An array of tokens.
+     * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
         return text.trim().match(this.pattern) || [];
