@@ -2338,6 +2338,7 @@ export class FalconTokenizer extends PreTrainedTokenizer {
     }
 }
 
+export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
 
 /**
  * The NllbTokenizer class is used to tokenize text for NLLB ("No Language Left Behind") models.
@@ -3245,9 +3246,10 @@ export class AutoTokenizer {
         'BloomTokenizer': BloomTokenizer,
         'NllbTokenizer': NllbTokenizer,
         'LlamaTokenizer': LlamaTokenizer,
-        'XLMRobertaTokenizer':XLMRobertaTokenizer,
-        'MPNetTokenizer':MPNetTokenizer,
+        'XLMRobertaTokenizer': XLMRobertaTokenizer,
+        'MPNetTokenizer': MPNetTokenizer,
         'FalconTokenizer': FalconTokenizer,
+        'GPTNeoXTokenizer': GPTNeoXTokenizer,
 
         // Base case:
         'PreTrainedTokenizer': PreTrainedTokenizer,

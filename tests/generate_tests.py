@@ -16,6 +16,9 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     "llama": [
         "hf-internal-testing/llama-tokenizer",
     ],
+    'mpt': [
+        'mosaicml/mpt-7b',
+    ],
 }
 
 TOKENIZER_TEST_DATA = {
