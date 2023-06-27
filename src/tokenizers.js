@@ -2259,7 +2259,7 @@ export class PreTrainedTokenizer extends Callable {
 }
 
 /**
-* Helper method for added `token_type_ids` to model inputs
+* Helper method for adding `token_type_ids` to model inputs
 * @param {Object} inputs An object containing the input ids and attention mask.
 * @returns {Object} The prepared inputs object.
 */
@@ -2292,7 +2292,7 @@ function add_token_types(inputs) {
  * @extends PreTrainedTokenizer
  */
 export class BertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
@@ -2302,19 +2302,19 @@ export class BertTokenizer extends PreTrainedTokenizer {
  * @extends PreTrainedTokenizer
  */
 export class AlbertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
 }
 export class MobileBertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
 }
 export class SqueezeBertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
@@ -2332,7 +2332,7 @@ export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
 export class MPNetTokenizer extends PreTrainedTokenizer { }
 
 export class FalconTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
