@@ -57,11 +57,14 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
 /**
  * Helper method to construct a pattern from a config object.
  * @param {Object} pattern The pattern object.
+ * @param {boolean} invert Whether to invert the pattern (only applicable for Regex patterns).
  * @returns {RegExp|string|null} The compiled pattern.
  */
-function createPattern(pattern) {
+function createPattern(pattern, invert = true) {
+
     if (pattern.Regex) {
-        return new RegExp(pattern.Regex, 'gu');
+        // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
+        return new RegExp(invert ? pattern.Regex : `(${pattern.Regex})`, 'gu');
 
     } else if (pattern.String) {
         return pattern.String;
@@ -123,6 +126,8 @@ function fuse(arr, value) {
 function whitespace_split(text) {
     return text.match(/\S+/g) || [];
 }
+
+const PUNCTUATION_REGEX = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E';
 
 /**
  * Abstract base class for tokenizer models.
@@ -931,7 +936,10 @@ class PreTokenizer extends Callable {
                 return new ByteLevelPreTokenizer(config);
             case 'Split':
                 return new SplitPreTokenizer(config);
-
+            case 'Punctuation':
+                return new PunctuationPreTokenizer(config);
+            case 'Digits':
+                return new DigitsPreTokenizer(config);
             default:
                 throw new Error(`Unknown PreTokenizer type: ${config.type}`);
         }
@@ -986,19 +994,16 @@ class BertPreTokenizer extends PreTokenizer {
      */
     constructor(config) {
         super();
-        // TODO use config
-
         // Construct a pattern which matches the rust implementation:
         // https://github.com/huggingface/tokenizers/blob/b4fcc9ce6e4ad5806e82826f816acfdfdc4fcc67/tokenizers/src/pre_tokenizers/bert.rs#L11
         // Equivalent to removing whitespace and splitting on punctuation (both \p{P} and other ascii characters)
-        const punctuation = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E'
-        this.pattern = new RegExp(`[^\\s${punctuation}]+|[${punctuation}]`, 'gu');
+        this.pattern = new RegExp(`[^\\s${PUNCTUATION_REGEX}]+|[${PUNCTUATION_REGEX}]`, 'gu');
     }
     /**
      * Tokenizes a single text using the BERT pre-tokenization scheme.
      * 
      * @param {string} text The text to tokenize.
-     * @returns {Array<string>} An array of tokens.
+     * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
         return text.trim().match(this.pattern) || [];
@@ -1065,6 +1070,10 @@ class ByteLevelPreTokenizer extends PreTokenizer {
 }
 
 /**
+ * @typedef {'removed'|'isolated'|'mergedWithPrevious'|'mergedWithNext'|'contiguous'} SplitDelimiterBehavior
+ */
+
+/**
  * Splits text using a given pattern.
  * @extends PreTokenizer
  */
@@ -1074,11 +1083,15 @@ class SplitPreTokenizer extends PreTokenizer {
      * @param {Object} config.pattern The pattern used to split the text. Can be a string or a regex object.
      * @param {string|undefined} config.pattern.String The string to use for splitting. Only defined if the pattern is a string.
      * @param {string|undefined} config.pattern.Regex The regex to use for splitting. Only defined if the pattern is a regex.
-     * @param {'isolated'|'removed'} config.behavior The behavior to use when splitting.
+     * @param {SplitDelimiterBehavior} config.behavior The behavior to use when splitting.
+     * @param {boolean} config.invert Whether to split (invert=false) or match (invert=true) the pattern.
      */
     constructor(config) {
         super();
         this.config = config;
+        // TODO support all behaviours (config.behavior)
+
+        this.pattern = createPattern(this.config.pattern, this.config.invert);
     }
 
     /**
@@ -1087,21 +1100,69 @@ class SplitPreTokenizer extends PreTokenizer {
      * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
-        let pattern = createPattern(this.config.pattern);
-        if (pattern === null) {
+        if (this.pattern === null) {
             return [];
         }
 
-        switch (this.config.behavior.toLowerCase()) {
-            // TODO add merged_with_previous, merged_with_next, contiguous
-            // TODO these should act slightly differently. Currently, we haven't found a tokenizer which produces different results.
-            case 'isolated':
-            case 'removed':
-                return text.match(pattern) || [];
-            default:
-                console.warn(`Unknown split behavior: "${this.config.behavior}"`)
-                return [];
+        if (this.config.invert) {
+            return text.match(this.pattern) || [];
+        } else {
+            return text.split(this.pattern).filter(x => x);
         }
+    }
+}
+
+/**
+ * Splits text based on punctuation.
+ * @extends PreTokenizer
+ */
+class PunctuationPreTokenizer extends PreTokenizer {
+    /**
+     * @param {Object} config The configuration options for the pre-tokenizer.
+     * @param {SplitDelimiterBehavior} config.behavior The behavior to use when splitting.
+     */
+    constructor(config) {
+        super();
+        this.config = config;
+        this.pattern = new RegExp(`[^${PUNCTUATION_REGEX}]+|[${PUNCTUATION_REGEX}]+`, 'gu');
+    }
+
+    /**
+     * Tokenizes text by splitting it using the given pattern.
+     * @param {string} text The text to tokenize.
+     * @returns {string[]} An array of tokens.
+     */
+    pre_tokenize_text(text) {
+        return text.match(this.pattern) || [];
+    }
+}
+
+
+/**
+ * Splits text based on digits.
+ * @extends PreTokenizer
+ */
+class DigitsPreTokenizer extends PreTokenizer {
+    /**
+     * @param {Object} config The configuration options for the pre-tokenizer.
+     * @param {boolean} config.individual_digits Whether to split on individual digits.
+     */
+    constructor(config) {
+        super();
+        this.config = config;
+
+        // Construct a pattern which matches the rust implementation:
+        const digit_pattern = `[^\\d]+|\\d${this.config.individual_digits ? '' : '+'}`;
+        this.pattern = new RegExp(digit_pattern, 'gu');
+    }
+
+    /**
+     * Tokenizes text by splitting it using the given pattern.
+     * @param {string} text The text to tokenize.
+     * @returns {string[]} An array of tokens.
+     */
+    pre_tokenize_text(text) {
+        return text.match(this.pattern) || [];
     }
 }
 
@@ -1126,6 +1187,7 @@ class PostProcessor extends Callable {
      * @throws {Error} If an unknown PostProcessor type is encountered.
      */
     static fromConfig(config) {
+        if (config === null) return null;
         switch (config.type) {
             case 'TemplateProcessing':
                 return new TemplateProcessing(config);
@@ -2067,7 +2129,7 @@ export class PreTrainedTokenizer extends Callable {
      * Encodes a single text using the preprocessor pipeline of the tokenizer.
      *
      * @param {string|null} text The text to encode.
-     * @returns {Array} The encoded tokens.
+     * @returns {string[]|null} The encoded tokens.
      */
     _encode_text(text) {
         if (text === null) return null;
@@ -2113,10 +2175,12 @@ export class PreTrainedTokenizer extends Callable {
         let tokens = this._encode_text(text);
         let tokens2 = this._encode_text(text_pair);
 
-        let combinedTokens = this.post_processor(tokens, tokens2);
-        let ids = this.model.convert_tokens_to_ids(combinedTokens);
+        let combinedTokens = (this.post_processor !== null)
+            ? this.post_processor(tokens, tokens2)
+            : mergeArrays(tokens ?? [], tokens2 ?? []);
 
-        return ids
+        let ids = this.model.convert_tokens_to_ids(combinedTokens);
+        return ids;
     }
 
     /**
@@ -2195,7 +2259,7 @@ export class PreTrainedTokenizer extends Callable {
 }
 
 /**
-* Helper method for added `token_type_ids` to model inputs
+* Helper method for adding `token_type_ids` to model inputs
 * @param {Object} inputs An object containing the input ids and attention mask.
 * @returns {Object} The prepared inputs object.
 */
@@ -2228,7 +2292,7 @@ function add_token_types(inputs) {
  * @extends PreTrainedTokenizer
  */
 export class BertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
@@ -2238,19 +2302,19 @@ export class BertTokenizer extends PreTrainedTokenizer {
  * @extends PreTrainedTokenizer
  */
 export class AlbertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
 }
 export class MobileBertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
 }
 export class SqueezeBertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
@@ -2262,12 +2326,20 @@ export class BartTokenizer extends PreTrainedTokenizer { }
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
 export class BloomTokenizer extends PreTrainedTokenizer { }
-export class LlamaTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+export class LlamaTokenizer extends PreTrainedTokenizer { }
+
+export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
+export class MPNetTokenizer extends PreTrainedTokenizer { }
+
+export class FalconTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
 }
+
+export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
+
 /**
  * The NllbTokenizer class is used to tokenize text for NLLB ("No Language Left Behind") models.
  * 
@@ -3171,10 +3243,16 @@ export class AutoTokenizer {
         'CodeGenTokenizer': CodeGenTokenizer,
         'CLIPTokenizer': CLIPTokenizer,
         'MarianTokenizer': MarianTokenizer,
-
         'BloomTokenizer': BloomTokenizer,
         'NllbTokenizer': NllbTokenizer,
         'LlamaTokenizer': LlamaTokenizer,
+        'XLMRobertaTokenizer': XLMRobertaTokenizer,
+        'MPNetTokenizer': MPNetTokenizer,
+        'FalconTokenizer': FalconTokenizer,
+        'GPTNeoXTokenizer': GPTNeoXTokenizer,
+
+        // Base case:
+        'PreTrainedTokenizer': PreTrainedTokenizer,
     }
 
 

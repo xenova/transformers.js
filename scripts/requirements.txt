@@ -1,5 +1,4 @@
-torch
-transformers
+transformers[torch]@git+https://github.com/huggingface/transformers
+optimum[onnxruntime]@git+https://github.com/huggingface/optimum
 onnxruntime
-git+https://github.com/huggingface/optimum.git#egg=optimum[onnxruntime]
 tqdm

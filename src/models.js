@@ -217,6 +217,8 @@ function replaceTensors(obj) {
     for (let prop in obj) {
         if (obj[prop] instanceof ONNXTensor) {
             obj[prop] = new Tensor(obj[prop]);
+        } else if (typeof obj[prop] === 'object') {
+            replaceTensors(obj[prop]);
         }
     }
     return obj;
@@ -2145,6 +2147,22 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class MobileViTPreTrainedModel extends PreTrainedModel { }
+export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+// TODO: MobileViTForSemanticSegmentation
+
+//////////////////////////////////////////////////
+
+
+
+//////////////////////////////////////////////////
 export class DetrPreTrainedModel extends PreTrainedModel { }
 export class DetrForObjectDetection extends DetrPreTrainedModel {
     /**
@@ -2537,6 +2555,7 @@ const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ViTForImageClassification],
+    ['mobilevit', MobileViTForImageClassification],
 ]);
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([

@@ -43,7 +43,28 @@ SUPPORTED_MODELS = {
         'emilyalsentzer/Bio_ClinicalBERT',
         'SpanBERT/spanbert-large-cased',
         'SpanBERT/spanbert-base-cased',
+
+        'deepset/sentence_bert',
+
+        'cambridgeltl/SapBERT-from-PubMedBERT-fulltext',
+        'indobenchmark/indobert-base-p1',
+        'GanjinZero/UMLSBert_ENG',
+        'DeepPavlov/rubert-base-cased',
+        'monologg/kobert',
+
+        'intfloat/e5-small',
+        'intfloat/e5-small-v2',
+        'intfloat/e5-base',
+        'intfloat/e5-base-v2',
+        'intfloat/e5-large',
+        'intfloat/e5-large-v2',
+        'intfloat/multilingual-e5-base',
     ],
+    # TODO:
+    # 'bloom':[
+    #     'bigscience/bloom-560m',
+    #     'bigscience/bloomz-560m',
+    # ],
     # TODO:
     # 'blenderbot-small': [
     #     'facebook/blenderbot_small-90M',
@@ -103,6 +124,15 @@ SUPPORTED_MODELS = {
         # https://github.com/huggingface/optimum/issues/1027
         # 'google/mobilebert-uncased',
     ],
+    'mobilevit':[
+        'apple/mobilevit-small',
+        'apple/mobilevit-x-small',
+        'apple/mobilevit-xx-small',
+
+        'apple/deeplabv3-mobilevit-small',
+        'apple/deeplabv3-mobilevit-x-small',
+        'apple/deeplabv3-mobilevit-xx-small',
+    ],
     'mpnet': [
         'sentence-transformers/all-mpnet-base-v2',
         'sentence-transformers/nli-mpnet-base-v2',
@@ -148,6 +178,11 @@ SUPPORTED_MODELS = {
         'MBZUAI/LaMini-T5-61M',
         'MBZUAI/LaMini-T5-223M',
         'MBZUAI/LaMini-T5-738M',
+
+        'sentence-transformers/sentence-t5-large',
+        'hkunlp/instructor-base',
+        'hkunlp/instructor-large',
+        # 'hkunlp/instructor-xl', # TODO
     ],
     'vision-encoder-decoder': [
         'nlpconnect/vit-gpt2-image-captioning',
