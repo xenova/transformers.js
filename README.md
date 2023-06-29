@@ -34,7 +34,7 @@ Transformers.js is designed to be functionally equivalent to Hugging Face's [tra
   - 🗣️ **Audio**: automatic speech recognition and audio classification.
   - 🐙 **Multimodal**: zero-shot image classification.
 
-Transformers.js uses [ONNX Runtime](https://onnxruntime.ai/) to run models in the browser. The best part about it, is that you can easily [convert](#convert-your-models-to-onnx) your pretrained PyTorch, TensorFlow, or JAX models to ONNX using [🤗 Optimum](https://github.com/huggingface/optimum#onnx--onnx-runtime) or the official hosted [convert-to-ONNX Space](https://huggingface.co/spaces/onnx/export). 
+Transformers.js uses [ONNX Runtime](https://onnxruntime.ai/) to run models in the browser. The best part about it, is that you can easily [convert](#convert-your-models-to-onnx) your pretrained PyTorch, TensorFlow, or JAX models to ONNX using [🤗 Optimum](https://github.com/huggingface/optimum#onnx--onnx-runtime). 
 
 For more information, check out the full [documentation](https://huggingface.co/docs/transformers.js).
 
@@ -173,7 +173,9 @@ Here is the list of all tasks and architectures currently supported by Transform
 If you don't see your task/model listed here or it is not yet supported, feel free
 to open up a feature request [here](https://github.com/xenova/transformers.js/issues/new/choose).
 
-To find a compatible checkpoint on the Hub, you can either browse models [explicitly specified as transformers.js models](https://huggingface.co/models?library=transformers.js), or alternatively browse all [model repos that include a ONNX export](https://huggingface.co/models?library=onnx).
+To find compatible models on the Hub, select the "transformers.js" library tag in the filter menu (or visit [this link](https://huggingface.co/models?library=transformers.js)).
+You can refine your search by selecting the task you're interested in (e.g., [text-classification](https://huggingface.co/models?pipeline_tag=text-classification&library=transformers.js)).
+
 
 ### Tasks
 
