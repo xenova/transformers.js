@@ -47,9 +47,11 @@ README_TEMPLATE = """
 
 ## Supported tasks/models
 
-Here is the list of all tasks and models currently supported by Transformers.js.
+Here is the list of all tasks and architectures currently supported by Transformers.js.
 If you don't see your task/model listed here or it is not yet supported, feel free
 to open up a feature request [here](https://github.com/xenova/transformers.js/issues/new/choose).
+
+To find a compatible checkpoint on the Hub, you can either browse models [explicitly specified as transformers.js models](https://huggingface.co/models?library=transformers.js), or alternatively browse all [model repos that include a ONNX export](https://huggingface.co/models?library=onnx).
 
 {tasks}
 
