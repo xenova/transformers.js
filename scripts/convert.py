@@ -3,7 +3,7 @@ import json
 import os
 import shutil
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Set
 from tqdm import tqdm
 
 from transformers import (
@@ -92,7 +92,7 @@ class ConversionArguments:
     )
 
 
-def get_operators(model: onnx.ModelProto) -> set[str]:
+def get_operators(model: onnx.ModelProto) -> Set[str]:
     operators = set()
 
     def traverse_graph(graph):
