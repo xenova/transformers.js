@@ -1676,6 +1676,22 @@ export class RobertaForSequenceClassification extends RobertaPreTrainedModel {
 }
 
 /**
+ * RobertaForTokenClassification class for performing token classification on Roberta models.
+ * @extends RobertaPreTrainedModel
+ */
+export class RobertaForTokenClassification extends RobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
  * RobertaForQuestionAnswering class for performing question answering on Roberta models.
  * @extends RobertaPreTrainedModel
  */
@@ -2514,6 +2530,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
     ['distilbert', DistilBertForTokenClassification],
+    ['roberta', RobertaForTokenClassification],
 ]);
 
 const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
