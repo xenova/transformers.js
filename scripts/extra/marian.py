@@ -1,7 +1,7 @@
 import json
 from transformers.utils import cached_file
 
-# NOTE: In total, there are 1440 models available on the HuggingFace hub (https://huggingface.co/Helsinki-NLP/).
+# NOTE: In total, there are 1440 models available on the HuggingFace hub (https://huggingface.co/Helsinki-NLP).
 # We have converted some of these (listed below). If you don't see your model here, feel free to convert it yourself
 # and make a pull request to this repo.
 
