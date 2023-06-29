@@ -140,7 +140,7 @@ export class RawImage {
             return this;
         }
 
-        let newData = new Uint8ClampedArray(this.width * this.height * 3);
+        let newData = new Uint8ClampedArray(this.width * this.height * 1);
         switch (this.channels) {
             case 3: // rgb to grayscale
             case 4: // rgba to grayscale
