@@ -153,6 +153,7 @@ SUPPORTED_MODELS = {
 
         'sentence-transformers/all-distilroberta-v1',
         'sentence-transformers/all-roberta-large-v1',
+        'julien-c/EsperBERTo-small-pos',
     ],
     'sam': [
         'facebook/sam-vit-base',
