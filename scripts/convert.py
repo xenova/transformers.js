@@ -92,7 +92,7 @@ class ConversionArguments:
     )
 
 
-def get_operators(model):
+def get_operators(model: onnx.ModelProto) -> set[str]:
     operators = set()
 
     def traverse_graph(graph):
