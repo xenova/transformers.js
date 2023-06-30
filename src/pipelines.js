@@ -449,8 +449,25 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
 }
 
 /**
- * Language generation pipeline using any `ModelWithLMHead`.
+ * Language generation pipeline using any `ModelWithLMHead` or `ModelForCausalLM`.
  * This pipeline predicts the words that will follow a specified text prompt.
+ * NOTE: For the full list of generation parameters, see [./utils/generation#module_utils/generation.GenerationConfig](`GenerationConfig`).
+ * 
+ * **Example:** Run code generation with Xenova/codegen-350M-mono.
+ * ```javascript
+ * let text = 'def fib(n):';
+ * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * let output = await generator(text, {
+ *     max_new_tokens: 40,
+ * });
+ * console.log(output[0].generated_text);
+ * // def fib(n):
+ * //     if n == 0:
+ * //         return 0
+ * //     if n == 1:
+ * //         return 1
+ * //     return fib(n-1) + fib(n-2)
+ * ```
  * @extends Pipeline
  */
 export class TextGenerationPipeline extends Pipeline {
