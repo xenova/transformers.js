@@ -451,7 +451,7 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
 /**
  * Language generation pipeline using any `ModelWithLMHead` or `ModelForCausalLM`.
  * This pipeline predicts the words that will follow a specified text prompt.
- * NOTE: For the full list of generation parameters, see [./utils/generation#module_utils/generation.GenerationConfig](`GenerationConfig`).
+ * NOTE: For the full list of generation parameters, see [`GenerationConfig`](./utils/generation#module_utils/generation.GenerationConfig).
  * 
  * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
  * ```javascript
