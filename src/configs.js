@@ -59,6 +59,7 @@ export class PretrainedConfig {
      * @param {Object} configJSON The JSON of the config.
      */
     constructor(configJSON) {
+        this.model_type = null;
         this.is_encoder_decoder = false;
 
         Object.assign(this, configJSON);

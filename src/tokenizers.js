@@ -25,13 +25,14 @@ import {
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
+    mergeArrays,
 } from './utils/core.js';
 
 import {
     getModelJSON,
 } from './utils/hub.js';
 
-import { min } from './utils/maths.js';
+import { max, min } from './utils/maths.js';
 import { Tensor } from './utils/tensor.js';
 
 import { env } from './env.js';
@@ -60,11 +61,14 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
 /**
  * Helper method to construct a pattern from a config object.
  * @param {Object} pattern The pattern object.
+ * @param {boolean} invert Whether to invert the pattern (only applicable for Regex patterns).
  * @returns {RegExp|string|null} The compiled pattern.
  */
-function createPattern(pattern) {
+function createPattern(pattern, invert = true) {
+
     if (pattern.Regex) {
-        return new RegExp(pattern.Regex, 'gu');
+        // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
+        return new RegExp(invert ? pattern.Regex : `(${pattern.Regex})`, 'gu');
 
     } else if (pattern.String) {
         return pattern.String;
@@ -126,6 +130,8 @@ function fuse(arr, value) {
 function whitespace_split(text) {
     return text.match(/\S+/g) || [];
 }
+
+const PUNCTUATION_REGEX = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E';
 
 /**
  * Abstract base class for tokenizer models.
@@ -934,7 +940,10 @@ class PreTokenizer extends Callable {
                 return new ByteLevelPreTokenizer(config);
             case 'Split':
                 return new SplitPreTokenizer(config);
-
+            case 'Punctuation':
+                return new PunctuationPreTokenizer(config);
+            case 'Digits':
+                return new DigitsPreTokenizer(config);
             default:
                 throw new Error(`Unknown PreTokenizer type: ${config.type}`);
         }
@@ -989,19 +998,16 @@ class BertPreTokenizer extends PreTokenizer {
      */
     constructor(config) {
         super();
-        // TODO use config
-
         // Construct a pattern which matches the rust implementation:
         // https://github.com/huggingface/tokenizers/blob/b4fcc9ce6e4ad5806e82826f816acfdfdc4fcc67/tokenizers/src/pre_tokenizers/bert.rs#L11
         // Equivalent to removing whitespace and splitting on punctuation (both \p{P} and other ascii characters)
-        const punctuation = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E'
-        this.pattern = new RegExp(`[^\\s${punctuation}]+|[${punctuation}]`, 'gu');
+        this.pattern = new RegExp(`[^\\s${PUNCTUATION_REGEX}]+|[${PUNCTUATION_REGEX}]`, 'gu');
     }
     /**
      * Tokenizes a single text using the BERT pre-tokenization scheme.
      * 
      * @param {string} text The text to tokenize.
-     * @returns {Array<string>} An array of tokens.
+     * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
         return text.trim().match(this.pattern) || [];
@@ -1068,6 +1074,10 @@ class ByteLevelPreTokenizer extends PreTokenizer {
 }
 
 /**
+ * @typedef {'removed'|'isolated'|'mergedWithPrevious'|'mergedWithNext'|'contiguous'} SplitDelimiterBehavior
+ */
+
+/**
  * Splits text using a given pattern.
  * @extends PreTokenizer
  */
@@ -1077,11 +1087,15 @@ class SplitPreTokenizer extends PreTokenizer {
      * @param {Object} config.pattern The pattern used to split the text. Can be a string or a regex object.
      * @param {string|undefined} config.pattern.String The string to use for splitting. Only defined if the pattern is a string.
      * @param {string|undefined} config.pattern.Regex The regex to use for splitting. Only defined if the pattern is a regex.
-     * @param {'isolated'|'removed'} config.behavior The behavior to use when splitting.
+     * @param {SplitDelimiterBehavior} config.behavior The behavior to use when splitting.
+     * @param {boolean} config.invert Whether to split (invert=false) or match (invert=true) the pattern.
      */
     constructor(config) {
         super();
         this.config = config;
+        // TODO support all behaviours (config.behavior)
+
+        this.pattern = createPattern(this.config.pattern, this.config.invert);
     }
 
     /**
@@ -1090,21 +1104,69 @@ class SplitPreTokenizer extends PreTokenizer {
      * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
-        let pattern = createPattern(this.config.pattern);
-        if (pattern === null) {
+        if (this.pattern === null) {
             return [];
         }
 
-        switch (this.config.behavior.toLowerCase()) {
-            // TODO add merged_with_previous, merged_with_next, contiguous
-            // TODO these should act slightly differently. Currently, we haven't found a tokenizer which produces different results.
-            case 'isolated':
-            case 'removed':
-                return text.match(pattern) || [];
-            default:
-                console.warn(`Unknown split behavior: "${this.config.behavior}"`)
-                return [];
+        if (this.config.invert) {
+            return text.match(this.pattern) || [];
+        } else {
+            return text.split(this.pattern).filter(x => x);
         }
+    }
+}
+
+/**
+ * Splits text based on punctuation.
+ * @extends PreTokenizer
+ */
+class PunctuationPreTokenizer extends PreTokenizer {
+    /**
+     * @param {Object} config The configuration options for the pre-tokenizer.
+     * @param {SplitDelimiterBehavior} config.behavior The behavior to use when splitting.
+     */
+    constructor(config) {
+        super();
+        this.config = config;
+        this.pattern = new RegExp(`[^${PUNCTUATION_REGEX}]+|[${PUNCTUATION_REGEX}]+`, 'gu');
+    }
+
+    /**
+     * Tokenizes text by splitting it using the given pattern.
+     * @param {string} text The text to tokenize.
+     * @returns {string[]} An array of tokens.
+     */
+    pre_tokenize_text(text) {
+        return text.match(this.pattern) || [];
+    }
+}
+
+
+/**
+ * Splits text based on digits.
+ * @extends PreTokenizer
+ */
+class DigitsPreTokenizer extends PreTokenizer {
+    /**
+     * @param {Object} config The configuration options for the pre-tokenizer.
+     * @param {boolean} config.individual_digits Whether to split on individual digits.
+     */
+    constructor(config) {
+        super();
+        this.config = config;
+
+        // Construct a pattern which matches the rust implementation:
+        const digit_pattern = `[^\\d]+|\\d${this.config.individual_digits ? '' : '+'}`;
+        this.pattern = new RegExp(digit_pattern, 'gu');
+    }
+
+    /**
+     * Tokenizes text by splitting it using the given pattern.
+     * @param {string} text The text to tokenize.
+     * @returns {string[]} An array of tokens.
+     */
+    pre_tokenize_text(text) {
+        return text.match(this.pattern) || [];
     }
 }
 
@@ -1129,6 +1191,7 @@ class PostProcessor extends Callable {
      * @throws {Error} If an unknown PostProcessor type is encountered.
      */
     static fromConfig(config) {
+        if (config === null) return null;
         switch (config.type) {
             case 'TemplateProcessing':
                 return new TemplateProcessing(config);
@@ -1192,12 +1255,12 @@ class RobertaProcessing extends PostProcessor {
      * @returns {string[]} The input tokens with the special tokens added to the beginning and end.
      */
     post_process(tokens, tokens_pair = null) {
-        tokens = [this.cls, ...tokens, this.sep]
+        tokens = mergeArrays([this.cls], tokens, [this.sep]);
 
         // NOTE: It is intended to add 2 EOS tokens after the first set of tokens
         // https://github.com/huggingface/tokenizers/issues/983
         if (tokens_pair !== null) {
-            tokens = [...tokens, this.sep, ...tokens_pair, this.sep]
+            tokens = mergeArrays(tokens, [this.sep], tokens_pair, [this.sep]);
         }
         return tokens;
     }
@@ -1237,10 +1300,10 @@ class TemplateProcessing extends PostProcessor {
 
             } else if ('Sequence' in item) {
                 if (item.Sequence.id === 'A') {
-                    toReturn.push(...tokens);
+                    toReturn = mergeArrays(toReturn, tokens);
 
                 } else if (item.Sequence.id === 'B') {
-                    toReturn.push(...tokens_pair);
+                    toReturn = mergeArrays(toReturn, tokens_pair);
                 }
             }
         }
@@ -1965,7 +2028,7 @@ export class PreTrainedTokenizer extends Callable {
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
 
-        let maxLengthOfBatch = Math.max(...tokens.map(x => x.length));
+        let maxLengthOfBatch = max(tokens.map(x => x.length))[0];
 
         // If null, we calculate max length from sequences
         if (max_length === null) {
@@ -2070,7 +2133,7 @@ export class PreTrainedTokenizer extends Callable {
      * Encodes a single text using the preprocessor pipeline of the tokenizer.
      *
      * @param {string|null} text The text to encode.
-     * @returns {Array} The encoded tokens.
+     * @returns {string[]|null} The encoded tokens.
      */
     _encode_text(text) {
         if (text === null) return null;
@@ -2116,10 +2179,12 @@ export class PreTrainedTokenizer extends Callable {
         let tokens = this._encode_text(text);
         let tokens2 = this._encode_text(text_pair);
 
-        let combinedTokens = this.post_processor(tokens, tokens2);
-        let ids = this.model.convert_tokens_to_ids(combinedTokens);
+        let combinedTokens = (this.post_processor !== null)
+            ? this.post_processor(tokens, tokens2)
+            : mergeArrays(tokens ?? [], tokens2 ?? []);
 
-        return ids
+        let ids = this.model.convert_tokens_to_ids(combinedTokens);
+        return ids;
     }
 
     /**
@@ -2198,7 +2263,7 @@ export class PreTrainedTokenizer extends Callable {
 }
 
 /**
-* Helper method for added `token_type_ids` to model inputs
+* Helper method for adding `token_type_ids` to model inputs
 * @param {Object} inputs An object containing the input ids and attention mask.
 * @returns {Object} The prepared inputs object.
 */
@@ -2231,7 +2296,7 @@ function add_token_types(inputs) {
  * @extends PreTrainedTokenizer
  */
 export class BertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
@@ -2241,19 +2306,19 @@ export class BertTokenizer extends PreTrainedTokenizer {
  * @extends PreTrainedTokenizer
  */
 export class AlbertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
 }
 export class MobileBertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
 }
 export class SqueezeBertTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
@@ -2265,12 +2330,20 @@ export class BartTokenizer extends PreTrainedTokenizer { }
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
 export class BloomTokenizer extends PreTrainedTokenizer { }
-export class LlamaTokenizer extends PreTrainedTokenizer {
-    /** @see {@link add_token_types} */
+export class LlamaTokenizer extends PreTrainedTokenizer { }
+
+export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
+export class MPNetTokenizer extends PreTrainedTokenizer { }
+
+export class FalconTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
     }
 }
+
+export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
+
 /**
  * The NllbTokenizer class is used to tokenize text for NLLB ("No Language Left Behind") models.
  * 
@@ -2333,112 +2406,133 @@ export class NllbTokenizer extends PreTrainedTokenizer {
 }
 
 
+const WHISPER_LANGUAGES = [
+    ["en", "english"],
+    ["zh", "chinese"],
+    ["de", "german"],
+    ["es", "spanish"],
+    ["ru", "russian"],
+    ["ko", "korean"],
+    ["fr", "french"],
+    ["ja", "japanese"],
+    ["pt", "portuguese"],
+    ["tr", "turkish"],
+    ["pl", "polish"],
+    ["ca", "catalan"],
+    ["nl", "dutch"],
+    ["ar", "arabic"],
+    ["sv", "swedish"],
+    ["it", "italian"],
+    ["id", "indonesian"],
+    ["hi", "hindi"],
+    ["fi", "finnish"],
+    ["vi", "vietnamese"],
+    ["he", "hebrew"],
+    ["uk", "ukrainian"],
+    ["el", "greek"],
+    ["ms", "malay"],
+    ["cs", "czech"],
+    ["ro", "romanian"],
+    ["da", "danish"],
+    ["hu", "hungarian"],
+    ["ta", "tamil"],
+    ["no", "norwegian"],
+    ["th", "thai"],
+    ["ur", "urdu"],
+    ["hr", "croatian"],
+    ["bg", "bulgarian"],
+    ["lt", "lithuanian"],
+    ["la", "latin"],
+    ["mi", "maori"],
+    ["ml", "malayalam"],
+    ["cy", "welsh"],
+    ["sk", "slovak"],
+    ["te", "telugu"],
+    ["fa", "persian"],
+    ["lv", "latvian"],
+    ["bn", "bengali"],
+    ["sr", "serbian"],
+    ["az", "azerbaijani"],
+    ["sl", "slovenian"],
+    ["kn", "kannada"],
+    ["et", "estonian"],
+    ["mk", "macedonian"],
+    ["br", "breton"],
+    ["eu", "basque"],
+    ["is", "icelandic"],
+    ["hy", "armenian"],
+    ["ne", "nepali"],
+    ["mn", "mongolian"],
+    ["bs", "bosnian"],
+    ["kk", "kazakh"],
+    ["sq", "albanian"],
+    ["sw", "swahili"],
+    ["gl", "galician"],
+    ["mr", "marathi"],
+    ["pa", "punjabi"],
+    ["si", "sinhala"],
+    ["km", "khmer"],
+    ["sn", "shona"],
+    ["yo", "yoruba"],
+    ["so", "somali"],
+    ["af", "afrikaans"],
+    ["oc", "occitan"],
+    ["ka", "georgian"],
+    ["be", "belarusian"],
+    ["tg", "tajik"],
+    ["sd", "sindhi"],
+    ["gu", "gujarati"],
+    ["am", "amharic"],
+    ["yi", "yiddish"],
+    ["lo", "lao"],
+    ["uz", "uzbek"],
+    ["fo", "faroese"],
+    ["ht", "haitian creole"],
+    ["ps", "pashto"],
+    ["tk", "turkmen"],
+    ["nn", "nynorsk"],
+    ["mt", "maltese"],
+    ["sa", "sanskrit"],
+    ["lb", "luxembourgish"],
+    ["my", "myanmar"],
+    ["bo", "tibetan"],
+    ["tl", "tagalog"],
+    ["mg", "malagasy"],
+    ["as", "assamese"],
+    ["tt", "tatar"],
+    ["haw", "hawaiian"],
+    ["ln", "lingala"],
+    ["ha", "hausa"],
+    ["ba", "bashkir"],
+    ["jw", "javanese"],
+    ["su", "sundanese"],
+]
+
+// @ts-ignore
+const WHISPER_LANGUAGE_MAPPING = new Map(WHISPER_LANGUAGES);
+// @ts-ignore
+const WHISPER_TO_LANGUAGE_CODE_MAPPING = new Map([
+    ...WHISPER_LANGUAGES.map(([k, v]) => [v, k]),
+    ...[
+        ["burmese", "my"],
+        ["valencian", "ca"],
+        ["flemish", "nl"],
+        ["haitian", "ht"],
+        ["letzeburgesch", "lb"],
+        ["pushto", "ps"],
+        ["panjabi", "pa"],
+        ["moldavian", "ro"],
+        ["moldovan", "ro"],
+        ["sinhalese", "si"],
+        ["castilian", "es"],
+    ]
+]);
+
 /**
  * WhisperTokenizer tokenizer
  * @extends PreTrainedTokenizer
  */
 export class WhisperTokenizer extends PreTrainedTokenizer {
-    static LANGUAGES = {
-        "en": "english",
-        "zh": "chinese",
-        "de": "german",
-        "es": "spanish",
-        "ru": "russian",
-        "ko": "korean",
-        "fr": "french",
-        "ja": "japanese",
-        "pt": "portuguese",
-        "tr": "turkish",
-        "pl": "polish",
-        "ca": "catalan",
-        "nl": "dutch",
-        "ar": "arabic",
-        "sv": "swedish",
-        "it": "italian",
-        "id": "indonesian",
-        "hi": "hindi",
-        "fi": "finnish",
-        "vi": "vietnamese",
-        "he": "hebrew",
-        "uk": "ukrainian",
-        "el": "greek",
-        "ms": "malay",
-        "cs": "czech",
-        "ro": "romanian",
-        "da": "danish",
-        "hu": "hungarian",
-        "ta": "tamil",
-        "no": "norwegian",
-        "th": "thai",
-        "ur": "urdu",
-        "hr": "croatian",
-        "bg": "bulgarian",
-        "lt": "lithuanian",
-        "la": "latin",
-        "mi": "maori",
-        "ml": "malayalam",
-        "cy": "welsh",
-        "sk": "slovak",
-        "te": "telugu",
-        "fa": "persian",
-        "lv": "latvian",
-        "bn": "bengali",
-        "sr": "serbian",
-        "az": "azerbaijani",
-        "sl": "slovenian",
-        "kn": "kannada",
-        "et": "estonian",
-        "mk": "macedonian",
-        "br": "breton",
-        "eu": "basque",
-        "is": "icelandic",
-        "hy": "armenian",
-        "ne": "nepali",
-        "mn": "mongolian",
-        "bs": "bosnian",
-        "kk": "kazakh",
-        "sq": "albanian",
-        "sw": "swahili",
-        "gl": "galician",
-        "mr": "marathi",
-        "pa": "punjabi",
-        "si": "sinhala",
-        "km": "khmer",
-        "sn": "shona",
-        "yo": "yoruba",
-        "so": "somali",
-        "af": "afrikaans",
-        "oc": "occitan",
-        "ka": "georgian",
-        "be": "belarusian",
-        "tg": "tajik",
-        "sd": "sindhi",
-        "gu": "gujarati",
-        "am": "amharic",
-        "yi": "yiddish",
-        "lo": "lao",
-        "uz": "uzbek",
-        "fo": "faroese",
-        "ht": "haitian creole",
-        "ps": "pashto",
-        "tk": "turkmen",
-        "nn": "nynorsk",
-        "mt": "maltese",
-        "sa": "sanskrit",
-        "lb": "luxembourgish",
-        "my": "myanmar",
-        "bo": "tibetan",
-        "tl": "tagalog",
-        "mg": "malagasy",
-        "as": "assamese",
-        "tt": "tatar",
-        "haw": "hawaiian",
-        "ln": "lingala",
-        "ha": "hausa",
-        "ba": "bashkir",
-        "jw": "javanese",
-        "su": "sundanese",
-    }
 
     /**
      * Decodes automatic speech recognition (ASR) sequences.
@@ -2545,7 +2639,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                 if (all_special_ids.has(token)) {
                     const text = this.decode([token]);
                     if (text[0] === "[" && text[text.length - 1] === "]") {
-                        const language = WhisperTokenizer.LANGUAGES[text.slice(1, -1)];
+                        const language = WHISPER_LANGUAGE_MAPPING.get(text.slice(1, -1));
 
                         if (language !== undefined) {
                             // 1/ Indeed some language
@@ -2594,7 +2688,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                             // This is an issue in the underlying model output
                             // Let's just skip it so it becomes
                         } else {
-                            chunk.timestamp[1] = time;
+                            chunk.timestamp[1] = rounded_time;
 
                             // Handling merges
                             previous_tokens.push(current_tokens)
@@ -2749,6 +2843,105 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         totalSequence.push(...leftSequence);
         return totalSequence;
     }
+
+    /**
+     * Helper function to build translation inputs for a `WhisperTokenizer`,
+     * depending on the language, task, and whether to predict timestamp tokens.
+     * 
+     * Used to override the prefix tokens appended to the start of the label sequence.
+     * 
+     * **Example: Get ids for a language**
+     * ```javascript
+     * // instantiate the tokenizer and set the prefix token to Spanish
+     * let tokenizer = await WhisperTokenizer.from_pretrained('Xenova/whisper-tiny');
+     * let forced_decoder_ids = tokenizer.get_decoder_prompt_ids({ language: 'spanish' });
+     * // [(1, 50262), (2, 50363)]
+     * ```
+     * 
+     * @param {Object} options Options to generate the decoder prompt.
+     * @param {string} [options.language] The language of the transcription text.
+     * The corresponding language id token is appended to the start of the sequence for multilingual
+     * speech recognition and speech translation tasks, e.g. for "Spanish" the token "<|es|>" is appended
+     * to the start of sequence.
+     * @param {string} [options.task] Task identifier to append at the start of sequence (if any).
+     * This should be used for mulitlingual fine-tuning, with "transcribe" for speech recognition and
+     * "translate" for speech translation.
+     * @param {boolean} [options.no_timestamps] Whether to add the <|notimestamps|> token at the start of the sequence.
+     * @returns {number[][]} The decoder prompt ids.
+     */
+    get_decoder_prompt_ids({
+        language = null,
+        task = null,
+        no_timestamps = true,
+    } = {}) {
+
+        // <|lang_id|> <|task|> <|notimestamps|>
+
+        let forced_decoder_ids = [];
+
+        if (language) {
+            // User wishes to specify the language
+            language = language.toLowerCase();
+
+            // Map to code from user-friendly name (e.g., "english" -> "en")
+            let language_code = WHISPER_TO_LANGUAGE_CODE_MAPPING.get(language);
+
+            if (language_code === undefined) {
+                // User provided something that is not a language name
+
+                if (WHISPER_LANGUAGE_MAPPING.has(language)) {
+                    // User provided the language code directly (e.g., "en")
+                    language_code = language;
+
+                } else {
+                    // User provided something that is not a language code or name
+                    const is_language_code = language.length === 2;
+                    const langs = is_language_code ? WHISPER_LANGUAGE_MAPPING.keys() : WHISPER_LANGUAGE_MAPPING.values();
+
+                    throw new Error(`Language "${language}" is not supported. Must be one of: ${JSON.stringify(langs)}`);
+                }
+            }
+
+            let language_token_id = this.model.tokens_to_ids.get(`<|${language_code}|>`);
+            if (language_token_id === undefined) {
+                throw new Error(`Unable to find language "${language_code}" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.`)
+            }
+
+            forced_decoder_ids.push(language_token_id);
+        } else {
+            // No token will be forced, which leaves the model to predict the language
+            forced_decoder_ids.push(null);
+        }
+
+        if (task) {
+            task = task.toLowerCase();
+            if (task !== 'transcribe' && task !== 'translate') {
+                throw new Error(`Task "${task}" is not supported. Must be one of: ["transcribe", "translate"]`);
+            }
+
+            let task_token_id = this.model.tokens_to_ids.get(`<|${task}|>`);
+            if (task_token_id === undefined) {
+                throw new Error(`Unable to find task "${task}" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.`)
+            }
+
+            forced_decoder_ids.push(task_token_id);
+        } else {
+            // No token will be forced, which leaves the model to predict the task
+            forced_decoder_ids.push(null);
+        }
+
+        if (no_timestamps) {
+            let no_timestamps_id = this.model.tokens_to_ids.get(`<|notimestamps|>`);
+            if (no_timestamps_id === undefined) {
+                throw new Error('Unable to find "<|notimestamps|>" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.')
+            }
+
+            forced_decoder_ids.push(no_timestamps_id);
+        }
+
+        return forced_decoder_ids.map((x, i) => [i + 1, x]).filter(x => x[1] !== null);
+
+    }
 }
 export class CodeGenTokenizer extends PreTrainedTokenizer { }
 export class CLIPTokenizer extends PreTrainedTokenizer { }
@@ -2801,7 +2994,7 @@ export class MarianTokenizer extends PreTrainedTokenizer {
             if (!this.supported_language_codes.includes(language)) {
                 console.warn(`Unsupported language code "${language}" detected, which may lead to unexpected behavior. Should be one of: ${JSON.stringify(this.supported_language_codes)}`)
             }
-            return [language, ...super._encode_text(text)]
+            return mergeArrays([language], super._encode_text(text));
         }
     }
 
@@ -3054,10 +3247,16 @@ export class AutoTokenizer {
         'CodeGenTokenizer': CodeGenTokenizer,
         'CLIPTokenizer': CLIPTokenizer,
         'MarianTokenizer': MarianTokenizer,
-
         'BloomTokenizer': BloomTokenizer,
         'NllbTokenizer': NllbTokenizer,
         'LlamaTokenizer': LlamaTokenizer,
+        'XLMRobertaTokenizer': XLMRobertaTokenizer,
+        'MPNetTokenizer': MPNetTokenizer,
+        'FalconTokenizer': FalconTokenizer,
+        'GPTNeoXTokenizer': GPTNeoXTokenizer,
+
+        // Base case:
+        'PreTrainedTokenizer': PreTrainedTokenizer,
     }
 
 

@@ -98,7 +98,7 @@ npm i @xenova/transformers
 Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN or static hosting. For example, using [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules), you can import the library with:
 ```html
 <script type="module">
-    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.1.0';
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.3.0';
 </script>
 ```
 
@@ -107,9 +107,10 @@ Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN
 
 Want to jump straight in? Get started with one of our sample applications/templates:
 
-| Platform          | Description                      | Source code                   |
+| Name              | Description                      | Source code                   |
 |-------------------|----------------------------------|-------------------------------|
 | React             | Multilingual translation website | [link](./examples/react-translator/) |
+| Whisper Web       | Speech recognition w/ Whisper    | [link](https://github.com/xenova/whisper-web) |
 | Browser extension | Text classification extension    | [link](./examples/extension/) |
 | Electron          | Text classification application  | [link](./examples/electron/)  |
 | Node.js           | Sentiment analysis API           | [link](./examples/node/)      |
@@ -120,7 +121,7 @@ Want to jump straight in? Get started with one of our sample applications/templa
 
 
 
-By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@2.1.1/dist/), which should work out-of-the-box. You can customize this as follows:
+By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@2.3.0/dist/), which should work out-of-the-box. You can customize this as follows:
 
 
 ### Settings
@@ -168,9 +169,12 @@ bert-base-uncased/
 
 ## Supported tasks/models
 
-Here is the list of all tasks and models currently supported by Transformers.js.
+Here is the list of all tasks and architectures currently supported by Transformers.js.
 If you don't see your task/model listed here or it is not yet supported, feel free
 to open up a feature request [here](https://github.com/xenova/transformers.js/issues/new/choose).
+
+To find compatible models on the Hub, select the "transformers.js" library tag in the filter menu (or visit [this link](https://huggingface.co/models?library=transformers.js)).
+You can refine your search by selecting the task you're interested in (e.g., [text-classification](https://huggingface.co/models?pipeline_tag=text-classification&library=transformers.js)).
 
 
 ### Tasks

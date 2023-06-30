@@ -1,49 +1,10 @@
 
 import { pipeline, cos_sim } from '../src/transformers.js';
 import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
-
+import { compare } from './test_utils.js';
 
 // Initialise the testing environment
 init();
-
-
-function compare(val1, val2, tol = 0.1) {
-    if (
-        (val1 !== null && val2 !== null) &&
-        (typeof val1 === 'object' && typeof val2 === 'object')
-    ) {
-        // Both are non-null objects
-
-        if (Array.isArray(val1) && Array.isArray(val2)) {
-            expect(val1).toHaveLength(val2.length);
-
-            for (let i = 0; i < val1.length; ++i) {
-                compare(val1[i], val2[i], tol);
-            }
-
-        } else {
-            expect(Object.keys(val1)).toHaveLength(Object.keys(val2).length);
-
-            for (let key in val1) {
-                compare(val1[key], val2[key]);
-            }
-        }
-
-    } else {
-        // At least one of them is not an object
-        // First check that both have the same type
-        expect(typeof val1).toEqual(typeof val2);
-
-        if (typeof val1 === 'number' && (!Number.isInteger(val1) || !Number.isInteger(val2))) {
-            // If both are numbers and at least one of them is not an integer
-            expect(val1).toBeCloseTo(val2, tol);
-        } else {
-            // Perform equality test
-            expect(val1).toEqual(val2);
-        }
-    }
-}
-
 
 // NOTE:
 // Due to a memory leak in Jest, we cannot have multiple tests for a single model.
@@ -741,26 +702,83 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
     });
 
-    // TODO
-    // describe('Speech-to-text generation', () => {
+    describe('Speech-to-text generation', () => {
 
-    //     // List all models which will be tested
-    //     const models = [
-    //         'openai/whisper-tiny.en',
-    //     ];
+        const loadAudio = async (url) => {
+            // NOTE: Since the Web Audio API is not available in Node.js, we will need to use the `wavefile` library to obtain the raw audio data.
+            // For more information, see: https://huggingface.co/docs/transformers.js/tutorials/node-audio-processing
+            let wavefile = (await import('wavefile')).default;
 
-    //     it(models[0], async () => {
-    //         let transcriber = await pipeline('automatic-speech-recognition', m(models[0]));
-    //         let audio = './tests/assets/jfk.wav';
+            // Load audio data
+            let buffer = Buffer.from(await fetch(url).then(x => x.arrayBuffer()))
 
-    //         {
-    //             let output = await transcriber(audio);
-    //             expect(output);
-    //         }
-    //         await transcriber.dispose();
+            // Read .wav file and convert it to required format
+            let wav = new wavefile.WaveFile(buffer);
+            wav.toBitDepth('32f'); // Pipeline expects input as a Float32Array
+            wav.toSampleRate(16000); // Whisper expects audio with a sampling rate of 16000
+            let audioData = wav.getSamples();
+            if (Array.isArray(audioData)) {
+                // For this demo, if there are multiple channels for the audio file, we just select the first one.
+                // In practice, you'd probably want to convert all channels to a single channel (e.g., stereo -> mono).
+                audioData = audioData[0];
+            }
+            return audioData;
+        }
+        // List all models which will be tested
+        const models = [
+            'openai/whisper-tiny.en', // English-only
+            'openai/whisper-small', // Multilingual
+        ];
 
-    //     }, MAX_TEST_EXECUTION_TIME);
-    // });
+        it(models[0], async () => {
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[0]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+            let audioData = await loadAudio(url);
+
+            { // Transcribe English
+                let output = await transcriber(audioData);
+                expect(output.text.length).toBeGreaterThan(50);
+                // { text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country." }
+            }
+
+            { // Transcribe English w/ timestamps.
+                let output = await transcriber(audioData, { return_timestamps: true });
+                expect(output.text.length).toBeGreaterThan(50);
+                expect(output.chunks.length).toBeGreaterThan(0);
+                // {
+                //   text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country."
+                //   chunks: [
+                //     { timestamp: [0, 8],  text: " And so my fellow Americans ask not what your country can do for you" }
+                //     { timestamp: [8, 11], text: " ask what you can do for your country." }
+                //   ]
+                // }
+            }
+            await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it(models[1], async () => {
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[1]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.wav';
+            let audioData = await loadAudio(url);
+
+            { // Transcribe French
+                let output = await transcriber(audioData, { language: 'french', task: 'transcribe' });
+                expect(output.text.length).toBeGreaterThan(20);
+                // { text: " J'adore, j'aime, je n'aime pas, je déteste." }
+            }
+
+            { // Translate French to English.
+                let output = await transcriber(audioData, { language: 'french', task: 'translate' });
+                expect(output.text.length).toBeGreaterThan(20);
+                // { text: " I love, I like, I don't like, I hate." }
+            }
+            await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+    });
 
     describe('Image-to-text', () => {
 

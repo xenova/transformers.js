@@ -104,6 +104,17 @@ export class RawImage {
      * Helper method for reading an image from a variety of input types.
      * @param {RawImage|string|URL} input 
      * @returns The image object.
+     * 
+     * **Example:** Read image from a URL.
+     * ```javascript
+     * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+     * // test {
+     * //   "data": Uint8ClampedArray [ 25, 25, 25, 19, 19, 19, ... ],
+     * //   "width": 800,
+     * //   "height": 533,
+     * //   "channels": 3
+     * // }
+     * ```
      */
     static async read(input) {
         if (input instanceof RawImage) {
@@ -174,7 +185,7 @@ export class RawImage {
             return this;
         }
 
-        let newData = new Uint8ClampedArray(this.width * this.height * 3);
+        let newData = new Uint8ClampedArray(this.width * this.height * 1);
         switch (this.channels) {
             case 3: // rgb to grayscale
             case 4: // rgba to grayscale

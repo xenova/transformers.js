@@ -8,81 +8,16 @@ from transformers import AutoTokenizer, AutoConfig
 
 from scripts.supported_models import SUPPORTED_MODELS
 
-MODELS_TO_TEST = {
-    "albert": [
-        "albert-base-v2",
-        # "sentence-transformers/paraphrase-albert-small-v2",
-    ],
-    "bart": [
-        "sshleifer/distilbart-cnn-6-6",
-        "facebook/bart-large-cnn",
-    ],
-    "bert": [
-        "bert-base-uncased",
-        "bert-base-cased",
-        "bert-base-multilingual-uncased",
-        "bert-base-multilingual-cased",
-        "sentence-transformers/all-MiniLM-L6-v2",
-        "ckiplab/bert-base-chinese-ner",
-    ],
-    "clip": [
-        "openai/clip-vit-base-patch16",
-    ],
-    "codegen": [
-        "Salesforce/codegen-350M-mono",
-        "Salesforce/codegen-350M-multi",
-        "Salesforce/codegen-350M-nl",
-    ],
-    "distilbert": [
-        "distilbert-base-uncased",
-        "distilbert-base-cased",
-        "Davlan/distilbert-base-multilingual-cased-ner-hrl",
-    ],
-    "gpt-neo": [
-        "EleutherAI/gpt-neo-125M",
-    ],
-    "gpt2": [
-        "gpt2",
-        "distilgpt2",
+# List of tokenizers where the model isn't yet supported, but the tokenizer is
+ADDITIONAL_TOKENIZERS_TO_TEST = {
+    'RefinedWebModel': [
+        'tiiuae/falcon-7b',
     ],
     "llama": [
         "hf-internal-testing/llama-tokenizer",
     ],
-    "m2m_100": [
-        "facebook/nllb-200-distilled-600M",
-    ],
-    # TODO add back
-    # "mobilebert": [
-    #     "google/mobilebert-uncased",
-    # ],
-    "mt5": [
-        "google/mt5-small",
-    ],
-    "roberta": [
-        "roberta-base",
-        "distilroberta-base",
-        "roberta-large-mnli",
-
-        "sentence-transformers/all-distilroberta-v1",
-    ],
-    "squeezebert": [
-        "squeezebert/squeezebert-uncased",
-        "squeezebert/squeezebert-mnli",
-    ],
-    "t5": [
-        "t5-small",
-        "t5-base",
-        "google/t5-v1_1-small",
-        "google/t5-v1_1-base",
-        "google/flan-t5-small",
-        "google/flan-t5-base",
-    ],
-    "vision-encoder-decoder": [
-        "nlpconnect/vit-gpt2-image-captioning",
-    ],
-    "whisper": [
-        "openai/whisper-tiny",
-        "openai/whisper-tiny.en",
+    'mpt': [
+        'mosaicml/mpt-7b',
     ],
 }
 
@@ -104,7 +39,11 @@ TOKENIZER_TEST_DATA = {
         "test $1 R2 #3 €4 £5 ¥6 ₣7 ₹8 ₱9 test",
         "I bought an apple for $1.00 at the store.",
     ],
-    "custom": {},
+    "custom": {
+        "tiiuae/falcon-7b": [
+            "12 and 123 and 1234", # Special case for splitting on 3 numbers
+        ]
+    },
 }
 
 
@@ -112,12 +51,20 @@ def generate_tokenizer_tests():
 
     results = {}
 
-    for model_type, tokenizer_names in MODELS_TO_TEST.items():
+    tokenizers_to_test = list(SUPPORTED_MODELS.items()) + list(ADDITIONAL_TOKENIZERS_TO_TEST.items())
 
+    for model_type, tokenizer_names in tokenizers_to_test:
+        print(f'Generating tests for {model_type}')
         for tokenizer_name in tokenizer_names:
-            # Load tokenizer
-            tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+            print('  -', tokenizer_name)
 
+            try:
+                # Load tokenizer
+                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+            except KeyError:
+                # If a KeyError is raised from the AutoTokenizer, it means the model
+                # does not use a tokenizer (e.g., vision models)
+                continue 
             tokenizer_results = []
 
             shared_texts = TOKENIZER_TEST_DATA["shared"]
