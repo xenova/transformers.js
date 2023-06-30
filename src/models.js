@@ -475,6 +475,8 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
 
     let beamId = 0;
     for (let tokens of inputTokenIds) {
+        let output_token_ids = tokens.tolist().map(Number);
+
         // TODO: Improve
         // Currently, just add back batch dimension.
         // In future, allow for true parallel execution
@@ -495,7 +497,7 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
             attention_mask: attn_mask,
             past_key_values: null,
 
-            output_token_ids: [],
+            output_token_ids: output_token_ids,
             num_output_tokens: numOutputTokens,
 
             done: false,
@@ -522,7 +524,7 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
  * @private
  */
 async function decoderRunBeam(self, beam) {
-    let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
+    let attnMaskData = new BigInt64Array(beam.output_token_ids.length).fill(1n)
 
     // 1. Prepare
     let model_inputs = {

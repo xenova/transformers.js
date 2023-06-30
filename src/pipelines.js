@@ -496,17 +496,15 @@ export class TextGenerationPipeline extends Pipeline {
             inputs_attention_mask: attention_mask
         });
 
-        const trimmedTexts = texts.map(x => x.trim());
         const decoded = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
         const toReturn = Array.from({ length: texts.length }, _ => []);
         for (let i = 0; i < decoded.length; ++i) {
-            const textIndex = Math.floor(i / outputTokenIds.length * trimmedTexts.length);
-            let startText = trimmedTexts[textIndex];
+            const textIndex = Math.floor(i / outputTokenIds.length * texts.length);
 
             toReturn[textIndex].push({
-                generated_text: startText + decoded[i]
+                generated_text: decoded[i]
             });
         }
         return (stringInput && toReturn.length === 1) ? toReturn[0] : toReturn;
@@ -828,7 +826,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             // @ts-ignore
             let decoder_prompt_ids = this.tokenizer.get_decoder_prompt_ids({ language, task, no_timestamps: !return_timestamps })
 
-            if(decoder_prompt_ids.length > 0){
+            if (decoder_prompt_ids.length > 0) {
                 kwargs.forced_decoder_ids = decoder_prompt_ids;
             }
         }
