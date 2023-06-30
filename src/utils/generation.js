@@ -586,7 +586,7 @@ export class Sampler extends Callable {
      * @returns {Array}
      */
     getLogits(logits, index) {
-        let vocabSize = logits.dims[2];
+        let vocabSize = logits.dims.at(-1);
 
         let logs = logits.data;
 
@@ -698,7 +698,7 @@ class TopKSampler extends Sampler {
      * @returns {Array}
      */
     sample(logits, index = -1) {
-        let [batchSize, seqLength, vocabSize] = logits.dims;
+        let [batchSize, vocabSize] = logits.dims;
         let k = vocabSize;
         if (this.k > 0) {
             k = Math.min(this.k, k);
@@ -753,7 +753,7 @@ class BeamSearchSampler extends Sampler {
         let logs = this.getLogits(logits, index);
 
         if (this.do_sample || this.top_k > 0) {
-            const [batchSize, seqLength, vocabSize] = logits.dims;
+            const [batchSize, vocabSize] = logits.dims;
 
             let k = vocabSize;
             if (this.top_k > 0) {
