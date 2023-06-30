@@ -453,7 +453,36 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * This pipeline predicts the words that will follow a specified text prompt.
  * NOTE: For the full list of generation parameters, see [./utils/generation#module_utils/generation.GenerationConfig](`GenerationConfig`).
  * 
- * **Example:** Run code generation with Xenova/codegen-350M-mono.
+ * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
+ * ```javascript
+ * let text = 'I enjoy walking with my cute dog,';
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text);
+ * console.log(output);
+ * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
+ * ```
+ * 
+ * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
+ * ```javascript
+ * let text = 'Once upon a time, there was';
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text, {
+ *     temperature: 2,
+ *     max_new_tokens: 10,
+ *     repetition_penalty: 1.5,
+ *     no_repeat_ngram_size: 2,
+ *     num_beams: 2,
+ *     num_return_sequences: 2,
+ * });
+ * console.log(output);
+ * // [{
+ * //   "generated_text": "Once upon a time, there was an abundance of information about the history and activities that"
+ * // }, {
+ * //   "generated_text": "Once upon a time, there was an abundance of information about the most important and influential"
+ * // }]
+ * ```
+ * 
+ * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
  * ```javascript
  * let text = 'def fib(n):';
  * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
@@ -468,6 +497,7 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * //         return 1
  * //     return fib(n-1) + fib(n-2)
  * ```
+ * 
  * @extends Pipeline
  */
 export class TextGenerationPipeline extends Pipeline {
