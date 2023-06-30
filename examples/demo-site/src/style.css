@@ -124,11 +124,13 @@ code#highlighting-content {
   overflow-y: auto;
 }
 
-.ner-container, .ner-tag{
+.ner-container,
+.ner-tag {
   border-radius: 0.25rem;
   font-weight: 600;
 
 }
+
 .ner-container {
   padding-left: 0.25rem;
   padding-right: 0.25rem;
@@ -139,4 +141,9 @@ code#highlighting-content {
   padding-left: 0.125rem;
   padding-right: 0.125rem;
   margin-left: 0.125rem;
+}
+
+/* Override default code highlighting for operators */
+.token.operator {
+  background: none;
 }
