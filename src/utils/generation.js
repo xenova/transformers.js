@@ -113,8 +113,8 @@ export class ForceTokensLogitsProcessor extends LogitsProcessor {
      * Apply the processor to the input logits.
      *
      * @param {Array} input_ids The input ids.
-     * @param {any} logits The logits to process.
-     * @returns {Array} The processed logits.
+     * @param {Tensor} logits The logits to process.
+     * @returns {Tensor} The processed logits.
      */
     _call(input_ids, logits) {
         let map = this.force_token_map[input_ids.length];
@@ -176,7 +176,7 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
      * Apply the processor to input_ids and logits.
      * 
      * @param {number[]} input_ids The input ids.
-     * @param {any} logits The logits tensor.
+     * @param {Tensor} logits The logits tensor.
      */
     _call(input_ids, logits) {
         // console.log('call ForcedEOSTokenLogitsProcessor')
@@ -549,17 +549,17 @@ export class GenerationConfig {
  */
 export class Sampler extends Callable {
     /**
-     * Creates a new Sampler object with the specified temperature.
-     * @param {number} temperature The temperature to use when sampling. Higher values result in more random samples.
+     * Creates a new Sampler object with the specified generation config.
+     * @param {GenerationConfig} generation_config The generation config.
      */
-    constructor(temperature) {
+    constructor(generation_config) {
         super();
-        this.temperature = temperature;
+        this.generation_config = generation_config;
     }
 
     /**
      * Executes the sampler, using the specified logits.
-     * @param {any} logits
+     * @param {Tensor} logits
      * @param {number} index
      * @returns {void}
      */
@@ -571,7 +571,7 @@ export class Sampler extends Callable {
 
     /**
      * Abstract method for sampling the logits.
-     * @param {any} logits
+     * @param {Tensor} logits
      * @param {number} index
      * @throws {Error}
      */
@@ -581,12 +581,12 @@ export class Sampler extends Callable {
 
     /**
      * Returns the specified logits as an array, with temperature applied.
-     * @param {any} logits
+     * @param {Tensor} logits
      * @param {number} index
      * @returns {Array}
      */
     getLogits(logits, index) {
-        let vocabSize = logits.dims[2];
+        let vocabSize = logits.dims.at(-1);
 
         let logs = logits.data;
 
@@ -598,8 +598,8 @@ export class Sampler extends Callable {
         }
 
         // add temperature
-        if (this.temperature > 0) {
-            logs = logs.map(x => x / this.temperature)
+        if (this.generation_config.temperature > 0) {
+            logs = logs.map(x => x / this.generation_config.temperature)
         }
         return logs;
     }
@@ -625,29 +625,30 @@ export class Sampler extends Callable {
 
     /**
      * Returns a Sampler object based on the specified options.
-     * @param {Object} generation_config An object containing options for the sampler.
+     * @param {GenerationConfig} generation_config An object containing options for the sampler.
      * @returns {Sampler} A Sampler object.
      */
     static getSampler(generation_config) {
-        if (generation_config.num_beams > 1) {
-            return new BeamSearchSampler(
-                generation_config.temperature,
-                generation_config.num_beams,
-                generation_config.do_sample,
-                generation_config.top_k,
-            );
+        // - *greedy decoding*: `num_beams=1` and `do_sample=False`
+        // - *contrastive search*: `penalty_alpha>0` and `top_k>1`
+        // - *multinomial sampling*: `num_beams=1` and `do_sample=True`
+        // - *beam-search decoding*: `num_beams>1` and `do_sample=False`
+        // - *beam-search multinomial sampling*: `num_beams>1` and `do_sample=True`
+        // - *diverse beam-search decoding*: `num_beams>1` and `num_beam_groups>1`
+        // - *constrained beam-search decoding*: `constraints!=None` or `force_words_ids!=None`
 
-        } else if (generation_config.do_sample) {
-            return new TopKSampler(
-                generation_config.temperature,
-                generation_config.top_k,
-            );
+        // NOTE: beam search is implemented directly into the generation function
+        if (generation_config.do_sample) {
+            return new MultinomialSampler(generation_config);
+
+        } else if (generation_config.num_beams > 1) {
+            return new BeamSearchSampler(generation_config);
 
         } else {
             if (generation_config.num_return_sequences > 1) {
                 throw Error(`num_return_sequences has to be 1 when doing greedy search, but is ${generation_config.num_return_sequences}.`)
             }
-            return new GreedySampler(generation_config.temperature);
+            return new GreedySampler(generation_config);
         }
     }
 }
@@ -659,7 +660,7 @@ export class Sampler extends Callable {
 class GreedySampler extends Sampler {
     /**
      * Sample the maximum probability of a given logits tensor.
-     * @param {any} logits
+     * @param {Tensor} logits
      * @param {number} [index=-1]
      * @returns {Array} An array with a single tuple, containing the index of the maximum value and a meaningless score (since this is a greedy search).
      */
@@ -677,104 +678,75 @@ class GreedySampler extends Sampler {
 }
 
 /**
- * Class representing a TopKSampler.
+ * Class representing a MultinomialSampler.
  * @extends Sampler
  */
-class TopKSampler extends Sampler {
-    /**
-     * Create a TopKSampler.
-     * @param {number} temperature
-     * @param {number} k
-     */
-    constructor(temperature, k) {
-        super(temperature);
-        this.k = k;
-    }
+class MultinomialSampler extends Sampler {
 
     /**
-     * Sample from the logits using the top-k sampling strategy.
-     * @param {any} logits
+     * Sample from the logits.
+     * @param {Tensor} logits
      * @param {number} index
      * @returns {Array}
      */
     sample(logits, index = -1) {
-        let [batchSize, seqLength, vocabSize] = logits.dims;
-        let k = vocabSize;
-        if (this.k > 0) {
-            k = Math.min(this.k, k);
+        let k = logits.dims.at(-1); // defaults to vocab size
+        if (this.generation_config.top_k > 0) {
+            k = Math.min(this.generation_config.top_k, k);
         }
 
-        let logs = this.getLogits(logits, index);
+        // Get logits of nth token
+        const logs = this.getLogits(logits, index);
 
         // Get top k tokens
-        let topLogits = getTopItems(logs, k);
+        const topLogits = getTopItems(logs, k);
 
         // Compute softmax over logits
-        let probabilities = softmax(topLogits.map(x => x[1]));
+        const probabilities = softmax(topLogits.map(x => x[1]));
 
-        let sampledIndex = this.randomSelect(probabilities);
-
-        let tokenId = topLogits[sampledIndex][0];
-        let score = Math.log(probabilities[sampledIndex]);
-        return [
-            [tokenId, score]
-        ];
+        return Array.from({ length: this.generation_config.num_beams }, () => {
+            const sampledIndex = this.randomSelect(probabilities);
+            return [
+                topLogits[sampledIndex][0], // token id
+                Math.log(probabilities[sampledIndex]), // score
+            ];
+        });
     }
 }
 
+
 /**
- * Class representing a beam search sampler for generating sequences.
+ * Class representing a BeamSearchSampler.
  * @extends Sampler
  */
 class BeamSearchSampler extends Sampler {
-    /**
-   * Create a BeamSearchSampler.
-   * @param {number} temperature
-   * @param {number} num_beams
-   * @param {boolean} do_sample
-   * @param {number} top_k
-   */
-    constructor(temperature, num_beams, do_sample, top_k) {
-        super(temperature);
-        this.num_beams = num_beams; // maximum number of beams
-        this.do_sample = do_sample; // if true, perform multinomial sampling
-
-        this.top_k = top_k; // if do_sample, sample from top k items
-    }
 
     /**
-   * Samples from the logits to generate a sequence using beam search.
-   * @param {any} logits The logits to sample from.
-   * @param {number} [index=-1] The index to sample from, if applicable.
-   * @returns {Array} An array of arrays containing tokens and scores.
-   */
+     * Sample from the logits.
+     * @param {Tensor} logits
+     * @param {number} index
+     * @returns {Array}
+     */
     sample(logits, index = -1) {
-
-        let logs = this.getLogits(logits, index);
-
-        if (this.do_sample || this.top_k > 0) {
-            const [batchSize, seqLength, vocabSize] = logits.dims;
-
-            let k = vocabSize;
-            if (this.top_k > 0) {
-                k = Math.min(this.top_k, k);
-            }
-            const topLogits = getTopItems(logs, k);
-
-            // Compute softmax over top k logits
-            const probabilities = softmax(topLogits.map(x => x[1]));
-
-            return Array.from({ length: this.num_beams }, () => {
-                const sampledIndex = this.randomSelect(probabilities);
-                const tokenId = topLogits[sampledIndex][0];
-                return [tokenId, Math.log(probabilities[sampledIndex])];
-            });
-
-        } else {
-            // first perform log softmax to get scores over whole distribution
-            const logProbabilities = log_softmax(logs);
-            const topLogits = getTopItems(logProbabilities, this.num_beams);
-            return topLogits;
+        let k = logits.dims.at(-1); // defaults to vocab size
+        if (this.generation_config.top_k > 0) {
+            k = Math.min(this.generation_config.top_k, k);
         }
+
+        // Get logits of nth token
+        const logs = this.getLogits(logits, index);
+
+        // Get top k tokens
+        const topLogits = getTopItems(logs, k);
+
+        // Compute softmax over logits
+        const probabilities = softmax(topLogits.map(x => x[1]));
+
+        return Array.from({ length: this.generation_config.num_beams }, (_, i) => {
+            return [
+                topLogits[i][0], // token id
+                Math.log(probabilities[i]), // score
+            ];
+        });
     }
 }
