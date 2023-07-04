@@ -36,8 +36,18 @@ if (BROWSER_ENV) {
     // Running in Node.js, electron, or other non-browser environment
 
     loadImageFunction = async (/**@type {sharp.Sharp}*/img) => {
+        const metadata = await img.metadata();
+        const rawChannels = metadata.channels ?? 3;
+
         let { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
-        return new RawImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
+
+        const newImage = new RawImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
+        if (rawChannels !== info.channels) {
+            // Make sure the new image has the same number of channels as the input image.
+            // This is necessary for grayscale images.
+            newImage.convert(rawChannels);
+        }
+        return newImage;
     }
 
 } else {
