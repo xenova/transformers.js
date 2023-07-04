@@ -647,7 +647,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     })
 
     if (useDownloadAPI) {
-        const cachePath = path.join(options.cache_dir ?? env.cacheDir, request);
+        const cachePath = path.join(options.cache_dir ?? env.cacheDir, cacheKey);
         await downloadFile(remoteURL, cachePath, data => {
             dispatchCallback(options.progress_callback, {
                 status: 'progress',
@@ -700,7 +700,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         IS_REACT_NATIVE &&
         response.headers.get('content-type') === 'application/octet-stream'
     ) {
-        return await cache.match(request).then(res => res.url);
+        return await cache.match(cacheKey).then(res => res.url);
     } else {
         return buffer;
     }
