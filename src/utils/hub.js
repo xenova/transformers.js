@@ -695,12 +695,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         file: filename
     });
 
-    // Return local file if not need decode (e.g. .onnx file)
+    // Return file URL if not need decode (e.g. .onnx file)
     if (
         IS_REACT_NATIVE &&
         response.headers.get('content-type') === 'application/octet-stream'
     ) {
-        return await cache.match(cacheKey).then(res => res.url);
+        return response.url;
     } else {
         return buffer;
     }
