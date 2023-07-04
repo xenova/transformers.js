@@ -37,12 +37,12 @@ if (BROWSER_ENV) {
 
     loadImageFunction = async (/**@type {sharp.Sharp}*/img) => {
         const metadata = await img.metadata();
-        const rawChannels = metadata.channels ?? 3;
+        const rawChannels = metadata.channels;
 
         let { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
 
         const newImage = new RawImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
-        if (rawChannels !== info.channels) {
+        if (rawChannels !== undefined && rawChannels !== info.channels) {
             // Make sure the new image has the same number of channels as the input image.
             // This is necessary for grayscale images.
             newImage.convert(rawChannels);
