@@ -322,10 +322,7 @@ export class Tensor extends ONNXTensor {
      * @returns {Tensor} `this` for operation chaining.
      */
     normalize_(p = 2.0, dim = 1) {
-        if (dim < 0) {
-            // Negative indexing
-            dim += this.dims.length;
-        }
+        dim = safeIndex(dim, this.dims.length);
 
         const norm = this.norm(p, dim, true);
 
