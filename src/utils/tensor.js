@@ -223,11 +223,8 @@ export class Tensor extends ONNXTensor {
         let data = new this.data.constructor(newBufferSize);
 
         // Precompute strides
-        const stride = new Array(this.dims.length);
-        for (let i = newDims.length - 1, s2 = 1; i >= 0; --i) {
-            stride[i] = s2;
-            s2 *= this.dims[i];
-        }
+        // TODO use .stride() ?
+        const stride = this.stride();
 
         for (let i = 0; i < newBufferSize; ++i) {
             let originalIndex = 0;
@@ -384,12 +381,7 @@ export class Tensor extends ONNXTensor {
      * @returns {number[]} The stride of this tensor.
      */
     stride() {
-        const stride = new Array(this.dims.length);
-        for (let i = this.dims.length - 1, s2 = 1; i >= 0; --i) {
-            stride[i] = s2;
-            s2 *= this.dims[i];
-        }
-        return stride;
+        return dimsToStride(this.dims);
     }
 
     /**
@@ -568,43 +560,6 @@ export function transpose(tensor, axes) {
 
 
 /**
- * Concatenates an array of tensors along the 0th dimension.
- *
- * @param {any} tensors The array of tensors to concatenate.
- * @returns {Tensor} The concatenated tensor.
- */
-export function cat(tensors) {
-    if (tensors.length === 0) {
-        return tensors[0];
-    }
-    // NOTE: tensors must be batched
-    // NOTE: currently only supports dim=0
-    // TODO: add support for dim != 0
-
-
-    let tensorType = tensors[0].type;
-    let tensorShape = [...tensors[0].dims];
-    tensorShape[0] = tensors.length;
-
-    // Calculate total size to allocate
-    let total = 0;
-    for (let t of tensors) {
-        total += t.data.length;
-    }
-
-    // Create output tensor of same type as first
-    let data = new tensors[0].data.constructor(total);
-
-    let offset = 0;
-    for (let t of tensors) {
-        data.set(t.data, offset);
-        offset += t.data.length;
-    }
-
-    return new Tensor(tensorType, data, tensorShape)
-}
-
-/**
  * Interpolates an Tensor to the given size.
  * @param {Tensor} input The input tensor to interpolate. Data must be channel-first (i.e., [c, h, w])
  * @param {number[]} size The output size of the image
@@ -716,4 +671,80 @@ function calc_unsqueeze_dims(dims, dim) {
     // Insert 1 into specified dimension
     dims.splice(dim, 0, 1);
     return dims;
+}
+
+
+/**
+ * Concatenates an array of tensors along a specified dimension.
+ * @param {Tensor[]} tensors The array of tensors to concatenate.
+ * @param {number} dim The dimension to concatenate along.
+ * @returns {Tensor} The concatenated tensor.
+ */
+export function cat(tensors, dim) {
+    // TODO do validation of shapes
+
+    const resultDims = tensors[0].dims.slice();
+    resultDims[dim] = tensors.reduce((a, b) => a + b.dims[dim], 0);
+
+    // Create a new array to store the accumulated values
+    const resultSize = resultDims.reduce((a, b) => a * b, 1);
+    const result = new tensors[0].data.constructor(resultSize);
+
+    // Create output tensor of same type as first
+    const resultType = tensors[0].type;
+
+    if (dim === 0) {
+        // Handle special case for performance reasons
+
+        let offset = 0;
+        for (let t of tensors) {
+            result.set(t.data, offset);
+            offset += t.data.length;
+        }
+
+    } else {
+
+        let currentDims = 0;
+
+        for (let t = 0; t < tensors.length; ++t) {
+            let tensor = tensors[t];
+
+            const totalElements = tensor.data.length;
+            const tensorNumDims = tensor.dims.length;
+            const tensorStride = tensor.stride();
+
+            // Iterate over the data array
+            for (let i = 0; i < totalElements; i++) {
+
+                // Calculate the indices in the current tensor
+                const indices = [];
+                for (let j = 0, remainder = i; j < tensorNumDims; ++j) {
+                    indices[j] = Math.floor(remainder / tensorStride[j]);
+                    remainder %= tensorStride[j];
+                }
+
+                // Calculate the index in the resulting array
+                let resultIndex = 0;
+                for (let j = tensorNumDims - 1, resultMultiplier = 1; j >= 0; --j) {
+                    const indexToDo = j === dim ? currentDims + indices[j] : indices[j];
+                    resultIndex += indexToDo * resultMultiplier;
+                    resultMultiplier *= resultDims[j];
+                }
+                // Accumulate the value at the current index
+                result[resultIndex] = tensor.data[i];
+            }
+
+            currentDims += tensor.dims[dim];
+        }
+    }
+    return new Tensor(resultType, result, resultDims);
+}
+
+function dimsToStride(dims) {
+    const stride = new Array(dims.length);
+    for (let i = dims.length - 1, s2 = 1; i >= 0; --i) {
+        stride[i] = s2;
+        s2 *= dims[i];
+    }
+    return stride;
 }
