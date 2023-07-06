@@ -705,37 +705,31 @@ export function cat(tensors, dim) {
 
     } else {
 
-        let currentDims = 0;
+        let currentDim = 0;
 
         for (let t = 0; t < tensors.length; ++t) {
             let tensor = tensors[t];
 
-            const totalElements = tensor.data.length;
-            const tensorNumDims = tensor.dims.length;
-            const tensorStride = tensor.stride();
-
             // Iterate over the data array
-            for (let i = 0; i < totalElements; i++) {
-
-                // Calculate the indices in the current tensor
-                const indices = [];
-                for (let j = 0, remainder = i; j < tensorNumDims; ++j) {
-                    indices[j] = Math.floor(remainder / tensorStride[j]);
-                    remainder %= tensorStride[j];
-                }
-
+            for (let i = 0; i < tensor.data.length; ++i) {
                 // Calculate the index in the resulting array
                 let resultIndex = 0;
-                for (let j = tensorNumDims - 1, resultMultiplier = 1; j >= 0; --j) {
-                    const indexToDo = j === dim ? currentDims + indices[j] : indices[j];
-                    resultIndex += indexToDo * resultMultiplier;
+
+                for (let j = tensor.dims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
+                    const size = tensor.dims[j];
+                    let index = num % size;
+                    if (j === dim) {
+                        index += currentDim;
+                    }
+                    resultIndex += index * resultMultiplier;
                     resultMultiplier *= resultDims[j];
+                    num = Math.floor(num / size);
                 }
                 // Accumulate the value at the current index
                 result[resultIndex] = tensor.data[i];
             }
 
-            currentDims += tensor.dims[dim];
+            currentDim += tensor.dims[dim];
         }
     }
     return new Tensor(resultType, result, resultDims);
