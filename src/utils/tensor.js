@@ -660,19 +660,33 @@ function calc_squeeze_dims(dims, dim) {
  * @private
  */
 function calc_unsqueeze_dims(dims, dim) {
-    // TODO: add bounds error checking
+    dim = safeIndex(dims.length, dim);
 
     dims = dims.slice();
-    if (dim < 0) {
-        // Negative indexing, ensuring positive index
-        dim = ((dim % dims.length) + dims.length) % dims.length;
-    }
-
     // Insert 1 into specified dimension
     dims.splice(dim, 0, 1);
     return dims;
 }
 
+/**
+ * Safely calculate the dimension to index into an array with, allowing negative indexing.
+ * @param {number} arrayLength The length of the array.
+ * @param {number} dim The dimension to index with.
+ * @returns {number} The dimension index, guaranteed to be non-negative and less than `arrayLength`.
+ * 
+ * @throws {Error} If the dimension is out of range.
+ */
+function safeIndex(arrayLength, dim) {
+    if (dim < -arrayLength || dim >= arrayLength) {
+        throw new Error(`Dimension out of range: ${dim}`);
+    }
+
+    if (dim < 0) {
+        // Negative indexing, ensuring positive index
+        dim = ((dim % arrayLength) + arrayLength) % arrayLength;
+    }
+    return dim;
+}
 
 /**
  * Concatenates an array of tensors along a specified dimension.
@@ -681,6 +695,8 @@ function calc_unsqueeze_dims(dims, dim) {
  * @returns {Tensor} The concatenated tensor.
  */
 export function cat(tensors, dim) {
+    dim = safeIndex(tensors[0].dims.length, dim);
+
     // TODO do validation of shapes
 
     const resultDims = tensors[0].dims.slice();
