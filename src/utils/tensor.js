@@ -85,13 +85,7 @@ export class Tensor extends ONNXTensor {
     _getitem(index) {
         const [iterLength, ...iterDims] = this.dims;
 
-        if (index >= iterLength || index < -iterLength) {
-            throw new Error(`Index ${index} is out of bounds for dimension 0 with size ${iterLength}`);
-        }
-        if (index < 0) {
-            // Negative indexing
-            index += iterLength;
-        }
+        index = safeIndex(index, iterLength);
 
         if (iterDims.length > 0) {
             const iterSize = iterDims.reduce((a, b) => a * b);
@@ -283,11 +277,8 @@ export class Tensor extends ONNXTensor {
             return new Tensor(this.type, [val], [1]);
         }
 
-        if (dim < 0) {
-            // Negative indexing
-            dim += this.dims.length;
-        }
-
+        // Negative indexing
+        dim = safeIndex(dim, this.dims.length);
 
         // Calculate the shape of the resulting array after summation
         const resultDims = this.dims.slice(); // Copy the original dimensions
@@ -660,7 +651,7 @@ function calc_squeeze_dims(dims, dim) {
  * @private
  */
 function calc_unsqueeze_dims(dims, dim) {
-    dim = safeIndex(dims.length, dim);
+    dim = safeIndex(dim, dims.length);
 
     dims = dims.slice();
     // Insert 1 into specified dimension
@@ -669,23 +660,25 @@ function calc_unsqueeze_dims(dims, dim) {
 }
 
 /**
- * Safely calculate the dimension to index into an array with, allowing negative indexing.
- * @param {number} arrayLength The length of the array.
- * @param {number} dim The dimension to index with.
- * @returns {number} The dimension index, guaranteed to be non-negative and less than `arrayLength`.
+ * Safely calculate the index for an array of a given size, allowing negative indexing.
+ * @param {number} index The index that will be used.
+ * @param {number} size The size of the array.
+ * @returns {number} The index, guaranteed to be non-negative and less than `arrayLength`.
  * 
- * @throws {Error} If the dimension is out of range.
+ * @throws {Error} If the index is out of range.
+ * @private
  */
-function safeIndex(arrayLength, dim) {
-    if (dim < -arrayLength || dim >= arrayLength) {
-        throw new Error(`Dimension out of range: ${dim}`);
+function safeIndex(index, size) {
+    if (index < -size || index >= size) {
+        // TODO allow dimension to be shown in error message
+        throw new Error(`Index ${index} is out of bounds for dimension with size ${size}`);
     }
 
-    if (dim < 0) {
+    if (index < 0) {
         // Negative indexing, ensuring positive index
-        dim = ((dim % arrayLength) + arrayLength) % arrayLength;
+        index = ((index % size) + size) % size;
     }
-    return dim;
+    return index;
 }
 
 /**
@@ -695,7 +688,7 @@ function safeIndex(arrayLength, dim) {
  * @returns {Tensor} The concatenated tensor.
  */
 export function cat(tensors, dim) {
-    dim = safeIndex(tensors[0].dims.length, dim);
+    dim = safeIndex(dim, tensors[0].dims.length);
 
     // TODO do validation of shapes
 
