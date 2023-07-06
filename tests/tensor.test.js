@@ -46,5 +46,21 @@ describe('Tensor operations', () => {
             const concatenated2 = cat([t1, t2, t3], 1);
             compare(concatenated2, target2, 1e-3);
         });
+
+
+        it('should concatenate on dim=-2', async () => {
+
+            const t1 = new Tensor('float32', [1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16], [2, 1, 3, 2]);
+            const t2 = new Tensor('float32', [7, 8, 9, 10, 17, 18, 19, 20], [2, 1, 2, 2]);
+
+            const target = new Tensor('float32', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [2, 1, 5, 2]);
+
+            const concatenated = cat([t1, t2], -2);
+
+            compare(concatenated, target, 1e-3);
+
+        });
+
+        // TODO add tests for errors
     });
 });
