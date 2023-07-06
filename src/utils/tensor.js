@@ -180,12 +180,7 @@ export class Tensor extends ONNXTensor {
                 newTensorDims.push(this.dims[sliceIndex]);
 
             } else if (typeof slice === 'number') {
-                if (slice < -this.dims[sliceIndex] || slice >= this.dims[sliceIndex]) {
-                    throw new Error(`IndexError: index ${slice} is out of bounds for dimension ${sliceIndex} with size ${this.dims[sliceIndex]}`);
-                }
-                if (slice < 0) {
-                    slice += this.dims[sliceIndex];
-                }
+                slice = safeIndex(slice, this.dims[sliceIndex], sliceIndex);
 
                 // A number means take a single element
                 newOffsets.push([slice, slice + 1]);
@@ -663,15 +658,15 @@ function calc_unsqueeze_dims(dims, dim) {
  * Safely calculate the index for an array of a given size, allowing negative indexing.
  * @param {number} index The index that will be used.
  * @param {number} size The size of the array.
+ * @param {number} [dimension=null] The dimension that the index is for (optional).
  * @returns {number} The index, guaranteed to be non-negative and less than `arrayLength`.
  * 
  * @throws {Error} If the index is out of range.
  * @private
  */
-function safeIndex(index, size) {
+function safeIndex(index, size, dimension = null) {
     if (index < -size || index >= size) {
-        // TODO allow dimension to be shown in error message
-        throw new Error(`Index ${index} is out of bounds for dimension with size ${size}`);
+        throw new Error(`IndexError: index ${index} is out of bounds for dimension${dimension === null ? '' : ' ' + dimension} with size ${size}`);
     }
 
     if (index < 0) {
