@@ -4,11 +4,9 @@ import { AutoProcessor, Tensor } from '../src/transformers.js';
 import { MAX_TEST_EXECUTION_TIME, m } from './init.js';
 import { compare } from './test_utils.js';
 
-import { cat } from '../src/utils/tensor.js';
+import { cat, stack } from '../src/utils/tensor.js';
 
 describe('Tensor operations', () => {
-
-
 
     describe('cat', () => {
 
@@ -62,5 +60,49 @@ describe('Tensor operations', () => {
         });
 
         // TODO add tests for errors
+    });
+
+    describe('stack', () => {
+
+        const t1 = new Tensor('float32', [0, 1, 2, 3, 4, 5], [1, 3, 2]);
+
+        it('should stack on dim=0', async () => {
+            const target1 = new Tensor('float32', [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5], [2, 1, 3, 2]);
+            const target2 = new Tensor('float32', [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5], [3, 1, 3, 2]);
+
+            // 2 tensors
+            const stacked1 = stack([t1, t1], 0);
+            compare(stacked1, target1, 1e-3);
+
+            // 3 tensors
+            const stacked2 = stack([t1, t1, t1], 0);
+            compare(stacked2, target2, 1e-3);
+        });
+
+        it('should stack on dim=1', async () => {
+            const target1 = new Tensor('float32', [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5], [1, 2, 3, 2]);
+            const target2 = new Tensor('float32', [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5], [1, 3, 3, 2]);
+
+            // 2 tensors
+            const stacked1 = stack([t1, t1], 1);
+            compare(stacked1, target1, 1e-3);
+
+            // 3 tensors
+            const stacked2 = stack([t1, t1, t1], 1);
+            compare(stacked2, target2, 1e-3);
+        });
+
+        it('should stack on dim=-1', async () => {
+            const target1 = new Tensor('float32', [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5], [1, 3, 2, 2]);
+            const target2 = new Tensor('float32', [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5], [1, 3, 2, 3]);
+
+            // 2 tensors
+            const stacked1 = stack([t1, t1], -1);
+            compare(stacked1, target1, 1e-3);
+
+            // 3 tensors
+            const stacked2 = stack([t1, t1, t1], -1);
+            compare(stacked2, target2, 1e-3);
+        });
     });
 });

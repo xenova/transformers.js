@@ -643,8 +643,9 @@ function calc_squeeze_dims(dims, dim) {
  * @private
  */
 function calc_unsqueeze_dims(dims, dim) {
-    dim = safeIndex(dim, dims.length);
-
+    // Dimension out of range (expected to be in range of [-4, 3], but got 4)
+    // + 1 since we allow inserting at the end (i.e. dim = -1)
+    dim = safeIndex(dim, dims.length + 1);
     dims = dims.slice();
     // Insert 1 into specified dimension
     dims.splice(dim, 0, 1);
@@ -679,7 +680,7 @@ function safeIndex(index, size, dimension = null) {
  * @param {number} dim The dimension to concatenate along.
  * @returns {Tensor} The concatenated tensor.
  */
-export function cat(tensors, dim) {
+export function cat(tensors, dim = 0) {
     dim = safeIndex(dim, tensors[0].dims.length);
 
     // TODO do validation of shapes
@@ -733,6 +734,18 @@ export function cat(tensors, dim) {
         }
     }
     return new Tensor(resultType, result, resultDims);
+}
+
+/**
+ * Stack an array of tensors along a specified dimension.
+ * @param {Tensor[]} tensors The array of tensors to stack.
+ * @param {number} dim The dimension to stack along.
+ * @returns {Tensor} The stacked tensor.
+ */
+export function stack(tensors, dim = 0) {
+    // TODO do validation of shapes
+    // NOTE: stack expects each tensor to be equal size
+    return cat(tensors.map(t => t.unsqueeze(dim)), dim);
 }
 
 function dimsToStride(dims) {
