@@ -753,17 +753,84 @@ export function stack(tensors, dim = 0) {
 
 
 /**
+ * Calculates the standard deviation and mean over the dimensions specified by dim. dim can be a single dimension or `null` to reduce over all dimensions.
+ * @param {Tensor} input the input tenso
+ * @param {number|null} dim the dimension to reduce. If None, all dimensions are reduced.
+ * @param {number} correction difference between the sample size and sample degrees of freedom. Defaults to Bessel's correction, correction=1.
+ * @param {boolean} keepdim whether the output tensor has dim retained or not.
+ * @returns 
+ */
+export function std_mean(input, dim = null, correction = 1, keepdim = false) {
+
+    if (dim === null) {
+        // None to reduce over all dimensions.
+        const sum = input.data.reduce((a, b) => a + b, 0);
+        const mean = sum / input.data.length;
+        const std = Math.sqrt(input.data.reduce((a, b) => a + (b - mean) ** 2, 0) / (input.data.length - correction));
+
+        const meanTensor = new Tensor(input.type, [mean], [/* scalar */]);
+        const stdTensor = new Tensor(input.type, [std], [/* scalar */]);
+
+        return [meanTensor, stdTensor];
+    }
+
+    // Negative indexing
+    dim = safeIndex(dim, input.dims.length);
+
+    const meanTensor = mean(input, dim, keepdim);
+
+    // Calculate the shape of the resulting array after summation
+    const resultDims = input.dims.slice(); // Copy the original dimensions
+    resultDims[dim] = 1; // Remove the specified axis
+
+    // Create a new array to store the accumulated values
+    const result = new input.data.constructor(input.data.length / input.dims[dim]);
+
+    // Iterate over the data array
+    for (let i = 0; i < input.data.length; ++i) {
+
+        // Calculate the index in the resulting array
+        let resultIndex = 0;
+
+        for (let j = input.dims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
+            const size = input.dims[j];
+            if (j !== dim) {
+                const index = num % size;
+                resultIndex += index * resultMultiplier;
+                resultMultiplier *= resultDims[j];
+            }
+            num = Math.floor(num / size);
+        }
+
+        // Accumulate the value at the current index
+        result[resultIndex] += (input.data[i] - meanTensor.data[resultIndex]) ** 2;
+    }
+
+    for (let i = 0; i < result.length; ++i) {
+        result[i] = Math.sqrt(result[i] / (input.dims[dim] - correction));
+    }
+
+    if (!keepdim) {
+        resultDims.splice(dim, 1);
+    }
+
+    const stdTensor = new Tensor(input.type, result, resultDims);
+
+    return [meanTensor, stdTensor];
+}
+
+
+/**
  * Returns the mean value of each row of the input tensor in the given dimension dim.
  * @param {Tensor} input the input tensor.
- * @param {*} dim the dimension to reduce.
- * @param {*} keepdim whether the output tensor has dim retained or not.
+ * @param {number|null} dim the dimension to reduce.
+ * @param {boolean} keepdim whether the output tensor has dim retained or not.
  * @returns A new tensor with means taken along the specified dimension.
  */
 export function mean(input, dim = null, keepdim = false) {
 
     if (dim === null) {
         // None to reduce over all dimensions.
-        // @ts-ignore
         let val = input.data.reduce((a, b) => a + b, 0);
         return new Tensor(input.type, [val / input.data.length], [/* scalar */]);
     }
