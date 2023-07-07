@@ -473,6 +473,16 @@ export class Tensor extends ONNXTensor {
         }
         return new Tensor(this.type, this.data, dims); // NOTE: uses same underlying storage
     }
+
+    neg_() {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = -this.data[i];
+        }
+        return this;
+    }
+    neg() {
+        return this.clone().neg_();
+    }
 }
 
 /**
