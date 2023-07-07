@@ -237,6 +237,9 @@ export class Tensor extends ONNXTensor {
         return transpose(this, dims);
     }
 
+    // TODO: rename transpose to permute
+    // TODO: implement transpose
+
     // TODO add .max() and .min() methods
 
     /**
