@@ -1112,7 +1112,13 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
      * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
     */
     async _call(audio) {
-        // audio is a float32array
+        if (!(audio instanceof Float32Array)) {
+            throw new Error(
+                // @ts-ignore
+                `WhisperFeatureExtractor expects input to be a Float32Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
+                `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
+            )
+        }
 
         if (audio.length > this.config.n_samples) {
             console.warn(
