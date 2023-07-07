@@ -4,7 +4,7 @@ import { AutoProcessor, Tensor } from '../src/transformers.js';
 import { MAX_TEST_EXECUTION_TIME, m } from './init.js';
 import { compare } from './test_utils.js';
 
-import { cat, stack } from '../src/utils/tensor.js';
+import { cat, mean, stack } from '../src/utils/tensor.js';
 
 describe('Tensor operations', () => {
 
@@ -104,5 +104,31 @@ describe('Tensor operations', () => {
             const stacked2 = stack([t1, t1, t1], -1);
             compare(stacked2, target2, 1e-3);
         });
+    });
+
+
+    describe('mean', () => {
+        it('should calculate mean', async () => {
+            const t1 = new Tensor('float32', [1, 2, 3, 4, 5, 6], [2, 3, 1]);
+            
+            const target = new Tensor('float32', [3.5], []);
+
+            const target0 = new Tensor('float32', [2.5, 3.5, 4.5], [3, 1]);
+            const target1 = new Tensor('float32', [2, 5], [2, 1]);
+            const target2 = new Tensor('float32', [1, 2, 3, 4, 5, 6], [2, 3]);
+
+            let avg = mean(t1);
+            compare(avg, target, 1e-3);
+
+            let avg0 = mean(t1, 0);
+            compare(avg0, target0, 1e-3);
+
+            let avg1 = mean(t1, 1);
+            compare(avg1, target1, 1e-3);
+            
+            let avg2 = mean(t1, 2);
+            compare(avg2, target2, 1e-3);
+
+        })
     });
 });
