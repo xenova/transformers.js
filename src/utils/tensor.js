@@ -771,7 +771,7 @@ export function std_mean(input, dim = null, correction = 1, keepdim = false) {
         const meanTensor = new Tensor(input.type, [mean], [/* scalar */]);
         const stdTensor = new Tensor(input.type, [std], [/* scalar */]);
 
-        return [meanTensor, stdTensor];
+        return [stdTensor, meanTensor];
     }
 
     // Negative indexing
@@ -816,7 +816,7 @@ export function std_mean(input, dim = null, correction = 1, keepdim = false) {
 
     const stdTensor = new Tensor(input.type, result, resultDims);
 
-    return [meanTensor, stdTensor];
+    return [stdTensor, meanTensor];
 }
 
 
