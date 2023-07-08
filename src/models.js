@@ -487,6 +487,8 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
 
     let beamId = 0;
     for (let tokens of inputTokenIds) {
+        let output_token_ids = tokens.tolist().map(Number);
+
         // TODO: Improve
         // Currently, just add back batch dimension.
         // In future, allow for true parallel execution
@@ -507,7 +509,7 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
             attention_mask: attn_mask,
             prev_model_outputs: null,
 
-            output_token_ids: [],
+            output_token_ids: output_token_ids,
             num_output_tokens: numOutputTokens,
 
             done: false,
@@ -534,7 +536,7 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
  * @private
  */
 async function decoderRunBeam(self, beam) {
-    let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
+    let attnMaskData = new BigInt64Array(beam.output_token_ids.length).fill(1n)
 
     // 1. Prepare
     let model_inputs = {
@@ -1776,10 +1778,96 @@ export class RobertaForSequenceClassification extends RobertaPreTrainedModel {
 }
 
 /**
+ * RobertaForTokenClassification class for performing token classification on Roberta models.
+ * @extends RobertaPreTrainedModel
+ */
+export class RobertaForTokenClassification extends RobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
  * RobertaForQuestionAnswering class for performing question answering on Roberta models.
  * @extends RobertaPreTrainedModel
  */
 export class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} returned object
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// XLMRoberta models
+export class XLMRobertaPreTrainedModel extends PreTrainedModel { }
+export class XLMRobertaModel extends XLMRobertaPreTrainedModel { }
+
+/**
+ * XLMRobertaForMaskedLM class for performing masked language modeling on XLMRoberta models.
+ * @extends XLMRobertaPreTrainedModel
+ */
+export class XLMRobertaForMaskedLM extends XLMRobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} returned object
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * XLMRobertaForSequenceClassification class for performing sequence classification on XLMRoberta models.
+ * @extends XLMRobertaPreTrainedModel
+ */
+export class XLMRobertaForSequenceClassification extends XLMRobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} returned object
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * XLMRobertaForTokenClassification class for performing token classification on XLMRoberta models.
+ * @extends XLMRobertaPreTrainedModel
+ */
+export class XLMRobertaForTokenClassification extends XLMRobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * XLMRobertaForQuestionAnswering class for performing question answering on XLMRoberta models.
+ * @extends XLMRobertaPreTrainedModel
+ */
+export class XLMRobertaForQuestionAnswering extends XLMRobertaPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -2705,6 +2793,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['albert', AlbertModel],
     ['distilbert', DistilBertModel],
     ['roberta', RobertaModel],
+    ['xlm-roberta', XLMRobertaModel],
     ['clip', CLIPModel],
     ['mobilebert', MobileBertModel],
     ['squeezebert', SqueezeBertModel],
@@ -2733,6 +2822,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['albert', AlbertForSequenceClassification],
     ['distilbert', DistilBertForSequenceClassification],
     ['roberta', RobertaForSequenceClassification],
+    ['xlm-roberta', XLMRobertaForSequenceClassification],
     ['bart', BartForSequenceClassification],
     ['mobilebert', MobileBertForSequenceClassification],
     ['squeezebert', SqueezeBertForSequenceClassification],
@@ -2741,6 +2831,8 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
     ['distilbert', DistilBertForTokenClassification],
+    ['roberta', RobertaForTokenClassification],
+    ['xlm-roberta', XLMRobertaForTokenClassification],
 ]);
 
 const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
@@ -2763,6 +2855,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['albert', AlbertForMaskedLM],
     ['distilbert', DistilBertForMaskedLM],
     ['roberta', RobertaForMaskedLM],
+    ['xlm-roberta', XLMRobertaForMaskedLM],
     ['mobilebert', MobileBertForMaskedLM],
     ['squeezebert', SqueezeBertForMaskedLM],
 ]);
@@ -2772,6 +2865,7 @@ const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['albert', AlbertForQuestionAnswering],
     ['distilbert', DistilBertForQuestionAnswering],
     ['roberta', RobertaForQuestionAnswering],
+    ['xlm-roberta', XLMRobertaForQuestionAnswering],
     ['mobilebert', MobileBertForQuestionAnswering],
     ['squeezebert', SqueezeBertForQuestionAnswering],
 ]);

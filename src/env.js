@@ -29,7 +29,7 @@ import url from 'url';
 import { ONNX } from './backends/onnx.js';
 const { env: onnx_env } = ONNX;
 
-const VERSION = '2.3.0';
+const VERSION = '2.3.1';
 
 // Check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
@@ -63,7 +63,7 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
 
 
 /**
- * Global variable used to control exection. This provides users a simple way to configure Transformers.js.
+ * Global variable used to control execution. This provides users a simple way to configure Transformers.js.
  * @property {Object} backends Expose environment variables of different backends,
  * allowing users to set these variables if they want to.
  * @property {string} __dirname Directory name of module. Useful for resolving local paths.

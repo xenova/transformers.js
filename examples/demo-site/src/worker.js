@@ -195,7 +195,7 @@ async function text_generation(data) {
             self.postMessage({
                 type: 'update',
                 target: data.elementIdToUpdate,
-                data: text + decodedText
+                data: decodedText
             });
         }
     })
@@ -224,7 +224,7 @@ async function code_completion(data) {
                 type: 'update',
                 target: data.elementIdToUpdate,
                 targetType: data.targetType,
-                data: text + decodedText
+                data: decodedText
             });
         }
     })
