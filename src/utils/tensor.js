@@ -768,7 +768,7 @@ export function stack(tensors, dim = 0) {
  * @param {number|null} dim the dimension to reduce. If None, all dimensions are reduced.
  * @param {number} correction difference between the sample size and sample degrees of freedom. Defaults to Bessel's correction, correction=1.
  * @param {boolean} keepdim whether the output tensor has dim retained or not.
- * @returns 
+ * @returns {Tensor[]} A tuple of (std, mean) tensors.
  */
 export function std_mean(input, dim = null, correction = 1, keepdim = false) {
 
