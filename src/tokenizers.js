@@ -2705,6 +2705,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                                 previous_tokens, previous_token_timestamps
                             )
 
+                            // @ts-ignore
                             const resolved_text = this.decode(resolved_tokens)
                             chunk.text = resolved_text
 
@@ -2783,6 +2784,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             const [resolved_tokens, resolved_token_timestamps] = this.findLongestCommonSequence(previous_tokens, previous_token_timestamps);
 
             // Flushing previous tokens (FINAL)
+            // @ts-ignore
             const resolved_text = this.decode(resolved_tokens);
             chunk.text = resolved_text;
             if (returnWordTimestamps) {
@@ -2921,6 +2923,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         }
     }
 
+    /** @private */
     collateWordTimestamps(tokens, token_timestamps, language) {
 
         let [words, _, token_indices] = this.combineTokensIntoWords(tokens, language);
@@ -2965,11 +2968,13 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         return this.mergePunctuations(words, word_tokens, token_indices, prepend_punctionations, append_punctuations);
     }
 
+    /** @type {PreTrainedTokenizer['decode']} */
     decode(
         token_ids,
         decode_args,
     ) {
         let text;
+        // @ts-ignore
         if (decode_args && decode_args.decode_with_timestamps) {
             text = this.decodeWithTimestamps(token_ids, decode_args);
         } else {
@@ -2982,6 +2987,11 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         return text;
     }
 
+    /**
+     * @param {number[]} token_ids List of token IDs to decode.
+     * @param {Object} decode_args Optional arguments for decoding
+     * @private
+     */
     decodeWithTimestamps(token_ids, decode_args) {
         const time_precision = decode_args?.time_precision ?? 0.02;
 
@@ -3015,9 +3025,11 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * Combine tokens into words by splitting at any position where the tokens are decoded as valid unicode points.
      * @param {number[]} tokens 
      * @returns {*}
+     * @private
      */
     splitTokensOnUnicode(tokens) {
         const decoded_full = this.decode(tokens, {
+            // @ts-ignore
             decode_with_timestamps: true,
         });
         const replacement_char = '\uFFFD';
@@ -3036,6 +3048,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             current_indices.push(token_idx);
 
             const decoded = this.decode(current_tokens, {
+                // @ts-ignore
                 decode_with_timestamps: true,
             });
 
@@ -3056,6 +3069,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     /**
      * Combine tokens into words by splitting at whitespace and punctuation tokens.
      * @param {number[]} tokens 
+     * @private
      */
     splitTokensOnSpaces(tokens) {
 
@@ -3097,11 +3111,12 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
     /**
      * Merges punctuation tokens with neighboring words.
-     * @param {*} words 
-     * @param {*} tokens 
-     * @param {*} indices 
-     * @param {*} prepended 
-     * @param {*} appended 
+     * @param {string[]} words 
+     * @param {number[][]} tokens 
+     * @param {number[][]} indices 
+     * @param {string} prepended 
+     * @param {string} appended 
+     * @private
      */
     mergePunctuations(words, tokens, indices, prepended, appended) {
 
