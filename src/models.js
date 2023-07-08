@@ -1971,9 +1971,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                 (_, i) => cat(batch.map(x => x[i]), 2)
             );
 
-            const z = alignment_heads.map(([l, h]) => cross_attentions[l].slice(null, h));
-            let weights = stack(z);
-
+            let weights = stack(alignment_heads.map(([l, h]) => cross_attentions[l].slice(null, h)));
             weights = weights.transpose(1, 0, 2, 3)
 
             let [std, calculatedMean] = std_mean(weights, -2, 0, true);
