@@ -1026,7 +1026,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
 
     /**
      * Computes the log-Mel spectrogram of the provided audio waveform.
-     * @param {Float32Array} waveform The audio waveform to process.
+     * @param {Float32Array|Float64Array} waveform The audio waveform to process.
      * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
     _extract_fbank_features(waveform) {
@@ -1108,14 +1108,14 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
 
     /**
      * Asynchronously extracts features from a given audio using the provided configuration.
-     * @param {Float32Array} audio The audio data as a Float32Array.
+     * @param {Float32Array|Float64Array} audio The audio data as a Float32Array.
      * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
     */
     async _call(audio) {
-        if (!(audio instanceof Float32Array)) {
+        if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
             throw new Error(
                 // @ts-ignore
-                `WhisperFeatureExtractor expects input to be a Float32Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
+                `WhisperFeatureExtractor expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
                 `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
             )
         }
