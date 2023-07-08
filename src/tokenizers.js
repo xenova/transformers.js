@@ -2986,6 +2986,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         const time_precision = decode_args?.time_precision ?? 0.02;
 
         const timestamp_begin = Array.from(this.all_special_ids).at(-1) + 1;
+        /**@type {Array} */
         let outputs = [[]];
         for (let token of token_ids) {
             if (token >= timestamp_begin) {
