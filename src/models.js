@@ -2045,6 +2045,12 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * @returns {Tensor} tensor containing the timestamps in seconds for each predicted token
      */
     _extract_token_timestamps(generate_outputs, alignment_heads, time_precision = 0.02) {
+        if (!generate_outputs.cross_attentions) {
+            throw new Error(
+                "Model outputs must contain cross attentions to extract timestamps. " +
+                "This is most likely because the model was not exported with `output_attentions=True`."
+            )
+        }
 
         let median_filter_width = this.config.median_filter_width;
         if (median_filter_width === undefined) {
