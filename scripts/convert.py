@@ -11,7 +11,6 @@ from transformers import (
     AutoTokenizer,
     HfArgumentParser
 )
-from transformers.utils import cached_file
 
 import onnx
 from optimum.exporters.onnx import main_export
@@ -187,13 +186,6 @@ def quantize(model_names_or_paths, **quantize_kwargs):
         json.dump(quantize_config, fp, indent=4)
 
 
-def copy_if_exists(model_path, file_name, destination):
-    file = cached_file(model_path, file_name,
-                       _raise_exceptions_for_missing_entries=False)
-    if file is not None:
-        shutil.copy(file, destination)
-
-
 def main():
 
     parser = HfArgumentParser(
@@ -268,6 +260,16 @@ def main():
             shutil.move(os.path.join(output_model_folder, file),
                         os.path.join(output_model_folder, 'onnx', file))
 
+    # Step 4. Update the generation config if necessary
+    if config.model_type == 'whisper':
+        from transformers import GenerationConfig
+        from .extra.whisper import get_alignment_heads
+
+        generation_config = GenerationConfig.from_pretrained(model_id)
+        generation_config.alignment_heads = get_alignment_heads(config)
+        generation_config.save_pretrained(output_model_folder)
+
+        print('updated', generation_config.alignment_heads)
 
 if __name__ == '__main__':
     main()
