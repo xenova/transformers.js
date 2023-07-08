@@ -269,7 +269,5 @@ def main():
         generation_config.alignment_heads = get_alignment_heads(config)
         generation_config.save_pretrained(output_model_folder)
 
-        print('updated', generation_config.alignment_heads)
-
 if __name__ == '__main__':
     main()
