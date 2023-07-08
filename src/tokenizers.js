@@ -2701,21 +2701,26 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                             if (returnWordTimestamps) {
                                 previous_token_timestamps.push(current_token_timestamps);
                             }
-                            const [resolved_tokens, resolved_token_timestamps] = this.findLongestCommonSequence(previous_tokens, previous_token_timestamps)
+                            const [resolved_tokens, resolved_token_timestamps] = this.findLongestCommonSequence(
+                                previous_tokens, previous_token_timestamps
+                            )
+
+                            const resolved_text = this.decode(resolved_tokens)
+                            chunk.text = resolved_text
+
                             if (returnWordTimestamps) {
                                 chunk.words = this.collateWordTimestamps(
                                     resolved_tokens, resolved_token_timestamps, last_language,
                                 )
                             }
 
-                            // @ts-ignore
-                            const resolved_text = this.decode(resolved_tokens)
-                            chunk.text = resolved_text
                             chunks.push(chunk)
 
                             // Flush all our temporary context
                             previous_tokens = []
                             current_tokens = []
+                            previous_token_timestamps = []
+                            current_token_timestamps = []
                             chunk = new_chunk()
                         }
                     }
@@ -2727,14 +2732,14 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                     current_tokens.push(token)
 
                     if (returnWordTimestamps) {
-                        // TODO: round
-                        let start_time = token_timestamps[i] + time_offset;
+                        let start_time = round(token_timestamps[i] + time_offset, 2);
 
                         let end_time;
                         if (i + 1 < token_timestamps.length) {
-                            end_time = token_timestamps[i + 1] + time_offset;
+                            end_time = round(token_timestamps[i + 1] + time_offset, 2);
                         } else {
                             // should never happen
+                            end_time = null;
                         }
                         current_token_timestamps.push([start_time, end_time]);
                     }
@@ -2778,7 +2783,6 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             const [resolved_tokens, resolved_token_timestamps] = this.findLongestCommonSequence(previous_tokens, previous_token_timestamps);
 
             // Flushing previous tokens (FINAL)
-            // @ts-ignore
             const resolved_text = this.decode(resolved_tokens);
             chunk.text = resolved_text;
             if (returnWordTimestamps) {
@@ -3099,7 +3103,6 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * @param {*} appended 
      */
     mergePunctuations(words, tokens, indices, prepended, appended) {
-        console.log('prepended, appended', prepended, appended)
 
         let newWords = structuredClone(words);
         let newTokens = structuredClone(tokens);
@@ -3178,7 +3181,6 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         task = null,
         no_timestamps = true,
     } = {}) {
-        console.log('get_decoder_prompt_ids', language, task, no_timestamps)
 
         // <|lang_id|> <|task|> <|notimestamps|>
 
