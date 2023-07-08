@@ -958,10 +958,23 @@ export class PreTrainedModel extends Callable {
 
                 // add attentions/scores to beam only if user requested
                 if (generation_config.output_attentions) {
-                    beam.decoder_attentions.push(output.decoder_attentions);
+                    if (this.config.is_encoder_decoder) {
+                        if (!output.cross_attentions || output.cross_attentions.length === 0) {
+                            throw Error(
+                                "`output_attentions` is true, but the model did not produce cross-attentions. " +
+                                "This is most likely because the model was not exported with `output_attentions=True`."
+                            )
+                        }
+                        beam.cross_attentions.push(output.cross_attentions);
+                    }
 
-                    // TODO: only append if encoder-decoder
-                    beam.cross_attentions.push(output.cross_attentions);
+                    if (!output.decoder_attentions || output.decoder_attentions.length === 0) {
+                        throw Error(
+                            "`output_attentions` is true, but the model did not produce decoder-attentions. " +
+                            "This is most likely because the model was not exported with `output_attentions=True`."
+                        )
+                    }
+                    beam.decoder_attentions.push(output.decoder_attentions);
                 }
                 if (generation_config.output_scores) {
                     // TODO
