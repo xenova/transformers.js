@@ -890,7 +890,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 if (return_timestamps === 'word') {
                     chunk.tokens = data.sequences[0];
                     chunk.token_timestamps = data.token_timestamps.tolist()[0].map(
-                        x => round(x, 3)
+                        x => round(x, 2)
                     );
 
                 } else {
@@ -906,6 +906,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                     chunk_callback(chunk)
                 }
             }
+            // correct
 
             // Merge text chunks
             // @ts-ignore
