@@ -3135,9 +3135,9 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                 newWords[i] += newWords[j];
                 newTokens[i] = mergeArrays(newTokens[i], newTokens[j]);
                 newIndices[i] = mergeArrays(newIndices[i], newIndices[j]);
-                words[j] = '';
-                tokens[j] = [];
-                indices[j] = [];
+                newWords[j] = '';
+                newTokens[j] = [];
+                newIndices[j] = [];
             } else {
                 i = j;
             }
