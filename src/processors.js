@@ -1045,7 +1045,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
         const d2 = stft.dims[1] >> 1; // Only need to store real numbers now
 
         // compute magnitudes
-        // NOTE: Unlinke the original implementation, we do not
+        // NOTE: Unlike the original implementation, we do not
         // transpose since we perform matrix multiplication later
         const magnitudes = new Float32Array(d1 * d2);
         for (let i = 0; i < d1; ++i) {
