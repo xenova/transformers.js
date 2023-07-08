@@ -2733,7 +2733,6 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                         let end_time;
                         if (i + 1 < token_timestamps.length) {
                             end_time = token_timestamps[i + 1] + time_offset;
-                            current_token_timestamps.push([start_time, end_time]);
                         } else {
                             // should never happen
                         }
