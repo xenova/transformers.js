@@ -46,6 +46,7 @@ import {
     Callable,
     isIntegralNumber,
     isTypedArray,
+    mergeArrays,
 } from './utils/core.js';
 
 import {
@@ -68,10 +69,16 @@ import {
 } from './utils/generation.js';
 
 import {
+    cat,
+    dynamicTimeWarping,
+    mean,
+    stack,
+    std_mean,
     Tensor,
 } from './utils/tensor.js';
 
 import { executionProviders, ONNX } from './backends/onnx.js';
+import { medianFilter, round } from './transformers.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 /**
@@ -1018,18 +1025,27 @@ export class PreTrainedModel extends Callable {
             }
         ).flat(); // Flatten across batches (depth=1)
 
-        const sequences = getFlattened('output_token_ids');
+        const sequences = getFlattened('output_token_ids'); // [1, 27] // correct
 
         if (generation_config.return_dict_in_generate) {
+            // NOTE: `decoder_attentions` and `cross_attentions` should be:
+            //    list (one element for each generated token)
+            //    of list (one element for each layer of the decoder)
+            //    of torch.FloatTensor of shape (batch_size, num_heads, generated_length, sequence_length)
+            // However, since we are only generating one batch at a time, they are of the form:
+            //   list (batches)
+            //   of list (one element for each generated token)
+            //   of list (one element for each layer of the decoder)
+            //   of torch.FloatTensor of shape (1, num_heads, generated_length, sequence_length)
+            // 
+            // TODO: In future (when true parallelism, we should be able to return the correct shape)
+
             const decoder_attentions = getFlattened('decoder_attentions');
             const cross_attentions = getFlattened('cross_attentions');
 
             return {
                 sequences,
 
-                // list (one element for each generated token)
-                // of list (one element for each layer of the decoder)
-                // of torch.FloatTensor of shape (batch_size, num_heads, generated_length, sequence_length)
                 decoder_attentions,
                 cross_attentions,
             }
@@ -1832,12 +1848,24 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * @param {Object} inputs Input data for the model.
      * @param {Object} generation_config Configuration object for the generation process.
      * @param {Object} logits_processor Optional logits processor object.
+     * @param {Object} options options
+     * @param {Object} [options.return_timestamps=null] Whether to return the timestamps with the text. This enables the `WhisperTimestampsLogitsProcessor`.
+     * @param {Object} [options.return_token_timestamps=null] Whether to return token-level timestamps
+     * with the text. This can be used with or without the `return_timestamps` option. To get word-level
+     * timestamps, use the tokenizer to group the tokens into words.
      * @returns {Promise<Object>} Promise object represents the generated outputs.
      */
+    // @ts-ignore
     async generate(
         inputs,
         generation_config = null,
         logits_processor = null,
+        // {
+        //     return_timestamps = null,
+        //     return_token_timestamps = null,
+        //     language = null,
+        //     task = null,
+        // } = {},
     ) {
         // Create generation config object
         generation_config = this._get_generation_config(generation_config);
@@ -1852,7 +1880,29 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             logits_processor = [new WhisperTimeStampLogitsProcessor(generation_config)]
         }
 
-        return super.generate(inputs, generation_config, logits_processor)
+        if (generation_config.return_token_timestamps) {
+            generation_config.output_attentions = true;
+            generation_config.return_dict_in_generate = true;
+
+            if (generation_config.task === 'translate') {
+                console.warn("Token-level timestamps may not be reliable for task 'translate'.")
+            }
+
+            if (!generation_config.alignment_heads) {
+                throw new Error(
+                    "Model generation config has no `alignment_heads`, token-level timestamps not available. " +
+                    "See https://gist.github.com/hollance/42e32852f24243b748ae6bc1f985b13a on how to add this property to the generation config."
+                )
+            }
+        }
+
+        const outputs = await super.generate(inputs, generation_config, logits_processor);
+
+        if (generation_config.return_token_timestamps && generation_config.alignment_heads) {
+            outputs["token_timestamps"] = this._extract_token_timestamps(outputs, generation_config.alignment_heads)
+        }
+
+        return outputs
     }
 
     /**
@@ -1893,6 +1943,114 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      */
     async forward(model_inputs) {
         return await seq2seqForward(this, model_inputs);
+    }
+
+    /**
+     * Calculates token-level timestamps using the encoder-decoder cross-attentions and
+     * dynamic time-warping (DTW) to map each output token to a position in the input audio.
+     * @param {{cross_attentions:Tensor[][][]; decoder_attentions:Tensor[][][]; sequences: number[][];}} generate_outputs 
+     * @param {number[][]} alignment_heads 
+     * @param {number} time_precision 
+     * @returns {Tensor} tensor containing the timestamps in seconds for each predicted token
+     */
+    _extract_token_timestamps(generate_outputs, alignment_heads, time_precision = 0.02) {
+
+        let median_filter_width = this.config.median_filter_width;
+        if (median_filter_width === undefined) {
+            console.warn("Model config has no `median_filter_width`, using default value of 7.")
+            median_filter_width = 7;
+        }
+
+        const batchedMatrices = [];
+
+        // Create a list with `decoder_layers` elements, each a tensor of shape
+        // (batch size, attention_heads, output length, input length).
+        for (let batch of generate_outputs.cross_attentions) {
+
+            let cross_attentions = [];
+
+            for (let i = 0; i < this.config.decoder_layers; ++i) {
+                let a = batch.map(
+                    x => x[i]
+                );
+                // a is array of tensors of shape e.g., [1, 6, 1, 1500]
+
+                let b = cat(a, 2); // e.g., [1, 6, 26, 1500]
+                cross_attentions.push(b);
+
+                // TODO cat on dim=2
+            }
+
+            const z = [];
+            for (let [l, h] of alignment_heads) {
+                z.push(cross_attentions[l].slice(null, h));
+            }
+            let weights = stack(z);
+
+            weights = weights.transpose(1, 0, 2, 3)
+
+            let [std, calculatedMean] = std_mean(weights, -2, 0, true);
+
+            // Normalize and smoothen the weights.
+            let smoothedWeights = weights.clone(); // [1, 8, seqLength, 1500]
+
+            for (let a = 0; a < smoothedWeights.dims[0]; ++a) {
+                let aTensor = smoothedWeights[a]; // [8, seqLength, 1500]
+
+                for (let b = 0; b < aTensor.dims[0]; ++b) {
+                    let bTensor = aTensor[b]; // [seqLength, 1500]
+
+                    const stdTensor = std[a][b][0]; // [1500]
+                    const meanTensor = calculatedMean[a][b][0]; // [1500]
+
+                    for (let c = 0; c < bTensor.dims[0]; ++c) {
+
+                        let cTensor = bTensor[c]; // [1500]
+                        for (let d = 0; d < cTensor.data.length; ++d) {
+                            cTensor.data[d] = (cTensor.data[d] - meanTensor.data[d]) / stdTensor.data[d]
+                        }
+
+                        const medFil = medianFilter(cTensor.data, median_filter_width);
+                        cTensor.data.set(medFil)
+                    }
+                }
+            }
+
+            // Average the different cross-attention heads.
+            const matrix = mean(smoothedWeights, 1);
+
+            batchedMatrices.push(matrix);
+        }
+
+        const timestampsShape = [generate_outputs.sequences.length, generate_outputs.sequences[0].length];
+
+        const timestamps = new Tensor(
+            'float32',
+            new Float32Array(timestampsShape[0] * timestampsShape[1]),
+            timestampsShape
+        );
+
+        // Perform dynamic time warping on each element of the batch.
+        for (let batch_idx = 0; batch_idx < timestampsShape[0]; ++batch_idx) {
+            // NOTE: Since we run only one batch at a time, we can squeeze to get the same dimensions
+            // as the python implementation
+            const t = batchedMatrices[batch_idx].neg().squeeze_(0);
+            let [text_indices, time_indices] = dynamicTimeWarping(t);
+
+            let diffs = Array.from({ length: text_indices.length - 1 }, (v, i) => text_indices[i + 1] - text_indices[i]);
+            let jumps = mergeArrays([1], diffs).map(x => !!x); // convert to boolean
+
+            let jump_times = [];
+            for (let i = 0; i < jumps.length; ++i) {
+                if (jumps[i]) {
+                    jump_times.push(time_indices[i] * time_precision);
+                    // NOTE: No point in rounding here, since we set to Float32Array later
+                }
+            }
+            timestamps[batch_idx].data.set(jump_times, 1)
+        }
+
+        return timestamps; // CORRECT!
     }
 }
 //////////////////////////////////////////////////
