@@ -1025,7 +1025,7 @@ export class PreTrainedModel extends Callable {
             }
         ).flat(); // Flatten across batches (depth=1)
 
-        const sequences = getFlattened('output_token_ids'); // [1, 27] // correct
+        const sequences = getFlattened('output_token_ids'); // [1, seqLength]
 
         if (generation_config.return_dict_in_generate) {
             // NOTE: `decoder_attentions` and `cross_attentions` should be:
@@ -1967,24 +1967,11 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         // (batch size, attention_heads, output length, input length).
         for (let batch of generate_outputs.cross_attentions) {
 
-            let cross_attentions = [];
+            let cross_attentions = Array.from({ length: this.config.decoder_layers },
+                (_, i) => cat(batch.map(x => x[i]), 2)
+            );
 
-            for (let i = 0; i < this.config.decoder_layers; ++i) {
-                let a = batch.map(
-                    x => x[i]
-                );
-                // a is array of tensors of shape e.g., [1, 6, 1, 1500]
-
-                let b = cat(a, 2); // e.g., [1, 6, 26, 1500]
-                cross_attentions.push(b);
-
-                // TODO cat on dim=2
-            }
-
-            const z = [];
-            for (let [l, h] of alignment_heads) {
-                z.push(cross_attentions[l].slice(null, h));
-            }
+            const z = alignment_heads.map(([l, h]) => cross_attentions[l].slice(null, h));
             let weights = stack(z);
 
             weights = weights.transpose(1, 0, 2, 3)
@@ -2050,7 +2037,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             timestamps[batch_idx].data.set(jump_times, 1)
         }
 
-        return timestamps; // CORRECT!
+        return timestamps;
     }
 }
 //////////////////////////////////////////////////
