@@ -884,7 +884,6 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             for (let chunk of chunks) {
                 // NOTE: doing sequentially for now
                 let data = await this.model.generate(chunk.input_features, kwargs);
-                console.log('data', data);
 
                 // TODO: Right now we only get top beam
                 if (return_timestamps === 'word') {
@@ -896,8 +895,6 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 } else {
                     chunk.tokens = data[0];
                 }
-                console.log('chunk', chunk);
-
 
                 // convert stride to seconds
                 chunk.stride = chunk.stride.map(x => x / sampling_rate);
