@@ -815,13 +815,10 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             }
             // @ts-ignore
             let decoder_prompt_ids = this.tokenizer.get_decoder_prompt_ids({ language, task, no_timestamps: !return_timestamps })
-            console.log('decoder_prompt_ids', decoder_prompt_ids)
             if (decoder_prompt_ids.length > 0) {
                 kwargs.forced_decoder_ids = decoder_prompt_ids;
             }
         }
-
-        console.log('forced_decoder_ids', kwargs.forced_decoder_ids)
 
         let single = !Array.isArray(audio);
         if (single) {
@@ -903,7 +900,6 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                     chunk_callback(chunk)
                 }
             }
-            // correct
 
             // Merge text chunks
             // @ts-ignore
