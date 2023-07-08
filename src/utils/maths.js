@@ -829,3 +829,14 @@ export function medianFilter(data, windowSize) {
 
     return outputArray;
 }
+
+/**
+ * Helper function to round a number to a given number of decimals
+ * @param {number} num The number to round
+ * @param {number} decimals The number of decimals
+ * @returns {number} The rounded number
+ */
+export function round(num, decimals) {
+    const pow = Math.pow(10, decimals);
+    return Math.round(num * pow) / pow;
+}
