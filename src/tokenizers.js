@@ -2831,6 +2831,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
      * @param {number[][]} sequences An array of sequences of token ids to compare.
      * @returns {number[]|number[][]} The longest common sequence found.
      * @throws {Error} If there is a bug within the function.
+     * @private
      */
     findLongestCommonSequence(sequences, token_timestamp_sequences = null) {
         // It would be much harder to do O(n) because of fault tolerance.
