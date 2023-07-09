@@ -2651,8 +2651,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                             // one, and we cannot use timestamped tokens to create chunks
                             if (last_language !== null && language !== last_language && !return_timestamps) {
                                 previous_tokens.push(current_tokens);
-                                const resolved_tokens = this.findLongestCommonSequence(previous_tokens);
-                                // @ts-ignore
+                                const resolved_tokens = this.findLongestCommonSequence(previous_tokens)[0];
                                 const resolved_text = this.decode(resolved_tokens);
                                 chunk.text = resolved_text;
                                 chunks.push(chunk);
@@ -2705,7 +2704,6 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                                 previous_tokens, previous_token_timestamps
                             )
 
-                            // @ts-ignore
                             const resolved_text = this.decode(resolved_tokens)
                             chunk.text = resolved_text
 
@@ -2784,7 +2782,6 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             const [resolved_tokens, resolved_token_timestamps] = this.findLongestCommonSequence(previous_tokens, previous_token_timestamps);
 
             // Flushing previous tokens (FINAL)
-            // @ts-ignore
             const resolved_text = this.decode(resolved_tokens);
             chunk.text = resolved_text;
             if (returnWordTimestamps) {
@@ -2829,7 +2826,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     /**
      * Finds the longest common sequence among the provided sequences.
      * @param {number[][]} sequences An array of sequences of token ids to compare.
-     * @returns {number[]|number[][]} The longest common sequence found.
+     * @returns {number[][]} The longest common sequence found.
      * @throws {Error} If there is a bug within the function.
      * @private
      */
@@ -2842,9 +2839,10 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         let leftSequence = sequences[0];
         let leftLength = leftSequence.length;
         let totalSequence = [];
-        let total_token_timestamp_sequence = [];
-        let left_token_timestamp_sequence = token_timestamp_sequences ? token_timestamp_sequences[0] : null;
 
+        const use_token_timestamp_sequences = Array.isArray(token_timestamp_sequences) && token_timestamp_sequences.length > 0;
+        let total_token_timestamp_sequence = use_token_timestamp_sequences ? [] : null;
+        let left_token_timestamp_sequence = use_token_timestamp_sequences ? token_timestamp_sequences[0] : null;
         for (let i = 1; i < sequences.length; ++i) {
             const rightSequence = sequences[i];
             let max = 0.0;
@@ -2905,18 +2903,14 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             leftSequence = rightSequence.slice(rightMid);
             leftLength = leftSequence.length;
 
-            if (token_timestamp_sequences) {
+            if (use_token_timestamp_sequences) {
                 total_token_timestamp_sequence.push(...left_token_timestamp_sequence.slice(0, leftMid));
                 left_token_timestamp_sequence = token_timestamp_sequences[i].slice(rightMid);
             }
         }
         totalSequence.push(...leftSequence);
 
-        if (!token_timestamp_sequences) {
-            return totalSequence;
-        }
-
-        if (token_timestamp_sequences.length > 0) {
+        if (use_token_timestamp_sequences) {
             total_token_timestamp_sequence.push(...left_token_timestamp_sequence);
             return [totalSequence, total_token_timestamp_sequence];
         } else {
