@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
@@ -56,6 +56,10 @@
     "webpack": "^5.80.0",
     "webpack-cli": "^5.0.2",
     "webpack-dev-server": "^4.13.3"
+  },
+  "overrides": {
+    "semver": "^7.5.4",
+    "protobufjs": "^7.2.4"
   },
   "files": [
     "src",

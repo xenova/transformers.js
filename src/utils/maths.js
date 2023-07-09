@@ -790,3 +790,53 @@ export class FFT {
     }
 }
 
+/**
+ * Performs median filter on the provided data. Padding is done by mirroring the data.
+ * @param {AnyTypedArray} data The input array
+ * @param {number} windowSize The window size
+ */
+export function medianFilter(data, windowSize) {
+
+    if (windowSize % 2 === 0 || windowSize <= 0) {
+        throw new Error('Window size must be a positive odd number');
+    }
+
+    // @ts-ignore
+    const outputArray = new data.constructor(data.length);
+
+    // @ts-ignore
+    const buffer = new data.constructor(windowSize); // Reusable array for storing values
+
+    const halfWindowSize = Math.floor(windowSize / 2);
+
+    for (let i = 0; i < data.length; ++i) {
+        let valuesIndex = 0;
+
+        for (let j = -halfWindowSize; j <= halfWindowSize; ++j) {
+            let index = i + j;
+            if (index < 0) {
+                index = Math.abs(index);
+            } else if (index >= data.length) {
+                index = 2 * (data.length - 1) - index;
+            }
+
+            buffer[valuesIndex++] = data[index];
+        }
+
+        buffer.sort();
+        outputArray[i] = buffer[halfWindowSize];
+    }
+
+    return outputArray;
+}
+
+/**
+ * Helper function to round a number to a given number of decimals
+ * @param {number} num The number to round
+ * @param {number} decimals The number of decimals
+ * @returns {number} The rounded number
+ */
+export function round(num, decimals) {
+    const pow = Math.pow(10, decimals);
+    return Math.round(num * pow) / pow;
+}

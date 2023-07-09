@@ -47,6 +47,7 @@ import {
     softmax,
     max,
     getTopItems,
+    round,
 } from './utils/maths.js';
 import {
     read_audio
@@ -770,6 +771,27 @@ export class FeatureExtractionPipeline extends Pipeline {
  * // }
  * ```
  * 
+ * **Example:** Transcribe English w/ word-level timestamps.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
+ *     revision: 'output_attentions',
+ * });
+ * let output = await transcriber(url, { return_timestamps: 'word' });
+ * // {
+ * //   "text": " And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+ * //   "chunks": [
+ * //     { "text": " And", "timestamp": [0, 0.78] },
+ * //     { "text": " so", "timestamp": [0.78, 1.06] },
+ * //     { "text": " my", "timestamp": [1.06, 1.46] },
+ * //     ...
+ * //     { "text": " for", "timestamp": [9.72, 9.92] },
+ * //     { "text": " your", "timestamp": [9.92, 10.22] },
+ * //     { "text": " country.", "timestamp": [10.22, 13.5] }
+ * //   ]
+ * // }
+ * ```
+ * 
  * **Example:** Transcribe French.
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
@@ -784,6 +806,14 @@ export class FeatureExtractionPipeline extends Pipeline {
  * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
  * let output = await transcriber(url, { language: 'french', task: 'translate' });
  * // { text: " I love, I like, I don't like, I hate." }
+ * ```
+ * 
+ * **Example:** Transcribe/translate audio longer than 30 seconds.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/ted_60.wav';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * let output = await transcriber(url, { chunk_length_s: 30, stride_length_s: 5 });
+ * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
  * @extends Pipeline
  */
@@ -818,7 +848,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
     /**
      * @typedef {import('./utils/tensor.js').Tensor} Tensor
-     * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[]}} Chunk
+     * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} Chunk
      * 
      * @callback ChunkCallback
      * @param {Chunk} chunk The chunk to process.
@@ -828,7 +858,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
      * Asynchronously processes audio and generates text transcription using the model.
      * @param {Float32Array|Float32Array[]} audio The audio to be transcribed. Can be a single Float32Array or an array of Float32Arrays.
      * @param {Object} [kwargs={}] Optional arguments.
-     * @param {boolean} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
+     * @param {boolean|'word'} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
      * @param {number} [kwargs.chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
      * @param {number} [kwargs.stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
      * @param {ChunkCallback} [kwargs.chunk_callback] Callback function to be called with each chunk processed.
@@ -846,6 +876,10 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
         let chunk_callback = kwargs.chunk_callback ?? null;
         let force_full_sequences = kwargs.force_full_sequences ?? false;
 
+        if (return_timestamps === 'word') {
+            kwargs['return_token_timestamps'] = true;
+        }
+
         let language = pop(kwargs, 'language', null);
         let task = pop(kwargs, 'task', null);
 
@@ -855,7 +889,6 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             }
             // @ts-ignore
             let decoder_prompt_ids = this.tokenizer.get_decoder_prompt_ids({ language, task, no_timestamps: !return_timestamps })
-
             if (decoder_prompt_ids.length > 0) {
                 kwargs.forced_decoder_ids = decoder_prompt_ids;
             }
@@ -923,8 +956,16 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 // NOTE: doing sequentially for now
                 let data = await this.model.generate(chunk.input_features, kwargs);
 
-                // Get top beam
-                chunk.tokens = data[0];
+                // TODO: Right now we only get top beam
+                if (return_timestamps === 'word') {
+                    chunk.tokens = data.sequences[0];
+                    chunk.token_timestamps = data.token_timestamps.tolist()[0].map(
+                        x => round(x, 2)
+                    );
+
+                } else {
+                    chunk.tokens = data[0];
+                }
 
                 // convert stride to seconds
                 chunk.stride = chunk.stride.map(x => x / sampling_rate);
@@ -937,9 +978,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             // Merge text chunks
             // @ts-ignore
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
-                time_precision: time_precision,
-                return_timestamps: return_timestamps,
-                force_full_sequences: force_full_sequences
+                time_precision, return_timestamps, force_full_sequences
             });
 
             toReturn.push({ text: full_text, ...optional })

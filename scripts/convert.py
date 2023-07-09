@@ -11,7 +11,6 @@ from transformers import (
     AutoTokenizer,
     HfArgumentParser
 )
-from transformers.utils import cached_file
 
 import onnx
 from optimum.exporters.onnx import main_export
@@ -20,6 +19,18 @@ from onnxruntime.quantization import (
     quantize_dynamic,
     QuantType
 )
+
+DEFAULT_QUANTIZE_PARAMS = {
+    'per_channel': True,
+    'reduce_range': True,
+}
+
+MODEL_SPECIFIC_QUANTIZE_PARAMS = {
+    'whisper': {
+        'per_channel': False,
+        'reduce_range': False,
+    }
+}
 
 
 @dataclass
@@ -79,15 +90,22 @@ class ConversionArguments:
     )
 
     per_channel: bool = field(
-        default=True,
+        default=None,
         metadata={
             "help": "Whether to quantize weights per channel"
         }
     )
     reduce_range: bool = field(
-        default=True,
+        default=None,
         metadata={
             "help": "Whether to quantize weights with 7-bits. It may improve the accuracy for some models running on non-VNNI machine, especially for per-channel mode"
+        }
+    )
+
+    output_attentions: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to output attentions from the model. NOTE: This is only supported for whisper models right now."
         }
     )
 
@@ -107,7 +125,7 @@ def get_operators(model: onnx.ModelProto) -> Set[str]:
     return operators
 
 
-def quantize(model_names_or_paths, conv_args: ConversionArguments):
+def quantize(model_names_or_paths, **quantize_kwargs):
     """
     Quantize the weights of the model from float32 to int8 to allow very efficient inference on modern CPU
 
@@ -119,9 +137,8 @@ def quantize(model_names_or_paths, conv_args: ConversionArguments):
     Returns: The Path generated for the quantized
     """
 
-    quant_config = dict(
-        per_channel=conv_args.per_channel,
-        reduce_range=conv_args.reduce_range,
+    quantize_config = dict(
+        **quantize_kwargs,
         per_model_config={}
     )
 
@@ -148,9 +165,6 @@ def quantize(model_names_or_paths, conv_args: ConversionArguments):
             model_output=os.path.join(
                 directory_path, f'{file_name_without_extension}_quantized.onnx'),
 
-            per_channel=conv_args.per_channel,
-            reduce_range=conv_args.reduce_range,
-
             weight_type=weight_type,
             optimize_model=False,
 
@@ -158,24 +172,18 @@ def quantize(model_names_or_paths, conv_args: ConversionArguments):
             # op_types_to_quantize=['MatMul', 'Add', 'Conv'],
             extra_options=dict(
                 EnableSubgraph=True
-            )
+            ),
+            **quantize_kwargs
         )
 
-        quant_config['per_model_config'][file_name_without_extension] = dict(
+        quantize_config['per_model_config'][file_name_without_extension] = dict(
             op_types=list(op_types),
             weight_type=str(weight_type),
         )
 
     # Save quantization config
-    with open(os.path.join(directory_path, 'quant_config.json'), 'w') as fp:
-        json.dump(quant_config, fp, indent=4)
-
-
-def copy_if_exists(model_path, file_name, destination):
-    file = cached_file(model_path, file_name,
-                       _raise_exceptions_for_missing_entries=False)
-    if file is not None:
-        shutil.copy(file, destination)
+    with open(os.path.join(directory_path, 'quantize_config.json'), 'w') as fp:
+        json.dump(quantize_config, fp, indent=4)
 
 
 def main():
@@ -192,35 +200,18 @@ def main():
     # Create output folder
     os.makedirs(output_model_folder, exist_ok=True)
 
-    # Copy certain JSON files, which save_pretrained doesn't handle
-    # copy_if_exists(model_id, 'tokenizer.json', output_model_folder)
-
-    # copy_if_exists(model_id, 'preprocessor_config.json', output_model_folder)
-    # copy_if_exists(model_id, 'generation_config.json', output_model_folder)
-
-    # # Saving the model config
+    # Saving the model config
     config = AutoConfig.from_pretrained(model_id)
-    # config.save_pretrained(output_model_folder)
 
+    tokenizer = None
     try:
         # Save tokenizer
         tokenizer = AutoTokenizer.from_pretrained(model_id)
-        # tokenizer.save_pretrained(output_model_folder)
-
-        # Handle special cases
-        if config.model_type == 'marian':
-            import json
-            from .extra.marian import generate_tokenizer_json
-            tokenizer_json = generate_tokenizer_json(model_id, tokenizer)
-
-            with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
-                json.dump(tokenizer_json, fp)
 
     except KeyError:
         pass  # No Tokenizer
 
-    # Step 1. convert huggingface model to onnx
-    main_export(
+    export_kwargs = dict(
         model_name_or_path=model_id,
         output=output_model_folder,
         task=conv_args.task,
@@ -229,21 +220,54 @@ def main():
         do_validation=not conv_args.skip_validation,
     )
 
+    # Handle special cases
+    if config.model_type == 'marian':
+        from .extra.marian import generate_tokenizer_json
+        tokenizer_json = generate_tokenizer_json(model_id, tokenizer)
+
+        with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
+            json.dump(tokenizer_json, fp)
+
+    elif config.model_type == 'whisper':
+        if conv_args.output_attentions:
+            from .extra.whisper import get_main_export_kwargs
+
+            export_kwargs.update(
+                **get_main_export_kwargs(config, "automatic-speech-recognition")
+            )
+    else:
+        pass  # TODO
+
+    # Step 1. convert huggingface model to onnx
+    main_export(**export_kwargs)
+
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
+        # Update quantize config with model specific defaults
+        quantize_config = MODEL_SPECIFIC_QUANTIZE_PARAMS.get(
+            config.model_type, DEFAULT_QUANTIZE_PARAMS)
+
         quantize([
             os.path.join(output_model_folder, x)
             for x in os.listdir(output_model_folder)
             if x.endswith('.onnx') and not x.endswith('_quantized.onnx')
-        ], conv_args)
+        ], **quantize_config)
 
     # Step 3. Move .onnx files to the 'onnx' subfolder
     os.makedirs(os.path.join(output_model_folder, 'onnx'), exist_ok=True)
     for file in os.listdir(output_model_folder):
-        if file.endswith('.onnx') or file.endswith('.onnx_data'):
+        if file.endswith(('.onnx', '.onnx_data')):
             shutil.move(os.path.join(output_model_folder, file),
                         os.path.join(output_model_folder, 'onnx', file))
 
+    # Step 4. Update the generation config if necessary
+    if config.model_type == 'whisper':
+        from transformers import GenerationConfig
+        from .extra.whisper import get_alignment_heads
+
+        generation_config = GenerationConfig.from_pretrained(model_id)
+        generation_config.alignment_heads = get_alignment_heads(config)
+        generation_config.save_pretrained(output_model_folder)
 
 if __name__ == '__main__':
     main()

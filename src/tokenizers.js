@@ -32,7 +32,7 @@ import {
     getModelJSON,
 } from './utils/hub.js';
 
-import { max, min } from './utils/maths.js';
+import { max, min, round } from './utils/maths.js';
 import { Tensor } from './utils/tensor.js';
 
 /**
@@ -2264,6 +2264,7 @@ export class PreTrainedTokenizer extends Callable {
 * @returns {Object} The prepared inputs object.
 */
 function add_token_types(inputs) {
+    // TODO ensure correctness when token pair is present
     if (inputs.input_ids instanceof Tensor) {
         inputs.token_type_ids = new Tensor(
             'int64',
@@ -2532,7 +2533,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
     /**
      * Decodes automatic speech recognition (ASR) sequences.
-     * @param {Array<{tokens: number[], stride: number[]}>} sequences The sequences to decode.
+     * @param {Array<{tokens: number[], token_timestamps?: number[], stride: number[]}>} sequences The sequences to decode.
      * @param {Object} options The options to use for decoding.
      * @returns {Array<string|{chunks?: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} The decoded sequences.
      */
@@ -2566,6 +2567,8 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         }
         let last_language = null;
 
+        const returnWordTimestamps = return_timestamps === "word";
+
         function new_chunk() {
             return { "language": last_language, "timestamp": [null, null], "text": "" };
         }
@@ -2577,6 +2580,8 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         const timestamp_begin = this.model.convert_tokens_to_ids(["<|notimestamps|>"])[0] + 1;
 
         let previous_tokens = [];
+        let previous_token_timestamps = [];
+
         let skip = false;
         let right_stride_start = null;
 
@@ -2586,6 +2591,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         for (let output of sequences) {
             // NOTE: python version has batches, so it uses [0]
             const token_ids = output.tokens;
+            const token_timestamps = returnWordTimestamps ? output.token_timestamps : null;
 
             // These keep track of timestamps within strides, which need
             // to be skipped and resolve all tokens in a single chunk.
@@ -2623,9 +2629,11 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             }
 
             let current_tokens = [];
+            let current_token_timestamps = [];
 
             // - all tokens within output
-            for (const token of token_ids) {
+            for (let i = 0; i < token_ids.length; ++i) {
+                const token = token_ids[i];
                 // 4 possible states for each token
                 // - 1/ Language code
                 // - 2/ all other special tokens (which we ignore)
@@ -2643,7 +2651,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                             // one, and we cannot use timestamped tokens to create chunks
                             if (last_language !== null && language !== last_language && !return_timestamps) {
                                 previous_tokens.push(current_tokens);
-                                const resolved_tokens = this.findLongestCommonSequence(previous_tokens);
+                                const resolved_tokens = this.findLongestCommonSequence(previous_tokens)[0];
                                 const resolved_text = this.decode(resolved_tokens);
                                 chunk.text = resolved_text;
                                 chunks.push(chunk);
@@ -2662,7 +2670,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                 } else if (token >= timestamp_begin) {
                     // 3/ Timestamp token
                     const time = (token - timestamp_begin) * time_precision + time_offset;
-                    const rounded_time = Math.round(time * 100) / 100;
+                    const rounded_time = round(time, 2);
 
                     if (last_timestamp !== null && token >= last_timestamp) {
                         // Whisper outputted a timestamp token, but it falls within
@@ -2682,20 +2690,36 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                             // where we're taking the duplicate token
                             // as a stop where it should be a start.
                             // This is an issue in the underlying model output
-                            // Let's just skip it so it becomes
+                            // Let's just skip it so it becomes de-factor a start agin
                         } else {
                             chunk.timestamp[1] = rounded_time;
 
                             // Handling merges
                             previous_tokens.push(current_tokens)
-                            const resolved_tokens = this.findLongestCommonSequence(previous_tokens)
+
+                            if (returnWordTimestamps) {
+                                previous_token_timestamps.push(current_token_timestamps);
+                            }
+                            const [resolved_tokens, resolved_token_timestamps] = this.findLongestCommonSequence(
+                                previous_tokens, previous_token_timestamps
+                            )
+
                             const resolved_text = this.decode(resolved_tokens)
                             chunk.text = resolved_text
+
+                            if (returnWordTimestamps) {
+                                chunk.words = this.collateWordTimestamps(
+                                    resolved_tokens, resolved_token_timestamps, last_language,
+                                )
+                            }
+
                             chunks.push(chunk)
 
                             // Flush all our temporary context
                             previous_tokens = []
                             current_tokens = []
+                            previous_token_timestamps = []
+                            current_token_timestamps = []
                             chunk = new_chunk()
                         }
                     }
@@ -2705,6 +2729,19 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                     // We just append to the list of all tokens so we can handle
                     // merges later and decode into text.
                     current_tokens.push(token)
+
+                    if (returnWordTimestamps) {
+                        let start_time = round(token_timestamps[i] + time_offset, 2);
+
+                        let end_time;
+                        if (i + 1 < token_timestamps.length) {
+                            end_time = round(token_timestamps[i + 1] + time_offset, 2);
+                        } else {
+                            // should never happen
+                            end_time = null;
+                        }
+                        current_token_timestamps.push([start_time, end_time]);
+                    }
 
                 }
             }
@@ -2717,11 +2754,16 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             // Leftover tokens
             if (current_tokens.length > 0) {
                 previous_tokens.push(current_tokens)
+                if (returnWordTimestamps) {
+                    previous_token_timestamps.push(current_token_timestamps);
+                }
             } else if (previous_tokens.every(p => p.length === 0)) {
                 // Flushing previous tokens (END)"
                 chunk = new_chunk()
                 previous_tokens = []
                 current_tokens = []
+                previous_token_timestamps = [];
+                current_token_timestamps = [];
             }
 
         }
@@ -2730,15 +2772,23 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             if (force_full_sequences && return_timestamps) {
                 // Last token should always be timestamps, so there shouldn't be
                 // leftover
-                throw new Error("There was an error while processing timestamps, we haven't found a timestamp as last token.");
+                throw new Error(
+                    "Whisper did not predict an ending timestamp, which can happen if audio is cut off in the middle of a word. " +
+                    "Also make sure WhisperTimeStampLogitsProcessor was used during generation."
+                );
             }
 
             // Happens when we don't use timestamps
-            const resolved_tokens = this.findLongestCommonSequence(previous_tokens);
+            const [resolved_tokens, resolved_token_timestamps] = this.findLongestCommonSequence(previous_tokens, previous_token_timestamps);
 
             // Flushing previous tokens (FINAL)
             const resolved_text = this.decode(resolved_tokens);
             chunk.text = resolved_text;
+            if (returnWordTimestamps) {
+                chunk.words = this.collateWordTimestamps(
+                    resolved_tokens, resolved_token_timestamps, last_language,
+                )
+            }
             chunks.push(chunk);
         }
 
@@ -2757,7 +2807,17 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                     delete chunk["language"];
                 }
             }
-            optional = { "chunks": chunks };
+            if (returnWordTimestamps) {
+                let new_chunks = [];
+                for (let chunk of chunks) {
+                    for (let word of chunk.words) {
+                        new_chunks.push(word);
+                    }
+                }
+                optional = { "chunks": new_chunks };
+            } else {
+                optional = { "chunks": chunks };
+            }
         }
         return [full_text, optional];
 
@@ -2766,16 +2826,23 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     /**
      * Finds the longest common sequence among the provided sequences.
      * @param {number[][]} sequences An array of sequences of token ids to compare.
-     * @returns {number[]} The longest common sequence found.
+     * @returns {number[][]} The longest common sequence found.
      * @throws {Error} If there is a bug within the function.
+     * @private
      */
-    findLongestCommonSequence(sequences) {
+    findLongestCommonSequence(sequences, token_timestamp_sequences = null) {
         // It would be much harder to do O(n) because of fault tolerance.
         // We actually have a really good property which is that the total sequence
         // MUST be those subsequences in order.
+        // If token_timestamp_sequences is provided, will split those sequences in
+        // exactly the same way.
         let leftSequence = sequences[0];
         let leftLength = leftSequence.length;
         let totalSequence = [];
+
+        const use_token_timestamp_sequences = Array.isArray(token_timestamp_sequences) && token_timestamp_sequences.length > 0;
+        let total_token_timestamp_sequence = use_token_timestamp_sequences ? [] : null;
+        let left_token_timestamp_sequence = use_token_timestamp_sequences ? token_timestamp_sequences[0] : null;
         for (let i = 1; i < sequences.length; ++i) {
             const rightSequence = sequences[i];
             let max = 0.0;
@@ -2835,9 +2902,264 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             totalSequence.push(...leftSequence.slice(0, leftMid));
             leftSequence = rightSequence.slice(rightMid);
             leftLength = leftSequence.length;
+
+            if (use_token_timestamp_sequences) {
+                total_token_timestamp_sequence.push(...left_token_timestamp_sequence.slice(0, leftMid));
+                left_token_timestamp_sequence = token_timestamp_sequences[i].slice(rightMid);
+            }
         }
         totalSequence.push(...leftSequence);
-        return totalSequence;
+
+        if (use_token_timestamp_sequences) {
+            total_token_timestamp_sequence.push(...left_token_timestamp_sequence);
+            return [totalSequence, total_token_timestamp_sequence];
+        } else {
+            return [totalSequence, []];
+        }
+    }
+
+    /** @private */
+    collateWordTimestamps(tokens, token_timestamps, language) {
+
+        let [words, _, token_indices] = this.combineTokensIntoWords(tokens, language);
+
+        let timings = [];
+        for (let i = 0; i < words.length; ++i) {
+            const indices = token_indices[i];
+            timings.push({
+                text: words[i],
+                timestamp: [
+                    token_timestamps[indices.at(0)][0],
+                    token_timestamps[indices.at(-1)][1],
+                ],
+            });
+        }
+        return timings;
+    }
+
+    /**
+     * Groups tokens by word. Returns a tuple containing a list of strings with the words,
+     * and a list of `token_id` sequences with the tokens making up each word.
+     * @param {number[]} tokens 
+     * @param {string} [language] 
+     * @param {string} prepend_punctionations 
+     * @param {string} append_punctuations 
+     * 
+     * @private
+     */
+    combineTokensIntoWords(tokens, language, prepend_punctionations = "\"'“¡¿([{-", append_punctuations = "\"'.。,，!！?？:：”)]}、") {
+        language = language ?? 'english';
+
+        let words, word_tokens, token_indices;
+
+        if (["chinese", "japanese", "thai", "lao", "myanmar"].includes(language)) {
+            // These languages don't typically use spaces.
+
+            [words, word_tokens, token_indices] = this.splitTokensOnUnicode(tokens)
+        } else {
+            [words, word_tokens, token_indices] = this.splitTokensOnSpaces(tokens)
+        }
+
+        return this.mergePunctuations(words, word_tokens, token_indices, prepend_punctionations, append_punctuations);
+    }
+
+    /** @type {PreTrainedTokenizer['decode']} */
+    decode(
+        token_ids,
+        decode_args,
+    ) {
+        let text;
+        // @ts-ignore
+        if (decode_args && decode_args.decode_with_timestamps) {
+            text = this.decodeWithTimestamps(token_ids, decode_args);
+        } else {
+            text = super.decode(token_ids, decode_args);
+        }
+        // TODO: implement offsets
+        // if (decode_args.output_offsets) {
+        //     let offsets = this.computeOffsets
+        // }
+        return text;
+    }
+
+    /**
+     * @param {number[]} token_ids List of token IDs to decode.
+     * @param {Object} decode_args Optional arguments for decoding
+     * @private
+     */
+    decodeWithTimestamps(token_ids, decode_args) {
+        const time_precision = decode_args?.time_precision ?? 0.02;
+
+        const timestamp_begin = Array.from(this.all_special_ids).at(-1) + 1;
+        /**@type {Array} */
+        let outputs = [[]];
+        for (let token of token_ids) {
+            if (token >= timestamp_begin) {
+                let timestamp = (token - timestamp_begin) * time_precision;
+                timestamp = round(timestamp, 2);
+                outputs.push(`<|${timestamp}|>`);
+                outputs.push([]);
+            } else {
+                outputs[outputs.length - 1].push(token);
+            }
+        }
+        outputs = outputs.map(
+            s => {
+                if (typeof s === 'string') {
+                    return s;
+                } else {
+                    return super.decode(s, decode_args);
+                }
+            }
+        )
+
+        return outputs.join('');
+    }
+
+    /**
+     * Combine tokens into words by splitting at any position where the tokens are decoded as valid unicode points.
+     * @param {number[]} tokens 
+     * @returns {*}
+     * @private
+     */
+    splitTokensOnUnicode(tokens) {
+        const decoded_full = this.decode(tokens, {
+            // @ts-ignore
+            decode_with_timestamps: true,
+        });
+        const replacement_char = '\uFFFD';
+
+        let words = []
+        let word_tokens = []
+        let token_indices = []
+        let current_tokens = []
+        let current_indices = []
+        let unicode_offset = 0
+
+        for (let token_idx = 0; token_idx < tokens.length; ++token_idx) {
+            const token = tokens[token_idx];
+
+            current_tokens.push(token);
+            current_indices.push(token_idx);
+
+            const decoded = this.decode(current_tokens, {
+                // @ts-ignore
+                decode_with_timestamps: true,
+            });
+
+            if (!decoded.includes(replacement_char) || decoded_full[unicode_offset + decoded.indexOf(replacement_char)] === replacement_char) {
+                words.push(decoded)
+                word_tokens.push(current_tokens)
+                token_indices.push(current_indices)
+                current_tokens = []
+                current_indices = []
+                unicode_offset += decoded.length;
+            }
+
+        }
+
+        return [words, word_tokens, token_indices]
+    }
+
+    /**
+     * Combine tokens into words by splitting at whitespace and punctuation tokens.
+     * @param {number[]} tokens 
+     * @private
+     */
+    splitTokensOnSpaces(tokens) {
+
+        let [subwords, subword_tokens_list, subword_indices_list] = this.splitTokensOnUnicode(tokens);
+
+        let words = []
+        let word_tokens = []
+        let token_indices = []
+
+        const punctuationRegex = new RegExp(`[${PUNCTUATION_REGEX}]`)
+
+        for (let i = 0; i < subwords.length; ++i) {
+
+            const subword = subwords[i];
+            const subword_tokens = subword_tokens_list[i];
+            const subword_indices = subword_indices_list[i];
+
+            // @ts-ignore
+            const special = subword_tokens[0] >= this.model.tokens_to_ids.get('<|endoftext|>');
+            const with_space = subword.startsWith(' ');
+            const trimmed = subword.trim();
+            const punctuation = punctuationRegex.test(trimmed);
+
+            if (special || with_space || punctuation || words.length === 0) {
+                words.push(subword);
+                word_tokens.push(subword_tokens);
+                token_indices.push(subword_indices);
+            } else {
+                const ix = words.length - 1;
+                words[ix] += subword;
+                word_tokens[ix].push(...subword_tokens);
+                token_indices[ix].push(...subword_indices);
+            }
+        }
+
+        return [words, word_tokens, token_indices];
+
+    }
+
+    /**
+     * Merges punctuation tokens with neighboring words.
+     * @param {string[]} words 
+     * @param {number[][]} tokens 
+     * @param {number[][]} indices 
+     * @param {string} prepended 
+     * @param {string} appended 
+     * @private
+     */
+    mergePunctuations(words, tokens, indices, prepended, appended) {
+
+        let newWords = structuredClone(words);
+        let newTokens = structuredClone(tokens);
+        let newIndices = structuredClone(indices);
+
+
+        // prepend punctuations
+        let i = newWords.length - 2;
+        let j = newWords.length - 1;
+
+        while (i >= 0) {
+            if (newWords[i].startsWith(' ') && prepended.includes(newWords[i].trim())) {
+                newWords[j] = newWords[i] + newWords[j];
+                newTokens[j] = mergeArrays(newTokens[i], newTokens[j]);
+                newIndices[j] = mergeArrays(newIndices[i], newIndices[j]);
+                newWords[i] = '';
+                newTokens[i] = [];
+                newIndices[i] = [];
+            } else {
+                j = i;
+            }
+            --i;
+        }
+
+        // append punctuations
+        i = 0;
+        j = 1;
+        while (j < newWords.length) {
+            if (!newWords[i].endsWith(' ') && appended.includes(newWords[j])) {
+                newWords[i] += newWords[j];
+                newTokens[i] = mergeArrays(newTokens[i], newTokens[j]);
+                newIndices[i] = mergeArrays(newIndices[i], newIndices[j]);
+                newWords[j] = '';
+                newTokens[j] = [];
+                newIndices[j] = [];
+            } else {
+                i = j;
+            }
+            ++j;
+        }
+
+        return [
+            newWords.filter(x => x),
+            newTokens.filter(x => x.length > 0),
+            newIndices.filter(x => x.length > 0),
+        ]
     }
 
     /**
