@@ -920,24 +920,6 @@ export class PreTrainedModel extends Callable {
         // @ts-ignore
         let beams = this.getStartBeams(inputs, numOutputTokens, inputs_attention_mask);
 
-        // TODO: move?
-        if (generation_config.output_attentions) {
-            // warn if undefined
-            // beam.attentions.push(output.attentions);
-
-            for (let beam of beams) {
-                // beam.attentions = [];
-                beam.decoder_attentions = [];
-                beam.cross_attentions = [];
-            }
-        }
-        if (generation_config.output_scores) {
-            // for (let beam of beams) {
-            //     beam.attentions = [];
-            // }
-            // beam.scores.push(output.scores);
-        }
-
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
             let newest_beams = [];
             for (let beam of beams) {
@@ -958,27 +940,10 @@ export class PreTrainedModel extends Callable {
 
                 // add attentions/scores to beam only if user requested
                 if (generation_config.output_attentions) {
-                    if (this.config.is_encoder_decoder) {
-                        if (!output.cross_attentions || output.cross_attentions.length === 0) {
-                            throw Error(
-                                "`output_attentions` is true, but the model did not produce cross-attentions. " +
-                                "This is most likely because the model was not exported with `output_attentions=True`."
-                            )
-                        }
-                        beam.cross_attentions.push(output.cross_attentions);
-                    }
-
-                    if (!output.decoder_attentions || output.decoder_attentions.length === 0) {
-                        throw Error(
-                            "`output_attentions` is true, but the model did not produce decoder-attentions. " +
-                            "This is most likely because the model was not exported with `output_attentions=True`."
-                        )
-                    }
-                    beam.decoder_attentions.push(output.decoder_attentions);
+                    this.addAttentionsToBeam(beam, output);
                 }
                 if (generation_config.output_scores) {
-                    // TODO
-                    // beam.scores.push(output.scores);
+                    // TODO add
                 }
 
                 // Logits are of the form [batch_size, out_seq_length, vocab_size]
@@ -1067,6 +1032,38 @@ export class PreTrainedModel extends Callable {
         } else {
             return sequences;
         }
+    }
+
+    /**
+     * Helper function to add attentions to beam
+     * @param {Object} beam 
+     * @param {Object} output
+     * @private 
+     */
+    addAttentionsToBeam(beam, output) {
+        if (this.config.is_encoder_decoder) {
+            if (!output.cross_attentions || output.cross_attentions.length === 0) {
+                throw Error(
+                    "`output_attentions` is true, but the model did not produce cross-attentions. " +
+                    "This is most likely because the model was not exported with `output_attentions=True`."
+                )
+            }
+            if (!beam.cross_attentions) {
+                beam.cross_attentions = [];
+            }
+            beam.cross_attentions.push(output.cross_attentions);
+        }
+
+        if (!output.decoder_attentions || output.decoder_attentions.length === 0) {
+            throw Error(
+                "`output_attentions` is true, but the model did not produce decoder-attentions. " +
+                "This is most likely because the model was not exported with `output_attentions=True`."
+            )
+        }
+        if (!beam.decoder_attentions) {
+            beam.decoder_attentions = [];
+        }
+        beam.decoder_attentions.push(output.decoder_attentions);
     }
 
     /**
