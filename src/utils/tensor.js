@@ -212,7 +212,6 @@ export class Tensor extends ONNXTensor {
         let data = new this.data.constructor(newBufferSize);
 
         // Precompute strides
-        // TODO use .stride() ?
         const stride = this.stride();
 
         for (let i = 0; i < newBufferSize; ++i) {
@@ -656,7 +655,7 @@ function calc_squeeze_dims(dims, dim) {
  * @private
  */
 function calc_unsqueeze_dims(dims, dim) {
-    // Dimension out of range (expected to be in range of [-4, 3], but got 4)
+    // Dimension out of range (e.g., "expected to be in range of [-4, 3], but got 4")
     // + 1 since we allow inserting at the end (i.e. dim = -1)
     dim = safeIndex(dim, dims.length + 1);
     dims = dims.slice();
