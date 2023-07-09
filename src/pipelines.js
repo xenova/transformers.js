@@ -807,6 +807,17 @@ export class FeatureExtractionPipeline extends Pipeline {
  * let output = await transcriber(url, { language: 'french', task: 'translate' });
  * // { text: " I love, I like, I don't like, I hate." }
  * ```
+ * 
+ * **Example:** Transcribe/translate audio longer than 30 seconds.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/ted_60.wav';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * let output = await transcriber(url, {
+ *     chunk_length_s: 30,
+ *     stride_length_s: 5,
+ * });
+ * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
+ * ```
  * @extends Pipeline
  */
 export class AutomaticSpeechRecognitionPipeline extends Pipeline {
