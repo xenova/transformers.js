@@ -771,6 +771,27 @@ export class FeatureExtractionPipeline extends Pipeline {
  * // }
  * ```
  * 
+ * **Example:** Transcribe English w/ word-level timestamps.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
+ *     revision: 'output_attentions',
+ * });
+ * let output = await transcriber(url, { return_timestamps: 'word' });
+ * // {
+ * //   "text": " And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+ * //   "chunks": [
+ * //     { "text": " And", "timestamp": [0, 0.78] },
+ * //     { "text": " so", "timestamp": [0.78, 1.06] },
+ * //     { "text": " my", "timestamp": [1.06, 1.46] },
+ * //     ...
+ * //     { "text": " for", "timestamp": [9.72, 9.92] },
+ * //     { "text": " your", "timestamp": [9.92, 10.22] },
+ * //     { "text": " country.", "timestamp": [10.22, 13.5] }
+ * //   ]
+ * // }
+ * ```
+ * 
  * **Example:** Transcribe French.
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
