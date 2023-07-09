@@ -1,3 +1,4 @@
 transformers[torch]@git+https://github.com/huggingface/transformers
 optimum[onnxruntime]@git+https://github.com/huggingface/optimum
 tqdm
+onnx==1.13.1
