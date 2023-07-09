@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
@@ -38,11 +38,11 @@
   },
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
-    "onnxruntime-web": "1.14.0",
+    "onnxruntime-web": "1.15.1",
     "sharp": "^0.32.0"
   },
   "optionalDependencies": {
-    "onnxruntime-node": "1.14.0"
+    "onnxruntime-node": "1.15.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
@@ -56,6 +56,9 @@
     "webpack": "^5.80.0",
     "webpack-cli": "^5.0.2",
     "webpack-dev-server": "^4.13.3"
+  },
+  "overrides": {
+    "semver": "^7.5.4"
   },
   "files": [
     "src",
