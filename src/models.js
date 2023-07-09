@@ -2068,12 +2068,9 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             median_filter_width = 7;
         }
 
-        const batchedMatrices = [];
-
-        // Create a list with `decoder_layers` elements, each a tensor of shape
-        // (batch size, attention_heads, output length, input length).
-        for (let batch of generate_outputs.cross_attentions) {
-
+        const batchedMatrices = generate_outputs.cross_attentions.map(batch => {
+            // Create a list with `decoder_layers` elements, each a tensor of shape
+            // (batch size, attention_heads, output length, input length).
             let cross_attentions = Array.from({ length: this.config.decoder_layers },
                 (_, i) => cat(batch.map(x => x[i]), 2)
             );
@@ -2102,17 +2099,16 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                             cTensor.data[d] = (cTensor.data[d] - meanTensor.data[d]) / stdTensor.data[d]
                         }
 
-                        const medFil = medianFilter(cTensor.data, median_filter_width);
-                        cTensor.data.set(medFil)
+                        // Apply median filter.
+                        cTensor.data.set(medianFilter(cTensor.data, median_filter_width))
                     }
                 }
             }
 
             // Average the different cross-attention heads.
             const matrix = mean(smoothedWeights, 1);
-
-            batchedMatrices.push(matrix);
-        }
+            return matrix;
+        });
 
         const timestampsShape = [generate_outputs.sequences.length, generate_outputs.sequences[0].length];
 
@@ -2126,8 +2122,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         for (let batch_idx = 0; batch_idx < timestampsShape[0]; ++batch_idx) {
             // NOTE: Since we run only one batch at a time, we can squeeze to get the same dimensions
             // as the python implementation
-            const t = batchedMatrices[batch_idx].neg().squeeze_(0);
-            let [text_indices, time_indices] = dynamicTimeWarping(t);
+            const matrix = batchedMatrices[batch_idx].neg().squeeze_(0);
+            let [text_indices, time_indices] = dynamicTimeWarping(matrix);
 
             let diffs = Array.from({ length: text_indices.length - 1 }, (v, i) => text_indices[i + 1] - text_indices[i]);
             let jumps = mergeArrays([1], diffs).map(x => !!x); // convert to boolean
