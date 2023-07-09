@@ -728,6 +728,7 @@ describe('Pipelines', () => {
         const models = [
             'openai/whisper-tiny.en', // English-only
             'openai/whisper-small', // Multilingual
+            ['openai/whisper-tiny.en', 'output_attentions'], // English-only + `output_attentions`
         ];
 
         it(models[0], async () => {
@@ -778,6 +779,54 @@ describe('Pipelines', () => {
             await transcriber.dispose();
 
         }, MAX_TEST_EXECUTION_TIME);
+
+        it(models[2].join(' + '), async () => {
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[2][0]), {
+                revision: models[2][1],
+                quantized: false,
+            });
+
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+            let audioData = await loadAudio(url);
+
+            { // Transcribe English w/ word-level timestamps.
+                let output = await transcriber(audioData, { return_timestamps: 'word' });
+                const target = {
+                    "text": " And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+                    "chunks": [
+                        { "text": " And", "timestamp": [0, 0.78] },
+                        { "text": " so", "timestamp": [0.78, 1.06] },
+                        { "text": " my", "timestamp": [1.06, 1.46] },
+                        { "text": " fellow", "timestamp": [1.46, 1.76] },
+                        { "text": " Americans", "timestamp": [1.76, 2.22] },
+                        { "text": " ask", "timestamp": [2.22, 3.88] },
+                        { "text": " not", "timestamp": [3.88, 4.52] },
+                        { "text": " what", "timestamp": [4.52, 5.68] },
+                        { "text": " your", "timestamp": [5.68, 6] },
+                        { "text": " country", "timestamp": [6, 6.36] },
+                        { "text": " can", "timestamp": [6.36, 6.76] },
+                        { "text": " do", "timestamp": [6.76, 7.02] },
+                        { "text": " for", "timestamp": [7.02, 7.24] },
+                        { "text": " you", "timestamp": [7.24, 8.02] },
+                        { "text": " ask", "timestamp": [8.28, 8.66] },
+                        { "text": " what", "timestamp": [8.66, 8.94] },
+                        { "text": " you", "timestamp": [8.94, 9.28] },
+                        { "text": " can", "timestamp": [9.28, 9.5] },
+                        { "text": " do", "timestamp": [9.5, 9.72] },
+                        { "text": " for", "timestamp": [9.72, 9.92] },
+                        { "text": " your", "timestamp": [9.92, 10.22] },
+                        { "text": " country.", "timestamp": [10.22, 13.36] }
+                    ]
+                }
+
+                compare(output, target);
+            }
+
+            await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
     });
 
     describe('Image-to-text', () => {
