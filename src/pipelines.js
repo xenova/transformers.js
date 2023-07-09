@@ -812,10 +812,7 @@ export class FeatureExtractionPipeline extends Pipeline {
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/ted_60.wav';
  * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
- * let output = await transcriber(url, {
- *     chunk_length_s: 30,
- *     stride_length_s: 5,
- * });
+ * let output = await transcriber(url, { chunk_length_s: 30, stride_length_s: 5 });
  * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
  * @extends Pipeline
