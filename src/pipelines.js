@@ -261,9 +261,12 @@ export class QuestionAnsweringPipeline extends Pipeline {
         topk = 1
     } = {}) {
 
+        // Run tokenization
         let inputs = this.tokenizer(question, {
-            text_pair: context
-        })
+            text_pair: context,
+            padding: true,
+            truncation: true
+        });
 
         let output = await this.model(inputs);
 
@@ -623,6 +626,8 @@ export class ZeroShotClassificationPipeline extends Pipeline {
             for (let hypothesis of hypotheses) {
                 let inputs = this.tokenizer(premise, {
                     text_pair: hypothesis,
+                    padding: true,
+                    truncation: true,
                 })
                 let outputs = await this.model(inputs)
 
