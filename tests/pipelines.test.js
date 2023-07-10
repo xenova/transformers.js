@@ -1162,7 +1162,7 @@ describe('Pipelines', () => {
                 }
             }
 
-            // single + threshold + percentage
+            // batched + threshold + percentage
             {
                 let output = await detector(urls, {
                     threshold: 0.9,
@@ -1198,13 +1198,17 @@ describe('Pipelines', () => {
 
                 expect(output).toHaveLength(expected.length);
 
-                expect(output[0]).toHaveLength(expected[0].length);
-                expect(output[0].map(x => x.label).sort()).toEqual(expected[0].map(x => x.label).sort());
-                for (let cls of output[0]) {
-                    for (let key of ['xmin', 'ymin', 'xmax', 'ymax']) {
-                        expect(typeof cls.box[key]).toBe('number');
+                for (let i = 0; i < output.length; ++i) {
+                    expect(output[i]).toHaveLength(expected[i].length);
+                    expect(output[i].map(x => x.label).sort()).toEqual(expected[i].map(x => x.label).sort());
+                    for (let cls of output[i]) {
+                        for (let key of ['xmin', 'ymin', 'xmax', 'ymax']) {
+                            expect(typeof cls.box[key]).toBe('number');
+                        }
                     }
                 }
+
+
             }
 
             await detector.dispose();
