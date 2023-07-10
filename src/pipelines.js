@@ -5,8 +5,8 @@
  * ```javascript
  * import { pipeline } from '@xenova/transformers';
  * 
- * let pipeline = await pipeline('sentiment-analysis');
- * let result = await pipeline('I love transformers!');
+ * let classifier = await pipeline('sentiment-analysis');
+ * let result = await classifier('I love transformers!');
  * // [{'label': 'POSITIVE', 'score': 0.999817686}]
  * ```
  * 
