@@ -5,8 +5,8 @@
  * ```javascript
  * import { pipeline } from '@xenova/transformers';
  * 
- * let pipeline = await pipeline('sentiment-analysis');
- * let result = await pipeline('I love transformers!');
+ * let classifier = await pipeline('sentiment-analysis');
+ * let result = await classifier('I love transformers!');
  * // [{'label': 'POSITIVE', 'score': 0.999817686}]
  * ```
  * 
@@ -1317,6 +1317,26 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 /**
  * Object detection pipeline using any `AutoModelForObjectDetection`.
  * This pipeline predicts bounding boxes of objects and their classes.
+ * 
+ * **Example:** Run object-detection with `facebook/detr-resnet-50`.
+ * ```javascript
+ * let img = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * 
+ * let detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
+ * let output = await detector(img, { threshold: 0.9 });
+ * // [{
+ * //   "score": 0.9976370930671692,
+ * //   "label": "remote",
+ * //   "box": { "xmin": 31, "ymin": 68, "xmax": 190, "ymax": 118 }
+ * // },
+ * // ...
+ * // {
+ * //   "score": 0.9984092116355896,
+ * //   "label": "cat",
+ * //   "box": { "xmin": 331, "ymin": 19, "xmax": 649, "ymax": 371 }
+ * // }]
+ * ```
+ * 
  * @extends Pipeline
  */
 export class ObjectDetectionPipeline extends Pipeline {
@@ -1359,9 +1379,35 @@ export class ObjectDetectionPipeline extends Pipeline {
 
         // Add labels
         let id2label = this.model.config.id2label;
-        processed.forEach(x => x.labels = x.classes.map(y => id2label[y]));
 
-        return isBatched ? processed : processed[0];
+        // Format output
+        const result = processed.map(batch => {
+            return batch.boxes.map((box, i) => {
+                return {
+                    score: batch.scores[i],
+                    label: id2label[batch.classes[i]],
+                    box: this._get_bounding_box(box, !percentage),
+                }
+            })
+        })
+
+        return isBatched ? result : result[0];
+    }
+
+    /**
+     * Helper function to convert list [xmin, xmax, ymin, ymax] into object { "xmin": xmin, ... }
+     * @param {number[]} box The bounding box as a list.
+     * @param {boolean} asInteger Whether to cast to integers.
+     * @returns {Object} The bounding box as an object.
+     * @private
+     */
+    _get_bounding_box(box, asInteger) {
+        if (asInteger) {
+            box = box.map(x => x | 0);
+        }
+        const [xmin, ymin, xmax, ymax] = box;
+
+        return { xmin, ymin, xmax, ymax };
     }
 }
 
