@@ -674,14 +674,16 @@ worker.addEventListener('message', (event) => {
           let borderColours = [];
 
           let items = message.data;
-          for (let i = 0; i < items.boxes.length; ++i) {
+          for (let i = 0; i < items.length; ++i) {
+            const box = items[i].box;
+
             let svgns = "http://www.w3.org/2000/svg";
             let rect = document.createElementNS(svgns, 'rect');
 
-            rect.setAttribute('x', viewbox.width * items.boxes[i][0]);
-            rect.setAttribute('y', viewbox.height * items.boxes[i][1]);
-            rect.setAttribute('width', viewbox.width * (items.boxes[i][2] - items.boxes[i][0]));
-            rect.setAttribute('height', viewbox.height * (items.boxes[i][3] - items.boxes[i][1]));
+            rect.setAttribute('x', viewbox.width * box.xmin);
+            rect.setAttribute('y', viewbox.height * box.ymin);
+            rect.setAttribute('width', viewbox.width * (box.xmax - box.xmin));
+            rect.setAttribute('height', viewbox.height * (box.ymax - box.ymin));
 
             const colour = COLOURS[i % COLOURS.length];
             rect.style.stroke = rect.style.fill = `rgba(${colour}, 1)`;
@@ -693,9 +695,9 @@ worker.addEventListener('message', (event) => {
 
           // Update chart label and data
           const chart = CHARTS[message.chartId];
-          chart.data.labels = items.labels;
+          chart.data.labels = items.map(x => x.label);
           chart.data.datasets[0] = {
-            data: items.scores,
+            data: items.map(x => x.score),
             backgroundColor: colours,
             borderColor: borderColours
           };
