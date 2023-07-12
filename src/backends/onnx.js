@@ -42,10 +42,10 @@ if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
     // Running in a browser-environment
     import('onnxruntime-web');
 
-    // SIMD for WebAssembly does not operate correctly in recent versions of iOS (>= 16.4).
+    // SIMD for WebAssembly does not operate correctly in some recent versions of iOS (16.4.x).
     // As a temporary fix, we disable it for now.
     // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
-    const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
+    const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad).+16_4.+AppleWebKit/.test(navigator.userAgent);
     if (isIOS) {
         ONNX_COMMON.env.wasm.simd = false;
     }

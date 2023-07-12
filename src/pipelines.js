@@ -5,8 +5,8 @@
  * ```javascript
  * import { pipeline } from '@xenova/transformers';
  * 
- * let pipeline = await pipeline('sentiment-analysis');
- * let result = await pipeline('I love transformers!');
+ * let classifier = await pipeline('sentiment-analysis');
+ * let result = await classifier('I love transformers!');
  * // [{'label': 'POSITIVE', 'score': 0.999817686}]
  * ```
  * 
@@ -47,6 +47,7 @@ import {
     softmax,
     max,
     getTopItems,
+    round,
 } from './utils/maths.js';
 import {
     read_audio
@@ -260,9 +261,12 @@ export class QuestionAnsweringPipeline extends Pipeline {
         topk = 1
     } = {}) {
 
+        // Run tokenization
         let inputs = this.tokenizer(question, {
-            text_pair: context
-        })
+            text_pair: context,
+            padding: true,
+            truncation: true
+        });
 
         let output = await this.model(inputs);
 
@@ -449,8 +453,55 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
 }
 
 /**
- * Language generation pipeline using any `ModelWithLMHead`.
+ * Language generation pipeline using any `ModelWithLMHead` or `ModelForCausalLM`.
  * This pipeline predicts the words that will follow a specified text prompt.
+ * NOTE: For the full list of generation parameters, see [`GenerationConfig`](./utils/generation#module_utils/generation.GenerationConfig).
+ * 
+ * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
+ * ```javascript
+ * let text = 'I enjoy walking with my cute dog,';
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text);
+ * console.log(output);
+ * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
+ * ```
+ * 
+ * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
+ * ```javascript
+ * let text = 'Once upon a time, there was';
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text, {
+ *     temperature: 2,
+ *     max_new_tokens: 10,
+ *     repetition_penalty: 1.5,
+ *     no_repeat_ngram_size: 2,
+ *     num_beams: 2,
+ *     num_return_sequences: 2,
+ * });
+ * console.log(output);
+ * // [{
+ * //   "generated_text": "Once upon a time, there was an abundance of information about the history and activities that"
+ * // }, {
+ * //   "generated_text": "Once upon a time, there was an abundance of information about the most important and influential"
+ * // }]
+ * ```
+ * 
+ * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
+ * ```javascript
+ * let text = 'def fib(n):';
+ * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * let output = await generator(text, {
+ *     max_new_tokens: 40,
+ * });
+ * console.log(output[0].generated_text);
+ * // def fib(n):
+ * //     if n == 0:
+ * //         return 0
+ * //     if n == 1:
+ * //         return 1
+ * //     return fib(n-1) + fib(n-2)
+ * ```
+ * 
  * @extends Pipeline
  */
 export class TextGenerationPipeline extends Pipeline {
@@ -479,17 +530,15 @@ export class TextGenerationPipeline extends Pipeline {
             inputs_attention_mask: attention_mask
         });
 
-        const trimmedTexts = texts.map(x => x.trim());
         const decoded = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
         const toReturn = Array.from({ length: texts.length }, _ => []);
         for (let i = 0; i < decoded.length; ++i) {
-            const textIndex = Math.floor(i / outputTokenIds.length * trimmedTexts.length);
-            let startText = trimmedTexts[textIndex];
+            const textIndex = Math.floor(i / outputTokenIds.length * texts.length);
 
             toReturn[textIndex].push({
-                generated_text: startText + decoded[i]
+                generated_text: decoded[i]
             });
         }
         return (stringInput && toReturn.length === 1) ? toReturn[0] : toReturn;
@@ -577,6 +626,8 @@ export class ZeroShotClassificationPipeline extends Pipeline {
             for (let hypothesis of hypotheses) {
                 let inputs = this.tokenizer(premise, {
                     text_pair: hypothesis,
+                    padding: true,
+                    truncation: true,
                 })
                 let outputs = await this.model(inputs)
 
@@ -725,6 +776,27 @@ export class FeatureExtractionPipeline extends Pipeline {
  * // }
  * ```
  * 
+ * **Example:** Transcribe English w/ word-level timestamps.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
+ *     revision: 'output_attentions',
+ * });
+ * let output = await transcriber(url, { return_timestamps: 'word' });
+ * // {
+ * //   "text": " And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+ * //   "chunks": [
+ * //     { "text": " And", "timestamp": [0, 0.78] },
+ * //     { "text": " so", "timestamp": [0.78, 1.06] },
+ * //     { "text": " my", "timestamp": [1.06, 1.46] },
+ * //     ...
+ * //     { "text": " for", "timestamp": [9.72, 9.92] },
+ * //     { "text": " your", "timestamp": [9.92, 10.22] },
+ * //     { "text": " country.", "timestamp": [10.22, 13.5] }
+ * //   ]
+ * // }
+ * ```
+ * 
  * **Example:** Transcribe French.
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
@@ -739,6 +811,14 @@ export class FeatureExtractionPipeline extends Pipeline {
  * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
  * let output = await transcriber(url, { language: 'french', task: 'translate' });
  * // { text: " I love, I like, I don't like, I hate." }
+ * ```
+ * 
+ * **Example:** Transcribe/translate audio longer than 30 seconds.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/ted_60.wav';
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * let output = await transcriber(url, { chunk_length_s: 30, stride_length_s: 5 });
+ * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
  * @extends Pipeline
  */
@@ -773,7 +853,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
     /**
      * @typedef {import('./utils/tensor.js').Tensor} Tensor
-     * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[]}} Chunk
+     * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} Chunk
      * 
      * @callback ChunkCallback
      * @param {Chunk} chunk The chunk to process.
@@ -783,7 +863,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
      * Asynchronously processes audio and generates text transcription using the model.
      * @param {Float32Array|Float32Array[]} audio The audio to be transcribed. Can be a single Float32Array or an array of Float32Arrays.
      * @param {Object} [kwargs={}] Optional arguments.
-     * @param {boolean} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
+     * @param {boolean|'word'} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
      * @param {number} [kwargs.chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
      * @param {number} [kwargs.stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
      * @param {ChunkCallback} [kwargs.chunk_callback] Callback function to be called with each chunk processed.
@@ -801,6 +881,10 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
         let chunk_callback = kwargs.chunk_callback ?? null;
         let force_full_sequences = kwargs.force_full_sequences ?? false;
 
+        if (return_timestamps === 'word') {
+            kwargs['return_token_timestamps'] = true;
+        }
+
         let language = pop(kwargs, 'language', null);
         let task = pop(kwargs, 'task', null);
 
@@ -810,8 +894,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             }
             // @ts-ignore
             let decoder_prompt_ids = this.tokenizer.get_decoder_prompt_ids({ language, task, no_timestamps: !return_timestamps })
-
-            if(decoder_prompt_ids.length > 0){
+            if (decoder_prompt_ids.length > 0) {
                 kwargs.forced_decoder_ids = decoder_prompt_ids;
             }
         }
@@ -878,8 +961,16 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 // NOTE: doing sequentially for now
                 let data = await this.model.generate(chunk.input_features, kwargs);
 
-                // Get top beam
-                chunk.tokens = data[0];
+                // TODO: Right now we only get top beam
+                if (return_timestamps === 'word') {
+                    chunk.tokens = data.sequences[0];
+                    chunk.token_timestamps = data.token_timestamps.tolist()[0].map(
+                        x => round(x, 2)
+                    );
+
+                } else {
+                    chunk.tokens = data[0];
+                }
 
                 // convert stride to seconds
                 chunk.stride = chunk.stride.map(x => x / sampling_rate);
@@ -892,9 +983,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             // Merge text chunks
             // @ts-ignore
             let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
-                time_precision: time_precision,
-                return_timestamps: return_timestamps,
-                force_full_sequences: force_full_sequences
+                time_precision, return_timestamps, force_full_sequences
             });
 
             toReturn.push({ text: full_text, ...optional })
@@ -1228,6 +1317,26 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 /**
  * Object detection pipeline using any `AutoModelForObjectDetection`.
  * This pipeline predicts bounding boxes of objects and their classes.
+ * 
+ * **Example:** Run object-detection with `facebook/detr-resnet-50`.
+ * ```javascript
+ * let img = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * 
+ * let detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
+ * let output = await detector(img, { threshold: 0.9 });
+ * // [{
+ * //   "score": 0.9976370930671692,
+ * //   "label": "remote",
+ * //   "box": { "xmin": 31, "ymin": 68, "xmax": 190, "ymax": 118 }
+ * // },
+ * // ...
+ * // {
+ * //   "score": 0.9984092116355896,
+ * //   "label": "cat",
+ * //   "box": { "xmin": 331, "ymin": 19, "xmax": 649, "ymax": 371 }
+ * // }]
+ * ```
+ * 
  * @extends Pipeline
  */
 export class ObjectDetectionPipeline extends Pipeline {
@@ -1270,9 +1379,35 @@ export class ObjectDetectionPipeline extends Pipeline {
 
         // Add labels
         let id2label = this.model.config.id2label;
-        processed.forEach(x => x.labels = x.classes.map(y => id2label[y]));
 
-        return isBatched ? processed : processed[0];
+        // Format output
+        const result = processed.map(batch => {
+            return batch.boxes.map((box, i) => {
+                return {
+                    score: batch.scores[i],
+                    label: id2label[batch.classes[i]],
+                    box: this._get_bounding_box(box, !percentage),
+                }
+            })
+        })
+
+        return isBatched ? result : result[0];
+    }
+
+    /**
+     * Helper function to convert list [xmin, xmax, ymin, ymax] into object { "xmin": xmin, ... }
+     * @param {number[]} box The bounding box as a list.
+     * @param {boolean} asInteger Whether to cast to integers.
+     * @returns {Object} The bounding box as an object.
+     * @private
+     */
+    _get_bounding_box(box, asInteger) {
+        if (asInteger) {
+            box = box.map(x => x | 0);
+        }
+        const [xmin, ymin, xmax, ymax] = box;
+
+        return { xmin, ymin, xmax, ymax };
     }
 }
 

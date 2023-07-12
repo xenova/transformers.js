@@ -46,6 +46,7 @@ import {
     Callable,
     isIntegralNumber,
     isTypedArray,
+    mergeArrays,
 } from './utils/core.js';
 
 import {
@@ -68,12 +69,18 @@ import {
 } from './utils/generation.js';
 
 import {
+    cat,
+    dynamicTimeWarping,
+    mean,
+    stack,
+    std_mean,
     Tensor,
 } from './utils/tensor.js';
 
 import { env } from './env.js';
 
 import { executionProviders, ONNX } from './backends/onnx.js';
+import { medianFilter, round } from './transformers.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 const IS_BROWSER = typeof navigator !== 'undefined' && navigator.product !== 'ReactNative';
@@ -337,7 +344,7 @@ async function seq2seqForward(self, model_inputs, {
     let decoderFeeds = {
         input_ids: model_inputs.decoder_input_ids,
         encoder_hidden_states: encoder_outputs,
-        use_cache_branch: boolTensor(past_key_values !== null)
+        use_cache_branch: boolTensor(!!past_key_values)
     };
 
     if (self.decoder_merged_session.inputNames.includes('encoder_attention_mask')) {
@@ -348,7 +355,11 @@ async function seq2seqForward(self, model_inputs, {
     const decoderResults = await sessionRun(self.decoder_merged_session, decoderFeeds);
     let logits = decoderResults.logits;
     past_key_values = self.getPastKeyValues(decoderResults, past_key_values);
-    return new Seq2SeqLMOutput({ logits, past_key_values, encoder_outputs });
+
+    // Get cross attention and/or decoder attentions if they are present
+    const attns = self.getAttentions(decoderResults);
+
+    return new Seq2SeqLMOutput({ logits, past_key_values, encoder_outputs, ...attns });
 }
 
 /**
@@ -380,7 +391,7 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
         let start = {
             inputs: tokens,
             encoder_outputs: null,
-            past_key_values: null,
+            prev_model_outputs: null,
 
             output_token_ids: decoder_input_ids,
             done: false,
@@ -416,7 +427,7 @@ async function seq2seqRunBeam(self, beam, {
         [input_name]: beam.inputs,
         decoder_input_ids: toI64Tensor(beam.output_token_ids.slice(-1)),
         encoder_outputs: beam.encoder_outputs,
-        past_key_values: beam.past_key_values,
+        past_key_values: beam.prev_model_outputs?.past_key_values,
     }
     if (beam.attention_mask) {
         model_inputs.attention_mask = beam.attention_mask
@@ -426,7 +437,7 @@ async function seq2seqRunBeam(self, beam, {
     let output = await self.forward(model_inputs);
 
     // 3. Update
-    beam.past_key_values = output.past_key_values;
+    beam.prev_model_outputs = output;
     beam.encoder_outputs = output.encoder_outputs;
 
     return output;
@@ -456,16 +467,17 @@ async function encoderForward(self, model_inputs) {
  * @private
  */
 async function decoderForward(self, model_inputs) {
-    let past_key_values = model_inputs.past_key_values;
+    let { input_ids, past_key_values, attention_mask } = model_inputs;
     let decoderFeeds = {
-        input_ids: model_inputs.input_ids,
-        attention_mask: model_inputs.attention_mask ?? prepareAttentionMask(self, model_inputs.input_ids),
+        input_ids: input_ids,
+        attention_mask: attention_mask ?? prepareAttentionMask(self, input_ids),
         use_cache_branch: boolTensor(past_key_values !== null)
     }
 
     self.addPastKeyValues(decoderFeeds, past_key_values);
 
     let decoderResults = await sessionRun(self.session, decoderFeeds);
+
     let logits = decoderResults.logits;
 
     past_key_values = self.getPastKeyValues(decoderResults, past_key_values);
@@ -486,6 +498,8 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
 
     let beamId = 0;
     for (let tokens of inputTokenIds) {
+        let output_token_ids = tokens.tolist().map(Number);
+
         // TODO: Improve
         // Currently, just add back batch dimension.
         // In future, allow for true parallel execution
@@ -504,9 +518,9 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
             input: tokens,
             model_input_ids: tokens,
             attention_mask: attn_mask,
-            past_key_values: null,
+            prev_model_outputs: null,
 
-            output_token_ids: [],
+            output_token_ids: output_token_ids,
             num_output_tokens: numOutputTokens,
 
             done: false,
@@ -527,13 +541,13 @@ function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attentio
  * @param {Tensor} beam.input The input tensor.
  * @param {Tensor} beam.model_input_ids The input ids to the model.
  * @param {Tensor} beam.attention_mask The attention mask.
- * @param {Object} beam.past_key_values The past key values.
+ * @param {Object} beam.prev_model_outputs The past key values.
  * @param {number[]} beam.output_token_ids The output token ids.
  * @returns {Promise<Object>} The output of the generation step.
  * @private
  */
 async function decoderRunBeam(self, beam) {
-    let attnMaskData = new BigInt64Array(beam.input.data.length + beam.output_token_ids.length).fill(1n)
+    let attnMaskData = new BigInt64Array(beam.output_token_ids.length).fill(1n)
 
     // 1. Prepare
     let model_inputs = {
@@ -543,14 +557,14 @@ async function decoderRunBeam(self, beam) {
             attnMaskData,
             [1, attnMaskData.length]
         ),
-        past_key_values: beam.past_key_values,
+        past_key_values: beam.prev_model_outputs?.past_key_values,
     }
 
     // 2. Run
     let output = await self.forward(model_inputs);
 
     // 3. Update
-    beam.past_key_values = output.past_key_values;
+    beam.prev_model_outputs = output;
 
     return output;
 }
@@ -850,13 +864,16 @@ export class PreTrainedModel extends Callable {
      */
 
     /**
+     * @typedef {{ sequences: Tensor, decoder_attentions: Tensor, cross_attentions: Tensor }} EncoderDecoderOutput
+     * @typedef {Object} DecoderOutput
+     * 
      * Generates text based on the given inputs and generation configuration using the model.
      * @param {Tensor|Array|TypedArray} inputs An array of input token IDs.
-     * @param {Object|null} generation_config The generation configuration to use. If null, default configuration will be used.
+     * @param {Object|GenerationConfig|null} generation_config The generation configuration to use. If null, default configuration will be used.
      * @param {Object|null} logits_processor An optional logits processor to use. If null, a new LogitsProcessorList instance will be created.
      * @param {Object} options options
      * @param {Object} [options.inputs_attention_mask=null] An optional attention mask for the inputs.
-     * @returns {Promise<number[][]>} An array of generated output sequences, where each sequence is an array of token IDs.
+     * @returns {Promise<number[][]|EncoderDecoderOutput|DecoderOutput>} An array of generated output sequences, where each sequence is an array of token IDs.
      * @throws {Error} Throws an error if the inputs array is empty.
      */
     async generate(
@@ -932,6 +949,14 @@ export class PreTrainedModel extends Callable {
                 // @ts-ignore
                 let output = await this.runBeam(beam);
 
+                // add attentions/scores to beam only if user requested
+                if (generation_config.output_attentions) {
+                    this.addAttentionsToBeam(beam, output);
+                }
+                if (generation_config.output_scores) {
+                    // TODO add
+                }
+
                 // Logits are of the form [batch_size, out_seq_length, vocab_size]
                 // In most cases, this will be [batch_size, 1, vocab_size]
                 // So, we select the last token's logits:
@@ -955,6 +980,7 @@ export class PreTrainedModel extends Callable {
                     if (newTokenId === this.config.eos_token_id) {
                         newBeam.done = true;
                     }
+
                     newest_beams.push(newBeam);
                 }
             }
@@ -978,15 +1004,77 @@ export class PreTrainedModel extends Callable {
 
         // TODO: Ensure that we can return non-batched outputs
 
-        return this.groupBeams(beams).map(
+        const groupedBeams = this.groupBeams(beams);
+
+        const getFlattened = (key) => groupedBeams.map(
             batch => {
                 if (generation_config.num_return_sequences > 1) {
-                    return batch.slice(0, generation_config.num_return_sequences).map(x => x.output_token_ids);
+                    return batch.slice(0, generation_config.num_return_sequences).map(x => x[key]);
                 } else {
-                    return [batch[0].output_token_ids];
+                    return [batch[0][key]];
                 }
             }
         ).flat(); // Flatten across batches (depth=1)
+
+        const sequences = getFlattened('output_token_ids'); // [1, seqLength]
+
+        if (generation_config.return_dict_in_generate) {
+            // NOTE: `decoder_attentions` and `cross_attentions` should be:
+            //    list (one element for each generated token)
+            //    of list (one element for each layer of the decoder)
+            //    of torch.FloatTensor of shape (batch_size, num_heads, generated_length, sequence_length)
+            // However, since we are only generating one batch at a time, they are of the form:
+            //   list (batches)
+            //   of list (one element for each generated token)
+            //   of list (one element for each layer of the decoder)
+            //   of torch.FloatTensor of shape (1, num_heads, generated_length, sequence_length)
+            // 
+            // TODO: In future (when true parallelism, we should be able to return the correct shape)
+
+            const decoder_attentions = getFlattened('decoder_attentions');
+            const cross_attentions = getFlattened('cross_attentions');
+
+            return {
+                sequences,
+
+                decoder_attentions,
+                cross_attentions,
+            }
+        } else {
+            return sequences;
+        }
+    }
+
+    /**
+     * Helper function to add attentions to beam
+     * @param {Object} beam 
+     * @param {Object} output
+     * @private 
+     */
+    addAttentionsToBeam(beam, output) {
+        if (this.config.is_encoder_decoder) {
+            if (!output.cross_attentions || output.cross_attentions.length === 0) {
+                throw Error(
+                    "`output_attentions` is true, but the model did not produce cross-attentions. " +
+                    "This is most likely because the model was not exported with `output_attentions=True`."
+                )
+            }
+            if (!beam.cross_attentions) {
+                beam.cross_attentions = [];
+            }
+            beam.cross_attentions.push(output.cross_attentions);
+        }
+
+        if (!output.decoder_attentions || output.decoder_attentions.length === 0) {
+            throw Error(
+                "`output_attentions` is true, but the model did not produce decoder-attentions. " +
+                "This is most likely because the model was not exported with `output_attentions=True`."
+            )
+        }
+        if (!beam.decoder_attentions) {
+            beam.decoder_attentions = [];
+        }
+        beam.decoder_attentions.push(output.decoder_attentions);
     }
 
     /**
@@ -1015,6 +1103,7 @@ export class PreTrainedModel extends Callable {
      * @param {Object} decoderResults The decoder results object.
      * @param {Object} pastKeyValues The previous past key values.
      * @returns {Object} An object containing past key values.
+     * @private
      */
     getPastKeyValues(decoderResults, pastKeyValues) {
 
@@ -1024,7 +1113,7 @@ export class PreTrainedModel extends Callable {
             if (name.startsWith('present')) {
                 let newName = name.replace('present', 'past_key_values');
 
-                if (pastKeyValues !== null && name.includes('encoder')) {
+                if (pastKeyValues && name.includes('encoder')) {
                     // Optimization introduced by optimum to reuse past key values. So, we just replace the constant
                     // outputs with the previous past key values.
                     // https://github.com/huggingface/optimum/blob/0bf2c05fb7e1182b52d21b703cfc95fd9e4ea3dc/optimum/onnxruntime/base.py#L677-L704
@@ -1035,6 +1124,29 @@ export class PreTrainedModel extends Callable {
             }
         }
         return pkvs;
+    }
+
+    /**
+     * Returns an object containing attentions from the given decoder results object.
+     *
+     * @param {Object} decoderResults The decoder results object.
+     * @returns {Object} An object containing attentions.
+     * @private
+     */
+    getAttentions(decoderResults) {
+        const attns = Object.create(null);
+
+        for (const attnName of ['cross_attentions', 'decoder_attentions']) {
+            const result = [];
+            for (const name in decoderResults) {
+                if (name.startsWith(attnName)) {
+                    const index = name.split('.').pop()
+                    result[index] = decoderResults[name];
+                }
+            }
+            attns[attnName] = result;
+        }
+        return attns;
     }
 
     /**
@@ -1720,6 +1832,76 @@ export class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// XLMRoberta models
+export class XLMRobertaPreTrainedModel extends PreTrainedModel { }
+export class XLMRobertaModel extends XLMRobertaPreTrainedModel { }
+
+/**
+ * XLMRobertaForMaskedLM class for performing masked language modeling on XLMRoberta models.
+ * @extends XLMRobertaPreTrainedModel
+ */
+export class XLMRobertaForMaskedLM extends XLMRobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} returned object
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * XLMRobertaForSequenceClassification class for performing sequence classification on XLMRoberta models.
+ * @extends XLMRobertaPreTrainedModel
+ */
+export class XLMRobertaForSequenceClassification extends XLMRobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} returned object
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * XLMRobertaForTokenClassification class for performing token classification on XLMRoberta models.
+ * @extends XLMRobertaPreTrainedModel
+ */
+export class XLMRobertaForTokenClassification extends XLMRobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * XLMRobertaForQuestionAnswering class for performing question answering on XLMRoberta models.
+ * @extends XLMRobertaPreTrainedModel
+ */
+export class XLMRobertaForQuestionAnswering extends XLMRobertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} returned object
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // T5 models
 export class WhisperPreTrainedModel extends PreTrainedModel { };
 
@@ -1775,12 +1957,24 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * @param {Object} inputs Input data for the model.
      * @param {Object} generation_config Configuration object for the generation process.
      * @param {Object} logits_processor Optional logits processor object.
+     * @param {Object} options options
+     * @param {Object} [options.return_timestamps=null] Whether to return the timestamps with the text. This enables the `WhisperTimestampsLogitsProcessor`.
+     * @param {Object} [options.return_token_timestamps=null] Whether to return token-level timestamps
+     * with the text. This can be used with or without the `return_timestamps` option. To get word-level
+     * timestamps, use the tokenizer to group the tokens into words.
      * @returns {Promise<Object>} Promise object represents the generated outputs.
      */
+    // @ts-ignore
     async generate(
         inputs,
         generation_config = null,
         logits_processor = null,
+        // {
+        //     return_timestamps = null,
+        //     return_token_timestamps = null,
+        //     language = null,
+        //     task = null,
+        // } = {},
     ) {
         // Create generation config object
         generation_config = this._get_generation_config(generation_config);
@@ -1795,7 +1989,29 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             logits_processor = [new WhisperTimeStampLogitsProcessor(generation_config)]
         }
 
-        return super.generate(inputs, generation_config, logits_processor)
+        if (generation_config.return_token_timestamps) {
+            generation_config.output_attentions = true;
+            generation_config.return_dict_in_generate = true;
+
+            if (generation_config.task === 'translate') {
+                console.warn("Token-level timestamps may not be reliable for task 'translate'.")
+            }
+
+            if (!generation_config.alignment_heads) {
+                throw new Error(
+                    "Model generation config has no `alignment_heads`, token-level timestamps not available. " +
+                    "See https://gist.github.com/hollance/42e32852f24243b748ae6bc1f985b13a on how to add this property to the generation config."
+                )
+            }
+        }
+
+        const outputs = await super.generate(inputs, generation_config, logits_processor);
+
+        if (generation_config.return_token_timestamps && generation_config.alignment_heads) {
+            outputs["token_timestamps"] = this._extract_token_timestamps(outputs, generation_config.alignment_heads)
+        }
+
+        return outputs
     }
 
     /**
@@ -1836,6 +2052,104 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      */
     async forward(model_inputs) {
         return await seq2seqForward(this, model_inputs);
+    }
+
+    /**
+     * Calculates token-level timestamps using the encoder-decoder cross-attentions and
+     * dynamic time-warping (DTW) to map each output token to a position in the input audio.
+     * @param {Object} generate_outputs Outputs generated by the model
+     * @param {Tensor[][][]} generate_outputs.cross_attentions The cross attentions output by the model
+     * @param {Tensor[][][]} generate_outputs.decoder_attentions The decoder attentions output by the model
+     * @param {number[][]} generate_outputs.sequences The sequences output by the model
+     * @param {number[][]} alignment_heads Alignment heads of the model
+     * @param {number} time_precision Precision of the timestamps in seconds
+     * @returns {Tensor} tensor containing the timestamps in seconds for each predicted token
+     */
+    _extract_token_timestamps(generate_outputs, alignment_heads, time_precision = 0.02) {
+        if (!generate_outputs.cross_attentions) {
+            throw new Error(
+                "Model outputs must contain cross attentions to extract timestamps. " +
+                "This is most likely because the model was not exported with `output_attentions=True`."
+            )
+        }
+
+        let median_filter_width = this.config.median_filter_width;
+        if (median_filter_width === undefined) {
+            console.warn("Model config has no `median_filter_width`, using default value of 7.")
+            median_filter_width = 7;
+        }
+
+        const batchedMatrices = generate_outputs.cross_attentions.map(batch => {
+            // Create a list with `decoder_layers` elements, each a tensor of shape
+            // (batch size, attention_heads, output length, input length).
+            let cross_attentions = Array.from({ length: this.config.decoder_layers },
+                (_, i) => cat(batch.map(x => x[i]), 2)
+            );
+
+            let weights = stack(alignment_heads.map(([l, h]) => cross_attentions[l].slice(null, h)));
+            weights = weights.transpose(1, 0, 2, 3)
+
+            let [std, calculatedMean] = std_mean(weights, -2, 0, true);
+
+            // Normalize and smoothen the weights.
+            let smoothedWeights = weights.clone(); // [1, 8, seqLength, 1500]
+
+            for (let a = 0; a < smoothedWeights.dims[0]; ++a) {
+                let aTensor = smoothedWeights[a]; // [8, seqLength, 1500]
+
+                for (let b = 0; b < aTensor.dims[0]; ++b) {
+                    let bTensor = aTensor[b]; // [seqLength, 1500]
+
+                    const stdTensor = std[a][b][0]; // [1500]
+                    const meanTensor = calculatedMean[a][b][0]; // [1500]
+
+                    for (let c = 0; c < bTensor.dims[0]; ++c) {
+
+                        let cTensor = bTensor[c]; // [1500]
+                        for (let d = 0; d < cTensor.data.length; ++d) {
+                            cTensor.data[d] = (cTensor.data[d] - meanTensor.data[d]) / stdTensor.data[d]
+                        }
+
+                        // Apply median filter.
+                        cTensor.data.set(medianFilter(cTensor.data, median_filter_width))
+                    }
+                }
+            }
+
+            // Average the different cross-attention heads.
+            const matrix = mean(smoothedWeights, 1);
+            return matrix;
+        });
+
+        const timestampsShape = [generate_outputs.sequences.length, generate_outputs.sequences[0].length];
+
+        const timestamps = new Tensor(
+            'float32',
+            new Float32Array(timestampsShape[0] * timestampsShape[1]),
+            timestampsShape
+        );
+
+        // Perform dynamic time warping on each element of the batch.
+        for (let batch_idx = 0; batch_idx < timestampsShape[0]; ++batch_idx) {
+            // NOTE: Since we run only one batch at a time, we can squeeze to get the same dimensions
+            // as the python implementation
+            const matrix = batchedMatrices[batch_idx].neg().squeeze_(0);
+            let [text_indices, time_indices] = dynamicTimeWarping(matrix);
+
+            let diffs = Array.from({ length: text_indices.length - 1 }, (v, i) => text_indices[i + 1] - text_indices[i]);
+            let jumps = mergeArrays([1], diffs).map(x => !!x); // convert to boolean
+
+            let jump_times = [];
+            for (let i = 0; i < jumps.length; ++i) {
+                if (jumps[i]) {
+                    jump_times.push(time_indices[i] * time_precision);
+                    // NOTE: No point in rounding here, since we set to Float32Array later
+                }
+            }
+            timestamps[batch_idx].data.set(jump_times, 1)
+        }
+
+        return timestamps;
     }
 }
 //////////////////////////////////////////////////
@@ -2505,6 +2819,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['albert', AlbertModel],
     ['distilbert', DistilBertModel],
     ['roberta', RobertaModel],
+    ['xlm-roberta', XLMRobertaModel],
     ['clip', CLIPModel],
     ['mobilebert', MobileBertModel],
     ['squeezebert', SqueezeBertModel],
@@ -2533,6 +2848,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['albert', AlbertForSequenceClassification],
     ['distilbert', DistilBertForSequenceClassification],
     ['roberta', RobertaForSequenceClassification],
+    ['xlm-roberta', XLMRobertaForSequenceClassification],
     ['bart', BartForSequenceClassification],
     ['mobilebert', MobileBertForSequenceClassification],
     ['squeezebert', SqueezeBertForSequenceClassification],
@@ -2542,6 +2858,7 @@ const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
     ['distilbert', DistilBertForTokenClassification],
     ['roberta', RobertaForTokenClassification],
+    ['xlm-roberta', XLMRobertaForTokenClassification],
 ]);
 
 const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
@@ -2564,6 +2881,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['albert', AlbertForMaskedLM],
     ['distilbert', DistilBertForMaskedLM],
     ['roberta', RobertaForMaskedLM],
+    ['xlm-roberta', XLMRobertaForMaskedLM],
     ['mobilebert', MobileBertForMaskedLM],
     ['squeezebert', SqueezeBertForMaskedLM],
 ]);
@@ -2573,6 +2891,7 @@ const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['albert', AlbertForQuestionAnswering],
     ['distilbert', DistilBertForQuestionAnswering],
     ['roberta', RobertaForQuestionAnswering],
+    ['xlm-roberta', XLMRobertaForQuestionAnswering],
     ['mobilebert', MobileBertForQuestionAnswering],
     ['squeezebert', SqueezeBertForQuestionAnswering],
 ]);
@@ -2764,12 +3083,16 @@ export class Seq2SeqLMOutput extends ModelOutput {
      * @param {Tensor} output.logits The output logits of the model.
      * @param {Tensor} output.past_key_values An tensor of key/value pairs that represent the previous state of the model.
      * @param {Tensor} output.encoder_outputs The output of the encoder in a sequence-to-sequence model.
+     * @param {Tensor} [output.decoder_attentions] Attentions weights of the decoder, after the attention softmax, used to compute the weighted average in the self-attention heads.
+     * @param {Tensor} [output.cross_attentions] Attentions weights of the decoder's cross-attention layer, after the attention softmax, used to compute the weighted average in the cross-attention heads.
      */
-    constructor({ logits, past_key_values, encoder_outputs }) {
+    constructor({ logits, past_key_values, encoder_outputs, decoder_attentions = null, cross_attentions = null }) {
         super();
         this.logits = logits;
         this.past_key_values = past_key_values;
         this.encoder_outputs = encoder_outputs;
+        this.decoder_attentions = decoder_attentions;
+        this.cross_attentions = cross_attentions;
     }
 }
 

@@ -85,13 +85,7 @@ export class Tensor extends ONNXTensor {
     _getitem(index) {
         const [iterLength, ...iterDims] = this.dims;
 
-        if (index >= iterLength || index < -iterLength) {
-            throw new Error(`Index ${index} is out of bounds for dimension 0 with size ${iterLength}`);
-        }
-        if (index < 0) {
-            // Negative indexing
-            index += iterLength;
-        }
+        index = safeIndex(index, iterLength);
 
         if (iterDims.length > 0) {
             const iterSize = iterDims.reduce((a, b) => a * b);
@@ -186,12 +180,7 @@ export class Tensor extends ONNXTensor {
                 newTensorDims.push(this.dims[sliceIndex]);
 
             } else if (typeof slice === 'number') {
-                if (slice < -this.dims[sliceIndex] || slice >= this.dims[sliceIndex]) {
-                    throw new Error(`IndexError: index ${slice} is out of bounds for dimension ${sliceIndex} with size ${this.dims[sliceIndex]}`);
-                }
-                if (slice < 0) {
-                    slice += this.dims[sliceIndex];
-                }
+                slice = safeIndex(slice, this.dims[sliceIndex], sliceIndex);
 
                 // A number means take a single element
                 newOffsets.push([slice, slice + 1]);
@@ -223,11 +212,7 @@ export class Tensor extends ONNXTensor {
         let data = new this.data.constructor(newBufferSize);
 
         // Precompute strides
-        const stride = new Array(this.dims.length);
-        for (let i = newDims.length - 1, s2 = 1; i >= 0; --i) {
-            stride[i] = s2;
-            s2 *= this.dims[i];
-        }
+        const stride = this.stride();
 
         for (let i = 0; i < newBufferSize; ++i) {
             let originalIndex = 0;
@@ -250,6 +235,9 @@ export class Tensor extends ONNXTensor {
     transpose(...dims) {
         return transpose(this, dims);
     }
+
+    // TODO: rename transpose to permute
+    // TODO: implement transpose
 
     // TODO add .max() and .min() methods
 
@@ -283,14 +271,11 @@ export class Tensor extends ONNXTensor {
         if (dim === null) {
             // @ts-ignore
             let val = this.data.reduce((a, b) => a + (b ** p), 0) ** (1 / p);
-            return new Tensor(this.type, [val], [1]);
+            return new Tensor(this.type, [val], []);
         }
 
-        if (dim < 0) {
-            // Negative indexing
-            dim += this.dims.length;
-        }
-
+        // Negative indexing
+        dim = safeIndex(dim, this.dims.length);
 
         // Calculate the shape of the resulting array after summation
         const resultDims = this.dims.slice(); // Copy the original dimensions
@@ -339,10 +324,7 @@ export class Tensor extends ONNXTensor {
      * @returns {Tensor} `this` for operation chaining.
      */
     normalize_(p = 2.0, dim = 1) {
-        if (dim < 0) {
-            // Negative indexing
-            dim += this.dims.length;
-        }
+        dim = safeIndex(dim, this.dims.length);
 
         const norm = this.norm(p, dim, true);
 
@@ -384,12 +366,7 @@ export class Tensor extends ONNXTensor {
      * @returns {number[]} The stride of this tensor.
      */
     stride() {
-        const stride = new Array(this.dims.length);
-        for (let i = this.dims.length - 1, s2 = 1; i >= 0; --i) {
-            stride[i] = s2;
-            s2 *= this.dims[i];
-        }
-        return stride;
+        return dimsToStride(this.dims);
     }
 
     /**
@@ -495,6 +472,16 @@ export class Tensor extends ONNXTensor {
         }
         return new Tensor(this.type, this.data, dims); // NOTE: uses same underlying storage
     }
+
+    neg_() {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = -this.data[i];
+        }
+        return this;
+    }
+    neg() {
+        return this.clone().neg_();
+    }
 }
 
 /**
@@ -566,43 +553,6 @@ export function transpose(tensor, axes) {
     return new Tensor(tensor.type, transposedData, shape);
 }
 
-
-/**
- * Concatenates an array of tensors along the 0th dimension.
- *
- * @param {any} tensors The array of tensors to concatenate.
- * @returns {Tensor} The concatenated tensor.
- */
-export function cat(tensors) {
-    if (tensors.length === 0) {
-        return tensors[0];
-    }
-    // NOTE: tensors must be batched
-    // NOTE: currently only supports dim=0
-    // TODO: add support for dim != 0
-
-
-    let tensorType = tensors[0].type;
-    let tensorShape = [...tensors[0].dims];
-    tensorShape[0] = tensors.length;
-
-    // Calculate total size to allocate
-    let total = 0;
-    for (let t of tensors) {
-        total += t.data.length;
-    }
-
-    // Create output tensor of same type as first
-    let data = new tensors[0].data.constructor(total);
-
-    let offset = 0;
-    for (let t of tensors) {
-        data.set(t.data, offset);
-        offset += t.data.length;
-    }
-
-    return new Tensor(tensorType, data, tensorShape)
-}
 
 /**
  * Interpolates an Tensor to the given size.
@@ -705,15 +655,336 @@ function calc_squeeze_dims(dims, dim) {
  * @private
  */
 function calc_unsqueeze_dims(dims, dim) {
-    // TODO: add bounds error checking
-
+    // Dimension out of range (e.g., "expected to be in range of [-4, 3], but got 4")
+    // + 1 since we allow inserting at the end (i.e. dim = -1)
+    dim = safeIndex(dim, dims.length + 1);
     dims = dims.slice();
-    if (dim < 0) {
-        // Negative indexing, ensuring positive index
-        dim = ((dim % dims.length) + dims.length) % dims.length;
-    }
-
     // Insert 1 into specified dimension
     dims.splice(dim, 0, 1);
     return dims;
+}
+
+/**
+ * Safely calculate the index for an array of a given size, allowing negative indexing.
+ * @param {number} index The index that will be used.
+ * @param {number} size The size of the array.
+ * @param {number} [dimension=null] The dimension that the index is for (optional).
+ * @returns {number} The index, guaranteed to be non-negative and less than `arrayLength`.
+ * 
+ * @throws {Error} If the index is out of range.
+ * @private
+ */
+function safeIndex(index, size, dimension = null) {
+    if (index < -size || index >= size) {
+        throw new Error(`IndexError: index ${index} is out of bounds for dimension${dimension === null ? '' : ' ' + dimension} with size ${size}`);
+    }
+
+    if (index < 0) {
+        // Negative indexing, ensuring positive index
+        index = ((index % size) + size) % size;
+    }
+    return index;
+}
+
+/**
+ * Concatenates an array of tensors along a specified dimension.
+ * @param {Tensor[]} tensors The array of tensors to concatenate.
+ * @param {number} dim The dimension to concatenate along.
+ * @returns {Tensor} The concatenated tensor.
+ */
+export function cat(tensors, dim = 0) {
+    dim = safeIndex(dim, tensors[0].dims.length);
+
+    // TODO do validation of shapes
+
+    const resultDims = tensors[0].dims.slice();
+    resultDims[dim] = tensors.reduce((a, b) => a + b.dims[dim], 0);
+
+    // Create a new array to store the accumulated values
+    const resultSize = resultDims.reduce((a, b) => a * b, 1);
+    const result = new tensors[0].data.constructor(resultSize);
+
+    // Create output tensor of same type as first
+    const resultType = tensors[0].type;
+
+    if (dim === 0) {
+        // Handle special case for performance reasons
+
+        let offset = 0;
+        for (let t of tensors) {
+            result.set(t.data, offset);
+            offset += t.data.length;
+        }
+
+    } else {
+
+        let currentDim = 0;
+
+        for (let t = 0; t < tensors.length; ++t) {
+            let tensor = tensors[t];
+
+            // Iterate over the data array
+            for (let i = 0; i < tensor.data.length; ++i) {
+                // Calculate the index in the resulting array
+                let resultIndex = 0;
+
+                for (let j = tensor.dims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
+                    const size = tensor.dims[j];
+                    let index = num % size;
+                    if (j === dim) {
+                        index += currentDim;
+                    }
+                    resultIndex += index * resultMultiplier;
+                    resultMultiplier *= resultDims[j];
+                    num = Math.floor(num / size);
+                }
+                // Accumulate the value at the current index
+                result[resultIndex] = tensor.data[i];
+            }
+
+            currentDim += tensor.dims[dim];
+        }
+    }
+    return new Tensor(resultType, result, resultDims);
+}
+
+/**
+ * Stack an array of tensors along a specified dimension.
+ * @param {Tensor[]} tensors The array of tensors to stack.
+ * @param {number} dim The dimension to stack along.
+ * @returns {Tensor} The stacked tensor.
+ */
+export function stack(tensors, dim = 0) {
+    // TODO do validation of shapes
+    // NOTE: stack expects each tensor to be equal size
+    return cat(tensors.map(t => t.unsqueeze(dim)), dim);
+}
+
+
+/**
+ * Calculates the standard deviation and mean over the dimensions specified by dim. dim can be a single dimension or `null` to reduce over all dimensions.
+ * @param {Tensor} input the input tenso
+ * @param {number|null} dim the dimension to reduce. If None, all dimensions are reduced.
+ * @param {number} correction difference between the sample size and sample degrees of freedom. Defaults to Bessel's correction, correction=1.
+ * @param {boolean} keepdim whether the output tensor has dim retained or not.
+ * @returns {Tensor[]} A tuple of (std, mean) tensors.
+ */
+export function std_mean(input, dim = null, correction = 1, keepdim = false) {
+
+    if (dim === null) {
+        // None to reduce over all dimensions.
+        const sum = input.data.reduce((a, b) => a + b, 0);
+        const mean = sum / input.data.length;
+        const std = Math.sqrt(input.data.reduce((a, b) => a + (b - mean) ** 2, 0) / (input.data.length - correction));
+
+        const meanTensor = new Tensor(input.type, [mean], [/* scalar */]);
+        const stdTensor = new Tensor(input.type, [std], [/* scalar */]);
+
+        return [stdTensor, meanTensor];
+    }
+
+    // Negative indexing
+    dim = safeIndex(dim, input.dims.length);
+
+    const meanTensor = mean(input, dim, keepdim);
+
+    // Calculate the shape of the resulting array after summation
+    const resultDims = input.dims.slice(); // Copy the original dimensions
+    resultDims[dim] = 1; // Remove the specified axis
+
+    // Create a new array to store the accumulated values
+    const result = new input.data.constructor(input.data.length / input.dims[dim]);
+
+    // Iterate over the data array
+    for (let i = 0; i < input.data.length; ++i) {
+
+        // Calculate the index in the resulting array
+        let resultIndex = 0;
+
+        for (let j = input.dims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
+            const size = input.dims[j];
+            if (j !== dim) {
+                const index = num % size;
+                resultIndex += index * resultMultiplier;
+                resultMultiplier *= resultDims[j];
+            }
+            num = Math.floor(num / size);
+        }
+
+        // Accumulate the value at the current index
+        result[resultIndex] += (input.data[i] - meanTensor.data[resultIndex]) ** 2;
+    }
+
+    for (let i = 0; i < result.length; ++i) {
+        result[i] = Math.sqrt(result[i] / (input.dims[dim] - correction));
+    }
+
+    if (!keepdim) {
+        resultDims.splice(dim, 1);
+    }
+
+    const stdTensor = new Tensor(input.type, result, resultDims);
+
+    return [stdTensor, meanTensor];
+}
+
+
+/**
+ * Returns the mean value of each row of the input tensor in the given dimension dim.
+ * @param {Tensor} input the input tensor.
+ * @param {number|null} dim the dimension to reduce.
+ * @param {boolean} keepdim whether the output tensor has dim retained or not.
+ * @returns A new tensor with means taken along the specified dimension.
+ */
+export function mean(input, dim = null, keepdim = false) {
+
+    if (dim === null) {
+        // None to reduce over all dimensions.
+        let val = input.data.reduce((a, b) => a + b, 0);
+        return new Tensor(input.type, [val / input.data.length], [/* scalar */]);
+    }
+
+    // Negative indexing
+    dim = safeIndex(dim, input.dims.length);
+
+    // Calculate the shape of the resulting array after summation
+    const resultDims = input.dims.slice(); // Copy the original dimensions
+    resultDims[dim] = 1; // Remove the specified axis
+
+    // Create a new array to store the accumulated values
+    const result = new input.data.constructor(input.data.length / input.dims[dim]);
+
+    // Iterate over the data array
+    for (let i = 0; i < input.data.length; ++i) {
+
+        // Calculate the index in the resulting array
+        let resultIndex = 0;
+
+        for (let j = input.dims.length - 1, num = i, resultMultiplier = 1; j >= 0; --j) {
+            const size = input.dims[j];
+            if (j !== dim) {
+                const index = num % size;
+                resultIndex += index * resultMultiplier;
+                resultMultiplier *= resultDims[j];
+            }
+            num = Math.floor(num / size);
+        }
+
+        // Accumulate the value at the current index
+        result[resultIndex] += input.data[i];
+    }
+
+    if (input.dims[dim] !== 1) {
+        for (let i = 0; i < result.length; ++i) {
+            result[i] = result[i] / input.dims[dim];
+        }
+    }
+
+    if (!keepdim) {
+        resultDims.splice(dim, 1);
+    }
+
+    return new Tensor(input.type, result, resultDims);
+}
+
+
+/**
+ *
+ * Measures similarity between two temporal sequences (e.g., input audio and output tokens
+ * to generate token-level timestamps).
+ * @param {Tensor} matrix 
+ * @returns {number[][]}
+ */
+export function dynamicTimeWarping(matrix) {
+    const [output_length, input_length] = matrix.dims;
+
+    const outputShape = [output_length + 1, input_length + 1];
+
+    const cost = new Tensor(
+        'float32',
+        new Float32Array(outputShape[0] * outputShape[1]).fill(Infinity),
+        outputShape
+    );
+
+    const trace = new Tensor(
+        'float32',
+        new Float32Array(outputShape[0] * outputShape[1]).fill(-1),
+        outputShape
+    )
+
+    // same as `cost[0][0] = 0`;
+    cost[0].data[0] = 0;
+
+    for (let j = 1; j < input_length + 1; ++j) {
+        for (let i = 1; i < output_length + 1; ++i) {
+
+            const c0 = cost[i - 1][j - 1].item();
+            const c1 = cost[i - 1][j].item();
+            const c2 = cost[i][j - 1].item();
+
+            let c, t;
+            if (c0 < c1 && c0 < c2) {
+                c = c0;
+                t = 0;
+            } else if (c1 < c0 && c1 < c2) {
+                c = c1;
+                t = 1;
+            } else {
+                c = c2;
+                t = 2;
+            }
+
+            cost[i].data[j] = matrix[i - 1][j - 1].item() + c;
+            trace[i].data[j] = t;
+        }
+    }
+
+    // backtrace
+    let i = output_length;
+    let j = input_length;
+
+    trace.data.fill(2, 0, outputShape[1]) // trace[0, :] = 2
+    for (let i = 0; i < outputShape[0]; ++i) { // trace[:, 0] = 1
+        trace[i].data[0] = 1;
+    }
+
+    let text_indices = [];
+    let time_indices = [];
+
+    while (i > 0 || j > 0) {
+        text_indices.push(i - 1);
+        time_indices.push(j - 1);
+
+        const t = trace[i][j].item();
+        switch (t) {
+            case 0:
+                --i; --j;
+                break;
+            case 1:
+                --i;
+                break;
+            case 2:
+                --j;
+                break;
+            default:
+                throw new Error(
+                    `Internal error in dynamic time warping. Unexpected trace[${i}, ${j}]. Please file a bug report.`
+                )
+        }
+    }
+
+    text_indices.reverse();
+    time_indices.reverse();
+
+    return [text_indices, time_indices];
+
+}
+
+function dimsToStride(dims) {
+    const stride = new Array(dims.length);
+    for (let i = dims.length - 1, s2 = 1; i >= 0; --i) {
+        stride[i] = s2;
+        s2 *= dims[i];
+    }
+    return stride;
 }
