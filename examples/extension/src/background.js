@@ -1,12 +1,15 @@
 // background.js - Handles requests from the UI, runs the model, then sends back a response
 
 import { pipeline, env } from '@xenova/transformers';
+import { CustomCache } from "./cache.js";
 
-// Set environment variables to only use local models.
+// Define caching parameters
 env.useBrowserCache = false;
-env.allowRemoteModels = false;
-env.localModelPath = chrome.runtime.getURL('models/'); // TODO: fix, use unlimited storage
-// env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('wasm/')
+env.useCustomCache = true;
+env.customCache = new CustomCache('transformers-cache');
+
+// Skip initial check for local models, since we are not loading any local models.
+env.allowLocalModels = false;
 
 // Due to a bug in onnxruntime-web, we must disable multithreading for now.
 // See https://github.com/microsoft/onnxruntime/issues/14445 for more information.
@@ -15,7 +18,7 @@ env.backends.onnx.wasm.numThreads = 1;
 
 class PipelineSingleton {
     static task = 'text-classification';
-    static model = 'distilbert-base-uncased-finetuned-sst-2-english';
+    static model = 'Xenova/distilbert-base-uncased-finetuned-sst-2-english';
     static instance = null;
 
     static async getInstance(progress_callback = null) {

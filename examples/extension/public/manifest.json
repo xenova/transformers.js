@@ -6,7 +6,9 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "contextMenus"
+    "contextMenus",
+    "storage",
+    "unlimitedStorage"
   ],
   "background": {
     "service_worker": "background.js",
