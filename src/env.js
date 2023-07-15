@@ -79,7 +79,10 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
  * @property {boolean} useBrowserCache Whether to use Cache API to cache models. By default, it is `true` if available.
  * @property {boolean} useFSCache Whether to use the file system to cache files. By default, it is `true` if available.
  * @property {string} cacheDir The directory to use for caching files with the file system. By default, it is `./.cache`.
-*/
+ * @property {boolean} useCustomCache Whether to use a custom cache system (defined by `customCache`), defaults to `false`.
+ * @property {Object} customCache The custom cache to use. Defaults to `null`. Note: this must be an object which
+ * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache
+ */
 export const env = {
     /////////////////// Backends settings ///////////////////
     backends: {
@@ -104,9 +107,12 @@ export const env = {
 
     /////////////////// Cache settings ///////////////////
     useBrowserCache: WEB_CACHE_AVAILABLE,
+
     useFSCache: FS_AVAILABLE,
     cacheDir: DEFAULT_CACHE_DIR,
 
+    useCustomCache: false,
+    customCache: null,
     //////////////////////////////////////////////////////
 }
 
