@@ -2,11 +2,15 @@
 // the browser's native Cache API (https://developer.mozilla.org/en-US/docs/Web/API/Cache)
 // but uses the browser's local storage API (https://developer.chrome.com/docs/extensions/reference/storage/).
 // 
+// For serialization (arraybuffer -> string) and unserialization (string -> arraybuffer),
+// use the `FileReader` and `Blob` APIs. One small problem is that we store and retrieve
+// the response as a base64-encoded string. This means that the response body is ~33% larger
+// than it needs to be. Looking for ways to improve this!
+// 
 // Other references:
 //  - https://developer.chrome.com/docs/extensions/reference/storage/#property-local
 //  - https://stackoverflow.com/questions/6965107/converting-between-strings-and-arraybuffers
 
-// 
 export class CustomCache {
     /**
      * Instantiate a `CustomCache` object.
@@ -14,9 +18,6 @@ export class CustomCache {
      */
     constructor(cacheName) {
         this.cacheName = cacheName;
-
-        this.encoder = new TextEncoder();
-        this.decoder = new TextDecoder();
     }
 
     /**
@@ -29,8 +30,7 @@ export class CustomCache {
         const cached = await chrome.storage.local.get([url]);
 
         if (cached[url]) {
-            const body = this.encoder.encode(cached[url]._body);
-            return new Response(body, cached[url]);
+            return await fetch(cached[url]._body);
         } else {
             return undefined;
         }
@@ -45,14 +45,23 @@ export class CustomCache {
     async put(request, response) {
         const url = request instanceof Request ? request.url : request;
         const buffer = await response.arrayBuffer();
-        const body = this.decoder.decode(buffer);
+
+        const body = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = e => reject(e.target.error);
+            reader.readAsDataURL(new Blob([buffer], { type: 'application/octet-stream' }));
+        });
+
         try {
             await chrome.storage.local.set({
                 [url]: {
                     _body: body,
+
+                    // Save original response in case
                     status: response.status,
                     statusText: response.statusText,
-                    headers: response.headers,
+                    headers: Object.fromEntries(response.headers.entries()),
                     url: response.url,
                     redirected: response.redirected,
                     type: response.type,
