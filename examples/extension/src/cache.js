@@ -2,10 +2,14 @@
 // the browser's native Cache API (https://developer.mozilla.org/en-US/docs/Web/API/Cache)
 // but uses the browser's local storage API (https://developer.chrome.com/docs/extensions/reference/storage/).
 // 
+// Since the local storage API requires all data to be stored as JSON (which doesn't allow some ASCII chars),
+// one of the better approaches is to store the response body as a base64-encoded string. This is not ideal,
+// as it increases the size of the response body by ~33%, but it's the best we can do with the local storage API.
+// See https://stackoverflow.com/a/1443240/13989043 for more information about this.
+// 
 // For serialization (arraybuffer -> string) and unserialization (string -> arraybuffer),
-// use the `FileReader` and `Blob` APIs. One small problem is that we store and retrieve
-// the response as a base64-encoded string. This means that the response body is ~33% larger
-// than it needs to be. Looking for ways to improve this!
+// use the `FileReader` and `Blob` APIs. Although other options are also possible, this approach
+// is considered to be better for larger files (like models).
 // 
 // Other references:
 //  - https://developer.chrome.com/docs/extensions/reference/storage/#property-local
