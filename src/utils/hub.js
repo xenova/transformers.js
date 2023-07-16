@@ -459,7 +459,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         }
 
 
-        if (cache && response instanceof Response && response.status === 200) {
+        if (cache && response.status === 200) {
             // only clone if cache available, and response is valid
             responseToCache = response.clone();
         }
