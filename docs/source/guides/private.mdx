@@ -25,21 +25,21 @@ To delete or refresh User Access Tokens, you can click the **Manage** button.
 
 Transformers.js will attach an Authorization header to requests made to the Hugging Face Hub when `process.env.HF_ACCESS_TOKEN` is set.
 
-One way to do this is to call the running process with the environment variable set. For example,let's say you have a file called `testing.js` with the following code:
+One way to do this is to call the running process with the environment variable set. For example, let's say you have a file called `llama.js` with the following code:
 
 ```js
 import { AutoTokenizer } from '@xenova/transformers';
 
-// Load tokenizer for a gated model.
+// Load tokenizer for a gated repository.
 const tokenizer = await AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-hf');
 
 // Encode text.
-const text = "Hello world!";
+const text = 'Hello world!';
 const encoded = tokenizer.encode(text);
 console.log(encoded);
 ```
 
-You can use the following command to set the environment variable and run the file:
+You can then use the following command to set the `HF_ACCESS_TOKEN` environment variable and run the file:
 
 ```bash
 HF_ACCESS_TOKEN=hf_... node tests/llama.js
@@ -58,4 +58,6 @@ Alternatively, you can set the environment variable directly in your code:
 ```js
 // Set access token (NB: Keep this private!)
 process.env.HF_ACCESS_TOKEN = 'hf_...';
+
+// ... rest of your code
 ```
