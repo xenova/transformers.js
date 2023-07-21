@@ -1758,6 +1758,9 @@ class Precompiled extends Normalizer {
      */
     normalize(text) {
         // TODO use this.charsmap
+        // For now, we just apply NFKC normalization
+        // https://github.com/huggingface/tokenizers/blob/291b2e23ae81cf94738835852213ce120152d121/bindings/python/py_src/tokenizers/implementations/sentencepiece_bpe.py#L34
+        text = text.normalize('NFKC');
         return text;
     }
 }
