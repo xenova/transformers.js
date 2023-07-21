@@ -31,7 +31,7 @@
  *
  * let { input_ids } = await tokenizer('translate English to German: I love transformers!');
  * let outputs = await model.generate(input_ids);
- * let decoded = await tokenizer.decode(outputs[0][0], { skip_special_tokens: true });
+ * let decoded = tokenizer.decode(outputs[0], { skip_special_tokens: true });
  * // 'Ich liebe Transformatoren!'
  * ```
  * 
