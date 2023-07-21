@@ -639,7 +639,6 @@ export class PreTrainedModel extends Callable {
         }
 
         let modelType = MODEL_TYPE_MAPPING.get(this.name);
-
         let info;
         if (modelType === DecoderOnlyModelType) {
             info = await Promise.all([
@@ -1204,6 +1203,7 @@ export class BaseModelOutput extends ModelOutput {
 // Bert models
 export class BertPreTrainedModel extends PreTrainedModel { }
 export class BertModel extends BertPreTrainedModel { }
+export class MpnetModel extends PreTrainedModel { }
 
 /**
  * BertForMaskedLM is a class representing a BERT model for masked language modeling.
@@ -2769,7 +2769,6 @@ export class PretrainedMixin {
         local_files_only = false,
         revision = 'main',
     } = {}) {
-
         let options = {
             quantized,
             progress_callback,
@@ -2812,7 +2811,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['clip', CLIPModel],
     ['mobilebert', MobileBertModel],
     ['squeezebert', SqueezeBertModel],
-
+    ['mpnet', MpnetModel],
     ['sam', SamModel], // TODO change to encoder-decoder when model is split correctly
 ]);
 
