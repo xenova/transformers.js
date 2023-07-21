@@ -31,21 +31,6 @@ if (!globalThis.ReadableStream) {
  * NOTE: This setting is ignored for local requests.
  */
 
-class Headers extends Object {
-    constructor(...args) {
-        super();
-        Object.assign(this, args);
-    }
-
-    get(key) {
-        return this[key];
-    }
-
-    clone() {
-        return new Headers(this);
-    }
-}
-
 class FileResponse {
     /**
      * Mapping from file extensions to MIME types.
@@ -75,7 +60,7 @@ class FileResponse {
             this.statusText = 'OK';
 
             let stats = fs.statSync(filePath);
-            this.headers['content-length'] = stats.size;
+            this.headers.set('content-length', stats.size.toString());
 
             this.updateContentType();
 
@@ -103,7 +88,7 @@ class FileResponse {
     updateContentType() {
         // Set content-type header based on file extension
         const extension = this.filePath.toString().split('.').pop().toLowerCase();
-        this.headers['content-type'] = this._CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream';
+        this.headers.set('content-type', this._CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream');
     }
 
     /**
@@ -115,7 +100,7 @@ class FileResponse {
         response.exists = this.exists;
         response.status = this.status;
         response.statusText = this.statusText;
-        response.headers = this.headers.clone();
+        response.headers = new Headers(this.headers);
         return response;
     }
 
@@ -138,7 +123,7 @@ class FileResponse {
      */
     async blob() {
         const data = await fs.promises.readFile(this.filePath);
-        return new Blob([data], { type: this.headers['content-type'] });
+        return new Blob([data], { type: this.headers.get('content-type') });
     }
 
     /**
@@ -167,14 +152,18 @@ class FileResponse {
 /**
  * Determines whether the given string is a valid HTTP or HTTPS URL.
  * @param {string|URL} string The string to test for validity as an HTTP or HTTPS URL.
+ * @param {string[]} [validHosts=null] A list of valid hostnames. If specified, the URL's hostname must be in this list.
  * @returns {boolean} True if the string is a valid HTTP or HTTPS URL, false otherwise.
  */
-function isValidHttpUrl(string) {
+function isValidHttpUrl(string, validHosts = null) {
     // https://stackoverflow.com/a/43467144
     let url;
     try {
         url = new URL(string);
     } catch (_) {
+        return false;
+    }
+    if (validHosts && !validHosts.includes(url.hostname)) {
         return false;
     }
     return url.protocol === "http:" || url.protocol === "https:";
@@ -194,13 +183,25 @@ export async function getFile(urlOrPath) {
     } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
         const IS_CI = !!process.env?.TESTING_REMOTELY;
         const version = env.version;
-        return fetch(urlOrPath, {
-            headers: {
-                'User-Agent': `transformers.js/${version}; is_ci/${IS_CI};`
+
+        const headers = new Headers();
+        headers.set('User-Agent', `transformers.js/${version}; is_ci/${IS_CI};`);
+
+        // Check whether we are making a request to the Hugging Face Hub.
+        const isHFURL = isValidHttpUrl(urlOrPath, ['huggingface.co', 'hf.co']);
+        if (isHFURL) {
+            // If an access token is present in the environment variables,
+            // we add it to the request headers.
+            const token = process.env?.HF_ACCESS_TOKEN;
+            if (token) {
+                headers.set('Authorization', `Bearer ${token}`);
             }
-        });
+        }
+        return fetch(urlOrPath, { headers });
     } else {
         // Running in a browser-environment, so we use default headers
+        // NOTE: We do not allow passing authorization headers in the browser,
+        // since this would require exposing the token to the client.
         return fetch(urlOrPath);
     }
 }
@@ -409,11 +410,10 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     if (response === undefined) {
         // Caching not available, or file is not cached, so we perform the request
 
-        let isURL = isValidHttpUrl(requestURL);
-
         if (env.allowLocalModels) {
             // Accessing local models is enabled, so we try to get the file locally.
             // If request is a valid HTTP URL, we skip the local file check. Otherwise, we try to get the file locally.
+            const isURL = isValidHttpUrl(requestURL);
             if (!isURL) {
                 try {
                     response = await getFile(localPath);
