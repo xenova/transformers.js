@@ -38,6 +38,9 @@ TOKENIZER_TEST_DATA = {
         "The company was founded in 2016.",
         "test $1 R2 #3 €4 £5 ¥6 ₣7 ₹8 ₱9 test",
         "I bought an apple for $1.00 at the store.",
+        "you…  ",
+        "\u0079\u006F\u0075\u2026\u00A0\u00A0",
+        "\u0079\u006F\u0075\u2026\u00A0\u00A0\u0079\u006F\u0075\u2026\u00A0\u00A0",
     ],
     "custom": {
         "tiiuae/falcon-7b": [
