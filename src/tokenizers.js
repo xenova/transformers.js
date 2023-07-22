@@ -475,6 +475,8 @@ class BPE extends TokenizerModel {
     constructor(config) {
         super(config);
 
+        this.BPE_SPLIT_TOKEN = ' ';
+
         this.tokens_to_ids = config.vocab;
 
         this.unk_token_id = this.tokens_to_ids.get(config.unk_token);
@@ -486,7 +488,7 @@ class BPE extends TokenizerModel {
         }
 
         this.bpe_ranks = Object.fromEntries(config.merges.map((x, i) => [x, i]));
-        this.merges = config.merges.map(x => x.split(/\s+/))
+        this.merges = config.merges.map(x => x.split(this.BPE_SPLIT_TOKEN));
 
         this.end_of_word_suffix = config.end_of_word_suffix;
 
@@ -511,7 +513,7 @@ class BPE extends TokenizerModel {
         let prev_char = word[0];
         for (let i = 1; i < word.length; ++i) {
             let char = word[i];
-            pairs.add(`${prev_char} ${char}`);
+            pairs.add(prev_char + this.BPE_SPLIT_TOKEN + char);
             prev_char = char;
         }
         return Array.from(pairs);
@@ -548,7 +550,7 @@ class BPE extends TokenizerModel {
             if (!(bigram in this.bpe_ranks)) {
                 break;
             }
-            let [first, second] = bigram.split(/\s+/g)
+            let [first, second] = bigram.split(this.BPE_SPLIT_TOKEN);
             let new_word = [];
             let i = 0;
             let j = -1;
@@ -579,7 +581,7 @@ class BPE extends TokenizerModel {
                 pairs = this.get_pairs(word);
             }
         }
-        let final_word = word.join(" ");
+        let final_word = word.join(this.BPE_SPLIT_TOKEN);
         this.cache[token] = final_word;
         return final_word;
     }
@@ -593,7 +595,7 @@ class BPE extends TokenizerModel {
         let outputTokens = [];
 
         for (let token of tokens) {
-            let bpe_token_list = this.bpe(token).split(' ');
+            let bpe_token_list = this.bpe(token).split(this.BPE_SPLIT_TOKEN);
 
             for (let t of bpe_token_list) {
                 if (this.tokens_to_ids.has(t)) {
