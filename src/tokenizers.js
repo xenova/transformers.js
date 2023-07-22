@@ -801,10 +801,10 @@ class NormalizerSequence extends Normalizer {
         this.normalizers = config.normalizers.map(x => Normalizer.fromConfig(x));
     }
     /**
-   * Apply a sequence of Normalizers to the input text.
-   * @param {string} text The text to normalize.
-   * @returns {string} The normalized text.
-   */
+    * Apply a sequence of Normalizers to the input text.
+    * @param {string} text The text to normalize.
+    * @returns {string} The normalized text.
+    */
     normalize(text) {
         return this.normalizers.reduce((t, normalizer) => {
             return normalizer.normalize(t);
