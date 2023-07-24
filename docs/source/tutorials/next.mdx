@@ -24,14 +24,13 @@ npx create-next-app@latest
 
 On installation, you'll see various prompts. For this demo, we'll be selecting those shown below in bold:
 
-<pre>
-√ What is your project named? ... next
+<pre>√ What is your project named? ... next
 √ Would you like to use TypeScript? ... <b>No</b> / Yes
 √ Would you like to use ESLint? ... No / <b>Yes</b>
 √ Would you like to use Tailwind CSS? ... No / <b>Yes</b>
 √ Would you like to use `src/` directory? ... No / <b>Yes</b>
 √ Would you like to use App Router? (recommended) ... No / <b>Yes</b>
-√ Would you like to customize the default import alias? ... <b>Yes</b> / Yes
+√ Would you like to customize the default import alias? ... <b>No</b> / Yes
 </pre>
 
 
@@ -205,11 +204,23 @@ Finally, we can add a simple UI to the `Home` component, consisting of a input t
 </main>
 ```
 
-You can now run your application using `npm run dev`. Visit the URL shown in the terminal (e.g., [http://localhost:3000/](http://localhost:3000/)) to see your application in action!
+You can now run your application using the following command:
+
+```bash
+npm run dev
+```
+
+Visit the URL shown in the terminal (e.g., [http://localhost:3000/](http://localhost:3000/)) to see your application in action!
 
 ## (Optional) Step 4: Build and deploy
 
-To build your application, simply run `npm run build`. This will bundle your application and output the static files to the `out` folder.
+To build your application, simply run:
+
+```bash
+npm run build
+```
+
+This will bundle your application and output the static files to the `out` folder.
 
 For this demo, we will deploy our application as a static [Hugging Face Space](https://huggingface.co/docs/hub/spaces), but you can deploy it anywhere you like! If you haven't already, you can create a free Hugging Face account [here](https://huggingface.co/join).
 
