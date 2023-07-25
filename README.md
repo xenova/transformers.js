@@ -114,9 +114,9 @@ Want to jump straight in? Get started with one of our sample applications/templa
 | React             | Multilingual translation website | [link](./examples/react-translator/) |
 | Browser extension | Text classification extension    | [link](./examples/extension/) |
 | Electron          | Text classification application  | [link](./examples/electron/)  |
-| Next.js (client-side) | Sentiment analysis (client-side inference) | [link](./examples/next-client/) |
-| Next.js (server-side) | Sentiment analysis (server-side inference) | [link](./examples/next-server/) |
-| Node.js           | sentiment analysis API           | [link](./examples/node/)      |
+| Next.js (client-side) | Sentiment analysis (in-browser inference) | [link](./examples/next-client/) |
+| Next.js (server-side) | Sentiment analysis (Node.js inference) | [link](./examples/next-server/) |
+| Node.js           | Sentiment analysis API           | [link](./examples/node/)      |
 
 
 ## Custom usage
