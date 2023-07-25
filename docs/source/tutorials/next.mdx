@@ -2,7 +2,7 @@
 # Building a Next.js application
 
 In this tutorial, we'll build a simple Next.js application that performs sentiment analysis using Transformers.js!
-Also, since Transformers.js can run in the browser and in Node.js, you can choose whether you want to perform inference [client-side](#client-side-inference) or [server-side](#server-side-inference) (we'll show you how to do both). In either case, we will be developing with the new [App Router](https://nextjs.org/docs/app) paradigm.
+Since Transformers.js can run in the browser and in Node.js, you can choose whether you want to perform inference [client-side](#client-side-inference) or [server-side](#server-side-inference) (we'll show you how to do both). In either case, we will be developing with the new [App Router](https://nextjs.org/docs/app) paradigm.
 The final product will look something like this:
 
 ![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/next-demo.gif)
@@ -118,7 +118,7 @@ self.addEventListener('message', async (event) => {
 
 ### Step 3: Design the user interface
 
-We'll now modify the default `./src/app/page.js` so that it connects to our worker thread. Since we'll only be performing in-browser inference, we can opt-in to Client components using the [`'use client'` directive](https://nextjs.org/docs/getting-started/react-essentials#the-use-client-directive).
+We'll now modify the default `./src/app/page.js` file so that it connects to our worker thread. Since we'll only be performing in-browser inference, we can opt-in to Client components using the [`'use client'` directive](https://nextjs.org/docs/getting-started/react-essentials#the-use-client-directive).
 
 ```jsx
 'use client'
@@ -229,14 +229,15 @@ This will bundle your application and output the static files to the `out` folde
 For this demo, we will deploy our application as a static [Hugging Face Space](https://huggingface.co/docs/hub/spaces), but you can deploy it anywhere you like! If you haven't already, you can create a free Hugging Face account [here](https://huggingface.co/join).
 
 1. Visit [https://huggingface.co/new-space](https://huggingface.co/new-space) and fill in the form. Remember to select "Static" as the space type.
-2. Go to "Files" &rarr; "Add file" &rarr; "Upload files". Drag the files from the `out` folder into the upload box and click "Upload". After they have uploaded, scroll down to the button and click "Commit changes to main".
+2. Click the "Create space" button at the bottom of the page.
+3. Go to "Files" &rarr; "Add file" &rarr; "Upload files". Drag the files from the `out` folder into the upload box and click "Upload". After they have uploaded, scroll down to the button and click "Commit changes to main".
 
 **That's it!** Your application should now be live at `https://huggingface.co/spaces/<your-username>/<your-space-name>`!
 
 
 ## Server-side inference
 
-While there are many different ways to perform server-side inference, the simplest one (and what we will discuss in this tutorial) is using the new [Route Handlers](https://nextjs.org/docs/app/building-your-application/routing/router-handlers) feature.
+While there are many different ways to perform server-side inference, the simplest (which we will discuss in this tutorial) is using the new [Route Handlers](https://nextjs.org/docs/app/building-your-application/routing/router-handlers) feature.
 
 
 ### Step 1: Initialise the project
@@ -349,7 +350,7 @@ Next, let's set up our Route Handler. We can do this by creating two files in a 
 
 ### Step 3: Design the user interface
 
-We'll now modify the default `./src/app/page.js` to make a GET request to our Route Handler.
+We'll now modify the default `./src/app/page.js` to make requests to our newly-created Route Handler.
 
 ```jsx
 'use client'
