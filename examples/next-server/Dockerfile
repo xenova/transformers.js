@@ -61,4 +61,9 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME localhost
 
+# Allow the running process to write model files to the cache folder.
+# NOTE: In practice, you would probably want to pre-download the model files to avoid having to download them on-the-fly.
+RUN mkdir -p /app/node_modules/@xenova/.cache/
+RUN chmod 777 -R /app/node_modules/@xenova/
+
 CMD ["node", "server.js"]
