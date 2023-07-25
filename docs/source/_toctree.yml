@@ -11,6 +11,8 @@
 - sections:
   - local: tutorials/react
     title: Building a React Application
+  - local: tutorials/next
+    title: Building a Next.js Application
   - local: tutorials/browser-extension
     title: Building a Browser Extension
   - local: tutorials/electron
