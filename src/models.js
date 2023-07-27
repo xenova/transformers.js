@@ -2751,6 +2751,19 @@ export class Wav2Vec2ForCTC extends Wav2Vec2PreTrainedModel {
         return new CausalLMOutput(await super._call(model_inputs));
     }
 }
+
+export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -2926,6 +2939,11 @@ const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
     ['wav2vec2', Wav2Vec2ForCTC],
 ]);
 
+const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
+    ['wav2vec2', Wav2Vec2ForSequenceClassification],
+]);
+
+
 const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_ENCODER_ONLY, EncoderOnlyModelType],
     [MODEL_MAPPING_NAMES_ENCODER_DECODER, EncoderDecoderModelType],
@@ -2942,6 +2960,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_CTC_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
 ];
 
 for (let [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -3088,6 +3107,11 @@ export class AutoModelForMaskGeneration extends PretrainedMixin {
 export class AutoModelForCTC extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_CTC_MAPPING_NAMES];
 }
+
+export class AutoModelForAudioClassification extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES];
+}
+
 
 //////////////////////////////////////////////////
 

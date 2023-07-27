@@ -20,6 +20,7 @@ import {
 import {
     AutoModel,
     AutoModelForSequenceClassification,
+    AutoModelForAudioClassification,
     AutoModelForTokenClassification,
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
@@ -750,6 +751,85 @@ export class FeatureExtractionPipeline extends Pipeline {
 // TODO
 // export class SentenceSimilarityPipeline extends Pipeline {
 // }
+
+
+/**
+ * Audio classification pipeline using any `AutoModelForAudioClassification`.
+ * This pipeline predicts the class of a raw waveform or an audio file.
+ */
+export class AudioClassificationPipeline extends Pipeline {
+
+    /**
+     * Create a new AudioClassificationPipeline.
+     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} model The model to use.
+     * @param {Processor} processor The processor to use.
+     */
+    constructor(task, model, processor) {
+        super(task, null, model); // TODO tokenizer
+        this.processor = processor;
+    }
+
+    /**
+     * Preprocesses the input audio for the AutomaticSpeechRecognitionPipeline.
+     * @param {any} audio The audio to be preprocessed.
+     * @param {number} sampling_rate The sampling rate of the audio.
+     * @returns {Promise<Float32Array>} A promise that resolves to the preprocessed audio data.
+     * @private
+     */
+    async _preprocess(audio, sampling_rate) {
+        if (isString(audio)) {
+            audio = await read_audio(audio, sampling_rate);
+        }
+
+        return audio;
+    }
+
+    /**
+     * Executes the audio classification task.
+     * @param {any} audio The input audio files to be classified.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {number} [options.topk=1] The number of top predictions to be returned.
+     * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted labels and scores.
+     */
+    async _call(audio, {
+        topk = 1
+    } = {}) {
+
+        let single = !Array.isArray(audio);
+        if (single) {
+            // @ts-ignore
+            audio = [audio];
+        }
+
+        const id2label = this.model.config.id2label;
+        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+
+        let toReturn = [];
+        for (let aud of audio) {
+            aud = await this._preprocess(aud, sampling_rate)
+
+            const inputs = await this.processor(aud);
+            const output = await this.model(inputs);
+            const logits = output.logits[0];
+
+            let scores = getTopItems(softmax(logits.data), topk);
+
+            let vals = scores.map(function (x) {
+                return {
+                    label: id2label[x[0]],
+                    score: x[1],
+                }
+            });
+            if (topk === 1) {
+                toReturn.push(...vals);
+            } else {
+                toReturn.push(vals);
+            }
+        }
+        return !single || topk === 1 ? toReturn : toReturn[0];
+    }
+}
 
 
 /**
@@ -1552,7 +1632,17 @@ const SUPPORTED_TASKS = {
         },
         "type": "text",
     },
-
+    "audio-classification": {
+        "pipeline": AudioClassificationPipeline,
+        "model": AutoModelForAudioClassification,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "superb/wav2vec2-base-superb-ks",
+            "model": "Xenova/wav2vec2-base-superb-ks",
+        },
+        "type": "audio",
+    },
     "automatic-speech-recognition": {
         "tokenizer": AutoTokenizer,
         "pipeline": AutomaticSpeechRecognitionPipeline,
