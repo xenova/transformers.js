@@ -1718,11 +1718,10 @@ export async function pipeline(
         if (!cls) return;
         if (Array.isArray(cls)) {
             list.push(new Promise(async (resolve, reject) => {
-                let p, e;
+                let e;
                 for (let c of cls) {
                     try {
-                        p = await c.from_pretrained(model, pretrainedOptions);
-                        resolve(p);
+                        resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
                     } catch (err) {
                         e = err;
