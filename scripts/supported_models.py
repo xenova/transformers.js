@@ -197,15 +197,25 @@ SUPPORTED_MODELS = {
         'facebook/dino-vits16',
     ],
     'wav2vec2': [
-        # feature extraction
-        'facebook/mms-300m', # NOTE: requires --task feature-extraction
-        
+        # feature extraction # NOTE: requires --task feature-extraction
+        'facebook/mms-300m',
+        'facebook/mms-1b',
+
         # audio classification
         'alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech',
+        'facebook/mms-lid-126',
+        'facebook/mms-lid-256',
+        'facebook/mms-lid-512',
+        'facebook/mms-lid-1024',
+        'facebook/mms-lid-2048',
+        'facebook/mms-lid-4017',
 
         # speech recognition
         'jonatasgrosman/wav2vec2-large-xlsr-53-english',
         'facebook/wav2vec2-base-960h',
+        'facebook/mms-1b-l1107',
+        'facebook/mms-1b-all',
+        'facebook/mms-1b-fl102',
     ],
     'whisper': [
         'openai/whisper-tiny',
