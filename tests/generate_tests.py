@@ -64,9 +64,9 @@ def generate_tokenizer_tests():
             try:
                 # Load tokenizer
                 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-            except KeyError:
-                # If a KeyError is raised from the AutoTokenizer, it means the model
-                # does not use a tokenizer (e.g., vision models)
+            except (KeyError, EnvironmentError):
+                # If a KeyError/EnvironmentError is raised from the AutoTokenizer, it
+                # means the model does not use a tokenizer (e.g., vision models)
                 continue 
             tokenizer_results = []
 
