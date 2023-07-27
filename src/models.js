@@ -1394,6 +1394,81 @@ export class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// MPNet models
+export class MPNetPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare MPNet Model transformer outputting raw hidden-states without any specific head on top.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetModel extends MPNetPreTrainedModel { }
+
+/**
+ * MPNetForMaskedLM is a class representing a MPNet model for masked language modeling.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetForMaskedLM extends MPNetPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * MPNetForSequenceClassification is a class representing a MPNet model for sequence classification.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetForSequenceClassification extends MPNetPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * MPNetForTokenClassification is a class representing a MPNet model for token classification.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetForTokenClassification extends MPNetPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * MPNetForQuestionAnswering is a class representing a MPNet model for question answering.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetForQuestionAnswering extends MPNetPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // SqueezeBert models
@@ -2805,6 +2880,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', BertModel],
+    ['mpnet', MPNetModel],
     ['albert', AlbertModel],
     ['distilbert', DistilBertModel],
     ['roberta', RobertaModel],
@@ -2834,6 +2910,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForSequenceClassification],
+    ['mpnet', MPNetForSequenceClassification],
     ['albert', AlbertForSequenceClassification],
     ['distilbert', DistilBertForSequenceClassification],
     ['roberta', RobertaForSequenceClassification],
@@ -2845,6 +2922,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
+    ['mpnet', MPNetForTokenClassification],
     ['distilbert', DistilBertForTokenClassification],
     ['roberta', RobertaForTokenClassification],
     ['xlm-roberta', XLMRobertaForTokenClassification],
@@ -2867,6 +2945,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', BertForMaskedLM],
+    ['mpnet', MPNetForMaskedLM],
     ['albert', AlbertForMaskedLM],
     ['distilbert', DistilBertForMaskedLM],
     ['roberta', RobertaForMaskedLM],
@@ -2877,6 +2956,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', BertForQuestionAnswering],
+    ['mpnet', MPNetForQuestionAnswering],
     ['albert', AlbertForQuestionAnswering],
     ['distilbert', DistilBertForQuestionAnswering],
     ['roberta', RobertaForQuestionAnswering],
