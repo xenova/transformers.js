@@ -24,6 +24,7 @@ import {
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
+    AutoModelForCTC,
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
@@ -875,6 +876,45 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
      * @returns {Promise<Object>} A Promise that resolves to an object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
      */
     async _call(audio, kwargs = {}) {
+        switch (this.model.config.model_type) {
+            case 'whisper':
+                return this._call_whisper(audio, kwargs)
+            case 'wav2vec2':
+                return this._call_wav2vec2(audio, kwargs)
+            default:
+                throw new Error(`AutomaticSpeechRecognitionPipeline does not support model type '${this.model.config.model_type}'.`)
+        }
+    }
+    async _call_wav2vec2(audio, kwargs = {}) {
+        // TODO use kwargs
+
+        let single = !Array.isArray(audio);
+        if (single) {
+            // @ts-ignore
+            audio = [audio];
+        }
+
+        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+
+        let toReturn = [];
+        for (let aud of audio) {
+            aud = await this._preprocess(aud, sampling_rate)
+
+            const inputs = await this.processor(aud);
+            const output = await this.model(inputs);
+            const logits = output.logits[0];
+
+            const predicted_ids = [];
+            for (let item of logits) {
+                predicted_ids.push(max(item.data)[1])
+            }
+            const predicted_sentences = this.tokenizer.decode(predicted_ids)
+            toReturn.push({ text: predicted_sentences })
+        }
+        return single ? toReturn[0] : toReturn;
+    }
+
+    async _call_whisper(audio, kwargs = {}) {
         let return_timestamps = kwargs.return_timestamps ?? false;
         let chunk_length_s = kwargs.chunk_length_s ?? 0;
         let stride_length_s = kwargs.stride_length_s ?? null;
@@ -1516,7 +1556,7 @@ const SUPPORTED_TASKS = {
     "automatic-speech-recognition": {
         "tokenizer": AutoTokenizer,
         "pipeline": AutomaticSpeechRecognitionPipeline,
-        "model": AutoModelForSeq2SeqLM,
+        "model": [AutoModelForSeq2SeqLM, AutoModelForCTC],
         "processor": AutoProcessor,
         "default": {
             // TODO: replace with original
@@ -1674,22 +1714,30 @@ export async function pipeline(
         local_files_only,
         revision,
     }
-    if (tokenizerClass) {
-        promises.push(
-            tokenizerClass.from_pretrained(model, pretrainedOptions),
-        )
-    }
-    if (modelClass) {
-        promises.push(
-            modelClass.from_pretrained(model, pretrainedOptions)
-        )
+    const pushIfExists = (cls, list) => {
+        if (!cls) return;
+        if (Array.isArray(cls)) {
+            list.push(new Promise(async (resolve, reject) => {
+                let p, e;
+                for (let c of cls) {
+                    try {
+                        p = await c.from_pretrained(model, pretrainedOptions);
+                        resolve(p);
+                        return;
+                    } catch (err) {
+                        e = err;
+                    }
+                }
+                reject(e);
+            }))
+        } else {
+            list.push(cls.from_pretrained(model, pretrainedOptions))
+        }
     }
 
-    if (processorClass) {
-        promises.push(
-            processorClass.from_pretrained(model, pretrainedOptions)
-        )
-    }
+    pushIfExists(tokenizerClass, promises);
+    pushIfExists(modelClass, promises);
+    pushIfExists(processorClass, promises);
 
     // Load tokenizer and model
     let items = await Promise.all(promises)
