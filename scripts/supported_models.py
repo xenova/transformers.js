@@ -197,15 +197,15 @@ SUPPORTED_MODELS = {
         'facebook/dino-vits16',
     ],
     'wav2vec2': [
+        # feature extraction
         'facebook/mms-300m', # NOTE: requires --task feature-extraction
+        
+        # audio classification
+        'alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech',
 
+        # speech recognition
         'jonatasgrosman/wav2vec2-large-xlsr-53-english',
         'facebook/wav2vec2-base-960h',
-
-        'audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim',
-        'harshit345/xlsr-wav2vec-speech-emotion-recognition',
-        'ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition',
-        'anton-l/wav2vec2-base-superb-sv', # NOTE: requires `ignore_mismatched_sizes=True`
     ],
     'whisper': [
         'openai/whisper-tiny',
