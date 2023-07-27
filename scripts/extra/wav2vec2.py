@@ -1,12 +1,5 @@
-import json
-from transformers.utils import cached_file
 
-
-def generate_tokenizer_json(model_path):
-
-    vocab_file = cached_file(model_path, 'vocab.json')
-    with open(vocab_file) as fp:
-        vocab = json.load(fp)
+def generate_tokenizer_json(tokenizer):
 
     tokenizer_json = {
         "version": "1.0",
@@ -23,7 +16,7 @@ def generate_tokenizer_json(model_path):
             "cleanup": True
         },
         "model": {
-            "vocab": vocab
+            "vocab": tokenizer.vocab
         }
     }
 
