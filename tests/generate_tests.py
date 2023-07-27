@@ -77,8 +77,12 @@ def generate_tokenizer_tests():
             # Run tokenizer on test cases
             for text in shared_texts + custom_texts:
                 # TODO: add with_pair option
+                try:
+                    encoded = tokenizer(text).data
+                except Exception:
+                    # Ignore testing tokenizers which fail in the python library
+                    continue
 
-                encoded = tokenizer(text).data
                 decoded_with_special = tokenizer.decode(
                     encoded["input_ids"], skip_special_tokens=False)
                 decoded_without_special = tokenizer.decode(
@@ -91,7 +95,8 @@ def generate_tokenizer_tests():
                     decoded_without_special=decoded_without_special,
                 ))
 
-            results[tokenizer_name] = tokenizer_results
+            if tokenizer_results:
+                results[tokenizer_name] = tokenizer_results
 
     return results
 
