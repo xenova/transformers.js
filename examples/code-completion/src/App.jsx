@@ -5,6 +5,11 @@ import Editor from "@monaco-editor/react";
 import './App.css'
 
 
+const MODELS = [
+  'Xenova/tiny_starcoder_py',
+  'Xenova/starcoderbase-1b',
+  'Xenova/codegen-350M-mono',
+]
 function App() {
   // Editor setup
   const monaco = useRef(null);
@@ -15,10 +20,10 @@ function App() {
   const [ready, setReady] = useState(null);
   const [disabled, setDisabled] = useState(false);
   const [progressItems, setProgressItems] = useState([]);
-  
+
   // Inputs and outputs
-  const [model, setModel] = useState('Xenova/tiny_starcoder_py'); // Xenova/starcoderbase-1b, Xenova/codegen-350M-mono
-  const [maxNewTokens, setMaxNewTokens] = useState(20);
+  const [model, setModel] = useState(MODELS[0]); // 
+  const [maxNewTokens, setMaxNewTokens] = useState(50);
   const [code, setCode] = useState('\ndef fib(n):\n    """Calculates the nth Fibonacci number"""\n');
 
   // Create a reference to the worker object.
@@ -98,6 +103,11 @@ function App() {
       run: () => {
         const val = m.getValue();
         if (!val) return;
+        console.log({
+          model,
+          text: val,
+          max_new_tokens: maxNewTokens,
+        })
 
         worker.current.postMessage({
           model,
@@ -121,7 +131,7 @@ function App() {
     <div className="flex h-screen w-screen">
       <div>
         <Editor
-          width="calc(100vw - 200px)"
+          width="calc(100vw - 300px)"
           language={language}
           value={code}
           theme="vs-dark"
@@ -134,12 +144,19 @@ function App() {
           }}
         />
       </div>
-      <div className="flex-grow sidebar">
-        {/* <select>
-          <option>model</option>
-        </select> */}
+      <div className="flex-grow sidebar p-4 flex flex-col">
 
-        <label>Max new tokens:</label>
+        <label className="pt-3">Model:</label>
+        <select value={model} onChange={e => setModel(e.target.value)} className="p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg">
+          {MODELS.map((value, i) => {
+            return <option key={i} value={value}>{value}</option>
+          })}
+        </select>
+
+        <div className="pt-3 flex justify-between">
+          <label>Max new tokens:</label>
+          <label>{maxNewTokens}</label>
+        </div>
         <input
           type="range"
           min="1"
@@ -147,7 +164,12 @@ function App() {
           value={maxNewTokens}
           onChange={handleSliderChange}
         />
-        <p>Selected Value: {maxNewTokens}</p>
+
+        <div className="flex-grow"></div>
+
+        <div className="text-center">
+          Made with&nbsp; <a className="text-white font-medium underline underline-offset-1" href="https://github.com/xenova/transformers.js">🤗 Transformers.js</a>
+        </div>
       </div>
     </div>
   );
