@@ -23,7 +23,7 @@ function App() {
   const [progressItems, setProgressItems] = useState([]);
 
   // Inputs and outputs
-  const [model, setModel] = useState(MODELS[0]); // 
+  const [model, setModel] = useState(MODELS[0]);
   const [maxNewTokens, setMaxNewTokens] = useState(45);
   const [code, setCode] = useState('\ndef fib(n):\n    """Calculates the nth Fibonacci number"""\n');
 
@@ -104,7 +104,6 @@ function App() {
     let actionRegistration = m.addAction({
       id: "generate",
       label: "Generate",
-      // keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KEY_V],
       contextMenuGroupId: "0_custom",
       run: () => {
         const val = m.getValue();
@@ -124,8 +123,6 @@ function App() {
     // Define a cleanup function for when the component is unmounted.
     return () => actionRegistration.dispose();
   }, [monacoReady, model, maxNewTokens, temperature, topK, doSample]);
-
-  // Function to handle changes to the range slider
 
   const showLoading = ready === false || progressItems.length > 0
 
