@@ -112,7 +112,7 @@ SUPPORTED_MODELS = {
     'gpt_bigcode': [
         # See branch: https://github.com/huggingface/optimum/tree/xenova-bigcode-testing
         'bigcode/tiny_starcoder_py',
-        'bigcode/starcoderbase-1b',
+        # 'bigcode/starcoderbase-1b', # NOTE: This model is gated, so we ignore it when testing
     ],
     'm2m_100': [
         'facebook/nllb-200-distilled-600M',
