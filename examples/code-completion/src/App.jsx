@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
 import Editor from "@monaco-editor/react";
+import Progress from './components/Progress';
 
 import './App.css'
 
@@ -14,7 +15,7 @@ function App() {
   // Editor setup
   const monaco = useRef(null);
   const [monacoReady, setMonacoReady] = useState(false);
-  const [language, setLanguage] = useState('python');
+  const [language, setLanguage] = useState('python'); // Only allow python for now
 
   // Model loading
   const [ready, setReady] = useState(null);
@@ -23,7 +24,7 @@ function App() {
 
   // Inputs and outputs
   const [model, setModel] = useState(MODELS[0]); // 
-  const [maxNewTokens, setMaxNewTokens] = useState(50);
+  const [maxNewTokens, setMaxNewTokens] = useState(45);
   const [code, setCode] = useState('\ndef fib(n):\n    """Calculates the nth Fibonacci number"""\n');
 
   // Create a reference to the worker object.
@@ -52,7 +53,7 @@ function App() {
           setProgressItems(
             prev => prev.map(item => {
               if (item.file === e.data.file) {
-                return { ...item, progress: e.data.progress }
+                return { ...item, ...e.data }
               }
               return item;
             })
@@ -122,8 +123,26 @@ function App() {
     setMaxNewTokens(newValue);
   };
 
+  const showLoading = ready === false ||  progressItems.length > 0
+
   return (
     <div className="flex h-screen w-screen">
+      <div className="gap-1 z-50 top-0 left-0 absolute w-full h-full transition-all px-32 flex flex-col justify-center text-center" style={{
+        opacity: showLoading ? 1 : 0,
+        pointerEvents: showLoading ? 'all' : 'none',
+        background: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(4px)',
+      }}>
+
+        {ready === false && (
+          <label className="text-3xl p-3">Loading model...</label>
+        )}
+        {progressItems.map(data => (
+          <div key={data.file}>
+            <Progress data={data} />
+          </div>
+        ))}
+      </div>
       <div>
         <Editor
           width="calc(100vw - 300px)"
