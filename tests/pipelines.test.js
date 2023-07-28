@@ -809,6 +809,35 @@ describe('Pipelines', () => {
 
     });
 
+    describe('Audio classification', () => {
+
+        // List all models which will be tested
+        const models = [
+            'alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech',
+        ];
+
+        it(models[0], async () => {
+            let classifier = await pipeline('audio-classification', m(models[0]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+            let audioData = await loadAudio(url);
+
+            { // Classify audio
+                let outputs = await classifier(audioData);
+
+                let expected = [
+                    { 'score': 0.997512936592102, 'label': 'male' },
+                    { 'score': 0.0024870133493095636, 'label': 'female' }
+                ];
+                compare(outputs, expected);
+            }
+
+            await classifier.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+    });
+
     describe('Image-to-text', () => {
 
         // List all models which will be tested
