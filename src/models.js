@@ -2940,6 +2940,10 @@ export class PretrainedMixin {
             revision,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
+        if (!options.config) {
+            // If no config was passed, reuse this config for future processing
+            options.config = config;
+        }
 
         if (!this.MODEL_CLASS_MAPPINGS) {
             throw new Error("`MODEL_CLASS_MAPPINGS` not implemented for this type of `AutoClass`: " + this.name);
