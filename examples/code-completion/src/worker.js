@@ -1,7 +1,7 @@
 
 import { pipeline, env } from '@xenova/transformers';
 
-env.allowLocalModels=false;
+env.allowLocalModels = false;
 
 /**
  * This class uses the Singleton pattern to ensure that only one instance of the pipeline is loaded.
@@ -22,9 +22,16 @@ class CodeCompletionPipeline {
 
 // Listen for messages from the main thread
 self.addEventListener('message', async (event) => {
-    const {model, text, max_new_tokens} = event.data;
+    const {
+        model, text, max_new_tokens,
 
-    if(CodeCompletionPipeline.model !== model){
+        // Generation parameters
+        temperature,
+        top_k,
+        do_sample,
+    } = event.data;
+
+    if (CodeCompletionPipeline.model !== model) {
         // Invalidate model if different
         CodeCompletionPipeline.model = model;
 
@@ -45,6 +52,9 @@ self.addEventListener('message', async (event) => {
     // Actually perform the code-completion
     let output = await generator(text, {
         max_new_tokens,
+        temperature,
+        top_k,
+        do_sample,
 
         // Allows for partial output
         callback_function: x => {

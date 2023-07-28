@@ -27,6 +27,11 @@ function App() {
   const [maxNewTokens, setMaxNewTokens] = useState(45);
   const [code, setCode] = useState('\ndef fib(n):\n    """Calculates the nth Fibonacci number"""\n');
 
+  // Generation parameters
+  const [temperature, setTemperature] = useState(0.5);
+  const [topK, setTopK] = useState(5);
+  const [doSample, setDoSample] = useState(false);
+
   // Create a reference to the worker object.
   const worker = useRef(null);
 
@@ -109,21 +114,20 @@ function App() {
           model,
           text: val,
           max_new_tokens: maxNewTokens,
+          temperature,
+          top_k: topK,
+          do_sample: doSample
         });
       }
     });
 
     // Define a cleanup function for when the component is unmounted.
     return () => actionRegistration.dispose();
-  }, [monacoReady, model, maxNewTokens]);
+  }, [monacoReady, model, maxNewTokens, temperature, topK, doSample]);
 
   // Function to handle changes to the range slider
-  const handleSliderChange = (event) => {
-    const newValue = parseInt(event.target.value);
-    setMaxNewTokens(newValue);
-  };
 
-  const showLoading = ready === false ||  progressItems.length > 0
+  const showLoading = ready === false || progressItems.length > 0
 
   return (
     <div className="flex h-screen w-screen">
@@ -160,14 +164,14 @@ function App() {
       </div>
       <div className="flex-grow sidebar p-4 flex flex-col">
 
-        <label className="pt-3">Model:</label>
+        <label className="mt-3">Model:</label>
         <select value={model} onChange={e => setModel(e.target.value)} className="p-2.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg">
           {MODELS.map((value, i) => {
             return <option key={i} value={value}>{value}</option>
           })}
         </select>
 
-        <div className="pt-3 flex justify-between">
+        <div className="mt-3 flex justify-between">
           <label>Max new tokens:</label>
           <label>{maxNewTokens}</label>
         </div>
@@ -176,7 +180,56 @@ function App() {
           min="1"
           max="512"
           value={maxNewTokens}
-          onChange={handleSliderChange}
+          onChange={(event) => {
+            const newValue = parseInt(event.target.value);
+            setMaxNewTokens(newValue);
+          }}
+        />
+
+        <div className="mt-3 flex justify-between">
+          <label>Temperature:</label>
+          <label>{temperature}</label>
+        </div>
+        <input
+          type="range"
+          min="0"
+          step="0.05"
+          max="1"
+          value={temperature}
+          onChange={(event) => {
+            const newValue = Number(event.target.value);
+            setTemperature(newValue);
+          }}
+        />
+        <div className="mt-3 flex items-center">
+          <input
+            id="default-checkbox"
+            type="checkbox"
+            value={doSample}
+            onInput={(event) => {
+              setDoSample(event.target.checked);
+            }}
+            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-600 ring-offset-gray-800 focus:ring-2 bg-gray-700 border-gray-600"
+          />
+          <label htmlFor="default-checkbox" className="ml-2 font-medium">Sample</label>
+        </div>
+
+        <div className="mt-3 flex justify-between" style={{ opacity: doSample ? 1 : 0.2 }}
+        >
+          <label>Top K:</label>
+          <label>{topK}</label>
+        </div>
+        <input
+          disabled={!doSample}
+          style={{ opacity: doSample ? 1 : 0.2 }}
+          type="range"
+          min="0"
+          max="50"
+          value={topK}
+          onChange={(event) => {
+            const newValue = parseInt(event.target.value);
+            setTopK(newValue);
+          }}
         />
 
         <div className="flex-grow"></div>
