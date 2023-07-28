@@ -7,8 +7,8 @@ import './App.css'
 
 const MODELS = [
   'Xenova/tiny_starcoder_py',
-  'Xenova/starcoderbase-1b',
   'Xenova/codegen-350M-mono',
+  // 'Xenova/starcoderbase-1b',
 ]
 function App() {
   // Editor setup
