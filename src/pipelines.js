@@ -789,11 +789,11 @@ export class AudioClassificationPipeline extends Pipeline {
      * Executes the audio classification task.
      * @param {any} audio The input audio files to be classified.
      * @param {Object} options An optional object containing the following properties:
-     * @param {number} [options.topk=1] The number of top predictions to be returned.
+     * @param {number} [options.topk=5] The number of top predictions to be returned.
      * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted labels and scores.
      */
     async _call(audio, {
-        topk = 1
+        topk = 5
     } = {}) {
 
         let single = !Array.isArray(audio);
