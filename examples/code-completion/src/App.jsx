@@ -78,7 +78,7 @@ function App() {
           break;
 
         case 'complete':
-          // Generation complete: re-enable the "Translate" button
+          // Generation complete: re-enable the "Generate" button
           setDisabled(false);
           break;
       }
