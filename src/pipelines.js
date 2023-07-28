@@ -756,6 +756,17 @@ export class FeatureExtractionPipeline extends Pipeline {
 /**
  * Audio classification pipeline using any `AutoModelForAudioClassification`.
  * This pipeline predicts the class of a raw waveform or an audio file.
+ * 
+ * **Example:** Perform audio classification.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * let classifier = await pipeline('audio-classification', 'Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech');
+ * let output = await classifier(url);
+ * // [
+ * //   { label: 'male', score: 0.9981542229652405 },
+ * //   { label: 'female', score: 0.001845747814513743 }
+ * // ]
+ * ```
  */
 export class AudioClassificationPipeline extends Pipeline {
 
