@@ -706,9 +706,13 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
+            // whisper
             'openai/whisper-tiny.en', // English-only
             'openai/whisper-small', // Multilingual
             ['openai/whisper-tiny.en', 'output_attentions'], // English-only + `output_attentions`
+
+            // wav2vec2
+            'jonatasgrosman/wav2vec2-large-xlsr-53-english',
         ];
 
         it(models[0], async () => {
@@ -807,6 +811,22 @@ describe('Pipelines', () => {
 
         }, MAX_TEST_EXECUTION_TIME);
 
+
+        it(models[3], async () => {
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[3]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+            let audioData = await loadAudio(url);
+
+            { // Transcribe
+                let output = await transcriber(audioData);
+                expect(output.text.length).toBeGreaterThan(50);
+                // { text: "and so my fellow america ask not what your country can do for you ask what you can do for your country" }
+            }
+
+            await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Audio classification', () => {
