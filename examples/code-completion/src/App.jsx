@@ -103,11 +103,6 @@ function App() {
       run: () => {
         const val = m.getValue();
         if (!val) return;
-        console.log({
-          model,
-          text: val,
-          max_new_tokens: maxNewTokens,
-        })
 
         worker.current.postMessage({
           model,
