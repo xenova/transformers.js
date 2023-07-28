@@ -111,6 +111,7 @@ Want to jump straight in? Get started with one of our sample applications/templa
 |-------------------|----------------------------------|-------------------------------|
 | Whisper Web       | Speech recognition w/ Whisper    | [link](https://github.com/xenova/whisper-web) |
 | Doodle Dash       | Real-time sketch-recognition game (see [blog](https://huggingface.co/blog/ml-web-games)) | [link](https://github.com/xenova/doodle-dash) |
+| Code Playground   | In-browser code completion website | [link](./examples/code-completion/) |
 | React             | Multilingual translation website | [link](./examples/react-translator/) |
 | Browser extension | Text classification extension    | [link](./examples/extension/) |
 | Electron          | Text classification application  | [link](./examples/electron/)  |
