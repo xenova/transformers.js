@@ -829,12 +829,12 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-   * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
-   * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
-   *
-   * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
-   * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
-   */
+     * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
+     * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
+     *
+     * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
+     * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
+     */
     _get_generation_config(generation_config) {
         // Create empty generation config (contains defaults)
         let gen_config = new GenerationConfig();
