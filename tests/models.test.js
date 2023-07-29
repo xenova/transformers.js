@@ -5,16 +5,19 @@
 import {
     AutoTokenizer,
     AutoModel,
+    AutoProcessor,
 
     BertModel,
     GPT2Model,
     T5Model,
     CLIPTextModelWithProjection,
+    CLIPVisionModelWithProjection,
 
     BertTokenizer,
     GPT2Tokenizer,
     T5Tokenizer,
 
+    RawImage,
 } from '../src/transformers.js';
 
 import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
@@ -110,11 +113,34 @@ describe('Models', () => {
             const { text_embeds } = await text_model(text_inputs);
 
             // Ensure correct shapes
-            let expected_shape = [texts.length, text_model.config.projection_dim];
-            let actual_shape = text_embeds.dims;
+            const expected_shape = [texts.length, text_model.config.projection_dim];
+            const actual_shape = text_embeds.dims;
             compare(expected_shape, actual_shape);
 
             await text_model.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it(`CLIP (vision)`, async () => {
+            const model_id = m(models_to_test[0]);
+
+            // Load processor and vision model
+            const processor = await AutoProcessor.from_pretrained(model_id);
+            const vision_model = await CLIPVisionModelWithProjection.from_pretrained(model_id);
+
+            // Read image and run processor
+            const image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+            const image_inputs = await processor(image);
+
+            // Compute embeddings
+            const { image_embeds } = await vision_model(image_inputs);
+
+            // Ensure correct shapes
+            const expected_shape = [1, vision_model.config.projection_dim];
+            const actual_shape = image_embeds.dims;
+            compare(expected_shape, actual_shape);
+
+            await vision_model.dispose();
 
         }, MAX_TEST_EXECUTION_TIME);
 
