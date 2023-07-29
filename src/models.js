@@ -101,9 +101,11 @@ class DecoderOnlyModelType extends ModelType { };
 //////////////////////////////////////////////////
 // Helper functions
 
-// Will be populated later
-const MODEL_TYPE_MAPPING = new Map();
-const MODEL_CLASS_MAPPING = new Map();
+// Will be populated fully later
+const MODEL_TYPE_MAPPING = new Map([
+    ['CLIPTextModelWithProjection', EncoderOnlyModelType],
+    ['CLIPVisionModelWithProjection', EncoderOnlyModelType],
+]);
 
 /**
  * Helper function to determine which `forward` method to run for a specific model.
@@ -2300,8 +2302,75 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
 //////////////////////////////////////////////////
 // CLIP models
 export class CLIPPreTrainedModel extends PreTrainedModel { }
-export class CLIPModel extends CLIPPreTrainedModel {
 
+/**
+ * CLIP Text and Vision Model with a projection layers on top
+ * 
+ * **Example:** Perform zero-shot image classification with a `CLIPModel`.
+ * 
+ * ```javascript
+ * import { AutoTokenizer, AutoProcessor, CLIPModel, RawImage } from '@xenova/transformers';
+ * 
+ * // Load tokenizer, processor, and model
+ * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch16');
+ * let processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch16');
+ * let model = await CLIPModel.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Run tokenization
+ * let texts = ['a photo of a car', 'a photo of a football match']
+ * let text_inputs = tokenizer(texts, { padding: true, truncation: true });
+ * 
+ * // Read image and run processor
+ * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+ * let image_inputs = await processor(image);
+ * 
+ * // Run model with both text and pixel inputs
+ * let output = await model({ ...text_inputs, ...image_inputs });
+ * // {
+ * //   logits_per_image: Tensor {
+ * //     dims: [ 1, 2 ],
+ * //     data: Float32Array(2) [ 18.579734802246094, 24.31830596923828 ],
+ * //   },
+ * //   logits_per_text: Tensor {
+ * //     dims: [ 2, 1 ],
+ * //     data: Float32Array(2) [ 18.579734802246094, 24.31830596923828 ],
+ * //   },
+ * //   text_embeds: Tensor {
+ * //     dims: [ 2, 512 ],
+ * //     data: Float32Array(1024) [ ... ],
+ * //   },
+ * //   image_embeds: Tensor {
+ * //     dims: [ 1, 512 ],
+ * //     data: Float32Array(512) [ ... ],
+ * //   }
+ * // }
+ * ```
+ */
+export class CLIPModel extends CLIPPreTrainedModel { }
+
+/**
+ * CLIP Text Model with a projection layer on top (a linear layer on top of the pooled output)
+ */
+export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
+
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'text_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
+}
+
+/**
+ * CLIP Vision Model with a projection layer on top (a linear layer on top of the pooled output)
+ */
+export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'vision_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
 }
 
 //////////////////////////////////////////////////
@@ -3099,13 +3168,14 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, EncoderOnlyModelType],
 ];
 
-for (let [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
+for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
     // @ts-ignore
-    for (let [name, model] of mappings.entries()) {
+    for (const model of mappings.values()) {
+        // @ts-ignore
         MODEL_TYPE_MAPPING.set(model.name, type);
-        MODEL_CLASS_MAPPING.set(model.name, name);
     }
 }
+
 
 /**
  * Helper class which is used to instantiate pretrained models with the `from_pretrained` function.
