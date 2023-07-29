@@ -62,11 +62,11 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
  */
 function createPattern(pattern, invert = true) {
 
-    if (pattern.Regex) {
+    if (pattern.Regex !== undefined) {
         // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
         return new RegExp(invert ? pattern.Regex : `(${pattern.Regex})`, 'gu');
 
-    } else if (pattern.String) {
+    } else if (pattern.String !== undefined) {
         return pattern.String;
 
     } else {
@@ -418,7 +418,7 @@ class Unigram extends TokenizerModel {
     }
 
     /**
-     * Encodes an array of tokens using WordPiece encoding.
+     * Encodes an array of tokens using Unigram encoding.
      * @param {Array} tokens The tokens to encode.
      * @returns {Array} An array of encoded tokens.
      */
@@ -653,6 +653,10 @@ class LegacyTokenizerModel extends TokenizerModel {
         for (const [key, value] of this.tokens_to_ids) {
             this.vocab[value] = key;
         }
+    }
+
+    encode(tokens) {
+        return tokens;
     }
 }
 
@@ -1958,9 +1962,9 @@ export class PreTrainedTokenizer extends Callable {
         // Slight hack, but it prevents code duplication:
         this.decoder.added_tokens = this.added_tokens;
 
-        this.added_tokens_regex = new RegExp(
+        this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
             '(' + this.added_tokens.map(escapeRegExp).join('|') + ')'
-        );
+        ) : null;
 
         // Set mask token if present (otherwise will be undefined, which is fine)
         this.mask_token = this.getToken(tokenizerConfig, 'mask_token');
@@ -2225,7 +2229,7 @@ export class PreTrainedTokenizer extends Callable {
         // Actual function which does encoding, for a single text
         // First, we take care of special tokens. Needed to avoid issues arising from
         // normalization and/or pretokenization (which may not preserve special tokens)
-        const sections = text.split(this.added_tokens_regex).filter(x => x);
+        const sections = this.added_tokens_regex ? text.split(this.added_tokens_regex).filter(x => x) : [text];
 
         let tokens = sections.map(x => {
             if (this.added_tokens.includes(x)) {
