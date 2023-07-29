@@ -1,5 +1,15 @@
 
 def generate_tokenizer_json(tokenizer):
+    vocab = tokenizer.vocab
+
+    special_tokens_vocab = vocab
+    if "<pad>" not in tokenizer.vocab:
+        # For MMS tokenizers, the vocab is of the form:
+        # {
+        #   language_id: { language_vocab }
+        # }
+        # So, to get the list of special tokens, we just get the english vocab
+        special_tokens_vocab = vocab['eng']
 
     tokenizer_json = {
         "version": "1.0",
@@ -15,7 +25,7 @@ def generate_tokenizer_json(tokenizer):
                 "normalized": False,
                 "special": True
             }
-            for k, v in tokenizer.vocab.items()
+            for k, v in special_tokens_vocab.items()
             if k.startswith('<') and k.endswith('>')
         ],
         "normalizer": {
@@ -41,7 +51,7 @@ def generate_tokenizer_json(tokenizer):
             "cleanup": True
         },
         "model": {
-            "vocab": tokenizer.vocab
+            "vocab": vocab
         }
     }
 
