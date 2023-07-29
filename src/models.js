@@ -2350,6 +2350,29 @@ export class CLIPModel extends CLIPPreTrainedModel { }
 
 /**
  * CLIP Text Model with a projection layer on top (a linear layer on top of the pooled output)
+ * 
+ * **Example:** Compute text embeddings with `CLIPTextModelWithProjection`.
+ * 
+ * ```javascript
+ * import { AutoTokenizer, CLIPTextModelWithProjection } from '@xenova/transformers';
+ * 
+ * // Load tokenizer and text model
+ * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch16');
+ * const text_model = await CLIPTextModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Run tokenization
+ * let texts = ['a photo of a car', 'a photo of a football match']
+ * let text_inputs = tokenizer(texts, { padding: true, truncation: true });
+ * 
+ * // Compute embeddings
+ * const { text_embeds } = await text_model(text_inputs)
+ * // Tensor {
+ * //   dims: [ 2, 512 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(1024) [ ... ],
+ * //   size: 1024
+ * // }
+ * ```
  */
 export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
 
