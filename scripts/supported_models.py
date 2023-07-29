@@ -203,6 +203,7 @@ SUPPORTED_MODELS = {
 
         # audio classification
         'alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech',
+        'superb/wav2vec2-base-superb-ks',
         'facebook/mms-lid-126',
         'facebook/mms-lid-256',
         'facebook/mms-lid-512',
