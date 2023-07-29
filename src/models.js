@@ -2361,11 +2361,11 @@ export class CLIPModel extends CLIPPreTrainedModel { }
  * const text_model = await CLIPTextModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch16');
  * 
  * // Run tokenization
- * let texts = ['a photo of a car', 'a photo of a football match']
+ * let texts = ['a photo of a car', 'a photo of a football match'];
  * let text_inputs = tokenizer(texts, { padding: true, truncation: true });
  * 
  * // Compute embeddings
- * const { text_embeds } = await text_model(text_inputs)
+ * const { text_embeds } = await text_model(text_inputs);
  * // Tensor {
  * //   dims: [ 2, 512 ],
  * //   type: 'float32',
@@ -2386,6 +2386,29 @@ export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
 
 /**
  * CLIP Vision Model with a projection layer on top (a linear layer on top of the pooled output)
+ * 
+ * **Example:** Compute vision embeddings with `CLIPVisionModelWithProjection`.
+ * 
+ * ```javascript
+ * import { AutoProcessor, CLIPVisionModelWithProjection, RawImage} from '@xenova/transformers';
+ * 
+ * // Load processor and vision model
+ * const processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch16');
+ * const vision_model = await CLIPVisionModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Read image and run processor
+ * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+ * let image_inputs = await processor(image);
+ * 
+ * // Compute embeddings
+ * const { image_embeds } = await vision_model(image_inputs);
+ * // Tensor {
+ * //   dims: [ 1, 512 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(512) [ ... ],
+ * //   size: 512
+ * // }
+ * ```
  */
 export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
     /** @type {PreTrainedModel.from_pretrained} */
