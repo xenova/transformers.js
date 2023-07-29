@@ -629,13 +629,15 @@ class LegacyTokenizerModel extends TokenizerModel {
     /**
      * Create a LegacyTokenizerModel instance.
      * @param {Object} config The configuration object for LegacyTokenizerModel.
-     * @param {Map<string, number>} config.vocab A mapping of tokens to ids.
+     * @param {Map<string, number>|Map<string, Map<string, number>>} config.vocab A (possibly nested) mapping of tokens to ids.
      * @param {Object} moreConfig Additional configuration object for the LegacyTokenizerModel model.
      */
     constructor(config, moreConfig) {
         super(config);
 
-        this.tokens_to_ids = config.vocab;
+        /**@type {Map<string, number>} */
+        // @ts-ignore
+        this.tokens_to_ids = moreConfig.target_lang ? config.vocab.get(moreConfig.target_lang) : config.vocab;
 
         this.bos_token = moreConfig.bos_token;
         this.bos_token_id = this.tokens_to_ids.get(this.bos_token);
@@ -1926,6 +1928,13 @@ export class PreTrainedTokenizer extends Callable {
                 tokenizerJSON.model.vocab = Object.entries(tokenizerJSON.model.vocab);
             }
             tokenizerJSON.model.vocab = new Map(tokenizerJSON.model.vocab);
+
+            // Supported nested vocabularies (up to a maximum depth of 1)
+            for (const [k, v] of tokenizerJSON.model.vocab) {
+                if (typeof v === 'object') {
+                    tokenizerJSON.model.vocab.set(k, new Map(Object.entries(v)));
+                }
+            }
         }
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
