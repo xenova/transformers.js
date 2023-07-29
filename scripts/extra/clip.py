@@ -16,6 +16,12 @@ class CLIPTextModelWithProjectionOnnxConfig(CLIPTextOnnxConfig):
             "text_embeds": {0: "batch_size"},
         }
 
+    def generate_dummy_inputs(self, framework: str = "pt", **kwargs):
+        dummy_inputs = super().generate_dummy_inputs(framework=framework, **kwargs)
+        if framework == "pt":
+            import torch
+            dummy_inputs["input_ids"] = dummy_inputs["input_ids"].to(dtype=torch.int64)
+        return dummy_inputs
 
 class CLIPVisionModelWithProjectionOnnxConfig(CLIPVisionOnnxConfig):
     @property
