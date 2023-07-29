@@ -627,6 +627,7 @@ export class PreTrainedModel extends Callable {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        model_file_name = null,
     } = {}) {
 
         let options = {
@@ -636,6 +637,7 @@ export class PreTrainedModel extends Callable {
             cache_dir,
             local_files_only,
             revision,
+            model_file_name,
         }
 
         let modelType = MODEL_TYPE_MAPPING.get(this.name);
@@ -644,7 +646,7 @@ export class PreTrainedModel extends Callable {
         if (modelType === DecoderOnlyModelType) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+                constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'decoder_model_merged', options),
             ]);
 
         } else if (modelType === Seq2SeqModelType) {
@@ -665,7 +667,7 @@ export class PreTrainedModel extends Callable {
         } else if (modelType === EncoderOnlyModelType) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'model', options)
+                constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'model', options)
             ]);
 
         } else {
@@ -2929,6 +2931,7 @@ export class PretrainedMixin {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        model_file_name = null,
     } = {}) {
 
         let options = {
@@ -2938,6 +2941,7 @@ export class PretrainedMixin {
             cache_dir,
             local_files_only,
             revision,
+            model_file_name,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
         if (!options.config) {
