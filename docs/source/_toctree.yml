@@ -11,6 +11,8 @@
 - sections:
   - local: tutorials/react
     title: Building a React Application
+  - local: tutorials/next
+    title: Building a Next.js Application
   - local: tutorials/browser-extension
     title: Building a Browser Extension
   - local: tutorials/electron
@@ -20,6 +22,10 @@
   - local: tutorials/node-audio-processing
     title: Server-side Audio Processing in Node.js
   title: Tutorials
+- sections:
+  - local: guides/private
+    title: Accessing Private/Gated Models
+  title: Developer Guides
 - sections:
   - local: api/transformers
     title: Index
