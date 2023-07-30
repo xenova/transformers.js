@@ -122,6 +122,9 @@ export class RawImage {
      */
     static async fromURL(url) {
         let response = await getFile(url);
+        if (response.status !== 200) {
+            throw new Error(`Unable to read image from "${url}" (${response.status} ${response.statusText})`);
+        }
         let blob = await response.blob();
         return this.fromBlob(blob);
     }
