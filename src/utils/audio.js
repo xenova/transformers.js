@@ -34,6 +34,8 @@ export async function read_audio(url, sampling_rate) {
         console.warn(`No sampling rate provided, using default of ${audioCTX.sampleRate}Hz.`)
     }
     const decoded = await audioCTX.decodeAudioData(response);
+
+    /** @type {Float32Array} */
     let audio;
 
     // We now replicate HuggingFace's `ffmpeg_read` method:
