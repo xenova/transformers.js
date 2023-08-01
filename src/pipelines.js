@@ -976,6 +976,8 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 throw new Error(`AutomaticSpeechRecognitionPipeline does not support model type '${this.model.config.model_type}'.`)
         }
     }
+
+    /** @private */
     async _call_wav2vec2(audio, kwargs = {}) {
         // TODO use kwargs
 
@@ -1012,6 +1014,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
         return single ? toReturn[0] : toReturn;
     }
 
+    /** @private */
     async _call_whisper(audio, kwargs = {}) {
         let return_timestamps = kwargs.return_timestamps ?? false;
         let chunk_length_s = kwargs.chunk_length_s ?? 0;
