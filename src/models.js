@@ -101,9 +101,11 @@ class DecoderOnlyModelType extends ModelType { };
 //////////////////////////////////////////////////
 // Helper functions
 
-// Will be populated later
-const MODEL_TYPE_MAPPING = new Map();
-const MODEL_CLASS_MAPPING = new Map();
+// Will be populated fully later
+const MODEL_TYPE_MAPPING = new Map([
+    ['CLIPTextModelWithProjection', EncoderOnlyModelType],
+    ['CLIPVisionModelWithProjection', EncoderOnlyModelType],
+]);
 
 /**
  * Helper function to determine which `forward` method to run for a specific model.
@@ -627,6 +629,7 @@ export class PreTrainedModel extends Callable {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        model_file_name = null,
     } = {}) {
 
         let options = {
@@ -636,6 +639,7 @@ export class PreTrainedModel extends Callable {
             cache_dir,
             local_files_only,
             revision,
+            model_file_name,
         }
 
         let modelType = MODEL_TYPE_MAPPING.get(this.name);
@@ -644,7 +648,7 @@ export class PreTrainedModel extends Callable {
         if (modelType === DecoderOnlyModelType) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+                constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'decoder_model_merged', options),
             ]);
 
         } else if (modelType === Seq2SeqModelType) {
@@ -668,7 +672,7 @@ export class PreTrainedModel extends Callable {
             }
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'model', options)
+                constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'model', options)
             ]);
         }
 
@@ -824,12 +828,12 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-   * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
-   * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
-   *
-   * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
-   * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
-   */
+     * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
+     * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
+     *
+     * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
+     * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
+     */
     _get_generation_config(generation_config) {
         // Create empty generation config (contains defaults)
         let gen_config = new GenerationConfig();
@@ -1167,12 +1171,21 @@ export class PreTrainedModel extends Callable {
                 }
 
             } else {
-                // @ts-ignore
-                let dims = [1, this.num_heads, 0, this.dim_kv]
-                // @ts-ignore
-                for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                if (this.config.multi_query) {
+                    // @ts-ignore
+                    let dims = [1, 0, 2 * this.dim_kv]
+                    // @ts-ignore
+                    for (let i = 0; i < this.num_layers; ++i) {
+                        decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
+                    }
+                } else {
+                    // @ts-ignore
+                    let dims = [1, this.num_heads, 0, this.dim_kv]
+                    // @ts-ignore
+                    for (let i = 0; i < this.num_layers; ++i) {
+                        decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
+                        decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                    }
                 }
             }
         }
@@ -1386,6 +1399,81 @@ export class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
      *
      * @param {Object} model_inputs The inputs to the model.
      * @returns {Promise<QuestionAnsweringModelOutput>} returned object
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// MPNet models
+export class MPNetPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare MPNet Model transformer outputting raw hidden-states without any specific head on top.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetModel extends MPNetPreTrainedModel { }
+
+/**
+ * MPNetForMaskedLM is a class representing a MPNet model for masked language modeling.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetForMaskedLM extends MPNetPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * MPNetForSequenceClassification is a class representing a MPNet model for sequence classification.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetForSequenceClassification extends MPNetPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * MPNetForTokenClassification is a class representing a MPNet model for token classification.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetForTokenClassification extends MPNetPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * MPNetForQuestionAnswering is a class representing a MPNet model for question answering.
+ * @extends MPNetPreTrainedModel
+ */
+export class MPNetForQuestionAnswering extends MPNetPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
      */
     async _call(model_inputs) {
         return new QuestionAnsweringModelOutput(await super._call(model_inputs));
@@ -2213,8 +2301,121 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
 //////////////////////////////////////////////////
 // CLIP models
 export class CLIPPreTrainedModel extends PreTrainedModel { }
-export class CLIPModel extends CLIPPreTrainedModel {
 
+/**
+ * CLIP Text and Vision Model with a projection layers on top
+ * 
+ * **Example:** Perform zero-shot image classification with a `CLIPModel`.
+ * 
+ * ```javascript
+ * import { AutoTokenizer, AutoProcessor, CLIPModel, RawImage } from '@xenova/transformers';
+ * 
+ * // Load tokenizer, processor, and model
+ * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch16');
+ * let processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch16');
+ * let model = await CLIPModel.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Run tokenization
+ * let texts = ['a photo of a car', 'a photo of a football match']
+ * let text_inputs = tokenizer(texts, { padding: true, truncation: true });
+ * 
+ * // Read image and run processor
+ * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+ * let image_inputs = await processor(image);
+ * 
+ * // Run model with both text and pixel inputs
+ * let output = await model({ ...text_inputs, ...image_inputs });
+ * // {
+ * //   logits_per_image: Tensor {
+ * //     dims: [ 1, 2 ],
+ * //     data: Float32Array(2) [ 18.579734802246094, 24.31830596923828 ],
+ * //   },
+ * //   logits_per_text: Tensor {
+ * //     dims: [ 2, 1 ],
+ * //     data: Float32Array(2) [ 18.579734802246094, 24.31830596923828 ],
+ * //   },
+ * //   text_embeds: Tensor {
+ * //     dims: [ 2, 512 ],
+ * //     data: Float32Array(1024) [ ... ],
+ * //   },
+ * //   image_embeds: Tensor {
+ * //     dims: [ 1, 512 ],
+ * //     data: Float32Array(512) [ ... ],
+ * //   }
+ * // }
+ * ```
+ */
+export class CLIPModel extends CLIPPreTrainedModel { }
+
+/**
+ * CLIP Text Model with a projection layer on top (a linear layer on top of the pooled output)
+ * 
+ * **Example:** Compute text embeddings with `CLIPTextModelWithProjection`.
+ * 
+ * ```javascript
+ * import { AutoTokenizer, CLIPTextModelWithProjection } from '@xenova/transformers';
+ * 
+ * // Load tokenizer and text model
+ * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch16');
+ * const text_model = await CLIPTextModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Run tokenization
+ * let texts = ['a photo of a car', 'a photo of a football match'];
+ * let text_inputs = tokenizer(texts, { padding: true, truncation: true });
+ * 
+ * // Compute embeddings
+ * const { text_embeds } = await text_model(text_inputs);
+ * // Tensor {
+ * //   dims: [ 2, 512 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(1024) [ ... ],
+ * //   size: 1024
+ * // }
+ * ```
+ */
+export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
+
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'text_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
+}
+
+/**
+ * CLIP Vision Model with a projection layer on top (a linear layer on top of the pooled output)
+ * 
+ * **Example:** Compute vision embeddings with `CLIPVisionModelWithProjection`.
+ * 
+ * ```javascript
+ * import { AutoProcessor, CLIPVisionModelWithProjection, RawImage} from '@xenova/transformers';
+ * 
+ * // Load processor and vision model
+ * const processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch16');
+ * const vision_model = await CLIPVisionModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Read image and run processor
+ * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+ * let image_inputs = await processor(image);
+ * 
+ * // Compute embeddings
+ * const { image_embeds } = await vision_model(image_inputs);
+ * // Tensor {
+ * //   dims: [ 1, 512 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(512) [ ... ],
+ * //   size: 512
+ * // }
+ * ```
+ */
+export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'vision_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
 }
 
 //////////////////////////////////////////////////
@@ -2374,6 +2575,83 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
         return await decoderForward(this, model_inputs);
     }
 }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// GPTBigCode models
+export class GPTBigCodePreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `GPTBigCodePreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.n_embd / this.num_heads;
+    }
+}
+
+export class GPTBigCodeModel extends GPTBigCodePreTrainedModel {
+    /**
+     * 
+     * @param  {...any} args 
+     * @throws {Error}
+     * @returns {Promise<any>}
+     */
+    async generate(...args) {
+        throw Error(
+            "The current model class (GPTBigCodeModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPTBigCodeForCausalLM'}"
+        )
+    }
+}
+
+export class GPTBigCodeForCausalLM extends GPTBigCodePreTrainedModel {
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
+     */
+    async runBeam(beam) {
+        return await decoderRunBeam(this, beam);
+    }
+
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
+     */
+    updateBeam(beam, newTokenId) {
+        return decoderUpdatebeam(beam, newTokenId);
+    }
+
+    /**
+     * Forward pass for the model.
+     * @param {Object} model_inputs The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
+    async forward(model_inputs) {
+        return await decoderForward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // CodeGen models
@@ -2796,6 +3074,7 @@ export class PretrainedMixin {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        model_file_name = null,
     } = {}) {
 
         let options = {
@@ -2805,8 +3084,13 @@ export class PretrainedMixin {
             cache_dir,
             local_files_only,
             revision,
+            model_file_name,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
+        if (!options.config) {
+            // If no config was passed, reuse this config for future processing
+            options.config = config;
+        }
 
         if (!this.MODEL_CLASS_MAPPINGS) {
             throw new Error("`MODEL_CLASS_MAPPINGS` not implemented for this type of `AutoClass`: " + this.name);
@@ -2833,6 +3117,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', BertModel],
+    ['mpnet', MPNetModel],
     ['albert', AlbertModel],
     ['distilbert', DistilBertModel],
     ['roberta', RobertaModel],
@@ -2857,12 +3142,14 @@ const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
 
 const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['gpt2', GPT2Model],
+    ['gpt_bigcode', GPTBigCodeModel],
     ['gpt_neo', GPTNeoModel],
     ['codegen', CodeGenModel],
 ]);
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForSequenceClassification],
+    ['mpnet', MPNetForSequenceClassification],
     ['albert', AlbertForSequenceClassification],
     ['distilbert', DistilBertForSequenceClassification],
     ['roberta', RobertaForSequenceClassification],
@@ -2874,6 +3161,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
+    ['mpnet', MPNetForTokenClassification],
     ['distilbert', DistilBertForTokenClassification],
     ['roberta', RobertaForTokenClassification],
     ['xlm-roberta', XLMRobertaForTokenClassification],
@@ -2890,12 +3178,14 @@ const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
 
 const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['gpt2', GPT2LMHeadModel],
+    ['gpt_bigcode', GPTBigCodeForCausalLM],
     ['gpt_neo', GPTNeoForCausalLM],
     ['codegen', CodeGenForCausalLM],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', BertForMaskedLM],
+    ['mpnet', MPNetForMaskedLM],
     ['albert', AlbertForMaskedLM],
     ['distilbert', DistilBertForMaskedLM],
     ['roberta', RobertaForMaskedLM],
@@ -2906,6 +3196,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', BertForQuestionAnswering],
+    ['mpnet', MPNetForQuestionAnswering],
     ['albert', AlbertForQuestionAnswering],
     ['distilbert', DistilBertForQuestionAnswering],
     ['roberta', RobertaForQuestionAnswering],
@@ -2963,13 +3254,14 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
 ];
 
-for (let [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
+for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
     // @ts-ignore
-    for (let [name, model] of mappings.entries()) {
+    for (const model of mappings.values()) {
+        // @ts-ignore
         MODEL_TYPE_MAPPING.set(model.name, type);
-        MODEL_CLASS_MAPPING.set(model.name, name);
     }
 }
+
 
 /**
  * Helper class which is used to instantiate pretrained models with the `from_pretrained` function.

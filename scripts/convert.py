@@ -13,7 +13,7 @@ from transformers import (
 )
 
 import onnx
-from optimum.exporters.onnx import main_export
+from optimum.exporters.onnx import main_export, export_models
 from optimum.exporters.tasks import TasksManager
 from onnxruntime.quantization import (
     quantize_dynamic,
@@ -110,6 +110,13 @@ class ConversionArguments:
         default=False,
         metadata={
             "help": "Whether to output attentions from the model. NOTE: This is only supported for whisper models right now."
+        }
+    )
+
+    split_modalities: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to split multimodal models. NOTE: This is only supported for CLIP models right now."
         }
     )
 
@@ -256,7 +263,26 @@ def main():
         pass  # TODO
 
     # Step 1. convert huggingface model to onnx
-    main_export(**export_kwargs)
+    if config.model_type == 'clip' and conv_args.split_modalities:
+        # Handle special case for exporting text and vision models separately
+        from .extra.clip import CLIPTextModelWithProjectionOnnxConfig, CLIPVisionModelWithProjectionOnnxConfig
+        from transformers.models.clip import CLIPTextModelWithProjection, CLIPVisionModelWithProjection
+
+        text_model = CLIPTextModelWithProjection.from_pretrained(model_id)
+        vision_model = CLIPVisionModelWithProjection.from_pretrained(model_id)
+
+        export_models(
+            models_and_onnx_configs={
+                "text_model": (text_model, CLIPTextModelWithProjectionOnnxConfig(text_model.config)),
+                "vision_model": (vision_model, CLIPVisionModelWithProjectionOnnxConfig(vision_model.config)),
+            },
+            output_dir=output_model_folder,
+            opset=conv_args.opset,
+            device=conv_args.device,
+        )
+
+    else:
+        main_export(**export_kwargs)
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
@@ -285,6 +311,7 @@ def main():
         generation_config = GenerationConfig.from_pretrained(model_id)
         generation_config.alignment_heads = get_alignment_heads(config)
         generation_config.save_pretrained(output_model_folder)
+
 
 if __name__ == '__main__':
     main()

@@ -59,6 +59,10 @@ SUPPORTED_MODELS = {
         'intfloat/e5-large',
         'intfloat/e5-large-v2',
         'intfloat/multilingual-e5-base',
+
+        'thenlper/gte-small',
+        'thenlper/gte-base',
+        'thenlper/gte-large',
     ],
     # TODO:
     # 'bloom':[
@@ -108,6 +112,11 @@ SUPPORTED_MODELS = {
         'MBZUAI/LaMini-Cerebras-256M',
         'MBZUAI/LaMini-Cerebras-590M',
         'MBZUAI/LaMini-GPT-124M',
+    ],
+    'gpt_bigcode': [
+        # See branch: https://github.com/huggingface/optimum/tree/xenova-bigcode-testing
+        'bigcode/tiny_starcoder_py',
+        # 'bigcode/starcoderbase-1b', # NOTE: This model is gated, so we ignore it when testing
     ],
     'm2m_100': [
         'facebook/nllb-200-distilled-600M',
