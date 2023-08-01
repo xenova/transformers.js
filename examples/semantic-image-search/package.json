@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@xenova/transformers": "^2.4.4",
+    "@xenova/transformers": "^2.5.0",
     "@supabase/supabase-js": "^2.31.0",
     "autoprefixer": "10.4.14",
     "blurhash": "^2.0.5",
