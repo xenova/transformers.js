@@ -979,6 +979,13 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
     async _call_wav2vec2(audio, kwargs = {}) {
         // TODO use kwargs
 
+        if (kwargs.language) {
+            console.warn('`language` parameter is not yet supported for `wav2vec2` models, defaulting to "English".');
+        }
+        if (kwargs.task) {
+            console.warn('`task` parameter is not yet supported for `wav2vec2` models, defaulting to "transcribe".');
+        }
+
         let single = !Array.isArray(audio);
         if (single) {
             // @ts-ignore
