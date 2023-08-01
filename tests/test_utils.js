@@ -2,7 +2,7 @@
 
 export async function loadAudio(url) {
     // NOTE: Since the Web Audio API is not available in Node.js, we will need to use the `wavefile` library to obtain the raw audio data.
-    // For more information, see: https://huggingface.co/docs/transformers.js/tutorials/node-audio-processing
+    // For more information, see: https://huggingface.co/docs/transformers.js/guides/node-audio-processing
     let wavefile = (await import('wavefile')).default;
 
     // Load audio data
@@ -14,8 +14,16 @@ export async function loadAudio(url) {
     wav.toSampleRate(16000); // Whisper expects audio with a sampling rate of 16000
     let audioData = wav.getSamples();
     if (Array.isArray(audioData)) {
-        // For this demo, if there are multiple channels for the audio file, we just select the first one.
-        // In practice, you'd probably want to convert all channels to a single channel (e.g., stereo -> mono).
+        if (audioData.length > 1) {
+            const SCALING_FACTOR = Math.sqrt(2);
+
+            // Merge channels (into first channel to save memory)
+            for (let i = 0; i < audioData[0].length; ++i) {
+                audioData[0][i] = SCALING_FACTOR * (audioData[0][i] + audioData[1][i]) / 2;
+            }
+        }
+
+        // Select first channel
         audioData = audioData[0];
     }
     return audioData;
