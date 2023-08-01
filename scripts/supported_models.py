@@ -59,6 +59,10 @@ SUPPORTED_MODELS = {
         'intfloat/e5-large',
         'intfloat/e5-large-v2',
         'intfloat/multilingual-e5-base',
+
+        'thenlper/gte-small',
+        'thenlper/gte-base',
+        'thenlper/gte-large',
     ],
     # TODO:
     # 'bloom':[
