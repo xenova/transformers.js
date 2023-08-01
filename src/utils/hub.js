@@ -372,6 +372,22 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         cache = new FileCache(options.cache_dir ?? env.cacheDir);
     }
 
+    if (!cache && env.useCustomCache) {
+        // Allow the user to specify a custom cache system.
+        if (!env.customCache) {
+            throw Error('`env.useCustomCache=true`, but `env.customCache` is not defined.')
+        }
+
+        // Check that the required methods are defined:
+        if (!env.customCache.match || !env.customCache.put) {
+            throw new Error(
+                "`env.customCache` must be an object which implements the `match` and `put` functions of the Web Cache API. " +
+                "For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache"
+            )
+        }
+        cache = env.customCache;
+    }
+
     const revision = options.revision ?? 'main';
 
     let requestURL = pathJoin(path_or_repo_id, filename);

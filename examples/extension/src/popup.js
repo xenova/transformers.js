@@ -1,13 +1,21 @@
-// This script handles interaction with the user interface, as well as handling
-// the communication between the main thread (UI) and the background thread (processing).
+// popup.js - handles interaction with the extension's popup, sends requests to the
+// service worker (background.js), and updates the popup's UI (popup.html) on completion.
 
 const inputElement = document.getElementById('text');
 const outputElement = document.getElementById('output');
 
-// 1. Send input data to the worker thread when it changes.
+// Listen for changes made to the textbox.
 inputElement.addEventListener('input', (event) => {
-    chrome.runtime.sendMessage(event.target.value, (response) => {
-        // 2. Handle results returned by the service worker (`background.js`) and update the UI.
+
+    // Bundle the input data into a message.
+    const message = {
+        action: 'classify',
+        text: event.target.value,
+    }
+
+    // Send this message to the service worker.
+    chrome.runtime.sendMessage(message, (response) => {
+        // Handle results returned by the service worker (`background.js`) and update the popup's UI.
         outputElement.innerText = JSON.stringify(response, null, 2);
     });
 });

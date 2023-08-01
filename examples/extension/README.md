@@ -14,28 +14,11 @@ An example project to show how to run 🤗 Transformers in a browser extension. 
     npm install 
     ```
 
-1. Add your model files to `./public/models/`. For this demo, we use [distilbert-base-uncased-finetuned-sst-2-english](https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/tree/main) from the Hugging Face Hub. It should look something like this:
-    ```
-    distilbert-base-uncased-finetuned-sst-2-english/
-    ├── config.json
-    ├── tokenizer.json
-    ├── tokenizer_config.json
-    └── onnx/
-        ├── model.onnx
-        └── model_quantized.onnx
-    ```
-
-1. Add the WASM files to `./public/wasm/`. You can download them from the jsDelivr CDN [here](https://www.jsdelivr.com/package/npm/@xenova/transformers?tab=files&path=dist):
-    ```
-    ort-wasm.wasm
-    ort-wasm-simd.wasm
-    ort-wasm-simd-threaded.wasm
-    ort-wasm-threaded.wasm
-    ```
 1. Build the project:
     ```bash
     npm run build 
     ```
+
 1. Add the extension to your browser. To do this, go to `chrome://extensions/`, enable developer mode (top right), and click "Load unpacked". Select the `build` directory from the dialog which appears and click "Select Folder".
 
 1. That's it! You should now be able to open the extenion's popup and use the model in your browser!
@@ -45,5 +28,8 @@ An example project to show how to run 🤗 Transformers in a browser extension. 
 We recommend running `npm run dev` while editing the template as it will rebuild the project when changes are made. 
 
 All source code can be found in the `./src/` directory:
-- `background.js` - contains the service worker code which runs in the background. It handles all the requests from the UI, does processing on a separate thread, then returns the result. You will need to reload the extension (by visiting `chrome://extensions/` and clicking the refresh button) after editing this file for changes to be visible in the extension.
-- `popup.html`, `popup.css`, `popup.js` - contains the code for the popup which is visible to the user when they click the extension's icon from the extensions bar. For development, we recommend opening the `popup.html` file in its own tab by visiting `chrome-extension://<ext_id>/popup.html` (remember to replace `<ext_id>` with the extension's ID). You will need to refresh the page while you develop to see the changes you make.
+- `background.js` ([service worker](https://developer.chrome.com/docs/extensions/mv3/service_workers/)) - handles all the requests from the UI, does processing in the background, then returns the result. You will need to reload the extension (by visiting `chrome://extensions/` and clicking the refresh button) after editing this file for changes to be visible in the extension.
+
+- `content.js` ([content script](https://developer.chrome.com/docs/extensions/mv3/content_scripts/)) - contains the code which is injected into every page the user visits. You can use the `sendMessage` api to make requests to the background script. Similarly, you will need to reload the extension after editing this file for changes to be visible in the extension.
+
+- `popup.html`, `popup.css`, `popup.js` ([toolbar action](https://developer.chrome.com/docs/extensions/reference/action/)) - contains the code for the popup which is visible to the user when they click the extension's icon from the extensions bar. For development, we recommend opening the `popup.html` file in its own tab by visiting `chrome-extension://<ext_id>/popup.html` (remember to replace `<ext_id>` with the extension's ID). You will need to refresh the page while you develop to see the changes you make.
