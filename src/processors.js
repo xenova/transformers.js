@@ -156,8 +156,12 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                     ? 1 // If `longest_edge` is not set, don't downscale
                     : Math.min(longest_edge / newWidth, longest_edge / newHeight);
 
+                // To avoid certain floating point precision issues, we round to 3 decimal places
+                const finalWidth = Math.floor(Number((newWidth * longResizeFactor).toPrecision(3)));
+                const finalHeight = Math.floor(Number((newHeight * longResizeFactor).toPrecision(3)));
+
                 // Perform resize
-                image = await image.resize(Math.floor(newWidth * longResizeFactor), Math.floor(newHeight * longResizeFactor), {
+                image = await image.resize(finalWidth, finalHeight, {
                     resample: this.resample,
                 });
 
