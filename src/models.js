@@ -1718,16 +1718,16 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
      * Updates the given beam with the new predicted token.
      * @param {any} beam The beam to update.
      * @param {number} newTokenId The index of the predicted token.
-    */
+     */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     }
 
     /**
-    * Runs the forward pass of the model on the given inputs.
-    * @param {any} model_inputs The model inputs.
-    * @returns {Promise<any>} A Promise that resolves to the model outputs.
-    */
+     * Runs the forward pass of the model on the given inputs.
+     * @param {any} model_inputs The model inputs.
+     * @returns {Promise<any>} A Promise that resolves to the model outputs.
+     */
     async forward(model_inputs) {
         return await seq2seqForward(this, model_inputs);
     }
