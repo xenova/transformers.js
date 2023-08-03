@@ -1694,13 +1694,13 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     }
 
     /**
-   * Generates the start beams for the given input tokens and output sequence length.
-   *
-   * @param {any[]} inputs The input sequence.
-   * @param {number} numOutputTokens The desired length of the output sequence.
-   * @param {...*} args Additional arguments to pass to the `seq2seqStartBeams` function.
-   * @returns {any[]} An array of `Beam` objects representing the start beams.
-   */
+     * Generates the start beams for the given input tokens and output sequence length.
+     *
+     * @param {any[]} inputs The input sequence.
+     * @param {number} numOutputTokens The desired length of the output sequence.
+     * @param {...*} args Additional arguments to pass to the `seq2seqStartBeams` function.
+     * @returns {any[]} An array of `Beam` objects representing the start beams.
+     */
     getStartBeams(inputs, numOutputTokens, ...args) {
         return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
