@@ -41,6 +41,11 @@ function App() {
   const onInputChange = useCallback((e) => {
     const model_id = tokenizer;
     const text = e.target.value;
+
+    if (text.length > 10000) {
+      setOutputOption(null);
+      console.log('User most likely pasted in a large body of text (> 10k chars), so we hide the output (until specifically requested by the user).')
+    }
     setText(text);
     worker.current.postMessage({ model_id, text });
   }, [tokenizer]);
