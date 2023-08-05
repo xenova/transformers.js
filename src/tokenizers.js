@@ -35,6 +35,8 @@ import {
 import { max, min, round } from './utils/maths.js';
 import { Tensor } from './utils/tensor.js';
 
+import { PriorityQueue } from './utils/data-structures.js';
+
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
  */
@@ -186,7 +188,7 @@ export class TokenizerModel extends Callable {
     /**
      * Internal function to call the TokenizerModel instance.
      * @param {string[]} tokens The tokens to encode.
-     * @returns {number[]} The encoded token IDs.
+     * @returns {string[]} The encoded token IDs.
      */
     _call(tokens) {
         return this.encode(tokens);
@@ -195,7 +197,7 @@ export class TokenizerModel extends Callable {
     /**
      * Encodes a list of tokens into a list of token IDs.
      * @param {string[]} tokens The tokens to encode.
-     * @returns {number[]} The encoded token IDs.
+     * @returns {string[]} The encoded tokens.
      * @throws Will throw an error if not implemented in a subclass.
      */
     encode(tokens) {
@@ -271,8 +273,8 @@ class WordPieceTokenizer extends TokenizerModel {
 
     /**
      * Encodes an array of tokens using WordPiece encoding.
-     * @param {Array} tokens The tokens to encode.
-     * @returns {Array} An array of encoded tokens.
+     * @param {string[]} tokens The tokens to encode.
+     * @returns {string[]} An array of encoded tokens.
      */
     encode(tokens) {
         let outputTokens = [];
@@ -415,8 +417,8 @@ class Unigram extends TokenizerModel {
 
     /**
      * Encodes an array of tokens using WordPiece encoding.
-     * @param {Array} tokens The tokens to encode.
-     * @returns {Array} An array of encoded tokens.
+     * @param {string[]} tokens The tokens to encode.
+     * @returns {string[]} An array of encoded tokens.
      */
     encode(tokens) {
         let toReturn = [];
@@ -459,6 +461,16 @@ const BYTES_TO_UNICODE = (() => {
 
 const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
 
+
+/**
+ * @typedef {Object} BPENode
+ * @property {string} token The token associated with the node
+ * @property {number} bias A positional bias for the node.
+ * @property {number} [score] The score of the node.
+ * @property {BPENode} [prev] The previous node in the linked list.
+ * @property {BPENode} [next] The next node in the linked list.
+ */
+
 /**
  * BPE class for encoding text into Byte-Pair-Encoding (BPE) tokens.
  * @extends TokenizerModel
@@ -498,119 +510,172 @@ class BPE extends TokenizerModel {
             this.text_encoder = new TextEncoder();
         }
 
+        /** @type {Map<string, string[]>} */
         this.cache = new Map();
 
         this.fuse_unk ??= this.config.fuse_unk;
     }
 
     /**
-     * Get all the possible pairs of characters in a word.
-     * @param {string[]} word The word to get pairs from.
-     * @returns {Set<string>} A set of pairs.
-     */
-    get_pairs(word) {
-        let pairs = new Set();
-        let prev_char = word[0];
-        for (let i = 1; i < word.length; ++i) {
-            let char = word[i];
-            pairs.add(prev_char + this.BPE_SPLIT_TOKEN + char);
-            prev_char = char;
-        }
-        return pairs;
-    }
-
-    /**
-     * Get the best bigram from a set of bigrams.
-     * @param {Set} pairs The set of bigrams.
-     * @returns {string} The best bigram.
-     * @private
-     */
-    _get_best_bigram(pairs) {
-        let best;
-        let best_rank = Infinity;
-        for (let pair of pairs) {
-            let rank = this.bpe_ranks.get(pair) ?? Infinity;
-            if (rank < best_rank) {
-                best = pair;
-                best_rank = rank;
-            }
-        }
-        return best;
-    }
-
-    /**
      * Apply Byte-Pair-Encoding (BPE) to a given token.
      * @param {string} token The token to encode.
-     * @returns {string} The BPE encoded token.
+     * @returns {string[]} The BPE encoded tokens.
      */
     bpe(token) {
+        if (token.length === 0) {
+            return [];
+        }
+
         const cached = this.cache.get(token);
         if (cached !== undefined) {
             return cached;
         }
-        let word = Array.from(token);
+
+        const word = Array.from(token);
         if (this.end_of_word_suffix) {
             word[word.length - 1] += this.end_of_word_suffix;
         }
-        let pairs = this.get_pairs(word);
-        if (!pairs.size) {
-            if (this.end_of_word_suffix) {
-                token += this.end_of_word_suffix;
-            }
-            return token;
-        }
-        while (true) {
-            let bigram = this._get_best_bigram(pairs);
-            if (!(this.bpe_ranks.has(bigram))) {
-                break;
-            }
-            let [first, second] = bigram.split(this.BPE_SPLIT_TOKEN);
-            let new_word = [];
-            let i = 0;
-            let j = -1;
 
-            while (i < word.length) {
-                j = word.indexOf(first, i);
-                if (j === -1) {
-                    for (let k = i; k < word.length; ++k) {
-                        new_word.push(word[k]);
+        let result = [];
+        if (word.length > 1) {
+            // Create a priority queue to store the nodes that will be merged.
+            // The comparator function compares the scores of the nodes.
+            const queue = new PriorityQueue((a, b) => a.score < b.score);
+
+            // Construct a doubly-linked list of nodes that will be inserted into the priority queue,
+            // starting with the individual characters. We also populate each node with a positional
+            // bias to break ties in the priority queue.
+            let startingNode = {
+                token: word[0],
+                bias: 0,
+                prev: null,
+                next: null,
+            }
+
+            let previousNode = startingNode
+            for (let i = 1; i < word.length; ++i) {
+                const currentNode = {
+                    bias: i / word.length, // Add fractional component to break ties
+                    token: word[i],
+                    prev: previousNode,
+                    next: null,
+                }
+                previousNode.next = currentNode
+                this._add_node(queue, previousNode)
+                previousNode = currentNode
+            }
+
+            while (!queue.isEmpty()) {
+                // Get the next node with the highest priority
+                const node = queue.pop();
+
+                // Check that this merge is still possible
+                if (node.deleted || !node.next || node.next.deleted) continue;
+
+                // Here, we mark the current node (left side of the merge) and the next node (right side of the merge) as deleted.
+                // This is because they will both be replaced by a new node representing the merge result.
+                node.deleted = true;
+                node.next.deleted = true;
+
+                // Next, we fix the node that comes before the current node (i.e., left side of the merge).
+                if (node.prev) {
+
+                    // Make a shallow copy of the previous node
+                    const newPreviousNode = { ...node.prev };
+
+                    // Mark the old previous node as deleted. This avoids erroneous merges later,
+                    // because there may still be references to this node in the priority queue.
+                    node.prev.deleted = true;
+                    node.prev = newPreviousNode;
+
+                    // Update the reference of the previous node, by pointing its previous node to this new previous node.
+                    if (newPreviousNode.prev) {
+                        newPreviousNode.prev.next = newPreviousNode;
+                    } else {
+                        // If the previous of the previous node does not exist, it means that
+                        // `newPreviousNode` must be the new `startingNode`.
+                        startingNode = newPreviousNode;
                     }
-                    break;
-                }
-                for (; i < j; ++i) {
-                    new_word.push(word[i]);
                 }
 
-                if (word[i] === first && i < word.length - 1 && word[i + 1] === second) {
-                    new_word.push(first + second);
-                    i += 2;
+                // Create a new node which represents the result of the merge.
+                const merged = {
+                    token: node.token + node.next.token,
+                    bias: node.bias,
+                    prev: node.prev,
+                    next: node.next.next,
+                }
+
+                // We now consider where we can add the new merged node to the priority queue:
+                // 1. prev <-> merged
+                if (merged.prev) {
+                    merged.prev.next = merged;
+                    this._add_node(queue, merged.prev);
                 } else {
-                    new_word.push(word[i]);
-                    i += 1;
+                    // If `merged.prev` does not exist, then `merged` must be the new `startingNode`.
+                    startingNode = merged;
+                }
+
+                // 2. merged <-> next
+                if (merged.next) {
+                    merged.next.prev = merged;
+                    this._add_node(queue, merged);
                 }
             }
-            word = new_word
-            if (word.length === 1) {
-                break;
-            } else {
-                pairs = this.get_pairs(word);
+
+            // Traverse the linked list, starting from the `startingNode`, and collect the tokens.
+            for (let currentNode = startingNode; currentNode !== null; currentNode = currentNode.next) {
+                result.push(currentNode.token);
             }
+        } else {
+            result = word;
         }
-        let final_word = word.join(this.BPE_SPLIT_TOKEN);
-        this.cache.set(token, final_word);
-        return final_word;
+
+        // Save the result to the cache
+        this.cache.set(token, result);
+
+        return result;
+    }
+
+
+    /**
+     * Helper function to add a node to the priority queue.
+     * @param {PriorityQueue} queue 
+     * @param {BPENode} node
+     * @private
+     */
+    _add_node(queue, node) {
+        // `score` is a measure of the merge priority: lower means higher priority
+        // We use the BPE rank as a measure of priority (i.e., the local of the merge in the merges list)
+        // We also add a fractional component to the score to break ties (with the earlier character having higher priority)
+        const rank = this.bpe_ranks.get(node.token + this.BPE_SPLIT_TOKEN + node.next.token);
+        if (rank !== undefined) {
+            node.score = rank + node.bias;
+            queue.push(node);
+        }
+    }
+
+    /**
+     * Helper function to perform BPE on a given word, using the priority queue implementation.
+     * This is necessary when tokenizing extremely long words.
+     * @param {string[]} word The array of characters to encode.
+     * @returns {string[]} The BPE encoded tokens.
+     * @private
+     */
+    _bpe_pq(word) {
+
     }
 
     /**
      * Encodes the input sequence of tokens using the BPE algorithm and returns the resulting subword tokens.
-     * @param {Array} tokens The input sequence of tokens to encode.
-     * @returns {Array} The resulting subword tokens after applying the BPE algorithm to the input sequence of tokens.
+     * @param {string[]} tokens The input sequence of tokens to encode.
+     * @returns {string[]} The resulting subword tokens after applying the BPE algorithm to the input sequence of tokens.
      */
     encode(tokens) {
         let outputTokens = [];
 
         for (let token of tokens) {
-            let bpe_token_list = this.bpe(token).split(this.BPE_SPLIT_TOKEN);
+            let bpe_token_list = this.bpe(token);
 
             for (let t of bpe_token_list) {
                 if (this.tokens_to_ids.has(t)) {
