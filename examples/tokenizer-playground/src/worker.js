@@ -50,7 +50,7 @@ self.addEventListener('message', async (event) => {
     // Minor post-processing for visualization purposes
     switch (tokenizer.constructor.name) {
         case 'BertTokenizer':
-            margins = decoded.map((x, i) => i === 0 || x.startsWith('##') ? 0 : 2);
+            margins = decoded.map((x, i) => i === 0 || x.startsWith('##') ? 0 : 8);
             decoded = decoded.map(x => x.replace('##', ''));
             break;
         case 'T5Tokenizer':

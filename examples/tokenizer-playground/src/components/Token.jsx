@@ -11,7 +11,10 @@ export function Token({ text, position, margin }) {
 
     return (
         isNormal ? (
-            <span className={`ml-${margin} leading-5 inline-block ${COLOURS[position % COLOURS.length]}`}>
+            <span
+            style={{marginLeft: margin}}
+            
+            className={`leading-5 inline-block ${COLOURS[position % COLOURS.length]}`}>
                 {text}
             </span>) : <br />
     )
