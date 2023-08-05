@@ -656,17 +656,6 @@ class BPE extends TokenizerModel {
     }
 
     /**
-     * Helper function to perform BPE on a given word, using the priority queue implementation.
-     * This is necessary when tokenizing extremely long words.
-     * @param {string[]} word The array of characters to encode.
-     * @returns {string[]} The BPE encoded tokens.
-     * @private
-     */
-    _bpe_pq(word) {
-
-    }
-
-    /**
      * Encodes the input sequence of tokens using the BPE algorithm and returns the resulting subword tokens.
      * @param {string[]} tokens The input sequence of tokens to encode.
      * @returns {string[]} The resulting subword tokens after applying the BPE algorithm to the input sequence of tokens.
