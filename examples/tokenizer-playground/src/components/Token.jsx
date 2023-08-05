@@ -6,13 +6,13 @@ const COLOURS = [
     'bg-blue-300',
 ]
 
-export function Token({text, position}){
+export function Token({ text, position, margin }) {
     const isNormal = text !== '\n'
 
     return (
         isNormal ? (
-        <span className={`leading-5 inline-block ${COLOURS[position % COLOURS.length]}`}>
-            {text}
-        </span>) : <br/>
+            <span className={`ml-${margin} leading-5 inline-block ${COLOURS[position % COLOURS.length]}`}>
+                {text}
+            </span>) : <br />
     )
 }

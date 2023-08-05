@@ -15,7 +15,23 @@ self.addEventListener('message', async (event) => {
     // Load the tokenizer if it hasn't been loaded yet
     if (!tokenizerPromise) {
         tokenizerPromise = AutoTokenizer.from_pretrained(event.data.model_id);
-        TOKENIZER_MAPPINGS.set(event.data.model_id, tokenizerPromise);
+
+        TOKENIZER_MAPPINGS.set(event.data.model_id, new Promise((resolve) => {
+            // Just for visualization purposes, we may need to modify the tokenizer slightly
+            tokenizerPromise.then((tokenizer) => {
+                // NOTE: We just remove the StripDecoder from the llama tokenizer
+                switch (tokenizer.constructor.name) {
+                    case 'LlamaTokenizer':
+                        // tokenizer.decoder.decoders.at(-1).constructor.name === 'StripDecoder'
+                        tokenizer.decoder.decoders.pop();
+                        break;
+                    case 'T5Tokenizer':
+                        tokenizer.decoder.addPrefixSpace = false;
+                        break;
+                }
+                resolve(tokenizer);
+            });
+        }));
     }
 
     const tokenizer = await tokenizerPromise;
@@ -27,10 +43,25 @@ self.addEventListener('message', async (event) => {
     const end = performance.now();
     console.log('[INFO]', `Tokenized ${text.length} characters in ${(end - start).toFixed(2)}ms`)
 
-    const decoded = token_ids.map(x => tokenizer.decode([x]));
+    let decoded = token_ids.map(x => tokenizer.decode([x]));
+
+    let margins = [];
+
+    // Minor post-processing for visualization purposes
+    switch (tokenizer.constructor.name) {
+        case 'BertTokenizer':
+            margins = decoded.map((x, i) => i === 0 || x.startsWith('##') ? 0 : 2);
+            decoded = decoded.map(x => x.replace('##', ''));
+            break;
+        case 'T5Tokenizer':
+            if (decoded.length > 0 && decoded.length !== ' ') {
+                decoded[0] = decoded[0].replace(/^ /, '');
+            }
+            break;
+    }
 
     // Send the output back to the main thread
     self.postMessage({
-        token_ids, decoded,
+        token_ids, decoded, margins
     });
 });
