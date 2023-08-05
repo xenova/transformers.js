@@ -487,7 +487,7 @@ class BPE extends TokenizerModel {
             this.vocab[value] = key;
         }
 
-        this.bpe_ranks = Object.fromEntries(config.merges.map((x, i) => [x, i]));
+        this.bpe_ranks = new Map(config.merges.map((x, i) => [x, i]));
         this.merges = config.merges.map(x => x.split(this.BPE_SPLIT_TOKEN));
 
         this.end_of_word_suffix = config.end_of_word_suffix;
@@ -506,7 +506,7 @@ class BPE extends TokenizerModel {
     /**
      * Get all the possible pairs of characters in a word.
      * @param {string[]} word The word to get pairs from.
-     * @returns {Array} An array of pairs.
+     * @returns {Set<string>} A set of pairs.
      */
     get_pairs(word) {
         let pairs = new Set();
@@ -516,7 +516,26 @@ class BPE extends TokenizerModel {
             pairs.add(prev_char + this.BPE_SPLIT_TOKEN + char);
             prev_char = char;
         }
-        return Array.from(pairs);
+        return pairs;
+    }
+
+    /**
+     * Get the best bigram from a set of bigrams.
+     * @param {Set} pairs The set of bigrams.
+     * @returns {string} The best bigram.
+     * @private
+     */
+    _get_best_bigram(pairs) {
+        let best;
+        let best_rank = Infinity;
+        for (let pair of pairs) {
+            let rank = this.bpe_ranks.get(pair) ?? Infinity;
+            if (rank < best_rank) {
+                best = pair;
+                best_rank = rank;
+            }
+        }
+        return best;
     }
 
     /**
@@ -533,21 +552,15 @@ class BPE extends TokenizerModel {
             word[word.length - 1] += this.end_of_word_suffix;
         }
         let pairs = this.get_pairs(word);
-
-        if (!pairs.length) {
+        if (!pairs.size) {
             if (this.end_of_word_suffix) {
                 token += this.end_of_word_suffix;
             }
             return token;
         }
-
         while (true) {
-            let bigram = pairs.reduce((a, b) => {
-                let c = this.bpe_ranks[a] ?? Infinity
-                let d = this.bpe_ranks[b] ?? Infinity
-                return c <= d ? a : b;
-            });
-            if (!(bigram in this.bpe_ranks)) {
+            let bigram = this._get_best_bigram(pairs);
+            if (!(this.bpe_ranks.has(bigram))) {
                 break;
             }
             let [first, second] = bigram.split(this.BPE_SPLIT_TOKEN);
