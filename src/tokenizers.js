@@ -573,10 +573,14 @@ class BPE extends TokenizerModel {
                     j = word.indexOf(first, i);
                     if (j === -1) throw "Error";
                 } catch (e) {
-                    new_word.push(...word.slice(i));
+                    for (let k = i; k < word.length; ++k) {
+                        new_word.push(word[k]);
+                    }
                     break;
                 }
-                new_word.push(...word.slice(i, j));
+                for (let k = i; k < j; ++k) {
+                    new_word.push(word[k]);
+                }
                 i = j;
 
                 if (word[i] === first && i < word.length - 1 && word[i + 1] === second) {
