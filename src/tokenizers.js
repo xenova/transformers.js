@@ -498,7 +498,7 @@ class BPE extends TokenizerModel {
             this.text_encoder = new TextEncoder();
         }
 
-        this.cache = Object.create(null);
+        this.cache = new Map();
 
         this.fuse_unk ??= this.config.fuse_unk;
     }
@@ -544,8 +544,9 @@ class BPE extends TokenizerModel {
      * @returns {string} The BPE encoded token.
      */
     bpe(token) {
-        if (token in this.cache) {
-            return this.cache[token];
+        const cached = this.cache.get(token);
+        if (cached !== undefined) {
+            return cached;
         }
         let word = Array.from(token);
         if (this.end_of_word_suffix) {
@@ -576,10 +577,9 @@ class BPE extends TokenizerModel {
                     }
                     break;
                 }
-                for (let k = i; k < j; ++k) {
-                    new_word.push(word[k]);
+                for (; i < j; ++i) {
+                    new_word.push(word[i]);
                 }
-                i = j;
 
                 if (word[i] === first && i < word.length - 1 && word[i + 1] === second) {
                     new_word.push(first + second);
@@ -597,7 +597,7 @@ class BPE extends TokenizerModel {
             }
         }
         let final_word = word.join(this.BPE_SPLIT_TOKEN);
-        this.cache[token] = final_word;
+        this.cache.set(token, final_word);
         return final_word;
     }
 
