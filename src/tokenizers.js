@@ -569,10 +569,8 @@ class BPE extends TokenizerModel {
             let j = -1;
 
             while (i < word.length) {
-                try {
-                    j = word.indexOf(first, i);
-                    if (j === -1) throw "Error";
-                } catch (e) {
+                j = word.indexOf(first, i);
+                if (j === -1) {
                     for (let k = i; k < word.length; ++k) {
                         new_word.push(word[k]);
                     }
