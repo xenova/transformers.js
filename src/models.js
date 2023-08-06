@@ -105,9 +105,11 @@ class DecoderOnlyModelType extends ModelType { };
 //////////////////////////////////////////////////
 // Helper functions
 
-// Will be populated later
-const MODEL_TYPE_MAPPING = new Map();
-const MODEL_CLASS_MAPPING = new Map();
+// Will be populated fully later
+const MODEL_TYPE_MAPPING = new Map([
+    ['CLIPTextModelWithProjection', EncoderOnlyModelType],
+    ['CLIPVisionModelWithProjection', EncoderOnlyModelType],
+]);
 
 /**
  * Helper function to determine which `forward` method to run for a specific model.
@@ -638,6 +640,7 @@ export class PreTrainedModel extends Callable {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        model_file_name = null,
     } = {}) {
 
         let options = {
@@ -647,6 +650,7 @@ export class PreTrainedModel extends Callable {
             cache_dir,
             local_files_only,
             revision,
+            model_file_name,
         }
 
         let modelType = MODEL_TYPE_MAPPING.get(this.name);
@@ -655,7 +659,7 @@ export class PreTrainedModel extends Callable {
         if (modelType === DecoderOnlyModelType) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+                constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'decoder_model_merged', options),
             ]);
 
         } else if (modelType === Seq2SeqModelType) {
@@ -676,7 +680,7 @@ export class PreTrainedModel extends Callable {
         } else if (modelType === EncoderOnlyModelType) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'model', options)
+                constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'model', options)
             ]);
 
         } else {
@@ -836,12 +840,12 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-   * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
-   * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
-   *
-   * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
-   * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
-   */
+     * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
+     * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
+     *
+     * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
+     * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
+     */
     _get_generation_config(generation_config) {
         // Create empty generation config (contains defaults)
         let gen_config = new GenerationConfig();
@@ -2309,8 +2313,121 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
 //////////////////////////////////////////////////
 // CLIP models
 export class CLIPPreTrainedModel extends PreTrainedModel { }
-export class CLIPModel extends CLIPPreTrainedModel {
 
+/**
+ * CLIP Text and Vision Model with a projection layers on top
+ * 
+ * **Example:** Perform zero-shot image classification with a `CLIPModel`.
+ * 
+ * ```javascript
+ * import { AutoTokenizer, AutoProcessor, CLIPModel, RawImage } from '@xenova/transformers';
+ * 
+ * // Load tokenizer, processor, and model
+ * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch16');
+ * let processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch16');
+ * let model = await CLIPModel.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Run tokenization
+ * let texts = ['a photo of a car', 'a photo of a football match']
+ * let text_inputs = tokenizer(texts, { padding: true, truncation: true });
+ * 
+ * // Read image and run processor
+ * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+ * let image_inputs = await processor(image);
+ * 
+ * // Run model with both text and pixel inputs
+ * let output = await model({ ...text_inputs, ...image_inputs });
+ * // {
+ * //   logits_per_image: Tensor {
+ * //     dims: [ 1, 2 ],
+ * //     data: Float32Array(2) [ 18.579734802246094, 24.31830596923828 ],
+ * //   },
+ * //   logits_per_text: Tensor {
+ * //     dims: [ 2, 1 ],
+ * //     data: Float32Array(2) [ 18.579734802246094, 24.31830596923828 ],
+ * //   },
+ * //   text_embeds: Tensor {
+ * //     dims: [ 2, 512 ],
+ * //     data: Float32Array(1024) [ ... ],
+ * //   },
+ * //   image_embeds: Tensor {
+ * //     dims: [ 1, 512 ],
+ * //     data: Float32Array(512) [ ... ],
+ * //   }
+ * // }
+ * ```
+ */
+export class CLIPModel extends CLIPPreTrainedModel { }
+
+/**
+ * CLIP Text Model with a projection layer on top (a linear layer on top of the pooled output)
+ * 
+ * **Example:** Compute text embeddings with `CLIPTextModelWithProjection`.
+ * 
+ * ```javascript
+ * import { AutoTokenizer, CLIPTextModelWithProjection } from '@xenova/transformers';
+ * 
+ * // Load tokenizer and text model
+ * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch16');
+ * const text_model = await CLIPTextModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Run tokenization
+ * let texts = ['a photo of a car', 'a photo of a football match'];
+ * let text_inputs = tokenizer(texts, { padding: true, truncation: true });
+ * 
+ * // Compute embeddings
+ * const { text_embeds } = await text_model(text_inputs);
+ * // Tensor {
+ * //   dims: [ 2, 512 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(1024) [ ... ],
+ * //   size: 1024
+ * // }
+ * ```
+ */
+export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
+
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'text_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
+}
+
+/**
+ * CLIP Vision Model with a projection layer on top (a linear layer on top of the pooled output)
+ * 
+ * **Example:** Compute vision embeddings with `CLIPVisionModelWithProjection`.
+ * 
+ * ```javascript
+ * import { AutoProcessor, CLIPVisionModelWithProjection, RawImage} from '@xenova/transformers';
+ * 
+ * // Load processor and vision model
+ * const processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch16');
+ * const vision_model = await CLIPVisionModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch16');
+ * 
+ * // Read image and run processor
+ * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+ * let image_inputs = await processor(image);
+ * 
+ * // Compute embeddings
+ * const { image_embeds } = await vision_model(image_inputs);
+ * // Tensor {
+ * //   dims: [ 1, 512 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(512) [ ... ],
+ * //   size: 512
+ * // }
+ * ```
+ */
+export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'vision_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
 }
 
 //////////////////////////////////////////////////
@@ -2940,6 +3057,7 @@ export class PretrainedMixin {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        model_file_name = null,
     } = {}) {
 
         let options = {
@@ -2949,6 +3067,7 @@ export class PretrainedMixin {
             cache_dir,
             local_files_only,
             revision,
+            model_file_name,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
         if (!options.config) {
@@ -3106,13 +3225,14 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, EncoderOnlyModelType],
 ];
 
-for (let [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
+for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
     // @ts-ignore
-    for (let [name, model] of mappings.entries()) {
+    for (const model of mappings.values()) {
+        // @ts-ignore
         MODEL_TYPE_MAPPING.set(model.name, type);
-        MODEL_CLASS_MAPPING.set(model.name, name);
     }
 }
+
 
 /**
  * Helper class which is used to instantiate pretrained models with the `from_pretrained` function.

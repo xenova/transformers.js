@@ -100,7 +100,17 @@ const RESAMPLING_MAPPING = {
 export class RawImage {
 
     /**
-     * Create a new RawImage object.
+     * Mapping from file extensions to MIME types.
+     */
+    _CONTENT_TYPE_MAP = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+    }
+
+    /**
+     * Create a new `RawImage` object.
      * @param {Uint8ClampedArray} data The pixel data.
      * @param {number} width The width of the image.
      * @param {number} height The height of the image.
@@ -152,6 +162,9 @@ export class RawImage {
             }
         } else {
             let response = await getFile(url);
+            if (response.status !== 200) {
+                throw new Error(`Unable to read image from "${url}" (${response.status} ${response.statusText})`);
+            }
             let blob = await response.blob();
             return this.fromBlob(blob);
         }
@@ -351,13 +364,7 @@ export class RawImage {
 
         } else {
             // Create sharp image from raw data, and resize
-            let img = sharp(this.data, {
-                raw: {
-                    width: this.width,
-                    height: this.height,
-                    channels: this.channels
-                }
-            });
+            let img = this.toSharp();
 
             switch (resampleMethod) {
                 case 'box':
@@ -465,13 +472,7 @@ export class RawImage {
             return paddedImage.convert(numChannels);
 
         } else {
-            let img = sharp(this.data, {
-                raw: {
-                    width: this.width,
-                    height: this.height,
-                    channels: this.channels
-                }
-            }).extend({ left, right, top, bottom });
+            let img = this.toSharp().extend({ left, right, top, bottom });
             return await loadImageFunction(img);
         }
     }
@@ -553,13 +554,7 @@ export class RawImage {
 
         } else {
             // Create sharp image from raw data
-            let img = sharp(this.data, {
-                raw: {
-                    width: this.width,
-                    height: this.height,
-                    channels: this.channels
-                }
-            });
+            let img = this.toSharp();
 
             if (width_offset >= 0 && height_offset >= 0) {
                 // Cropped image lies entirely within the original image
@@ -632,8 +627,10 @@ export class RawImage {
     }
 
     toCanvas() {
-        if (IS_REACT_NATIVE && createCanvasFunction === undefined)
-            throw new Error('toCanvas is not supported');
+        if (!createCanvasFunction) {
+            throw new Error('toCanvas() is only supported in browser environments.')
+        }
+
         // Clone, and convert data to RGBA before drawing to canvas.
         // This is because the canvas API only supports RGBA
         let cloned = this.clone().rgba();
@@ -698,22 +695,59 @@ export class RawImage {
     }
 
     /**
-     * Save the image to the given path. This method is only available in environments with access to the FileSystem.
-     * @param {string|Buffer|URL} path The path to save the image to.
-     * @param {string} [mime='image/png'] The mime type of the image.
+     * Save the image to the given path.
+     * @param {string} path The path to save the image to.
      */
-    save(path, mime = 'image/png') {
-        if (!env.useFS) {
-            throw new Error('Unable to save the image because filesystem is disabled in this environment.')
-        }
+    save(path) {
+        const extension = path.split('.').pop().toLowerCase();
+        const mime = this._CONTENT_TYPE_MAP[extension] ?? 'image/png';
 
         if (IS_REACT_NATIVE) {
             const buf = Buffer.from(encode(this.rgba().data, mime));
             fs.writeFile(path, buf.toString('base64'), 'base64');
+        } else if (BROWSER_ENV) {
+            const extension = path.split('.').pop().toLowerCase();
+            const mime = this._CONTENT_TYPE_MAP[extension] ?? 'image/png';
+
+            // Convert image to canvas
+            const canvas = this.toCanvas();
+
+            // Convert the canvas content to a data URL
+            const dataURL = canvas.toDataURL(mime);
+
+            // Create an anchor element with the data URL as the href attribute
+            const downloadLink = document.createElement('a');
+            downloadLink.href = dataURL;
+
+            // Set the download attribute to specify the desired filename for the downloaded image
+            downloadLink.download = path;
+
+            // Trigger the download
+            downloadLink.click();
+
+            // Clean up: remove the anchor element from the DOM
+            downloadLink.remove();
+
+        } else if (!env.useFS) {
+            throw new Error('Unable to save the image because filesystem is disabled in this environment.')
+
         } else {
-            let canvas = this.toCanvas();
-            const buffer = canvas.toBuffer(mime);
-            fs.writeFileSync(path, buffer);
+            const img = this.toSharp();
+            img.toFile(path);
         }
+    }
+
+    toSharp() {
+        if (BROWSER_ENV) {
+            throw new Error('toSharp() is only supported in server-side environments.')
+        }
+
+        return sharp(this.data, {
+            raw: {
+                width: this.width,
+                height: this.height,
+                channels: this.channels
+            }
+        });
     }
 }

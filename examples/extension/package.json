@@ -6,6 +6,7 @@
     "build": "webpack",
     "dev": "webpack --watch"
   },
+  "type": "module",
   "author": "Xenova",
   "license": "MIT",
   "devDependencies": {

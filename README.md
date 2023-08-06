@@ -98,7 +98,7 @@ npm i @xenova/transformers
 Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN or static hosting. For example, using [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules), you can import the library with:
 ```html
 <script type="module">
-    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.4.4';
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.0';
 </script>
 ```
 
@@ -112,6 +112,7 @@ Want to jump straight in? Get started with one of our sample applications/templa
 | Whisper Web       | Speech recognition w/ Whisper    | [link](https://github.com/xenova/whisper-web) |
 | Doodle Dash       | Real-time sketch-recognition game (see [blog](https://huggingface.co/blog/ml-web-games)) | [link](https://github.com/xenova/doodle-dash) |
 | Code Playground   | In-browser code completion website | [link](./examples/code-completion/) |
+| Semantic Image Search | Search for images with text (Next.js + Supabase) | [link](./examples/semantic-image-search/) |
 | React             | Multilingual translation website | [link](./examples/react-translator/) |
 | Browser extension | Text classification extension    | [link](./examples/extension/) |
 | Electron          | Text classification application  | [link](./examples/electron/)  |
@@ -124,7 +125,7 @@ Want to jump straight in? Get started with one of our sample applications/templa
 
 
 
-By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@2.4.4/dist/), which should work out-of-the-box. You can customize this as follows:
+By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.0/dist/), which should work out-of-the-box. You can customize this as follows:
 
 
 ### Settings
