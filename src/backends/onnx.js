@@ -18,6 +18,9 @@
 
 import * as ONNX_COMMON from 'onnxruntime-common';
 
+/** @type {Promise<bool>} A promise that resolves when the ONNX runtime module is loaded. */
+export let isReady = null;
+
 /** @type {module} The ONNX runtime module. */
 export const ONNX = ONNX_COMMON?.default ?? ONNX_COMMON;
 
@@ -28,19 +31,21 @@ export const executionProviders = [
 
 if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
     // Running in a react native environment.
-    import('onnxruntime-react-native');
+    isReady = import('onnxruntime-react-native').then(() => true);
     executionProviders.unshift('cpu');
 
 } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
-    import('onnxruntime-node');
-    import('onnxruntime-web');
+    isReady = Promise.all([
+        import('onnxruntime-node'),
+        import('onnxruntime-web'),
+    ]).then(() => true);
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
     executionProviders.unshift('cpu');
 } else {
     // Running in a browser-environment
-    import('onnxruntime-web');
+    isReady = import('onnxruntime-web').then(() => true);
 
     // SIMD for WebAssembly does not operate correctly in some recent versions of iOS (16.4.x).
     // As a temporary fix, we disable it for now.
