@@ -61,7 +61,7 @@
     "webpack-dev-server": "^4.13.3"
   },
   "overrides": {
-    "jpeg-js": "^0.4.4"
+    "jpeg-js": "^0.4.4",
     "semver": "^7.5.4",
     "protobufjs": "^7.2.4"
   },
