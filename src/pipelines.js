@@ -460,8 +460,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
  * ```javascript
  * let text = 'I enjoy walking with my cute dog,';
- * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await generator(text);
+ * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await classifier(text);
  * console.log(output);
  * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
  * ```
@@ -469,8 +469,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
  * ```javascript
  * let text = 'Once upon a time, there was';
- * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await generator(text, {
+ * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await classifier(text, {
  *     temperature: 2,
  *     max_new_tokens: 10,
  *     repetition_penalty: 1.5,
@@ -489,8 +489,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
  * ```javascript
  * let text = 'def fib(n):';
- * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
- * let output = await generator(text, {
+ * let classifier = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * let output = await classifier(text, {
  *     max_new_tokens: 40,
  * });
  * console.log(output[0].generated_text);
@@ -551,26 +551,32 @@ export class TextGenerationPipeline extends Pipeline {
  * pipelines, but these models don't require a hardcoded number of potential classes, they
  * can be chosen at runtime. It usually means it's slower but it is **much** more flexible.
  * 
- * **Example:** Zero shot classification with `Xenova/bart-large-mnli` (one text).
+ * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli` (one text).
  * ```javascript
- * let text = '17 rue Dantoni';
- * let labels = [ 'a street address', 'a cooking recipe' ];
- * let generator = await pipeline('zero-shot-classification', 'Xenova/bart-large-mnli');
- * let output = await generator(text, labels);
+ * let text = 'I have a problem with my iphone that needs to be resolved asap!';
+ * let labels = [ 'urgent', 'not urgent', 'phone', 'tablet', 'computer' ];
+ * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+ * let output = await classifier(text, labels);
  * console.log(output);
  * // {
- * //   sequence: '17 rue Dantoni',
- * //   labels: [ 'a street address', 'a cooking recipe' ],
- * //   scores: [ 0.6759976386421066, 0.32400236135789334 ]
+ * //   sequence: 'I have a problem with my iphone that needs to be resolved asap!',
+ * //   labels: [ 'urgent', 'phone', 'computer', 'not urgent', 'tablet' ],
+ * //   scores: [
+ * //     0.670020186231143,
+ * //     0.12178026705978608,
+ * //     0.08076135078579076,
+ * //     0.0756843151328567,
+ * //     0.051753880790423284
+ * //   ]
  * // }
  * ```
  * 
- * **Example:** Zero shot classification with `Xenova/bart-large-mnli` (multiple texts and labels).
+ * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli` (multiple texts and labels).
  * ```javascript
  * let texts = ['17 rue Dantoni', 'georgian ojakhuri'];
  * let labels = [ 'a street address', 'a cooking recipe', 'a country'];
- * let generator = await pipeline('zero-shot-classification', 'Xenova/bart-large-mnli');
- * let output = await generator(texts, labels, { multi_label: true });
+ * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+ * let output = await classifier(texts, labels, { multi_label: true });
  * console.log(output);
  * // [
  * //   {
