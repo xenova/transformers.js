@@ -1,6 +1,6 @@
 
 /**
- * @file Definitions for custom data structures.
+ * @file Custom data structures.
  * 
  * These are only used internally, meaning an end-user shouldn't
  * need to access anything here.
