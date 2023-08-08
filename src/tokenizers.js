@@ -2422,6 +2422,9 @@ export class SqueezeBertTokenizer extends PreTrainedTokenizer {
     }
 }
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
+export class DebertaTokenizer extends PreTrainedTokenizer { }
+export class DebertaV2Tokenizer extends PreTrainedTokenizer { }
+
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
@@ -3430,6 +3433,8 @@ export class AutoTokenizer {
     static TOKENIZER_CLASS_MAPPING = {
         'T5Tokenizer': T5Tokenizer,
         'DistilBertTokenizer': DistilBertTokenizer,
+        'DebertaTokenizer': DebertaTokenizer,
+        'DebertaV2Tokenizer': DebertaV2Tokenizer,
         'BertTokenizer': BertTokenizer,
         'MobileBertTokenizer': MobileBertTokenizer,
         'SqueezeBertTokenizer': SqueezeBertTokenizer,
