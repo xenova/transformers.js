@@ -560,12 +560,12 @@ export class TextGenerationPipeline extends Pipeline {
  * console.log(output);
  * //  {
  * //    sequence: 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.',
- * //    labels: [ 'mobile', 'billing', 'website', 'account access' ],
- * //    scores: [ 0.5464604114206723, 0.2894946913413287, 0.1634861026472116, 0.1533931643925773 ]
+ * //    labels: [ 'mobile', 'website', 'billing', 'account access' ],
+ * //    scores: [ 0.5562091040482018, 0.1843621307860853, 0.13942646639336376, 0.12000229877234923 ]
  * //  }
  * ```
  * 
- * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli` (multi class).
+ * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli` (multi-label).
  * ```javascript
  * let text = 'I have a problem with my iphone that needs to be resolved asap!';
  * let labels = [ 'urgent', 'not urgent', 'phone', 'tablet', 'computer' ];
