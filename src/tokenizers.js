@@ -39,7 +39,7 @@ import {
     PriorityQueue,
     TokenLattice,
     CharTrie,
- } from './utils/data-structures.js';
+} from './utils/data-structures.js';
 
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
@@ -727,6 +727,8 @@ class Normalizer extends Callable {
                 return new NFC(config);
             case 'NFKD':
                 return new NFKD(config);
+            case 'Strip':
+                return new StripNormalizer(config);
             case 'StripAccents':
                 return new StripAccents(config);
             case 'Lowercase':
@@ -810,6 +812,26 @@ class NFKD extends Normalizer {
      */
     normalize(text) {
         text = text.normalize('NFKD')
+        return text;
+    }
+}
+
+/**
+ * A normalizer that strips leading and/or trailing whitespace from the input text.
+ */
+class StripNormalizer extends Normalizer {
+    /**
+     * Strip leading and/or trailing whitespace from the input text.
+     * @param {string} text The input text.
+     * @returns {string} The normalized text.
+     */
+    normalize(text) {
+        if (this.config.strip_left) {
+            text = text.trimStart();
+        }
+        if (this.config.strip_right) {
+            text = text.trimEnd();
+        }
         return text;
     }
 }
