@@ -3231,6 +3231,8 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', BertModel],
+    ['deberta', DebertaModel],
+    ['deberta-v2', DebertaV2Model],
     ['mpnet', MPNetModel],
     ['albert', AlbertModel],
     ['distilbert', DistilBertModel],
@@ -3262,6 +3264,8 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForSequenceClassification],
+    ['deberta', DebertaForSequenceClassification],
+    ['deberta-v2', DebertaV2ForSequenceClassification],
     ['mpnet', MPNetForSequenceClassification],
     ['albert', AlbertForSequenceClassification],
     ['distilbert', DistilBertForSequenceClassification],
@@ -3274,6 +3278,8 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
+    ['deberta', DebertaForTokenClassification],
+    ['deberta-v2', DebertaV2ForTokenClassification],
     ['mpnet', MPNetForTokenClassification],
     ['distilbert', DistilBertForTokenClassification],
     ['roberta', RobertaForTokenClassification],
@@ -3298,6 +3304,8 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', BertForMaskedLM],
+    ['deberta', DebertaForMaskedLM],
+    ['deberta-v2', DebertaV2ForMaskedLM],
     ['mpnet', MPNetForMaskedLM],
     ['albert', AlbertForMaskedLM],
     ['distilbert', DistilBertForMaskedLM],
@@ -3309,6 +3317,8 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', BertForQuestionAnswering],
+    ['deberta', DebertaForQuestionAnswering],
+    ['deberta-v2', DebertaV2ForQuestionAnswering],
     ['mpnet', MPNetForQuestionAnswering],
     ['albert', AlbertForQuestionAnswering],
     ['distilbert', DistilBertForQuestionAnswering],
