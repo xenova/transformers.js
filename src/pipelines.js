@@ -551,45 +551,38 @@ export class TextGenerationPipeline extends Pipeline {
  * pipelines, but these models don't require a hardcoded number of potential classes, they
  * can be chosen at runtime. It usually means it's slower but it is **much** more flexible.
  * 
- * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli` (one text).
+ * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli`.
+ * ```javascript
+ * let text = 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.';
+ * let labels = [ 'mobile', 'billing', 'website', 'account access' ];
+ * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+ * let output = await classifier(text, labels);
+ * console.log(output);
+ * //  {
+ * //    sequence: 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.',
+ * //    labels: [ 'mobile', 'billing', 'website', 'account access' ],
+ * //    scores: [ 0.5464604114206723, 0.2894946913413287, 0.1634861026472116, 0.1533931643925773 ]
+ * //  }
+ * ```
+ * 
+ * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli` (multi class).
  * ```javascript
  * let text = 'I have a problem with my iphone that needs to be resolved asap!';
  * let labels = [ 'urgent', 'not urgent', 'phone', 'tablet', 'computer' ];
  * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
- * let output = await classifier(text, labels);
+ * let output = await classifier(text, labels, { multi_label: true });
  * console.log(output);
  * // {
  * //   sequence: 'I have a problem with my iphone that needs to be resolved asap!',
  * //   labels: [ 'urgent', 'phone', 'computer', 'not urgent', 'tablet' ],
  * //   scores: [
- * //     0.670020186231143,
- * //     0.12178026705978608,
- * //     0.08076135078579076,
- * //     0.0756843151328567,
- * //     0.051753880790423284
+ * //     0.940020186231143,
+ * //     0.24178026705978608,
+ * //     0.15076135078579076,
+ * //     0.1056843151328567,
+ * //     0.091753880790423284
  * //   ]
  * // }
- * ```
- * 
- * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli` (multiple texts and labels).
- * ```javascript
- * let texts = ['17 rue Dantoni', 'georgian ojakhuri'];
- * let labels = [ 'a street address', 'a cooking recipe', 'a country'];
- * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
- * let output = await classifier(texts, labels, { multi_label: true });
- * console.log(output);
- * // [
- * //   {
- * //     sequence: '17 rue Dantoni',
- * //     labels: [ 'a street address', 'a country', 'a cooking recipe' ],
- * //     scores: [ 0.8264604114206723, 0.6994946913413287, 0.6534861026472116 ]
- * //   },
- * //   {
- * //     sequence: 'georgian ojakhuri',
- * //     labels: [ 'a country', 'a cooking recipe', 'a street address' ]
- * //     scores: [ 0.8001145647272729, 0.7846545232058412, 0.677132607838215 ]
- * //   }
- * // ] 
  * ```
  * 
  * @extends Pipeline
