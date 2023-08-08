@@ -565,23 +565,17 @@ export class TextGenerationPipeline extends Pipeline {
  * //  }
  * ```
  * 
- * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli` (multi-label).
+ * **Example:** Zero shot classification with `Xenova/nli-deberta-v3-xsmall` (multi-label).
  * ```javascript
  * let text = 'I have a problem with my iphone that needs to be resolved asap!';
  * let labels = [ 'urgent', 'not urgent', 'phone', 'tablet', 'computer' ];
- * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+ * let classifier = await pipeline('zero-shot-classification', 'Xenova/nli-deberta-v3-xsmall');
  * let output = await classifier(text, labels, { multi_label: true });
  * console.log(output);
  * // {
  * //   sequence: 'I have a problem with my iphone that needs to be resolved asap!',
- * //   labels: [ 'urgent', 'phone', 'computer', 'not urgent', 'tablet' ],
- * //   scores: [
- * //     0.940020186231143,
- * //     0.24178026705978608,
- * //     0.15076135078579076,
- * //     0.1056843151328567,
- * //     0.091753880790423284
- * //   ]
+ * //   labels: [ 'urgent', 'phone', 'computer', 'tablet', 'not urgent' ],
+ * //   scores: [ 0.9958870956360275, 0.9923963400697035, 0.002333537946160235, 0.0015134138567598765, 0.0010699384208377163 ]
  * // }
  * ```
  * 
