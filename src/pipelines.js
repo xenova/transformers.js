@@ -565,23 +565,23 @@ export class TextGenerationPipeline extends Pipeline {
  * // }
  * ```
  * 
- * **Example:** Zero shot classification with `Xenova/bart-large-mnli` (multiple texts).
+ * **Example:** Zero shot classification with `Xenova/bart-large-mnli` (multiple texts and labels).
  * ```javascript
  * let texts = ['17 rue Dantoni', 'georgian ojakhuri'];
- * let labels = [ 'a street address', 'a cooking recipe' ];
+ * let labels = [ 'a street address', 'a cooking recipe', 'a country'];
  * let generator = await pipeline('zero-shot-classification', 'Xenova/bart-large-mnli');
- * let output = await generator(text, labels);
+ * let output = await generator(texts, labels, { multi_label: true });
  * console.log(output);
  * // [
  * //   {
  * //     sequence: '17 rue Dantoni',
- * //     labels: [ 'a street address', 'a cooking recipe' ],
- * //     scores: [ 0.6759976386421066, 0.32400236135789334 ]
+ * //     labels: [ 'a street address', 'a country', 'a cooking recipe' ],
+ * //     scores: [ 0.8264604114206723, 0.6994946913413287, 0.6534861026472116 ]
  * //   },
  * //   {
  * //     sequence: 'georgian ojakhuri',
- * //     labels: [ 'a cooking recipe', 'a street address' ],
- * //     scores: [ 0.6296598341652626, 0.3703401658347374 ]
+ * //     labels: [ 'a country', 'a cooking recipe', 'a street address' ]
+ * //     scores: [ 0.8001145647272729, 0.7846545232058412, 0.677132607838215 ]
  * //   }
  * // ] 
  * ```
