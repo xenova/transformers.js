@@ -205,8 +205,8 @@ export class CharTrie {
     }
 
     /**
-     * Adds one or more `texts` to the trie.
-     * @param {*} text The strings to add to the trie.
+     * Adds text to the trie.
+     * @param {string} text The string to add to the trie.
      */
     push(text) {
         let node = this.root;
@@ -242,10 +242,13 @@ export class CharTrie {
 
 /**
  * Represents a node in a character trie.
- * @param {boolean} isLeaf Whether the node is a leaf node or not.
- * @param {Map<string, CharTrieNode>} children A map containing the node's children, where the key is a character and the value is a `CharTrieNode`.
  */
 class CharTrieNode {
+    /**
+     * Create a new CharTrieNode.
+     * @param {boolean} isLeaf Whether the node is a leaf node or not.
+     * @param {Map<string, CharTrieNode>} children A map containing the node's children, where the key is a character and the value is a `CharTrieNode`.
+     */
     constructor(isLeaf, children) {
         this.isLeaf = isLeaf;
         this.children = children;
@@ -260,6 +263,9 @@ class CharTrieNode {
     }
 }
 
+/**
+ * A lattice data structure to be used for tokenization.
+ */
 export class TokenLattice {
     /**
      * Creates a new TokenLattice instance.
@@ -274,12 +280,9 @@ export class TokenLattice {
         this.bosTokenId = bosTokenId;
         this.eosTokenId = eosTokenId;
         this.nodes = [];
-        this.beginNodes = new Array(this.len + 1);
-        this.endNodes = new Array(this.len + 1);
-        for (let i = 0; i < this.len + 1; ++i) {
-            this.beginNodes[i] = [];
-            this.endNodes[i] = [];
-        }
+        this.beginNodes = Array.from({ length: this.len + 1 }, () => []);
+        this.endNodes = Array.from({ length: this.len + 1 }, () => []);
+
         const bos = new TokenLatticeNode(this.bosTokenId, 0, 0, 0, 0.0);
         const eos = new TokenLatticeNode(this.eosTokenId, 1, this.len, 0, 0.0);
         this.nodes.push(bos.clone());
