@@ -611,7 +611,7 @@ export class ZeroShotClassificationPipeline extends Pipeline {
             this.entailment_id = 2;
         }
 
-        this.contradiction_id = this.label2id['contradiction'];
+        this.contradiction_id = this.label2id['contradiction'] ?? this.label2id['not_entailment'];
         if (this.contradiction_id === undefined) {
             console.warn("Could not find 'contradiction' in label2id mapping. Using 0 as contradiction_id.");
             this.contradiction_id = 0;
