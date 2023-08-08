@@ -2426,9 +2426,19 @@ export class SqueezeBertTokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
+export class DebertaTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
+export class DebertaV2Tokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
-export class DebertaTokenizer extends PreTrainedTokenizer { }
-export class DebertaV2Tokenizer extends PreTrainedTokenizer { }
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
