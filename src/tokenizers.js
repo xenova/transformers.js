@@ -826,11 +826,16 @@ class StripNormalizer extends Normalizer {
      * @returns {string} The normalized text.
      */
     normalize(text) {
-        if (this.config.strip_left) {
-            text = text.trimStart();
-        }
-        if (this.config.strip_right) {
-            text = text.trimEnd();
+        if (this.config.strip_left && this.config.strip_right) {
+            // Fast path to avoid an extra trim call
+            text = text.trim();
+        } else {
+            if (this.config.strip_left) {
+                text = text.trimStart();
+            }
+            if (this.config.strip_right) {
+                text = text.trimEnd();
+            }
         }
         return text;
     }
