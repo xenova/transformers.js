@@ -517,7 +517,8 @@ class BPE extends TokenizerModel {
     }
 
     /**
-     * Apply Byte-Pair-Encoding (BPE) to a given token.
+     * Apply Byte-Pair-Encoding (BPE) to a given token. Efficient heap-based priority
+     * queue implementation adapted from https://github.com/belladoreai/llama-tokenizer-js.
      * @param {string} token The token to encode.
      * @returns {string[]} The BPE encoded tokens.
      */
