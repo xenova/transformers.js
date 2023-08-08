@@ -1,5 +1,15 @@
 
 /**
+ * @file Definitions for custom data structures.
+ * 
+ * These are only used internally, meaning an end-user shouldn't
+ * need to access anything here.
+ * 
+ * @module utils/data-structures
+ */
+
+
+/**
  * Efficient Heap-based Implementation of a Priority Queue.
  * It uses an array-based binary heap, where the root is at index `0`, and the
  * children of node `i` are located at indices `2i + 1` and `2i + 2`, respectively.
