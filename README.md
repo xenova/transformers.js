@@ -149,11 +149,23 @@ For a full list of available settings, check out the [API Reference](https://hug
 
 We recommend using our [conversion script](https://github.com/xenova/transformers.js/blob/main/scripts/convert.py) to convert your PyTorch, TensorFlow, or JAX models to ONNX in a single command. Behind the scenes, it uses [🤗 Optimum](https://huggingface.co/docs/optimum) to perform conversion and quantization of your model.
 
+Assuming you have Python 3 installed, create a virtual environment `onnxconversion` with all dependencies:
+
+```bash
+python -m venv onnxconversion
+source onnxconversion/bin/activate
+python -m pip install -r scripts/requirements.txt
+```
+
+Then use our script to convert the model:
+
 ```bash
 python -m scripts.convert --quantize --model_id <model_name_or_path>
 ```
+According to the 🤗 URL, `model_name_or_path` can be in the format `<user>/<model>` e.g. `intfloat/multilingual-e5-small` for https://huggingface.co/intfloat/multilingual-e5-small or for certain models just `<model>` e.g. `bert-base-uncased` for https://huggingface.co/bert-base-uncased.
 
 For example, convert and quantize [bert-base-uncased](https://huggingface.co/bert-base-uncased) using:
+
 ```bash
 python -m scripts.convert --quantize --model_id bert-base-uncased
 ```
@@ -169,7 +181,6 @@ bert-base-uncased/
     ├── model.onnx
     └── model_quantized.onnx
 ```
-
 
 ## Supported tasks/models
 
