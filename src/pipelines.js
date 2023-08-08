@@ -550,6 +550,42 @@ export class TextGenerationPipeline extends Pipeline {
  * trained on NLI (natural language inference) tasks. Equivalent of `text-classification`
  * pipelines, but these models don't require a hardcoded number of potential classes, they
  * can be chosen at runtime. It usually means it's slower but it is **much** more flexible.
+ * 
+ * **Example:** Zero shot classification with `Xenova/bart-large-mnli` (one text).
+ * ```javascript
+ * let text = '17 rue Dantoni';
+ * let labels = [ 'a street address', 'a cooking recipe' ];
+ * let generator = await pipeline('zero-shot-classification', 'Xenova/bart-large-mnli');
+ * let output = await generator(text, labels);
+ * console.log(output);
+ * // {
+ * //   sequence: '17 rue Dantoni',
+ * //   labels: [ 'a street address', 'a cooking recipe' ],
+ * //   scores: [ 0.6759976386421066, 0.32400236135789334 ]
+ * // }
+ * ```
+ * 
+ * **Example:** Zero shot classification with `Xenova/bart-large-mnli` (multiple texts).
+ * ```javascript
+ * let texts = ['17 rue Dantoni', 'georgian ojakhuri'];
+ * let labels = [ 'a street address', 'a cooking recipe' ];
+ * let generator = await pipeline('zero-shot-classification', 'Xenova/bart-large-mnli');
+ * let output = await generator(text, labels);
+ * console.log(output);
+ * // [
+ * //   {
+ * //     sequence: '17 rue Dantoni',
+ * //     labels: [ 'a street address', 'a cooking recipe' ],
+ * //     scores: [ 0.6759976386421066, 0.32400236135789334 ]
+ * //   },
+ * //   {
+ * //     sequence: 'georgian ojakhuri',
+ * //     labels: [ 'a cooking recipe', 'a street address' ],
+ * //     scores: [ 0.6296598341652626, 0.3703401658347374 ]
+ * //   }
+ * // ] 
+ * ```
+ * 
  * @extends Pipeline
  */
 export class ZeroShotClassificationPipeline extends Pipeline {
