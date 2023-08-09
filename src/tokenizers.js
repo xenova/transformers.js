@@ -39,7 +39,7 @@ import {
     PriorityQueue,
     TokenLattice,
     CharTrie,
- } from './utils/data-structures.js';
+} from './utils/data-structures.js';
 
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
@@ -727,6 +727,8 @@ class Normalizer extends Callable {
                 return new NFC(config);
             case 'NFKD':
                 return new NFKD(config);
+            case 'Strip':
+                return new StripNormalizer(config);
             case 'StripAccents':
                 return new StripAccents(config);
             case 'Lowercase':
@@ -810,6 +812,31 @@ class NFKD extends Normalizer {
      */
     normalize(text) {
         text = text.normalize('NFKD')
+        return text;
+    }
+}
+
+/**
+ * A normalizer that strips leading and/or trailing whitespace from the input text.
+ */
+class StripNormalizer extends Normalizer {
+    /**
+     * Strip leading and/or trailing whitespace from the input text.
+     * @param {string} text The input text.
+     * @returns {string} The normalized text.
+     */
+    normalize(text) {
+        if (this.config.strip_left && this.config.strip_right) {
+            // Fast path to avoid an extra trim call
+            text = text.trim();
+        } else {
+            if (this.config.strip_left) {
+                text = text.trimStart();
+            }
+            if (this.config.strip_right) {
+                text = text.trimEnd();
+            }
+        }
         return text;
     }
 }
@@ -1833,10 +1860,32 @@ class Precompiled extends Normalizer {
      * @returns {string} The normalized text.
      */
     normalize(text) {
-        // TODO use this.charsmap
-        // For now, we just apply NFKC normalization
-        // https://github.com/huggingface/tokenizers/blob/291b2e23ae81cf94738835852213ce120152d121/bindings/python/py_src/tokenizers/implementations/sentencepiece_bpe.py#L34
-        text = text.normalize('NFKC');
+        // As stated in the sentencepiece normalization docs (https://github.com/google/sentencepiece/blob/master/doc/normalization.md#use-pre-defined-normalization-rule),
+        // there are 5 pre-defined normalization rules:
+        //  1. nmt_nfkc: NFKC normalization with some additional normalization around spaces. (default)
+        //  2. nfkc: original NFKC normalization.
+        //  3. nmt_nfkc_cf: nmt_nfkc + Unicode case folding (mostly lower casing)
+        //  4. nfkc_cf: nfkc + Unicode case folding.
+        //  5. identity: no normalization
+        // 
+        // For now, we only implement the default (nmt_nfkc).
+        // See https://raw.githubusercontent.com/google/sentencepiece/master/data/nmt_nfkc.tsv for the full list of rules.
+        // TODO: detect when a different `this.charsmap` is used.
+
+        text = text.replace(/[\u0001-\u0008\u000B\u000E-\u001F\u007F\u008F\u009F]/gm, ''); // Remove control characters
+        text = text.replace(/[\u0009\u000A\u000C\u000D\u1680\u200B\u200C\u200E\u200F\u2028\u2029\u2581\uFEFF\uFFFD]/gm, '\u0020'); // Replace certain characters with a space
+
+        if (text.includes('\uFF5E')) {
+            // To match the sentencepiece implementation 100%, we must handle a very strange edge-case.
+            // For some reason, the "Fullwidth Tilde" character (\uFF5E) should not be converted to the standard Tilde character (\u007E).
+            // However, NFKC normalization does do this conversion. As a result, we split the string on the Fullwidth Tilde character,
+            // perform NFKC normalization on each substring, and then join them back together with the Fullwidth Tilde character.
+            const parts = text.split('\uFF5E');
+            text = parts.map(part => part.normalize('NFKC')).join('\uFF5E');
+        } else {
+            text = text.normalize('NFKC');
+        }
+
         return text;
     }
 }
@@ -2399,7 +2448,20 @@ export class SqueezeBertTokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
+export class DebertaTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
+export class DebertaV2Tokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
+
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
@@ -3408,6 +3470,8 @@ export class AutoTokenizer {
     static TOKENIZER_CLASS_MAPPING = {
         'T5Tokenizer': T5Tokenizer,
         'DistilBertTokenizer': DistilBertTokenizer,
+        'DebertaTokenizer': DebertaTokenizer,
+        'DebertaV2Tokenizer': DebertaV2Tokenizer,
         'BertTokenizer': BertTokenizer,
         'MobileBertTokenizer': MobileBertTokenizer,
         'SqueezeBertTokenizer': SqueezeBertTokenizer,

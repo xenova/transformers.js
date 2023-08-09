@@ -1284,6 +1284,148 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// DeBERTa models
+export class DebertaPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DeBERTa Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class DebertaModel extends DebertaPreTrainedModel { }
+
+/**
+ * DeBERTa Model with a `language modeling` head on top.
+ */
+export class DebertaForMaskedLM extends DebertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class DebertaForSequenceClassification extends DebertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa Model with a token classification head on top (a linear layer on top of the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class DebertaForTokenClassification extends DebertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa Model with a span classification head on top for extractive question-answering tasks like SQuAD (a linear
+ * layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class DebertaForQuestionAnswering extends DebertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// DeBERTa-v2 models
+export class DebertaV2PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DeBERTa-V2 Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class DebertaV2Model extends DebertaV2PreTrainedModel { }
+
+/**
+ * DeBERTa-V2 Model with a `language modeling` head on top.
+ */
+export class DebertaV2ForMaskedLM extends DebertaV2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa-V2 Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class DebertaV2ForSequenceClassification extends DebertaV2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa-V2 Model with a token classification head on top (a linear layer on top of the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class DebertaV2ForTokenClassification extends DebertaV2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa-V2 Model with a span classification head on top for extractive question-answering tasks like SQuAD (a linear
+ * layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class DebertaV2ForQuestionAnswering extends DebertaV2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // DistilBert models
 export class DistilBertPreTrainedModel extends PreTrainedModel { }
 export class DistilBertModel extends DistilBertPreTrainedModel { }
@@ -3089,6 +3231,8 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', BertModel],
+    ['deberta', DebertaModel],
+    ['deberta-v2', DebertaV2Model],
     ['mpnet', MPNetModel],
     ['albert', AlbertModel],
     ['distilbert', DistilBertModel],
@@ -3120,6 +3264,8 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForSequenceClassification],
+    ['deberta', DebertaForSequenceClassification],
+    ['deberta-v2', DebertaV2ForSequenceClassification],
     ['mpnet', MPNetForSequenceClassification],
     ['albert', AlbertForSequenceClassification],
     ['distilbert', DistilBertForSequenceClassification],
@@ -3132,6 +3278,8 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
+    ['deberta', DebertaForTokenClassification],
+    ['deberta-v2', DebertaV2ForTokenClassification],
     ['mpnet', MPNetForTokenClassification],
     ['distilbert', DistilBertForTokenClassification],
     ['roberta', RobertaForTokenClassification],
@@ -3156,6 +3304,8 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', BertForMaskedLM],
+    ['deberta', DebertaForMaskedLM],
+    ['deberta-v2', DebertaV2ForMaskedLM],
     ['mpnet', MPNetForMaskedLM],
     ['albert', AlbertForMaskedLM],
     ['distilbert', DistilBertForMaskedLM],
@@ -3167,6 +3317,8 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', BertForQuestionAnswering],
+    ['deberta', DebertaForQuestionAnswering],
+    ['deberta-v2', DebertaV2ForQuestionAnswering],
     ['mpnet', MPNetForQuestionAnswering],
     ['albert', AlbertForQuestionAnswering],
     ['distilbert', DistilBertForQuestionAnswering],

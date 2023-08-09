@@ -41,6 +41,8 @@ TOKENIZER_TEST_DATA = {
         "you…  ",
         "\u0079\u006F\u0075\u2026\u00A0\u00A0",
         "\u0079\u006F\u0075\u2026\u00A0\u00A0\u0079\u006F\u0075\u2026\u00A0\u00A0",
+        "▁This ▁is ▁a ▁test ▁.",
+        "weird \uFF5E edge \uFF5E case",
     ],
     "custom": {
         "tiiuae/falcon-7b": [
