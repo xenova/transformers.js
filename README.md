@@ -183,7 +183,7 @@ You can refine your search by selecting the task you're interested in (e.g., [te
 
 ### Tasks
 
-#### Natual Language Processing
+#### Natural Language Processing
 
 | Task                     | ID | Description | Supported? |
 |--------------------------|----|-------------|------------|
