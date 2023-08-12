@@ -2543,6 +2543,8 @@ export class NllbTokenizer extends PreTrainedTokenizer {
     }
 }
 
+export class M2M100Tokenizer extends PreTrainedTokenizer { }
+
 
 const WHISPER_LANGUAGES = [
     ["en", "english"],
@@ -3485,6 +3487,7 @@ export class AutoTokenizer {
         'MarianTokenizer': MarianTokenizer,
         'BloomTokenizer': BloomTokenizer,
         'NllbTokenizer': NllbTokenizer,
+        'M2M100Tokenizer': M2M100Tokenizer,
         'LlamaTokenizer': LlamaTokenizer,
         'XLMRobertaTokenizer': XLMRobertaTokenizer,
         'MPNetTokenizer': MPNetTokenizer,
