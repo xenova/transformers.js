@@ -63,6 +63,8 @@ SUPPORTED_MODELS = {
         'thenlper/gte-small',
         'thenlper/gte-base',
         'thenlper/gte-large',
+
+        'unitary/toxic-bert',
     ],
     # TODO:
     # 'bloom':[
