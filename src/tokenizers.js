@@ -1998,9 +1998,9 @@ export class PreTrainedTokenizer extends Callable {
         // Slight hack, but it prevents code duplication:
         this.decoder.added_tokens = this.added_tokens;
 
-        this.added_tokens_regex = new RegExp(
+        this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
             '(' + this.added_tokens.map(escapeRegExp).join('|') + ')'
-        );
+        ) : null;
 
         // Set mask token if present (otherwise will be undefined, which is fine)
         this.mask_token = this.getToken(tokenizerConfig, 'mask_token');
@@ -2265,8 +2265,7 @@ export class PreTrainedTokenizer extends Callable {
         // Actual function which does encoding, for a single text
         // First, we take care of special tokens. Needed to avoid issues arising from
         // normalization and/or pretokenization (which may not preserve special tokens)
-        const sections = text.split(this.added_tokens_regex).filter(x => x);
-
+        const sections = this.added_tokens_regex ? text.split(this.added_tokens_regex).filter(x => x) : [text];
         let tokens = sections.map(x => {
             if (this.added_tokens.includes(x)) {
                 // Ignore added tokens
