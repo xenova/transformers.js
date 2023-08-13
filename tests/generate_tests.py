@@ -21,6 +21,11 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     ],
 }
 
+TOKENIZERS_TO_IGNORE = [
+    # TODO: remove when https://github.com/huggingface/transformers/pull/25478 is merged
+    'facebook/m2m100_418M',
+]
+
 TOKENIZER_TEST_DATA = {
     "shared": [
         "hello world",
@@ -92,6 +97,9 @@ def generate_tokenizer_tests():
     for model_type, tokenizer_names in tokenizers_to_test:
         print(f'Generating tests for {model_type}')
         for tokenizer_name in tokenizer_names:
+            if tokenizer_name in TOKENIZERS_TO_IGNORE:
+                continue
+
             print('  -', tokenizer_name)
 
             try:
@@ -116,13 +124,6 @@ def generate_tokenizer_tests():
                     encoded["input_ids"], skip_special_tokens=False)
                 decoded_without_special = tokenizer.decode(
                     encoded["input_ids"], skip_special_tokens=True)
-
-                # NOTE:
-                # There is a bug in the decode method of the "slow" tokenizer for M2M100Tokenizer
-                # which makes it differ from the "fast" tokenizer. Since we only care about the
-                # "fast" tokenizer, we apply a hot-fix here.
-                if tokenizer.__class__.__name__ == 'M2M100Tokenizer':
-                    decoded_with_special = decoded_with_special.replace('__en__', '__en__ ')
 
                 tokenizer_results.append(dict(
                     input=text,
