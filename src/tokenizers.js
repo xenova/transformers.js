@@ -7,7 +7,7 @@
  * ```javascript
  * import { AutoTokenizer } from '@xenova/transformers';
  * 
- * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
+ * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
  * let { input_ids } = await tokenizer('I love transformers!');
  * // Tensor {
  * //   data: BigInt64Array(6) [101n, 1045n, 2293n, 19081n, 999n, 102n],
@@ -3464,7 +3464,7 @@ export class MarianTokenizer extends PreTrainedTokenizer {
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
  * 
  * @example
- * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
+ * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
  */
 export class AutoTokenizer {
     static TOKENIZER_CLASS_MAPPING = {
