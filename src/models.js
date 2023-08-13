@@ -3247,6 +3247,33 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
 //////////////////////////////////////////////////
 // Wav2Vec2 models
 export class Wav2Vec2PreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare Wav2Vec2 Model transformer outputting raw hidden-states without any specific head on top.
+ * 
+ * **Example:** Load and run an `Wav2Vec2Model` for feature extraction.
+ * 
+ * ```javascript
+ * import { AutoProcessor, read_audio } from '@xenova/transformers';
+ * 
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/mms-300m');
+ * const audio = await read_audio('https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/mlk.flac', 16000);
+ * const inputs = await processor(audio);
+ * 
+ * // Run model with inputs
+ * const model = await AutoModel.from_pretrained('Xenova/mms-300m');
+ * const output = await model(inputs);
+ * // {
+ * //   last_hidden_state: Tensor {
+ * //     dims: [ 1, 1144, 1024 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(1171456) [ ... ],
+ * //     size: 1171456
+ * //   }
+ * // }
+ * ```
+ */
 export class Wav2Vec2Model extends Wav2Vec2PreTrainedModel { }
 
 export class Wav2Vec2ForCTC extends Wav2Vec2PreTrainedModel {
