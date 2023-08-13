@@ -1871,17 +1871,47 @@ export async function pipeline(
         revision,
     }
 
-    let tokenizerClass = pipelineInfo.tokenizer;
-    let modelClass = pipelineInfo.model;
+    const classes = new Map([
+        ['tokenizer', pipelineInfo.tokenizer],
+        ['model', pipelineInfo.model],
+        ['processor', pipelineInfo.processor],
+    ]);
+
+    // Load model, tokenizer, and processor (if they exist)
+    let results = await loadItems(classes, model, pretrainedOptions);
+    results.task = task;
+
+    dispatchCallback(progress_callback, {
+        'status': 'ready',
+        'task': task,
+        'model': model,
+    });
+
     let pipelineClass = pipelineInfo.pipeline;
-    let processorClass = pipelineInfo.processor;
+    return new pipelineClass(results);
+}
 
-    let promises = [];
 
-    const pushIfExists = (cls, list) => {
-        if (!cls) return;
+/**
+ * Helper function to get applicable model, tokenizer, or processor classes for a given model.
+ * @param {Map<string, any>} mapping The mapping of names to classes, arrays of classes, or null.
+ * @param {string} model The name of the model to load.
+ * @param {PretrainedOptions} pretrainedOptions The options to pass to the `from_pretrained` method.
+ * @private
+ */
+async function loadItems(mapping, model, pretrainedOptions) {
+
+    const result = Object.create(null);
+
+    /**@type {Promise[]} */
+    const promises = [];
+    for (let [name, cls] of mapping.entries()) {
+        if (!cls) continue;
+
+        /**@type {Promise} */
+        let promise;
         if (Array.isArray(cls)) {
-            list.push(new Promise(async (resolve, reject) => {
+            promise = new Promise(async (resolve, reject) => {
                 let e;
                 for (let c of cls) {
                     try {
@@ -1892,25 +1922,22 @@ export async function pipeline(
                     }
                 }
                 reject(e);
-            }))
+            })
         } else {
-            list.push(cls.from_pretrained(model, pretrainedOptions))
+            promise = cls.from_pretrained(model, pretrainedOptions);
         }
+
+        result[name] = promise;
+        promises.push(promise);
     }
 
-    pushIfExists(tokenizerClass, promises);
-    pushIfExists(modelClass, promises);
-    pushIfExists(processorClass, promises);
+    // Wait for all promises to resolve (in parallel)
+    await Promise.all(promises);
 
-    // Load tokenizer and model
-    let items = await Promise.all(promises)
+    // Then assign to result
+    for (let [name, promise] of Object.entries(result)) {
+        result[name] = await promise;
+    }
 
-    dispatchCallback(progress_callback, {
-        'status': 'ready',
-        'task': task,
-        'model': model,
-    });
-
-    return new pipelineClass(task, ...items);
-
+    return result;
 }
