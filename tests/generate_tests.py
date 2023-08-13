@@ -117,6 +117,13 @@ def generate_tokenizer_tests():
                 decoded_without_special = tokenizer.decode(
                     encoded["input_ids"], skip_special_tokens=True)
 
+                # NOTE:
+                # There is a bug in the decode method of the "slow" tokenizer for M2M100Tokenizer
+                # which makes it differ from the "fast" tokenizer. Since we only care about the
+                # "fast" tokenizer, we apply a hot-fix here.
+                if tokenizer.__class__.__name__ == 'M2M100Tokenizer':
+                    decoded_with_special = decoded_with_special.replace('__en__', '__en__ ')
+
                 tokenizer_results.append(dict(
                     input=text,
                     encoded=encoded,
