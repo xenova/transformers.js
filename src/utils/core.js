@@ -162,3 +162,15 @@ export function pop(obj, key, defaultValue = undefined) {
 export function mergeArrays(...arrs) {
     return Array.prototype.concat.apply([], arrs);
 }
+
+/**
+ * Compute the Cartesian product of given arrays
+ * @param {...Array} a Arrays to compute the product
+ * @returns {Array} Returns the computed Cartesian product as an array
+ * @private
+ */
+export function product(...a) {
+    // Cartesian product of items
+    // Adapted from https://stackoverflow.com/a/43053803
+    return a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e])));
+}

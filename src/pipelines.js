@@ -44,6 +44,7 @@ import {
     isString,
     dispatchCallback,
     pop,
+    product,
 } from './utils/core.js';
 import {
     softmax,
@@ -83,15 +84,18 @@ async function prepareImages(images) {
 export class Pipeline extends Callable {
     /**
      * Create a new Pipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
-     * @param {PreTrainedModel} model The model to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer=null] The tokenizer to use (if any).
+     * @param {Processor} [options.processor=null] The processor to use (if any).
      */
-    constructor(task, tokenizer, model) {
+    constructor({ task, model, tokenizer = null, processor = null }) {
         super();
         this.task = task;
-        this.tokenizer = tokenizer;
         this.model = model;
+        this.tokenizer = tokenizer;
+        this.processor = processor;
     }
 
     /**
@@ -109,15 +113,15 @@ export class Pipeline extends Callable {
      */
     async _call(texts) {
         // Run tokenization
-        let inputs = this.tokenizer(texts, {
+        let model_inputs = this.tokenizer(texts, {
             padding: true,
             truncation: true
         });
 
         // Run model
-        let outputs = await this.model(inputs)
+        let outputs = await this.model(model_inputs)
 
-        return [inputs, outputs];
+        return [model_inputs, outputs];
     }
 }
 
@@ -587,12 +591,13 @@ export class ZeroShotClassificationPipeline extends Pipeline {
 
     /**
      * Create a new ZeroShotClassificationPipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
-     * @param {PreTrainedModel} model The model to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
      */
-    constructor(task, tokenizer, model) {
-        super(task, tokenizer, model);
+    constructor(options) {
+        super(options);
 
         // Use model config to get label2id mapping
         this.label2id = Object.fromEntries(
@@ -801,13 +806,13 @@ export class AudioClassificationPipeline extends Pipeline {
 
     /**
      * Create a new AudioClassificationPipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} model The model to use.
-     * @param {Processor} processor The processor to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    constructor(task, model, processor) {
-        super(task, null, model); // TODO tokenizer
-        this.processor = processor;
+    constructor(options) {
+        super(options);
     }
 
     /**
@@ -947,14 +952,14 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
     /**
      * Create a new AutomaticSpeechRecognitionPipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
-     * @param {PreTrainedModel} model The model to use.
-     * @param {Processor} processor The processor to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    constructor(task, tokenizer, model, processor) {
-        super(task, tokenizer, model);
-        this.processor = processor;
+    constructor(options) {
+        super(options);
     }
 
     /**
@@ -1169,14 +1174,14 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 export class ImageToTextPipeline extends Pipeline {
     /**
      * Create a new ImageToTextPipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
-     * @param {PreTrainedModel} model The model to use.
-     * @param {Processor} processor The processor to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    constructor(task, tokenizer, model, processor) {
-        super(task, tokenizer, model);
-        this.processor = processor;
+    constructor(options) {
+        super(options);
     }
 
     /**
@@ -1252,13 +1257,13 @@ export class ImageToTextPipeline extends Pipeline {
 export class ImageClassificationPipeline extends Pipeline {
     /**
      * Create a new ImageClassificationPipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} model The model to use.
-     * @param {Processor} processor The processor to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    constructor(task, model, processor) {
-        super(task, null, model); // TODO tokenizer
-        this.processor = processor;
+    constructor(options) {
+        super(options);
     }
 
     /**
@@ -1308,13 +1313,13 @@ export class ImageClassificationPipeline extends Pipeline {
 export class ImageSegmentationPipeline extends Pipeline {
     /**
      * Create a new ImageSegmentationPipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} model The model to use.
-     * @param {Processor} processor The processor to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    constructor(task, model, processor) {
-        super(task, null, model); // TODO tokenizer
-        this.processor = processor;
+    constructor(options) {
+        super(options);
 
         this.subtasks_mapping = {
             // Mapping of subtasks to their corresponding post-processing function names.
@@ -1424,14 +1429,14 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 
     /**
      * Create a new ZeroShotImageClassificationPipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedTokenizer} tokenizer The tokenizer to use.
-     * @param {PreTrainedModel} model The model to use.
-     * @param {Processor} processor The processor to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    constructor(task, tokenizer, model, processor) {
-        super(task, tokenizer, model);
-        this.processor = processor;
+    constructor(options) {
+        super(options);
     }
 
     /**
@@ -1512,13 +1517,13 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 export class ObjectDetectionPipeline extends Pipeline {
     /**
      * Create a new ObjectDetectionPipeline.
-     * @param {string} task The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} model The model to use.
-     * @param {Processor} processor The processor to use.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    constructor(task, model, processor) {
-        super(task, null, model); // TODO tokenizer
-        this.processor = processor;
+    constructor(options) {
+        super(options);
     }
 
     /**
@@ -1804,7 +1809,25 @@ const TASK_ALIASES = {
 /**
  * Utility factory method to build a [`Pipeline`] object.
  *
- * @param {string} task The task of the pipeline.
+ * @param {string} task The task defining which pipeline will be returned. Currently accepted tasks are:
+ *  - `"audio-classification"`: will return a `AudioClassificationPipeline`.
+ *  - `"automatic-speech-recognition"`: will return a `AutomaticSpeechRecognitionPipeline`.
+ *  - `"feature-extraction"`: will return a `FeatureExtractionPipeline`.
+ *  - `"fill-mask"`: will return a `FillMaskPipeline`.
+ *  - `"image-classification"`: will return a `ImageClassificationPipeline`.
+ *  - `"image-segmentation"`: will return a `ImageSegmentationPipeline`.
+ *  - `"image-to-text"`: will return a `ImageToTextPipeline`.
+ *  - `"object-detection"`: will return a `ObjectDetectionPipeline`.
+ *  - `"question-answering"`: will return a `QuestionAnsweringPipeline`.
+ *  - `"summarization"`: will return a `SummarizationPipeline`.
+ *  - `"text2text-generation"`: will return a `Text2TextGenerationPipeline`.
+ *  - `"text-classification" (alias "sentiment-analysis" available): will return a `TextClassificationPipeline`.
+ *  - `"text-generation"`: will return a `TextGenerationPipeline`.
+ *  - `"token-classification" (alias "ner" available): will return a `TokenClassificationPipeline`.
+ *  - `"translation"`: will return a `TranslationPipeline`.
+ *  - `"translation_xx_to_yy"`: will return a `TranslationPipeline`.
+ *  - `"zero-shot-classification"`: will return a `ZeroShotClassificationPipeline`.
+ *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
  * @param {PretrainedOptions} [options] Optional parameters for the pipeline.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
@@ -1839,13 +1862,6 @@ export async function pipeline(
         console.log(`No model specified. Using default model: "${model}".`);
     }
 
-    let tokenizerClass = pipelineInfo.tokenizer;
-    let modelClass = pipelineInfo.model;
-    let pipelineClass = pipelineInfo.pipeline;
-    let processorClass = pipelineInfo.processor;
-
-    let promises = [];
-
     let pretrainedOptions = {
         quantized,
         progress_callback,
@@ -1854,6 +1870,14 @@ export async function pipeline(
         local_files_only,
         revision,
     }
+
+    let tokenizerClass = pipelineInfo.tokenizer;
+    let modelClass = pipelineInfo.model;
+    let pipelineClass = pipelineInfo.pipeline;
+    let processorClass = pipelineInfo.processor;
+
+    let promises = [];
+
     const pushIfExists = (cls, list) => {
         if (!cls) return;
         if (Array.isArray(cls)) {
@@ -1889,16 +1913,4 @@ export async function pipeline(
 
     return new pipelineClass(task, ...items);
 
-}
-
-/**
- * Compute the Cartesian product of given arrays
- * @param {...Array} a Arrays to compute the product
- * @returns {Array} Returns the computed Cartesian product as an array
- * @private
- */
-function product(...a) {
-    // Cartesian product of items
-    // Adapted from https://stackoverflow.com/a/43053803
-    return a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e])));
 }
