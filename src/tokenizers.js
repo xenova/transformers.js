@@ -35,6 +35,12 @@ import {
 import { max, min, round } from './utils/maths.js';
 import { Tensor } from './utils/tensor.js';
 
+import {
+    PriorityQueue,
+    TokenLattice,
+    CharTrie,
+} from './utils/data-structures.js';
+
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
  */
@@ -191,7 +197,7 @@ export class TokenizerModel extends Callable {
     /**
      * Internal function to call the TokenizerModel instance.
      * @param {string[]} tokens The tokens to encode.
-     * @returns {number[]} The encoded token IDs.
+     * @returns {string[]} The encoded token IDs.
      */
     _call(tokens) {
         return this.encode(tokens);
@@ -200,7 +206,7 @@ export class TokenizerModel extends Callable {
     /**
      * Encodes a list of tokens into a list of token IDs.
      * @param {string[]} tokens The tokens to encode.
-     * @returns {number[]} The encoded token IDs.
+     * @returns {string[]} The encoded tokens.
      * @throws Will throw an error if not implemented in a subclass.
      */
     encode(tokens) {
@@ -275,8 +281,8 @@ class WordPieceTokenizer extends TokenizerModel {
 
     /**
      * Encodes an array of tokens using WordPiece encoding.
-     * @param {Array} tokens The tokens to encode.
-     * @returns {Array} An array of encoded tokens.
+     * @param {string[]} tokens The tokens to encode.
+     * @returns {string[]} An array of encoded tokens.
      */
     encode(tokens) {
         let outputTokens = [];
@@ -463,6 +469,16 @@ const BYTES_TO_UNICODE = (() => {
 
 const UNICODE_TO_BYTES = reverseDictionary(BYTES_TO_UNICODE);
 
+
+/**
+ * @typedef {Object} BPENode
+ * @property {string} token The token associated with the node
+ * @property {number} bias A positional bias for the node.
+ * @property {number} [score] The score of the node.
+ * @property {BPENode} [prev] The previous node in the linked list.
+ * @property {BPENode} [next] The next node in the linked list.
+ */
+
 /**
  * BPE class for encoding text into Byte-Pair-Encoding (BPE) tokens.
  * @extends TokenizerModel
@@ -491,7 +507,7 @@ class BPE extends TokenizerModel {
             this.vocab[value] = key;
         }
 
-        this.bpe_ranks = Object.fromEntries(config.merges.map((x, i) => [x, i]));
+        this.bpe_ranks = new Map(config.merges.map((x, i) => [x, i]));
         this.merges = config.merges.map(x => x.split(this.BPE_SPLIT_TOKEN));
 
         this.end_of_word_suffix = config.end_of_word_suffix;
@@ -502,104 +518,162 @@ class BPE extends TokenizerModel {
             this.text_encoder = new TextEncoder();
         }
 
-        this.cache = Object.create(null);
+        /** @type {Map<string, string[]>} */
+        this.cache = new Map();
 
         this.fuse_unk ??= this.config.fuse_unk;
     }
 
     /**
-     * Get all the possible pairs of characters in a word.
-     * @param {string[]} word The word to get pairs from.
-     * @returns {Array} An array of pairs.
-     */
-    get_pairs(word) {
-        let pairs = new Set();
-        let prev_char = word[0];
-        for (let i = 1; i < word.length; ++i) {
-            let char = word[i];
-            pairs.add(prev_char + this.BPE_SPLIT_TOKEN + char);
-            prev_char = char;
-        }
-        return Array.from(pairs);
-    }
-
-    /**
-     * Apply Byte-Pair-Encoding (BPE) to a given token.
+     * Apply Byte-Pair-Encoding (BPE) to a given token. Efficient heap-based priority
+     * queue implementation adapted from https://github.com/belladoreai/llama-tokenizer-js.
      * @param {string} token The token to encode.
-     * @returns {string} The BPE encoded token.
+     * @returns {string[]} The BPE encoded tokens.
      */
     bpe(token) {
-        if (token in this.cache) {
-            return this.cache[token];
+        if (token.length === 0) {
+            return [];
         }
-        let word = Array.from(token);
+
+        const cached = this.cache.get(token);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const word = Array.from(token);
         if (this.end_of_word_suffix) {
             word[word.length - 1] += this.end_of_word_suffix;
         }
-        let pairs = this.get_pairs(word);
 
-        if (!pairs.length) {
-            if (this.end_of_word_suffix) {
-                token += this.end_of_word_suffix;
+        let result = [];
+        if (word.length > 1) {
+            // Create a priority queue to store the nodes that will be merged.
+            // The comparator function compares the scores of the nodes.
+            const queue = new PriorityQueue((a, b) => a.score < b.score);
+
+            // Construct a doubly-linked list of nodes that will be inserted into the priority queue,
+            // starting with the individual characters. We also populate each node with a positional
+            // bias to break ties in the priority queue.
+            let startingNode = {
+                token: word[0],
+                bias: 0,
+                prev: null,
+                next: null,
             }
-            return token;
-        }
 
-        while (true) {
-            let bigram = pairs.reduce((a, b) => {
-                let c = this.bpe_ranks[a] ?? Infinity
-                let d = this.bpe_ranks[b] ?? Infinity
-                return c <= d ? a : b;
-            });
-            if (!(bigram in this.bpe_ranks)) {
-                break;
-            }
-            let [first, second] = bigram.split(this.BPE_SPLIT_TOKEN);
-            let new_word = [];
-            let i = 0;
-            let j = -1;
-
-            while (i < word.length) {
-                try {
-                    j = word.indexOf(first, i);
-                    if (j === -1) throw "Error";
-                } catch (e) {
-                    new_word.push(...word.slice(i));
-                    break;
+            let previousNode = startingNode
+            for (let i = 1; i < word.length; ++i) {
+                const currentNode = {
+                    bias: i / word.length, // Add fractional component to break ties
+                    token: word[i],
+                    prev: previousNode,
+                    next: null,
                 }
-                new_word.push(...word.slice(i, j));
-                i = j;
+                previousNode.next = currentNode
+                this._add_node(queue, previousNode)
+                previousNode = currentNode
+            }
 
-                if (word[i] === first && i < word.length - 1 && word[i + 1] === second) {
-                    new_word.push(first + second);
-                    i += 2;
+            while (!queue.isEmpty()) {
+                // Get the next node with the highest priority
+                const node = queue.pop();
+
+                // Check that this merge is still possible
+                if (node.deleted || !node.next || node.next.deleted) continue;
+
+                // Here, we mark the current node (left side of the merge) and the next node (right side of the merge) as deleted.
+                // This is because they will both be replaced by a new node representing the merge result.
+                node.deleted = true;
+                node.next.deleted = true;
+
+                // Next, we fix the node that comes before the current node (i.e., left side of the merge).
+                if (node.prev) {
+
+                    // Make a shallow copy of the previous node
+                    const newPreviousNode = { ...node.prev };
+
+                    // Mark the old previous node as deleted. This avoids erroneous merges later,
+                    // because there may still be references to this node in the priority queue.
+                    node.prev.deleted = true;
+                    node.prev = newPreviousNode;
+
+                    // Update the reference of the previous node, by pointing its previous node to this new previous node.
+                    if (newPreviousNode.prev) {
+                        newPreviousNode.prev.next = newPreviousNode;
+                    } else {
+                        // If the previous of the previous node does not exist, it means that
+                        // `newPreviousNode` must be the new `startingNode`.
+                        startingNode = newPreviousNode;
+                    }
+                }
+
+                // Create a new node which represents the result of the merge.
+                const merged = {
+                    token: node.token + node.next.token,
+                    bias: node.bias,
+                    prev: node.prev,
+                    next: node.next.next,
+                }
+
+                // We now consider where we can add the new merged node to the priority queue:
+                // 1. prev <-> merged
+                if (merged.prev) {
+                    merged.prev.next = merged;
+                    this._add_node(queue, merged.prev);
                 } else {
-                    new_word.push(word[i]);
-                    i += 1;
+                    // If `merged.prev` does not exist, then `merged` must be the new `startingNode`.
+                    startingNode = merged;
+                }
+
+                // 2. merged <-> next
+                if (merged.next) {
+                    merged.next.prev = merged;
+                    this._add_node(queue, merged);
                 }
             }
-            word = new_word
-            if (word.length === 1) {
-                break;
-            } else {
-                pairs = this.get_pairs(word);
+
+            // Traverse the linked list, starting from the `startingNode`, and collect the tokens.
+            for (let currentNode = startingNode; currentNode !== null; currentNode = currentNode.next) {
+                result.push(currentNode.token);
             }
+        } else {
+            result = word;
         }
-        let final_word = word.join(this.BPE_SPLIT_TOKEN);
-        this.cache[token] = final_word;
-        return final_word;
+
+        // Save the result to the cache
+        this.cache.set(token, result);
+
+        return result;
+    }
+
+
+    /**
+     * Helper function to add a node to the priority queue.
+     * @param {PriorityQueue} queue 
+     * @param {BPENode} node
+     * @private
+     */
+    _add_node(queue, node) {
+        // `score` is a measure of the merge priority: lower means higher priority
+        // We use the BPE rank as a measure of priority (i.e., the local of the merge in the merges list)
+        // We also add a fractional component to the score to break ties (with the earlier character having higher priority)
+        const rank = this.bpe_ranks.get(node.token + this.BPE_SPLIT_TOKEN + node.next.token);
+        if (rank !== undefined) {
+            node.score = rank + node.bias;
+            queue.push(node);
+        }
     }
 
     /**
      * Encodes the input sequence of tokens using the BPE algorithm and returns the resulting subword tokens.
-     * @param {Array} tokens The input sequence of tokens to encode.
-     * @returns {Array} The resulting subword tokens after applying the BPE algorithm to the input sequence of tokens.
+     * @param {string[]} tokens The input sequence of tokens to encode.
+     * @returns {string[]} The resulting subword tokens after applying the BPE algorithm to the input sequence of tokens.
      */
     encode(tokens) {
         let outputTokens = [];
 
         for (let token of tokens) {
-            let bpe_token_list = this.bpe(token).split(this.BPE_SPLIT_TOKEN);
+            let bpe_token_list = this.bpe(token);
 
             for (let t of bpe_token_list) {
                 if (this.tokens_to_ids.has(t)) {
@@ -698,6 +772,8 @@ class Normalizer extends Callable {
                 return new NFC(config);
             case 'NFKD':
                 return new NFKD(config);
+            case 'Strip':
+                return new StripNormalizer(config);
             case 'StripAccents':
                 return new StripAccents(config);
             case 'Lowercase':
@@ -781,6 +857,31 @@ class NFKD extends Normalizer {
      */
     normalize(text) {
         text = text.normalize('NFKD')
+        return text;
+    }
+}
+
+/**
+ * A normalizer that strips leading and/or trailing whitespace from the input text.
+ */
+class StripNormalizer extends Normalizer {
+    /**
+     * Strip leading and/or trailing whitespace from the input text.
+     * @param {string} text The input text.
+     * @returns {string} The normalized text.
+     */
+    normalize(text) {
+        if (this.config.strip_left && this.config.strip_right) {
+            // Fast path to avoid an extra trim call
+            text = text.trim();
+        } else {
+            if (this.config.strip_left) {
+                text = text.trimStart();
+            }
+            if (this.config.strip_right) {
+                text = text.trimEnd();
+            }
+        }
         return text;
     }
 }
@@ -1848,10 +1949,32 @@ class Precompiled extends Normalizer {
      * @returns {string} The normalized text.
      */
     normalize(text) {
-        // TODO use this.charsmap
-        // For now, we just apply NFKC normalization
-        // https://github.com/huggingface/tokenizers/blob/291b2e23ae81cf94738835852213ce120152d121/bindings/python/py_src/tokenizers/implementations/sentencepiece_bpe.py#L34
-        text = text.normalize('NFKC');
+        // As stated in the sentencepiece normalization docs (https://github.com/google/sentencepiece/blob/master/doc/normalization.md#use-pre-defined-normalization-rule),
+        // there are 5 pre-defined normalization rules:
+        //  1. nmt_nfkc: NFKC normalization with some additional normalization around spaces. (default)
+        //  2. nfkc: original NFKC normalization.
+        //  3. nmt_nfkc_cf: nmt_nfkc + Unicode case folding (mostly lower casing)
+        //  4. nfkc_cf: nfkc + Unicode case folding.
+        //  5. identity: no normalization
+        // 
+        // For now, we only implement the default (nmt_nfkc).
+        // See https://raw.githubusercontent.com/google/sentencepiece/master/data/nmt_nfkc.tsv for the full list of rules.
+        // TODO: detect when a different `this.charsmap` is used.
+
+        text = text.replace(/[\u0001-\u0008\u000B\u000E-\u001F\u007F\u008F\u009F]/gm, ''); // Remove control characters
+        text = text.replace(/[\u0009\u000A\u000C\u000D\u1680\u200B\u200C\u200E\u200F\u2028\u2029\u2581\uFEFF\uFFFD]/gm, '\u0020'); // Replace certain characters with a space
+
+        if (text.includes('\uFF5E')) {
+            // To match the sentencepiece implementation 100%, we must handle a very strange edge-case.
+            // For some reason, the "Fullwidth Tilde" character (\uFF5E) should not be converted to the standard Tilde character (\u007E).
+            // However, NFKC normalization does do this conversion. As a result, we split the string on the Fullwidth Tilde character,
+            // perform NFKC normalization on each substring, and then join them back together with the Fullwidth Tilde character.
+            const parts = text.split('\uFF5E');
+            text = parts.map(part => part.normalize('NFKC')).join('\uFF5E');
+        } else {
+            text = text.normalize('NFKC');
+        }
+
         return text;
     }
 }
@@ -2421,7 +2544,20 @@ export class SqueezeBertTokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
+export class DebertaTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
+export class DebertaV2Tokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
+
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
@@ -3422,231 +3558,6 @@ export class MarianTokenizer extends PreTrainedTokenizer {
 export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
 
 /**
- * A trie structure to efficiently store and search for strings.
- */
-class CharTrie {
-    constructor() {
-        this.root = CharTrieNode.default();
-    }
-
-    /**
-     * Adds one or more `texts` to the trie.
-     * @param {string[]} texts The strings to add to the trie.
-     */
-    extend(texts) {
-        for (let text of texts) {
-            this.push(text);
-        }
-    }
-
-    /**
-     * Adds one or more `texts` to the trie.
-     * @param {*} text The strings to add to the trie.
-     */
-    push(text) {
-        let node = this.root;
-        for (let ch of text) {
-            let child = node.children.get(ch);
-            if (child === undefined) {
-                child = CharTrieNode.default();
-                node.children.set(ch, child);
-            }
-            node = child;
-        }
-        node.isLeaf = true;
-    }
-
-    /**
-     * Searches the trie for all strings with a common prefix of `text`.
-     * @param {string} text The common prefix to search for.
-     * @yields {string} Each string in the trie that has `text` as a prefix.
-     */
-    *commonPrefixSearch(text) {
-        let node = this.root;
-        let prefix = "";
-        for (let i = 0; i < text.length && node !== undefined; ++i) {
-            const ch = text[i];
-            prefix += ch;
-            node = node.children.get(ch);
-            if (node !== undefined && node.isLeaf) {
-                yield prefix;
-            }
-        }
-    }
-}
-
-/**
- * Represents a node in a character trie.
- * @param {boolean} isLeaf Whether the node is a leaf node or not.
- * @param {Map<string, CharTrieNode>} children A map containing the node's children, where the key is a character and the value is a `CharTrieNode`.
- */
-class CharTrieNode {
-    constructor(isLeaf, children) {
-        this.isLeaf = isLeaf;
-        this.children = children;
-    }
-
-    /**
-     * Returns a new `CharTrieNode` instance with default values.
-     * @returns {CharTrieNode} A new `CharTrieNode` instance with `isLeaf` set to `false` and an empty `children` map.
-     */
-    static default() {
-        return new CharTrieNode(false, new Map());
-    }
-}
-
-class TokenLattice {
-    /**
-     * Creates a new TokenLattice instance.
-     *
-     * @param {string} sentence The input sentence to be tokenized.
-     * @param {number} bosTokenId The beginning-of-sequence token ID.
-     * @param {number} eosTokenId The end-of-sequence token ID.
-     */
-    constructor(sentence, bosTokenId, eosTokenId) {
-        this.sentence = sentence;
-        this.len = sentence.length;
-        this.bosTokenId = bosTokenId;
-        this.eosTokenId = eosTokenId;
-        this.nodes = [];
-        this.beginNodes = new Array(this.len + 1);
-        this.endNodes = new Array(this.len + 1);
-        for (let i = 0; i < this.len + 1; ++i) {
-            this.beginNodes[i] = [];
-            this.endNodes[i] = [];
-        }
-        const bos = new TokenLatticeNode(this.bosTokenId, 0, 0, 0, 0.0);
-        const eos = new TokenLatticeNode(this.eosTokenId, 1, this.len, 0, 0.0);
-        this.nodes.push(bos.clone());
-        this.nodes.push(eos.clone());
-        this.beginNodes[this.len].push(eos);
-        this.endNodes[0].push(bos);
-    }
-
-    /**
-     * Inserts a new token node into the token lattice.
-     *
-     * @param {number} pos The starting position of the token.
-     * @param {number} length The length of the token.
-     * @param {number} score The score of the token.
-     * @param {number} tokenId The token ID of the token.
-     */
-    insert(pos, length, score, tokenId) {
-        const nodeId = this.nodes.length;
-        const node = new TokenLatticeNode(tokenId, nodeId, pos, length, score);
-        this.beginNodes[pos].push(node);
-        this.endNodes[pos + length].push(node);
-        this.nodes.push(node);
-    }
-
-    /**
-     * Implements the Viterbi algorithm to compute the most likely sequence of tokens.
-     *
-     * @returns {TokenLatticeNode[]} The array of nodes representing the most likely sequence of tokens.
-     */
-    viterbi() {
-        const len = this.len;
-        let pos = 0;
-        while (pos <= len) {
-            if (this.beginNodes[pos].length == 0) {
-                return [];
-            }
-            for (let rnode of this.beginNodes[pos]) {
-                rnode.prev = null;
-                let bestScore = 0.0;
-                let bestNode = null;
-                for (let lnode of this.endNodes[pos]) {
-                    const score = lnode.backtraceScore + rnode.score;
-                    if (bestNode === null || score > bestScore) {
-                        bestNode = lnode.clone();
-                        bestScore = score;
-                    }
-                }
-
-                if (bestNode !== null) {
-                    rnode.prev = bestNode;
-                    rnode.backtraceScore = bestScore;
-                } else {
-                    return [];
-                }
-            }
-            ++pos;
-        }
-
-        const results = [];
-        const root = this.beginNodes[len][0];
-        const prev = root.prev;
-        if (prev === null) {
-            return [];
-        }
-
-        let node = prev.clone();
-        while (node.prev !== null) {
-            results.push(node.clone());
-            const n = node.clone();
-            node = n.prev.clone();
-        }
-
-        results.reverse();
-        return results;
-    }
-
-    /**
-     * @param {TokenLatticeNode} node
-     * @returns {string} The array of nodes representing the most likely sequence of tokens.
-     */
-    piece(node) {
-        return this.sentence.slice(node.pos, node.pos + node.length);
-    }
-
-    /**
-     * @returns {Array} The array of nodes representing the most likely sequence of tokens.
-     */
-    tokens() {
-        const nodes = this.viterbi();
-        return nodes.map(x => this.piece(x));
-    }
-
-    /**
-     * @returns {Array} The array of nodes representing the most likely sequence of tokens.
-     */
-    tokenIds() {
-        const nodes = this.viterbi();
-        return nodes.map(x => x.tokenId);
-    }
-}
-class TokenLatticeNode {
-    /**
-     * Represents a node in a token lattice for a given sentence.
-     * @param {number} tokenId The ID of the token associated with this node.
-     * @param {number} nodeId The ID of this node.
-     * @param {number} pos The starting position of the token in the sentence.
-     * @param {number} length The length of the token.
-     * @param {number} score The score associated with the token.
-     */
-    constructor(tokenId, nodeId, pos, length, score) {
-        this.tokenId = tokenId;
-        this.nodeId = nodeId;
-        this.pos = pos;
-        this.length = length;
-        this.score = score;
-        this.prev = null;
-        this.backtraceScore = 0.0;
-    }
-
-    /**
-     * Returns a clone of this node.
-     * @returns {TokenLatticeNode} A clone of this node.
-     */
-    clone() {
-        const n = new TokenLatticeNode(this.tokenId, this.nodeId, this.pos, this.length, this.score);
-        n.prev = this.prev;
-        n.backtraceScore = this.backtraceScore;
-        return n;
-    }
-}
-
-/**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
  * 
@@ -3657,6 +3568,8 @@ export class AutoTokenizer {
     static TOKENIZER_CLASS_MAPPING = {
         'T5Tokenizer': T5Tokenizer,
         'DistilBertTokenizer': DistilBertTokenizer,
+        'DebertaTokenizer': DebertaTokenizer,
+        'DebertaV2Tokenizer': DebertaV2Tokenizer,
         'BertTokenizer': BertTokenizer,
         'MobileBertTokenizer': MobileBertTokenizer,
         'SqueezeBertTokenizer': SqueezeBertTokenizer,

@@ -61,6 +61,8 @@
       title: Maths
     - local: api/utils/generation
       title: Generation
+    - local: api/utils/data-structures
+      title: Data Structures
     title: Utilities
     isExpanded: false
   title: API Reference

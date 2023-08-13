@@ -1283,6 +1283,148 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// DeBERTa models
+export class DebertaPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DeBERTa Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class DebertaModel extends DebertaPreTrainedModel { }
+
+/**
+ * DeBERTa Model with a `language modeling` head on top.
+ */
+export class DebertaForMaskedLM extends DebertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class DebertaForSequenceClassification extends DebertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa Model with a token classification head on top (a linear layer on top of the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class DebertaForTokenClassification extends DebertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa Model with a span classification head on top for extractive question-answering tasks like SQuAD (a linear
+ * layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class DebertaForQuestionAnswering extends DebertaPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// DeBERTa-v2 models
+export class DebertaV2PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DeBERTa-V2 Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class DebertaV2Model extends DebertaV2PreTrainedModel { }
+
+/**
+ * DeBERTa-V2 Model with a `language modeling` head on top.
+ */
+export class DebertaV2ForMaskedLM extends DebertaV2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa-V2 Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class DebertaV2ForSequenceClassification extends DebertaV2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa-V2 Model with a token classification head on top (a linear layer on top of the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class DebertaV2ForTokenClassification extends DebertaV2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * DeBERTa-V2 Model with a span classification head on top for extractive question-answering tasks like SQuAD (a linear
+ * layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class DebertaV2ForQuestionAnswering extends DebertaV2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // DistilBert models
 export class DistilBertPreTrainedModel extends PreTrainedModel { }
 export class DistilBertModel extends DistilBertPreTrainedModel { }
@@ -1693,13 +1835,13 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
     }
 
     /**
-   * Generates the start beams for the given input tokens and output sequence length.
-   *
-   * @param {any[]} inputs The input sequence.
-   * @param {number} numOutputTokens The desired length of the output sequence.
-   * @param {...*} args Additional arguments to pass to the `seq2seqStartBeams` function.
-   * @returns {any[]} An array of `Beam` objects representing the start beams.
-   */
+     * Generates the start beams for the given input tokens and output sequence length.
+     *
+     * @param {any[]} inputs The input sequence.
+     * @param {number} numOutputTokens The desired length of the output sequence.
+     * @param {...*} args Additional arguments to pass to the `seq2seqStartBeams` function.
+     * @returns {any[]} An array of `Beam` objects representing the start beams.
+     */
     getStartBeams(inputs, numOutputTokens, ...args) {
         return seq2seqStartBeams(this, inputs, numOutputTokens);
     }
@@ -1717,16 +1859,16 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
      * Updates the given beam with the new predicted token.
      * @param {any} beam The beam to update.
      * @param {number} newTokenId The index of the predicted token.
-    */
+     */
     updateBeam(beam, newTokenId) {
         beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     }
 
     /**
-    * Runs the forward pass of the model on the given inputs.
-    * @param {any} model_inputs The model inputs.
-    * @returns {Promise<any>} A Promise that resolves to the model outputs.
-    */
+     * Runs the forward pass of the model on the given inputs.
+     * @param {any} model_inputs The model inputs.
+     * @returns {Promise<any>} A Promise that resolves to the model outputs.
+     */
     async forward(model_inputs) {
         return await seq2seqForward(this, model_inputs);
     }
@@ -2741,6 +2883,94 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// LLama models
+
+/**
+ * The bare LLama Model outputting raw hidden-states without any specific head on top.
+ */
+export class LlamaPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `LlamaPreTrainedModel` class.
+    * @param {Object} config The model configuration object.
+    * @param {Object} session The ONNX session object.
+    */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_attention_heads
+        this.num_layers = this.config.num_hidden_layers
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+/**
+ * The bare LLaMA Model outputting raw hidden-states without any specific head on top.
+ */
+export class LlamaModel extends LlamaPreTrainedModel {
+    /**
+     * Throws an error indicating that the current model class is not compatible with `.generate()`,
+     * as it doesn't have a language model head.
+     * 
+     * @throws {Error} The current model class is not compatible with `.generate()`
+     * 
+     * @param  {...any} args Arguments passed to the generate function
+     * @returns {Promise<any>}
+     */
+    async generate(...args) {
+        throw Error(
+            "The current model class (LlamaModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'LlamaForCausalLM'}"
+        )
+    }
+}
+
+export class LlamaForCausalLM extends LlamaPreTrainedModel {
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
+     */
+    async runBeam(beam) {
+        return await decoderRunBeam(this, beam);
+    }
+
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
+     */
+    updateBeam(beam, newTokenId) {
+        return decoderUpdatebeam(beam, newTokenId);
+    }
+
+    /**
+     * Forward pass for the model.
+     * @param {Object} model_inputs The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
+    async forward(model_inputs) {
+        return await decoderForward(this, model_inputs);
+    }
+
+}
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 export class ViTPreTrainedModel extends PreTrainedModel { }
 export class ViTForImageClassification extends ViTPreTrainedModel {
@@ -3117,6 +3347,8 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', BertModel],
+    ['deberta', DebertaModel],
+    ['deberta-v2', DebertaV2Model],
     ['mpnet', MPNetModel],
     ['albert', AlbertModel],
     ['distilbert', DistilBertModel],
@@ -3145,10 +3377,13 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['gpt_bigcode', GPTBigCodeModel],
     ['gpt_neo', GPTNeoModel],
     ['codegen', CodeGenModel],
+    ['llama', LlamaModel],
 ]);
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForSequenceClassification],
+    ['deberta', DebertaForSequenceClassification],
+    ['deberta-v2', DebertaV2ForSequenceClassification],
     ['mpnet', MPNetForSequenceClassification],
     ['albert', AlbertForSequenceClassification],
     ['distilbert', DistilBertForSequenceClassification],
@@ -3161,6 +3396,8 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
+    ['deberta', DebertaForTokenClassification],
+    ['deberta-v2', DebertaV2ForTokenClassification],
     ['mpnet', MPNetForTokenClassification],
     ['distilbert', DistilBertForTokenClassification],
     ['roberta', RobertaForTokenClassification],
@@ -3181,10 +3418,13 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['gpt_bigcode', GPTBigCodeForCausalLM],
     ['gpt_neo', GPTNeoForCausalLM],
     ['codegen', CodeGenForCausalLM],
+    ['llama', LlamaForCausalLM],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', BertForMaskedLM],
+    ['deberta', DebertaForMaskedLM],
+    ['deberta-v2', DebertaV2ForMaskedLM],
     ['mpnet', MPNetForMaskedLM],
     ['albert', AlbertForMaskedLM],
     ['distilbert', DistilBertForMaskedLM],
@@ -3196,6 +3436,8 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', BertForQuestionAnswering],
+    ['deberta', DebertaForQuestionAnswering],
+    ['deberta-v2', DebertaV2ForQuestionAnswering],
     ['mpnet', MPNetForQuestionAnswering],
     ['albert', AlbertForQuestionAnswering],
     ['distilbert', DistilBertForQuestionAnswering],

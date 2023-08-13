@@ -462,8 +462,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
  * ```javascript
  * let text = 'I enjoy walking with my cute dog,';
- * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await generator(text);
+ * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await classifier(text);
  * console.log(output);
  * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
  * ```
@@ -471,8 +471,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
  * ```javascript
  * let text = 'Once upon a time, there was';
- * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await generator(text, {
+ * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await classifier(text, {
  *     temperature: 2,
  *     max_new_tokens: 10,
  *     repetition_penalty: 1.5,
@@ -491,8 +491,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
  * ```javascript
  * let text = 'def fib(n):';
- * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
- * let output = await generator(text, {
+ * let classifier = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * let output = await classifier(text, {
  *     max_new_tokens: 40,
  * });
  * console.log(output[0].generated_text);
@@ -552,6 +552,35 @@ export class TextGenerationPipeline extends Pipeline {
  * trained on NLI (natural language inference) tasks. Equivalent of `text-classification`
  * pipelines, but these models don't require a hardcoded number of potential classes, they
  * can be chosen at runtime. It usually means it's slower but it is **much** more flexible.
+ * 
+ * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli`.
+ * ```javascript
+ * let text = 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.';
+ * let labels = [ 'mobile', 'billing', 'website', 'account access' ];
+ * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+ * let output = await classifier(text, labels);
+ * console.log(output);
+ * //  {
+ * //    sequence: 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.',
+ * //    labels: [ 'mobile', 'website', 'billing', 'account access' ],
+ * //    scores: [ 0.5562091040482018, 0.1843621307860853, 0.13942646639336376, 0.12000229877234923 ]
+ * //  }
+ * ```
+ * 
+ * **Example:** Zero shot classification with `Xenova/nli-deberta-v3-xsmall` (multi-label).
+ * ```javascript
+ * let text = 'I have a problem with my iphone that needs to be resolved asap!';
+ * let labels = [ 'urgent', 'not urgent', 'phone', 'tablet', 'computer' ];
+ * let classifier = await pipeline('zero-shot-classification', 'Xenova/nli-deberta-v3-xsmall');
+ * let output = await classifier(text, labels, { multi_label: true });
+ * console.log(output);
+ * // {
+ * //   sequence: 'I have a problem with my iphone that needs to be resolved asap!',
+ * //   labels: [ 'urgent', 'phone', 'computer', 'tablet', 'not urgent' ],
+ * //   scores: [ 0.9958870956360275, 0.9923963400697035, 0.002333537946160235, 0.0015134138567598765, 0.0010699384208377163 ]
+ * // }
+ * ```
+ * 
  * @extends Pipeline
  */
 export class ZeroShotClassificationPipeline extends Pipeline {
@@ -578,7 +607,7 @@ export class ZeroShotClassificationPipeline extends Pipeline {
             this.entailment_id = 2;
         }
 
-        this.contradiction_id = this.label2id['contradiction'];
+        this.contradiction_id = this.label2id['contradiction'] ?? this.label2id['not_entailment'];
         if (this.contradiction_id === undefined) {
             console.warn("Could not find 'contradiction' in label2id mapping. Using 0 as contradiction_id.");
             this.contradiction_id = 0;

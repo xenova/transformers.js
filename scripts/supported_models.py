@@ -82,6 +82,24 @@ SUPPORTED_MODELS = {
         'Salesforce/codegen-350M-multi',
         'Salesforce/codegen-350M-nl',
     ],
+    'deberta': [
+        'cross-encoder/nli-deberta-base',
+        'Narsil/deberta-large-mnli-zero-cls',
+    ],
+    'deberta-v2': [
+        'cross-encoder/nli-deberta-v3-xsmall',
+        'cross-encoder/nli-deberta-v3-small',
+        'cross-encoder/nli-deberta-v3-base',
+        'cross-encoder/nli-deberta-v3-large',
+        'MoritzLaurer/DeBERTa-v3-xsmall-mnli-fever-anli-ling-binary',
+        'MoritzLaurer/DeBERTa-v3-base-mnli',
+        'MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli',
+        'MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli',
+        'MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7',
+        'navteca/nli-deberta-v3-xsmall',
+        'sileod/deberta-v3-base-tasksource-nli',
+        'sileod/deberta-v3-large-tasksource-nli',
+    ],
     'detr': [
         'facebook/detr-resnet-50',
         'facebook/detr-resnet-101',
@@ -133,7 +151,7 @@ SUPPORTED_MODELS = {
         # https://github.com/huggingface/optimum/issues/1027
         # 'google/mobilebert-uncased',
     ],
-    'mobilevit':[
+    'mobilevit': [
         'apple/mobilevit-small',
         'apple/mobilevit-x-small',
         'apple/mobilevit-xx-small',
