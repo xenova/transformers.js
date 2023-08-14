@@ -140,6 +140,7 @@ SUPPORTED_MODELS = {
     ],
     'm2m_100': [
         'facebook/nllb-200-distilled-600M',
+        'facebook/m2m100_418M',
     ],
     # TODO:
     # 'marian': [
