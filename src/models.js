@@ -666,15 +666,14 @@ export class PreTrainedModel extends Callable {
                 constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
             ]);
 
-        } else if (modelType === EncoderOnlyModelType) {
+        } else { // should be EncoderOnlyModelType
+            if (modelType !== EncoderOnlyModelType) {
+                console.warn(`Model type for ${this.name} not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`)
+            }
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'model', options)
             ]);
-
-        } else {
-            console.warn('Malformed class definition.', this);
-            throw Error(`Unable to load model: ${pretrained_model_name_or_path}. Please report this bug at https://github.com/xenova/transformers.js/issues/new/choose.`);
         }
 
         // @ts-ignore
@@ -3245,6 +3244,62 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// Wav2Vec2 models
+export class Wav2Vec2PreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare Wav2Vec2 Model transformer outputting raw hidden-states without any specific head on top.
+ * 
+ * **Example:** Load and run an `Wav2Vec2Model` for feature extraction.
+ * 
+ * ```javascript
+ * import { AutoProcessor, read_audio } from '@xenova/transformers';
+ * 
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/mms-300m');
+ * const audio = await read_audio('https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/mlk.flac', 16000);
+ * const inputs = await processor(audio);
+ * 
+ * // Run model with inputs
+ * const model = await AutoModel.from_pretrained('Xenova/mms-300m');
+ * const output = await model(inputs);
+ * // {
+ * //   last_hidden_state: Tensor {
+ * //     dims: [ 1, 1144, 1024 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(1171456) [ ... ],
+ * //     size: 1171456
+ * //   }
+ * // }
+ * ```
+ */
+export class Wav2Vec2Model extends Wav2Vec2PreTrainedModel { }
+
+export class Wav2Vec2ForCTC extends Wav2Vec2PreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_values Float values of input raw speech waveform.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -3329,6 +3384,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['clip', CLIPModel],
     ['mobilebert', MobileBertModel],
     ['squeezebert', SqueezeBertModel],
+    ['wav2vec2', Wav2Vec2Model],
 
     ['sam', SamModel], // TODO change to encoder-decoder when model is split correctly
 ]);
@@ -3439,6 +3495,15 @@ const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
     ['sam', SamModel],
 ]);
 
+const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
+    ['wav2vec2', Wav2Vec2ForCTC],
+]);
+
+const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
+    ['wav2vec2', Wav2Vec2ForSequenceClassification],
+]);
+
+
 const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_ENCODER_ONLY, EncoderOnlyModelType],
     [MODEL_MAPPING_NAMES_ENCODER_DECODER, EncoderDecoderModelType],
@@ -3454,6 +3519,8 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_CTC_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -3597,6 +3664,16 @@ export class AutoModelForObjectDetection extends PretrainedMixin {
 export class AutoModelForMaskGeneration extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES];
 }
+
+export class AutoModelForCTC extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_CTC_MAPPING_NAMES];
+}
+
+export class AutoModelForAudioClassification extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES];
+}
+
+
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3677,6 +3754,20 @@ export class QuestionAnsweringModelOutput extends ModelOutput {
     }
 }
 
+
+/**
+ * Base class for causal language model (or autoregressive) outputs.
+ */
+export class CausalLMOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Prediction scores of the language modeling head (scores for each vocabulary token before softmax).
+     */
+    constructor({ logits }) {
+        super();
+        this.logits = logits;
+    }
+}
 
 /**
  * Base class for causal language model (or autoregressive) outputs.

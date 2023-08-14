@@ -68,11 +68,11 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
  */
 function createPattern(pattern, invert = true) {
 
-    if (pattern.Regex) {
+    if (pattern.Regex !== undefined) {
         // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
         return new RegExp(invert ? pattern.Regex : `(${pattern.Regex})`, 'gu');
 
-    } else if (pattern.String) {
+    } else if (pattern.String !== undefined) {
         return pattern.String;
 
     } else {
@@ -184,7 +184,12 @@ export class TokenizerModel extends Callable {
             case 'BPE':
                 // @ts-ignore
                 return new BPE(config, ...args);
+
             default:
+                if (config.vocab) {
+                    // @ts-ignore
+                    return new LegacyTokenizerModel(config, ...args);
+                }
                 throw new Error(`Unknown TokenizerModel type: ${config.type}`);
         }
     }
@@ -269,7 +274,6 @@ class WordPieceTokenizer extends TokenizerModel {
          * @type {string[]}
          */
         this.vocab = new Array(this.tokens_to_ids.size);
-
         for (const [key, value] of this.tokens_to_ids) {
             this.vocab[value] = key;
         }
@@ -420,9 +424,9 @@ class Unigram extends TokenizerModel {
     }
 
     /**
-     * Encodes an array of tokens using WordPiece encoding.
-     * @param {string[]} tokens The tokens to encode.
-     * @returns {string[]} An array of encoded tokens.
+     * Encodes an array of tokens using Unigram encoding.
+     * @param {Array} tokens The tokens to encode.
+     * @returns {Array} An array of encoded tokens.
      */
     encode(tokens) {
         let toReturn = [];
@@ -691,6 +695,47 @@ class BPE extends TokenizerModel {
     }
 
 }
+
+/**
+ * Legacy tokenizer class for tokenizers with only a vocabulary.
+ */
+class LegacyTokenizerModel extends TokenizerModel {
+    /**
+     * Create a LegacyTokenizerModel instance.
+     * @param {Object} config The configuration object for LegacyTokenizerModel.
+     * @param {Map<string, number>|Map<string, Map<string, number>>} config.vocab A (possibly nested) mapping of tokens to ids.
+     * @param {Object} moreConfig Additional configuration object for the LegacyTokenizerModel model.
+     */
+    constructor(config, moreConfig) {
+        super(config);
+
+        /**@type {Map<string, number>} */
+        // @ts-ignore
+        this.tokens_to_ids = moreConfig.target_lang ? config.vocab.get(moreConfig.target_lang) : config.vocab;
+
+        this.bos_token = moreConfig.bos_token;
+        this.bos_token_id = this.tokens_to_ids.get(this.bos_token);
+
+        this.eos_token = moreConfig.eos_token;
+        this.eos_token_id = this.tokens_to_ids.get(this.eos_token);
+
+        this.pad_token = moreConfig.pad_token;
+        this.pad_token_id = this.tokens_to_ids.get(this.pad_token);
+
+        this.unk_token = moreConfig.unk_token;
+        this.unk_token_id = this.tokens_to_ids.get(this.unk_token);
+
+        this.vocab = new Array(this.tokens_to_ids.size);
+        for (const [key, value] of this.tokens_to_ids) {
+            this.vocab[value] = key;
+        }
+    }
+
+    encode(tokens) {
+        return tokens;
+    }
+}
+
 
 /**
  * A base class for text normalization.
@@ -1473,6 +1518,8 @@ class Decoder extends Callable {
             case 'Sequence':
                 return new DecoderSequence(config);
 
+            case 'CTC':
+                return new CTCDecoder(config);
             default:
                 throw new Error(`Unknown Decoder type: ${config.type}`);
         }
@@ -1511,9 +1558,6 @@ class Decoder extends Callable {
 }
 
 class ReplaceDecoder extends Decoder {
-    constructor(config) {
-        super(config);
-    }
 
     /** @type {Decoder['decode_chain']} */
     decode_chain(tokens) {
@@ -1575,9 +1619,6 @@ class ByteFallback extends Decoder {
  * exists incase some decoders need to happen after that step
  */
 class FuseDecoder extends Decoder {
-    constructor(config) {
-        super(config);
-    }
 
     /** @type {Decoder['decode_chain']} */
     decode_chain(tokens) {
@@ -1731,6 +1772,54 @@ class ByteLevelDecoder extends Decoder {
     }
 }
 
+/**
+ * The CTC (Connectionist Temporal Classification) decoder.
+ * See https://github.com/huggingface/tokenizers/blob/bb38f390a61883fc2f29d659af696f428d1cda6b/tokenizers/src/decoders/ctc.rs
+ */
+class CTCDecoder extends Decoder {
+
+    constructor(config) {
+        super(config);
+
+        this.pad_token = this.config.pad_token;
+        this.word_delimiter_token = this.config.word_delimiter_token;
+        this.cleanup = this.config.cleanup;
+    }
+    /**
+     * Converts a connectionist-temporal-classification (CTC) output tokens into a single string.
+     * @param {string[]} tokens Array of tokens to be decoded.
+     * @returns {string} The decoded string.
+     */
+    convert_tokens_to_string(tokens) {
+        if (tokens.length === 0) return '';
+
+        // group same tokens into non-repeating tokens in CTC style decoding
+        let grouped_tokens = [tokens[0]];
+        for (let i = 1; i < tokens.length; ++i) {
+            if (tokens[i] !== grouped_tokens.at(-1)) {
+                grouped_tokens.push(tokens[i]);
+            }
+        }
+
+        // filter self.pad_token which is used as CTC-blank token
+        let filtered_tokens = grouped_tokens.filter(token => token !== this.pad_token);
+
+        let text = filtered_tokens.join('');
+        if (this.cleanup) {
+            // cleanup and replace delimiter token
+            text = clean_up_tokenization(text)
+                .replaceAll(this.word_delimiter_token, ' ')
+                .trim();
+        }
+        return text;
+    }
+
+
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        return [this.convert_tokens_to_string(tokens)];
+    }
+}
 
 /**
  * Apply a sequence of decoders.
@@ -1962,6 +2051,13 @@ export class PreTrainedTokenizer extends Callable {
                 tokenizerJSON.model.vocab = Object.entries(tokenizerJSON.model.vocab);
             }
             tokenizerJSON.model.vocab = new Map(tokenizerJSON.model.vocab);
+
+            // Supported nested vocabularies (up to a maximum depth of 1)
+            for (const [k, v] of tokenizerJSON.model.vocab) {
+                if (typeof v === 'object') {
+                    tokenizerJSON.model.vocab.set(k, new Map(Object.entries(v)));
+                }
+            }
         }
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
@@ -3521,6 +3617,8 @@ export class MarianTokenizer extends PreTrainedTokenizer {
 
 }
 
+export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -3553,6 +3651,7 @@ export class AutoTokenizer {
         'MPNetTokenizer': MPNetTokenizer,
         'FalconTokenizer': FalconTokenizer,
         'GPTNeoXTokenizer': GPTNeoXTokenizer,
+        'Wav2Vec2CTCTokenizer': Wav2Vec2CTCTokenizer,
 
         // Base case:
         'PreTrainedTokenizer': PreTrainedTokenizer,

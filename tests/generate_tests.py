@@ -105,10 +105,11 @@ def generate_tokenizer_tests():
             try:
                 # Load tokenizer
                 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-            except KeyError:
-                # If a KeyError is raised from the AutoTokenizer, it means the model
-                # does not use a tokenizer (e.g., vision models)
+            except (KeyError, EnvironmentError):
+                # If a KeyError/EnvironmentError is raised from the AutoTokenizer, it
+                # means the model does not use a tokenizer (e.g., vision models)
                 continue
+
             tokenizer_results = []
 
             shared_texts = TOKENIZER_TEST_DATA["shared"]
@@ -118,8 +119,12 @@ def generate_tokenizer_tests():
             # Run tokenizer on test cases
             for text in shared_texts + custom_texts:
                 # TODO: add with_pair option
+                try:
+                    encoded = tokenizer(text).data
+                except Exception:
+                    # Ignore testing tokenizers which fail in the python library
+                    continue
 
-                encoded = tokenizer(text).data
                 decoded_with_special = tokenizer.decode(
                     encoded["input_ids"], skip_special_tokens=False)
                 decoded_without_special = tokenizer.decode(
@@ -132,7 +137,8 @@ def generate_tokenizer_tests():
                     decoded_without_special=decoded_without_special,
                 ))
 
-            results[tokenizer_name] = tokenizer_results
+            if tokenizer_results:
+                results[tokenizer_name] = tokenizer_results
 
     return results
 
