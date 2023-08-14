@@ -1821,7 +1821,7 @@ const TASK_ALIASES = {
  *  - `"question-answering"`: will return a `QuestionAnsweringPipeline`.
  *  - `"summarization"`: will return a `SummarizationPipeline`.
  *  - `"text2text-generation"`: will return a `Text2TextGenerationPipeline`.
- *  - `"text-classification" (alias "sentiment-analysis" available): will return a `TextClassificationPipeline`.
+ *  - `"text-classification"` (alias "sentiment-analysis" available): will return a `TextClassificationPipeline`.
  *  - `"text-generation"`: will return a `TextGenerationPipeline`.
  *  - `"token-classification" (alias "ner" available): will return a `TokenClassificationPipeline`.
  *  - `"translation"`: will return a `TranslationPipeline`.
