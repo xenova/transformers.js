@@ -135,12 +135,19 @@ export class TextClassificationPipeline extends Pipeline {
         topk = 1
     } = {}) {
 
+        // TODO: Use softmax tensor function
+        let function_to_apply =
+            this.model.config.problem_type === 'multi_label_classification'
+                ? batch => batch.sigmoid().data
+                : batch => softmax(batch.data); // single_label_classification (default)
+
         let [inputs, outputs] = await super._call(texts);
 
         let id2label = this.model.config.id2label;
         let toReturn = [];
         for (let batch of outputs.logits) {
-            let scores = getTopItems(softmax(batch.data), topk);
+            let output = function_to_apply(batch);
+            let scores = getTopItems(output, topk);
 
             let vals = scores.map(function (x) {
                 return {
