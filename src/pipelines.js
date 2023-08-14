@@ -1823,7 +1823,7 @@ const TASK_ALIASES = {
  *  - `"text2text-generation"`: will return a `Text2TextGenerationPipeline`.
  *  - `"text-classification"` (alias "sentiment-analysis" available): will return a `TextClassificationPipeline`.
  *  - `"text-generation"`: will return a `TextGenerationPipeline`.
- *  - `"token-classification" (alias "ner" available): will return a `TokenClassificationPipeline`.
+ *  - `"token-classification"` (alias "ner" available): will return a `TokenClassificationPipeline`.
  *  - `"translation"`: will return a `TranslationPipeline`.
  *  - `"translation_xx_to_yy"`: will return a `TranslationPipeline`.
  *  - `"zero-shot-classification"`: will return a `ZeroShotClassificationPipeline`.
