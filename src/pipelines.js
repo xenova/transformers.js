@@ -141,12 +141,19 @@ export class TextClassificationPipeline extends Pipeline {
         topk = 1
     } = {}) {
 
+        // TODO: Use softmax tensor function
+        let function_to_apply =
+            this.model.config.problem_type === 'multi_label_classification'
+                ? batch => batch.sigmoid().data
+                : batch => softmax(batch.data); // single_label_classification (default)
+
         let [inputs, outputs] = await super._call(texts);
 
         let id2label = this.model.config.id2label;
         let toReturn = [];
         for (let batch of outputs.logits) {
-            let scores = getTopItems(softmax(batch.data), topk);
+            let output = function_to_apply(batch);
+            let scores = getTopItems(output, topk);
 
             let vals = scores.map(function (x) {
                 return {
@@ -451,8 +458,36 @@ export class SummarizationPipeline extends Text2TextGenerationPipeline {
 }
 
 /**
- * TranslationPipeline class to translate text from one language to another using the provided model and tokenizer.
- * @extends Text2TextGenerationPipeline
+ * Translates text from one language to another.
+ * 
+ * **Example:** Multilingual translation w/ `Xenova/nllb-200-distilled-600M`.
+ * 
+ * See [here](https://github.com/facebookresearch/flores/blob/main/flores200/README.md#languages-in-flores-200)
+ * for the full list of languages and their corresponding codes.
+ * 
+ * ```javascript
+ * let translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M');
+ * let output = await translator('जीवन एक चॉकलेट बॉक्स की तरह है।', {
+ *     src_lang: 'hin_Deva', // Hindi
+ *     tgt_lang: 'fra_Latn', // French
+ * });
+ * // [ { translation_text: 'La vie est comme une boîte à chocolat.' } ]
+ * ```
+ * 
+ * **Example:** Multilingual translation w/ `Xenova/m2m100_418M`.
+ * 
+ * See [here](https://huggingface.co/facebook/m2m100_418M#languages-covered)
+ * for the full list of languages and their corresponding codes.
+ * 
+ * ```javascript
+ * let translator = await pipeline('translation', 'Xenova/m2m100_418M');
+ * let output = await translator('生活就像一盒巧克力。', {
+ *     src_lang: 'zh', // Chinese
+ *     tgt_lang: 'en', // English
+ * });
+ * // [ { translation_text: 'Life is like a box of chocolate.' } ]
+ * ```
+ * 
  */
 export class TranslationPipeline extends Text2TextGenerationPipeline {
     _key = 'translation_text';

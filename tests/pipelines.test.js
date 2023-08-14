@@ -18,8 +18,10 @@ describe('Pipelines', () => {
         // List all models which will be tested
         const models = [
             'distilbert-base-uncased-finetuned-sst-2-english',
+            'Xenova/toxic-bert',
         ];
 
+        // single_label_classification
         it(models[0], async () => {
             let classifier = await pipeline('text-classification', m(models[0]));
             let texts = [
@@ -82,6 +84,27 @@ describe('Pipelines', () => {
             await classifier.dispose();
 
         }, MAX_TEST_EXECUTION_TIME);
+
+        // multi_label_classification
+        it(models[1], async () => {
+            let classifier = await pipeline('text-classification', m(models[1]));
+            let texts = [
+                "I like you. I love you", // low scores
+                "I hate you." // high scores
+            ];
+
+            // single
+            {
+                let outputs = await classifier(texts);
+                let expected = [
+                    { label: 'toxic', score: 0.0007729064091108739 },
+                    { label: 'toxic', score: 0.9475088119506836 }
+                ]
+                compare(outputs, expected);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+
     });
 
     describe('Token classification', () => {

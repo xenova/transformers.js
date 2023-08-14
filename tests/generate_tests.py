@@ -21,6 +21,11 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     ],
 }
 
+TOKENIZERS_TO_IGNORE = [
+    # TODO: remove when https://github.com/huggingface/transformers/pull/25478 is merged
+    'facebook/m2m100_418M',
+]
+
 TOKENIZER_TEST_DATA = {
     "shared": [
         "hello world",
@@ -92,6 +97,9 @@ def generate_tokenizer_tests():
     for model_type, tokenizer_names in tokenizers_to_test:
         print(f'Generating tests for {model_type}')
         for tokenizer_name in tokenizer_names:
+            if tokenizer_name in TOKENIZERS_TO_IGNORE:
+                continue
+
             print('  -', tokenizer_name)
 
             try:

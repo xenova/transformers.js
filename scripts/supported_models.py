@@ -63,6 +63,8 @@ SUPPORTED_MODELS = {
         'thenlper/gte-small',
         'thenlper/gte-base',
         'thenlper/gte-large',
+
+        'unitary/toxic-bert',
     ],
     # TODO:
     # 'bloom':[
@@ -138,6 +140,7 @@ SUPPORTED_MODELS = {
     ],
     'm2m_100': [
         'facebook/nllb-200-distilled-600M',
+        'facebook/m2m100_418M',
     ],
     # TODO:
     # 'marian': [
