@@ -4,7 +4,8 @@
 // Needed to ensure the UI thread is not blocked when running  //
 /////////////////////////////////////////////////////////////////
 
-import { pipeline } from "@xenova/transformers";
+import { pipeline, env } from "@xenova/transformers";
+env.allowLocalModels = false;
 
 // Define task function mapping
 const TASK_FUNCTION_MAPPING = {
