@@ -45,7 +45,9 @@
   },
   "optionalDependencies": {
     "onnxruntime-node": "1.14.0",
-    "onnxruntime-react-native": "1.14.0"
+    "onnxruntime-react-native": "1.14.0",
+    "path-browserify": "^1.0.1",
+    "browserify-zlib": "^0.2.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
@@ -72,6 +74,13 @@
     "README.md",
     "LICENSE"
   ],
+  "react-native": {
+    "fs": "react-native-fs",
+    "onnxruntime-node": false,
+    "path": "path-browserify",
+    "stream/web": false,
+    "zlib": "browserify-zlib"
+  },
   "browser": {
     "fs": false,
     "image-decode": false,
