@@ -1,7 +1,7 @@
 
 import { pipeline, cos_sim } from '../src/transformers.js';
 import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
-import { compare } from './test_utils.js';
+import { compare, loadAudio } from './test_utils.js';
 
 // Initialise the testing environment
 init();
@@ -18,8 +18,10 @@ describe('Pipelines', () => {
         // List all models which will be tested
         const models = [
             'distilbert-base-uncased-finetuned-sst-2-english',
+            'Xenova/toxic-bert',
         ];
 
+        // single_label_classification
         it(models[0], async () => {
             let classifier = await pipeline('text-classification', m(models[0]));
             let texts = [
@@ -82,6 +84,27 @@ describe('Pipelines', () => {
             await classifier.dispose();
 
         }, MAX_TEST_EXECUTION_TIME);
+
+        // multi_label_classification
+        it(models[1], async () => {
+            let classifier = await pipeline('text-classification', m(models[1]));
+            let texts = [
+                "I like you. I love you", // low scores
+                "I hate you." // high scores
+            ];
+
+            // single
+            {
+                let outputs = await classifier(texts);
+                let expected = [
+                    { label: 'toxic', score: 0.0007729064091108739 },
+                    { label: 'toxic', score: 0.9475088119506836 }
+                ]
+                compare(outputs, expected);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+
     });
 
     describe('Token classification', () => {
@@ -704,31 +727,15 @@ describe('Pipelines', () => {
 
     describe('Speech-to-text generation', () => {
 
-        const loadAudio = async (url) => {
-            // NOTE: Since the Web Audio API is not available in Node.js, we will need to use the `wavefile` library to obtain the raw audio data.
-            // For more information, see: https://huggingface.co/docs/transformers.js/tutorials/node-audio-processing
-            let wavefile = (await import('wavefile')).default;
-
-            // Load audio data
-            let buffer = Buffer.from(await fetch(url).then(x => x.arrayBuffer()))
-
-            // Read .wav file and convert it to required format
-            let wav = new wavefile.WaveFile(buffer);
-            wav.toBitDepth('32f'); // Pipeline expects input as a Float32Array
-            wav.toSampleRate(16000); // Whisper expects audio with a sampling rate of 16000
-            let audioData = wav.getSamples();
-            if (Array.isArray(audioData)) {
-                // For this demo, if there are multiple channels for the audio file, we just select the first one.
-                // In practice, you'd probably want to convert all channels to a single channel (e.g., stereo -> mono).
-                audioData = audioData[0];
-            }
-            return audioData;
-        }
         // List all models which will be tested
         const models = [
+            // whisper
             'openai/whisper-tiny.en', // English-only
             'openai/whisper-small', // Multilingual
             ['openai/whisper-tiny.en', 'output_attentions'], // English-only + `output_attentions`
+
+            // wav2vec2
+            'jonatasgrosman/wav2vec2-large-xlsr-53-english',
         ];
 
         it(models[0], async () => {
@@ -824,6 +831,51 @@ describe('Pipelines', () => {
             }
 
             await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+
+        it(models[3], async () => {
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[3]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+            let audioData = await loadAudio(url);
+
+            { // Transcribe
+                let output = await transcriber(audioData);
+                expect(output.text.length).toBeGreaterThan(50);
+                // { text: "and so my fellow america ask not what your country can do for you ask what you can do for your country" }
+            }
+
+            await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
+    describe('Audio classification', () => {
+
+        // List all models which will be tested
+        const models = [
+            'alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech',
+        ];
+
+        it(models[0], async () => {
+            let classifier = await pipeline('audio-classification', m(models[0]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+            let audioData = await loadAudio(url);
+
+            { // Classify audio
+                let outputs = await classifier(audioData);
+
+                let expected = [
+                    { 'score': 0.997512936592102, 'label': 'male' },
+                    { 'score': 0.0024870133493095636, 'label': 'female' }
+                ];
+                compare(outputs, expected);
+            }
+
+            await classifier.dispose();
 
         }, MAX_TEST_EXECUTION_TIME);
 

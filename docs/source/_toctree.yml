@@ -21,12 +21,12 @@
     title: Building an Electron Application
   - local: tutorials/node
     title: Server-side Inference in Node.js
-  - local: tutorials/node-audio-processing
-    title: Server-side Audio Processing in Node.js
   title: Tutorials
 - sections:
   - local: guides/private
     title: Accessing Private/Gated Models
+  - local: guides/node-audio-processing
+    title: Server-side Audio Processing in Node.js
   title: Developer Guides
 - sections:
   - local: api/transformers
@@ -63,6 +63,8 @@
       title: Maths
     - local: api/utils/generation
       title: Generation
+    - local: api/utils/data-structures
+      title: Data Structures
     title: Utilities
     isExpanded: false
   title: API Reference

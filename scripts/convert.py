@@ -32,6 +32,10 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
     }
 }
 
+MODELS_WITHOUT_TOKENIZERS = [
+    'wav2vec2'
+]
+
 
 @dataclass
 class ConversionArguments:
@@ -212,11 +216,15 @@ def main():
 
     tokenizer = None
     try:
-        # Save tokenizer
+        # Load tokenizer
         tokenizer = AutoTokenizer.from_pretrained(model_id)
 
     except KeyError:
         pass  # No Tokenizer
+
+    except Exception as e:
+        if config.model_type not in MODELS_WITHOUT_TOKENIZERS:
+            raise e
 
     export_kwargs = dict(
         model_name_or_path=model_id,
@@ -233,7 +241,7 @@ def main():
         tokenizer_json = generate_tokenizer_json(model_id, tokenizer)
 
         with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
-            json.dump(tokenizer_json, fp)
+            json.dump(tokenizer_json, fp, indent=4)
 
     elif config.model_type == 'whisper':
         if conv_args.output_attentions:
@@ -242,6 +250,15 @@ def main():
             export_kwargs.update(
                 **get_main_export_kwargs(config, "automatic-speech-recognition")
             )
+
+    elif config.model_type == 'wav2vec2':
+        if tokenizer is not None:
+            from .extra.wav2vec2 import generate_tokenizer_json
+            tokenizer_json = generate_tokenizer_json(tokenizer)
+
+            with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
+                json.dump(tokenizer_json, fp, indent=4)
+
     else:
         pass  # TODO
 
