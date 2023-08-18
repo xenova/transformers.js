@@ -1117,6 +1117,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
         const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
         const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
+        const hop_length = this.processor.feature_extractor.config.hop_length;
 
         let toReturn = [];
         for (let aud of audio) {
@@ -1168,6 +1169,8 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
             // Generate for each set of input features
             for (let chunk of chunks) {
+                kwargs.num_frames = Math.floor(chunk.stride[0] / hop_length);
+
                 // NOTE: doing sequentially for now
                 let data = await this.model.generate(chunk.input_features, kwargs);
 
