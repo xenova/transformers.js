@@ -3249,10 +3249,8 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
         let words, word_tokens, token_indices;
 
-        console.log('combine', language)
         if (["chinese", "japanese", "thai", "lao", "myanmar"].includes(language)) {
             // These languages don't typically use spaces.
-
             [words, word_tokens, token_indices] = this.splitTokensOnUnicode(tokens)
         } else {
             [words, word_tokens, token_indices] = this.splitTokensOnSpaces(tokens)
