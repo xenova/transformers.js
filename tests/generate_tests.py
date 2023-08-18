@@ -21,6 +21,11 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     ],
 }
 
+TOKENIZERS_TO_IGNORE = [
+    # TODO: remove when https://github.com/huggingface/transformers/pull/25478 is merged
+    'facebook/m2m100_418M',
+]
+
 TOKENIZER_TEST_DATA = {
     "shared": [
         "hello world",
@@ -41,6 +46,8 @@ TOKENIZER_TEST_DATA = {
         "you…  ",
         "\u0079\u006F\u0075\u2026\u00A0\u00A0",
         "\u0079\u006F\u0075\u2026\u00A0\u00A0\u0079\u006F\u0075\u2026\u00A0\u00A0",
+        "▁This ▁is ▁a ▁test ▁.",
+        "weird \uFF5E edge \uFF5E case",
     ],
     "custom": {
         "tiiuae/falcon-7b": [
@@ -90,15 +97,19 @@ def generate_tokenizer_tests():
     for model_type, tokenizer_names in tokenizers_to_test:
         print(f'Generating tests for {model_type}')
         for tokenizer_name in tokenizer_names:
+            if tokenizer_name in TOKENIZERS_TO_IGNORE:
+                continue
+
             print('  -', tokenizer_name)
 
             try:
                 # Load tokenizer
                 tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-            except KeyError:
-                # If a KeyError is raised from the AutoTokenizer, it means the model
-                # does not use a tokenizer (e.g., vision models)
+            except (KeyError, EnvironmentError):
+                # If a KeyError/EnvironmentError is raised from the AutoTokenizer, it
+                # means the model does not use a tokenizer (e.g., vision models)
                 continue
+
             tokenizer_results = []
 
             shared_texts = TOKENIZER_TEST_DATA["shared"]
@@ -108,8 +119,12 @@ def generate_tokenizer_tests():
             # Run tokenizer on test cases
             for text in shared_texts + custom_texts:
                 # TODO: add with_pair option
+                try:
+                    encoded = tokenizer(text).data
+                except Exception:
+                    # Ignore testing tokenizers which fail in the python library
+                    continue
 
-                encoded = tokenizer(text).data
                 decoded_with_special = tokenizer.decode(
                     encoded["input_ids"], skip_special_tokens=False)
                 decoded_without_special = tokenizer.decode(
@@ -122,7 +137,8 @@ def generate_tokenizer_tests():
                     decoded_without_special=decoded_without_special,
                 ))
 
-            results[tokenizer_name] = tokenizer_results
+            if tokenizer_results:
+                results[tokenizer_name] = tokenizer_results
 
     return results
 

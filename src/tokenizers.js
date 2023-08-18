@@ -7,7 +7,7 @@
  * ```javascript
  * import { AutoTokenizer } from '@xenova/transformers';
  * 
- * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
+ * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
  * let { input_ids } = await tokenizer('I love transformers!');
  * // Tensor {
  * //   data: BigInt64Array(6) [101n, 1045n, 2293n, 19081n, 999n, 102n],
@@ -41,7 +41,7 @@ import {
     PriorityQueue,
     TokenLattice,
     CharTrie,
- } from './utils/data-structures.js';
+} from './utils/data-structures.js';
 
 const { backends: { Uint8Array } } = env;
 
@@ -72,11 +72,11 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
  */
 function createPattern(pattern, invert = true) {
 
-    if (pattern.Regex) {
+    if (pattern.Regex !== undefined) {
         // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
         return new RegExp(invert ? pattern.Regex : `(${pattern.Regex})`, 'gu');
 
-    } else if (pattern.String) {
+    } else if (pattern.String !== undefined) {
         return pattern.String;
 
     } else {
@@ -188,7 +188,12 @@ export class TokenizerModel extends Callable {
             case 'BPE':
                 // @ts-ignore
                 return new BPE(config, ...args);
+
             default:
+                if (config.vocab) {
+                    // @ts-ignore
+                    return new LegacyTokenizerModel(config, ...args);
+                }
                 throw new Error(`Unknown TokenizerModel type: ${config.type}`);
         }
     }
@@ -273,7 +278,6 @@ class WordPieceTokenizer extends TokenizerModel {
          * @type {string[]}
          */
         this.vocab = new Array(this.tokens_to_ids.size);
-
         for (const [key, value] of this.tokens_to_ids) {
             this.vocab[value] = key;
         }
@@ -424,9 +428,9 @@ class Unigram extends TokenizerModel {
     }
 
     /**
-     * Encodes an array of tokens using WordPiece encoding.
-     * @param {string[]} tokens The tokens to encode.
-     * @returns {string[]} An array of encoded tokens.
+     * Encodes an array of tokens using Unigram encoding.
+     * @param {Array} tokens The tokens to encode.
+     * @returns {Array} An array of encoded tokens.
      */
     encode(tokens) {
         let toReturn = [];
@@ -697,6 +701,47 @@ class BPE extends TokenizerModel {
 }
 
 /**
+ * Legacy tokenizer class for tokenizers with only a vocabulary.
+ */
+class LegacyTokenizerModel extends TokenizerModel {
+    /**
+     * Create a LegacyTokenizerModel instance.
+     * @param {Object} config The configuration object for LegacyTokenizerModel.
+     * @param {Map<string, number>|Map<string, Map<string, number>>} config.vocab A (possibly nested) mapping of tokens to ids.
+     * @param {Object} moreConfig Additional configuration object for the LegacyTokenizerModel model.
+     */
+    constructor(config, moreConfig) {
+        super(config);
+
+        /**@type {Map<string, number>} */
+        // @ts-ignore
+        this.tokens_to_ids = moreConfig.target_lang ? config.vocab.get(moreConfig.target_lang) : config.vocab;
+
+        this.bos_token = moreConfig.bos_token;
+        this.bos_token_id = this.tokens_to_ids.get(this.bos_token);
+
+        this.eos_token = moreConfig.eos_token;
+        this.eos_token_id = this.tokens_to_ids.get(this.eos_token);
+
+        this.pad_token = moreConfig.pad_token;
+        this.pad_token_id = this.tokens_to_ids.get(this.pad_token);
+
+        this.unk_token = moreConfig.unk_token;
+        this.unk_token_id = this.tokens_to_ids.get(this.unk_token);
+
+        this.vocab = new Array(this.tokens_to_ids.size);
+        for (const [key, value] of this.tokens_to_ids) {
+            this.vocab[value] = key;
+        }
+    }
+
+    encode(tokens) {
+        return tokens;
+    }
+}
+
+
+/**
  * A base class for text normalization.
  * @abstract
  */
@@ -731,6 +776,8 @@ class Normalizer extends Callable {
                 return new NFC(config);
             case 'NFKD':
                 return new NFKD(config);
+            case 'Strip':
+                return new StripNormalizer(config);
             case 'StripAccents':
                 return new StripAccents(config);
             case 'Lowercase':
@@ -814,6 +861,31 @@ class NFKD extends Normalizer {
      */
     normalize(text) {
         text = text.normalize('NFKD')
+        return text;
+    }
+}
+
+/**
+ * A normalizer that strips leading and/or trailing whitespace from the input text.
+ */
+class StripNormalizer extends Normalizer {
+    /**
+     * Strip leading and/or trailing whitespace from the input text.
+     * @param {string} text The input text.
+     * @returns {string} The normalized text.
+     */
+    normalize(text) {
+        if (this.config.strip_left && this.config.strip_right) {
+            // Fast path to avoid an extra trim call
+            text = text.trim();
+        } else {
+            if (this.config.strip_left) {
+                text = text.trimStart();
+            }
+            if (this.config.strip_right) {
+                text = text.trimEnd();
+            }
+        }
         return text;
     }
 }
@@ -1450,6 +1522,8 @@ class Decoder extends Callable {
             case 'Sequence':
                 return new DecoderSequence(config);
 
+            case 'CTC':
+                return new CTCDecoder(config);
             default:
                 throw new Error(`Unknown Decoder type: ${config.type}`);
         }
@@ -1488,9 +1562,6 @@ class Decoder extends Callable {
 }
 
 class ReplaceDecoder extends Decoder {
-    constructor(config) {
-        super(config);
-    }
 
     /** @type {Decoder['decode_chain']} */
     decode_chain(tokens) {
@@ -1552,9 +1623,6 @@ class ByteFallback extends Decoder {
  * exists incase some decoders need to happen after that step
  */
 class FuseDecoder extends Decoder {
-    constructor(config) {
-        super(config);
-    }
 
     /** @type {Decoder['decode_chain']} */
     decode_chain(tokens) {
@@ -1708,6 +1776,54 @@ class ByteLevelDecoder extends Decoder {
     }
 }
 
+/**
+ * The CTC (Connectionist Temporal Classification) decoder.
+ * See https://github.com/huggingface/tokenizers/blob/bb38f390a61883fc2f29d659af696f428d1cda6b/tokenizers/src/decoders/ctc.rs
+ */
+class CTCDecoder extends Decoder {
+
+    constructor(config) {
+        super(config);
+
+        this.pad_token = this.config.pad_token;
+        this.word_delimiter_token = this.config.word_delimiter_token;
+        this.cleanup = this.config.cleanup;
+    }
+    /**
+     * Converts a connectionist-temporal-classification (CTC) output tokens into a single string.
+     * @param {string[]} tokens Array of tokens to be decoded.
+     * @returns {string} The decoded string.
+     */
+    convert_tokens_to_string(tokens) {
+        if (tokens.length === 0) return '';
+
+        // group same tokens into non-repeating tokens in CTC style decoding
+        let grouped_tokens = [tokens[0]];
+        for (let i = 1; i < tokens.length; ++i) {
+            if (tokens[i] !== grouped_tokens.at(-1)) {
+                grouped_tokens.push(tokens[i]);
+            }
+        }
+
+        // filter self.pad_token which is used as CTC-blank token
+        let filtered_tokens = grouped_tokens.filter(token => token !== this.pad_token);
+
+        let text = filtered_tokens.join('');
+        if (this.cleanup) {
+            // cleanup and replace delimiter token
+            text = clean_up_tokenization(text)
+                .replaceAll(this.word_delimiter_token, ' ')
+                .trim();
+        }
+        return text;
+    }
+
+
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        return [this.convert_tokens_to_string(tokens)];
+    }
+}
 
 /**
  * Apply a sequence of decoders.
@@ -1837,10 +1953,32 @@ class Precompiled extends Normalizer {
      * @returns {string} The normalized text.
      */
     normalize(text) {
-        // TODO use this.charsmap
-        // For now, we just apply NFKC normalization
-        // https://github.com/huggingface/tokenizers/blob/291b2e23ae81cf94738835852213ce120152d121/bindings/python/py_src/tokenizers/implementations/sentencepiece_bpe.py#L34
-        text = text.normalize('NFKC');
+        // As stated in the sentencepiece normalization docs (https://github.com/google/sentencepiece/blob/master/doc/normalization.md#use-pre-defined-normalization-rule),
+        // there are 5 pre-defined normalization rules:
+        //  1. nmt_nfkc: NFKC normalization with some additional normalization around spaces. (default)
+        //  2. nfkc: original NFKC normalization.
+        //  3. nmt_nfkc_cf: nmt_nfkc + Unicode case folding (mostly lower casing)
+        //  4. nfkc_cf: nfkc + Unicode case folding.
+        //  5. identity: no normalization
+        // 
+        // For now, we only implement the default (nmt_nfkc).
+        // See https://raw.githubusercontent.com/google/sentencepiece/master/data/nmt_nfkc.tsv for the full list of rules.
+        // TODO: detect when a different `this.charsmap` is used.
+
+        text = text.replace(/[\u0001-\u0008\u000B\u000E-\u001F\u007F\u008F\u009F]/gm, ''); // Remove control characters
+        text = text.replace(/[\u0009\u000A\u000C\u000D\u1680\u200B\u200C\u200E\u200F\u2028\u2029\u2581\uFEFF\uFFFD]/gm, '\u0020'); // Replace certain characters with a space
+
+        if (text.includes('\uFF5E')) {
+            // To match the sentencepiece implementation 100%, we must handle a very strange edge-case.
+            // For some reason, the "Fullwidth Tilde" character (\uFF5E) should not be converted to the standard Tilde character (\u007E).
+            // However, NFKC normalization does do this conversion. As a result, we split the string on the Fullwidth Tilde character,
+            // perform NFKC normalization on each substring, and then join them back together with the Fullwidth Tilde character.
+            const parts = text.split('\uFF5E');
+            text = parts.map(part => part.normalize('NFKC')).join('\uFF5E');
+        } else {
+            text = text.normalize('NFKC');
+        }
+
         return text;
     }
 }
@@ -1917,6 +2055,13 @@ export class PreTrainedTokenizer extends Callable {
                 tokenizerJSON.model.vocab = Object.entries(tokenizerJSON.model.vocab);
             }
             tokenizerJSON.model.vocab = new Map(tokenizerJSON.model.vocab);
+
+            // Supported nested vocabularies (up to a maximum depth of 1)
+            for (const [k, v] of tokenizerJSON.model.vocab) {
+                if (typeof v === 'object') {
+                    tokenizerJSON.model.vocab.set(k, new Map(Object.entries(v)));
+                }
+            }
         }
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
@@ -1950,12 +2095,16 @@ export class PreTrainedTokenizer extends Callable {
             }
         }
 
+        // Update additional_special_tokens
+        this.special_tokens.push(...(tokenizerConfig.additional_special_tokens ?? []));
+        this.special_tokens = [...new Set(this.special_tokens)]; // Remove duplicates
+
         // Slight hack, but it prevents code duplication:
         this.decoder.added_tokens = this.added_tokens;
 
-        this.added_tokens_regex = new RegExp(
+        this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
             '(' + this.added_tokens.map(escapeRegExp).join('|') + ')'
-        );
+        ) : null;
 
         // Set mask token if present (otherwise will be undefined, which is fine)
         this.mask_token = this.getToken(tokenizerConfig, 'mask_token');
@@ -2220,8 +2369,7 @@ export class PreTrainedTokenizer extends Callable {
         // Actual function which does encoding, for a single text
         // First, we take care of special tokens. Needed to avoid issues arising from
         // normalization and/or pretokenization (which may not preserve special tokens)
-        const sections = text.split(this.added_tokens_regex).filter(x => x);
-
+        const sections = this.added_tokens_regex ? text.split(this.added_tokens_regex).filter(x => x) : [text];
         let tokens = sections.map(x => {
             if (this.added_tokens.includes(x)) {
                 // Ignore added tokens
@@ -2403,7 +2551,20 @@ export class SqueezeBertTokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
+export class DebertaTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
+export class DebertaV2Tokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
+
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
@@ -2423,6 +2584,58 @@ export class FalconTokenizer extends PreTrainedTokenizer {
 }
 
 export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
+
+
+/**
+ * Helper function to build translation inputs for an `NllbTokenizer` or `M2M100Tokenizer`.
+ * @param {PreTrainedTokenizer} self The tokenizer instance.
+ * @param {string|string[]} raw_inputs The text to tokenize.
+ * @param {Object} tokenizer_options Options to be sent to the tokenizer
+ * @param {Object} generate_kwargs Generation options.
+ * @returns {Object} Object to be passed to the model.
+ * @private
+ */
+function _build_translation_inputs(self, raw_inputs, tokenizer_options, generate_kwargs) {
+    if (!('language_codes' in self) || !Array.isArray(self.language_codes)) {
+        throw new Error('Tokenizer must have `language_codes` attribute set and it should be an array of language ids.')
+    }
+    if (!('languageRegex' in self) || !(self.languageRegex instanceof RegExp)) {
+        throw new Error('Tokenizer must have `languageRegex` attribute set and it should be a regular expression.')
+    }
+    if (!('lang_to_token' in self) || typeof self.lang_to_token !== 'function') {
+        throw new Error('Tokenizer must have `lang_to_token` attribute set and it should be a function.')
+    }
+    const src_lang_token = generate_kwargs.src_lang;
+    const tgt_lang_token = generate_kwargs.tgt_lang;
+
+    // Check that the target language is valid:
+    if (!self.language_codes.includes(tgt_lang_token)) {
+        throw new Error(`Target language code "${tgt_lang_token}" is not valid. Must be one of: {${self.language_codes.join(', ')}}`);
+    }
+
+    // Allow `src_lang` to be optional. If not set, we'll use the tokenizer's default.
+    if (src_lang_token !== undefined) {
+        // Check that the source language is valid:
+        if (!self.language_codes.includes(src_lang_token)) {
+            throw new Error(`Source language code "${src_lang_token}" is not valid. Must be one of: {${self.language_codes.join(', ')}}`);
+        }
+
+        // In the same way as the Python library, we override the post-processor
+        // to force the source language to be first:
+        for (let item of self.post_processor.config.single) {
+            if ('SpecialToken' in item && self.languageRegex.test(item.SpecialToken.id)) {
+                item.SpecialToken.id = self.lang_to_token(src_lang_token);
+                break;
+            }
+        }
+        // TODO: Do the same for pair?
+    }
+
+    // Override the `forced_bos_token_id` to force the correct language
+    generate_kwargs.forced_bos_token_id = self.model.convert_tokens_to_ids([self.lang_to_token(tgt_lang_token)])[0];
+
+    return self._call(raw_inputs, tokenizer_options);
+}
 
 /**
  * The NllbTokenizer class is used to tokenize text for NLLB ("No Language Left Behind") models.
@@ -2444,6 +2657,7 @@ export class NllbTokenizer extends PreTrainedTokenizer {
 
         this.languageRegex = /^[a-z]{3}_[A-Z][a-z]{3}$/;
         this.language_codes = this.special_tokens.filter(x => this.languageRegex.test(x));
+        this.lang_to_token = x => x; // Identity function
     }
 
     /**
@@ -2454,34 +2668,40 @@ export class NllbTokenizer extends PreTrainedTokenizer {
      * @returns {Object} Object to be passed to the model.
      */
     _build_translation_inputs(raw_inputs, tokenizer_options, generate_kwargs) {
+        return _build_translation_inputs(this, raw_inputs, tokenizer_options, generate_kwargs);
+    }
+}
 
+/**
+ * The M2M100Tokenizer class is used to tokenize text for M2M100 ("Many-to-Many") models.
+ * 
+ * M2M100 is a multilingual encoder-decoder (seq-to-seq) model trained for Many-to-Many
+ * multilingual translation. It was introduced in this [paper](https://arxiv.org/abs/2010.11125)
+ * and first released in [this](https://github.com/pytorch/fairseq/tree/master/examples/m2m_100) repository.
+ * 
+ * For a list of supported languages (along with their language codes),
+ * @see {@link https://huggingface.co/facebook/m2m100_418M#languages-covered}
+ */
+export class M2M100Tokenizer extends PreTrainedTokenizer {
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
 
-        // Check that the target language is valid:
-        if (!this.language_codes.includes(generate_kwargs.tgt_lang)) {
-            throw new Error(`Target language code "${generate_kwargs.tgt_lang}" is not valid. Must be one of: {${this.language_codes.join(', ')}}`);
-        }
+        this.languageRegex = /^__[a-z]{2,3}__$/;
+        this.language_codes = this.special_tokens
+            .filter(x => this.languageRegex.test(x))
+            .map(x => x.slice(2, -2));
+        this.lang_to_token = x => `__${x}__`;
+    }
 
-        // Allow `src_lang` to be optional. If not set, we'll use the tokenizer's default.
-        if (generate_kwargs.src_lang !== undefined) {
-            // Check that the source language is valid:
-            if (!this.language_codes.includes(generate_kwargs.src_lang)) {
-                throw new Error(`Source language code "${generate_kwargs.src_lang}" is not valid. Must be one of: {${this.language_codes.join(', ')}}`);
-            }
-
-            // In the same way as the Python library, we override the post-processor
-            // to force the source language to be first:
-            for (let item of this.post_processor.config.single) {
-                if ('SpecialToken' in item && this.languageRegex.test(item.SpecialToken.id)) {
-                    item.SpecialToken.id = generate_kwargs.src_lang;
-                    break;
-                }
-            }
-        }
-
-        // Override the `forced_bos_token_id` to force the correct language
-        generate_kwargs.forced_bos_token_id = this.model.convert_tokens_to_ids([generate_kwargs.tgt_lang])[0];
-
-        return this._call(raw_inputs, tokenizer_options);
+    /**
+     * Helper function to build translation inputs for an `M2M100Tokenizer`.
+     * @param {string|string[]} raw_inputs The text to tokenize.
+     * @param {Object} tokenizer_options Options to be sent to the tokenizer
+     * @param {Object} generate_kwargs Generation options.
+     * @returns {Object} Object to be passed to the model.
+     */
+    _build_translation_inputs(raw_inputs, tokenizer_options, generate_kwargs) {
+        return _build_translation_inputs(this, raw_inputs, tokenizer_options, generate_kwargs);
     }
 }
 
@@ -3401,17 +3621,21 @@ export class MarianTokenizer extends PreTrainedTokenizer {
 
 }
 
+export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
  * 
  * @example
- * let tokenizer = await AutoTokenizer.from_pretrained('bert-base-uncased');
+ * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
  */
 export class AutoTokenizer {
     static TOKENIZER_CLASS_MAPPING = {
         'T5Tokenizer': T5Tokenizer,
         'DistilBertTokenizer': DistilBertTokenizer,
+        'DebertaTokenizer': DebertaTokenizer,
+        'DebertaV2Tokenizer': DebertaV2Tokenizer,
         'BertTokenizer': BertTokenizer,
         'MobileBertTokenizer': MobileBertTokenizer,
         'SqueezeBertTokenizer': SqueezeBertTokenizer,
@@ -3425,11 +3649,13 @@ export class AutoTokenizer {
         'MarianTokenizer': MarianTokenizer,
         'BloomTokenizer': BloomTokenizer,
         'NllbTokenizer': NllbTokenizer,
+        'M2M100Tokenizer': M2M100Tokenizer,
         'LlamaTokenizer': LlamaTokenizer,
         'XLMRobertaTokenizer': XLMRobertaTokenizer,
         'MPNetTokenizer': MPNetTokenizer,
         'FalconTokenizer': FalconTokenizer,
         'GPTNeoXTokenizer': GPTNeoXTokenizer,
+        'Wav2Vec2CTCTokenizer': Wav2Vec2CTCTokenizer,
 
         // Base case:
         'PreTrainedTokenizer': PreTrainedTokenizer,
