@@ -3370,7 +3370,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         let word_tokens = []
         let token_indices = []
 
-        const punctuationRegex = new RegExp(`[${PUNCTUATION_REGEX}]`)
+        const punctuationRegex = new RegExp(`^[${PUNCTUATION_REGEX}]$`, 'gu');
 
         for (let i = 0; i < subwords.length; ++i) {
 
