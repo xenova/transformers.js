@@ -124,7 +124,7 @@ self.addEventListener("message", async (event) => {
 ### Step 4: Design the user interface
 
 We'll define the main interface and logic for our application on the single page component `./src/routes/+page.svelte` that maps to `/`.
-Learn more how SvelteKit handles [routing](https://kit.svelte.dev/docs/routing).
+Learn more how SvelteKit handles routing [here](https://kit.svelte.dev/docs/routing).
 
 Let's started by loading the Web Worker as soon as the page is mounted. On Svelte, we can use the `onMount` function to run code when the component is mounted.
 The worker code is referenced via the alias `$lib/worker.js`, since SvelteKit is build with Vite.js, we can use its special syntax `?worker` to indicate that this file should be loaded as a Web Worker.
