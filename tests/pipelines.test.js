@@ -846,7 +846,7 @@ describe('Pipelines', () => {
             { // Transcribe Japanese w/ word-level timestamps.
                 let output = await transcriber(audioData, { return_timestamps: 'word', language: 'japanese', task: 'transcribe' });
                 const target = {
-                    "text": "森長の美味しい牛乳は濃い青い牛乳ビーンを足らった隣のパック牛乳である",
+                    "text": "森長の美味しい牛乳は濃い青い牛乳ビーンを足らった階のパック牛乳である",
                     "chunks": [
                         { "text": "森", "timestamp": [0.14, 0.64] },
                         { "text": "長", "timestamp": [0.64, 0.82] },
@@ -868,7 +868,7 @@ describe('Pipelines', () => {
                         { "text": "足", "timestamp": [3.82, 4] },
                         { "text": "ら", "timestamp": [4, 4.12] },
                         { "text": "った", "timestamp": [4.12, 4.3] },
-                        { "text": "隣", "timestamp": [4.3, 4.56] },
+                        { "text": "階", "timestamp": [4.3, 4.56] },
                         { "text": "の", "timestamp": [4.56, 4.92] },
                         { "text": "パ", "timestamp": [4.92, 5.1] },
                         { "text": "ック", "timestamp": [5.1, 5.2] },
@@ -888,7 +888,7 @@ describe('Pipelines', () => {
 
 
         it(models[4], async () => {
-            let transcriber = await pipeline('automatic-speech-recognition', m(models[3]));
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[4]));
 
             let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
             let audioData = await loadAudio(url);
