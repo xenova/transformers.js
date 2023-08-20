@@ -1458,7 +1458,18 @@ export class ImageSegmentationPipeline extends Pipeline {
 /**
  * Zero shot image classification pipeline. This pipeline predicts the class of
  * an image when you provide an image and a set of `candidate_labels`.
- * @extends Pipeline
+ * 
+ * **Example:** Zero shot image classification w/ `Xenova/clip-vit-base-patch32`.
+ * ```javascript
+ * let classifier = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * let outputs = await classifier(url, ['tiger', 'horse', 'dog']);
+ * // [
+ * //   { score: 0.9993917942047119, label: 'tiger' },
+ * //   { score: 0.0003519294841680676, label: 'horse' },
+ * //   { score: 0.0002562698791734874, label: 'dog' }
+ * // ]
+ * ```
  */
 export class ZeroShotImageClassificationPipeline extends Pipeline {
 
@@ -1477,7 +1488,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
     /**
      * Classify the input images with candidate labels using a zero-shot approach.
      * @param {Array} images The input images.
-     * @param {Array} candidate_labels The candidate labels.
+     * @param {string[]} candidate_labels The candidate labels.
      * @param {Object} options The options for the classification.
      * @param {string} [options.hypothesis_template] The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
      * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
