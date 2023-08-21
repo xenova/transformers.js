@@ -91,7 +91,7 @@ let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper
 });
 ```
 
-For the full list of options, check out the [PretrainedOptions](/api/utils/hub#module_utils/hub..PretrainedOptions) documentation.
+For the full list of options, check out the [PretrainedOptions](./api/utils/hub#module_utils/hub..PretrainedOptions) documentation.
 
 
 ### Running
@@ -117,7 +117,7 @@ let result2 = await translator(result[0].translation_text, {
 // [ { translation_text: 'I like to walk my dog.' } ]
 ```
 
-When using models that support auto-regressive generation, you can specify generation parameters like the number of new tokens, sampling methods, temperature, repetition penalty, and much more. For a full list of available parameters, see to the [GenerationConfig](/api/utils/generation#module_utils/generation.GenerationConfig) class.
+When using models that support auto-regressive generation, you can specify generation parameters like the number of new tokens, sampling methods, temperature, repetition penalty, and much more. For a full list of available parameters, see to the [GenerationConfig](./api/utils/generation#module_utils/generation.GenerationConfig) class.
 
 For example, to generate a poem using `LaMini-Flan-T5-783M`, you can do: 
 
@@ -151,8 +151,8 @@ Cheddar is my go-to for any occasion or mood;
 It adds depth and richness without being overpowering its taste buds alone
 ```
 
-For more information on the available options for each pipeline, refer to the [API Reference](/api/pipelines).
-If you would like more control over the inference process, you can use the [`AutoModel`](/api/models), [`AutoTokenizer`](/api/tokenizers), or [`AutoProcessor`](/api/processors) classes instead.
+For more information on the available options for each pipeline, refer to the [API Reference](./api/pipelines).
+If you would like more control over the inference process, you can use the [`AutoModel`](./api/models), [`AutoTokenizer`](./api/tokenizers), or [`AutoProcessor`](./api/processors) classes instead.
 
 
 ## Available tasks
