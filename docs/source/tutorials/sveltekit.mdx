@@ -30,8 +30,7 @@ for ESLint, Prettier and later adding Tailwind CSS following the [official guide
 
 ### Step 2: Make skeleton project fully static
 
-To make our application fully static, we'll need to make a few changes to the default project skeleton.
-You need to install the [adapter-static](https://github.com/sveltejs/kit/tree/master/packages/adapter-static) to prerender your application as a collection of static files.
+We'll need to make a few changes to the default project skeleton to make our application fully static. You must install the [adapter-static](https://github.com/sveltejs/kit/tree/master/packages/adapter-static) to prerender your application as a collection of static files.
 See more on the [official guide](https://kit.svelte.dev/docs/adapter-static).
 
 ```bash
@@ -75,8 +74,7 @@ You can install Transformers.js from [NPM](https://www.npmjs.com/package/@xenova
 npm i @xenova/transformers
 ```
 
-Next, we'll create a new [Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) script where we'll place all ML-related code.
-This is to ensure that the main thread is not blocked while the model is loading and performing inference.
+Next, we'll create a new [Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) script where we'll place all ML-related code. This ensures that the main thread is not blocked while the model is loading and performing inference.
 For this application, we'll be using [`Xenova/distilbert-base-uncased-finetuned-sst-2-english`](https://huggingface.co/Xenova/distilbert-base-uncased-finetuned-sst-2-english),
 a ~67M parameter model finetuned on the [Stanford Sentiment Treebank](https://huggingface.co/datasets/sst) dataset. Add the following code to `./src/lib/worker.js`:
 
@@ -123,12 +121,11 @@ self.addEventListener("message", async (event) => {
 
 ### Step 4: Design the user interface
 
-We'll define the main interface and logic for our application on the single page component `./src/routes/+page.svelte` that maps to `/`.
-Learn more how SvelteKit handles routing [here](https://kit.svelte.dev/docs/routing).
+We'll define our application's main interface and logic on the single page component `./src/routes/+page.svelte` that maps to `/`.
+Learn more about how SvelteKit handles routing [here](https://kit.svelte.dev/docs/routing).
 
-Let's started by loading the Web Worker as soon as the page is mounted. In Svelte, we can use the `onMount` function to run code when the component is mounted.
-The worker code is referenced via the alias `$lib/worker.js`. Since SvelteKit is build with Vite.js, we can use the special syntax `?worker` to indicate that this file should be loaded as a Web Worker.
-Read more here [Vite.js Web Workers](https://vitejs.dev/guide/features.html#web-workers).
+Let's start by loading the Web Worker once the page is mounted. In Svelte, the `onMount` function can run code when the component is mounted.
+To reference the worker code, we use the alias `$lib/worker.js?worker`. As Svelte is built with Vite.js, we can use the syntax `?worker` to specify that the file should be loaded as a Web Worker. Read more here [Vite.js Web Workers](https://vitejs.dev/guide/features.html#web-workers).
 
 ```jsx
 <script>
@@ -200,7 +197,7 @@ For every input change event, we call the `classify` function with the input tex
 </main>
 ```
 
-You can run your appplication on development mode with the following command:
+You can run your application on development mode with the following command:
 
 ```bash
 npm run dev
@@ -216,10 +213,10 @@ To build your application, simply run:
 npm run build
 ```
 
-All the static files will be generated in the `./build` folder.
+The `./build` folder will contain all of the generated static files.
 
-You can now deploy your application as a static [Hugging Face Space](https://huggingface.co/docs/hub/spaces), or to any other static hosting service of your choice.
-If you haven't already, you can create a free Hugging Face account [here](https://huggingface.co/join).
+You can now deploy your application as a static [Hugging Face Space](https://huggingface.co/docs/hub/spaces) or to any other static hosting service you choose.
+You can create a free Hugging Face account [here](https://huggingface.co/join) if you haven't already.
 
 1. Visit [https://huggingface.co/new-space](https://huggingface.co/new-space) and fill in the form. Remember to select "Static" as the space type.
 2. Click the "Create space" button at the bottom of the page.
@@ -230,7 +227,7 @@ If you haven't already, you can create a free Hugging Face account [here](https:
 
 ## Server-side inference
 
-For server-side inference, we'll rely on [SvelteKit API routes](https://kit.svelte.dev/docs/routing#server) to handle requests.
+We'll rely on [SvelteKit API routes](https://kit.svelte.dev/docs/routing#server) to handle requests for server-side inference.
 
 ### Step 1: Initialise the project
 
@@ -241,11 +238,11 @@ npm create svelte@latest sveltekit-static
 ```
 
 For this demo, we'll be selecting a simple project skeleton without TypeScript and additional packages
-for ESLint, Prettier and later adding Tailwind CSS following the [official guide](https://tailwindcss.com/docs/guides/sveltekit).
+for ESLint, Prettier, and later adding Tailwind CSS following the [official guide](https://tailwindcss.com/docs/guides/sveltekit).
 
 ### Step 2: Install SvelteKit Node Server Adapter
 
-In this step we'll setup [@sveltejs/adapter-node](https://kit.svelte.dev/docs/adapter-node)
+In this step, we'll setup [@sveltejs/adapter-node](https://kit.svelte.dev/docs/adapter-node)
 to change the deployment target to Node.js, so we can build and deploy our application as a Node.js server.
 
 ```bash
@@ -331,8 +328,8 @@ export async function GET({ url }) {
 
 ### Step 4: Design the user interface
 
-We'll define the main interface and logic for our application on the single page component `./src/routes/+page.svelte` that maps to `/`.
-The main difference with the client-side inference is that we'll be using the `fetch` API to make requests to our API route handler, rather than using a Web Worker.
+We'll define our application's main interface and logic on the single page component `./src/routes/+page.svelte` that maps to `/`.
+When using client-side inference, we will use the `fetch` API to send requests to our API route handler instead of relying on a Web Worker.
 
 ```jsx
 <script>
@@ -382,7 +379,8 @@ node ./build
 
 Go to [http://localhost:3000/](http://localhost:3000/) to see your application in action!
 
-Deploying as a Docker container on [Hugging Face Spaces](https://huggingface.co/docs/hub/spaces). If you haven't already, you can create a free Hugging Face account [here](https://huggingface.co/join).
+Deploying as a Docker container on [Hugging Face Spaces](https://huggingface.co/docs/hub/spaces).
+You can create a free Hugging Face account [here](https://huggingface.co/join) if you haven't already.
 
 1. Create a new `Dockerfile` in your project's root folder. You can use our [example Dockerfile](https://github.com/xenova/transformers.js/blob/main/examples/sveltekit-server/Dockerfile) as a template.
 2. Visit [https://huggingface.co/new-space](https://huggingface.co/new-space) and fill in the form. Remember to select "Docker" as the space type (you can choose the "Blank" Docker template).
