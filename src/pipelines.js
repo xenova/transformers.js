@@ -127,7 +127,40 @@ export class Pipeline extends Callable {
 
 /**
  * Text classification pipeline using any `ModelForSequenceClassification`.
- * @extends Pipeline
+ *
+ * **Example:** Sentiment-analysis w/ `Xenova/distilbert-base-uncased-finetuned-sst-2-english`.
+ * ```javascript
+ * let classifier = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
+ * let result = await classifier('I love transformers!');
+ * // [ { label: 'POSITIVE', score: 0.999788761138916 } ]
+ * ```
+ * 
+ * **Example:** Multilingual sentiment-analysis w/ `Xenova/bert-base-multilingual-uncased-sentiment` (and return top 5 classes).
+ * ```javascript
+ * let classifier = await pipeline('sentiment-analysis', 'Xenova/bert-base-multilingual-uncased-sentiment');
+ * let result = await classifier('Le meilleur film de tous les temps.', { topk: 5 });
+ * // [
+ * //   { label: '5 stars', score: 0.9610759615898132 },
+ * //   { label: '4 stars', score: 0.03323351591825485 },
+ * //   { label: '3 stars', score: 0.0036155181005597115 },
+ * //   { label: '1 star', score: 0.0011325967498123646 },
+ * //   { label: '2 stars', score: 0.0009423971059732139 }
+ * // ]
+ * ```
+ * 
+ * **Example:** Toxic comment classification w/ `Xenova/toxic-bert` (and return all classes).
+ * ```javascript
+ * let classifier = await pipeline('text-classification', 'Xenova/toxic-bert');
+ * let result = await classifier('I hate you!', { topk: null });
+ * // [
+ * //   { label: 'toxic', score: 0.9593140482902527 },
+ * //   { label: 'insult', score: 0.16187334060668945 },
+ * //   { label: 'obscene', score: 0.03452680632472038 },
+ * //   { label: 'identity_hate', score: 0.0223250575363636 },
+ * //   { label: 'threat', score: 0.019197041168808937 },
+ * //   { label: 'severe_toxic', score: 0.005651099607348442 }
+ * // ]
+ * ```
  */
 export class TextClassificationPipeline extends Pipeline {
     /**
