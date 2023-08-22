@@ -2941,30 +2941,28 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
                 if (all_special_ids.has(token)) {
                     const text = this.decode([token]);
-                    if (text[0] === "[" && text[text.length - 1] === "]") {
-                        const language = WHISPER_LANGUAGE_MAPPING.get(text.slice(1, -1));
+                    const language = WHISPER_LANGUAGE_MAPPING.get(text.slice(2, -2));
 
-                        if (language !== undefined) {
-                            // 1/ Indeed some language
-                            // TODO Handle when language is different from the previous
-                            // one, and we cannot use timestamped tokens to create chunks
-                            if (last_language !== null && language !== last_language && !return_timestamps) {
-                                previous_tokens.push(current_tokens);
-                                const resolved_tokens = this.findLongestCommonSequence(previous_tokens)[0];
-                                const resolved_text = this.decode(resolved_tokens);
-                                chunk.text = resolved_text;
-                                chunks.push(chunk);
+                    if (language !== undefined) {
+                        // 1/ Indeed some language
+                        // TODO Handle when language is different from the previous
+                        // one, and we cannot use timestamped tokens to create chunks
+                        if (last_language !== null && language !== last_language && !return_timestamps) {
+                            previous_tokens.push(current_tokens);
+                            const resolved_tokens = this.findLongestCommonSequence(previous_tokens)[0];
+                            const resolved_text = this.decode(resolved_tokens);
+                            chunk.text = resolved_text;
+                            chunks.push(chunk);
 
-                                // Flush all our temporary context
-                                previous_tokens = [];
-                                current_tokens = [];
-                                chunk = new_chunk();
-                            }
-
-                            last_language = chunk.language = language;
-                        } else {
-                            // 2/ This is a regular special token, ignoring it
+                            // Flush all our temporary context
+                            previous_tokens = [];
+                            current_tokens = [];
+                            chunk = new_chunk();
                         }
+
+                        last_language = chunk.language = language;
+                    } else {
+                        // 2/ This is a regular special token, ignoring it
                     }
                 } else if (token >= timestamp_begin) {
                     // 3/ Timestamp token
@@ -3253,7 +3251,6 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
         if (["chinese", "japanese", "thai", "lao", "myanmar"].includes(language)) {
             // These languages don't typically use spaces.
-
             [words, word_tokens, token_indices] = this.splitTokensOnUnicode(tokens)
         } else {
             [words, word_tokens, token_indices] = this.splitTokensOnSpaces(tokens)
@@ -3373,7 +3370,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         let word_tokens = []
         let token_indices = []
 
-        const punctuationRegex = new RegExp(`[${PUNCTUATION_REGEX}]`)
+        const punctuationRegex = new RegExp(`^[${PUNCTUATION_REGEX}]$`, 'gu');
 
         for (let i = 0; i < subwords.length; ++i) {
 
