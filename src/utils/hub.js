@@ -410,8 +410,8 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     let cacheKey;
     let proposedCacheKey = cache instanceof FileCache ? fsCacheKey : remoteURL;
 
-    /** @type {Response|undefined} */
-    let responseToCache;
+    // Whether to cache the final response in the end.
+    let toCacheResponse = false;
 
     /** @type {Response|FileResponse|undefined} */
     let response;
@@ -475,13 +475,13 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             cacheKey = proposedCacheKey;
         }
 
-
-        if (cache && response instanceof Response && response.status === 200) {
-            // only clone if cache available, and response is valid
-            responseToCache = response.clone();
-        }
+        // Only cache the response if:
+        toCacheResponse =
+            cache                              // 1. A caching system is available
+            && typeof Response !== 'undefined' // 2. `Response` is defined (i.e., we are in a browser-like environment)
+            && response instanceof Response    // 3. result is a `Response` object (i.e., not a `FileResponse`)
+            && response.status === 200         // 4. request was successful (status code 200)
     }
-
 
     // Start downloading
     dispatchCallback(options.progress_callback, {
@@ -499,16 +499,18 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         })
     })
 
-
     if (
         // Only cache web responses
         // i.e., do not cache FileResponses (prevents duplication)
-        responseToCache && cacheKey
+        toCacheResponse && cacheKey
         &&
         // Check again whether request is in cache. If not, we add the response to the cache
         (await cache.match(cacheKey) === undefined)
     ) {
-        await cache.put(cacheKey, responseToCache)
+        // NOTE: We use `new Response(buffer, ...)` instead of `response.clone()` to handle LFS files
+        await cache.put(cacheKey, new Response(buffer, {
+            headers: response.headers
+        }))
             .catch(err => {
                 // Do not crash if unable to add to cache (e.g., QuotaExceededError).
                 // Rather, log a warning and proceed with execution.
