@@ -631,7 +631,7 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * let text = 'def fib(n):';
  * let classifier = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
  * let output = await classifier(text, {
- *   max_new_tokens: 40,
+ *   max_new_tokens: 44,
  * });
  * // [{
  * //   generated_text: 'def fib(n):\n' +
@@ -640,7 +640,7 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * //     '    elif n == 1:\n' +
  * //     '        return 1\n' +
  * //     '    else:\n' +
- * //     '        return fib(n-1) + fib(n'
+ * //     '        return fib(n-1) + fib(n-2)\n'
  * // }]
  * ```
  */
