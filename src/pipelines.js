@@ -457,7 +457,15 @@ export class FillMaskPipeline extends Pipeline {
 
 /**
  * Text2TextGenerationPipeline class for generating text using a model that performs text-to-text generation tasks.
- * @extends Pipeline
+ * 
+ * **Example:** Text-to-text generation w/ `Xenova/LaMini-Flan-T5-783M`.
+ * ```javascript
+ * let generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-783M');
+ * let output = await generator('how can I become more healthy?', {
+ *   max_new_tokens: 100,
+ * });
+ * // [ 'To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues.' ]
+ * ```
  */
 export class Text2TextGenerationPipeline extends Pipeline {
     _key = null;
@@ -528,7 +536,24 @@ export class Text2TextGenerationPipeline extends Pipeline {
 
 /**
  * A pipeline for summarization tasks, inheriting from Text2TextGenerationPipeline.
- * @extends Text2TextGenerationPipeline
+ * 
+ * **Example:** Summarization w/ `Xenova/distilbart-cnn-6-6`.
+ * ```javascript
+ * let text = 'The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, ' +
+ *   'and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. ' +
+ *   'During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest ' +
+ *   'man-made structure in the world, a title it held for 41 years until the Chrysler Building in New ' +
+ *   'York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to ' +
+ *   'the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the ' +
+ *   'Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second ' +
+ *   'tallest free-standing structure in France after the Millau Viaduct.';
+ * 
+ * let generator = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
+ * let output = await generator(text, {
+ *   max_new_tokens: 100,
+ * });
+ * // [{ summary_text: ' The Eiffel Tower is about the same height as an 81-storey building and the tallest structure in Paris. It is the second tallest free-standing structure in France after the Millau Viaduct.' }]
+ * ```
  */
 export class SummarizationPipeline extends Text2TextGenerationPipeline {
     _key = 'summary_text';
