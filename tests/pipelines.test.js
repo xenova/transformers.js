@@ -733,7 +733,7 @@ describe('Pipelines', () => {
             'openai/whisper-tiny.en', // English-only
             'openai/whisper-small', // Multilingual
             ['openai/whisper-tiny.en', 'output_attentions'], // English-only + `output_attentions`
-            ['openai/whisper-base', 'output_attentions'], // Multilingual + `output_attentions`
+            ['openai/whisper-small', 'output_attentions'], // Multilingual + `output_attentions`
 
             // wav2vec2
             'jonatasgrosman/wav2vec2-large-xlsr-53-english',
@@ -846,36 +846,40 @@ describe('Pipelines', () => {
             { // Transcribe Japanese w/ word-level timestamps.
                 let output = await transcriber(audioData, { return_timestamps: 'word', language: 'japanese', task: 'transcribe' });
                 const target = {
-                    "text": "森長の美味しい牛乳は濃い青い牛乳ビーンを足らった階のパック牛乳である",
+                    "text": "モリナガの美味しい牛乳は濃い青色に牛乳瓶を払ったゼザインのパック牛乳である。",
                     "chunks": [
-                        { "text": "森", "timestamp": [0.14, 0.64] },
-                        { "text": "長", "timestamp": [0.64, 0.82] },
-                        { "text": "の", "timestamp": [0.82, 1.04] },
-                        { "text": "美味", "timestamp": [1.04, 1.2] },
-                        { "text": "しい", "timestamp": [1.2, 1.5] },
-                        { "text": "牛", "timestamp": [1.5, 1.68] },
-                        { "text": "乳", "timestamp": [1.68, 1.92] },
-                        { "text": "は", "timestamp": [1.92, 2.14] },
-                        { "text": "濃", "timestamp": [2.14, 2.32] },
-                        { "text": "い", "timestamp": [2.32, 2.44] },
-                        { "text": "青", "timestamp": [2.44, 2.66] },
-                        { "text": "い", "timestamp": [2.66, 2.76] },
-                        { "text": "牛", "timestamp": [2.76, 3.06] },
-                        { "text": "乳", "timestamp": [3.06, 3.36] },
-                        { "text": "ビ", "timestamp": [3.36, 3.58] },
-                        { "text": "ーン", "timestamp": [3.58, 3.66] },
-                        { "text": "を", "timestamp": [3.66, 3.82] },
-                        { "text": "足", "timestamp": [3.82, 4] },
-                        { "text": "ら", "timestamp": [4, 4.12] },
-                        { "text": "った", "timestamp": [4.12, 4.3] },
-                        { "text": "階", "timestamp": [4.3, 4.56] },
-                        { "text": "の", "timestamp": [4.56, 4.92] },
-                        { "text": "パ", "timestamp": [4.92, 5.1] },
-                        { "text": "ック", "timestamp": [5.1, 5.2] },
-                        { "text": "牛", "timestamp": [5.2, 5.44] },
-                        { "text": "乳", "timestamp": [5.44, 5.64] },
-                        { "text": "で", "timestamp": [5.64, 5.84] },
-                        { "text": "ある", "timestamp": [5.84, 6.06] }
+                        { "text": "モ", "timestamp": [0, 0.56] },
+                        { "text": "リ", "timestamp": [0.56, 0.64] },
+                        { "text": "ナ", "timestamp": [0.64, 0.8] },
+                        { "text": "ガ", "timestamp": [0.8, 0.88] },
+                        { "text": "の", "timestamp": [0.88, 1.04] },
+                        { "text": "美味", "timestamp": [1.04, 1.22] },
+                        { "text": "しい", "timestamp": [1.22, 1.46] },
+                        { "text": "牛", "timestamp": [1.46, 1.76] },
+                        { "text": "乳", "timestamp": [1.76, 1.94] },
+                        { "text": "は", "timestamp": [1.94, 2.14] },
+                        { "text": "濃", "timestamp": [2.14, 2.34] },
+                        { "text": "い", "timestamp": [2.34, 2.48] },
+                        { "text": "青", "timestamp": [2.48, 2.62] },
+                        { "text": "色", "timestamp": [2.62, 2.84] },
+                        { "text": "に", "timestamp": [2.84, 3] },
+                        { "text": "牛", "timestamp": [3, 3.22] },
+                        { "text": "乳", "timestamp": [3.22, 3.42] },
+                        { "text": "瓶", "timestamp": [3.42, 3.58] },
+                        { "text": "を", "timestamp": [3.58, 3.82] },
+                        { "text": "払", "timestamp": [3.82, 4] },
+                        { "text": "った", "timestamp": [4, 4.32] },
+                        { "text": "ゼ", "timestamp": [4.32, 4.56] },
+                        { "text": "ザ", "timestamp": [4.56, 4.6] },
+                        { "text": "イ", "timestamp": [4.6, 4.74] },
+                        { "text": "ン", "timestamp": [4.74, 4.8] },
+                        { "text": "の", "timestamp": [4.8, 4.94] },
+                        { "text": "パ", "timestamp": [4.94, 5.12] },
+                        { "text": "ック", "timestamp": [5.12, 5.26] },
+                        { "text": "牛", "timestamp": [5.26, 5.52] },
+                        { "text": "乳", "timestamp": [5.52, 5.72] },
+                        { "text": "で", "timestamp": [5.72, 5.86] },
+                        { "text": "ある。", "timestamp": [5.86, 6.62] }
                     ]
                 }
 
