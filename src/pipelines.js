@@ -644,8 +644,6 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * //         return 1
  * //     return fib(n-1) + fib(n-2)
  * ```
- * 
- * @extends Pipeline
  */
 export class TextGenerationPipeline extends Pipeline {
     /**
@@ -721,8 +719,6 @@ export class TextGenerationPipeline extends Pipeline {
  * //   scores: [ 0.9958870956360275, 0.9923963400697035, 0.002333537946160235, 0.0015134138567598765, 0.0010699384208377163 ]
  * // }
  * ```
- * 
- * @extends Pipeline
  */
 export class ZeroShotClassificationPipeline extends Pipeline {
 
@@ -878,7 +874,6 @@ export class ZeroShotClassificationPipeline extends Pipeline {
  * //     dims: [1, 384]
  * // }
  * ```
- * @extends Pipeline
  */
 export class FeatureExtractionPipeline extends Pipeline {
 
@@ -1083,7 +1078,6 @@ export class AudioClassificationPipeline extends Pipeline {
  * let output = await transcriber(url, { chunk_length_s: 30, stride_length_s: 5 });
  * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
- * @extends Pipeline
  */
 export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
@@ -1306,7 +1300,6 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
 /**
  * Image To Text pipeline using a `AutoModelForVision2Seq`. This pipeline predicts a caption for a given image.
- * @extends Pipeline
  */
 export class ImageToTextPipeline extends Pipeline {
     /**
@@ -1669,8 +1662,6 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
  * //   "box": { "xmin": 331, "ymin": 19, "xmax": 649, "ymax": 371 }
  * // }]
  * ```
- * 
- * @extends Pipeline
  */
 export class ObjectDetectionPipeline extends Pipeline {
     /**
