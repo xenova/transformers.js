@@ -300,6 +300,7 @@ export class TokenClassificationPipeline extends Pipeline {
         return isBatched ? toReturn : toReturn[0];
     }
 }
+
 /**
  * Question Answering pipeline using any `ModelForQuestionAnswering`.
  * 
@@ -316,7 +317,6 @@ export class TokenClassificationPipeline extends Pipeline {
  * //     "score": 0.5768911502526741
  * // }
  * ```
- * @extends Pipeline
  */
 export class QuestionAnsweringPipeline extends Pipeline {
     /**
@@ -383,7 +383,26 @@ export class QuestionAnsweringPipeline extends Pipeline {
 
 /**
  * Masked language modeling prediction pipeline using any `ModelWithLMHead`.
- * @extends Pipeline
+ * 
+ * **Example:** Perform masked language modelling (a.k.a. "fill-mask") with `Xenova/bert-base-uncased`.
+ * ```javascript
+ * let unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
+ * let output = await unmasker('The goal of life is [MASK].');
+ * // [
+ * //   { token_str: 'survival', score: 0.06137419492006302, token: 8115, sequence: 'The goal of life is survival.' },
+ * //   { token_str: 'love', score: 0.03902450203895569, token: 1567, sequence: 'The goal of life is love.' },
+ * //   { token_str: 'happiness', score: 0.03253183513879776, token: 9266, sequence: 'The goal of life is happiness.' },
+ * //   { token_str: 'freedom', score: 0.018736306577920914, token: 4438, sequence: 'The goal of life is freedom.' },
+ * //   { token_str: 'life', score: 0.01859794743359089, token: 1297, sequence: 'The goal of life is life.' }
+ * // ]
+ * ```
+ * 
+ * **Example:** Perform masked language modelling (a.k.a. "fill-mask") with `Xenova/bert-base-cased` (and return top result).
+ * ```javascript
+ * let unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
+ * let output = await unmasker('The Milky Way is a [MASK] galaxy.', { topk: 1 });
+ * // [{ token_str: 'spiral', score: 0.6299987435340881, token: 14061, sequence: 'The Milky Way is a spiral galaxy.' }]
+ * ```
  */
 export class FillMaskPipeline extends Pipeline {
     /**
