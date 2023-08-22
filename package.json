@@ -47,6 +47,7 @@
     "onnxruntime-node": "1.14.0",
     "onnxruntime-react-native": "1.14.0",
     "path-browserify": "^1.0.1",
+    "react-native-fs": "^2.20.0",
     "browserify-zlib": "^0.2.0"
   },
   "devDependencies": {
