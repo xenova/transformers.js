@@ -1445,7 +1445,17 @@ export class ImageClassificationPipeline extends Pipeline {
 /**
  * Image segmentation pipeline using any `AutoModelForXXXSegmentation`.
  * This pipeline predicts masks of objects and their classes.
- * @extends Pipeline
+ * 
+ * **Example:** Perform image segmentation with `Xenova/detr-resnet-50-panoptic`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * let segmenter = await pipeline('image-segmentation', 'Xenova/detr-resnet-50-panoptic');
+ * let output = await segmenter(url);
+ * // [
+ * //   { label: 'remote', score: 0.9984649419784546, mask: RawImage { ... } },
+ * //   { label: 'cat', score: 0.9994316101074219, mask: RawImage { ... } }
+ * // ]
+ * ```
  */
 export class ImageSegmentationPipeline extends Pipeline {
     /**
