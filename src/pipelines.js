@@ -6,7 +6,7 @@
  * import { pipeline } from '@xenova/transformers';
  * 
  * let classifier = await pipeline('sentiment-analysis');
- * let result = await classifier('I love transformers!');
+ * let output = await classifier('I love transformers!');
  * // [{'label': 'POSITIVE', 'score': 0.999817686}]
  * ```
  * 
@@ -127,7 +127,40 @@ export class Pipeline extends Callable {
 
 /**
  * Text classification pipeline using any `ModelForSequenceClassification`.
- * @extends Pipeline
+ *
+ * **Example:** Sentiment-analysis w/ `Xenova/distilbert-base-uncased-finetuned-sst-2-english`.
+ * ```javascript
+ * let classifier = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
+ * let output = await classifier('I love transformers!');
+ * // [{ label: 'POSITIVE', score: 0.999788761138916 }]
+ * ```
+ * 
+ * **Example:** Multilingual sentiment-analysis w/ `Xenova/bert-base-multilingual-uncased-sentiment` (and return top 5 classes).
+ * ```javascript
+ * let classifier = await pipeline('sentiment-analysis', 'Xenova/bert-base-multilingual-uncased-sentiment');
+ * let output = await classifier('Le meilleur film de tous les temps.', { topk: 5 });
+ * // [
+ * //   { label: '5 stars', score: 0.9610759615898132 },
+ * //   { label: '4 stars', score: 0.03323351591825485 },
+ * //   { label: '3 stars', score: 0.0036155181005597115 },
+ * //   { label: '1 star', score: 0.0011325967498123646 },
+ * //   { label: '2 stars', score: 0.0009423971059732139 }
+ * // ]
+ * ```
+ * 
+ * **Example:** Toxic comment classification w/ `Xenova/toxic-bert` (and return all classes).
+ * ```javascript
+ * let classifier = await pipeline('text-classification', 'Xenova/toxic-bert');
+ * let output = await classifier('I hate you!', { topk: null });
+ * // [
+ * //   { label: 'toxic', score: 0.9593140482902527 },
+ * //   { label: 'insult', score: 0.16187334060668945 },
+ * //   { label: 'obscene', score: 0.03452680632472038 },
+ * //   { label: 'identity_hate', score: 0.0223250575363636 },
+ * //   { label: 'threat', score: 0.019197041168808937 },
+ * //   { label: 'severe_toxic', score: 0.005651099607348442 }
+ * // ]
+ * ```
  */
 export class TextClassificationPipeline extends Pipeline {
     /**
@@ -175,7 +208,32 @@ export class TextClassificationPipeline extends Pipeline {
 
 /**
  * Named Entity Recognition pipeline using any `ModelForTokenClassification`.
- * @extends Pipeline
+ * 
+ * **Example:** Perform named entity recognition with `Xenova/bert-base-NER`.
+ * ```javascript
+ * let classifier = await pipeline('token-classification', 'Xenova/bert-base-NER');
+ * let output = await classifier('My name is Sarah and I live in London');
+ * // [
+ * //   { entity: 'B-PER', score: 0.9980202913284302, index: 4, word: 'Sarah' },
+ * //   { entity: 'B-LOC', score: 0.9994474053382874, index: 9, word: 'London' }
+ * // ]
+ * ```
+ * 
+ * **Example:** Perform named entity recognition with `Xenova/bert-base-NER` (and return all labels).
+ * ```javascript
+ * let classifier = await pipeline('token-classification', 'Xenova/bert-base-NER');
+ * let output = await classifier('Sarah lives in the United States of America', { ignore_labels: [] });
+ * // [
+ * //   { entity: 'B-PER', score: 0.9966587424278259, index: 1, word: 'Sarah' },
+ * //   { entity: 'O', score: 0.9987385869026184, index: 2, word: 'lives' },
+ * //   { entity: 'O', score: 0.9990072846412659, index: 3, word: 'in' },
+ * //   { entity: 'O', score: 0.9988298416137695, index: 4, word: 'the' },
+ * //   { entity: 'B-LOC', score: 0.9995510578155518, index: 5, word: 'United' },
+ * //   { entity: 'I-LOC', score: 0.9990395307540894, index: 6, word: 'States' },
+ * //   { entity: 'I-LOC', score: 0.9986724853515625, index: 7, word: 'of' },
+ * //   { entity: 'I-LOC', score: 0.9975294470787048, index: 8, word: 'America' }
+ * // ]
+ * ```
  */
 export class TokenClassificationPipeline extends Pipeline {
     /**
@@ -242,23 +300,22 @@ export class TokenClassificationPipeline extends Pipeline {
         return isBatched ? toReturn : toReturn[0];
     }
 }
+
 /**
  * Question Answering pipeline using any `ModelForQuestionAnswering`.
  * 
- * **Example:** Run question answering with `distilbert-base-uncased-distilled-squad`.
+ * **Example:** Run question answering with `Xenova/distilbert-base-uncased-distilled-squad`.
  * ```javascript
  * let question = 'Who was Jim Henson?';
  * let context = 'Jim Henson was a nice puppet.';
  * 
  * let answerer = await pipeline('question-answering', 'Xenova/distilbert-base-uncased-distilled-squad');
- * let outputs = await answerer(question, context);
- * console.log(outputs);
+ * let output = await answerer(question, context);
  * // {
- * //     "answer": "a nice puppet",
- * //     "score": 0.5768911502526741
+ * //   "answer": "a nice puppet",
+ * //   "score": 0.5768911502526741
  * // }
  * ```
- * @extends Pipeline
  */
 export class QuestionAnsweringPipeline extends Pipeline {
     /**
@@ -325,7 +382,26 @@ export class QuestionAnsweringPipeline extends Pipeline {
 
 /**
  * Masked language modeling prediction pipeline using any `ModelWithLMHead`.
- * @extends Pipeline
+ * 
+ * **Example:** Perform masked language modelling (a.k.a. "fill-mask") with `Xenova/bert-base-uncased`.
+ * ```javascript
+ * let unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
+ * let output = await unmasker('The goal of life is [MASK].');
+ * // [
+ * //   { token_str: 'survival', score: 0.06137419492006302, token: 8115, sequence: 'The goal of life is survival.' },
+ * //   { token_str: 'love', score: 0.03902450203895569, token: 1567, sequence: 'The goal of life is love.' },
+ * //   { token_str: 'happiness', score: 0.03253183513879776, token: 9266, sequence: 'The goal of life is happiness.' },
+ * //   { token_str: 'freedom', score: 0.018736306577920914, token: 4438, sequence: 'The goal of life is freedom.' },
+ * //   { token_str: 'life', score: 0.01859794743359089, token: 1297, sequence: 'The goal of life is life.' }
+ * // ]
+ * ```
+ * 
+ * **Example:** Perform masked language modelling (a.k.a. "fill-mask") with `Xenova/bert-base-cased` (and return top result).
+ * ```javascript
+ * let unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
+ * let output = await unmasker('The Milky Way is a [MASK] galaxy.', { topk: 1 });
+ * // [{ token_str: 'spiral', score: 0.6299987435340881, token: 14061, sequence: 'The Milky Way is a spiral galaxy.' }]
+ * ```
  */
 export class FillMaskPipeline extends Pipeline {
     /**
@@ -380,7 +456,15 @@ export class FillMaskPipeline extends Pipeline {
 
 /**
  * Text2TextGenerationPipeline class for generating text using a model that performs text-to-text generation tasks.
- * @extends Pipeline
+ * 
+ * **Example:** Text-to-text generation w/ `Xenova/LaMini-Flan-T5-783M`.
+ * ```javascript
+ * let generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-783M');
+ * let output = await generator('how can I become more healthy?', {
+ *   max_new_tokens: 100,
+ * });
+ * // [ 'To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues.' ]
+ * ```
  */
 export class Text2TextGenerationPipeline extends Pipeline {
     _key = null;
@@ -451,7 +535,24 @@ export class Text2TextGenerationPipeline extends Pipeline {
 
 /**
  * A pipeline for summarization tasks, inheriting from Text2TextGenerationPipeline.
- * @extends Text2TextGenerationPipeline
+ * 
+ * **Example:** Summarization w/ `Xenova/distilbart-cnn-6-6`.
+ * ```javascript
+ * let text = 'The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, ' +
+ *   'and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. ' +
+ *   'During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest ' +
+ *   'man-made structure in the world, a title it held for 41 years until the Chrysler Building in New ' +
+ *   'York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to ' +
+ *   'the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the ' +
+ *   'Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second ' +
+ *   'tallest free-standing structure in France after the Millau Viaduct.';
+ * 
+ * let generator = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
+ * let output = await generator(text, {
+ *   max_new_tokens: 100,
+ * });
+ * // [{ summary_text: ' The Eiffel Tower is about the same height as an 81-storey building and the tallest structure in Paris. It is the second tallest free-standing structure in France after the Millau Viaduct.' }]
+ * ```
  */
 export class SummarizationPipeline extends Text2TextGenerationPipeline {
     _key = 'summary_text';
@@ -468,10 +569,10 @@ export class SummarizationPipeline extends Text2TextGenerationPipeline {
  * ```javascript
  * let translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M');
  * let output = await translator('जीवन एक चॉकलेट बॉक्स की तरह है।', {
- *     src_lang: 'hin_Deva', // Hindi
- *     tgt_lang: 'fra_Latn', // French
+ *   src_lang: 'hin_Deva', // Hindi
+ *   tgt_lang: 'fra_Latn', // French
  * });
- * // [ { translation_text: 'La vie est comme une boîte à chocolat.' } ]
+ * // [{ translation_text: 'La vie est comme une boîte à chocolat.' }]
  * ```
  * 
  * **Example:** Multilingual translation w/ `Xenova/m2m100_418M`.
@@ -482,10 +583,10 @@ export class SummarizationPipeline extends Text2TextGenerationPipeline {
  * ```javascript
  * let translator = await pipeline('translation', 'Xenova/m2m100_418M');
  * let output = await translator('生活就像一盒巧克力。', {
- *     src_lang: 'zh', // Chinese
- *     tgt_lang: 'en', // English
+ *   src_lang: 'zh', // Chinese
+ *   tgt_lang: 'en', // English
  * });
- * // [ { translation_text: 'Life is like a box of chocolate.' } ]
+ * // [{ translation_text: 'Life is like a box of chocolate.' }]
  * ```
  * 
  */
@@ -503,7 +604,6 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * let text = 'I enjoy walking with my cute dog,';
  * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
  * let output = await classifier(text);
- * console.log(output);
  * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
  * ```
  * 
@@ -512,14 +612,13 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * let text = 'Once upon a time, there was';
  * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
  * let output = await classifier(text, {
- *     temperature: 2,
- *     max_new_tokens: 10,
- *     repetition_penalty: 1.5,
- *     no_repeat_ngram_size: 2,
- *     num_beams: 2,
- *     num_return_sequences: 2,
+ *   temperature: 2,
+ *   max_new_tokens: 10,
+ *   repetition_penalty: 1.5,
+ *   no_repeat_ngram_size: 2,
+ *   num_beams: 2,
+ *   num_return_sequences: 2,
  * });
- * console.log(output);
  * // [{
  * //   "generated_text": "Once upon a time, there was an abundance of information about the history and activities that"
  * // }, {
@@ -532,18 +631,18 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * let text = 'def fib(n):';
  * let classifier = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
  * let output = await classifier(text, {
- *     max_new_tokens: 40,
+ *   max_new_tokens: 44,
  * });
- * console.log(output[0].generated_text);
- * // def fib(n):
- * //     if n == 0:
- * //         return 0
- * //     if n == 1:
- * //         return 1
- * //     return fib(n-1) + fib(n-2)
+ * // [{
+ * //   generated_text: 'def fib(n):\n' +
+ * //     '    if n == 0:\n' +
+ * //     '        return 0\n' +
+ * //     '    elif n == 1:\n' +
+ * //     '        return 1\n' +
+ * //     '    else:\n' +
+ * //     '        return fib(n-1) + fib(n-2)\n'
+ * // }]
  * ```
- * 
- * @extends Pipeline
  */
 export class TextGenerationPipeline extends Pipeline {
     /**
@@ -598,12 +697,11 @@ export class TextGenerationPipeline extends Pipeline {
  * let labels = [ 'mobile', 'billing', 'website', 'account access' ];
  * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
  * let output = await classifier(text, labels);
- * console.log(output);
- * //  {
- * //    sequence: 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.',
- * //    labels: [ 'mobile', 'website', 'billing', 'account access' ],
- * //    scores: [ 0.5562091040482018, 0.1843621307860853, 0.13942646639336376, 0.12000229877234923 ]
- * //  }
+ * // {
+ * //   sequence: 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.',
+ * //   labels: [ 'mobile', 'website', 'billing', 'account access' ],
+ * //   scores: [ 0.5562091040482018, 0.1843621307860853, 0.13942646639336376, 0.12000229877234923 ]
+ * // }
  * ```
  * 
  * **Example:** Zero shot classification with `Xenova/nli-deberta-v3-xsmall` (multi-label).
@@ -612,15 +710,12 @@ export class TextGenerationPipeline extends Pipeline {
  * let labels = [ 'urgent', 'not urgent', 'phone', 'tablet', 'computer' ];
  * let classifier = await pipeline('zero-shot-classification', 'Xenova/nli-deberta-v3-xsmall');
  * let output = await classifier(text, labels, { multi_label: true });
- * console.log(output);
  * // {
  * //   sequence: 'I have a problem with my iphone that needs to be resolved asap!',
  * //   labels: [ 'urgent', 'phone', 'computer', 'tablet', 'not urgent' ],
  * //   scores: [ 0.9958870956360275, 0.9923963400697035, 0.002333537946160235, 0.0015134138567598765, 0.0010699384208377163 ]
  * // }
  * ```
- * 
- * @extends Pipeline
  */
 export class ZeroShotClassificationPipeline extends Pipeline {
 
@@ -744,39 +839,35 @@ export class ZeroShotClassificationPipeline extends Pipeline {
  * **Example:** Run feature extraction with `bert-base-uncased` (without pooling/normalization).
  * ```javascript
  * let extractor = await pipeline('feature-extraction', 'Xenova/bert-base-uncased', { revision: 'default' });
- * let result = await extractor('This is a simple test.');
- * console.log(result);
+ * let output = await extractor('This is a simple test.');
  * // Tensor {
- * //     type: 'float32',
- * //     data: Float32Array [0.05939924716949463, 0.021655935794115067, ...],
- * //     dims: [1, 8, 768]
+ * //   type: 'float32',
+ * //   data: Float32Array [0.05939924716949463, 0.021655935794115067, ...],
+ * //   dims: [1, 8, 768]
  * // }
  * ```
  * 
  * **Example:** Run feature extraction with `bert-base-uncased` (with pooling/normalization).
  * ```javascript
  * let extractor = await pipeline('feature-extraction', 'Xenova/bert-base-uncased', { revision: 'default' });
- * let result = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
- * console.log(result);
+ * let output = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
  * // Tensor {
- * //     type: 'float32',
- * //     data: Float32Array [0.03373778983950615, -0.010106077417731285, ...],
- * //     dims: [1, 768]
+ * //   type: 'float32',
+ * //   data: Float32Array [0.03373778983950615, -0.010106077417731285, ...],
+ * //   dims: [1, 768]
  * // }
  * ```
  * 
  * **Example:** Calculating embeddings with `sentence-transformers` models.
  * ```javascript
  * let extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
- * let result = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
- * console.log(result);
+ * let output = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
  * // Tensor {
- * //     type: 'float32',
- * //     data: Float32Array [0.09094982594251633, -0.014774246141314507, ...],
- * //     dims: [1, 384]
+ * //   type: 'float32',
+ * //   data: Float32Array [0.09094982594251633, -0.014774246141314507, ...],
+ * //   dims: [1, 384]
  * // }
  * ```
- * @extends Pipeline
  */
 export class FeatureExtractionPipeline extends Pipeline {
 
@@ -981,7 +1072,6 @@ export class AudioClassificationPipeline extends Pipeline {
  * let output = await transcriber(url, { chunk_length_s: 30, stride_length_s: 5 });
  * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
- * @extends Pipeline
  */
 export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
@@ -1204,7 +1294,14 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
 /**
  * Image To Text pipeline using a `AutoModelForVision2Seq`. This pipeline predicts a caption for a given image.
- * @extends Pipeline
+ * 
+ * **Example:** Generate a caption for an image w/ `Xenova/vit-gpt2-image-captioning`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * let captioner = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
+ * let output = await captioner(url);
+ * // [{ generated_text: 'a cat laying on a couch with another cat' }]
+ * ```
  */
 export class ImageToTextPipeline extends Pipeline {
     /**
@@ -1256,8 +1353,8 @@ export class ImageToTextPipeline extends Pipeline {
  * ```javascript
  * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * let outputs = await classifier(url);
- * // Array(1) [
+ * let output = await classifier(url);
+ * // [
  * //   {label: 'tiger, Panthera tigris', score: 0.632695734500885},
  * // ]
  * ```
@@ -1266,11 +1363,11 @@ export class ImageToTextPipeline extends Pipeline {
  * ```javascript
  * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * let outputs = await classifier(url, { topk: 3 });
- * // Array(3) [
- * //   {label: 'tiger, Panthera tigris', score: 0.632695734500885},
- * //   {label: 'tiger cat', score: 0.3634825646877289},
- * //   {label: 'lion, king of beasts, Panthera leo', score: 0.00045060308184474707},
+ * let output = await classifier(url, { topk: 3 });
+ * // [
+ * //   { label: 'tiger, Panthera tigris', score: 0.632695734500885 },
+ * //   { label: 'tiger cat', score: 0.3634825646877289 },
+ * //   { label: 'lion, king of beasts, Panthera leo', score: 0.00045060308184474707 },
  * // ]
  * ```
  * 
@@ -1278,8 +1375,8 @@ export class ImageToTextPipeline extends Pipeline {
  * ```javascript
  * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * let outputs = await classifier(url, { topk: 0 });
- * // Array(1000) [
+ * let output = await classifier(url, { topk: 0 });
+ * // [
  * //   {label: 'tiger, Panthera tigris', score: 0.632695734500885},
  * //   {label: 'tiger cat', score: 0.3634825646877289},
  * //   {label: 'lion, king of beasts, Panthera leo', score: 0.00045060308184474707},
@@ -1287,7 +1384,6 @@ export class ImageToTextPipeline extends Pipeline {
  * //   ...
  * // ]
  * ```
- * @extends Pipeline
  */
 export class ImageClassificationPipeline extends Pipeline {
     /**
@@ -1343,7 +1439,17 @@ export class ImageClassificationPipeline extends Pipeline {
 /**
  * Image segmentation pipeline using any `AutoModelForXXXSegmentation`.
  * This pipeline predicts masks of objects and their classes.
- * @extends Pipeline
+ * 
+ * **Example:** Perform image segmentation with `Xenova/detr-resnet-50-panoptic`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * let segmenter = await pipeline('image-segmentation', 'Xenova/detr-resnet-50-panoptic');
+ * let output = await segmenter(url);
+ * // [
+ * //   { label: 'remote', score: 0.9984649419784546, mask: RawImage { ... } },
+ * //   { label: 'cat', score: 0.9994316101074219, mask: RawImage { ... } }
+ * // ]
+ * ```
  */
 export class ImageSegmentationPipeline extends Pipeline {
     /**
@@ -1458,7 +1564,18 @@ export class ImageSegmentationPipeline extends Pipeline {
 /**
  * Zero shot image classification pipeline. This pipeline predicts the class of
  * an image when you provide an image and a set of `candidate_labels`.
- * @extends Pipeline
+ * 
+ * **Example:** Zero shot image classification w/ `Xenova/clip-vit-base-patch32`.
+ * ```javascript
+ * let classifier = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * let output = await classifier(url, ['tiger', 'horse', 'dog']);
+ * // [
+ * //   { score: 0.9993917942047119, label: 'tiger' },
+ * //   { score: 0.0003519294841680676, label: 'horse' },
+ * //   { score: 0.0002562698791734874, label: 'dog' }
+ * // ]
+ * ```
  */
 export class ZeroShotImageClassificationPipeline extends Pipeline {
 
@@ -1477,7 +1594,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
     /**
      * Classify the input images with candidate labels using a zero-shot approach.
      * @param {Array} images The input images.
-     * @param {Array} candidate_labels The candidate labels.
+     * @param {string[]} candidate_labels The candidate labels.
      * @param {Object} options The options for the classification.
      * @param {string} [options.hypothesis_template] The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
      * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
@@ -1546,8 +1663,6 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
  * //   "box": { "xmin": 331, "ymin": 19, "xmax": 649, "ymax": 371 }
  * // }]
  * ```
- * 
- * @extends Pipeline
  */
 export class ObjectDetectionPipeline extends Pipeline {
     /**
