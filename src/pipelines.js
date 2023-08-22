@@ -208,7 +208,32 @@ export class TextClassificationPipeline extends Pipeline {
 
 /**
  * Named Entity Recognition pipeline using any `ModelForTokenClassification`.
- * @extends Pipeline
+ * 
+ * **Example:** Perform named entity recognition with `Xenova/bert-base-NER`.
+ * ```javascript
+ * let classifier = await pipeline('token-classification', 'Xenova/bert-base-NER');
+ * let output = await classifier('My name is Sarah and I live in London');
+ * // [
+ * //   { entity: 'B-PER', score: 0.9980202913284302, index: 4, word: 'Sarah' },
+ * //   { entity: 'B-LOC', score: 0.9994474053382874, index: 9, word: 'London' }
+ * // ]
+ * ```
+ * 
+ * **Example:** Perform named entity recognition with `Xenova/bert-base-NER` (and return all labels).
+ * ```javascript
+ * let classifier = await pipeline('token-classification', 'Xenova/bert-base-NER');
+ * let output = await classifier('Sarah lives in the United States of America', { ignore_labels: [] });
+ * // [
+ * //   { entity: 'B-PER', score: 0.9966587424278259, index: 1, word: 'Sarah' },
+ * //   { entity: 'O', score: 0.9987385869026184, index: 2, word: 'lives' },
+ * //   { entity: 'O', score: 0.9990072846412659, index: 3, word: 'in' },
+ * //   { entity: 'O', score: 0.9988298416137695, index: 4, word: 'the' },
+ * //   { entity: 'B-LOC', score: 0.9995510578155518, index: 5, word: 'United' },
+ * //   { entity: 'I-LOC', score: 0.9990395307540894, index: 6, word: 'States' },
+ * //   { entity: 'I-LOC', score: 0.9986724853515625, index: 7, word: 'of' },
+ * //   { entity: 'I-LOC', score: 0.9975294470787048, index: 8, word: 'America' }
+ * // ]
+ * ```
  */
 export class TokenClassificationPipeline extends Pipeline {
     /**
