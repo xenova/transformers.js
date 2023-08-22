@@ -132,7 +132,7 @@ export class Pipeline extends Callable {
  * ```javascript
  * let classifier = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
  * let result = await classifier('I love transformers!');
- * // [ { label: 'POSITIVE', score: 0.999788761138916 } ]
+ * // [{ label: 'POSITIVE', score: 0.999788761138916 }]
  * ```
  * 
  * **Example:** Multilingual sentiment-analysis w/ `Xenova/bert-base-multilingual-uncased-sentiment` (and return top 5 classes).
@@ -573,7 +573,7 @@ export class SummarizationPipeline extends Text2TextGenerationPipeline {
  *     src_lang: 'hin_Deva', // Hindi
  *     tgt_lang: 'fra_Latn', // French
  * });
- * // [ { translation_text: 'La vie est comme une boîte à chocolat.' } ]
+ * // [{ translation_text: 'La vie est comme une boîte à chocolat.' }]
  * ```
  * 
  * **Example:** Multilingual translation w/ `Xenova/m2m100_418M`.
@@ -587,7 +587,7 @@ export class SummarizationPipeline extends Text2TextGenerationPipeline {
  *     src_lang: 'zh', // Chinese
  *     tgt_lang: 'en', // English
  * });
- * // [ { translation_text: 'Life is like a box of chocolate.' } ]
+ * // [{ translation_text: 'Life is like a box of chocolate.' }]
  * ```
  * 
  */
