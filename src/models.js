@@ -2182,15 +2182,20 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     }
 
     /**
-     * Generates outputs based on input and generation configuration.
-     * @param {Object} inputs Input data for the model.
-     * @param {Object} generation_config Configuration object for the generation process.
-     * @param {Object} logits_processor Optional logits processor object.
-     * @param {Object} options options
-     * @param {Object} [options.return_timestamps=null] Whether to return the timestamps with the text. This enables the `WhisperTimestampsLogitsProcessor`.
-     * @param {Object} [options.return_token_timestamps=null] Whether to return token-level timestamps
+     * @typedef {Object} WhisperGenerationConfig
+     * @extends GenerationConfig
+     * @property {boolean} [return_timestamps=null] Whether to return the timestamps with the text. This enables the `WhisperTimestampsLogitsProcessor`.
+     * @property {boolean} [return_token_timestamps=null] Whether to return token-level timestamps
      * with the text. This can be used with or without the `return_timestamps` option. To get word-level
      * timestamps, use the tokenizer to group the tokens into words.
+     * @property {number} [num_frames=null]  The number of audio frames available in this chunk. This is only used generating word-level timestamps.
+     */
+
+    /**
+     * Generates outputs based on input and generation configuration.
+     * @param {Object} inputs Input data for the model.
+     * @param {WhisperGenerationConfig} generation_config Configuration object for the generation process.
+     * @param {Object} logits_processor Optional logits processor object.
      * @returns {Promise<Object>} Promise object represents the generated outputs.
      */
     // @ts-ignore
@@ -2237,7 +2242,11 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         const outputs = await super.generate(inputs, generation_config, logits_processor);
 
         if (generation_config.return_token_timestamps && generation_config.alignment_heads) {
-            outputs["token_timestamps"] = this._extract_token_timestamps(outputs, generation_config.alignment_heads)
+            outputs["token_timestamps"] = this._extract_token_timestamps(
+                outputs,
+                generation_config.alignment_heads,
+                generation_config.num_frames,
+            )
         }
 
         return outputs
@@ -2291,10 +2300,11 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * @param {Tensor[][][]} generate_outputs.decoder_attentions The decoder attentions output by the model
      * @param {number[][]} generate_outputs.sequences The sequences output by the model
      * @param {number[][]} alignment_heads Alignment heads of the model
-     * @param {number} time_precision Precision of the timestamps in seconds
+     * @param {number} [num_frames=null] Number of frames in the input audio.
+     * @param {number} [time_precision=0.02] Precision of the timestamps in seconds
      * @returns {Tensor} tensor containing the timestamps in seconds for each predicted token
      */
-    _extract_token_timestamps(generate_outputs, alignment_heads, time_precision = 0.02) {
+    _extract_token_timestamps(generate_outputs, alignment_heads, num_frames = null, time_precision = 0.02) {
         if (!generate_outputs.cross_attentions) {
             throw new Error(
                 "Model outputs must contain cross attentions to extract timestamps. " +
@@ -2315,7 +2325,11 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                 (_, i) => cat(batch.map(x => x[i]), 2)
             );
 
-            let weights = stack(alignment_heads.map(([l, h]) => cross_attentions[l].slice(null, h)));
+            let weights = stack(alignment_heads.map(([l, h]) => {
+                return num_frames
+                    ? cross_attentions[l].slice(null, h, null, [0, num_frames])
+                    : cross_attentions[l].slice(null, h);
+            }));
             weights = weights.transpose(1, 0, 2, 3)
 
             let [std, calculatedMean] = std_mean(weights, -2, 0, true);

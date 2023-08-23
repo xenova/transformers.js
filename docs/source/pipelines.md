@@ -23,7 +23,7 @@ When running for the first time, the `pipeline` will download and cache the defa
 
 <Tip>
 
-By default, models will be downloaded from the [Hugging Face Hub](https://huggingface.co/models) and stored in [browser cache](https://developer.mozilla.org/en-US/docs/Web/API/Cache), but there are ways to specify custom models and cache locations. For more information see [here](/custom_usage).
+By default, models will be downloaded from the [Hugging Face Hub](https://huggingface.co/models) and stored in [browser cache](https://developer.mozilla.org/en-US/docs/Web/API/Cache), but there are ways to specify custom models and cache locations. For more information see [here](./custom_usage).
 
 </Tip>
 
@@ -52,7 +52,7 @@ let result = await reviewer('The Shawshank Redemption is a true masterpiece of c
 // [{label: '5 stars', score: 0.8167929649353027}]
 ```
 
-Transformers.js supports loading any model hosted on the Hugging Face Hub, provided it has ONNX weights (located in a subfolder called `onnx`). For more information on how to convert your PyTorch, TensorFlow, or JAX model to ONNX, see the [conversion section](/custom_usage#convert-your-models-to-onnx).
+Transformers.js supports loading any model hosted on the Hugging Face Hub, provided it has ONNX weights (located in a subfolder called `onnx`). For more information on how to convert your PyTorch, TensorFlow, or JAX model to ONNX, see the [conversion section](./custom_usage#convert-your-models-to-onnx).
 
 The `pipeline()` function is a great way to quickly use a pretrained model for inference, as it takes care of all the preprocessing and postprocessing for you. For example, if you want to perform Automatic Speech Recognition (ASR) using OpenAI's Whisper model, you can do:
 
@@ -91,7 +91,7 @@ let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper
 });
 ```
 
-For the full list of options, check out the [PretrainedOptions](/api/utils/hub#module_utils/hub..PretrainedOptions) documentation.
+For the full list of options, check out the [PretrainedOptions](./api/utils/hub#module_utils/hub..PretrainedOptions) documentation.
 
 
 ### Running
@@ -117,7 +117,7 @@ let result2 = await translator(result[0].translation_text, {
 // [ { translation_text: 'I like to walk my dog.' } ]
 ```
 
-When using models that support auto-regressive generation, you can specify generation parameters like the number of new tokens, sampling methods, temperature, repetition penalty, and much more. For a full list of available parameters, see to the [GenerationConfig](/api/utils/generation#module_utils/generation.GenerationConfig) class.
+When using models that support auto-regressive generation, you can specify generation parameters like the number of new tokens, sampling methods, temperature, repetition penalty, and much more. For a full list of available parameters, see to the [GenerationConfig](./api/utils/generation#module_utils/generation.GenerationConfig) class.
 
 For example, to generate a poem using `LaMini-Flan-T5-783M`, you can do: 
 
@@ -151,8 +151,8 @@ Cheddar is my go-to for any occasion or mood;
 It adds depth and richness without being overpowering its taste buds alone
 ```
 
-For more information on the available options for each pipeline, refer to the [API Reference](/api/pipelines).
-If you would like more control over the inference process, you can use the [`AutoModel`](/api/models), [`AutoTokenizer`](/api/tokenizers), or [`AutoProcessor`](/api/processors) classes instead.
+For more information on the available options for each pipeline, refer to the [API Reference](./api/pipelines).
+If you would like more control over the inference process, you can use the [`AutoModel`](./api/models), [`AutoTokenizer`](./api/tokenizers), or [`AutoProcessor`](./api/processors) classes instead.
 
 
 ## Available tasks

@@ -733,6 +733,7 @@ describe('Pipelines', () => {
             'openai/whisper-tiny.en', // English-only
             'openai/whisper-small', // Multilingual
             ['openai/whisper-tiny.en', 'output_attentions'], // English-only + `output_attentions`
+            ['openai/whisper-small', 'output_attentions'], // Multilingual + `output_attentions`
 
             // wav2vec2
             'jonatasgrosman/wav2vec2-large-xlsr-53-english',
@@ -834,9 +835,64 @@ describe('Pipelines', () => {
 
         }, MAX_TEST_EXECUTION_TIME);
 
+        it(models[3].join(' + '), async () => {
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[3][0]), {
+                revision: models[3][1],
+            });
 
-        it(models[3], async () => {
-            let transcriber = await pipeline('automatic-speech-recognition', m(models[3]));
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/japanese-audio.wav';
+            let audioData = await loadAudio(url);
+
+            { // Transcribe Japanese w/ word-level timestamps.
+                let output = await transcriber(audioData, { return_timestamps: 'word', language: 'japanese', task: 'transcribe' });
+                const target = {
+                    "text": "モリナガの美味しい牛乳は濃い青色に牛乳瓶を払ったゼザインのパック牛乳である。",
+                    "chunks": [
+                        { "text": "モ", "timestamp": [0, 0.56] },
+                        { "text": "リ", "timestamp": [0.56, 0.64] },
+                        { "text": "ナ", "timestamp": [0.64, 0.8] },
+                        { "text": "ガ", "timestamp": [0.8, 0.88] },
+                        { "text": "の", "timestamp": [0.88, 1.04] },
+                        { "text": "美味", "timestamp": [1.04, 1.22] },
+                        { "text": "しい", "timestamp": [1.22, 1.46] },
+                        { "text": "牛", "timestamp": [1.46, 1.76] },
+                        { "text": "乳", "timestamp": [1.76, 1.94] },
+                        { "text": "は", "timestamp": [1.94, 2.14] },
+                        { "text": "濃", "timestamp": [2.14, 2.34] },
+                        { "text": "い", "timestamp": [2.34, 2.48] },
+                        { "text": "青", "timestamp": [2.48, 2.62] },
+                        { "text": "色", "timestamp": [2.62, 2.84] },
+                        { "text": "に", "timestamp": [2.84, 3] },
+                        { "text": "牛", "timestamp": [3, 3.22] },
+                        { "text": "乳", "timestamp": [3.22, 3.42] },
+                        { "text": "瓶", "timestamp": [3.42, 3.58] },
+                        { "text": "を", "timestamp": [3.58, 3.82] },
+                        { "text": "払", "timestamp": [3.82, 4] },
+                        { "text": "った", "timestamp": [4, 4.32] },
+                        { "text": "ゼ", "timestamp": [4.32, 4.56] },
+                        { "text": "ザ", "timestamp": [4.56, 4.6] },
+                        { "text": "イ", "timestamp": [4.6, 4.74] },
+                        { "text": "ン", "timestamp": [4.74, 4.8] },
+                        { "text": "の", "timestamp": [4.8, 4.94] },
+                        { "text": "パ", "timestamp": [4.94, 5.12] },
+                        { "text": "ック", "timestamp": [5.12, 5.26] },
+                        { "text": "牛", "timestamp": [5.26, 5.52] },
+                        { "text": "乳", "timestamp": [5.52, 5.72] },
+                        { "text": "で", "timestamp": [5.72, 5.86] },
+                        { "text": "ある。", "timestamp": [5.86, 6.62] }
+                    ]
+                }
+
+                compare(output, target);
+            }
+
+            await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+
+        it(models[4], async () => {
+            let transcriber = await pipeline('automatic-speech-recognition', m(models[4]));
 
             let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
             let audioData = await loadAudio(url);

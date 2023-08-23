@@ -241,10 +241,9 @@ function fetchBinary(url) {
  * @async
  * @function readFile
  * @param {string|URL} path
- * @param {object} options
  * @returns {Promise<Response>}
  */
-async function readFile(filePath, allowFilePath = false) {
+async function readFile(filePath) {
     const path = filePath.toString()
     const stat = await fs.stat(path);
     const headers = new Headers();
@@ -259,13 +258,14 @@ async function readFile(filePath, allowFilePath = false) {
         headers,
         url: `file://${path}`,
     };
+    let data = '';
     // Prevent load binary data into JS side
     if (type !== 'application/octet-stream') {
-        const content = await fs.readFile(path, 'base64');
-        return new Response(Buffer.from(content, 'base64').buffer, reqOptions);
-    } else {
-        return new Response('', reqOptions);
+        data = Buffer.from(await fs.readFile(path, 'base64'), 'base64').buffer;
     }
+    const res = new Response(data, reqOptions);
+    res.isLocal = true;
+    return res;
 }
 
 /**
@@ -573,8 +573,8 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     let cacheKey;
     let proposedCacheKey = cache instanceof FileCache ? fsCacheKey : remoteURL;
 
-    /** @type {Response|undefined} */
-    let responseToCache;
+    // Whether to cache the final response in the end.
+    let toCacheResponse = false;
 
     /** @type {Response|FileResponse|undefined} */
     let response;
@@ -610,8 +610,8 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                 throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${requestURL}.`);
             } else if (!env.allowRemoteModels) {
                 throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${requestURL}.`);
-            } else if (IS_REACT_NATIVE && !env.useFSCache) {
-                throw new Error(`ReactNative cannot load remote files without a cache. Please enable \`env.useFSCache\` to enable caching.`);
+            } else if (IS_REACT_NATIVE && !cache) {
+                throw new Error(`ReactNative cannot load remote model binaries without a cache.`);
             }
         }
 
@@ -646,13 +646,14 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             cacheKey = proposedCacheKey;
         }
 
-
-        if (cache && response && response.headers.get('rn-is-local') !== '1' && response instanceof Response && response.status === 200) {
-            // only clone if cache available, and response is valid
-            responseToCache = response.clone();
-        }
+        // Only cache the response if:
+        toCacheResponse =
+            cache                              // 1. A caching system is available
+            && typeof Response !== 'undefined' // 2. `Response` is defined (i.e., we are in a browser-like environment)
+            && response instanceof Response    // 3. result is a `Response` object (i.e., not a `FileResponse`)
+            && response.status === 200         // 4. request was successful (status code 200)
+            && response.isLocal                // 5. Not read from RN local storage
     }
-
 
     // Start downloading
     dispatchCallback(options.progress_callback, {
@@ -686,16 +687,18 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         })
     })
 
-
     if (
         // Only cache web responses
         // i.e., do not cache FileResponses (prevents duplication)
-        responseToCache && cacheKey
+        toCacheResponse && cacheKey
         &&
         // Check again whether request is in cache. If not, we add the response to the cache
         (await cache.match(cacheKey) === undefined)
     ) {
-        await cache.put(cacheKey, responseToCache)
+        // NOTE: We use `new Response(buffer, ...)` instead of `response.clone()` to handle LFS files
+        await cache.put(cacheKey, new Response(buffer, {
+            headers: response.headers
+        }))
             .catch(err => {
                 // Do not crash if unable to add to cache (e.g., QuotaExceededError).
                 // Rather, log a warning and proceed with execution.
@@ -756,7 +759,7 @@ async function readResponse(response, progress_callback) {
     if (IS_REACT_NATIVE) {
         if (
             response.headers.get('content-type') !== 'application/octet-stream' ||
-            response.headers.get('rn-is-local') !== '1'
+            !response.isLocal
         )
             return await response.arrayBuffer();
         else

@@ -70,15 +70,16 @@ FILES_TO_INCLUDE = dict(
     models='./docs/snippets/6_supported-models.snippet',
 )
 
+DOCS_BASE_URL = 'https://huggingface.co/docs/transformers.js'
+
 # Map of custom links to replace, typically used for links to other sections of the README.
 CUSTOM_LINK_MAP = {
     '/custom_usage#convert-your-models-to-onnx': '#convert-your-models-to-onnx',
+    './api/env': DOCS_BASE_URL + '/api/env',
 }
 
 
 def main():
-
-    DOCS_BASE_URL = 'https://huggingface.co/docs/transformers.js'
 
     file_data = {}
     for key, file_path in FILES_TO_INCLUDE.items():
