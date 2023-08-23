@@ -248,9 +248,7 @@ async function readFile(filePath) {
     const stat = await fs.stat(path);
     const headers = new Headers();
     headers.append('content-length', stat.size);
-    const type = getMIME(path);
-    headers.append('content-type', type);
-    headers.append('rn-is-local', '1');
+    headers.append('content-type', getMIME(path));
     let content;
     const reqOptions = {
         status: 200,
@@ -652,7 +650,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
             && typeof Response !== 'undefined' // 2. `Response` is defined (i.e., we are in a browser-like environment)
             && response instanceof Response    // 3. result is a `Response` object (i.e., not a `FileResponse`)
             && response.status === 200         // 4. request was successful (status code 200)
-            && response.isLocal                // 5. Not read from RN local storage
+            && !response.isLocal               // 5. Not read from RN local storage
     }
 
     // Start downloading
