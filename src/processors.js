@@ -701,9 +701,8 @@ export class SamImageProcessor extends ImageFeatureExtractor {
         }
 
         let input_points_tensor = new Tensor(
-            'int64',
-            BigInt64Array.from(input_points.flat(Infinity)
-                .map(x => BigInt(Math.round(x)))),
+            'float32',
+            Float32Array.from(input_points.flat(Infinity)),
             shape
         )
 
@@ -766,7 +765,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 interpolated_mask = interpolated_mask.slice(null, [0, reshaped_input_size[0]], [0, reshaped_input_size[1]]);
 
                 // Downscale mask
-                interpolated_mask = interpolate(mask, original_size, 'bilinear', false);
+                interpolated_mask = interpolate(interpolated_mask, original_size, 'bilinear', false);
 
                 if (binarize) {
                     interpolated_mask = new Tensor(
@@ -782,6 +781,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 interpolated_masks.push(interpolated_mask);
             }
 
+            // TODO switch to stack
             let concatenated = cat(interpolated_masks);
             output_masks.push(concatenated);
         }
