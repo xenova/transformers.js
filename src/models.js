@@ -94,6 +94,7 @@ class ModelType { };
 class EncoderOnlyModelType extends ModelType { };
 class EncoderDecoderModelType extends ModelType { };
 class Seq2SeqModelType extends EncoderDecoderModelType { };
+class MaskGenerationModelType extends EncoderDecoderModelType { }; // Specialized model type for SAM
 class DecoderOnlyModelType extends ModelType { };
 //////////////////////////////////////////////////
 
@@ -657,6 +658,13 @@ export class PreTrainedModel extends Callable {
                 constructSession(pretrained_model_name_or_path, 'encoder_model', options),
                 constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
+            ]);
+
+        } else if (modelType === MaskGenerationModelType) {
+            info = await Promise.all([
+                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+                constructSession(pretrained_model_name_or_path, 'vision_encoder', options),
+                constructSession(pretrained_model_name_or_path, 'prompt_encoder_mask_decoder', options),
             ]);
 
         } else if (modelType === EncoderDecoderModelType) {
@@ -1930,7 +1938,7 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
      * Returns the initial beam for generating output text.
      * @param {Object} inputs The input object containing the encoded input text.
      * @param {number} numOutputTokens The maximum number of output tokens to generate.
-     * @param  {...any} args Additional arguments to pass to the sequence-to-sequence generation function.
+     * @param {...any} args Additional arguments to pass to the sequence-to-sequence generation function.
      * @returns {any} The initial beam for generating output text.
      */
     getStartBeams(inputs, numOutputTokens, ...args) {
@@ -2600,7 +2608,7 @@ export class GPT2Model extends GPT2PreTrainedModel {
 
     /**
      * GPT2Model is not compatible with `.generate()`, as it doesn't have a language model head.
-     * @param  {...any} args 
+     * @param {...any} args 
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -2680,7 +2688,7 @@ export class GPTNeoPreTrainedModel extends PreTrainedModel {
 export class GPTNeoModel extends GPTNeoPreTrainedModel {
     /**
      * 
-     * @param  {...any} args 
+     * @param {...any} args 
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -2756,7 +2764,7 @@ export class GPTBigCodePreTrainedModel extends PreTrainedModel {
 export class GPTBigCodeModel extends GPTBigCodePreTrainedModel {
     /**
      * 
-     * @param  {...any} args 
+     * @param {...any} args 
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -2840,7 +2848,7 @@ export class CodeGenModel extends CodeGenPreTrainedModel {
      * 
      * @throws {Error} The current model class is not compatible with `.generate()`
      * 
-     * @param  {...any} args Arguments passed to the generate function
+     * @param {...any} args Arguments passed to the generate function
      * @returns {Promise<any>}
      */
     async generate(...args) {
@@ -2930,8 +2938,7 @@ export class LlamaModel extends LlamaPreTrainedModel {
      * as it doesn't have a language model head.
      * 
      * @throws {Error} The current model class is not compatible with `.generate()`
-     * 
-     * @param  {...any} args Arguments passed to the generate function
+     * @param {...any} args Arguments passed to the generate function
      * @returns {Promise<any>}
      */
     async generate(...args) {
@@ -3068,12 +3075,105 @@ export class DetrSegmentationOutput extends ModelOutput {
 
 //////////////////////////////////////////////////
 export class SamPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * 
+ * **Example:** Prompted-Mask-Generation
+ * ```javascript
+ * import { SamModel, AutoProcessor, RawImage } from '@xenova/transformers';
+ * 
+ * const model = await SamModel.from_pretrained('Xenova/sam-vit-base');
+ * const processor = await AutoProcessor.from_pretrained('Xenova/sam-vit-base');
+ * 
+ * const img_url = 'https://huggingface.co/ybelkada/segment-anything/resolve/main/assets/car.png';
+ * const raw_image = await RawImage.read(img_url);
+ * const input_points = [[[450, 600]]] // 2D localization of a window
+ * 
+ * const inputs = await processor(raw_image, input_points);
+ * const outputs = await model(inputs);
+ * 
+ * const masks = await processor.post_process_masks(outputs.pred_masks, inputs.original_sizes, inputs.reshaped_input_sizes);
+ * // [
+ * //   Tensor {
+ * //     dims: [ 1, 3, 1764, 2646 ],
+ * //     type: 'bool',
+ * //     data: Uint8Array(14002632) [ ... ],
+ * //     size: 14002632
+ * //   }
+ * // ]
+* const scores = outputs.iou_scores;
+ * // Tensor {
+ * //   dims: [ 1, 1, 3 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(3) [
+ * //     0.9016823172569275,
+ * //     0.943422257900238,
+ * //     0.978232741355896
+ * //   ],
+ * //   size: 3
+ * // }
+ * ```
+ */
 export class SamModel extends SamPreTrainedModel {
     /**
-     * @param {Object} model_inputs
-     * @param {Tensor} model_inputs.pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
-     * @param {Tensor} model_inputs.input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`. This is used by the prompt encoder to encode the prompt.
-     * @todo Add support for `input_labels`, `input_boxes`, `input_masks`, and `image_embeddings`.
+     * Creates a new instance of the `SamModel` class.
+     * @param {Object} config The configuration object specifying the hyperparameters and other model settings.
+     * @param {Object} vision_encoder The ONNX session containing the vision encoder model.
+     * @param {any} prompt_encoder_mask_decoder The ONNX session containing the prompt encoder and mask decoder model.
+     */
+    constructor(config, vision_encoder, prompt_encoder_mask_decoder) {
+        super(config, vision_encoder);
+        this.prompt_encoder_mask_decoder = prompt_encoder_mask_decoder;
+    }
+
+    /**
+     * Compute image embeddings and positional image embeddings, given the pixel values of an image.
+     * @param {Object} model_inputs Object containing the model inputs.
+     * @param {Tensor} model_inputs.pixel_values Pixel values obtained using a `SamProcessor`.
+     * @returns {Promise<{ image_embeddings: Tensor, image_positional_embeddings: Tensor }>} The image embeddings and positional image embeddings.
+     */
+    async get_image_embeddings({ pixel_values }) {
+        // in:
+        //  - pixel_values: tensor.float32[batch_size,3,1024,1024]
+        // 
+        // out:
+        //  - image_embeddings: tensor.float32[batch_size,256,64,64]
+        //  - image_positional_embeddings: tensor.float32[batch_size,256,64,64]
+        return await encoderForward(this, { pixel_values })
+    }
+
+    /**
+     * @typedef {Object} SamModelInputs Object containing the model inputs.
+     * @property {Tensor} pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
+     * These can be obtained using a `SamProcessor`.
+     * @property {Tensor} input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`.
+     * This is used by the prompt encoder to encode the prompt.
+     * @property {Tensor} [image_embeddings] Image embeddings used by the mask decoder.
+     * @property {Tensor} [image_positional_embeddings] Image positional embeddings used by the mask decoder.
+     */
+
+    /**
+     * @param {SamModelInputs} model_inputs Object containing the model inputs.
+     * @returns {Promise<Object>} The output of the model.
+     */
+    async forward(model_inputs) {
+        if (!model_inputs.image_embeddings || !model_inputs.image_positional_embeddings) {
+            // Compute the image embeddings if they are missing
+            model_inputs = {
+                ...model_inputs,
+                ...(await this.get_image_embeddings(model_inputs))
+            }
+        }
+        // Returns:
+        //  - iou_scores: tensor.float32[batch_size,point_batch_size,3]
+        //  - pred_masks: tensor.float32[batch_size,point_batch_size,3,256,256]
+        return await sessionRun(this.prompt_encoder_mask_decoder, model_inputs);
+    }
+
+    /**
+     * Runs the model with the provided inputs
+     * @param {Object} model_inputs Model inputs
+     * @returns {Promise<SamImageSegmentationOutput>} Object containing segmentation outputs
      */
     async _call(model_inputs) {
         return new SamImageSegmentationOutput(await super._call(model_inputs));
@@ -3106,7 +3206,7 @@ export class MarianPreTrainedModel extends PreTrainedModel { };
 export class MarianModel extends MarianPreTrainedModel {
     /**
      * 
-     * @param  {...any} args 
+     * @param {...any} args 
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -3185,7 +3285,7 @@ export class M2M100PreTrainedModel extends PreTrainedModel { };
 export class M2M100Model extends M2M100PreTrainedModel {
     /**
      * 
-     * @param  {...any} args 
+     * @param {...any} args 
      * @throws {Error}
      * @returns {Promise<any>}
      */
@@ -3399,8 +3499,6 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['mobilebert', MobileBertModel],
     ['squeezebert', SqueezeBertModel],
     ['wav2vec2', Wav2Vec2Model],
-
-    ['sam', SamModel], // TODO change to encoder-decoder when model is split correctly
 ]);
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
@@ -3532,7 +3630,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, EncoderOnlyModelType],
-    [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, EncoderOnlyModelType],
+    [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MaskGenerationModelType],
     [MODEL_FOR_CTC_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
 ];
@@ -3551,10 +3649,12 @@ for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModel.from_pretrained('bert-base-uncased');
+ * let model = await AutoModel.from_pretrained('Xenova/bert-base-uncased');
  */
 export class AutoModel extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_MAPPING_NAMES_ENCODER_DECODER, MODEL_MAPPING_NAMES_DECODER_ONLY];
+    /** @type {Map<string, Object>[]} */
+    // @ts-ignore
+    static MODEL_CLASS_MAPPINGS = MODEL_CLASS_TYPE_MAPPING.map(x => x[0]);
     static BASE_IF_FAIL = true;
 }
 
@@ -3563,7 +3663,7 @@ export class AutoModel extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english');
+ * let model = await AutoModelForSequenceClassification.from_pretrained('Xenova/distilbert-base-uncased-finetuned-sst-2-english');
  */
 export class AutoModelForSequenceClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES];
@@ -3574,7 +3674,7 @@ export class AutoModelForSequenceClassification extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForTokenClassification.from_pretrained('Davlan/distilbert-base-multilingual-cased-ner-hrl');
+ * let model = await AutoModelForTokenClassification.from_pretrained('Xenova/distilbert-base-multilingual-cased-ner-hrl');
  */
 export class AutoModelForTokenClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES];
@@ -3585,7 +3685,7 @@ export class AutoModelForTokenClassification extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
+ * let model = await AutoModelForSeq2SeqLM.from_pretrained('Xenova/t5-small');
  */
 export class AutoModelForSeq2SeqLM extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES];
@@ -3596,7 +3696,7 @@ export class AutoModelForSeq2SeqLM extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForCausalLM.from_pretrained('gpt2');
+ * let model = await AutoModelForCausalLM.from_pretrained('Xenova/gpt2');
  */
 export class AutoModelForCausalLM extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_WITH_LM_HEAD_MAPPING_NAMES];
@@ -3607,7 +3707,7 @@ export class AutoModelForCausalLM extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForMaskedLM.from_pretrained('bert-base-uncased');
+ * let model = await AutoModelForMaskedLM.from_pretrained('Xenova/bert-base-uncased');
  */
 export class AutoModelForMaskedLM extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_MASKED_LM_MAPPING_NAMES];
@@ -3618,7 +3718,7 @@ export class AutoModelForMaskedLM extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad');
+ * let model = await AutoModelForQuestionAnswering.from_pretrained('Xenova/distilbert-base-cased-distilled-squad');
  */
 export class AutoModelForQuestionAnswering extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES];
@@ -3629,7 +3729,7 @@ export class AutoModelForQuestionAnswering extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForVision2Seq.from_pretrained('nlpconnect/vit-gpt2-image-captioning');
+ * let model = await AutoModelForVision2Seq.from_pretrained('Xenova/vit-gpt2-image-captioning');
  */
 export class AutoModelForVision2Seq extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES];
@@ -3640,7 +3740,7 @@ export class AutoModelForVision2Seq extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForImageClassification.from_pretrained('google/vit-base-patch16-224');
+ * let model = await AutoModelForImageClassification.from_pretrained('Xenova/vit-base-patch16-224');
  */
 export class AutoModelForImageClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES];
@@ -3651,7 +3751,7 @@ export class AutoModelForImageClassification extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForImageSegmentation.from_pretrained('facebook/detr-resnet-50-panoptic');
+ * let model = await AutoModelForImageSegmentation.from_pretrained('Xenova/detr-resnet-50-panoptic');
  */
 export class AutoModelForImageSegmentation extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES];
@@ -3662,7 +3762,7 @@ export class AutoModelForImageSegmentation extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForObjectDetection.from_pretrained('facebook/detr-resnet-50');
+ * let model = await AutoModelForObjectDetection.from_pretrained('Xenova/detr-resnet-50');
  */
 export class AutoModelForObjectDetection extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES];
