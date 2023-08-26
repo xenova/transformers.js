@@ -3082,6 +3082,19 @@ export class DeiTForImageClassification extends DeiTPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+export class SwinPreTrainedModel extends PreTrainedModel { }
+export class SwinModel extends SwinPreTrainedModel { }
+export class SwinForImageClassification extends SwinPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 export class SamPreTrainedModel extends PreTrainedModel { }
@@ -3421,6 +3434,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['vit', ViTModel],
     ['mobilevit', MobileViTModel],
     ['deit', DeiTModel],
+    ['swin', SwinModel],
 
     ['sam', SamModel], // TODO change to encoder-decoder when model is split correctly
 ]);
@@ -3518,6 +3532,7 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ViTForImageClassification],
     ['mobilevit', MobileViTForImageClassification],
     ['deit', DeiTForImageClassification],
+    ['swin', SwinForImageClassification],
 ]);
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
