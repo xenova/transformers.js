@@ -2987,6 +2987,7 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel {
 
 //////////////////////////////////////////////////
 export class ViTPreTrainedModel extends PreTrainedModel { }
+export class ViTModel extends ViTPreTrainedModel { }
 export class ViTForImageClassification extends ViTPreTrainedModel {
     /**
      * @param {any} model_inputs
@@ -2999,6 +3000,7 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
 
 //////////////////////////////////////////////////
 export class MobileViTPreTrainedModel extends PreTrainedModel { }
+export class MobileViTModel extends MobileViTPreTrainedModel { }
 export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
     /**
      * @param {any} model_inputs
@@ -3015,6 +3017,7 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 
 //////////////////////////////////////////////////
 export class DetrPreTrainedModel extends PreTrainedModel { }
+export class DetrModel extends DetrPreTrainedModel { }
 export class DetrForObjectDetection extends DetrPreTrainedModel {
     /**
      * @param {any} model_inputs
@@ -3061,6 +3064,20 @@ export class DetrSegmentationOutput extends ModelOutput {
         this.logits = logits;
         this.pred_boxes = pred_boxes;
         this.pred_masks = pred_masks;
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+export class DeiTPreTrainedModel extends PreTrainedModel { }
+export class DeiTModel extends DeiTPreTrainedModel { }
+export class DeiTForImageClassification extends DeiTPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -3400,6 +3417,11 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['squeezebert', SqueezeBertModel],
     ['wav2vec2', Wav2Vec2Model],
 
+    ['detr', DetrModel],
+    ['vit', ViTModel],
+    ['mobilevit', MobileViTModel],
+    ['deit', DeiTModel],
+
     ['sam', SamModel], // TODO change to encoder-decoder when model is split correctly
 ]);
 
@@ -3495,6 +3517,7 @@ const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ViTForImageClassification],
     ['mobilevit', MobileViTForImageClassification],
+    ['deit', DeiTForImageClassification],
 ]);
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
