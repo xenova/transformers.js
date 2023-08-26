@@ -280,6 +280,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
+export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 
 /**
  * Detr Feature Extractor.
@@ -1298,6 +1299,7 @@ export class AutoProcessor {
         'WhisperFeatureExtractor': WhisperFeatureExtractor,
         'ViTFeatureExtractor': ViTFeatureExtractor,
         'MobileViTFeatureExtractor': MobileViTFeatureExtractor,
+        'DeiTFeatureExtractor': DeiTFeatureExtractor,
         'DetrFeatureExtractor': DetrFeatureExtractor,
 
         'SamImageProcessor': SamImageProcessor,
