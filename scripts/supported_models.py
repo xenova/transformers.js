@@ -191,11 +191,11 @@ SUPPORTED_MODELS = {
         'sentence-transformers/all-roberta-large-v1',
         'julien-c/EsperBERTo-small-pos',
     ],
-    'sam': [
-        'facebook/sam-vit-base',
-        'facebook/sam-vit-large',
-        'facebook/sam-vit-huge',
-    ],
+    # 'sam': [
+    #     'facebook/sam-vit-base',
+    #     'facebook/sam-vit-large',
+    #     'facebook/sam-vit-huge',
+    # ],
     'squeezebert': [
         'squeezebert/squeezebert-uncased',
         'squeezebert/squeezebert-mnli',
