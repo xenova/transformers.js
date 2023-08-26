@@ -41,6 +41,85 @@ import { RawImage } from './utils/image.js';
 import { getMelFilters } from './utils/audio.js';
 
 
+// Helper functions
+
+/**
+ * Converts bounding boxes from center format to corners format.
+ * 
+ * @param {number[]} arr The coordinate for the center of the box and its width, height dimensions (center_x, center_y, width, height)
+ * @returns {number[]} The coodinates for the top-left and bottom-right corners of the box (top_left_x, top_left_y, bottom_right_x, bottom_right_y)
+ */
+function center_to_corners_format([centerX, centerY, width, height]) {
+    return [
+        centerX - width / 2,
+        centerY - height / 2,
+        centerX + width / 2,
+        centerY + height / 2
+    ];
+}
+
+/**
+ * Post-processes the outputs of the model (for object detection).
+ * @param {Object} outputs The outputs of the model that must be post-processed
+ * @param {Tensor} outputs.logits The logits
+ * @param {Tensor} outputs.pred_boxes The predicted boxes.
+ * @return {Object[]} An array of objects containing the post-processed outputs.
+ */
+function post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
+    const out_logits = outputs.logits;
+    const out_bbox = outputs.pred_boxes;
+    const [batch_size, num_boxes, num_classes] = out_logits.dims;
+
+    if (target_sizes !== null && target_sizes.length !== batch_size) {
+        throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
+    }
+    let toReturn = [];
+    for (let i = 0; i < batch_size; ++i) {
+        let target_size = target_sizes !== null ? target_sizes[i] : null;
+        let info = {
+            boxes: [],
+            classes: [],
+            scores: []
+        }
+        let logits = out_logits[i];
+        let bbox = out_bbox[i];
+
+        for (let j = 0; j < num_boxes; ++j) {
+            let logit = logits[j];
+
+            // Get most probable class
+            let maxIndex = max(logit.data)[1];
+
+            if (maxIndex === num_classes - 1) {
+                // This is the background class, skip it
+                continue;
+            }
+
+            // Compute softmax over classes
+            let probs = softmax(logit.data);
+
+            let score = probs[maxIndex];
+            if (score > threshold) {
+                // Some class has a high enough probability
+                /** @type {number[]} */
+                let box = bbox[j].data;
+
+                // convert to [x0, y0, x1, y1] format
+                box = center_to_corners_format(box)
+                if (target_size !== null) {
+                    box = box.map((x, i) => x * target_size[(i + 1) % 2])
+                }
+
+                info.boxes.push(box);
+                info.classes.push(maxIndex);
+                info.scores.push(score);
+            }
+        }
+        toReturn.push(info);
+    }
+    return toReturn;
+}
+
 /**
  * Base class for feature extractors.
  *
@@ -289,9 +368,8 @@ export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
  */
 export class DetrFeatureExtractor extends ImageFeatureExtractor {
     /**
-     * Calls the feature extraction process on an array of image
-     * URLs, preprocesses each image, and concatenates the resulting
-     * features into a single Tensor.
+     * Calls the feature extraction process on an array of image URLs, preprocesses
+     * each image, and concatenates the resulting features into a single Tensor.
      * @param {any} urls The URL(s) of the image(s) to extract features from.
      * @returns {Promise<Object>} An object containing the concatenated pixel values of the preprocessed images.
      */
@@ -313,78 +391,16 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
     }
 
     /**
-     * @param {number[]} arr The URL(s) of the image(s) to extract features from.
-     * @returns {number[]} An object containing the concatenated pixel values of the preprocessed images.
-     */
-    center_to_corners_format([centerX, centerY, width, height]) {
-        return [
-            centerX - width / 2,
-            centerY - height / 2,
-            centerX + width / 2,
-            centerY + height / 2
-        ];
-    }
-
-    /**
      * Post-processes the outputs of the model (for object detection).
      * @param {Object} outputs The outputs of the model that must be post-processed
      * @param {Tensor} outputs.logits The logits
      * @param {Tensor} outputs.pred_boxes The predicted boxes.
      * @return {Object[]} An array of objects containing the post-processed outputs.
      */
-    post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
-        const out_logits = outputs.logits;
-        const out_bbox = outputs.pred_boxes;
-        const [batch_size, num_boxes, num_classes] = out_logits.dims;
 
-        if (target_sizes !== null && target_sizes.length !== batch_size) {
-            throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
-        }
-        let toReturn = [];
-        for (let i = 0; i < batch_size; ++i) {
-            let target_size = target_sizes !== null ? target_sizes[i] : null;
-            let info = {
-                boxes: [],
-                classes: [],
-                scores: []
-            }
-            let logits = out_logits[i];
-            let bbox = out_bbox[i];
-
-            for (let j = 0; j < num_boxes; ++j) {
-                let logit = logits[j];
-
-                // Get most probable class
-                let maxIndex = max(logit.data)[1];
-
-                if (maxIndex === num_classes - 1) {
-                    // This is the background class, skip it
-                    continue;
-                }
-
-                // Compute softmax over classes
-                let probs = softmax(logit.data);
-
-                let score = probs[maxIndex];
-                if (score > threshold) {
-                    // Some class has a high enough probability
-                    /** @type {number[]} */
-                    let box = bbox[j].data;
-
-                    // convert to [x0, y0, x1, y1] format
-                    box = this.center_to_corners_format(box)
-                    if (target_size !== null) {
-                        box = box.map((x, i) => x * target_size[(i + 1) % 2])
-                    }
-
-                    info.boxes.push(box);
-                    info.classes.push(maxIndex);
-                    info.scores.push(score);
-                }
-            }
-            toReturn.push(info);
-        }
-        return toReturn;
+    /** @type {post_process_object_detection} */
+    post_process_object_detection(...args) {
+        return post_process_object_detection(...args);
     }
 
     /**
@@ -661,6 +677,13 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
     post_process_instance_segmentation() {
         // TODO
         throw Error("Not implemented yet");
+    }
+}
+
+export class YolosFeatureExtractor extends ImageFeatureExtractor {
+    /** @type {post_process_object_detection} */
+    post_process_object_detection(...args) {
+        return post_process_object_detection(...args);
     }
 }
 
@@ -1301,6 +1324,7 @@ export class AutoProcessor {
         'MobileViTFeatureExtractor': MobileViTFeatureExtractor,
         'DeiTFeatureExtractor': DeiTFeatureExtractor,
         'DetrFeatureExtractor': DetrFeatureExtractor,
+        'YolosFeatureExtractor': YolosFeatureExtractor,
 
         'SamImageProcessor': SamImageProcessor,
         'Wav2Vec2FeatureExtractor': Wav2Vec2FeatureExtractor,
