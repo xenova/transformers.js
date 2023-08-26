@@ -8,7 +8,6 @@
  * @module utils/image
  */
 
-import fs from 'fs';
 import { isString } from './core.js';
 import { getFile } from './hub.js';
 import { env } from '../env.js';
