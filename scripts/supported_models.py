@@ -102,6 +102,12 @@ SUPPORTED_MODELS = {
         'sileod/deberta-v3-base-tasksource-nli',
         'sileod/deberta-v3-large-tasksource-nli',
     ],
+    'deit': [
+        'facebook/deit-tiny-distilled-patch16-224',
+        'facebook/deit-small-distilled-patch16-224',
+        'facebook/deit-base-distilled-patch16-224',
+        'facebook/deit-base-distilled-patch16-384',
+    ],
     'detr': [
         'facebook/detr-resnet-50',
         'facebook/detr-resnet-101',
@@ -185,14 +191,26 @@ SUPPORTED_MODELS = {
         'sentence-transformers/all-roberta-large-v1',
         'julien-c/EsperBERTo-small-pos',
     ],
-    'sam': [
-        'facebook/sam-vit-base',
-        'facebook/sam-vit-large',
-        'facebook/sam-vit-huge',
-    ],
+    # 'sam': [
+    #     'facebook/sam-vit-base',
+    #     'facebook/sam-vit-large',
+    #     'facebook/sam-vit-huge',
+    # ],
     'squeezebert': [
         'squeezebert/squeezebert-uncased',
         'squeezebert/squeezebert-mnli',
+    ],
+    'swin': [
+        'microsoft/swin-tiny-patch4-window7-224',
+        'microsoft/swin-base-patch4-window7-224',
+        'microsoft/swin-large-patch4-window12-384-in22k',
+        'microsoft/swin-base-patch4-window7-224-in22k',
+        'microsoft/swin-base-patch4-window12-384-in22k',
+        'microsoft/swin-base-patch4-window12-384',
+        'microsoft/swin-large-patch4-window7-224',
+        'microsoft/swin-small-patch4-window7-224',
+        'microsoft/swin-large-patch4-window7-224-in22k',
+        'microsoft/swin-large-patch4-window12-384',
     ],
     't5': [
         't5-small',
@@ -260,6 +278,13 @@ SUPPORTED_MODELS = {
         'openai/whisper-large',
         'openai/whisper-large-v2',
     ],
+    'yolos': [
+        'hustvl/yolos-tiny',
+        'hustvl/yolos-small',
+        'hustvl/yolos-base',
+        'hustvl/yolos-small-dwr',
+        'hustvl/yolos-small-300',
+    ]
 }
 
 
