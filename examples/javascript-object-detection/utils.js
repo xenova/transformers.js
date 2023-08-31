@@ -6,7 +6,7 @@ function generateRandomColor(){
     randomNumber = Math.floor(randomNumber);
     randomNumber = randomNumber.toString(16);
     let randColor = randomNumber.padStart(6, 0);   
-    return `#${randColor.toUpperCase()}`
+    return `#${randColor.toUpperCase()}`;
 }
 
 
@@ -16,7 +16,7 @@ function getScaledCoordinates(box, img) {
     const originalHeight = img.naturalHeight;
 
     // Get the scaled dimensions of the image
-    const scaledWidth = img.offsetWidth; // The image should be exactly 400px wide
+    const scaledWidth = img.offsetWidth;
     const scaledHeight = img.offsetHeight;
 
     // Calculate the scaling factor
@@ -30,24 +30,24 @@ function getScaledCoordinates(box, img) {
     
     // Make sure the minimum values are are at least 0 and the maximum values
     // are less than the width/height of the image
-    ymin = Math.max(0, box.ymin * scale) 
-    xmin = Math.max(0, box.xmin * scale) 
-    ymax = Math.min(scaledHeight, ymax)
-    xmax = Math.min(scaledWidth, xmax)
+    ymin = Math.max(0, box.ymin * scale);
+    xmin = Math.max(0, box.xmin * scale); 
+    ymax = Math.min(scaledHeight, ymax);
+    xmax = Math.min(scaledWidth, xmax);
     
     return {
         ymin,
         xmin,
         ymax,
         xmax
-    }
+    };
 }
 
 
 // Removes all the elements with a given class from the DOM
 function removeElements(className) {
-    const HTMLcollection = document.getElementsByClassName(className)
-    Array.from(HTMLcollection).forEach(element => element.remove())
+    const HTMLcollection = document.getElementsByClassName(className);
+    Array.from(HTMLcollection).forEach(element => element.remove());
 }
 
 export { generateRandomColor, removeElements, getScaledCoordinates }
