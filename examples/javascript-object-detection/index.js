@@ -16,26 +16,26 @@ function onFileReaderLoad(e) {
     removeElements("bounding-box-label");
     removeElements("bounding-box");
     const base64String = e.target.result;
-    const imageEl = document.createElement('img')
+    const imageEl = document.createElement('img');
     imageEl.src = base64String;
     imageContainer.appendChild(imageEl);
     runModel(imageEl);
 };
 
 async function runModel(imageEl) {
-    statusParagraph.textContent = "Loading model..."
+    statusParagraph.textContent = "Loading model...";
     const detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
-    statusParagraph.textContent = "Analysing ..."
+    statusParagraph.textContent = "Analysing ...";
     const output = await detector(imageEl.src, { threshold: 0.5 });
-    statusParagraph.textContent = ""
+    statusParagraph.textContent = "";
     output.forEach(object => {
-        renderBox(object, imageEl)
+        renderBox(object, imageEl);
     })
 }
 
 function renderBox(data, imageEl) {
     const { box, label} = data;
-    const {xmax, xmin, ymax, ymin } = getScaledCoordinates(box, imageEl)
+    const {xmax, xmin, ymax, ymin } = getScaledCoordinates(box, imageEl);
     const color = generateRandomColor();
 
     // Calculate the width and height of the bounding box
