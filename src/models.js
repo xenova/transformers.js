@@ -2986,6 +2986,92 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel {
 
 
 //////////////////////////////////////////////////
+// MPT models
+export class MptPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `MptPreTrainedModel` class.
+     * @param {Object} config The model configuration object.
+     * @param {Object} session The ONNX session object.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_heads
+        this.num_layers = this.config.n_layers
+        this.dim_kv = this.config.d_model / this.num_heads;
+    }
+}
+
+/**
+ * The bare Mpt Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class MptModel extends MptPreTrainedModel {
+    /**
+     * Throws an error indicating that the current model class is not compatible with `.generate()`,
+     * as it doesn't have a language model head.
+     * 
+     * @throws {Error} The current model class is not compatible with `.generate()`
+     * 
+     * @param  {...any} args Arguments passed to the generate function
+     * @returns {Promise<any>}
+     */
+    async generate(...args) {
+        throw Error(
+            "The current model class (MptModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'MptForCausalLM'}"
+        )
+    }
+}
+
+/**
+ * The MPT Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
+ */
+export class MptForCausalLM extends MptPreTrainedModel {
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
+     */
+    async runBeam(beam) {
+        return await decoderRunBeam(this, beam);
+    }
+
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
+     */
+    updateBeam(beam, newTokenId) {
+        return decoderUpdatebeam(beam, newTokenId);
+    }
+
+    /**
+     * Forward pass for the model.
+     * @param {Object} model_inputs The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
+    async forward(model_inputs) {
+        return await decoderForward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 export class ViTPreTrainedModel extends PreTrainedModel { }
 export class ViTModel extends ViTPreTrainedModel { }
 export class ViTForImageClassification extends ViTPreTrainedModel {
@@ -3483,6 +3569,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['gpt_neo', GPTNeoModel],
     ['codegen', CodeGenModel],
     ['llama', LlamaModel],
+    ['mpt', MptModel],
 ]);
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
@@ -3524,6 +3611,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['gpt_neo', GPTNeoForCausalLM],
     ['codegen', CodeGenForCausalLM],
     ['llama', LlamaForCausalLM],
+    ['mpt', MptForCausalLM],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
