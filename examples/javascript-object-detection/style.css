@@ -1,0 +1,51 @@
+html, body {
+    margin: 20px;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+.container {
+    margin: 0 auto;
+    width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+
+.upload-button {
+    border: 2px solid black;
+    padding: 8px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+input[type="file"] {
+    display: none;
+}
+
+.upload-icon {
+    width: 30px;
+    margin-right: 10px;
+}
+
+#image-container {
+    margin-top: 20px;
+    position: relative;
+}
+
+#image-container img {
+    width: 400px;
+}
+  
+.bounding-box {
+    position: absolute;
+    box-sizing: border-box;
+}
+  
+.bounding-box-label {
+    position: absolute;
+    color: white;
+    font-size: 12px;
+}
+  
