@@ -45,7 +45,7 @@ function renderBox(data, imageEl) {
     // Draw the box
     const boundingBoxElement = document.createElement("div");
     boundingBoxElement.className = "bounding-box";
-    boundingBoxElement.style.border = `2px solid ${color}`
+    boundingBoxElement.style.border = `2px solid ${color}`;
     boundingBoxElement.style.left = xmin + "px";
     boundingBoxElement.style.top = ymin + "px";
     boundingBoxElement.style.width = boxWidth + "px";
