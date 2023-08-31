@@ -4,7 +4,7 @@ In this tutorial, you’ll build a browser-based JavaScript application that det
 
 Here's how it works: the user uploads an image to the browser via the “Upload image” button. The app then downloads an AI model, runs the image through it, and finally displays an overview of where the different objects are located, like this:
 
-![Screenshot 2023-08-30 at 08.34.11.png](Building%20a%20JavaScript%20Application%200b93a2e554a2460dbed6194bf638446c/Screenshot_2023-08-30_at_08.34.11.png)
+![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-interence-zebra.png)
 
 **************************Useful links:**************************
 
@@ -81,7 +81,8 @@ input[type="file"] {
 
 If you drag and drop the `index.html` file into a browser, you should see the following:
 
-![Screenshot 2023-08-30 at 08.03.03.png](Building%20a%20JavaScript%20Application%200b93a2e554a2460dbed6194bf638446c/Screenshot_2023-08-30_at_08.03.03.png)
+![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-btn.png)
+
 
 ## Step 2:  JavaScript setup
 
@@ -135,7 +136,7 @@ At this point, you might be wondering what `base64String` is all about. Since we
 
 Try to run the app and upload an image to the browser to make sure your code is working properly. You should see your image displayed underneath the button like this:
 
-![Screenshot 2023-08-30 at 08.04.01.png](Building%20a%20JavaScript%20Application%200b93a2e554a2460dbed6194bf638446c/Screenshot_2023-08-30_at_08.04.01.png)
+![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-btn-img.png)
 
 ## Step 4:  Download and run the model
 
@@ -199,7 +200,8 @@ As you can see, we’re passing `imageEl.src` (the base64 string) as the first a
 
 Try to run the app, upload an image, and open up the console. You should see the `output` variable logged out like this: 
 
-![Screenshot 2023-08-29 at 20.18.17.png](Building%20a%20JavaScript%20Application%200b93a2e554a2460dbed6194bf638446c/Screenshot_2023-08-29_at_20.18.17.png)
+![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-console.png)
+
 
 In the example above, we uploaded the image of the two elephants, so the `output` variable holds an array with two objects. Both objects have a key called `label`, which has the value “elephant”.  The also have `box` objects that contains the coordinates for each of the animals. 
 
@@ -291,6 +293,7 @@ And that’s it!
 
 You have now built a fully functioning AI app that detects objects in images using nothing but a browser. No external server, no APIs, no build tools. Pretty cool!
 
-![Screenshot 2023-08-30 at 08.05.09.png](Building%20a%20JavaScript%20Application%200b93a2e554a2460dbed6194bf638446c/Screenshot_2023-08-30_at_08.05.09.png)
+![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-btn-inference-zebra.png)
+
 
 The app is live at the following URL: [https://huggingface.co/spaces/Scrimba/javascript-object-detector](https://huggingface.co/spaces/Scrimba/javascript-object-detector)
