@@ -462,7 +462,7 @@ async function decoderForward(self, model_inputs) {
     let decoderFeeds = {
         input_ids: input_ids,
         attention_mask: attention_mask ?? prepareAttentionMask(self, input_ids),
-        use_cache_branch: boolTensor(past_key_values !== null)
+        use_cache_branch: boolTensor(!!past_key_values)
     }
 
     self.addPastKeyValues(decoderFeeds, past_key_values);
