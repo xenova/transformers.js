@@ -9,8 +9,8 @@ Here's how it works: the user uploads an image to the browser via the “Upload 
 **************************Useful links:**************************
 
 - [Demo site](https://huggingface.co/spaces/Scrimba/javascript-object-detector)
-- Source code
-- Scrim walk-through of the source code
+- [Source code walk through (scrim)](https://scrimba.com/scrim/co87f4ae7aea87a94a732f298)
+- [Source code](https://huggingface.co/spaces/Scrimba/javascript-object-detector/tree/main)
 
 ## Step 1:  Setup the HTML and CSS
 
