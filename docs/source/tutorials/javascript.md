@@ -21,7 +21,7 @@ The first thing we'll do is create some markup and styling. Create an in `index.
 	<label class="upload-button">
 		<input id="file-upload" type="file" accept="image/png,image/jpeg"/>
 		<img class="upload-icon" src="upload-icon.png" /> 
-	  Upload image
+	  	Upload image
 	</label>
 	<div id="image-container"></div>
 	<p id="status"></p>
@@ -51,10 +51,10 @@ main {
 }
 
 .upload-button {
-    border: 2px solid black;
+	border: 2px solid black;
     padding: 8px 16px;
     cursor: pointer;
-		border-radius: 6px;
+	border-radius: 6px;
     display: flex;
     align-items: center;
 }
@@ -94,13 +94,13 @@ The next step is to link our HTML file to a script. Add the following tag at the
 
 The `type="module"` attribute is important, as it turns our file into a JavaScript module, meaning that we’ll be able to use imports and exports. This immediately comes in handy, as we’ll import the Transformers.js library from their CDN via the import keyword at the top of our `index.js` file:
 
-```jsx
+```js
 import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.3';
 ```
 
 We also need to import a few useful functions from `utils.js` (that we’ll use towards the end of the tutorial) as well as grab ahold of all the DOM elements we need to access via JavaScript.
 
-```jsx
+```js
 const fileUploadElement = document.getElementById('file-upload');
 const imageContainer = document.getElementById("image-container");
 const statusParagraph = document.getElementById("status");
@@ -110,7 +110,7 @@ const statusParagraph = document.getElementById("status");
 
 The next step is to enable users to upload images. To achieve this, we will listen for "change" events from the `fileUploadElement` and use a `FileReader()` to read the content of the image:
 
-```jsx
+```js
 fileUploadElement.addEventListener('change', function(e) {
     const file = e.target.files[0];
     const fr = new FileReader();
@@ -123,7 +123,7 @@ Once the image has been properly loaded into the browser, the `onFileReaderLoad`
 
 Let’s display the image to the user by doing the following:
 
-```jsx
+```js
 function onFileReaderLoad(e) {
     const base64String = e.target.result;
     const imageEl = document.createElement('img')
@@ -142,7 +142,7 @@ Try to run the app and upload an image to the browser to make sure your code is 
 
 We’re finally ready to start interacting with Transformers.js! This will be done within a function called  `runModel()`. We’ll invoke this one at the end of our `onFileReaderLoad()` function:
 
-```jsx
+```js
 function onFileReaderLoad(e) {
     const base64String = e.target.result;
     const imageEl = document.createElement('img')
@@ -156,7 +156,7 @@ function onFileReaderLoad(e) {
 
 The `runModel()` function needs to be asynchronous, as we’ll use the `await` keyword when we’re downloading and running the model. Let’s look at the first two lines of `runModel()`:
 
-```jsx
+```js
 async function runModel(imageEl) {
     statusParagraph.textContent = "Loading model..."
     const detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
@@ -186,13 +186,14 @@ Once the model has been downloaded, we're ready to perform the so-called inferen
 
 Modify your `runModel()` function to look like the following:
 
-```jsx
+```js
 async function runModel(imageEl) {
 	statusParagraph.textContent = "Loading model..."
-  const detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');  status.textContent = "Analysing ..."
+	const detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
+	status.textContent = "Analysing ..."
 	statusParagraph.textContent = "Analysing ..."  
 	const output = await detector(imageEl.src, { threshold: 0.9 });
-  console.log(output);
+	console.log(output);
 }
 ```
 
@@ -213,7 +214,7 @@ The final step is to turn the `box` coordinates into rectangles around each of t
 
 At the end of our `runModel()` function, we’ll loop through each of the objects in the `output` array, and then call `renderBox()` while passing in the given object and the `imageEl`.
 
-```jsx
+```js
 output.forEach(object => {
 	renderBox(object, imageEl)
 })
@@ -224,22 +225,22 @@ Before we create that `renderBox()` function, we need to import some utilities. 
 1. Add [this utils.js file](https://huggingface.co/spaces/Scrimba/javascript-object-detector/blob/main/utils.js) to the same directory as `index.js`. It contains a few helper functions that will prevent the `index.js` file from growing too large. I won’t go into details about the code, but I’ve added code comments that explains each of the functions.
 2. Import the functions from `utils.js` by adding this line at the top of `index.js`:
     
-    ```css
-    import { generateRandomColor, removeElements, getScaledCoordinates } from './utils.js'
-    ```
+```js
+import { generateRandomColor, removeElements, getScaledCoordinates } from './utils.js'
+```
     
 
 With that out of the way, let’s create the `renderBox()` function. Look through the code below and read the comments to understand what’s going on:
 
-```jsx
+```js
 function renderBox(data, imageEl) {
     const { box, label} = data;
 
-		// We're setting the width of the image to 400px when rendering it,
-		// so we need to scale the coordinates accordingly as well 
+	// We're setting the width of the image to 400px when rendering it,
+	// so we need to scale the coordinates accordingly as well 
     const {xmax, xmin, ymax, ymin } = getScaledCoordinates(box, imageEl)
 
-		// Getting a random color for the box and label
+	// Getting a random color for the box and label
     const color = generateRandomColor();
 
     // Calculate the width and height of the bounding box
@@ -284,7 +285,7 @@ The bounding box and label span also need some styling, so add the following to 
 
 Now we just have one more task left, which is to remove these boxes and labels from the DOM if the users uploads a new image. To achieve that, we’ll invoke the `removeElements()` function (imported from `utils.js`) in the body of the `onFileReaderLoad()` , like this: 
 
-```css
+```js
 removeElements("bounding-box-label");
 removeElements("bounding-box");
 ```
