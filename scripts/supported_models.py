@@ -169,6 +169,9 @@ SUPPORTED_MODELS = {
         'apple/deeplabv3-mobilevit-x-small',
         'apple/deeplabv3-mobilevit-xx-small',
     ],
+    'mpt': [
+        'efederici/ipt-350m',
+    ],
     'mpnet': [
         'sentence-transformers/all-mpnet-base-v2',
         'sentence-transformers/nli-mpnet-base-v2',
