@@ -29,6 +29,10 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
     'whisper': {
         'per_channel': False,
         'reduce_range': False,
+    },
+    'bloom': {
+        'per_channel': False,
+        'reduce_range': False,
     }
 }
 
