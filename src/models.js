@@ -1178,6 +1178,17 @@ export class PreTrainedModel extends Callable {
                     for (let i = 0; i < this.num_layers; ++i) {
                         decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
                     }
+                } else if (this.config.model_type === 'bloom') {
+                    // Custom implementation for Bloom
+                    // @ts-ignore
+                    let keyDims = [1 * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
+                    // @ts-ignore
+                    let valueDims = [1 * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
+                    // @ts-ignore
+                    for (let i = 0; i < this.num_layers; ++i) {
+                        decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
+                        decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], valueDims)
+                    }
                 } else {
                     // @ts-ignore
                     let dims = [1, this.num_heads, 0, this.dim_kv]
@@ -2660,6 +2671,9 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 // TODO
 // }
 //////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// GPTNeo models
 export class GPTNeoPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `GPTNeoPreTrainedModel` class.
@@ -2984,6 +2998,91 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// Bloom models
+/**
+ * The Bloom Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
+ */
+export class BloomPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `BloomPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+
+/**
+ * The bare Bloom Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class BloomModel extends BloomPreTrainedModel {
+
+    /**
+     * BloomModel is not compatible with `.generate()`, as it doesn't have a language model head.
+     * @param  {...any} args 
+     * @throws {Error}
+     * @returns {Promise<any>}
+     */
+    async generate(...args) {
+        throw Error(
+            "The current model class (BloomModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'BloomForCausalLM'}"
+        )
+    }
+}
+
+/**
+ * The Bloom Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
+ */
+export class BloomForCausalLM extends BloomPreTrainedModel {
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
+     */
+    async runBeam(beam) {
+        return await decoderRunBeam(this, beam);
+    }
+
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
+     */
+    updateBeam(beam, newTokenId) {
+        return decoderUpdatebeam(beam, newTokenId);
+    }
+
+    /**
+     * Forward pass for the model.
+     * @param {Object} model_inputs The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
+    async forward(model_inputs) {
+        return await decoderForward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // MPT models
@@ -3069,7 +3168,6 @@ export class MptForCausalLM extends MptPreTrainedModel {
     }
 }
 //////////////////////////////////////////////////
-
 
 //////////////////////////////////////////////////
 export class ViTPreTrainedModel extends PreTrainedModel { }
@@ -3564,6 +3662,7 @@ const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
 
 
 const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
+    ['bloom', BloomModel],
     ['gpt2', GPT2Model],
     ['gpt_bigcode', GPTBigCodeModel],
     ['gpt_neo', GPTNeoModel],
@@ -3606,6 +3705,7 @@ const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
 ]);
 
 const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
+    ['bloom', BloomForCausalLM],
     ['gpt2', GPT2LMHeadModel],
     ['gpt_bigcode', GPTBigCodeForCausalLM],
     ['gpt_neo', GPTNeoForCausalLM],
