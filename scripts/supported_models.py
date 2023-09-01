@@ -67,10 +67,10 @@ SUPPORTED_MODELS = {
         'unitary/toxic-bert',
     ],
     # TODO:
-    # 'bloom':[
-    #     'bigscience/bloom-560m',
-    #     'bigscience/bloomz-560m',
-    # ],
+    'bloom': [
+        'bigscience/bloom-560m',
+        # 'bigscience/bloomz-560m',
+    ],
     # TODO:
     # 'blenderbot-small': [
     #     'facebook/blenderbot_small-90M',
