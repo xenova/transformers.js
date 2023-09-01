@@ -30,10 +30,16 @@ class CustomWhisperOnnxConfig(WhisperOnnxConfig):
         elif self._behavior is ConfigBehavior.DECODER:
             for i in range(self._config.decoder_layers):
                 common_outputs[f"decoder_attentions.{i}"] = {
-                    0: "batch_size", 3: "decoder_sequence_length"}
+                    0: "batch_size",
+                    2: "decoder_sequence_length",
+                    3: "past_decoder_sequence_length + 1"
+                }
             for i in range(self._config.decoder_layers):
                 common_outputs[f"cross_attentions.{i}"] = {
-                    0: "batch_size", 3: "cross_attention_length"}
+                    0: "batch_size",
+                    2: "decoder_sequence_length",
+                    3: "encoder_sequence_length_out"
+                }
 
         return common_outputs
 
@@ -48,6 +54,7 @@ class CustomWhisperOnnxConfig(WhisperOnnxConfig):
 
 def get_main_export_kwargs(config, task):
 
+    # See https://github.com/huggingface/optimum/blob/a39b1f5637af9725c0c788b86ca1fdf71ad3dcc2/docs/source/exporters/onnx/usage_guides/export_a_model.mdx#L264
     custom_config = CustomWhisperOnnxConfig(config=config, task=task)
 
     custom_onnx_configs = dict(
