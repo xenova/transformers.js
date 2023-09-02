@@ -26,11 +26,34 @@ DEFAULT_QUANTIZE_PARAMS = {
 }
 
 MODEL_SPECIFIC_QUANTIZE_PARAMS = {
-    'whisper': {
+    # Decoder-only models
+    'codegen': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gpt2': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gpt_bigcode': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'mpt': {
         'per_channel': False,
         'reduce_range': False,
     },
     'bloom': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'llama': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+
+    # Encoder-decoder models
+    'whisper': {
         'per_channel': False,
         'reduce_range': False,
     }
@@ -293,6 +316,13 @@ def main():
         # Update quantize config with model specific defaults
         quantize_config = MODEL_SPECIFIC_QUANTIZE_PARAMS.get(
             config.model_type, DEFAULT_QUANTIZE_PARAMS)
+
+        # Update if user specified values
+        if conv_args.per_channel is not None:
+            quantize_config['per_channel'] = conv_args.per_channel
+
+        if conv_args.reduce_range is not None:
+            quantize_config['reduce_range'] = conv_args.reduce_range
 
         quantize([
             os.path.join(output_model_folder, x)
