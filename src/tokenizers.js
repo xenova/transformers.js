@@ -2579,6 +2579,7 @@ export class BloomTokenizer extends PreTrainedTokenizer {
     }
 }
 export class LlamaTokenizer extends PreTrainedTokenizer { }
+export class CodeLlamaTokenizer extends PreTrainedTokenizer { }
 
 export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
 export class MPNetTokenizer extends PreTrainedTokenizer { }
@@ -3655,6 +3656,7 @@ export class AutoTokenizer {
         'NllbTokenizer': NllbTokenizer,
         'M2M100Tokenizer': M2M100Tokenizer,
         'LlamaTokenizer': LlamaTokenizer,
+        'CodeLlamaTokenizer': CodeLlamaTokenizer,
         'XLMRobertaTokenizer': XLMRobertaTokenizer,
         'MPNetTokenizer': MPNetTokenizer,
         'FalconTokenizer': FalconTokenizer,
