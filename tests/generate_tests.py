@@ -15,6 +15,7 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     ],
     "llama": [
         "hf-internal-testing/llama-tokenizer",
+        'codellama/CodeLlama-7b-hf',
     ],
     'mpt': [
         'mosaicml/mpt-7b',
