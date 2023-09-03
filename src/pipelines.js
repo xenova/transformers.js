@@ -308,7 +308,7 @@ export class TokenClassificationPipeline extends Pipeline {
  */
 
 /**
- * @typedef {Promise<QuestionAnsweringResult|QuestionAnsweringResult[]|undefined>} QuestionAnsweringReturnType
+ * @typedef {Promise<QuestionAnsweringResult|QuestionAnsweringResult[]>} QuestionAnsweringReturnType
  */
 
 /**
@@ -334,8 +334,8 @@ export class QuestionAnsweringPipeline extends Pipeline {
      * @param {string|string[]} context The context(s) where the answer(s) can be found.
      * @param {Object} options An optional object containing the following properties:
      * @param {number} [options.topk=1] The number of top answer predictions to be returned.
-     * @returns {QuestionAnsweringReturnType} A promise that resolves to an array or object containing the
-     * predicted answers and scores. Can also return undefined in case of `topk = 1`.
+     * @returns {QuestionAnsweringReturnType} A promise that resolves to an array or object
+     * containing the predicted answers and scores.
      */
     async _call(question, context = '', {
         topk = 1
