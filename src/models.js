@@ -94,6 +94,7 @@ class ModelType { };
 class EncoderOnlyModelType extends ModelType { };
 class EncoderDecoderModelType extends ModelType { };
 class Seq2SeqModelType extends EncoderDecoderModelType { };
+class Vision2SeqModelType extends EncoderDecoderModelType { };
 class DecoderOnlyModelType extends ModelType { };
 //////////////////////////////////////////////////
 
@@ -106,20 +107,6 @@ const MODEL_TYPE_MAPPING = new Map([
     ['CLIPTextModelWithProjection', EncoderOnlyModelType],
     ['CLIPVisionModelWithProjection', EncoderOnlyModelType],
 ]);
-
-/**
- * Helper function to determine which `forward` method to run for a specific model.
- * @param {Object} self The calling object
- * @param {Object} model_inputs The inputs to be sent to the model
- * @returns {Promise<Object>} The model output
- */
-async function forward(self, model_inputs) {
-    if (MODEL_TYPE_MAPPING.get(self.constructor.name) === DecoderOnlyModelType) {
-        return await decoderForward(self, model_inputs);
-    } else {
-        return await encoderForward(self, model_inputs);
-    }
-}
 
 /**
  * Constructs an InferenceSession using a model file located at the specified path.
@@ -318,14 +305,12 @@ function boolTensor(value) {
  * Perform forward pass on the seq2seq model (both encoder and decoder).
  * @param {Object} self The seq2seq model object.
  * @param {Object} model_inputs The input object for the model containing encoder and decoder inputs.
- * @param {Object} options The options
- * @param {boolean} [options.add_decoder_pkv=true] Flag to add the decoder past key values.
  * @returns {Promise<Seq2SeqLMOutput>} Promise that resolves with the output of the seq2seq model.
  * @private
  */
-async function seq2seqForward(self, model_inputs, {
-    add_decoder_pkv = true
-} = {}) {
+async function seq2seqForward(self, model_inputs) {
+    const add_decoder_pkv = self.add_decoder_pkv ?? true;
+
     let { encoder_outputs, past_key_values } = model_inputs;
 
     if (!encoder_outputs) {
@@ -355,16 +340,18 @@ async function seq2seqForward(self, model_inputs, {
 
 /**
  * Start the beam search process for the seq2seq model.
- * @param {Object} self The seq2seq model object.
+ * @param {PreTrainedModel} self The seq2seq model object.
  * @param {Object[]} inputTokenIds Array of input token ids for each input sequence.
  * @param {number} numOutputTokens The maximum number of output tokens for the model.
- * @param {boolean} [requires_attention_mask=true] Flag to indicate if the model requires an attention mask.
  * @returns {Object[]} Array of beam search objects.
  * @private
  */
-function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attention_mask = true) {
+function seq2seqStartBeams(self, inputTokenIds, numOutputTokens) {
     let beams = [];
     let beamId = 0;
+
+    // @ts-ignore
+    const requires_attention_mask = self.requires_attention_mask ?? true;
 
     // decoder_input_ids == output_token_ids
     let decoder_input_ids = self.config.decoder_start_token_id;
@@ -402,17 +389,16 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens, requires_attent
 
 /**
  * Run beam search on the seq2seq model for a single beam.
- * @param {Object} self The seq2seq model object.
+ * @param {PreTrainedModel} self The seq2seq model object.
  * @param {Object} beam The beam search object for which to run the model.
  * @param {Object} options options
  * @param {string} [options.input_name='input_ids'] The name of the input tensor for the encoder.
  * @returns {Promise<Object>} Promise that resolves with the output of the seq2seq model for the given beam.
  * @private
  */
-async function seq2seqRunBeam(self, beam, {
-    input_name = 'input_ids',
-} = {}
-) {
+async function seq2seqRunBeam(self, beam) {
+    const input_name = self.main_input_name;
+
     // 1. Prepare
     let model_inputs = {
         [input_name]: beam.inputs,
@@ -432,6 +418,16 @@ async function seq2seqRunBeam(self, beam, {
     beam.encoder_outputs = output.encoder_outputs;
 
     return output;
+}
+
+/**
+ * Update a beam with a new token ID.
+ * @param {Object} beam The beam to update.
+ * @param {number} newTokenId The new token ID to add to the beam's output.
+ * @private
+ */
+function seq2seqUpdatebeam(beam, newTokenId) {
+    beam.output_token_ids = [...beam.output_token_ids, newTokenId];
 }
 
 /**
@@ -570,6 +566,7 @@ function decoderUpdatebeam(beam, newTokenId) {
     beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     beam.model_input_ids = new Tensor('int64', [BigInt(newTokenId)], [1, 1]);
 }
+
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -578,6 +575,7 @@ function decoderUpdatebeam(beam, newTokenId) {
  * @extends Callable
  */
 export class PreTrainedModel extends Callable {
+    main_input_name = 'input_ids';
 
     /**
      * Creates a new instance of the `PreTrainedModel` class.
@@ -589,6 +587,38 @@ export class PreTrainedModel extends Callable {
 
         this.config = config;
         this.session = session;
+
+        // Set `runBeam` function:
+        const className = this.constructor.name;
+        const modelType = MODEL_TYPE_MAPPING.get(className);
+
+        this.can_generate = false;
+        this._runBeam = null;
+        this._getStartBeams = null;
+        this._updateBeam = null;
+        this._forward = null;
+        if (modelType === DecoderOnlyModelType) {
+            this.can_generate = true;
+
+            this._runBeam = decoderRunBeam;
+            this._getStartBeams = decoderStartBeams;
+            this._updateBeam = decoderUpdatebeam;
+            this._forward = decoderForward;
+
+        } else if (modelType === Seq2SeqModelType || modelType === Vision2SeqModelType) {
+            this.can_generate = true;
+
+            this._runBeam = seq2seqRunBeam;
+            this._getStartBeams = seq2seqStartBeams;
+            this._updateBeam = seq2seqUpdatebeam;
+            this._forward = seq2seqForward;
+
+        } else if (modelType === EncoderDecoderModelType) {
+            this._forward = encoderForward;
+
+        } else { // should be EncoderOnlyModelType
+            this._forward = encoderForward;
+        }
     }
 
     /**
@@ -651,7 +681,7 @@ export class PreTrainedModel extends Callable {
                 constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'decoder_model_merged', options),
             ]);
 
-        } else if (modelType === Seq2SeqModelType) {
+        } else if (modelType === Seq2SeqModelType || modelType === Vision2SeqModelType) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSession(pretrained_model_name_or_path, 'encoder_model', options),
@@ -697,13 +727,14 @@ export class PreTrainedModel extends Callable {
      * @throws {Error} This method must be implemented in subclasses.
      */
     async forward(model_inputs) {
-        return await forward(this, model_inputs);
+        return await this._forward(this, model_inputs);
     }
 
     /**
      * @param {GenerationConfig} generation_config 
      * @param {number} input_ids_seq_length The starting sequence length for the input ids.
      * @returns {LogitsProcessorList}
+     * @private
      */
     _get_logits_processor(
         generation_config,
@@ -876,6 +907,14 @@ export class PreTrainedModel extends Callable {
             inputs_attention_mask = null
         } = {},
     ) {
+        if (!this.can_generate) {
+            const possibleTypes = MODEL_WITH_LM_HEAD_MAPPING_NAMES.get(this.config.model_type);
+            let errorMessage = `The current model class (${this.constructor.name}) is not compatible with \`.generate()\`, as it doesn't have a language model head.`
+            if (possibleTypes) {
+                errorMessage += ` Please use one of the following classes instead: {'${possibleTypes.constructor.name}'}`;
+            }
+            throw Error(errorMessage);
+        }
 
         if (!(inputs instanceof Tensor) && !isTypedArray(inputs) && !Array.isArray(inputs)) {
             throw Error(`\`inputs\` must be a Tensor, TypedArray, or Array, but is "${inputs.constructor.name}".`);
@@ -1095,7 +1134,6 @@ export class PreTrainedModel extends Callable {
      * @param {Object} decoderResults The decoder results object.
      * @param {Object} pastKeyValues The previous past key values.
      * @returns {Object} An object containing past key values.
-     * @private
      */
     getPastKeyValues(decoderResults, pastKeyValues) {
 
@@ -1123,7 +1161,6 @@ export class PreTrainedModel extends Callable {
      *
      * @param {Object} decoderResults The decoder results object.
      * @returns {Object} An object containing attentions.
-     * @private
      */
     getAttentions(decoderResults) {
         const attns = Object.create(null);
@@ -1201,7 +1238,43 @@ export class PreTrainedModel extends Callable {
             }
         }
     }
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     * @private
+     */
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        if (!this._getStartBeams) {
+            throw Error(`Model ${this.constructor.name} does not implement the 'getStartBeams' method`)
+        }
+        return this._getStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
+     * @private
+     */
+    async runBeam(beam) {
+        return await this._runBeam(this, beam);
+    }
+
+    /**
+     * Update a beam with a new token ID.
+     * @param {Object} beam The beam to update.
+     * @param {number} newTokenId The new token ID to add to the beam's output.
+     * @private
+     */
+    updateBeam(beam, newTokenId) {
+        return this._updateBeam(beam, newTokenId);
+    }
 }
+
 //////////////////////////////////////////////////
 // Base model output class
 export class ModelOutput { }
@@ -1719,19 +1792,7 @@ export class AlbertForMaskedLM extends AlbertPreTrainedModel {
 // T5 models
 export class T5PreTrainedModel extends PreTrainedModel { };
 
-export class T5Model extends T5PreTrainedModel {
-    /**
-     * Generates text based on the provided arguments.
-     * @throws {Error} Throws an error as the current model class (T5Model) is not compatible with `.generate()`.
-     * @returns {Promise<any>}
-     * @param {any[]} args
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (T5Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'T5ForConditionalGeneration'}"
-        )
-    }
-}
+export class T5Model extends T5PreTrainedModel { }
 
 /**
  * T5Model is a class representing a T5 model for conditional generation.
@@ -1759,43 +1820,6 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
         this.num_encoder_heads = this.config.num_heads;
         this.encoder_dim_kv = this.config.d_kv;
     }
-
-    /**
-     * Generates the start beams for a given set of inputs and output length.
-     * @param {number[][]} inputs The input token IDs.
-     * @param {number} numOutputTokens The desired output length.
-     * @returns {Array} The start beams.
-     */
-    getStartBeams(inputs, numOutputTokens, ...args) {
-        return seq2seqStartBeams(this, inputs, numOutputTokens);
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await seq2seqRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with a new token ID.
-     * @param {any} beam The current beam.
-     * @param {number} newTokenId The new token ID to add to the output sequence.
-     */
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
-    }
-
-    /**
-     * Runs the forward pass of the model for a given set of inputs.
-     * @param {Object} model_inputs The model inputs.
-     * @returns {Promise<Object>} The model output.
-     */
-    async forward(model_inputs) {
-        return await seq2seqForward(this, model_inputs);
-    }
 }
 //////////////////////////////////////////////////
 
@@ -1803,19 +1827,7 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
 // MT5 models
 export class MT5PreTrainedModel extends PreTrainedModel { };
 
-export class MT5Model extends MT5PreTrainedModel {
-    /**
-     * 
-     * @param  {...any} args
-     * @returns {Promise<any>}
-     * @throws {Error}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (MT5Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'MT5ForConditionalGeneration'}"
-        )
-    }
-}
+export class MT5Model extends MT5PreTrainedModel { }
 
 /**
  * A class representing a conditional sequence-to-sequence model based on the MT5 architecture.
@@ -1844,45 +1856,6 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
         this.num_encoder_heads = this.config.num_heads;
         this.encoder_dim_kv = this.config.d_kv;
     }
-
-    /**
-     * Generates the start beams for the given input tokens and output sequence length.
-     *
-     * @param {any[]} inputs The input sequence.
-     * @param {number} numOutputTokens The desired length of the output sequence.
-     * @param {...*} args Additional arguments to pass to the `seq2seqStartBeams` function.
-     * @returns {any[]} An array of `Beam` objects representing the start beams.
-     */
-    getStartBeams(inputs, numOutputTokens, ...args) {
-        return seq2seqStartBeams(this, inputs, numOutputTokens);
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await seq2seqRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with the new predicted token.
-     * @param {any} beam The beam to update.
-     * @param {number} newTokenId The index of the predicted token.
-     */
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
-    }
-
-    /**
-     * Runs the forward pass of the model on the given inputs.
-     * @param {any} model_inputs The model inputs.
-     * @returns {Promise<any>} A Promise that resolves to the model outputs.
-     */
-    async forward(model_inputs) {
-        return await seq2seqForward(this, model_inputs);
-    }
 }
 //////////////////////////////////////////////////
 
@@ -1893,22 +1866,9 @@ export class BartPretrainedModel extends PreTrainedModel { };
 /**
  * BART encoder and decoder model.
  * 
- * @hideconstructor
  * @extends BartPretrainedModel
  */
-export class BartModel extends BartPretrainedModel {
-    /**
-     * Throws an error because the current model class (BartModel) is not compatible with `.generate()`.
-     * 
-     * @throws {Error} The current model class (BartModel) is not compatible with `.generate()`.
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (BartModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'BartForConditionalGeneration'}"
-        )
-    }
-}
+export class BartModel extends BartPretrainedModel { }
 
 /**
  * BART model with a language model head for conditional generation.
@@ -1937,43 +1897,6 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 
-    /**
-     * Returns the initial beam for generating output text.
-     * @param {Object} inputs The input object containing the encoded input text.
-     * @param {number} numOutputTokens The maximum number of output tokens to generate.
-     * @param  {...any} args Additional arguments to pass to the sequence-to-sequence generation function.
-     * @returns {any} The initial beam for generating output text.
-     */
-    getStartBeams(inputs, numOutputTokens, ...args) {
-        return seq2seqStartBeams(this, inputs, numOutputTokens);
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await seq2seqRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the beam by appending the newly generated token ID to the list of output token IDs.
-     * @param {any} beam The current beam being generated.
-     * @param {number} newTokenId The ID of the newly generated token to append to the list of output token IDs.
-     */
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
-    }
-
-    /**
-     * Runs the forward pass of the model for a given set of inputs.
-     * @param {Object} model_inputs The model inputs.
-     * @returns {Promise<Object>} The model output.
-     */
-    async forward(model_inputs) {
-        return await seq2seqForward(this, model_inputs);
-    }
 }
 
 export class BartForSequenceClassification extends BartPretrainedModel {
@@ -2138,25 +2061,16 @@ export class WhisperPreTrainedModel extends PreTrainedModel { };
  * WhisperModel class for training Whisper models without a language model head.
  * @extends WhisperPreTrainedModel
  */
-export class WhisperModel extends WhisperPreTrainedModel {
-    /**
-     * Throws an error when attempting to generate output since this model doesn't have a language model head.
-     * @throws Error
-     * @returns {Promise<any>}
-     * @param {any[]} args
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (WhisperModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'WhisperForConditionalGeneration'}"
-        )
-    }
-}
+export class WhisperModel extends WhisperPreTrainedModel { }
 
 /**
  * WhisperForConditionalGeneration class for generating conditional outputs from Whisper models.
  * @extends WhisperPreTrainedModel
  */
 export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
+
+    requires_attention_mask = false;
+    main_input_name = 'input_features';
 
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
@@ -2177,8 +2091,6 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         this.num_encoder_layers = this.config.encoder_layers;
         this.num_encoder_heads = this.config.encoder_attention_heads;
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
-
-
     }
 
     /**
@@ -2198,7 +2110,6 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
      * @param {Object} logits_processor Optional logits processor object.
      * @returns {Promise<Object>} Promise object represents the generated outputs.
      */
-    // @ts-ignore
     async generate(
         inputs,
         generation_config = null,
@@ -2250,46 +2161,6 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         }
 
         return outputs
-    }
-
-    /**
-     * Gets the start beams for generating outputs.
-     * @param {Array} inputTokenIds Array of input token IDs.
-     * @param {number} numOutputTokens Number of output tokens to generate.
-     * @returns {Array} Array of start beams.
-     */
-    getStartBeams(inputTokenIds, numOutputTokens, ...args) {
-        // arguments ignored in this case
-        return seq2seqStartBeams(this, inputTokenIds, numOutputTokens, false);
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await seq2seqRunBeam(this, beam, {
-            input_name: 'input_features',
-        });
-    }
-
-    /**
-     * Updates the beam by appending the newly generated token ID to the list of output token IDs.
-     * @param {any} beam The current beam being generated.
-     * @param {number} newTokenId The ID of the newly generated token to append to the list of output token IDs.
-     */
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
-    }
-
-    /**
-     * Runs the forward pass of the model for a given set of inputs.
-     * @param {Object} model_inputs The model inputs.
-     * @returns {Promise<Object>} The model output.
-     */
-    async forward(model_inputs) {
-        return await seq2seqForward(this, model_inputs);
     }
 
     /**
@@ -2403,6 +2274,9 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
  * @extends PreTrainedModel
  */
 export class VisionEncoderDecoderModel extends PreTrainedModel {
+    main_input_name = 'pixel_values';
+    add_decoder_pkv = false;
+
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
      * @param {Object} config The configuration object specifying the hyperparameters and other model settings.
@@ -2416,51 +2290,6 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
         this.num_layers = this.config.decoder.n_layer;
         this.num_heads = this.config.decoder.n_head;
         this.dim_kv = this.config.decoder.n_embd / this.num_heads;
-    }
-
-    /**
-     * Generate beam search outputs for the given input pixels and number of output tokens.
-     *
-     * @param {array} inputs The input pixels as a Tensor.
-     * @param {number} numOutputTokens The number of output tokens to generate.
-     * @param {...*} args Optional additional arguments to pass to seq2seqStartBeams.
-     * @returns {any} An array of Beam objects representing the top-K output sequences.
-     */
-    getStartBeams(inputs, numOutputTokens, ...args) {
-        return seq2seqStartBeams(this, inputs, numOutputTokens);
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return seq2seqRunBeam(this, beam, {
-            input_name: 'pixel_values',
-        });
-    }
-
-    /**
-     * Update the given beam with the additional predicted token ID.
-     *
-     * @param {any} beam The current beam.
-     * @param {number} newTokenId The new predicted token ID to add to the beam's output sequence.
-     */
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
-    }
-
-    /**
-     * Compute the forward pass of the model on the given input tensors.
-     *
-     * @param {Object} model_inputs The input tensors as an object with keys 'pixel_values' and 'decoder_input_ids'.
-     * @returns {Promise<any>} The output tensor of the model.
-     */
-    async forward(model_inputs) {
-        return await seq2seqForward(this, model_inputs, {
-            add_decoder_pkv: false
-        })
     }
 }
 //////////////////////////////////////////////////
@@ -2607,66 +2436,13 @@ export class GPT2PreTrainedModel extends PreTrainedModel {
     }
 }
 
-export class GPT2Model extends GPT2PreTrainedModel {
-
-    /**
-     * GPT2Model is not compatible with `.generate()`, as it doesn't have a language model head.
-     * @param  {...any} args 
-     * @throws {Error}
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (GPT2Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPT2LMHeadModel'}"
-        )
-    }
-}
+export class GPT2Model extends GPT2PreTrainedModel { }
 
 /**
  * GPT-2 language model head on top of the GPT-2 base model. This model is suitable for text generation tasks.
  * @extends GPT2PreTrainedModel
  */
-export class GPT2LMHeadModel extends GPT2PreTrainedModel {
-
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask Optional input attention mask.
-     * @returns {any} A Beam object representing the initialized beam.
-     */
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await decoderRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with the new generated token id.
-     * @param {any} beam The Beam object representing the beam.
-     * @param {number} newTokenId The new generated token id to be added to the beam.
-     */
-    updateBeam(beam, newTokenId) {
-        return decoderUpdatebeam(beam, newTokenId);
-    }
-
-    /**
-     * Forward pass for the model.
-     * @param {Object} model_inputs The inputs for the model.
-     * @returns {Promise<any>} The output tensor of the model.
-     */
-    async forward(model_inputs) {
-        return await decoderForward(this, model_inputs);
-    }
-
-}
+export class GPT2LMHeadModel extends GPT2PreTrainedModel { }
 // export class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
 // TODO
 // }
@@ -2691,60 +2467,9 @@ export class GPTNeoPreTrainedModel extends PreTrainedModel {
         this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
-export class GPTNeoModel extends GPTNeoPreTrainedModel {
-    /**
-     * 
-     * @param  {...any} args 
-     * @throws {Error}
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (GPTNeoModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPTNeoForCausalLM'}"
-        )
-    }
-}
+export class GPTNeoModel extends GPTNeoPreTrainedModel { }
 
-export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel {
-
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask Optional input attention mask.
-     * @returns {any} A Beam object representing the initialized beam.
-     */
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await decoderRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with the new generated token id.
-     * @param {any} beam The Beam object representing the beam.
-     * @param {number} newTokenId The new generated token id to be added to the beam.
-     */
-    updateBeam(beam, newTokenId) {
-        return decoderUpdatebeam(beam, newTokenId);
-    }
-
-    /**
-     * Forward pass for the model.
-     * @param {Object} model_inputs The inputs for the model.
-     * @returns {Promise<any>} The output tensor of the model.
-     */
-    async forward(model_inputs) {
-        return await decoderForward(this, model_inputs);
-    }
-}
+export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -2767,60 +2492,9 @@ export class GPTBigCodePreTrainedModel extends PreTrainedModel {
     }
 }
 
-export class GPTBigCodeModel extends GPTBigCodePreTrainedModel {
-    /**
-     * 
-     * @param  {...any} args 
-     * @throws {Error}
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (GPTBigCodeModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'GPTBigCodeForCausalLM'}"
-        )
-    }
-}
+export class GPTBigCodeModel extends GPTBigCodePreTrainedModel { }
 
-export class GPTBigCodeForCausalLM extends GPTBigCodePreTrainedModel {
-
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask Optional input attention mask.
-     * @returns {any} A Beam object representing the initialized beam.
-     */
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await decoderRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with the new generated token id.
-     * @param {any} beam The Beam object representing the beam.
-     * @param {number} newTokenId The new generated token id to be added to the beam.
-     */
-    updateBeam(beam, newTokenId) {
-        return decoderUpdatebeam(beam, newTokenId);
-    }
-
-    /**
-     * Forward pass for the model.
-     * @param {Object} model_inputs The inputs for the model.
-     * @returns {Promise<any>} The output tensor of the model.
-     */
-    async forward(model_inputs) {
-        return await decoderForward(this, model_inputs);
-    }
-}
+export class GPTBigCodeForCausalLM extends GPTBigCodePreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -2847,68 +2521,13 @@ export class CodeGenPreTrainedModel extends PreTrainedModel {
  * 
  * @extends CodeGenPreTrainedModel
  */
-export class CodeGenModel extends CodeGenPreTrainedModel {
-    /**
-     * Throws an error indicating that the current model class is not compatible with `.generate()`,
-     * as it doesn't have a language model head.
-     * 
-     * @throws {Error} The current model class is not compatible with `.generate()`
-     * 
-     * @param  {...any} args Arguments passed to the generate function
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (CodeGenModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'CodeGenForCausalLM'}"
-        )
-    }
-}
+export class CodeGenModel extends CodeGenPreTrainedModel { }
 
 /**
  * CodeGenForCausalLM is a class that represents a code generation model based on the GPT-2 architecture. It extends the `CodeGenPreTrainedModel` class.
  * @extends CodeGenPreTrainedModel
  */
-export class CodeGenForCausalLM extends CodeGenPreTrainedModel {
-
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask Optional input attention mask.
-     * @returns {any} A Beam object representing the initialized beam.
-     */
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await decoderRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with the new generated token id.
-     * @param {any} beam The Beam object representing the beam.
-     * @param {number} newTokenId The new generated token id to be added to the beam.
-     */
-    updateBeam(beam, newTokenId) {
-        return decoderUpdatebeam(beam, newTokenId);
-    }
-
-    /**
-     * Forward pass for the model.
-     * @param {Object} model_inputs The inputs for the model.
-     * @returns {Promise<any>} The output tensor of the model.
-     */
-    async forward(model_inputs) {
-        return await decoderForward(this, model_inputs);
-    }
-
-}
+export class CodeGenForCausalLM extends CodeGenPreTrainedModel { }
 //////////////////////////////////////////////////
 
 
@@ -2938,64 +2557,9 @@ export class LlamaPreTrainedModel extends PreTrainedModel {
 /**
  * The bare LLaMA Model outputting raw hidden-states without any specific head on top.
  */
-export class LlamaModel extends LlamaPreTrainedModel {
-    /**
-     * Throws an error indicating that the current model class is not compatible with `.generate()`,
-     * as it doesn't have a language model head.
-     * 
-     * @throws {Error} The current model class is not compatible with `.generate()`
-     * 
-     * @param  {...any} args Arguments passed to the generate function
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (LlamaModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'LlamaForCausalLM'}"
-        )
-    }
-}
+export class LlamaModel extends LlamaPreTrainedModel { }
 
-export class LlamaForCausalLM extends LlamaPreTrainedModel {
-
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask Optional input attention mask.
-     * @returns {any} A Beam object representing the initialized beam.
-     */
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await decoderRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with the new generated token id.
-     * @param {any} beam The Beam object representing the beam.
-     * @param {number} newTokenId The new generated token id to be added to the beam.
-     */
-    updateBeam(beam, newTokenId) {
-        return decoderUpdatebeam(beam, newTokenId);
-    }
-
-    /**
-     * Forward pass for the model.
-     * @param {Object} model_inputs The inputs for the model.
-     * @returns {Promise<any>} The output tensor of the model.
-     */
-    async forward(model_inputs) {
-        return await decoderForward(this, model_inputs);
-    }
-
-}
+export class LlamaForCausalLM extends LlamaPreTrainedModel { }
 //////////////////////////////////////////////////
 
 
@@ -3025,64 +2589,12 @@ export class BloomPreTrainedModel extends PreTrainedModel {
 /**
  * The bare Bloom Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class BloomModel extends BloomPreTrainedModel {
-
-    /**
-     * BloomModel is not compatible with `.generate()`, as it doesn't have a language model head.
-     * @param  {...any} args 
-     * @throws {Error}
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (BloomModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'BloomForCausalLM'}"
-        )
-    }
-}
+export class BloomModel extends BloomPreTrainedModel { }
 
 /**
  * The Bloom Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
  */
-export class BloomForCausalLM extends BloomPreTrainedModel {
-
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask Optional input attention mask.
-     * @returns {any} A Beam object representing the initialized beam.
-     */
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await decoderRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with the new generated token id.
-     * @param {any} beam The Beam object representing the beam.
-     * @param {number} newTokenId The new generated token id to be added to the beam.
-     */
-    updateBeam(beam, newTokenId) {
-        return decoderUpdatebeam(beam, newTokenId);
-    }
-
-    /**
-     * Forward pass for the model.
-     * @param {Object} model_inputs The inputs for the model.
-     * @returns {Promise<any>} The output tensor of the model.
-     */
-    async forward(model_inputs) {
-        return await decoderForward(this, model_inputs);
-    }
-}
+export class BloomForCausalLM extends BloomPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3260,19 +2772,7 @@ export class SamImageSegmentationOutput extends ModelOutput {
 // MarianMT models
 export class MarianPreTrainedModel extends PreTrainedModel { };
 
-export class MarianModel extends MarianPreTrainedModel {
-    /**
-     * 
-     * @param  {...any} args 
-     * @throws {Error}
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (MarianModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'MarianMTModel'}"
-        )
-    }
-}
+export class MarianModel extends MarianPreTrainedModel { }
 
 export class MarianMTModel extends MarianPreTrainedModel {
 
@@ -3297,33 +2797,6 @@ export class MarianMTModel extends MarianPreTrainedModel {
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {any[]} inputs The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @returns {any} A Beam object representing the initialized beam.
-     * @param {any[]} args
-     */
-    getStartBeams(inputs, numOutputTokens, ...args) {
-        return seq2seqStartBeams(this, inputs, numOutputTokens);
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await seq2seqRunBeam(this, beam);
-    }
-
-    /**
-     * @param {any} beam
-     * @param {any} newTokenId
-     */
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
-    }
 
     /**
      * @param {any} model_inputs
@@ -3339,19 +2812,7 @@ export class MarianMTModel extends MarianPreTrainedModel {
 // M2M100 models
 export class M2M100PreTrainedModel extends PreTrainedModel { };
 
-export class M2M100Model extends M2M100PreTrainedModel {
-    /**
-     * 
-     * @param  {...any} args 
-     * @throws {Error}
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (M2M100Model) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'M2M100ForConditionalGeneration'}"
-        )
-    }
-}
+export class M2M100Model extends M2M100PreTrainedModel { }
 
 export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
 
@@ -3374,35 +2835,6 @@ export class M2M100ForConditionalGeneration extends M2M100PreTrainedModel {
         this.num_encoder_layers = this.config.encoder_layers;
         this.num_encoder_heads = this.config.encoder_attention_heads;
         this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
-    }
-
-
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {any[]} inputs The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @returns {any} A Beam object representing the initialized beam.
-     * @param {any[]} args
-     */
-    getStartBeams(inputs, numOutputTokens, ...args) {
-        return seq2seqStartBeams(this, inputs, numOutputTokens);
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await seq2seqRunBeam(this, beam);
-    }
-
-    /**
-     * @param {any} beam
-     * @param {any} newTokenId
-     */
-    updateBeam(beam, newTokenId) {
-        beam.output_token_ids = [...beam.output_token_ids, newTokenId];
     }
 
     /**
@@ -3697,7 +3129,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_WITH_LM_HEAD_MAPPING_NAMES, DecoderOnlyModelType],
     [MODEL_FOR_MASKED_LM_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES, EncoderOnlyModelType],
-    [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES, EncoderDecoderModelType],
+    [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES, Vision2SeqModelType],
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, EncoderOnlyModelType],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, EncoderOnlyModelType],
