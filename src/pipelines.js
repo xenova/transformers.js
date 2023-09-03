@@ -302,6 +302,16 @@ export class TokenClassificationPipeline extends Pipeline {
 }
 
 /**
+ * @typedef {object} QuestionAnsweringResult
+ * @property {string} answer - The answer.
+ * @property {number} score - The score.
+ */
+
+/**
+ * @typedef {Promise<QuestionAnsweringResult|QuestionAnsweringResult[]|undefined>} QuestionAnsweringReturnType
+ */
+
+/**
  * Question Answering pipeline using any `ModelForQuestionAnswering`.
  * 
  * **Example:** Run question answering with `Xenova/distilbert-base-uncased-distilled-squad`.
@@ -324,10 +334,10 @@ export class QuestionAnsweringPipeline extends Pipeline {
      * @param {string|string[]} context The context(s) where the answer(s) can be found.
      * @param {Object} options An optional object containing the following properties:
      * @param {number} [options.topk=1] The number of top answer predictions to be returned.
-     * @returns {Promise<any>} A promise that resolves to an array or object containing the predicted answers and scores.
+     * @returns {QuestionAnsweringReturnType} A promise that resolves to an array or object containing the
+     * predicted answers and scores. Can also return undefined in case of `topk = 1`.
      */
-    // @ts-ignore
-    async _call(question, context, {
+    async _call(question, context = '', {
         topk = 1
     } = {}) {
 
@@ -760,8 +770,7 @@ export class ZeroShotClassificationPipeline extends Pipeline {
      * candidate by doing a softmax of the entailment score vs. the contradiction score.
      * @return {Promise<Object|Object[]>} The prediction(s), as a map (or list of maps) from label to score.
      */
-    // @ts-ignore
-    async _call(texts, candidate_labels, {
+    async _call(texts, candidate_labels = [], {
         hypothesis_template = "This example is {}.",
         multi_label = false,
     } = {}) {
@@ -1602,8 +1611,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
      * @param {string} [options.hypothesis_template] The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
      * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
      */
-    // @ts-ignore
-    async _call(images, candidate_labels, {
+    async _call(images, candidate_labels = [], {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
         let isBatched = Array.isArray(images);
