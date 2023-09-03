@@ -1248,9 +1248,6 @@ export class PreTrainedModel extends Callable {
      * @private
      */
     getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        if (!this._getStartBeams) {
-            throw Error(`Model ${this.constructor.name} does not implement the 'getStartBeams' method`)
-        }
         return this._getStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
     }
 
