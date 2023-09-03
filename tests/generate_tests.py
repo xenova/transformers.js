@@ -14,8 +14,8 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         'tiiuae/falcon-7b',
     ],
     "llama": [
-        "hf-internal-testing/llama-tokenizer",
-        'codellama/CodeLlama-7b-hf',
+        'hf-internal-testing/llama-tokenizer',
+        'hf-internal-testing/llama-code-tokenizer',
     ],
     'mpt': [
         'mosaicml/mpt-7b',
