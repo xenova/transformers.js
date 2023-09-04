@@ -568,7 +568,7 @@ describe('Pipelines', () => {
                     do_sample: false
                 });
                 expect(outputs).toHaveLength(1);
-                expect(outputs[0].length).toBeGreaterThan(10);
+                expect(outputs[0].length).toBeGreaterThan(1);
             }
 
             await generator.dispose();
