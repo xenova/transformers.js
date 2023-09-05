@@ -109,10 +109,10 @@ export class Pipeline extends Callable {
     /**
      * Executes the task associated with the pipeline.
      * @param {any} texts The input texts to be processed.
-     * @param {...any} unused Only used to fix Liskov Substitution Principle errors.
+     * @param {...any} args Additional arguments.
      * @returns {Promise<any>} A promise that resolves to an array containing the inputs and outputs of the task.
      */
-    async _call(texts, ...unused) {
+    async _call(texts, ...args) {
         // Run tokenization
         let model_inputs = this.tokenizer(texts, {
             padding: true,
