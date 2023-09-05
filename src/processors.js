@@ -357,6 +357,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
@@ -1322,6 +1323,7 @@ export class AutoProcessor {
         'WhisperFeatureExtractor': WhisperFeatureExtractor,
         'ViTFeatureExtractor': ViTFeatureExtractor,
         'MobileViTFeatureExtractor': MobileViTFeatureExtractor,
+        'ConvNextFeatureExtractor': ConvNextFeatureExtractor,
         'DeiTFeatureExtractor': DeiTFeatureExtractor,
         'DetrFeatureExtractor': DetrFeatureExtractor,
         'YolosFeatureExtractor': YolosFeatureExtractor,
