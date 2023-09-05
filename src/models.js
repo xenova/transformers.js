@@ -2741,66 +2741,12 @@ export class MptPreTrainedModel extends PreTrainedModel {
 /**
  * The bare Mpt Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class MptModel extends MptPreTrainedModel {
-    /**
-     * Throws an error indicating that the current model class is not compatible with `.generate()`,
-     * as it doesn't have a language model head.
-     * 
-     * @throws {Error} The current model class is not compatible with `.generate()`
-     * 
-     * @param  {...any} args Arguments passed to the generate function
-     * @returns {Promise<any>}
-     */
-    async generate(...args) {
-        throw Error(
-            "The current model class (MptModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'MptForCausalLM'}"
-        )
-    }
-}
+export class MptModel extends MptPreTrainedModel { }
 
 /**
  * The MPT Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
  */
-export class MptForCausalLM extends MptPreTrainedModel {
-
-    /**
-     * Initializes and returns the beam for text generation task
-     * @param {Tensor} inputTokenIds The input token ids.
-     * @param {number} numOutputTokens The number of tokens to be generated.
-     * @param {Tensor} inputs_attention_mask Optional input attention mask.
-     * @returns {any} A Beam object representing the initialized beam.
-     */
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
-    }
-
-    /**
-     * Runs a single step of the beam search generation algorithm.
-     * @param {any} beam The current beam being generated.
-     * @returns {Promise<any>} The updated beam after a single generation step.
-     */
-    async runBeam(beam) {
-        return await decoderRunBeam(this, beam);
-    }
-
-    /**
-     * Updates the given beam with the new generated token id.
-     * @param {any} beam The Beam object representing the beam.
-     * @param {number} newTokenId The new generated token id to be added to the beam.
-     */
-    updateBeam(beam, newTokenId) {
-        return decoderUpdatebeam(beam, newTokenId);
-    }
-
-    /**
-     * Forward pass for the model.
-     * @param {Object} model_inputs The inputs for the model.
-     * @returns {Promise<any>} The output tensor of the model.
-     */
-    async forward(model_inputs) {
-        return await decoderForward(this, model_inputs);
-    }
-}
+export class MptForCausalLM extends MptPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
