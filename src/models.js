@@ -2470,6 +2470,30 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// GPTNeoX models
+export class GPTNeoXPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `GPTNeoXPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_heads;
+        this.num_layers = this.config.num_layers;
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+export class GPTNeoXModel extends GPTNeoXPreTrainedModel { }
+
+export class GPTNeoXForCausalLM extends GPTNeoXPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // GPTBigCode models
 export class GPTBigCodePreTrainedModel extends PreTrainedModel {
     /**
@@ -3011,6 +3035,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['gpt2', GPT2Model],
     ['gpt_bigcode', GPTBigCodeModel],
     ['gpt_neo', GPTNeoModel],
+    ['gpt_neox', GPTNeoXModel],
     ['codegen', CodeGenModel],
     ['llama', LlamaModel],
 ]);
@@ -3053,6 +3078,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['gpt2', GPT2LMHeadModel],
     ['gpt_bigcode', GPTBigCodeForCausalLM],
     ['gpt_neo', GPTNeoForCausalLM],
+    ['gpt_neox', GPTNeoXForCausalLM],
     ['codegen', CodeGenForCausalLM],
     ['llama', LlamaForCausalLM],
 ]);
