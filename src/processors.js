@@ -1321,23 +1321,23 @@ export class Wav2Vec2ProcessorWithLM extends Processor {
  */
 export class AutoProcessor {
     static FEATURE_EXTRACTOR_CLASS_MAPPING = {
-        'WhisperFeatureExtractor': WhisperFeatureExtractor,
-        'ViTFeatureExtractor': ViTFeatureExtractor,
-        'MobileViTFeatureExtractor': MobileViTFeatureExtractor,
-        'ConvNextFeatureExtractor': ConvNextFeatureExtractor,
-        'BeitFeatureExtractor': BeitFeatureExtractor,
-        'DeiTFeatureExtractor': DeiTFeatureExtractor,
-        'DetrFeatureExtractor': DetrFeatureExtractor,
-        'YolosFeatureExtractor': YolosFeatureExtractor,
+        WhisperFeatureExtractor,
+        ViTFeatureExtractor,
+        MobileViTFeatureExtractor,
+        ConvNextFeatureExtractor,
+        BeitFeatureExtractor,
+        DeiTFeatureExtractor,
+        DetrFeatureExtractor,
+        YolosFeatureExtractor,
 
-        'SamImageProcessor': SamImageProcessor,
-        'Wav2Vec2FeatureExtractor': Wav2Vec2FeatureExtractor,
+        SamImageProcessor,
+        Wav2Vec2FeatureExtractor,
     }
 
     static PROCESSOR_CLASS_MAPPING = {
-        'WhisperProcessor': WhisperProcessor,
-        'Wav2Vec2ProcessorWithLM': Wav2Vec2ProcessorWithLM,
-        'SamProcessor': SamProcessor,
+        WhisperProcessor,
+        Wav2Vec2ProcessorWithLM,
+        SamProcessor,
     }
 
     /**
