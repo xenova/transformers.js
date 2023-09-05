@@ -2905,7 +2905,7 @@ export class Wav2Vec2PreTrainedModel extends PreTrainedModel { };
  * **Example:** Load and run an `Wav2Vec2Model` for feature extraction.
  * 
  * ```javascript
- * import { AutoProcessor, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
  * 
  * // Read and preprocess audio
  * const processor = await AutoProcessor.from_pretrained('Xenova/mms-300m');
@@ -2948,9 +2948,68 @@ export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
         return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
-
-
 //////////////////////////////////////////////////
+// WavLM models
+/**
+ * An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained models.
+ */
+export class WavLMPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare WavLM Model transformer outputting raw hidden-states without any specific head on top.
+ * 
+ * **Example:** Load and run an `WavLMModel` for feature extraction.
+ * 
+ * ```javascript
+ * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
+ * 
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base');
+ * const audio = await read_audio('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav', 16000);
+ * const inputs = await processor(audio);
+ * 
+ * // Run model with inputs
+ * const model = await AutoModel.from_pretrained('Xenova/wavlm-base');
+ * const output = await model(inputs);
+ * // {
+ * //   last_hidden_state: Tensor {
+ * //     dims: [ 1, 549, 768 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(421632) [-0.349443256855011, -0.39341306686401367,  0.022836603224277496, ...],
+ * //     size: 421632
+ * //   }
+ * // }
+ * ```
+ */
+export class WavLMModel extends WavLMPreTrainedModel { }
+
+/**
+ * WavLM Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class WavLMForCTC extends WavLMPreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_values Float values of input raw speech waveform.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * WavLM Model with a sequence classification head on top (a linear layer over the pooled output).
+ */
+export class WavLMForSequenceClassification extends WavLMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -3036,6 +3095,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['mobilebert', MobileBertModel],
     ['squeezebert', SqueezeBertModel],
     ['wav2vec2', Wav2Vec2Model],
+    ['wavlm', WavLMModel],
 
     ['detr', DetrModel],
     ['vit', ViTModel],
@@ -3164,10 +3224,12 @@ const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
     ['wav2vec2', Wav2Vec2ForCTC],
+    ['wavlm', WavLMForCTC],
 ]);
 
 const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', Wav2Vec2ForSequenceClassification],
+    ['wavlm', WavLMForSequenceClassification],
 ]);
 
 
