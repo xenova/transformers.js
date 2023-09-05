@@ -182,8 +182,7 @@ export class TokenizerModel extends Callable {
                 return new Unigram(config, ...args);
 
             case 'BPE':
-                // @ts-ignore
-                return new BPE(config, ...args);
+                return new BPE(config);
 
             default:
                 if (config.vocab) {
