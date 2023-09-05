@@ -2747,6 +2747,19 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// Beit Models
+export class BeitPreTrainedModel extends PreTrainedModel { }
+export class BeiTModel extends BeitPreTrainedModel { }
+export class BeiTForImageClassification extends BeitPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////
@@ -3201,6 +3214,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['detr', DetrModel],
     ['vit', ViTModel],
     ['mobilevit', MobileViTModel],
+    ['beit', BeiTModel],
     ['deit', DeiTModel],
     ['resnet', ResNetModel],
     ['swin', SwinModel],
@@ -3311,6 +3325,7 @@ const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ViTForImageClassification],
     ['mobilevit', MobileViTForImageClassification],
+    ['beit', BeiTForImageClassification],
     ['deit', DeiTForImageClassification],
     ['resnet', ResNetForImageClassification],
     ['swin', SwinForImageClassification],

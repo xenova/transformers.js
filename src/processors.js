@@ -361,6 +361,7 @@ export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
+export class BeitFeatureExtractor extends ImageFeatureExtractor { }
 
 /**
  * Detr Feature Extractor.
@@ -1324,6 +1325,7 @@ export class AutoProcessor {
         'ViTFeatureExtractor': ViTFeatureExtractor,
         'MobileViTFeatureExtractor': MobileViTFeatureExtractor,
         'ConvNextFeatureExtractor': ConvNextFeatureExtractor,
+        'BeitFeatureExtractor': BeitFeatureExtractor,
         'DeiTFeatureExtractor': DeiTFeatureExtractor,
         'DetrFeatureExtractor': DetrFeatureExtractor,
         'YolosFeatureExtractor': YolosFeatureExtractor,
