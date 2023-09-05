@@ -2483,8 +2483,8 @@ export class GPTNeoXPreTrainedModel extends PreTrainedModel {
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
         this.config.pad_token_id = this.config.eos_token_id
 
-        this.num_heads = this.config.num_heads;
-        this.num_layers = this.config.num_layers;
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
         this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
