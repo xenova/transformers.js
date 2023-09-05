@@ -124,7 +124,13 @@ const TASK_DEFAULT_PARAMS = {
     multi_label: false
   },
   'question-answering': {},
-  'summarization': DEFAULT_GREEDY_PARAMS,
+  'summarization': {
+    max_new_tokens: 50,
+    num_beams: 2,
+    temperature: 1,
+    top_k: 0,
+    do_sample: false
+  },
   'automatic-speech-recognition': DEFAULT_GREEDY_PARAMS,
   'image-to-text': DEFAULT_GREEDY_PARAMS,
   'image-classification': {},
