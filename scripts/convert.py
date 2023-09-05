@@ -39,6 +39,18 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
+    'gptj': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gpt-neo': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gpt-neox': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
     'mpt': {
         'per_channel': False,
         'reduce_range': False,
@@ -56,11 +68,16 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
     'whisper': {
         'per_channel': False,
         'reduce_range': False,
+    },
+    'vision-encoder-decoder': {
+        'per_channel': False,
+        'reduce_range': False,
     }
 }
 
 MODELS_WITHOUT_TOKENIZERS = [
-    'wav2vec2'
+    'wav2vec2',
+    'wavlm',
 ]
 
 
