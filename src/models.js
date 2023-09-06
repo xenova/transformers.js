@@ -2873,6 +2873,38 @@ export class MptModel extends MptPreTrainedModel { }
 export class MptForCausalLM extends MptPreTrainedModel { }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// OPT models
+export class OPTPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `OPTPreTrainedModel` class.
+     * @param {Object} config The model configuration object.
+     * @param {Object} session The ONNX session object.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+
+/**
+ * The bare OPT Model outputting raw hidden-states without any specific head on top.
+ */
+export class OPTModel extends OPTPreTrainedModel { }
+
+/**
+ * The OPT Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
+ */
+export class OPTForCausalLM extends OPTPreTrainedModel { }
+//////////////////////////////////////////////////
+
 //////////////////////////////////////////////////
 export class ViTPreTrainedModel extends PreTrainedModel { }
 export class ViTModel extends ViTPreTrainedModel { }
@@ -3399,6 +3431,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['codegen', CodeGenModel],
     ['llama', LlamaModel],
     ['mpt', MptModel],
+    ['opt', OPTModel],
 ]);
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
@@ -3450,6 +3483,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['codegen', CodeGenForCausalLM],
     ['llama', LlamaForCausalLM],
     ['mpt', MptForCausalLM],
+    ['opt', OPTForCausalLM],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
