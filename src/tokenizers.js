@@ -2559,6 +2559,7 @@ export class DebertaV2Tokenizer extends PreTrainedTokenizer {
     }
 }
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
+export class CamembertTokenizer extends PreTrainedTokenizer { }
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
@@ -3660,6 +3661,7 @@ export class AutoTokenizer {
     static TOKENIZER_CLASS_MAPPING = {
         T5Tokenizer,
         DistilBertTokenizer,
+        CamembertTokenizer,
         DebertaTokenizer,
         DebertaV2Tokenizer,
         BertTokenizer,
