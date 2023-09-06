@@ -2563,6 +2563,28 @@ export class DistilBertTokenizer extends PreTrainedTokenizer { }
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
+export class MBartTokenizer extends PreTrainedTokenizer {
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+
+        this.languageRegex = /^[a-z]{2}_[A-Z]{2}$/;
+        this.language_codes = this.special_tokens.filter(x => this.languageRegex.test(x));
+        this.lang_to_token = x => x; // Identity function
+    }
+
+    /**
+     * Helper function to build translation inputs for an `MBartTokenizer`.
+     * @param {string|string[]} raw_inputs The text to tokenize.
+     * @param {Object} tokenizer_options Options to be sent to the tokenizer
+     * @param {Object} generate_kwargs Generation options.
+     * @returns {Object} Object to be passed to the model.
+     */
+    _build_translation_inputs(raw_inputs, tokenizer_options, generate_kwargs) {
+        return _build_translation_inputs(this, raw_inputs, tokenizer_options, generate_kwargs);
+    }
+}
+export class MBart50Tokenizer extends MBartTokenizer { } // NOTE: extends MBartTokenizer
+
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
 export class BloomTokenizer extends PreTrainedTokenizer {
@@ -3646,6 +3668,8 @@ export class AutoTokenizer {
         AlbertTokenizer,
         GPT2Tokenizer,
         BartTokenizer,
+        MBartTokenizer,
+        MBart50Tokenizer,
         RobertaTokenizer,
         WhisperTokenizer,
         CodeGenTokenizer,
