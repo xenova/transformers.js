@@ -1364,6 +1364,76 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// CamemBERT models
+export class CamembertPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare CamemBERT Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class CamembertModel extends CamembertPreTrainedModel { }
+
+/**
+ * CamemBERT Model with a `language modeling` head on top.
+ */
+export class CamembertForMaskedLM extends CamembertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * CamemBERT Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output) e.g. for GLUE tasks.
+ */
+export class CamembertForSequenceClassification extends CamembertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * CamemBERT Model with a token classification head on top (a linear layer on top of the hidden-states output) e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class CamembertForTokenClassification extends CamembertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * CamemBERT Model with a span classification head on top for extractive question-answering tasks
+ */
+export class CamembertForQuestionAnswering extends CamembertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // DeBERTa models
 export class DebertaPreTrainedModel extends PreTrainedModel { }
 
@@ -3227,6 +3297,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', BertModel],
+    ['camembert', CamembertModel],
     ['deberta', DebertaModel],
     ['deberta-v2', DebertaV2Model],
     ['mpnet', MPNetModel],
@@ -3277,6 +3348,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForSequenceClassification],
+    ['camembert', CamembertForSequenceClassification],
     ['deberta', DebertaForSequenceClassification],
     ['deberta-v2', DebertaV2ForSequenceClassification],
     ['mpnet', MPNetForSequenceClassification],
@@ -3292,6 +3364,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', BertForTokenClassification],
+    ['camembert', CamembertForTokenClassification],
     ['deberta', DebertaForTokenClassification],
     ['deberta-v2', DebertaV2ForTokenClassification],
     ['mpnet', MPNetForTokenClassification],
@@ -3324,6 +3397,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', BertForMaskedLM],
+    ['camembert', CamembertForMaskedLM],
     ['deberta', DebertaForMaskedLM],
     ['deberta-v2', DebertaV2ForMaskedLM],
     ['mpnet', MPNetForMaskedLM],
@@ -3338,6 +3412,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', BertForQuestionAnswering],
+    ['camembert', CamembertForQuestionAnswering],
     ['deberta', DebertaForQuestionAnswering],
     ['deberta-v2', DebertaV2ForQuestionAnswering],
     ['mpnet', MPNetForQuestionAnswering],
