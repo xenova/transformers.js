@@ -1981,6 +1981,60 @@ export class BartForSequenceClassification extends BartPretrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// MBart models
+export class MBartPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare MBART Model outputting raw hidden-states without any specific head on top.
+ */
+export class MBartModel extends MBartPreTrainedModel { }
+
+/**
+ * The MBART Model with a language modeling head. Can be used for summarization, after fine-tuning the pretrained models.
+ */
+export class MBartForConditionalGeneration extends MBartPreTrainedModel {
+
+    /**
+     * Creates a new instance of the `MBartForConditionalGeneration` class.
+     * @param {Object} config The configuration object for the Bart model.
+     * @param {Object} session The ONNX session used to execute the model.
+     * @param {Object} decoder_merged_session The ONNX session used to execute the decoder.
+     * @param {Object} generation_config The generation configuration object.
+     */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+    }
+
+}
+
+/**
+ * MBart model with a sequence classification/head on top (a linear layer on top of the pooled output).
+ */
+export class MBartForSequenceClassification extends MBartPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Roberta models
 export class RobertaPreTrainedModel extends PreTrainedModel { }
 export class RobertaModel extends RobertaPreTrainedModel { }
@@ -3328,6 +3382,7 @@ const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
     ['t5', T5Model],
     ['mt5', MT5Model],
     ['bart', BartModel],
+    ['mbart', MBartModel],
     ['marian', MarianModel],
     ['whisper', WhisperModel],
     ['m2m_100', M2M100Model],
@@ -3358,6 +3413,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['xlm', XLMForSequenceClassification],
     ['xlm-roberta', XLMRobertaForSequenceClassification],
     ['bart', BartForSequenceClassification],
+    ['mbart', MBartForSequenceClassification],
     ['mobilebert', MobileBertForSequenceClassification],
     ['squeezebert', SqueezeBertForSequenceClassification],
 ]);
@@ -3378,6 +3434,7 @@ const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
     ['t5', T5ForConditionalGeneration],
     ['mt5', MT5ForConditionalGeneration],
     ['bart', BartForConditionalGeneration],
+    ['mbart', MBartForConditionalGeneration],
     ['whisper', WhisperForConditionalGeneration],
     ['marian', MarianMTModel],
     ['m2m_100', M2M100ForConditionalGeneration],
