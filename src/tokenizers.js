@@ -102,6 +102,24 @@ function clean_up_tokenization(text) {
 }
 
 /**
+ * Helper function to remove accents from a string.
+ * @param {string} text The text to remove accents from.
+ * @returns {string} The text with accents removed.
+ */
+function remove_accents(text) {
+    return text.replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Helper function to lowercase a string and remove accents.
+ * @param {string} text The text to lowercase and remove accents from.
+ * @returns {string} The lowercased text with accents removed.
+ */
+function lowercase_and_remove_accent(text) {
+    return remove_accents(text.toLowerCase());
+}
+
+/**
  * Helper function to fuse consecutive values in an array equal to the specified value.
  * @param {Array} arr The input array
  * @param {any} value The value to fuse on.
@@ -896,7 +914,7 @@ class StripAccents extends Normalizer {
      * @returns {string} The normalized text without accents.
      */
     normalize(text) {
-        text = text.replace(/[\u0300-\u036f]/g, '');
+        text = remove_accents(text);
         return text;
     }
 }
@@ -2137,6 +2155,7 @@ export class PreTrainedTokenizer extends Callable {
         this.remove_space = tokenizerConfig.remove_space;
 
         this.clean_up_tokenization_spaces = tokenizerConfig.clean_up_tokenization_spaces ?? true;
+        this.do_lowercase_and_remove_accent = tokenizerConfig.do_lowercase_and_remove_accent ?? false;
 
         // TODO allow user to change this
         this.padding_side = 'right';
@@ -2393,6 +2412,9 @@ export class PreTrainedTokenizer extends Callable {
                 if (this.remove_space === true) {
                     x = x.trim().split(/\s+/).join(' ');
                 }
+                if (this.do_lowercase_and_remove_accent) {
+                    x = lowercase_and_remove_accent(x);
+                }
 
                 if (this.normalizer !== null) {
                     x = this.normalizer(x);
@@ -2586,6 +2608,17 @@ export class HerbertTokenizer extends PreTrainedTokenizer {
 }
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
 export class CamembertTokenizer extends PreTrainedTokenizer { }
+export class XLMTokenizer extends PreTrainedTokenizer {
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+        console.warn('WARNING: `XLMTokenizer` is not yet supported by Hugging Face\'s "fast" tokenizers library. Therefore, you may experience slightly inaccurate results.')
+    }
+
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
@@ -3692,6 +3725,7 @@ export class AutoTokenizer {
         DebertaV2Tokenizer,
         BertTokenizer,
         HerbertTokenizer,
+        XLMTokenizer,
         MobileBertTokenizer,
         SqueezeBertTokenizer,
         AlbertTokenizer,
