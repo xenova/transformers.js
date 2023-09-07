@@ -82,6 +82,15 @@ function createPattern(pattern, invert = true) {
 }
 
 /**
+ * Helper function to convert an Object to a Map
+ * @param {Object} obj The object to convert.
+ * @returns {Map<string, any>} The map.
+ */
+function objectToMap(obj) {
+    return new Map(Object.entries(obj));
+}
+
+/**
  * Clean up a list of simple English tokenization artifacts like spaces before punctuations and abbreviated forms
  * @param {string} text The text to clean up.
  * @returns {string} The cleaned up text.
@@ -262,7 +271,7 @@ export class TokenizerModel extends Callable {
 class WordPieceTokenizer extends TokenizerModel {
     /**
      * @param {Object} config The configuration object.
-     * @param {Map<string, number>} config.vocab A mapping of tokens to ids.
+     * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token string.
      * @param {string} config.continuing_subword_prefix The prefix to use for continuing subwords.
      */
@@ -272,7 +281,7 @@ class WordPieceTokenizer extends TokenizerModel {
          * A mapping of tokens to ids.
          * @type {Map<string, number>}
          */
-        this.tokens_to_ids = config.vocab;
+        this.tokens_to_ids = objectToMap(config.vocab);
 
         /**
          * The id of the unknown token.
@@ -358,20 +367,20 @@ class Unigram extends TokenizerModel {
      * Create a new Unigram tokenizer model.
      * @param {Object} config The configuration object for the Unigram model.
      * @param {number} config.unk_id The ID of the unknown token
-     * @param {Map<string, number>} config.vocab A mapping of tokens to scores.
+     * @param {any[][]} config.vocab A 2D array representing a mapping of tokens to scores.
      * @param {Object} moreConfig Additional configuration object for the Unigram model.
      */
     constructor(config, moreConfig) {
         super(config);
 
-        this.vocab = new Array(config.vocab.size);
-        this.scores = new Array(config.vocab.size);
-        let count = 0;
-        config.vocab.forEach((value, key) => {
-            this.vocab[count] = key;
-            this.scores[count] = value;
-            ++count;
-        });
+        const vocabSize = config.vocab.length;
+        this.vocab = new Array(vocabSize);
+        this.scores = new Array(vocabSize);
+        for (let i = 0; i < vocabSize; ++i) {
+            const piece = config.vocab[i];
+            this.vocab[i] = piece[0];
+            this.scores[i] = piece[1];
+        }
 
         this.unk_token_id = config.unk_id;
         this.unk_token = this.vocab[config.unk_id];
@@ -504,7 +513,7 @@ class BPE extends TokenizerModel {
     /**
      * Create a BPE instance.
      * @param {Object} config The configuration object for BPE.
-     * @param {Map<string, number>} config.vocab A mapping of tokens to ids.
+     * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
      * @param {Array} config.merges An array of BPE merges as strings.
@@ -514,7 +523,8 @@ class BPE extends TokenizerModel {
 
         this.BPE_SPLIT_TOKEN = ' ';
 
-        this.tokens_to_ids = config.vocab;
+        /** @type {Map<string, number>} */
+        this.tokens_to_ids = objectToMap(config.vocab);
 
         this.unk_token_id = this.tokens_to_ids.get(config.unk_token);
         this.unk_token = config.unk_token;
@@ -718,15 +728,18 @@ class LegacyTokenizerModel extends TokenizerModel {
     /**
      * Create a LegacyTokenizerModel instance.
      * @param {Object} config The configuration object for LegacyTokenizerModel.
-     * @param {Map<string, number>|Map<string, Map<string, number>>} config.vocab A (possibly nested) mapping of tokens to ids.
+     * @param {Object} config.vocab A (possibly nested) mapping of tokens to ids.
      * @param {Object} moreConfig Additional configuration object for the LegacyTokenizerModel model.
      */
     constructor(config, moreConfig) {
         super(config);
 
         /**@type {Map<string, number>} */
-        // @ts-ignore
-        this.tokens_to_ids = moreConfig.target_lang ? config.vocab.get(moreConfig.target_lang) : config.vocab;
+        this.tokens_to_ids = objectToMap(
+            moreConfig.target_lang
+                ? config.vocab[moreConfig.target_lang]
+                : config.vocab
+        );
 
         this.bos_token = moreConfig.bos_token;
         this.bos_token_id = this.tokens_to_ids.get(this.bos_token);
@@ -2080,20 +2093,6 @@ export class PreTrainedTokenizer extends Callable {
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
 
-        // Convert the vocabulary to a map, if it exists
-        if (tokenizerJSON.model.vocab) {
-            if (!Array.isArray(tokenizerJSON.model.vocab)) {
-                tokenizerJSON.model.vocab = Object.entries(tokenizerJSON.model.vocab);
-            }
-            tokenizerJSON.model.vocab = new Map(tokenizerJSON.model.vocab);
-
-            // Supported nested vocabularies (up to a maximum depth of 1)
-            for (const [k, v] of tokenizerJSON.model.vocab) {
-                if (typeof v === 'object') {
-                    tokenizerJSON.model.vocab.set(k, new Map(Object.entries(v)));
-                }
-            }
-        }
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
 
