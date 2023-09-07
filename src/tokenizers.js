@@ -181,7 +181,7 @@ export class TokenizerModel extends Callable {
         this.end_of_word_suffix = undefined;
 
         /** @type {boolean} Whether to fuse unknown tokens when encoding. Defaults to false. */
-        this.fuse_unk = false;
+        this.fuse_unk = this.config.fuse_unk ?? false;
     }
 
     /**
@@ -537,8 +537,6 @@ class BPE extends TokenizerModel {
 
         /** @type {Map<string, string[]>} */
         this.cache = new Map();
-
-        this.fuse_unk ??= this.config.fuse_unk;
     }
 
     /**
