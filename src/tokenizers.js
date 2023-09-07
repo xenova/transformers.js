@@ -1344,6 +1344,8 @@ class PostProcessor extends Callable {
 
             case 'RobertaProcessing':
                 return new RobertaProcessing(config);
+            case 'BertProcessing':
+                return new BertProcessing(config);
 
             default:
                 throw new Error(`Unknown PostProcessor type: ${config.type}`);
@@ -1375,9 +1377,8 @@ class PostProcessor extends Callable {
 
 /**
  * A post-processor that adds special tokens to the beginning and end of the input.
- * @extends PostProcessor
  */
-class RobertaProcessing extends PostProcessor {
+class BertProcessing extends PostProcessor {
     /**
      * @param {Object} config The configuration for the post-processor.
      * @param {string[]} config.cls The special tokens to add to the beginning of the input.
@@ -1408,6 +1409,7 @@ class RobertaProcessing extends PostProcessor {
         return tokens;
     }
 }
+class RobertaProcessing extends BertProcessing { } // NOTE: extends BertProcessing
 
 /**
  * Post processor that replaces special tokens in a template with actual tokens.
@@ -1519,6 +1521,8 @@ class Decoder extends Callable {
 
             case 'CTC':
                 return new CTCDecoder(config);
+            case 'BPEDecoder':
+                return new BPEDecoder(config);
             default:
                 throw new Error(`Unknown Decoder type: ${config.type}`);
         }
@@ -1624,6 +1628,7 @@ class FuseDecoder extends Decoder {
         return [tokens.join('')];
     }
 }
+
 
 class StripDecoder extends Decoder {
     constructor(config) {
@@ -1845,6 +1850,21 @@ class DecoderSequence extends Decoder {
     }
 
 }
+
+class BPEDecoder extends Decoder {
+    constructor(config) {
+        super(config);
+
+        this.suffix = this.config.suffix;
+    }
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        return tokens.map((token, i) => {
+            return token.replaceAll(this.suffix, (i === tokens.length - 1) ? '' : ' ')
+        });
+    }
+}
+
 
 /**
  * This PreTokenizer replaces spaces with the given replacement character, adds a prefix space if requested,
@@ -2553,6 +2573,12 @@ export class DebertaTokenizer extends PreTrainedTokenizer {
     }
 }
 export class DebertaV2Tokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
+export class HerbertTokenizer extends PreTrainedTokenizer {
     /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
@@ -3665,6 +3691,7 @@ export class AutoTokenizer {
         DebertaTokenizer,
         DebertaV2Tokenizer,
         BertTokenizer,
+        HerbertTokenizer,
         MobileBertTokenizer,
         SqueezeBertTokenizer,
         AlbertTokenizer,
