@@ -1,0 +1,2 @@
+transformers[torch]@git+https://github.com/huggingface/transformers
+sacremoses==0.0.53
