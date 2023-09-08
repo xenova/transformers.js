@@ -82,6 +82,15 @@ function createPattern(pattern, invert = true) {
 }
 
 /**
+ * Helper function to convert an Object to a Map
+ * @param {Object} obj The object to convert.
+ * @returns {Map<string, any>} The map.
+ */
+function objectToMap(obj) {
+    return new Map(Object.entries(obj));
+}
+
+/**
  * Clean up a list of simple English tokenization artifacts like spaces before punctuations and abbreviated forms
  * @param {string} text The text to clean up.
  * @returns {string} The cleaned up text.
@@ -99,6 +108,24 @@ function clean_up_tokenization(text) {
         .replace(/ \'s/g, "'s")
         .replace(/ \'ve/g, "'ve")
         .replace(/ \'re/g, "'re");
+}
+
+/**
+ * Helper function to remove accents from a string.
+ * @param {string} text The text to remove accents from.
+ * @returns {string} The text with accents removed.
+ */
+function remove_accents(text) {
+    return text.replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Helper function to lowercase a string and remove accents.
+ * @param {string} text The text to lowercase and remove accents from.
+ * @returns {string} The lowercased text with accents removed.
+ */
+function lowercase_and_remove_accent(text) {
+    return remove_accents(text.toLowerCase());
 }
 
 /**
@@ -163,7 +190,7 @@ export class TokenizerModel extends Callable {
         this.end_of_word_suffix = undefined;
 
         /** @type {boolean} Whether to fuse unknown tokens when encoding. Defaults to false. */
-        this.fuse_unk = false;
+        this.fuse_unk = this.config.fuse_unk ?? false;
     }
 
     /**
@@ -182,8 +209,7 @@ export class TokenizerModel extends Callable {
                 return new Unigram(config, ...args);
 
             case 'BPE':
-                // @ts-ignore
-                return new BPE(config, ...args);
+                return new BPE(config);
 
             default:
                 if (config.vocab) {
@@ -245,7 +271,7 @@ export class TokenizerModel extends Callable {
 class WordPieceTokenizer extends TokenizerModel {
     /**
      * @param {Object} config The configuration object.
-     * @param {Map<string, number>} config.vocab A mapping of tokens to ids.
+     * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token string.
      * @param {string} config.continuing_subword_prefix The prefix to use for continuing subwords.
      */
@@ -255,7 +281,7 @@ class WordPieceTokenizer extends TokenizerModel {
          * A mapping of tokens to ids.
          * @type {Map<string, number>}
          */
-        this.tokens_to_ids = config.vocab;
+        this.tokens_to_ids = objectToMap(config.vocab);
 
         /**
          * The id of the unknown token.
@@ -341,20 +367,20 @@ class Unigram extends TokenizerModel {
      * Create a new Unigram tokenizer model.
      * @param {Object} config The configuration object for the Unigram model.
      * @param {number} config.unk_id The ID of the unknown token
-     * @param {Map<string, number>} config.vocab A mapping of tokens to scores.
+     * @param {any[][]} config.vocab A 2D array representing a mapping of tokens to scores.
      * @param {Object} moreConfig Additional configuration object for the Unigram model.
      */
     constructor(config, moreConfig) {
         super(config);
 
-        this.vocab = new Array(config.vocab.size);
-        this.scores = new Array(config.vocab.size);
-        let count = 0;
-        config.vocab.forEach((value, key) => {
-            this.vocab[count] = key;
-            this.scores[count] = value;
-            ++count;
-        });
+        const vocabSize = config.vocab.length;
+        this.vocab = new Array(vocabSize);
+        this.scores = new Array(vocabSize);
+        for (let i = 0; i < vocabSize; ++i) {
+            const piece = config.vocab[i];
+            this.vocab[i] = piece[0];
+            this.scores[i] = piece[1];
+        }
 
         this.unk_token_id = config.unk_id;
         this.unk_token = this.vocab[config.unk_id];
@@ -487,7 +513,7 @@ class BPE extends TokenizerModel {
     /**
      * Create a BPE instance.
      * @param {Object} config The configuration object for BPE.
-     * @param {Map<string, number>} config.vocab A mapping of tokens to ids.
+     * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
      * @param {Array} config.merges An array of BPE merges as strings.
@@ -497,7 +523,8 @@ class BPE extends TokenizerModel {
 
         this.BPE_SPLIT_TOKEN = ' ';
 
-        this.tokens_to_ids = config.vocab;
+        /** @type {Map<string, number>} */
+        this.tokens_to_ids = objectToMap(config.vocab);
 
         this.unk_token_id = this.tokens_to_ids.get(config.unk_token);
         this.unk_token = config.unk_token;
@@ -520,8 +547,6 @@ class BPE extends TokenizerModel {
 
         /** @type {Map<string, string[]>} */
         this.cache = new Map();
-
-        this.fuse_unk ??= this.config.fuse_unk;
     }
 
     /**
@@ -703,15 +728,18 @@ class LegacyTokenizerModel extends TokenizerModel {
     /**
      * Create a LegacyTokenizerModel instance.
      * @param {Object} config The configuration object for LegacyTokenizerModel.
-     * @param {Map<string, number>|Map<string, Map<string, number>>} config.vocab A (possibly nested) mapping of tokens to ids.
+     * @param {Object} config.vocab A (possibly nested) mapping of tokens to ids.
      * @param {Object} moreConfig Additional configuration object for the LegacyTokenizerModel model.
      */
     constructor(config, moreConfig) {
         super(config);
 
         /**@type {Map<string, number>} */
-        // @ts-ignore
-        this.tokens_to_ids = moreConfig.target_lang ? config.vocab.get(moreConfig.target_lang) : config.vocab;
+        this.tokens_to_ids = objectToMap(
+            moreConfig.target_lang
+                ? config.vocab[moreConfig.target_lang]
+                : config.vocab
+        );
 
         this.bos_token = moreConfig.bos_token;
         this.bos_token_id = this.tokens_to_ids.get(this.bos_token);
@@ -897,7 +925,7 @@ class StripAccents extends Normalizer {
      * @returns {string} The normalized text without accents.
      */
     normalize(text) {
-        text = text.replace(/[\u0300-\u036f]/g, '');
+        text = remove_accents(text);
         return text;
     }
 }
@@ -1345,6 +1373,8 @@ class PostProcessor extends Callable {
 
             case 'RobertaProcessing':
                 return new RobertaProcessing(config);
+            case 'BertProcessing':
+                return new BertProcessing(config);
 
             default:
                 throw new Error(`Unknown PostProcessor type: ${config.type}`);
@@ -1376,9 +1406,8 @@ class PostProcessor extends Callable {
 
 /**
  * A post-processor that adds special tokens to the beginning and end of the input.
- * @extends PostProcessor
  */
-class RobertaProcessing extends PostProcessor {
+class BertProcessing extends PostProcessor {
     /**
      * @param {Object} config The configuration for the post-processor.
      * @param {string[]} config.cls The special tokens to add to the beginning of the input.
@@ -1409,6 +1438,7 @@ class RobertaProcessing extends PostProcessor {
         return tokens;
     }
 }
+class RobertaProcessing extends BertProcessing { } // NOTE: extends BertProcessing
 
 /**
  * Post processor that replaces special tokens in a template with actual tokens.
@@ -1520,6 +1550,8 @@ class Decoder extends Callable {
 
             case 'CTC':
                 return new CTCDecoder(config);
+            case 'BPEDecoder':
+                return new BPEDecoder(config);
             default:
                 throw new Error(`Unknown Decoder type: ${config.type}`);
         }
@@ -1625,6 +1657,7 @@ class FuseDecoder extends Decoder {
         return [tokens.join('')];
     }
 }
+
 
 class StripDecoder extends Decoder {
     constructor(config) {
@@ -1847,6 +1880,21 @@ class DecoderSequence extends Decoder {
 
 }
 
+class BPEDecoder extends Decoder {
+    constructor(config) {
+        super(config);
+
+        this.suffix = this.config.suffix;
+    }
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        return tokens.map((token, i) => {
+            return token.replaceAll(this.suffix, (i === tokens.length - 1) ? '' : ' ')
+        });
+    }
+}
+
+
 /**
  * This PreTokenizer replaces spaces with the given replacement character, adds a prefix space if requested,
  * and returns a list of tokens.
@@ -2045,20 +2093,6 @@ export class PreTrainedTokenizer extends Callable {
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
 
-        // Convert the vocabulary to a map, if it exists
-        if (tokenizerJSON.model.vocab) {
-            if (!Array.isArray(tokenizerJSON.model.vocab)) {
-                tokenizerJSON.model.vocab = Object.entries(tokenizerJSON.model.vocab);
-            }
-            tokenizerJSON.model.vocab = new Map(tokenizerJSON.model.vocab);
-
-            // Supported nested vocabularies (up to a maximum depth of 1)
-            for (const [k, v] of tokenizerJSON.model.vocab) {
-                if (typeof v === 'object') {
-                    tokenizerJSON.model.vocab.set(k, new Map(Object.entries(v)));
-                }
-            }
-        }
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
 
@@ -2118,6 +2152,7 @@ export class PreTrainedTokenizer extends Callable {
         this.remove_space = tokenizerConfig.remove_space;
 
         this.clean_up_tokenization_spaces = tokenizerConfig.clean_up_tokenization_spaces ?? true;
+        this.do_lowercase_and_remove_accent = tokenizerConfig.do_lowercase_and_remove_accent ?? false;
 
         // TODO allow user to change this
         this.padding_side = 'right';
@@ -2374,6 +2409,9 @@ export class PreTrainedTokenizer extends Callable {
                 if (this.remove_space === true) {
                     x = x.trim().split(/\s+/).join(' ');
                 }
+                if (this.do_lowercase_and_remove_accent) {
+                    x = lowercase_and_remove_accent(x);
+                }
 
                 if (this.normalizer !== null) {
                     x = this.normalizer(x);
@@ -2559,11 +2597,51 @@ export class DebertaV2Tokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
+export class HerbertTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
+export class CamembertTokenizer extends PreTrainedTokenizer { }
+export class XLMTokenizer extends PreTrainedTokenizer {
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+        console.warn('WARNING: `XLMTokenizer` is not yet supported by Hugging Face\'s "fast" tokenizers library. Therefore, you may experience slightly inaccurate results.')
+    }
+
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
+export class MBartTokenizer extends PreTrainedTokenizer {
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+
+        this.languageRegex = /^[a-z]{2}_[A-Z]{2}$/;
+        this.language_codes = this.special_tokens.filter(x => this.languageRegex.test(x));
+        this.lang_to_token = x => x; // Identity function
+    }
+
+    /**
+     * Helper function to build translation inputs for an `MBartTokenizer`.
+     * @param {string|string[]} raw_inputs The text to tokenize.
+     * @param {Object} tokenizer_options Options to be sent to the tokenizer
+     * @param {Object} generate_kwargs Generation options.
+     * @returns {Object} Object to be passed to the model.
+     */
+    _build_translation_inputs(raw_inputs, tokenizer_options, generate_kwargs) {
+        return _build_translation_inputs(this, raw_inputs, tokenizer_options, generate_kwargs);
+    }
+}
+export class MBart50Tokenizer extends MBartTokenizer { } // NOTE: extends MBartTokenizer
+
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
 export class BloomTokenizer extends PreTrainedTokenizer {
@@ -2579,6 +2657,7 @@ export class BloomTokenizer extends PreTrainedTokenizer {
     }
 }
 export class LlamaTokenizer extends PreTrainedTokenizer { }
+export class CodeLlamaTokenizer extends PreTrainedTokenizer { }
 
 export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
 export class MPNetTokenizer extends PreTrainedTokenizer { }
@@ -3636,33 +3715,39 @@ export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
  */
 export class AutoTokenizer {
     static TOKENIZER_CLASS_MAPPING = {
-        'T5Tokenizer': T5Tokenizer,
-        'DistilBertTokenizer': DistilBertTokenizer,
-        'DebertaTokenizer': DebertaTokenizer,
-        'DebertaV2Tokenizer': DebertaV2Tokenizer,
-        'BertTokenizer': BertTokenizer,
-        'MobileBertTokenizer': MobileBertTokenizer,
-        'SqueezeBertTokenizer': SqueezeBertTokenizer,
-        'AlbertTokenizer': AlbertTokenizer,
-        'GPT2Tokenizer': GPT2Tokenizer,
-        'BartTokenizer': BartTokenizer,
-        'RobertaTokenizer': RobertaTokenizer,
-        'WhisperTokenizer': WhisperTokenizer,
-        'CodeGenTokenizer': CodeGenTokenizer,
-        'CLIPTokenizer': CLIPTokenizer,
-        'MarianTokenizer': MarianTokenizer,
-        'BloomTokenizer': BloomTokenizer,
-        'NllbTokenizer': NllbTokenizer,
-        'M2M100Tokenizer': M2M100Tokenizer,
-        'LlamaTokenizer': LlamaTokenizer,
-        'XLMRobertaTokenizer': XLMRobertaTokenizer,
-        'MPNetTokenizer': MPNetTokenizer,
-        'FalconTokenizer': FalconTokenizer,
-        'GPTNeoXTokenizer': GPTNeoXTokenizer,
-        'Wav2Vec2CTCTokenizer': Wav2Vec2CTCTokenizer,
+        T5Tokenizer,
+        DistilBertTokenizer,
+        CamembertTokenizer,
+        DebertaTokenizer,
+        DebertaV2Tokenizer,
+        BertTokenizer,
+        HerbertTokenizer,
+        XLMTokenizer,
+        MobileBertTokenizer,
+        SqueezeBertTokenizer,
+        AlbertTokenizer,
+        GPT2Tokenizer,
+        BartTokenizer,
+        MBartTokenizer,
+        MBart50Tokenizer,
+        RobertaTokenizer,
+        WhisperTokenizer,
+        CodeGenTokenizer,
+        CLIPTokenizer,
+        MarianTokenizer,
+        BloomTokenizer,
+        NllbTokenizer,
+        M2M100Tokenizer,
+        LlamaTokenizer,
+        CodeLlamaTokenizer,
+        XLMRobertaTokenizer,
+        MPNetTokenizer,
+        FalconTokenizer,
+        GPTNeoXTokenizer,
+        Wav2Vec2CTCTokenizer,
 
         // Base case:
-        'PreTrainedTokenizer': PreTrainedTokenizer,
+        PreTrainedTokenizer,
     }
 
 

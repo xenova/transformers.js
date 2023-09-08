@@ -109,10 +109,10 @@ export class Pipeline extends Callable {
     /**
      * Executes the task associated with the pipeline.
      * @param {any} texts The input texts to be processed.
-     * @param {...any} unused Only used to fix Liskov Substitution Principle errors.
+     * @param {...any} args Additional arguments.
      * @returns {Promise<any>} A promise that resolves to an array containing the inputs and outputs of the task.
      */
-    async _call(texts, ...unused) {
+    async _call(texts, ...args) {
         // Run tokenization
         let model_inputs = this.tokenizer(texts, {
             padding: true,
@@ -600,6 +600,19 @@ export class SummarizationPipeline extends Text2TextGenerationPipeline {
  * // [{ translation_text: 'Life is like a box of chocolate.' }]
  * ```
  * 
+ * **Example:** Multilingual translation w/ `Xenova/mbart-large-50-many-to-many-mmt`.
+ * 
+ * See [here](https://huggingface.co/facebook/mbart-large-50-many-to-many-mmt#languages-covered)
+ * for the full list of languages and their corresponding codes.
+ * 
+ * ```javascript
+ * let translator = await pipeline('translation', 'Xenova/mbart-large-50-many-to-many-mmt');
+ * let output = await translator('संयुक्त राष्ट्र के प्रमुख का कहना है कि सीरिया में कोई सैन्य समाधान नहीं है', {
+ *   src_lang: 'hi_IN', // Hindi
+ *   tgt_lang: 'fr_XX', // French
+ * });
+ * // [{ translation_text: 'Le chef des Nations affirme qu 'il n 'y a military solution in Syria.' }]
+ * ```
  */
 export class TranslationPipeline extends Text2TextGenerationPipeline {
     _key = 'translation_text';
