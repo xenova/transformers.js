@@ -448,6 +448,7 @@ SUPPORTED_MODELS = {
         'openai/whisper-large-v2',
 
         # TODO: add these models
+        # https://github.com/huggingface/transformers/issues/26043
         # 'NbAiLab/nb-whisper-tiny-beta',
         # 'NbAiLab/nb-whisper-base-beta',
         # 'NbAiLab/nb-whisper-small-beta',
