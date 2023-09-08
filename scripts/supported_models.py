@@ -211,6 +211,7 @@ SUPPORTED_MODELS = {
         # Text generation
         'EleutherAI/gpt-neo-125M',
         'MBZUAI/LaMini-Neo-125M',
+        'iliemihai/gpt-neo-romanian-125m',
     ],
     'gpt_neox': [
         # Text generation
@@ -242,14 +243,6 @@ SUPPORTED_MODELS = {
         'TabbyML/J-350M',
         'Milos/slovak-gpt-j-405M',
         'heegyu/kogpt-j-350m',
-    ],
-    'gpt-neo': [
-        # Text generation
-        'iliemihai/gpt-neo-romanian-125m',
-    ],
-    'gpt-neox': [
-        # Text generation
-        'rinna/japanese-gpt-neox-small',
     ],
     'herbert': [
         # Feature extraction
