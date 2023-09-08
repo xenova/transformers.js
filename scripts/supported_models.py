@@ -439,14 +439,11 @@ SUPPORTED_MODELS = {
         'openai/whisper-medium.en',
         'openai/whisper-large',
         'openai/whisper-large-v2',
-
-        # TODO: add these models
-        # https://github.com/huggingface/transformers/issues/26043
-        # 'NbAiLab/nb-whisper-tiny-beta',
-        # 'NbAiLab/nb-whisper-base-beta',
-        # 'NbAiLab/nb-whisper-small-beta',
-        # 'NbAiLab/nb-whisper-medium-beta',
-        # 'NbAiLab/nb-whisper-large-beta',
+        'NbAiLab/nb-whisper-tiny-beta',
+        'NbAiLab/nb-whisper-base-beta',
+        'NbAiLab/nb-whisper-small-beta',
+        'NbAiLab/nb-whisper-medium-beta',
+        'NbAiLab/nb-whisper-large-beta',
     ],
     'xlm': [
         'xlm-clm-ende-1024',

@@ -128,6 +128,12 @@ def generate_tokenizer_tests():
                 # means the model does not use a tokenizer (e.g., vision models)
                 continue
 
+            try:
+                # Disable dropout, if the model allows it
+                tokenizer.backend_tokenizer.model.dropout = 0
+            except AttributeError:
+                pass
+
             tokenizer_results = []
 
             shared_texts = TOKENIZER_TEST_DATA["shared"]
