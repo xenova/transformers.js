@@ -30,7 +30,7 @@ import { Buffer } from 'buffer';
 import { ONNX } from './backends/onnx.js';
 const { env: onnx_env } = ONNX;
 
-const VERSION = '2.5.3';
+const VERSION = '2.5.4';
 
 // Check if various APIs are available (depends on environment)
 const IS_REACT_NATIVE = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';

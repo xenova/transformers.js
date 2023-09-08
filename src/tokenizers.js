@@ -2570,7 +2570,18 @@ export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
-export class BloomTokenizer extends PreTrainedTokenizer { }
+export class BloomTokenizer extends PreTrainedTokenizer {
+    constructor(tokenizerJSON, tokenizerConfig) {
+        // Override the default (invalid) regex of the pretokenizer.
+        // For more information, see https://github.com/xenova/transformers.js/issues/94
+        const splitChars = '.,!?\u2026\u3002\uff0c\u3001\u0964\u06d4\u060c';
+        const patternObject = tokenizerJSON.pre_tokenizer?.pretokenizers[0]?.pattern;
+        if (patternObject && patternObject.Regex === ` ?[^(\\s|[${splitChars}])]+`) {
+            patternObject.Regex = ` ?[^\\s${splitChars}]+`;
+        }
+        super(tokenizerJSON, tokenizerConfig);
+    }
+}
 export class LlamaTokenizer extends PreTrainedTokenizer { }
 
 export class XLMRobertaTokenizer extends PreTrainedTokenizer { }

@@ -473,7 +473,7 @@ async function decoderForward(self, model_inputs) {
     let decoderFeeds = {
         input_ids: input_ids,
         attention_mask: attention_mask ?? prepareAttentionMask(self, input_ids),
-        use_cache_branch: boolTensor(past_key_values !== null)
+        use_cache_branch: boolTensor(!!past_key_values)
     }
 
     self.addPastKeyValues(decoderFeeds, past_key_values);
@@ -1188,6 +1188,17 @@ export class PreTrainedModel extends Callable {
                     // @ts-ignore
                     for (let i = 0; i < this.num_layers; ++i) {
                         decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
+                    }
+                } else if (this.config.model_type === 'bloom') {
+                    // Custom implementation for Bloom
+                    // @ts-ignore
+                    let keyDims = [1 * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
+                    // @ts-ignore
+                    let valueDims = [1 * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
+                    // @ts-ignore
+                    for (let i = 0; i < this.num_layers; ++i) {
+                        decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
+                        decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], valueDims)
                     }
                 } else {
                     // @ts-ignore
@@ -2671,6 +2682,9 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel {
 // TODO
 // }
 //////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// GPTNeo models
 export class GPTNeoPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `GPTNeoPreTrainedModel` class.
@@ -2995,9 +3009,180 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// Bloom models
+/**
+ * The Bloom Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
+ */
+export class BloomPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `BloomPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_head
+        this.num_layers = this.config.n_layer
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+
+/**
+ * The bare Bloom Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class BloomModel extends BloomPreTrainedModel {
+
+    /**
+     * BloomModel is not compatible with `.generate()`, as it doesn't have a language model head.
+     * @param  {...any} args 
+     * @throws {Error}
+     * @returns {Promise<any>}
+     */
+    async generate(...args) {
+        throw Error(
+            "The current model class (BloomModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'BloomForCausalLM'}"
+        )
+    }
+}
+
+/**
+ * The Bloom Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
+ */
+export class BloomForCausalLM extends BloomPreTrainedModel {
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
+     */
+    async runBeam(beam) {
+        return await decoderRunBeam(this, beam);
+    }
+
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
+     */
+    updateBeam(beam, newTokenId) {
+        return decoderUpdatebeam(beam, newTokenId);
+    }
+
+    /**
+     * Forward pass for the model.
+     * @param {Object} model_inputs The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
+    async forward(model_inputs) {
+        return await decoderForward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// MPT models
+export class MptPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `MptPreTrainedModel` class.
+     * @param {Object} config The model configuration object.
+     * @param {Object} session The ONNX session object.
+     */
+    constructor(config, session) {
+        super(config, session);
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.n_heads
+        this.num_layers = this.config.n_layers
+        this.dim_kv = this.config.d_model / this.num_heads;
+    }
+}
+
+/**
+ * The bare Mpt Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class MptModel extends MptPreTrainedModel {
+    /**
+     * Throws an error indicating that the current model class is not compatible with `.generate()`,
+     * as it doesn't have a language model head.
+     * 
+     * @throws {Error} The current model class is not compatible with `.generate()`
+     * 
+     * @param  {...any} args Arguments passed to the generate function
+     * @returns {Promise<any>}
+     */
+    async generate(...args) {
+        throw Error(
+            "The current model class (MptModel) is not compatible with `.generate()`, as it doesn't have a language model head. Please use one of the following classes instead: {'MptForCausalLM'}"
+        )
+    }
+}
+
+/**
+ * The MPT Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
+ */
+export class MptForCausalLM extends MptPreTrainedModel {
+
+    /**
+     * Initializes and returns the beam for text generation task
+     * @param {Tensor} inputTokenIds The input token ids.
+     * @param {number} numOutputTokens The number of tokens to be generated.
+     * @param {Tensor} inputs_attention_mask Optional input attention mask.
+     * @returns {any} A Beam object representing the initialized beam.
+     */
+    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
+        return decoderStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    }
+
+    /**
+     * Runs a single step of the beam search generation algorithm.
+     * @param {any} beam The current beam being generated.
+     * @returns {Promise<any>} The updated beam after a single generation step.
+     */
+    async runBeam(beam) {
+        return await decoderRunBeam(this, beam);
+    }
+
+    /**
+     * Updates the given beam with the new generated token id.
+     * @param {any} beam The Beam object representing the beam.
+     * @param {number} newTokenId The new generated token id to be added to the beam.
+     */
+    updateBeam(beam, newTokenId) {
+        return decoderUpdatebeam(beam, newTokenId);
+    }
+
+    /**
+     * Forward pass for the model.
+     * @param {Object} model_inputs The inputs for the model.
+     * @returns {Promise<any>} The output tensor of the model.
+     */
+    async forward(model_inputs) {
+        return await decoderForward(this, model_inputs);
+    }
+}
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 export class ViTPreTrainedModel extends PreTrainedModel { }
+export class ViTModel extends ViTPreTrainedModel { }
 export class ViTForImageClassification extends ViTPreTrainedModel {
     /**
      * @param {any} model_inputs
@@ -3010,6 +3195,7 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
 
 //////////////////////////////////////////////////
 export class MobileViTPreTrainedModel extends PreTrainedModel { }
+export class MobileViTModel extends MobileViTPreTrainedModel { }
 export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
     /**
      * @param {any} model_inputs
@@ -3026,6 +3212,7 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 
 //////////////////////////////////////////////////
 export class DetrPreTrainedModel extends PreTrainedModel { }
+export class DetrModel extends DetrPreTrainedModel { }
 export class DetrForObjectDetection extends DetrPreTrainedModel {
     /**
      * @param {any} model_inputs
@@ -3072,6 +3259,60 @@ export class DetrSegmentationOutput extends ModelOutput {
         this.logits = logits;
         this.pred_boxes = pred_boxes;
         this.pred_masks = pred_masks;
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+export class DeiTPreTrainedModel extends PreTrainedModel { }
+export class DeiTModel extends DeiTPreTrainedModel { }
+export class DeiTForImageClassification extends DeiTPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class SwinPreTrainedModel extends PreTrainedModel { }
+export class SwinModel extends SwinPreTrainedModel { }
+export class SwinForImageClassification extends SwinPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class YolosPreTrainedModel extends PreTrainedModel { }
+export class YolosModel extends YolosPreTrainedModel { }
+export class YolosForObjectDetection extends YolosPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new YolosObjectDetectionOutput(await super._call(model_inputs));
+    }
+}
+
+export class YolosObjectDetectionOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Classification logits (including no-object) for all queries.
+     * @param {Tensor} output.pred_boxes Normalized boxes coordinates for all queries, represented as (center_x, center_y, width, height).
+     * These values are normalized in [0, 1], relative to the size of each individual image in the batch (disregarding possible padding).
+     */
+    constructor({ logits, pred_boxes }) {
+        super();
+        this.logits = logits;
+        this.pred_boxes = pred_boxes;
     }
 }
 //////////////////////////////////////////////////
@@ -3411,6 +3652,13 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['squeezebert', SqueezeBertModel],
     ['wav2vec2', Wav2Vec2Model],
 
+    ['detr', DetrModel],
+    ['vit', ViTModel],
+    ['mobilevit', MobileViTModel],
+    ['deit', DeiTModel],
+    ['swin', SwinModel],
+    ['yolos', YolosModel],
+
     ['sam', SamModel], // TODO change to encoder-decoder when model is split correctly
 ]);
 
@@ -3425,11 +3673,13 @@ const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
 
 
 const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
+    ['bloom', BloomModel],
     ['gpt2', GPT2Model],
     ['gpt_bigcode', GPTBigCodeModel],
     ['gpt_neo', GPTNeoModel],
     ['codegen', CodeGenModel],
     ['llama', LlamaModel],
+    ['mpt', MptModel],
 ]);
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
@@ -3466,11 +3716,13 @@ const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
 ]);
 
 const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
+    ['bloom', BloomForCausalLM],
     ['gpt2', GPT2LMHeadModel],
     ['gpt_bigcode', GPTBigCodeForCausalLM],
     ['gpt_neo', GPTNeoForCausalLM],
     ['codegen', CodeGenForCausalLM],
     ['llama', LlamaForCausalLM],
+    ['mpt', MptForCausalLM],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
@@ -3506,10 +3758,13 @@ const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ViTForImageClassification],
     ['mobilevit', MobileViTForImageClassification],
+    ['deit', DeiTForImageClassification],
+    ['swin', SwinForImageClassification],
 ]);
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['detr', DetrForObjectDetection],
+    ['yolos', YolosForObjectDetection],
 ]);
 
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([

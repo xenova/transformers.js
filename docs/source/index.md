@@ -20,7 +20,7 @@
 The documentation is organized into 4 sections:
 1. **GET STARTED** provides a quick tour of the library and installation instructions to get up and running.
 2. **TUTORIALS** are a great place to start if you're a beginner! We also include sample applications for you to play around with!
-3. **HOW-TO GUIDES** show you how to use the library to achieve a specific goal.
+3. **DEVELOPER GUIDES** show you how to use the library to achieve a specific goal.
 4. **API REFERENCE** describes all classes and functions, as well as their available parameters and types.
 
 ## Supported tasks/models
