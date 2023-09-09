@@ -98,12 +98,12 @@ SUPPORTED_MODELS = {
         'emilyalsentzer/Bio_ClinicalBERT',
     ],
     # 'blenderbot': [
-    #     # Text generation (TODO add conversational)
+    #     # Text2text generation (TODO add conversational)
     #     'facebook/blenderbot-400M-distill',
     #     'facebook/blenderbot-1B-distill',
     # ],
     # 'blenderbot-small': [
-    #     # Text generation (TODO add conversational)
+    #     # Text2text generation (TODO add conversational)
     #     'facebook/blenderbot-90M', # DEPRECATED
     #     'facebook/blenderbot_small-90M',
     # ],
@@ -211,6 +211,7 @@ SUPPORTED_MODELS = {
         # Text generation
         'EleutherAI/gpt-neo-125M',
         'MBZUAI/LaMini-Neo-125M',
+        # 'MBZUAI/LaMini-Neo-1.3B', # TODO add
         'iliemihai/gpt-neo-romanian-125m',
     ],
     'gpt_neox': [
@@ -228,9 +229,15 @@ SUPPORTED_MODELS = {
         # Text generation
         'gpt2',
         'distilgpt2',
+        'MBZUAI/LaMini-Cerebras-111M',
         'MBZUAI/LaMini-Cerebras-256M',
         'MBZUAI/LaMini-Cerebras-590M',
+        # 'MBZUAI/LaMini-Cerebras-1.3B', # TODO add
         'MBZUAI/LaMini-GPT-124M',
+        'MBZUAI/LaMini-GPT-774M',
+        # 'MBZUAI/LaMini-GPT-1.5B', # TODO add
+        'aisquared/dlite-v2-774m',
+        'Locutusque/gpt2-large-conversational',
     ],
     'gpt_bigcode': [
         # Text generation
