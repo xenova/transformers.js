@@ -1229,19 +1229,18 @@ class ByteLevelPreTokenizer extends PreTokenizer {
      * @returns {string[]} An array of tokens.
      */
     pre_tokenize_text(text) {
+        // Add a leading space if the option is enabled
+        if (this.add_prefix_space && !text.startsWith(' ')) {
+            text = ' ' + text;
+        }
+
         // Split on whitespace and punctuation
         let tokens = this.use_regex ? (text.match(this.pattern) || []) : [text];
 
-        return tokens.map(token => {
-            if (this.add_prefix_space && !token.startsWith(' ')) {
-                token = ' ' + token;
-            }
-
-            // Maps all our bytes to unicode strings, avoiding control tokens of the BPE (spaces in our case)
-            token = Array.from(this.text_encoder.encode(token), byte => this.byte_encoder[byte]).join('');
-
-            return token;
-        });
+        // Maps all our bytes to unicode strings, avoiding control tokens of the BPE (spaces in our case)
+        return tokens.map(
+            token => Array.from(this.text_encoder.encode(token), byte => this.byte_encoder[byte]).join('')
+        );
     }
 }
 
