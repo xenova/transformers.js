@@ -2033,6 +2033,45 @@ export class MBartForSequenceClassification extends MBartPreTrainedModel {
 
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// Blenderbot models
+export class BlenderbotPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare Blenderbot Model outputting raw hidden-states without any specific head on top.
+ */
+export class BlenderbotModel extends BlenderbotPreTrainedModel { }
+
+/**
+ * The Blenderbot Model with a language modeling head. Can be used for summarization.
+ */
+export class BlenderbotForConditionalGeneration extends BlenderbotPreTrainedModel {
+
+    /**
+     * Creates a new instance of the `BlenderbotForConditionalGeneration` class.
+     * @param {any} config The model configuration.
+     * @param {any} session The ONNX session containing the encoder weights.
+     * @param {any} decoder_merged_session The ONNX session containing the merged decoder weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+    }
+}
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // Roberta models
 export class RobertaPreTrainedModel extends PreTrainedModel { }
@@ -3417,6 +3456,7 @@ const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
     ['marian', MarianModel],
     ['whisper', WhisperModel],
     ['m2m_100', M2M100Model],
+    ['blenderbot', BlenderbotModel],
 ]);
 
 
@@ -3470,6 +3510,7 @@ const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
     ['whisper', WhisperForConditionalGeneration],
     ['marian', MarianMTModel],
     ['m2m_100', M2M100ForConditionalGeneration],
+    ['blenderbot', BlenderbotForConditionalGeneration],
 ]);
 
 const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
