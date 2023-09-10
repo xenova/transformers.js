@@ -1,6 +1,6 @@
 # Building a JavaScript Application
 
-In this tutorial, you’ll build a browser-based JavaScript application that detects objects in images using Transformers.js. The app requires no server, external libraries, or build tools. All you need is a code editor and a browser.
+In this tutorial, you’ll build a simple JavaScript application that detects objects in images using Transformers.js. The app requires no server, external libraries, or build tools... all you need is a code editor and a browser!
 
 Here's how it works: the user uploads an image to the browser via the “Upload image” button. The app then downloads an AI model, runs the image through it, and finally displays an overview of where the different objects are located, like this:
 
