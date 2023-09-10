@@ -35,7 +35,7 @@ async function runModel(imageEl) {
 
 function renderBox(data, imageEl) {
     const { box, label} = data;
-    const {xmax, xmin, ymax, ymin } = getScaledCoordinates(box, imageEl);
+    const { xmax, xmin, ymax, ymin } = getScaledCoordinates(box, imageEl);
     const color = generateRandomColor();
 
     // Calculate the width and height of the bounding box
