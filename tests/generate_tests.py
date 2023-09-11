@@ -63,6 +63,13 @@ TOKENIZER_TEST_DATA = {
         "weird \uFF5E edge \uFF5E case",
     ],
     "custom": {
+        "facebook/blenderbot_small-90M": [
+            # Test special tokens
+            "__start__hello world__end__",
+            # The original (python) tokenizer simply joins by spaces (regardless of special tokens or not)
+            "__start__ hey __end__" # --> ... --> "__start__ hey __end__"
+            "__start__hey __end__" # --> ... --> "__start__ hey __end__"
+        ],
         "tiiuae/falcon-7b": [
             "12 and 123 and 1234",  # Special case for splitting on 3 numbers
         ],
