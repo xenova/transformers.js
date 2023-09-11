@@ -44,10 +44,4 @@ function getScaledCoordinates(box, img) {
 }
 
 
-// Removes all the elements with a given class from the DOM
-function removeElements(className) {
-    const HTMLcollection = document.getElementsByClassName(className);
-    Array.from(HTMLcollection).forEach(element => element.remove());
-}
-
-export { generateRandomColor, removeElements, getScaledCoordinates }
+export { generateRandomColor, getScaledCoordinates }

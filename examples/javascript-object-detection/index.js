@@ -3,7 +3,7 @@ import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers
 // Since we will be download the model from the Hugging Face model hub, we can skip the local model check
 env.allowLocalModels = false;
 
-import { generateRandomColor, removeElements, getScaledCoordinates } from './utils.js'
+import { generateRandomColor, getScaledCoordinates } from './utils.js'
 
 const statusParagraph = document.getElementById("status");
 const fileUploadElement = document.getElementById('file-upload');
@@ -22,8 +22,10 @@ fileUploadElement.addEventListener('change', function (e) {
 });
 
 function onFileReaderLoad(e) {
-    removeElements("bounding-box-label");
-    removeElements("bounding-box");
+    // Remove all the bounding boxes and labels from the previous image
+    document.querySelectorAll('.bounding-box-label, .bounding-box')
+        .forEach(element => element.remove());
+
     const base64String = e.target.result;
     const imageEl = document.createElement('img');
     imageEl.src = base64String;
