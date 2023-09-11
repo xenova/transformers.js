@@ -1,16 +1,27 @@
-html, body {
-    margin: 20px;
-    font-family:Arial, Helvetica, sans-serif;
+html,
+body {
+    font-family: Arial, Helvetica, sans-serif;
 }
 
 .container {
-    margin: 0 auto;
-    width: 400px;
+    margin: 40px auto;
+    width: max(50vw, 400px);
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
+
+.custom-file-upload {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    gap: 10px;
+}
+
+#file-upload {
+    display: none;
+}
 
 .upload-button {
     border: 2px solid black;
@@ -20,32 +31,32 @@ html, body {
     align-items: center;
 }
 
-input[type="file"] {
-    display: none;
-}
-
 .upload-icon {
     width: 30px;
-    margin-right: 10px;
 }
 
 #image-container {
+    width: 100%;
     margin-top: 20px;
     position: relative;
 }
 
-#image-container img {
-    width: 400px;
+#image-container>img {
+    width: 100%;
 }
-  
+
 .bounding-box {
     position: absolute;
     box-sizing: border-box;
+    border-width: 2px;
+    border-style: solid;
 }
-  
+
 .bounding-box-label {
-    position: absolute;
     color: white;
+    position: absolute;
     font-size: 12px;
+    margin-top: -16px;
+    margin-left: -2px;
+    padding: 1px;
 }
-  
