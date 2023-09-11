@@ -9,6 +9,11 @@ const statusParagraph = document.getElementById("status");
 const fileUploadElement = document.getElementById('file-upload');
 const imageContainer = document.getElementById("image-container");
 
+// Start loading the model on page load
+statusParagraph.textContent = "Loading model...";
+const detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
+statusParagraph.textContent = "Ready";
+
 fileUploadElement.addEventListener('change', function (e) {
     const file = e.target.files[0];
     const fr = new FileReader();
@@ -27,8 +32,6 @@ function onFileReaderLoad(e) {
 };
 
 async function runModel(imageEl) {
-    statusParagraph.textContent = "Loading model...";
-    const detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
     statusParagraph.textContent = "Analysing ...";
     const output = await detector(imageEl.src, { threshold: 0.5 });
     statusParagraph.textContent = "";
