@@ -516,6 +516,7 @@ class BPE extends TokenizerModel {
      * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
+     * @param {string} [config.continuing_subword_suffix] The suffix to insert between words.
      * @param {Array} config.merges An array of BPE merges as strings.
      */
     constructor(config) {
@@ -538,6 +539,9 @@ class BPE extends TokenizerModel {
         this.merges = config.merges.map(x => x.split(this.BPE_SPLIT_TOKEN));
 
         this.end_of_word_suffix = config.end_of_word_suffix;
+
+        // NOTE: `continuing_subword_suffix` is custom (to support `BlenderbotSmallTokenizer`)
+        this.continuing_subword_suffix = config.continuing_subword_suffix ?? null;
 
         this.byte_fallback = this.config.byte_fallback ?? false;
 
@@ -663,6 +667,14 @@ class BPE extends TokenizerModel {
             }
         } else {
             result = word;
+        }
+
+        // Possibly append suffix
+        if (this.continuing_subword_suffix) {
+            // Do not append suffix to the last token
+            for (let i = 0; i < result.length - 1; ++i) {
+                result[i] += this.continuing_subword_suffix;
+            }
         }
 
         // Save the result to the cache
@@ -1116,6 +1128,8 @@ class PreTokenizer extends Callable {
                 return new PunctuationPreTokenizer(config);
             case 'Digits':
                 return new DigitsPreTokenizer(config);
+            case 'Replace':
+                return new ReplacePreTokenizer(config);
             default:
                 throw new Error(`Unknown PreTokenizer type: ${config.type}`);
         }
@@ -2078,6 +2092,34 @@ class WhitespaceSplit extends PreTokenizer {
         return whitespace_split(text);
     }
 }
+
+// NOTE: `ReplacePreTokenizer` is custom (to support `BlenderbotSmallTokenizer`)
+class ReplacePreTokenizer extends PreTokenizer {
+    /**
+     * @param {Object} config The configuration options for the pre-tokenizer.
+     * @param {Object} config.pattern The pattern used to split the text. Can be a string or a regex object.
+     * @param {string} config.content What to replace the pattern with.
+     */
+    constructor(config) {
+        super();
+        this.config = config;
+        this.pattern = createPattern(this.config.pattern);
+        this.content = this.config.content;
+    }
+
+    /**
+     * Pre-tokenizes the input text by replacing certain characters.
+     * @param {string} text The text to be pre-tokenized.
+     * @returns {string[]} An array of tokens produced by replacing certain characters.
+     */
+    pre_tokenize_text(text) {
+        if (this.pattern === null) {
+            return [text];
+        }
+        return [text.replaceAll(this.pattern, this.config.content)];
+    }
+}
+
 
 export class PreTrainedTokenizer extends Callable {
     /**
@@ -3706,7 +3748,7 @@ export class MarianTokenizer extends PreTrainedTokenizer {
 export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
 
 export class BlenderbotTokenizer extends PreTrainedTokenizer { }
-// export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
+export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
 
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
@@ -3748,6 +3790,7 @@ export class AutoTokenizer {
         GPTNeoXTokenizer,
         Wav2Vec2CTCTokenizer,
         BlenderbotTokenizer,
+        BlenderbotSmallTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
