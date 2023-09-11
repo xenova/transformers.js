@@ -5,7 +5,7 @@ const statusParagraph = document.getElementById("status");
 const fileUploadElement = document.getElementById('file-upload');
 const imageContainer = document.getElementById("image-container");
 
-fileUploadElement.addEventListener('change', function(e) {
+fileUploadElement.addEventListener('change', function (e) {
     const file = e.target.files[0];
     const fr = new FileReader();
     fr.onload = onFileReaderLoad;
@@ -34,7 +34,7 @@ async function runModel(imageEl) {
 }
 
 function renderBox(data, imageEl) {
-    const { box, label} = data;
+    const { box, label } = data;
     const { xmax, xmin, ymax, ymin } = getScaledCoordinates(box, imageEl);
     const color = generateRandomColor();
 

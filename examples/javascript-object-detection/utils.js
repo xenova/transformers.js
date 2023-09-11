@@ -1,11 +1,11 @@
 
-// Returns a radom hex color code, i.e. #CD5C5C
-function generateRandomColor(){
+// Returns a random hex color code, e.g., #CD5A6F
+function generateRandomColor() {
     let maxVal = 0xFFFFFF;
-    let randomNumber = Math.random() * maxVal; 
+    let randomNumber = Math.random() * maxVal;
     randomNumber = Math.floor(randomNumber);
     randomNumber = randomNumber.toString(16);
-    let randColor = randomNumber.padStart(6, 0);   
+    let randColor = randomNumber.padStart(6, 0);
     return `#${randColor.toUpperCase()}`;
 }
 
@@ -27,14 +27,14 @@ function getScaledCoordinates(box, img) {
     let xmax = box.xmax * scale;
     let ymin = box.ymin * scale;
     let xmin = box.xmin * scale;
-    
+
     // Make sure the minimum values are are at least 0 and the maximum values
     // are less than the width/height of the image
     ymin = Math.max(0, box.ymin * scale);
-    xmin = Math.max(0, box.xmin * scale); 
+    xmin = Math.max(0, box.xmin * scale);
     ymax = Math.min(scaledHeight, ymax);
     xmax = Math.min(scaledWidth, xmax);
-    
+
     return {
         ymin,
         xmin,
