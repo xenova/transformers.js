@@ -1,6 +1,10 @@
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.3';
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0';
+
+// Since we will be download the model from the Hugging Face model hub, we can skip the local model check
 env.allowLocalModels = false;
+
 import { generateRandomColor, removeElements, getScaledCoordinates } from './utils.js'
+
 const statusParagraph = document.getElementById("status");
 const fileUploadElement = document.getElementById('file-upload');
 const imageContainer = document.getElementById("image-container");
