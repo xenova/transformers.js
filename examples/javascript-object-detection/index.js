@@ -15,30 +15,27 @@ statusParagraph.textContent = 'Ready';
 fileUploadElement.addEventListener('change', function (e) {
     const file = e.target.files[0];
     const fr = new FileReader();
-    fr.onload = onFileReaderLoad;
+    fr.onload = (e) => {
+        imageContainer.innerHTML = '';
+        const image = document.createElement('img');
+        image.src = e.target.result;
+        imageContainer.appendChild(image);
+        runModel(image);
+    };
     fr.readAsDataURL(file);
 });
-
-function onFileReaderLoad(e) {
-    imageContainer.innerHTML = '';
-    const image = document.createElement('img');
-    image.src = e.target.result;
-    imageContainer.appendChild(image);
-    runModel(image);
-};
 
 async function runModel(img) {
     statusParagraph.textContent = 'Analysing...';
     const output = await detector(img.src, {
         threshold: 0.5,
-        percentage: true, // Return in range [0, 1]
+        percentage: true,
     });
     statusParagraph.textContent = '';
     output.forEach(renderBox)
 }
 
-function renderBox(data) {
-    const { box, label } = data;
+function renderBox({ box, label }) {
     const { xmax, xmin, ymax, ymin } = box;
 
     // Generate a random color for the box
