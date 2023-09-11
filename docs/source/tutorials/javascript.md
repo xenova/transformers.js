@@ -1,4 +1,4 @@
-# Building a JavaScript Application
+# Building a Vanilla JavaScript Application
 
 In this tutorial, you’ll build a simple JavaScript application that detects objects in images using Transformers.js. The app requires no server, external libraries, or build tools... all you need is a code editor and a browser!
 
