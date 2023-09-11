@@ -40,22 +40,22 @@ const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 
-let __dirname = './';
+let localPath = './';
 if (IS_REACT_NATIVE) {
-    __dirname = fs.DocumentDirectoryPath;
+    localPath = fs.DocumentDirectoryPath;
 } else if (RUNNING_LOCALLY) {
-    __dirname = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
+    localPath = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
 }
 
 // Only used for environments with access to file system
 const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
-    ? path.join(__dirname, '/.cache/')
+    ? path.join(localPath, '/.cache/')
     : null;
 
 // Set local model path, based on available APIs
 const DEFAULT_LOCAL_MODEL_PATH = '/models/';
 const localModelPath = RUNNING_LOCALLY
-    ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
+    ? path.join(localPath, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
 // Set path to wasm files. This is needed when running in a web worker.
@@ -63,7 +63,7 @@ const localModelPath = RUNNING_LOCALLY
 // We use remote wasm files by default to make it easier for newer users.
 // In practice, users should probably self-host the necessary .wasm files.
 onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
-    ? path.join(__dirname, '/dist/')
+    ? path.join(localPath, '/dist/')
     : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
 
 
@@ -100,7 +100,7 @@ export const env = {
         Uint8Array: IS_REACT_NATIVE ? Buffer : Uint8Array,
     },
 
-    __dirname,
+    __dirname: localPath,
     version: VERSION,
 
     /////////////////// Model settings ///////////////////
