@@ -170,6 +170,8 @@ bert-base-uncased/
     └── model_quantized.onnx
 ```
 
+For the full list of supported architectures, see the [Optimum documentation](https://huggingface.co/docs/optimum/main/en/exporters/onnx/overview).
+
 
 ## Supported tasks/models
 
