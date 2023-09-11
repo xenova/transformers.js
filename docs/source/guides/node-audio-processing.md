@@ -19,8 +19,8 @@ This tutorial will be written as an ES module, but you can easily adapt it to us
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/en/) version 16+
-- [npm](https://www.npmjs.com/) version 7+
+- [Node.js](https://nodejs.org/en/) version 18+
+- [npm](https://www.npmjs.com/) version 9+
 
 
 

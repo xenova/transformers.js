@@ -12,8 +12,8 @@ Useful links:
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/en/) version 14.18+ or 16+
-- [npm](https://www.npmjs.com/) version 7+
+- [Node.js](https://nodejs.org/en/) version 18+
+- [npm](https://www.npmjs.com/) version 9+
 
 
 ## Step 1: Initialise the project
