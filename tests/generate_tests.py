@@ -100,12 +100,19 @@ TOKENIZER_TEST_DATA = {
 }
 
 
+FLATTENED_SUPPORTED_MODELS = [
+    (model_type, [
+        model for task_models in tasks.values() for model in task_models
+    ]) for model_type, tasks in SUPPORTED_MODELS.items()
+]
+
+
 def generate_tokenizer_tests():
 
     results = {}
 
-    tokenizers_to_test = list(SUPPORTED_MODELS.items()) + \
-        list(ADDITIONAL_TOKENIZERS_TO_TEST.items())
+    tokenizers_to_test = FLATTENED_SUPPORTED_MODELS
+    tokenizers_to_test += list(ADDITIONAL_TOKENIZERS_TO_TEST.items())
 
     for model_type, tokenizer_names in tokenizers_to_test:
         if model_type in MODELS_TO_IGNORE:
@@ -169,7 +176,7 @@ def generate_tokenizer_tests():
 
 def generate_config_tests():
     results = {}
-    for model_type, config_names in SUPPORTED_MODELS.items():
+    for model_type, config_names in FLATTENED_SUPPORTED_MODELS:
         print(f'Generating tests for {model_type}')
 
         for config_name in config_names:
