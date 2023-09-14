@@ -42,14 +42,10 @@ import {
 } from './utils/data-structures.js';
 
 /**
- * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
- */
-
-/**
  * Loads a tokenizer from the specified path.
  * @param {string} pretrained_model_name_or_path The path to the tokenizer directory.
- * @param {PretrainedOptions} options Additional options for loading the tokenizer.
- * @returns {Promise<Array>} A promise that resolves with information about the loaded tokenizer.
+ * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
+ * @returns {Promise<any[]>} A promise that resolves with information about the loaded tokenizer.
  */
 async function loadTokenizer(pretrained_model_name_or_path, options) {
 
@@ -2186,7 +2182,7 @@ export class PreTrainedTokenizer extends Callable {
      * Loads a pre-trained tokenizer from the given `pretrained_model_name_or_path`. 
      * 
      * @param {string} pretrained_model_name_or_path The path to the pre-trained tokenizer.
-     * @param {PretrainedOptions} options Additional options for loading the tokenizer.
+     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
      * 
      * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the `pretrained_model_name_or_path`.
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the `PreTrainedTokenizer` class.
@@ -3761,7 +3757,7 @@ export class AutoTokenizer {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing tokenizer files, e.g., `./my_model_directory/`.
-     * @param {PretrainedOptions} options Additional options for loading the tokenizer.
+     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
      * 
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */

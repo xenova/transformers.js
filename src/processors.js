@@ -1335,9 +1335,6 @@ export class Wav2Vec2ProcessorWithLM extends Processor {
 
 //////////////////////////////////////////////////
 /**
- * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
- */
-/**
  * Helper class which is used to instantiate pretrained processors with the `from_pretrained` function.
  * The chosen processor class is determined by the type specified in the processor config.
  * 
@@ -1399,7 +1396,7 @@ export class AutoProcessor {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
-     * @param {PretrainedOptions} options Additional options for loading the processor.
+     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the processor.
      * 
      * @returns {Promise<Processor>} A new instance of the Processor class.
      */

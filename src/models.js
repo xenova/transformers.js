@@ -81,11 +81,6 @@ import { executionProviders, ONNX } from './backends/onnx.js';
 import { medianFilter, round } from './transformers.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
-/**
- * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
- */
-
-
 //////////////////////////////////////////////////
 // Model types: used internally
 const MODEL_TYPES = {
@@ -111,7 +106,7 @@ const MODEL_TYPE_MAPPING = new Map([
  * Constructs an InferenceSession using a model file located at the specified path.
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
  * @param {string} fileName The name of the model file.
- * @param {PretrainedOptions} options Additional options for loading the model.
+ * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the model.
  * @returns {Promise<InferenceSession>} A Promise that resolves to an InferenceSession object.
  * @private
  */
@@ -647,7 +642,7 @@ export class PreTrainedModel extends Callable {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing model weights, e.g., `./my_model_directory/`.
-     * @param {PretrainedOptions} options Additional options for loading the model.
+     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the model.
      * 
      * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */

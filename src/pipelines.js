@@ -1978,10 +1978,6 @@ const TASK_ALIASES = {
 }
 
 /**
- * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
- */
-
-/**
  * Utility factory method to build a [`Pipeline`] object.
  *
  * @param {string} task The task defining which pipeline will be returned. Currently accepted tasks are:
@@ -2004,7 +2000,7 @@ const TASK_ALIASES = {
  *  - `"zero-shot-classification"`: will return a `ZeroShotClassificationPipeline`.
  *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
- * @param {PretrainedOptions} [options] Optional parameters for the pipeline.
+ * @param {import('./utils/hub.js').PretrainedOptions} [options] Optional parameters for the pipeline.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
  */
@@ -2071,7 +2067,7 @@ export async function pipeline(
  * Helper function to get applicable model, tokenizer, or processor classes for a given model.
  * @param {Map<string, any>} mapping The mapping of names to classes, arrays of classes, or null.
  * @param {string} model The name of the model to load.
- * @param {PretrainedOptions} pretrainedOptions The options to pass to the `from_pretrained` method.
+ * @param {import('./utils/hub.js').PretrainedOptions} pretrainedOptions The options to pass to the `from_pretrained` method.
  * @private
  */
 async function loadItems(mapping, model, pretrainedOptions) {
