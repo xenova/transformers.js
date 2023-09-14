@@ -1279,15 +1279,20 @@ export class Processor extends Callable {
     /**
      * Calls the feature_extractor function with the given input.
      * @param {any} input The input to extract features from.
+     * @param {...any} unused Only used to fix Liskov Substitution Principle errors.
      * @returns {Promise<any>} A Promise that resolves with the extracted features.
      */
-    async _call(input) {
+    async _call(input, ...unused) {
         return await this.feature_extractor(input);
     }
 }
 
 export class SamProcessor extends Processor {
-
+    /**
+     * @param {*} images 
+     * @param {*} input_points 
+     * @returns {Promise<any>}
+     */
     async _call(images, input_points) {
         return await this.feature_extractor(images, input_points);
     }
