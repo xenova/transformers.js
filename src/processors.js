@@ -121,6 +121,12 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
 }
 
 /**
+ * Named tuple to indicate the order we are using is (height x width), even though
+ * the Graphics’ industry standard is (width x height).
+ * @typedef {[height: number, width: number]} HeightWidth
+ */
+
+/**
  * Base class for feature extractors.
  *
  * @extends Callable
@@ -180,10 +186,17 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
+     * @typedef {object} PreprocessedImage
+     * @property {HeightWidth} original_size
+     * @property {HeightWidth} reshaped_input_size
+     * @property {Tensor} pixel_values
+     */
+
+    /**
      * Preprocesses the given image.
      *
      * @param {RawImage} image The image to preprocess.
-     * @returns {Promise<any>} The preprocessed image as a Tensor.
+     * @returns {Promise<PreprocessedImage>} The preprocessed image as a Tensor.
      */
     async preprocess(image) {
 
@@ -269,6 +282,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             image = await image.center_crop(crop_width, crop_height);
         }
 
+        /** @type {HeightWidth} */
         let reshaped_input_size = [image.height, image.width];
 
         // TODO is it okay to pad before rescaling/normalizing?
