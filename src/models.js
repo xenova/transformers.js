@@ -571,7 +571,6 @@ function decoderUpdatebeam(beam, newTokenId) {
 //////////////////////////////////////////////////
 /**
  * A base class for pre-trained models that provides the model configuration and an ONNX session.
- * @extends Callable
  */
 export class PreTrainedModel extends Callable {
     main_input_name = 'input_ids';
@@ -1299,7 +1298,6 @@ export class BertModel extends BertPreTrainedModel { }
 
 /**
  * BertForMaskedLM is a class representing a BERT model for masked language modeling.
- * @extends BertPreTrainedModel
  */
 export class BertForMaskedLM extends BertPreTrainedModel {
     /**
@@ -1315,7 +1313,6 @@ export class BertForMaskedLM extends BertPreTrainedModel {
 
 /**
  * BertForSequenceClassification is a class representing a BERT model for sequence classification.
- * @extends BertPreTrainedModel
  */
 export class BertForSequenceClassification extends BertPreTrainedModel {
     /**
@@ -1331,7 +1328,6 @@ export class BertForSequenceClassification extends BertPreTrainedModel {
 
 /**
  * BertForTokenClassification is a class representing a BERT model for token classification.
- * @extends BertPreTrainedModel
  */
 export class BertForTokenClassification extends BertPreTrainedModel {
     /**
@@ -1347,7 +1343,6 @@ export class BertForTokenClassification extends BertPreTrainedModel {
 
 /**
  * BertForQuestionAnswering is a class representing a BERT model for question answering.
- * @extends BertPreTrainedModel
  */
 export class BertForQuestionAnswering extends BertPreTrainedModel {
     /**
@@ -1581,7 +1576,6 @@ export class DistilBertModel extends DistilBertPreTrainedModel { }
 
 /**
  * DistilBertForSequenceClassification is a class representing a DistilBERT model for sequence classification.
- * @extends DistilBertPreTrainedModel
  */
 export class DistilBertForSequenceClassification extends DistilBertPreTrainedModel {
     /**
@@ -1597,7 +1591,6 @@ export class DistilBertForSequenceClassification extends DistilBertPreTrainedMod
 
 /**
  * DistilBertForTokenClassification is a class representing a DistilBERT model for token classification.
- * @extends DistilBertPreTrainedModel
  */
 export class DistilBertForTokenClassification extends DistilBertPreTrainedModel {
     /**
@@ -1614,7 +1607,6 @@ export class DistilBertForTokenClassification extends DistilBertPreTrainedModel 
 
 /**
  * DistilBertForQuestionAnswering is a class representing a DistilBERT model for question answering.
- * @extends DistilBertPreTrainedModel
  */
 export class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
     /**
@@ -1630,7 +1622,6 @@ export class DistilBertForQuestionAnswering extends DistilBertPreTrainedModel {
 
 /**
  * DistilBertForMaskedLM is a class representing a DistilBERT model for masking task.
- * @extends DistilBertPreTrainedModel
  */
 export class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
     /**
@@ -1653,7 +1644,6 @@ export class MobileBertModel extends MobileBertPreTrainedModel { }
 
 /**
  * MobileBertForMaskedLM is a class representing a MobileBERT model for masking task.
- * @extends MobileBertPreTrainedModel
  */
 export class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
     /**
@@ -1668,7 +1658,7 @@ export class MobileBertForMaskedLM extends MobileBertPreTrainedModel {
 }
 
 /**
- * @extends MobileBertPreTrainedModel
+ * MobileBert Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
  */
 export class MobileBertForSequenceClassification extends MobileBertPreTrainedModel {
     /**
@@ -1683,7 +1673,7 @@ export class MobileBertForSequenceClassification extends MobileBertPreTrainedMod
 }
 
 /**
- * @extends MobileBertPreTrainedModel
+ * MobileBert Model with a span classification head on top for extractive question-answering tasks
  */
 export class MobileBertForQuestionAnswering extends MobileBertPreTrainedModel {
     /**
@@ -1704,13 +1694,11 @@ export class MPNetPreTrainedModel extends PreTrainedModel { }
 
 /**
  * The bare MPNet Model transformer outputting raw hidden-states without any specific head on top.
- * @extends MPNetPreTrainedModel
  */
 export class MPNetModel extends MPNetPreTrainedModel { }
 
 /**
  * MPNetForMaskedLM is a class representing a MPNet model for masked language modeling.
- * @extends MPNetPreTrainedModel
  */
 export class MPNetForMaskedLM extends MPNetPreTrainedModel {
     /**
@@ -1726,7 +1714,6 @@ export class MPNetForMaskedLM extends MPNetPreTrainedModel {
 
 /**
  * MPNetForSequenceClassification is a class representing a MPNet model for sequence classification.
- * @extends MPNetPreTrainedModel
  */
 export class MPNetForSequenceClassification extends MPNetPreTrainedModel {
     /**
@@ -1742,7 +1729,6 @@ export class MPNetForSequenceClassification extends MPNetPreTrainedModel {
 
 /**
  * MPNetForTokenClassification is a class representing a MPNet model for token classification.
- * @extends MPNetPreTrainedModel
  */
 export class MPNetForTokenClassification extends MPNetPreTrainedModel {
     /**
@@ -1758,7 +1744,6 @@ export class MPNetForTokenClassification extends MPNetPreTrainedModel {
 
 /**
  * MPNetForQuestionAnswering is a class representing a MPNet model for question answering.
- * @extends MPNetPreTrainedModel
  */
 export class MPNetForQuestionAnswering extends MPNetPreTrainedModel {
     /**
@@ -1862,7 +1847,6 @@ export class T5Model extends T5PreTrainedModel { }
 
 /**
  * T5Model is a class representing a T5 model for conditional generation.
- * @extends T5PreTrainedModel
  */
 export class T5ForConditionalGeneration extends T5PreTrainedModel {
 
@@ -1897,8 +1881,6 @@ export class MT5Model extends MT5PreTrainedModel { }
 
 /**
  * A class representing a conditional sequence-to-sequence model based on the MT5 architecture.
- *
- * @extends MT5PreTrainedModel
  */
 export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
 
@@ -1930,15 +1912,12 @@ export class MT5ForConditionalGeneration extends MT5PreTrainedModel {
 export class BartPretrainedModel extends PreTrainedModel { };
 
 /**
- * BART encoder and decoder model.
- * 
- * @extends BartPretrainedModel
+ * The bare BART Model outputting raw hidden-states without any specific head on top.
  */
 export class BartModel extends BartPretrainedModel { }
 
 /**
- * BART model with a language model head for conditional generation.
- * @extends BartPretrainedModel
+ * The BART Model with a language modeling head. Can be used for summarization.
  */
 export class BartForConditionalGeneration extends BartPretrainedModel {
 
@@ -1965,6 +1944,9 @@ export class BartForConditionalGeneration extends BartPretrainedModel {
 
 }
 
+/**
+ * Bart model with a sequence classification/head on top (a linear layer on top of the pooled output)
+ */
 export class BartForSequenceClassification extends BartPretrainedModel {
     /**
      * Calls the model on new inputs.
@@ -2040,7 +2022,6 @@ export class RobertaModel extends RobertaPreTrainedModel { }
 
 /**
  * RobertaForMaskedLM class for performing masked language modeling on Roberta models.
- * @extends RobertaPreTrainedModel
  */
 export class RobertaForMaskedLM extends RobertaPreTrainedModel {
     /**
@@ -2056,7 +2037,6 @@ export class RobertaForMaskedLM extends RobertaPreTrainedModel {
 
 /**
  * RobertaForSequenceClassification class for performing sequence classification on Roberta models.
- * @extends RobertaPreTrainedModel
  */
 export class RobertaForSequenceClassification extends RobertaPreTrainedModel {
     /**
@@ -2072,7 +2052,6 @@ export class RobertaForSequenceClassification extends RobertaPreTrainedModel {
 
 /**
  * RobertaForTokenClassification class for performing token classification on Roberta models.
- * @extends RobertaPreTrainedModel
  */
 export class RobertaForTokenClassification extends RobertaPreTrainedModel {
     /**
@@ -2088,7 +2067,6 @@ export class RobertaForTokenClassification extends RobertaPreTrainedModel {
 
 /**
  * RobertaForQuestionAnswering class for performing question answering on Roberta models.
- * @extends RobertaPreTrainedModel
  */
 export class RobertaForQuestionAnswering extends RobertaPreTrainedModel {
     /**
@@ -2184,7 +2162,6 @@ export class XLMRobertaModel extends XLMRobertaPreTrainedModel { }
 
 /**
  * XLMRobertaForMaskedLM class for performing masked language modeling on XLMRoberta models.
- * @extends XLMRobertaPreTrainedModel
  */
 export class XLMRobertaForMaskedLM extends XLMRobertaPreTrainedModel {
     /**
@@ -2200,7 +2177,6 @@ export class XLMRobertaForMaskedLM extends XLMRobertaPreTrainedModel {
 
 /**
  * XLMRobertaForSequenceClassification class for performing sequence classification on XLMRoberta models.
- * @extends XLMRobertaPreTrainedModel
  */
 export class XLMRobertaForSequenceClassification extends XLMRobertaPreTrainedModel {
     /**
@@ -2216,7 +2192,6 @@ export class XLMRobertaForSequenceClassification extends XLMRobertaPreTrainedMod
 
 /**
  * XLMRobertaForTokenClassification class for performing token classification on XLMRoberta models.
- * @extends XLMRobertaPreTrainedModel
  */
 export class XLMRobertaForTokenClassification extends XLMRobertaPreTrainedModel {
     /**
@@ -2232,7 +2207,6 @@ export class XLMRobertaForTokenClassification extends XLMRobertaPreTrainedModel 
 
 /**
  * XLMRobertaForQuestionAnswering class for performing question answering on XLMRoberta models.
- * @extends XLMRobertaPreTrainedModel
  */
 export class XLMRobertaForQuestionAnswering extends XLMRobertaPreTrainedModel {
     /**
@@ -2248,18 +2222,16 @@ export class XLMRobertaForQuestionAnswering extends XLMRobertaPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// T5 models
+// Whisper models
 export class WhisperPreTrainedModel extends PreTrainedModel { };
 
 /**
  * WhisperModel class for training Whisper models without a language model head.
- * @extends WhisperPreTrainedModel
  */
 export class WhisperModel extends WhisperPreTrainedModel { }
 
 /**
  * WhisperForConditionalGeneration class for generating conditional outputs from Whisper models.
- * @extends WhisperPreTrainedModel
  */
 export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
@@ -2465,7 +2437,6 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 //////////////////////////////////////////////////
 /**
  * Vision Encoder-Decoder model based on OpenAI's GPT architecture for image captioning and other vision tasks
- * @extends PreTrainedModel
  */
 export class VisionEncoderDecoderModel extends PreTrainedModel {
     main_input_name = 'pixel_values';
@@ -2634,7 +2605,6 @@ export class GPT2Model extends GPT2PreTrainedModel { }
 
 /**
  * GPT-2 language model head on top of the GPT-2 base model. This model is suitable for text generation tasks.
- * @extends GPT2PreTrainedModel
  */
 export class GPT2LMHeadModel extends GPT2PreTrainedModel { }
 // export class GPT2ForSequenceClassification extends GPT2PreTrainedModel {
@@ -2763,14 +2733,11 @@ export class CodeGenPreTrainedModel extends PreTrainedModel {
 }
 /**
  * CodeGenModel is a class representing a code generation model without a language model head.
- * 
- * @extends CodeGenPreTrainedModel
  */
 export class CodeGenModel extends CodeGenPreTrainedModel { }
 
 /**
  * CodeGenForCausalLM is a class that represents a code generation model based on the GPT-2 architecture. It extends the `CodeGenPreTrainedModel` class.
- * @extends CodeGenPreTrainedModel
  */
 export class CodeGenForCausalLM extends CodeGenPreTrainedModel { }
 //////////////////////////////////////////////////
