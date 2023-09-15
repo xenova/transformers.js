@@ -14,7 +14,7 @@ Useful links:
 
 ## Step 1:  HTML and CSS setup
 
-The first thing we'll do is create some markup and styling. Create an in `index.html` file with a basic HTML skeleton, and add the following `<main>` tag to the `<body>`:
+Before we start building with Transformers.js, we first need to lay the groundwork with some markup and styling. Create an `index.html` file with a basic HTML skeleton, and add the following `<main>` tag to the `<body>`:
 
 ```html
 <main class="container">
@@ -28,11 +28,15 @@ The first thing we'll do is create some markup and styling. Create an in `index.
 </main>
 ```
 
-Let’s break it down:
+<details>
 
-We’re adding an `<input>` element with `type="file"`. This gives the user the ability to pick an image from their local files. The default styling for this element looks pretty bad, so we are going to style it as a nice button instead. The easiest way to achieve this is to wrap the `<input>` element in a `<label>`, hide the input, and then style the label as a button.
+<summary>Click here to see a breakdown of this markup.</summary>
 
-We’re also adding an empty `<div>` container for displaying the image, plus an empty `<p>` tag that we'll use to give status updates to the user as we're downloading and running the model, as both of these operations take some time.
+We’re adding an `<input>` element with `type="file"` that accepts images. This allows the user to select an image from their local file system using a popup dialog. The default styling for this element looks quite bad, so let's add some styling. The easiest way to achieve this is to wrap the `<input>` element in a `<label>`, hide the input, and then style the label as a button.
+
+We’re also adding an empty `<div>` container for displaying the image, plus an empty `<p>` tag that we'll use to give status updates to the user while we download and run the model, since both of these operations take some time.
+
+</details>
 
 Next, add the following CSS rules in a `style.css` file and and link it to the HTML:
 
@@ -83,27 +87,34 @@ body {
 If you drag and drop the `index.html` file into a browser, you should see the following:
 
 ![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-btn.png)
+
 ## Step 2: JavaScript setup
 
-The next step is to link our HTML file to a script. Add the following tag at the end of the `<body>` in the HTML file:
+With the *boring* part out of the way, let's start writing some JavaScript code! Create a file called `index.js` and link to it in `index.html` by adding the following to the end of the `<body>`:
 
 ```html
 <script src="./index.js" type="module"></script>
 ```
 
-The `type="module"` attribute is important, as it turns our file into a JavaScript module, meaning that we’ll be able to use imports and exports. This immediately comes in handy, as we’ll import the Transformers.js library from their CDN at the top of our `index.js` file:
+<Tip>
+
+The `type="module"` attribute is important, as it turns our file into a [JavaScript module](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules), meaning that we’ll be able to use imports and exports.
+
+</Tip>
+
+Moving into `index.js`, let's import Transformers.js by adding the following line to the top of the file:
 
 ```js
 import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0";
 ```
 
-Since we will download the model from the Hugging Face Hub, we skip checking if we have it available locally:
+Since we will be downloading the model from the Hugging Face Hub, we can skip the local model check by setting:
 
 ```js
 env.allowLocalModels = false;
 ```
 
-Next up, we’ll grab ahold of all the DOM elements we need to access via JavaScript:
+Next, let's create references to the various DOM elements we will access later:
 
 ```js
 const fileUpload = document.getElementById("file-upload");
@@ -165,7 +176,7 @@ fileUpload.addEventListener("change", function (e) {
     const image = document.createElement("img");
     image.src = e2.target.result;
     imageContainer.appendChild(image);
-    // detect(image);
+    // detect(image); // Uncomment this line to run the model
   };
   reader.readAsDataURL(file);
 });
