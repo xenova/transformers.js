@@ -2,7 +2,7 @@
 
 In this tutorial, you’ll build a simple web application that detects objects in images using Transformers.js! To follow along, all you need is a code editor and a browser (no package manager, external libraries, or other build tools).
 
-Here's how it works: the user uploads an image to the browser via the “Upload image” button. The app then downloads an object detection model, runs the image through it, and finally displays an overview of where the different objects are located, like this:
+Here's how it works: the user clicks “Upload image” and selects an image using an input dialog. After analysing the image with an object detection model, the predicted bounding boxes are overlaid on top of the image, like this:
 
 ![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-interence-zebra.png)
 
