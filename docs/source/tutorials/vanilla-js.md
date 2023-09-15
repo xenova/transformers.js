@@ -10,7 +10,7 @@ Useful links:
 
 - [Demo site](https://huggingface.co/spaces/Scrimba/javascript-object-detector)
 - [Interactive code walk-through (scrim)](https://scrimba.com/scrim/cKm9bDAg)
-- [Source code](https://huggingface.co/spaces/Scrimba/javascript-object-detector/tree/main)
+- [Source code](https://github.com/xenova/transformers.js/tree/main/examples/vanilla-js)
 
 ## Step 1:  HTML and CSS setup
 
