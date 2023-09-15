@@ -136,7 +136,7 @@ We’re passing two arguments into the `pipeline()` function. The first one tell
 
 …and many more. See a full overview [here.](https://huggingface.co/docs/transformers.js/pipelines#tasks)
 
-The second argument in the `pipeline()` function specifies which underlying model we would like to use to solve the given task, as each task can usually be solved by many different models. We will use `'Xenova/detr-resnet-50'`, as it is a reasonable small (43MB) but powerful model for object detection in images.
+The second argument in the `pipeline()` function specifies which underlying model we would like to use to solve the given task, as each task can usually be solved by many different models. We will use `'Xenova/detr-resnet-50'`, as it is a reasonably small (43MB) but powerful model for object detection in images.
 
 After we’ve awaited this function to run we’ll tell the user that the app is ready to be used.
 
