@@ -3330,14 +3330,12 @@ export class PretrainedMixin {
             throw new Error("`MODEL_CLASS_MAPPINGS` not implemented for this type of `AutoClass`: " + this.name);
         }
 
-        let modelClass;
         for (let MODEL_CLASS_MAPPING of this.MODEL_CLASS_MAPPINGS) {
-            modelClass = MODEL_CLASS_MAPPING.get(config.model_type);
-            if (!modelClass) {
+            const modelInfo = MODEL_CLASS_MAPPING.get(config.model_type);
+            if (!modelInfo) {
                 continue; // Item not found in this mapping
             }
-
-            return await modelClass.from_pretrained(pretrained_model_name_or_path, options);
+            return await modelInfo[1].from_pretrained(pretrained_model_name_or_path, options);
         }
 
         if (this.BASE_IF_FAIL) {
