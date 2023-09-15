@@ -17,18 +17,14 @@ body {
     align-items: center;
     cursor: pointer;
     gap: 10px;
+    border: 2px solid black;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 6px;
 }
 
 #file-upload {
     display: none;
-}
-
-.upload-button {
-    border: 2px solid black;
-    padding: 8px 16px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
 }
 
 .upload-icon {
