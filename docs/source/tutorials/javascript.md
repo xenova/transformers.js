@@ -58,7 +58,7 @@ body {
     border: 2px solid black;
     padding: 8px 16px;
     cursor: pointer;
-	  border-radius: 6px;
+    border-radius: 6px;
 }
 
 #file-upload {
@@ -94,10 +94,7 @@ The next step is to link our HTML file to a script. Add the following tag at the
 The `type="module"` attribute is important, as it turns our file into a JavaScript module, meaning that we’ll be able to use imports and exports. This immediately comes in handy, as we’ll import the Transformers.js library from their CDN at the top of our `index.js` file:
 
 ```js
-import {
-  pipeline,
-  env,
-} from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0";
+import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0";
 ```
 
 Since we will download the model from the Hugging Face Hub, we skip checking if we have it available locally:
