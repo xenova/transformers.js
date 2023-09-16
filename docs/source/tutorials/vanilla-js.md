@@ -122,34 +122,36 @@ const imageContainer = document.getElementById("image-container");
 const status = document.getElementById("status");
 ```
 
-## Step 3: Download the model
+## Step 3: Create an object detection pipeline
 
-We’re ready to download the model! As this can take some time, we first update the `status` paragraph so that the user knows that we’re about to run the model.
+We’re finally ready to create our object detection pipeline! As a reminder, a [pipeline](./pipelines). is a high-level interface provided by the library to perform a specific task. In our case, we will instantiate an object detection pipeline with the `pipeline()` helper function.
+
+Since this can take some time (especially the first time when we have to download the ~40MB model), we first update the `status` paragraph so that the user knows that we’re about to load the model.
 
 ```js
 status.textContent = "Loading model...";
 ```
 
-This is important to do because the UI will freeze when we’re downloading the model, as JavaScript is single-threaded and can only do one thing at a time. If you want avoid the browser from freezing, you’ll need to use a web worker to download and run the model in the background.
+<Tip>
 
-However, we’re not going to do that in this tutorial, so let’s download the model by invoking the `pipeline()` function that we imported at the top of our file.
+To keep this tutorial simple, we'll be loading and running the model in the main (UI) thread. This is not recommended for production applications, since the UI will freeze when we're performing these actions. This is because JavaScript is a single-threaded language. To overcome this, you can use a [web worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) to download and run the model in the background. However, we’re not going to do cover that in this tutorial...
+
+</Tip>
+
+
+We can now call the `pipeline()` function that we imported at the top of our file, to create our object detection pipeline:
 
 ```js
 const detector = await pipeline("object-detection", "Xenova/detr-resnet-50");
 ```
 
-We’re passing two arguments into the `pipeline()` function. The first one tells Transformers.js what kind of task we want to perform. In our case, that is `object-detection`, but there are tons of other tasks you can perform as well. Here’s a few of them.
+We’re passing two arguments into the `pipeline()` function: (1) task and (2) model.
 
-- `text-generation`
-- `sentiment-analysis`
-- `summarization`
-- `automatic-speech-recognition`
+1. The first tells Transformers.js what kind of task we want to perform. In our case, that is `object-detection`, but there are many other tasks that the library supports, including `text-generation`, `sentiment-analysis`, `summarization`, or `automatic-speech-recognition`. See [here](https://huggingface.co/docs/transformers.js/pipelines#tasks) for the full list.
 
-…and many more. See a full overview [here.](https://huggingface.co/docs/transformers.js/pipelines#tasks)
+2. The second argument specifies which model we would like to use to solve the given task. We will use [`Xenova/detr-resnet-50`](https://huggingface.co/Xenova/detr-resnet-50), as it is a relatively small (~40MB) but powerful model for detecting objects in an image.
 
-The second argument in the `pipeline()` function specifies which underlying model we would like to use to solve the given task, as each task can usually be solved by many different models. We will use `'Xenova/detr-resnet-50'`, as it is a reasonably small (43MB) but powerful model for object detection in images.
-
-After we’ve awaited this function to run we’ll tell the user that the app is ready to be used.
+Once the function returns, we’ll tell the user that the app is ready to be used.
 
 ```js
 status.textContent = "Ready";
