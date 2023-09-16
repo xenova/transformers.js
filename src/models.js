@@ -932,7 +932,7 @@ export class PreTrainedModel extends Callable {
             input_ids_seq_length = 0;
 
         } else {
-            input_ids_seq_length = inputs instanceof Tensor ? inputs.dims[0] : inputs.length;
+            input_ids_seq_length = inputs instanceof Tensor ? inputs.dims.at(-1) : inputs.length;
 
             // decoder-only
             if (input_ids_seq_length === 0) {
