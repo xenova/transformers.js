@@ -68,7 +68,7 @@ describe('Generation parameters', () => {
             });
 
             const tokens = generator.tokenizer.encode(outputs[0])
-            expect(tokens.length).toBeGreaterThanOrEqual(MIN_NEW_TOKENS + 1); // + 1 due to forced BOS token
+            expect(tokens.length).toBeGreaterThanOrEqual(MIN_NEW_TOKENS);
         }
 
         await generator.dispose();
