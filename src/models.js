@@ -64,6 +64,7 @@ import {
     WhisperTimeStampLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
     RepetitionPenaltyLogitsProcessor,
+    MinLengthLogitsProcessor,
     MinNewTokensLengthLogitsProcessor,
 
     Sampler,
@@ -783,9 +784,9 @@ export class PreTrainedModel extends Callable {
         //     processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
         // }
 
-        // if (generation_config.min_length !== null && generation_config.eos_token_id !== null && generation_config.min_length > 0) {
-        //     processors.push(new MinLengthLogitsProcessor(generation_config.min_length, generation_config.eos_token_id));
-        // }
+        if (generation_config.min_length !== null && generation_config.eos_token_id !== null && generation_config.min_length > 0) {
+            processors.push(new MinLengthLogitsProcessor(generation_config.min_length, generation_config.eos_token_id));
+        }
 
         if (generation_config.min_new_tokens !== null && generation_config.eos_token_id !== null && generation_config.min_new_tokens > 0) {
             processors.push(new MinNewTokensLengthLogitsProcessor(

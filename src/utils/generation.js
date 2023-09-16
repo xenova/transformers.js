@@ -421,6 +421,40 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
 }
 
 /**
+ * A logits processor that enforces a minimum number of tokens.
+ * 
+ * @extends LogitsProcessor
+ */
+export class MinLengthLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a MinLengthLogitsProcessor.
+     * @param {number} min_length The minimum length below which the score of `eos_token_id` is set to negative infinity.
+     * @param {number|number[]} eos_token_id The ID/IDs of the end-of-sequence token.
+     */
+    constructor(min_length, eos_token_id) {
+        super();
+        this.min_length = min_length;
+        this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
+    }
+
+    /**
+     * Apply logit processor.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
+     * @returns {Object} The processed logits.
+     */
+    _call(input_ids, logits) {
+        if (input_ids.length < this.min_length) {
+            for (const eos_token of this.eos_token_id) {
+                logits.data[eos_token] = -Infinity;
+            }
+        }
+
+        return logits
+    }
+}
+
+/**
  * A logits processor that enforces a minimum number of new tokens.
  * 
  * @extends LogitsProcessor
