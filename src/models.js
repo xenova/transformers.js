@@ -64,6 +64,7 @@ import {
     WhisperTimeStampLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
     RepetitionPenaltyLogitsProcessor,
+    MinNewTokensLengthLogitsProcessor,
 
     Sampler,
 } from './utils/generation.js';
@@ -786,13 +787,13 @@ export class PreTrainedModel extends Callable {
         //     processors.push(new MinLengthLogitsProcessor(generation_config.min_length, generation_config.eos_token_id));
         // }
 
-        // if (generation_config.min_new_tokens !== null && generation_config.eos_token_id !== null && generation_config.min_new_tokens > 0) {
-        //     processors.push(new MinNewTokensLengthLogitsProcessor(
-        //         input_ids_seq_length,
-        //         generation_config.min_new_tokens,
-        //         generation_config.eos_token_id
-        //     ));
-        // }
+        if (generation_config.min_new_tokens !== null && generation_config.eos_token_id !== null && generation_config.min_new_tokens > 0) {
+            processors.push(new MinNewTokensLengthLogitsProcessor(
+                input_ids_seq_length,
+                generation_config.min_new_tokens,
+                generation_config.eos_token_id
+            ));
+        }
 
         // if (prefix_allowed_tokens_fn !== null) {
         //     processors.push(new PrefixConstrainedLogitsProcessor(
