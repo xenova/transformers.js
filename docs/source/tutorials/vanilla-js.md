@@ -1,6 +1,6 @@
 # Building a Vanilla JavaScript Application
 
-In this tutorial, you’ll build a simple web application that detects objects in images using Transformers.js! To follow along, all you need is a code editor and a browser (no package manager, external libraries, or other build tools).
+In this tutorial, you’ll build a simple web application that detects objects in images using Transformers.js! To follow along, all you need is a code editor, a browser, and a simple server (e.g. VS Code Live Server).
 
 Here's how it works: the user clicks “Upload image” and selects an image using an input dialog. After analysing the image with an object detection model, the predicted bounding boxes are overlaid on top of the image, like this:
 
