@@ -906,11 +906,17 @@ export class PreTrainedModel extends Callable {
         } = {},
     ) {
         if (!this.can_generate) {
-            // TODO: support multiple options
-            const possibleInfo = MODEL_WITH_LM_HEAD_MAPPING_NAMES.get(this.config.model_type);
             const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this.constructor);
             let errorMessage = `The current model class (${modelName}) is not compatible with \`.generate()\`, as it doesn't have a language model head.`
+
+            const modelType = this.config.model_type;
+            const possibleInfo =
+                MODEL_WITH_LM_HEAD_MAPPING_NAMES.get(modelType)
+                ?? MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES.get(modelType)
+                ?? MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES.get(modelType);
+
             if (possibleInfo) {
+                // TODO: support multiple possible classes
                 errorMessage += ` Please use the following class instead: '${possibleInfo[0]}'`;
             }
             throw Error(errorMessage);
