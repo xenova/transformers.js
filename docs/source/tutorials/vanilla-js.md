@@ -8,7 +8,7 @@ Here's how it works: the user clicks “Upload image” and selects an image usi
 
 Useful links:
 
-- [Demo site](https://huggingface.co/spaces/Scrimba/javascript-object-detector)
+- [Demo site](https://huggingface.co/spaces/Scrimba/vanilla-js-object-detector)
 - [Interactive code walk-through (scrim)](https://scrimba.com/scrim/cKm9bDAg)
 - [Source code](https://github.com/xenova/transformers.js/tree/main/examples/vanilla-js)
 
