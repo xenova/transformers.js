@@ -1,10 +1,9 @@
-# JavaScript Image Object Detection
+# Vanilla JS Application
 
-This example contains a browser-based JavaScript application that detects objects in images using Transformers.js. The app requires no server, external libraries, or build tools. All you need is a code editor and a browser. 
+This folder contains the source code for a simple web application that detects objects in images using Transformers.js! Check out the demo [here](https://huggingface.co/spaces/Scrimba/vanilla-js-object-detector).
 
-Here's how it works: the user uploads an image to the browser via the “Upload image” button. The app then downloads an AI model, runs the image through it, and finally displays an overview of where the different objects are located.
+If you'd like to build it yourself, you can follow the [written](https://huggingface.co/docs/transformers.js/tutorials/vanilla-js) or [interactive video](https://scrimba.com/scrim/cKm9bDAg) tutorials we have made!
 
-To learn more about how the code works, visit [this tutorial.](https://huggingface.co/docs/transformers.js/tutorials/vanilla-js)
+Here's how it works: the user clicks “Upload image” and selects an image using an input dialog. After analysing the image with an object detection model, the predicted bounding boxes are overlaid on top of the image, like this:
 
-## Getting Started
-Download the repo and simply drag and drop the `index.html` file into a browser of your choice.
+![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-interence-zebra.png)
