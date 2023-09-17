@@ -184,7 +184,7 @@ fileUpload.addEventListener("change", function (e) {
 
 Once the image has been loaded into the browser, the `reader.onload` callback function will be invoked. In it, we append the new `<img>` element to the `imageContainer` to be displayed to the user.
 
-Don’t worry about the `detect(image)` function call (which we’ve commented out) - we will explain it later! For now, try to run the app and upload an image to the browser. You should see your image displayed under the button like this:
+Don’t worry about the `detect(image)` function call (which is commented out) - we will explain it later! For now, try to run the app and upload an image to the browser. You should see your image displayed under the button like this:
 
 ![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-btn-img.png)
 
