@@ -1,6 +1,6 @@
 # Building a Vanilla JavaScript Application
 
-In this tutorial, you’ll build a simple web application that detects objects in images using Transformers.js! To follow along, all you need is a code editor, a browser, and a simple server (e.g. VS Code Live Server).
+In this tutorial, you’ll build a simple web application that detects objects in images using Transformers.js! To follow along, all you need is a code editor, a browser, and a simple server (e.g., VS Code Live Server).
 
 Here's how it works: the user clicks “Upload image” and selects an image using an input dialog. After analysing the image with an object detection model, the predicted bounding boxes are overlaid on top of the image, like this:
 
@@ -159,9 +159,7 @@ status.textContent = "Ready";
 
 ## Step 4: Create the image uploader
 
-The next step is to enable users to upload images. To achieve this, we will listen for "change" events from the `fileUpload` element. In the callback function, we first check that the user has actually uploaded a file, and returns the function if they haven’t.
-
-If there’s actually an image there, we use a `FileReader()` to read the content of the image:
+The next step is to support uploading/selection of images. To achieve this, we will listen for "change" events from the `fileUpload` element. In the callback function, we use a `FileReader()` to read the contents of the image if one is selected (and nothing otherwise).
 
 ```js
 fileUpload.addEventListener("change", function (e) {
@@ -184,9 +182,9 @@ fileUpload.addEventListener("change", function (e) {
 });
 ```
 
-Once the image has been properly loaded into the browser, the `reader.onload` callback function will be invoked, which will give us access to all the necessary data about the image. In it, we append a new `<img>` element to the DOM so that we can display the image to the user.
+Once the image has been loaded into the browser, the `reader.onload` callback function will be invoked. In it, we append the new `<img>` element to the `imageContainer` to be displayed to the user.
 
-Don’t worry about the `detect(image)` function call, which we’ve commented out and will explain later. Try to run the app and upload an image to the browser to make sure your code is working properly. You should see your image displayed underneath the button like this:
+Don’t worry about the `detect(image)` function call (which we’ve commented out) - we will explain it later! For now, try to run the app and upload an image to the browser. You should see your image displayed under the button like this:
 
 ![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-btn-img.png)
 
@@ -207,27 +205,29 @@ async function detect(img) {
 }
 ```
 
-It needs to be asynchronous, as we’ll use the `await` keyword when we’re running the model.
+<Tip>
 
-Once we’ve updated the `status` paragraph, we’re ready to perform the so-called inference, which simply means to run the model with some data. This is done via the `detector()` function that was returned from `pipeline()`. The first argument we’re passing in is the image data (`img.src`).
+NOTE: The `detect` function needs to be asynchronous, since we’ll `await` the result of the the model.
 
-The second argument is an options object. In it, we're setting the `threshold` property to 0.5. This means that we want the model to be 50% confident before claiming it has detected an object in the image. The lower you set this value, the more objects it'll detect, but the more mistakes it'll make as well.
+</Tip>
 
-We also specify `percentage: true`, which means that we want the coordinates for the objects in percentage values as opposed to pixels.
+Once we’ve updated the `status` to "Analysing", we’re ready to perform *inference*, which simply means to run the model with some data. This is done via the `detector()` function that was returned from `pipeline()`. The first argument we’re passing is the image data (`img.src`).
 
-Try to run the app, upload an image, and open up the console. You should see the `output` variable logged out like this:
+The second argument is an options object:
+ - We set the `threshold` property to `0.5`. This means that we want the model to be at least 50% confident before claiming it has detected an object in the image. The lower the threshold, the more objects it'll detect (but may misidentify objects); the higher the threshold, the fewer objects it'll detect (but may miss objects in the scene).
+ - We also specify `percentage: true`, which means that we want the bounding box for the objects to be returned as percentages (instead of pixels).
+
+If you now try to run the app and upload an image, you should see the following output logged to the console:
 
 ![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-console.png)
 
-In the example above, we uploaded the image of the two elephants, so the `output` variable holds an array with two objects. Both objects have a key called `label`, which has the value “elephant”. The also have `box` objects that contains the coordinates for each of the animals.
-
-Notice that the score is more than 0.99 for both, which means that the models is almost 100% sure it spotted two elephants. And indeed it did.
+In the example above, we uploaded an image of two elephants, so the `output` variable holds an array with two objects, each containing a `label` (the string “elephant”), a `score` (indicating the model's confidence in its prediction) and a `box` object (representing the bounding box of the detected entity).
 
 ## Step 6: Render the boxes
 
-The final step is to turn the `box` coordinates into rectangles around each of the elephants.
+The final step is to display the `box` coordinates as rectangles around each of the elephants.
 
-At the end of our `detect()` function, we’ll use loop through each of the objects in the `output` array with `.forEach()` and pass in `renderBox` as the callback.
+At the end of our `detect()` function, we’ll run the `renderBox` function on each object in the `output` array, using `.forEach()`.
 
 ```js
 output.forEach(renderBox);
@@ -241,11 +241,7 @@ function renderBox({ box, label }) {
   const { xmax, xmin, ymax, ymin } = box;
 
   // Generate a random color for the box
-  const color =
-    "#" +
-    Math.floor(Math.random() * 0xffffff)
-      .toString(16)
-      .padStart(6, 0);
+  const color = "#" + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, 0);
 
   // Draw the box
   const boxElement = document.createElement("div");
@@ -284,11 +280,10 @@ The bounding box and label span also need some styling, so add the following to 
 }
 ```
 
-And that’s it!
+**And that’s it!**
 
-You have now built a fully functioning AI app that detects objects in images using nothing but a browser. No external server, no APIs, no build tools. Pretty cool!
+You've now built your own fully-functional AI application that detects objects in images, which runns completely in your browser: no external server, APIs, or build tools. Pretty cool! 🥳
 
 ![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-inference-elephant.png)
-
 
 The app is live at the following URL: [https://huggingface.co/spaces/Scrimba/javascript-object-detector](https://huggingface.co/spaces/Scrimba/javascript-object-detector)
