@@ -952,6 +952,12 @@ export class PreTrainedModel extends Callable {
             logits_processor
         )
 
+        /** @type {number[]} */
+        let eos_token_ids = generation_config.eos_token_id;
+        if (eos_token_ids !== null && !Array.isArray(eos_token_ids)) {
+            eos_token_ids = [eos_token_ids];
+        }
+
         // TODO implement early_stopping
         // https://huggingface.co/blog/how-to-generate
 
@@ -1011,7 +1017,7 @@ export class PreTrainedModel extends Callable {
 
                     newBeam.score += logProb;
 
-                    if (newTokenId === generation_config.eos_token_id) {
+                    if (eos_token_ids && eos_token_ids.includes(newTokenId)) {
                         newBeam.done = true;
                     }
 
