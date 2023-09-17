@@ -84,7 +84,7 @@ body {
 }
 ```
 
-If you drag and drop the `index.html` file into a browser, you should see the following:
+Here's how the UI looks at this point:
 
 ![Demo](https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/js-detection-btn.png)
 
