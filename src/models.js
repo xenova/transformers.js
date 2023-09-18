@@ -3457,6 +3457,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
     ['t5', ['T5Model', T5Model]],
+    ['longt5', ['LongT5Model', LongT5Model]],
     ['mt5', ['MT5Model', MT5Model]],
     ['bart', ['BartModel', BartModel]],
     ['mbart', ['MBartModel', MBartModel]],
@@ -3510,6 +3511,7 @@ const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
     ['t5', ['T5ForConditionalGeneration', T5ForConditionalGeneration]],
+    ['longt5', ['LongT5ForConditionalGeneration', LongT5ForConditionalGeneration]],
     ['mt5', ['MT5ForConditionalGeneration', MT5ForConditionalGeneration]],
     ['bart', ['BartForConditionalGeneration', BartForConditionalGeneration]],
     ['mbart', ['MBartForConditionalGeneration', MBartForConditionalGeneration]],
