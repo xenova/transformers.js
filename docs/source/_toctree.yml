@@ -9,6 +9,8 @@
     title: Custom usage
   title: Get started
 - sections:
+  - local: tutorials/vanilla-js
+    title: Building a Vanilla JS Application
   - local: tutorials/react
     title: Building a React Application
   - local: tutorials/next
