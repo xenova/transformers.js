@@ -2475,11 +2475,13 @@ export class PreTrainedTokenizer extends Callable {
      *
      * @param {string} text The text to encode.
      * @param {string|null} text_pair The optional second text to encode.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
     encode(text, text_pair = null, {
         add_special_tokens = true,
-    }) {
+    } = {}) {
         // Function called by users to encode possibly multiple texts
         let tokens = this._encode_text(text);
         let tokens2 = this._encode_text(text_pair);
