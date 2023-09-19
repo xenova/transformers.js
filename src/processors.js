@@ -1379,10 +1379,10 @@ export class AutoProcessor {
         if (!feature_extractor_class) {
             if (preprocessorConfig.size !== undefined) {
                 // Assume ImageFeatureExtractor
-                console.warn('Feature extractor type not specified, assuming ImageFeatureExtractor due to size parameter in config.');
+                console.warn(`Feature extractor type "${key}" not found, assuming ImageFeatureExtractor due to size parameter in config.`);
                 feature_extractor_class = ImageFeatureExtractor;
             } else {
-                throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
+                throw new Error(`Unknown Feature Extractor type: ${key}`);
             }
         }
 
