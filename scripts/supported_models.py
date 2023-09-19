@@ -77,6 +77,12 @@ SUPPORTED_MODELS = {
             'BAAI/bge-small-en',
             'BAAI/bge-base-en',
             'BAAI/bge-large-en',
+            'BAAI/bge-large-en-v1.5',
+            'BAAI/bge-base-en-v1.5',
+            'BAAI/bge-small-en-v1.5',
+            'BAAI/bge-large-zh-v1.5',
+            'BAAI/bge-base-zh-v1.5',
+            'BAAI/bge-small-zh-v1.5',
             'allenai/scibert_scivocab_uncased',
             'SpanBERT/spanbert-large-cased',
             'SpanBERT/spanbert-base-cased',
@@ -92,8 +98,9 @@ SUPPORTED_MODELS = {
             'nlptown/bert-base-multilingual-uncased-sentiment',
             'ProsusAI/finbert',
             'unitary/toxic-bert',
+            'BAAI/bge-reranker-large',
+            'BAAI/bge-reranker-base',
         ],
-
 
         # Token classification
         'token-classification': [
@@ -132,8 +139,6 @@ SUPPORTED_MODELS = {
             'bigscience/bloomz-560m',
         ],
     },
-
-
 
     'camembert': {
         # Feature extraction
