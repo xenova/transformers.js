@@ -111,8 +111,8 @@ def generate_tokenizer_tests():
 
     results = {}
 
-    tokenizers_to_test = FLATTENED_SUPPORTED_MODELS
-    tokenizers_to_test += list(ADDITIONAL_TOKENIZERS_TO_TEST.items())
+    tokenizers_to_test = FLATTENED_SUPPORTED_MODELS + \
+        list(ADDITIONAL_TOKENIZERS_TO_TEST.items())
 
     for model_type, tokenizer_names in tokenizers_to_test:
         if model_type in MODELS_TO_IGNORE:
