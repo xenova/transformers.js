@@ -362,6 +362,7 @@ export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
+export class DonutFeatureExtractor extends ImageFeatureExtractor { }
 
 /**
  * Detr Feature Extractor.
@@ -1329,6 +1330,7 @@ export class AutoProcessor {
         DeiTFeatureExtractor,
         DetrFeatureExtractor,
         YolosFeatureExtractor,
+        DonutFeatureExtractor,
 
         SamImageProcessor,
         Wav2Vec2FeatureExtractor,
