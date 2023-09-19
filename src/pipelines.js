@@ -1054,9 +1054,7 @@ export class AudioClassificationPipeline extends Pipeline {
  * **Example:** Transcribe English w/ word-level timestamps.
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
- * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
- *     revision: 'output_attentions',
- * });
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
  * let output = await transcriber(url, { return_timestamps: 'word' });
  * // {
  * //   "text": " And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
