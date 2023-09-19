@@ -97,16 +97,16 @@ SUPPORTED_MODELS = {
         'bert-base-chinese',
         'emilyalsentzer/Bio_ClinicalBERT',
     ],
-    # 'blenderbot': [
-    #     # Text2text generation (TODO add conversational)
-    #     'facebook/blenderbot-400M-distill',
-    #     'facebook/blenderbot-1B-distill',
-    # ],
-    # 'blenderbot-small': [
-    #     # Text2text generation (TODO add conversational)
-    #     'facebook/blenderbot-90M', # DEPRECATED
-    #     'facebook/blenderbot_small-90M',
-    # ],
+    'blenderbot': [
+        # Text2text generation (TODO add conversational)
+        'facebook/blenderbot-400M-distill',
+        # 'facebook/blenderbot-1B-distill',
+    ],
+    'blenderbot-small': [
+        # Text2text generation (TODO add conversational)
+        # 'facebook/blenderbot-90M',  # DEPRECATED
+        'facebook/blenderbot_small-90M',
+    ],
     'bloom': [
         # Text generation
         'bigscience/bloom-560m',

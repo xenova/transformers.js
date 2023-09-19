@@ -310,7 +310,6 @@ function boolTensor(value) {
  * @private
  */
 async function seq2seqForward(self, model_inputs) {
-    const add_decoder_pkv = self.add_decoder_pkv ?? true;
 
     let { encoder_outputs, past_key_values } = model_inputs;
 
@@ -327,7 +326,7 @@ async function seq2seqForward(self, model_inputs) {
     if (self.decoder_merged_session.inputNames.includes('encoder_attention_mask')) {
         decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
     }
-    self.addPastKeyValues(decoderFeeds, past_key_values, add_decoder_pkv);
+    self.addPastKeyValues(decoderFeeds, past_key_values);
 
     const decoderResults = await sessionRun(self.decoder_merged_session, decoderFeeds);
     let logits = decoderResults.logits;
@@ -1199,57 +1198,51 @@ export class PreTrainedModel extends Callable {
      *
      * @param {Object} decoderFeeds The decoder feeds object to add past key values to.
      * @param {Object} pastKeyValues An object containing past key values.
-     * @param {boolean} [hasDecoder=false] Whether the model has a decoder.
      */
-    addPastKeyValues(decoderFeeds, pastKeyValues, hasDecoder = false) {
+    addPastKeyValues(decoderFeeds, pastKeyValues) {
         if (pastKeyValues) {
             Object.assign(decoderFeeds, pastKeyValues)
         } else {
             // TODO support batches (i.e., batch_size > 1)
-            if (hasDecoder) {
+            // @ts-ignore
+            if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
                 // @ts-ignore
                 let encoder_dims = [1, this.num_encoder_heads, 0, this.encoder_dim_kv];
-                // @ts-ignore
-                for (let i = 0; i < this.num_encoder_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
-                    decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor('float32', [], encoder_dims)
-                }
-
                 // @ts-ignore
                 let decoder_dims = [1, this.num_decoder_heads, 0, this.decoder_dim_kv];
                 // @ts-ignore
                 for (let i = 0; i < this.num_decoder_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
+                    decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor('float32', [], encoder_dims)
                     decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor('float32', [], decoder_dims)
                     decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor('float32', [], decoder_dims)
                 }
+            } else if (this.config.multi_query) { // e.g., for `gpt_bigcode`
+                // @ts-ignore
+                let dims = [1, 0, 2 * this.dim_kv]
+                // @ts-ignore
+                for (let i = 0; i < this.num_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
+                }
+            } else if (this.config.model_type === 'bloom') {
+                // NOTE: Custom implementation for Bloom
 
-            } else {
-                if (this.config.multi_query) {
-                    // @ts-ignore
-                    let dims = [1, 0, 2 * this.dim_kv]
-                    // @ts-ignore
-                    for (let i = 0; i < this.num_layers; ++i) {
-                        decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
-                    }
-                } else if (this.config.model_type === 'bloom') {
-                    // Custom implementation for Bloom
-                    // @ts-ignore
-                    let keyDims = [1 * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
-                    // @ts-ignore
-                    let valueDims = [1 * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
-                    // @ts-ignore
-                    for (let i = 0; i < this.num_layers; ++i) {
-                        decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
-                        decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], valueDims)
-                    }
-                } else {
-                    // @ts-ignore
-                    let dims = [1, this.num_heads, 0, this.dim_kv]
-                    // @ts-ignore
-                    for (let i = 0; i < this.num_layers; ++i) {
-                        decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
-                        decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
-                    }
+                // @ts-ignore
+                let keyDims = [1 * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
+                // @ts-ignore
+                let valueDims = [1 * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
+                // @ts-ignore
+                for (let i = 0; i < this.num_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], valueDims)
+                }
+            } else { // Decoder-only
+                // @ts-ignore
+                let dims = [1, this.num_heads, 0, this.dim_kv]
+                // @ts-ignore
+                for (let i = 0; i < this.num_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
                 }
             }
         }
@@ -2033,6 +2026,83 @@ export class MBartForSequenceClassification extends MBartPreTrainedModel {
 
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// Blenderbot models
+export class BlenderbotPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare Blenderbot Model outputting raw hidden-states without any specific head on top.
+ */
+export class BlenderbotModel extends BlenderbotPreTrainedModel { }
+
+/**
+ * The Blenderbot Model with a language modeling head. Can be used for summarization.
+ */
+export class BlenderbotForConditionalGeneration extends BlenderbotPreTrainedModel {
+
+    /**
+     * Creates a new instance of the `BlenderbotForConditionalGeneration` class.
+     * @param {any} config The model configuration.
+     * @param {any} session The ONNX session containing the encoder weights.
+     * @param {any} decoder_merged_session The ONNX session containing the merged decoder weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// Blenderbot models
+export class BlenderbotSmallPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare BlenderbotSmall Model outputting raw hidden-states without any specific head on top.
+ */
+export class BlenderbotSmallModel extends BlenderbotSmallPreTrainedModel { }
+
+/**
+ * The BlenderbotSmall Model with a language modeling head. Can be used for summarization.
+ */
+export class BlenderbotSmallForConditionalGeneration extends BlenderbotSmallPreTrainedModel {
+
+    /**
+     * Creates a new instance of the `BlenderbotForConditionalGeneration` class.
+     * @param {any} config The model configuration.
+     * @param {any} session The ONNX session containing the encoder weights.
+     * @param {any} decoder_merged_session The ONNX session containing the merged decoder weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+    }
+}
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // Roberta models
 export class RobertaPreTrainedModel extends PreTrainedModel { }
@@ -2458,7 +2528,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
  */
 export class VisionEncoderDecoderModel extends PreTrainedModel {
     main_input_name = 'pixel_values';
-    add_decoder_pkv = false;
+    add_encoder_pkv = false;
 
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
@@ -3422,6 +3492,8 @@ const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
     ['marian', ['MarianModel', MarianModel]],
     ['whisper', ['WhisperModel', WhisperModel]],
     ['m2m_100', ['M2M100Model', M2M100Model]],
+    ['blenderbot', ['BlenderbotModel', BlenderbotModel]],
+    ['blenderbot-small', ['BlenderbotSmallModel', BlenderbotSmallModel]],
 ]);
 
 
@@ -3475,6 +3547,8 @@ const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
     ['whisper', ['WhisperForConditionalGeneration', WhisperForConditionalGeneration]],
     ['marian', ['MarianMTModel', MarianMTModel]],
     ['m2m_100', ['M2M100ForConditionalGeneration', M2M100ForConditionalGeneration]],
+    ['blenderbot', ['BlenderbotForConditionalGeneration', BlenderbotForConditionalGeneration]],
+    ['blenderbot-small', ['BlenderbotSmallForConditionalGeneration', BlenderbotSmallForConditionalGeneration]],
 ]);
 
 const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
