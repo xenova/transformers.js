@@ -342,11 +342,12 @@ async function seq2seqForward(self, model_inputs) {
  * Start the beam search process for the seq2seq model.
  * @param {PreTrainedModel} self The seq2seq model object.
  * @param {Object[]} inputTokenIds Array of input token ids for each input sequence.
+ * @param {Object} generation_config The generation config.
  * @param {number} numOutputTokens The maximum number of output tokens for the model.
  * @returns {Object[]} Array of beam search objects.
  * @private
  */
-function seq2seqStartBeams(self, inputTokenIds, numOutputTokens) {
+function seq2seqStartBeams(self, inputTokenIds, generation_config, numOutputTokens) {
     let beams = [];
     let beamId = 0;
 
@@ -354,8 +355,15 @@ function seq2seqStartBeams(self, inputTokenIds, numOutputTokens) {
     const requires_attention_mask = self.requires_attention_mask ?? true;
 
     // decoder_input_ids == output_token_ids
-    let decoder_input_ids = self.config.decoder_start_token_id;
-    if (!Array.isArray(decoder_input_ids)) {
+    let decoder_input_ids =
+        generation_config.decoder_input_ids
+        ?? generation_config.decoder_start_token_id
+        ?? generation_config.bos_token_id
+        ?? generation_config.eos_token_id;
+
+    if (decoder_input_ids instanceof Tensor) {
+        decoder_input_ids = decoder_input_ids.tolist().map(Number);
+    } else if (!Array.isArray(decoder_input_ids)) {
         decoder_input_ids = [decoder_input_ids];
     }
 
@@ -475,12 +483,13 @@ async function decoderForward(self, model_inputs) {
  * Starts the generation of text by initializing the beams for the given input token IDs.
  * @param {Object} self The text generation model object.
  * @param {any} inputTokenIds An array of input token IDs to generate text from.
+ * @param {Object} generation_config The generation config.
  * @param {number} numOutputTokens The maximum number of tokens to generate for each beam.
  * @param {Tensor} [inputs_attention_mask] The attention mask tensor for the input token IDs.
  * @returns {Object[]} An array of beams initialized with the given inputs and parameters.
  * @private
  */
-function decoderStartBeams(self, inputTokenIds, numOutputTokens, inputs_attention_mask) {
+function decoderStartBeams(self, inputTokenIds, generation_config, numOutputTokens, inputs_attention_mask) {
     let beams = [];
 
     let beamId = 0;
@@ -975,7 +984,7 @@ export class PreTrainedModel extends Callable {
         let sampler = Sampler.getSampler(generation_config);
 
         // @ts-ignore
-        let beams = this.getStartBeams(inputs, numOutputTokens, inputs_attention_mask);
+        let beams = this.getStartBeams(inputs, generation_config, numOutputTokens, inputs_attention_mask);
 
         while (beams.some(x => !x.done) && numOutputTokens < maxOutputTokens) {
             let newest_beams = [];
@@ -1205,7 +1214,7 @@ export class PreTrainedModel extends Callable {
         } else {
             // TODO support batches (i.e., batch_size > 1)
             // @ts-ignore
-            if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
+            if (this.config.is_encoder_decoder) {
                 // @ts-ignore
                 let encoder_dims = [1, this.num_encoder_heads, 0, this.encoder_dim_kv];
                 // @ts-ignore
@@ -1251,13 +1260,14 @@ export class PreTrainedModel extends Callable {
     /**
      * Initializes and returns the beam for text generation task
      * @param {Tensor} inputTokenIds The input token ids.
+     * @param {Object} generation_config The generation config.
      * @param {number} numOutputTokens The number of tokens to be generated.
      * @param {Tensor} inputs_attention_mask Optional input attention mask.
      * @returns {any} A Beam object representing the initialized beam.
      * @private
      */
-    getStartBeams(inputTokenIds, numOutputTokens, inputs_attention_mask) {
-        return this._getStartBeams(this, inputTokenIds, numOutputTokens, inputs_attention_mask)
+    getStartBeams(inputTokenIds, generation_config, numOutputTokens, inputs_attention_mask) {
+        return this._getStartBeams(this, inputTokenIds, generation_config, numOutputTokens, inputs_attention_mask)
     }
 
     /**
@@ -2024,6 +2034,27 @@ export class MBartForSequenceClassification extends MBartPreTrainedModel {
     }
 }
 
+
+export class MBartForCausalLM extends MBartPreTrainedModel {
+    /**
+     * Creates a new instance of the `MBartForCausalLM` class.
+     * @param {Object} config Configuration object for the model.
+     * @param {Object} decoder_merged_session ONNX Session object for the decoder.
+     * @param {Object} generation_config Configuration object for the generation process.
+     */
+    constructor(config, decoder_merged_session, generation_config) {
+        super(config, decoder_merged_session);
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
+    }
+}
 //////////////////////////////////////////////////
 
 
@@ -2528,7 +2559,6 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
  */
 export class VisionEncoderDecoderModel extends PreTrainedModel {
     main_input_name = 'pixel_values';
-    add_encoder_pkv = false;
 
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
@@ -2542,9 +2572,46 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
         this.decoder_merged_session = decoder_merged_session;
         this.generation_config = generation_config;
 
-        this.num_layers = this.config.decoder.n_layer;
-        this.num_heads = this.config.decoder.n_head;
-        this.dim_kv = this.config.decoder.n_embd / this.num_heads;
+        // Extract configs
+        const encoderConfig = this.config.encoder;
+        const decoderConfig = this.config.decoder;
+
+        // Validate encoder
+        const encoderModelType = encoderConfig.model_type;
+        const encoderModel =
+            MODEL_MAPPING_NAMES_ENCODER_ONLY.get(encoderModelType)
+            ?? MODEL_MAPPING_NAMES_ENCODER_DECODER.get(encoderModelType);
+        if (!encoderModel) {
+            console.warn(`Model type for encoder '${encoderModelType}' not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`);
+        }
+
+        // Validate decoder
+        const decoderModel = MODEL_WITH_LM_HEAD_MAPPING_NAMES.get(decoderConfig.model_type);
+        if (!decoderModel) {
+            throw new Error(`Unable to construct \`VisionEncoderDecoder\` due to unsupported decoder: "${this.config.decoder.model_type}"`);
+        }
+
+        // @ts-ignore
+        const decoderModelClass = decoderModel[1];
+        // @ts-ignore
+        const decoder = new decoderModelClass(decoderConfig, decoder_merged_session, generation_config);
+
+        if ('num_decoder_layers' in decoder) {
+            // Decoder is part of an encoder-decoder model
+            this.num_decoder_layers = decoder.num_decoder_layers;
+            this.num_decoder_heads = decoder.num_decoder_heads;
+            this.decoder_dim_kv = decoder.decoder_dim_kv;
+
+            this.num_encoder_layers = decoder.num_encoder_layers;
+            this.num_encoder_heads = decoder.num_encoder_heads;
+            this.encoder_dim_kv = decoder.encoder_dim_kv;
+
+        } else {
+            // Decoder is a decoder-only model
+            this.num_layers = decoder.num_layers;
+            this.num_heads = decoder.num_heads;
+            this.dim_kv = decoder.dim_kv;
+        }
     }
 }
 //////////////////////////////////////////////////
@@ -3131,6 +3198,11 @@ export class SwinForImageClassification extends SwinPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class DonutSwinPreTrainedModel extends PreTrainedModel { }
+export class DonutSwinModel extends DonutSwinPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class YolosPreTrainedModel extends PreTrainedModel { }
 export class YolosModel extends YolosPreTrainedModel { }
 export class YolosForObjectDetection extends YolosPreTrainedModel {
@@ -3479,6 +3551,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['deit', ['DeiTModel', DeiTModel]],
     ['resnet', ['ResNetModel', ResNetModel]],
     ['swin', ['SwinModel', SwinModel]],
+    ['donut-swin', ['DonutSwinModel', DonutSwinModel]],
     ['yolos', ['YolosModel', YolosModel]],
 
     ['sam', ['SamModel', SamModel]], // TODO change to encoder-decoder when model is split correctly
@@ -3562,6 +3635,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['llama', ['LlamaForCausalLM', LlamaForCausalLM]],
     ['mpt', ['MptForCausalLM', MptForCausalLM]],
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
+    ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
