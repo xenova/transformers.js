@@ -1214,7 +1214,7 @@ export class PreTrainedModel extends Callable {
         } else {
             // TODO support batches (i.e., batch_size > 1)
             // @ts-ignore
-            if (this.config.is_encoder_decoder) {
+            if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
                 // @ts-ignore
                 let encoder_dims = [1, this.num_encoder_heads, 0, this.encoder_dim_kv];
                 // @ts-ignore
@@ -2596,7 +2596,8 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
         // @ts-ignore
         const decoder = new decoderModelClass(decoderConfig, decoder_merged_session, generation_config);
 
-        if ('num_decoder_layers' in decoder) {
+        this.add_encoder_pkv = 'num_decoder_layers' in decoder;
+        if (this.add_encoder_pkv) {
             // Decoder is part of an encoder-decoder model
             this.num_decoder_layers = decoder.num_decoder_layers;
             this.num_decoder_heads = decoder.num_decoder_heads;
