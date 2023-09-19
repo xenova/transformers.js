@@ -341,7 +341,7 @@ async function seq2seqForward(self, model_inputs) {
 /**
  * Start the beam search process for the seq2seq model.
  * @param {PreTrainedModel} self The seq2seq model object.
- * @param {Object[]} inputTokenIds Array of input token ids for each input sequence.
+ * @param {Tensor} inputTokenIds Array of input token ids for each input sequence.
  * @param {Object} generation_config The generation config.
  * @param {number} numOutputTokens The maximum number of output tokens for the model.
  * @returns {Object[]} Array of beam search objects.
@@ -361,13 +361,19 @@ function seq2seqStartBeams(self, inputTokenIds, generation_config, numOutputToke
         ?? generation_config.bos_token_id
         ?? generation_config.eos_token_id;
 
+    // Support input as tensor or list
     if (decoder_input_ids instanceof Tensor) {
-        decoder_input_ids = decoder_input_ids.tolist().map(Number);
+        if (decoder_input_ids.dims.length === 1) {
+            decoder_input_ids.dims = [1, decoder_input_ids.dims[0]]
+        }
+        decoder_input_ids = decoder_input_ids.tolist();
     } else if (!Array.isArray(decoder_input_ids)) {
         decoder_input_ids = [decoder_input_ids];
     }
 
-    for (let tokens of inputTokenIds) {
+    for (let i = 0; i < inputTokenIds.dims[0]; ++i) {
+        let tokens = inputTokenIds[i];
+        let batch_decoder_input_ids = decoder_input_ids[i].map(Number);
         // TODO: Improve
         // Currently, just add back batch dimension.
         // In future, allow for true parallel execution
@@ -379,7 +385,7 @@ function seq2seqStartBeams(self, inputTokenIds, generation_config, numOutputToke
             encoder_outputs: null,
             prev_model_outputs: null,
 
-            output_token_ids: decoder_input_ids,
+            output_token_ids: batch_decoder_input_ids,
             done: false,
             score: 0,
             id: beamId++ // assign unique id to beams
@@ -482,7 +488,7 @@ async function decoderForward(self, model_inputs) {
 /**
  * Starts the generation of text by initializing the beams for the given input token IDs.
  * @param {Object} self The text generation model object.
- * @param {any} inputTokenIds An array of input token IDs to generate text from.
+ * @param {Tensor} inputTokenIds An tensor of input token IDs to generate text from.
  * @param {Object} generation_config The generation config.
  * @param {number} numOutputTokens The maximum number of tokens to generate for each beam.
  * @param {Tensor} [inputs_attention_mask] The attention mask tensor for the input token IDs.
