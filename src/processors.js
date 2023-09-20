@@ -179,7 +179,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.pad_size = this.config.pad_size;
         this.do_pad = this.config.do_pad;
 
-        if (this.do_pad && !this.pad_size) {
+        if (this.do_pad && !this.pad_size && this.size.width !== undefined && this.size.height !== undefined) {
             // Should pad, but no pad size specified
             // We infer the pad size from the resize size
             this.pad_size = this.size
