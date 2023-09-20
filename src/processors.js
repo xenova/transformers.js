@@ -319,7 +319,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         let reshaped_input_size = [image.height, image.width];
 
         // TODO is it okay to pad before rescaling/normalizing?
-        if (this.do_pad) {
+        if (this.do_pad && this.pad_size) {
             let left = 0;
             let right = this.pad_size.width - image.width;
             let top = 0;
