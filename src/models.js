@@ -80,7 +80,7 @@ import {
 } from './utils/tensor.js';
 
 import { executionProviders, ONNX } from './backends/onnx.js';
-import { medianFilter, round } from './transformers.js';
+import { medianFilter } from './transformers.js';
 const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 /**
