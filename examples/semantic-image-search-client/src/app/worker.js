@@ -16,13 +16,13 @@ class ApplicationSingleton {
     static metadata = null;
     static embeddings = null;
 
-    static async getInstance() {
+    static async getInstance(progress_callback = null) {
         // Load tokenizer and text model
         if (this.tokenizer === null) {
-            this.tokenizer = AutoTokenizer.from_pretrained(this.model_id);
+            this.tokenizer = AutoTokenizer.from_pretrained(this.model_id, { progress_callback });
         }
         if (this.text_model === null) {
-            this.text_model = CLIPTextModelWithProjection.from_pretrained(this.model_id);
+            this.text_model = CLIPTextModelWithProjection.from_pretrained(this.model_id, { progress_callback });
         }
         if (this.metadata === null) {
             this.metadata = getCachedJSON(this.BASE_URL + 'image-embeddings.json');
@@ -74,7 +74,10 @@ function cosineSimilarity(query_embeds, database_embeds) {
 self.addEventListener('message', async (event) => {
     // Get the tokenizer, model, metadata, and embeddings. When called for the first time,
     // this will load the files and cache them for future use.
-    const [tokenizer, text_model, metadata, embeddings] = await ApplicationSingleton.getInstance();
+    const [tokenizer, text_model, metadata, embeddings] = await ApplicationSingleton.getInstance(self.postMessage);
+
+    // Send the output back to the main thread
+    self.postMessage({ status: 'ready' });
 
     // Run tokenization
     const text_inputs = tokenizer(event.data.text, { padding: true, truncation: true });

@@ -8,6 +8,7 @@ import { ImageGrid } from './components/ImageGrid';
 export default function Home() {
 
   // Application state
+  const [ready, setReady] = useState(null);
   const [images, setImages] = useState(null);
   const [currentImage, setCurrentImage] = useState(null);
 
@@ -24,9 +25,12 @@ export default function Home() {
     }
     const onMessageReceived = (e) => {
       switch (e.data.status) {
-        case 'ready':
+        case 'initiate':
+          setReady(false);
           break;
-
+        case 'ready':
+          setReady(true);
+          break;
         case 'complete':
           setImages(e.data.output);
           break;
@@ -50,6 +54,11 @@ export default function Home() {
     <main className="mx-auto max-w-[1960px] p-4 relative">
       <Modal currentImage={currentImage} setCurrentImage={setCurrentImage} />
       <SearchBar search={search} />
+      {ready === false && (
+        <div className="z-10 fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="text-white text-2xl font-bold">Loading model and database...</div>
+        </div>
+      )}
       <ImageGrid images={images} setCurrentImage={setCurrentImage} />
     </main>
   )
