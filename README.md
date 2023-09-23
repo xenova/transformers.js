@@ -112,7 +112,8 @@ Want to jump straight in? Get started with one of our sample applications/templa
 | Whisper Web       | Speech recognition w/ Whisper    | [link](https://github.com/xenova/whisper-web) |
 | Doodle Dash       | Real-time sketch-recognition game (see [blog](https://huggingface.co/blog/ml-web-games)) | [link](https://github.com/xenova/doodle-dash) |
 | Code Playground   | In-browser code completion website | [link](./examples/code-completion/) |
-| Semantic Image Search | Search for images with text (Next.js + Supabase) | [link](./examples/semantic-image-search/) |
+| Semantic Image Search (client-side) | Search for images with text | [link](./examples/semantic-image-search-client/) |
+| Semantic Image Search (server-side) | Search for images with text (Supabase) | [link](./examples/semantic-image-search/) |
 | Vanilla JavaScript | In-browser object detection     | [link](./examples/vanilla-js/) |
 | React             | Multilingual translation website | [link](./examples/react-translator/) |
 | Browser extension | Text classification extension    | [link](./examples/extension/) |
