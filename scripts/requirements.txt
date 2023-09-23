@@ -1,4 +1,4 @@
-transformers[torch]@git+https://github.com/huggingface/transformers
+transformers[torch]==4.33.2
 onnxruntime<1.16.0
 optimum==1.13.2
 tqdm
