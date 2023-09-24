@@ -203,6 +203,7 @@ SUPPORTED_MODELS = {
     'donut': [
         # Image-to-text
         'naver-clova-ix/donut-base-finetuned-cord-v2',
+        'naver-clova-ix/donut-base-finetuned-zhtrainticket',
 
         # Document Question Answering
         'naver-clova-ix/donut-base-finetuned-docvqa',
