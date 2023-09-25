@@ -31,6 +31,7 @@ import {
     AutoModelForImageClassification,
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
+    AutoModelForDocumentQuestionAnswering,
     PreTrainedModel,
 } from './models.js';
 import {
@@ -1761,6 +1762,79 @@ export class ObjectDetectionPipeline extends Pipeline {
     }
 }
 
+/**
+ * Document Question Answering pipeline using any `AutoModelForDocumentQuestionAnswering`.
+ * The inputs/outputs are similar to the (extractive) question answering pipeline; however,
+ * the pipeline takes an image (and optional OCR'd words/boxes) as input instead of text context.
+ * 
+ * **Example:** Answer questions about a document with `Xenova/donut-base-finetuned-docvqa`.
+ * ```javascript
+ * let image = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/invoice.png';
+ * let question = 'What is the invoice number?';
+ * 
+ * let qa_pipeline = await pipeline('document-question-answering', 'Xenova/donut-base-finetuned-docvqa');
+ * let output = await qa_pipeline(image, question);
+ * // [{ answer: 'us-001' }]
+ * ```
+ */
+export class DocumentQuestionAnsweringPipeline extends Pipeline {
+    /**
+     * Create a new DocumentQuestionAnsweringPipeline.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
+     */
+    constructor(options) {
+        super(options);
+    }
+
+    /**
+     * Answer the question given as input by using the document.
+     * @param {any} image The image of the document to use.
+     * @param {string} question A question to ask of the document.
+     * @param {Object} [generate_kwargs={}] Optional generation arguments.
+     * @returns {Promise<Object|Object[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
+     */
+    async _call(image, question, generate_kwargs = {}) {
+        // NOTE: For now, we only support a batch size of 1
+
+        // Preprocess image
+        image = (await prepareImages(image))[0];
+        const { pixel_values } = await this.processor(image);
+
+        // Run tokenization
+        const task_prompt = `<s_docvqa><s_question>${question}</s_question><s_answer>`;
+        const decoder_input_ids = this.tokenizer(task_prompt, {
+            add_special_tokens: false,
+            padding: true,
+            truncation: true
+        }).input_ids;
+
+        // Run model
+        const output = await this.model.generate(
+            pixel_values,
+            {
+                ...generate_kwargs,
+                decoder_input_ids,
+                max_length: this.model.config.decoder.max_position_embeddings,
+            }
+        );
+
+        // Decode output
+        const decoded = this.tokenizer.batch_decode(output)[0];
+
+        // Parse answer
+        const match = decoded.match(/<s_answer>(.*?)<\/s_answer>/);
+        let answer = null;
+        if (match && match.length >= 2) {
+            answer = match[1].trim();
+        }
+        return [{ answer }];
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
@@ -1948,6 +2022,18 @@ const SUPPORTED_TASKS = {
             // TODO: replace with original
             // "model": "facebook/detr-resnet-50",
             "model": "Xenova/detr-resnet-50",
+        },
+        "type": "multimodal",
+    },
+    "document-question-answering": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": DocumentQuestionAnsweringPipeline,
+        "model": AutoModelForDocumentQuestionAnswering,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "naver-clova-ix/donut-base-finetuned-docvqa",
+            "model": "Xenova/donut-base-finetuned-docvqa",
         },
         "type": "multimodal",
     },
