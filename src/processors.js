@@ -351,10 +351,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * URLs, preprocesses each image, and concatenates the resulting
      * features into a single Tensor.
      * @param {any[]} images The URL(s) of the image(s) to extract features from.
-     * @param {...any} unused Only used to fix Liskov Substitution Principle errors.
+     * @param {...any} args Additional arguments.
      * @returns {Promise<ImageFeatureExtractorResult>} An object containing the concatenated pixel values (and other metadata) of the preprocessed images.
      */
-    async _call(images, ...unused) {
+    async _call(images, ...args) {
         if (!Array.isArray(images)) {
             images = [images];
         }
@@ -1279,10 +1279,10 @@ export class Processor extends Callable {
     /**
      * Calls the feature_extractor function with the given input.
      * @param {any} input The input to extract features from.
-     * @param {...any} unused Only used to fix Liskov Substitution Principle errors.
+     * @param {...any} args Additional arguments.
      * @returns {Promise<any>} A Promise that resolves with the extracted features.
      */
-    async _call(input, ...unused) {
+    async _call(input, ...args) {
         return await this.feature_extractor(input);
     }
 }
