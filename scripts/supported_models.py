@@ -266,6 +266,27 @@ SUPPORTED_MODELS = {
         'JackFram/llama-68m',
         'JackFram/llama-160m',
     ],
+    'longt5': {
+        # Text-to-text
+        'text2text-generation': [
+            'google/long-t5-local-base',
+            'google/long-t5-tglobal-base',
+            # 'google/long-t5-tglobal-xl', # too large
+            # 'google/long-t5-tglobal-large', # too large
+            # 'google/long-t5-local-large', # too large
+        ],
+
+        # Summarization
+        'summarization': [
+            'pszemraj/long-t5-tglobal-base-16384-book-summary',
+        ],
+
+        # Feature extraction
+        'feature-extraction': [
+            # NOTE: requires --task feature-extraction
+            'voidful/long-t5-encodec-tglobal-base',
+        ],
+    },
     'm2m_100': [
         # Translation
         'facebook/nllb-200-distilled-600M',

@@ -1903,6 +1903,47 @@ export class T5ForConditionalGeneration extends T5PreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// LONGT5 models
+/**
+ * An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained models.
+ */
+export class LongT5PreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare LONGT5 Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class LongT5Model extends LongT5PreTrainedModel { }
+
+/**
+ * LONGT5 Model with a `language modeling` head on top.
+ */
+export class LongT5ForConditionalGeneration extends LongT5PreTrainedModel {
+    /**
+     * Creates a new instance of the `LongT5ForConditionalGeneration` class.
+     * @param {Object} config The model configuration.
+     * @param {any} session session for the model.
+     * @param {any} decoder_merged_session session for the decoder.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.num_decoder_layers;
+        this.num_decoder_heads = this.config.num_heads;
+        this.decoder_dim_kv = this.config.d_kv;
+
+        this.num_encoder_layers = this.config.num_layers;
+        this.num_encoder_heads = this.config.num_heads;
+        this.encoder_dim_kv = this.config.d_kv;
+    }
+}
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // MT5 models
 export class MT5PreTrainedModel extends PreTrainedModel { };
@@ -3628,6 +3669,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
     ['t5', ['T5Model', T5Model]],
+    ['longt5', ['LongT5Model', LongT5Model]],
     ['mt5', ['MT5Model', MT5Model]],
     ['bart', ['BartModel', BartModel]],
     ['mbart', ['MBartModel', MBartModel]],
@@ -3683,6 +3725,7 @@ const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
     ['t5', ['T5ForConditionalGeneration', T5ForConditionalGeneration]],
+    ['longt5', ['LongT5ForConditionalGeneration', LongT5ForConditionalGeneration]],
     ['mt5', ['MT5ForConditionalGeneration', MT5ForConditionalGeneration]],
     ['bart', ['BartForConditionalGeneration', BartForConditionalGeneration]],
     ['mbart', ['MBartForConditionalGeneration', MBartForConditionalGeneration]],
