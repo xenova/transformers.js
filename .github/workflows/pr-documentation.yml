@@ -12,7 +12,7 @@ jobs:
     uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@main
     with:
       repo_owner: xenova
-      commit_sha: ${{ github.sha }}
+      commit_sha: 7bfc590f793a6281b87e56cd8b0819fe58a12014
       pr_number: ${{ github.event.number }}
       package: transformers.js
       path_to_docs: transformers.js/docs/source
