@@ -145,11 +145,9 @@ export class FeatureExtractor extends Callable {
 
 /**
  * @typedef {object} ImageFeatureExtractorResult
- * @property {Tensor} pixel_values
- * @property {HeightWidth[]} original_sizes Array of two-dimensional tuples
- * like [[480, 640]].
- * @property {HeightWidth[]} reshaped_input_sizes Array of two-dimensional
- * tuples like [[1000, 1330]].
+ * @property {Tensor} pixel_values The pixel values of the batched preprocessed images.
+ * @property {HeightWidth[]} original_sizes Array of two-dimensional tuples like [[480, 640]].
+ * @property {HeightWidth[]} reshaped_input_sizes Array of two-dimensional tuples like [[1000, 1330]].
  */
 
 /**
@@ -196,16 +194,16 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
     /**
      * @typedef {object} PreprocessedImage
-     * @property {HeightWidth} original_size
-     * @property {HeightWidth} reshaped_input_size
-     * @property {Tensor} pixel_values
+     * @property {HeightWidth} original_size The original size of the image.
+     * @property {HeightWidth} reshaped_input_size The reshaped input size of the image.
+     * @property {Tensor} pixel_values The pixel values of the preprocessed image.
      */
 
     /**
      * Preprocesses the given image.
      *
      * @param {RawImage} image The image to preprocess.
-     * @returns {Promise<PreprocessedImage>} The preprocessed image as a Tensor.
+     * @returns {Promise<PreprocessedImage>} The preprocessed image.
      */
     async preprocess(image) {
 
@@ -414,7 +412,6 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         const maskSize = [result.pixel_values.dims[0], 64, 64];
         const pixel_mask = new Tensor(
             'int64',
-            // TODO: fix error below
             new BigInt64Array(maskSize.reduce((a, b) => a * b)).fill(1n),
             maskSize
         );
@@ -730,7 +727,9 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
 export class SamImageProcessor extends ImageFeatureExtractor {
     /**
      * @param {any[]} images The URL(s) of the image(s) to extract features from.
-     * @param {*} input_points 
+     * @param {*} input_points A 3D or 4D array, representing the input points provided by the user.
+     * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
+     * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
      * @returns {Promise<SamImageProcessorResult>}
      */
     async _call(images, input_points) {
@@ -742,6 +741,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
 
         let shape = calculateDimensions(input_points);
 
+        // TODO: add support for 2D input_points
         if (shape.length === 3) {
             // Correct user's input
             shape = [1, ...shape];
