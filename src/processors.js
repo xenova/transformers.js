@@ -31,7 +31,7 @@ import {
 import {
     max,
     softmax,
-    FFT
+    FFT,
 } from './utils/maths.js';
 
 
@@ -169,6 +169,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.do_normalize = this.config.do_normalize;
 
         this.do_resize = this.config.do_resize;
+        this.do_thumbnail = this.config.do_thumbnail;
         this.size = this.config.size;
 
         this.do_center_crop = this.config.do_center_crop;
@@ -176,7 +177,43 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.do_convert_rgb = this.config.do_convert_rgb ?? true;
 
         this.pad_size = this.config.pad_size;
-        this.do_pad = (this.config.do_pad ?? false) && this.pad_size;
+        this.do_pad = this.config.do_pad;
+
+        if (this.do_pad && !this.pad_size && this.size.width !== undefined && this.size.height !== undefined) {
+            // Should pad, but no pad size specified
+            // We infer the pad size from the resize size
+            this.pad_size = this.size
+        }
+    }
+
+    /**
+     * Resize the image to make a thumbnail. The image is resized so that no dimension is larger than any
+     * corresponding dimension of the specified size.
+     * @param {RawImage} image The image to be resized.
+     * @param {{height:number, width:number}} size The size `{"height": h, "width": w}` to resize the image to.
+     * @param {string | 0 | 1 | 2 | 3 | 4 | 5} [resample=2] The resampling filter to use.
+     * @returns {Promise<RawImage>} The resized image.
+     */
+    async thumbnail(image, size, resample = 2) {
+        const input_height = image.height;
+        const input_width = image.width;
+
+        const output_height = size.height;
+        const output_width = size.width;
+
+        // We always resize to the smallest of either the input or output size.
+        let height = Math.min(input_height, output_height)
+        let width = Math.min(input_width, output_width)
+
+        if (height === input_height && width === input_width) {
+            return image;
+        }
+        if (input_height > input_width) {
+            width = Math.floor(input_width * height / input_height);
+        } else if (input_width > input_height) {
+            height = Math.floor(input_height * width / input_width);
+        }
+        return await image.resize(width, height, { resample });
     }
 
     /**
@@ -206,8 +243,13 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             let shortest_edge;
             let longest_edge;
 
+            if (this.do_thumbnail) {
+                // NOTE: custom logic for `Donut` models
+                const { height, width } = this.size;
+                shortest_edge = Math.min(height, width)
+            }
             // Support both formats for backwards compatibility
-            if (Number.isInteger(this.size)) {
+            else if (Number.isInteger(this.size)) {
                 shortest_edge = this.size;
                 longest_edge = this.config.max_size ?? shortest_edge;
 
@@ -235,9 +277,9 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                     ? 1 // If `longest_edge` is not set, don't downscale
                     : Math.min(longest_edge / newWidth, longest_edge / newHeight);
 
-                // To avoid certain floating point precision issues, we round to 3 decimal places
-                const finalWidth = Math.floor(Number((newWidth * longResizeFactor).toPrecision(3)));
-                const finalHeight = Math.floor(Number((newHeight * longResizeFactor).toPrecision(3)));
+                // To avoid certain floating point precision issues, we round to 2 decimal places
+                const finalWidth = Math.floor(Number((newWidth * longResizeFactor).toFixed(2)));
+                const finalHeight = Math.floor(Number((newHeight * longResizeFactor).toFixed(2)));
 
                 // Perform resize
                 image = await image.resize(finalWidth, finalHeight, {
@@ -252,6 +294,11 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             } else {
                 throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(this.size)}`);
             }
+        }
+
+        // Resize the image using thumbnail method.
+        if (this.do_thumbnail) {
+            image = await this.thumbnail(image, this.size, this.resample);
         }
 
         if (this.do_center_crop) {
@@ -272,7 +319,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         let reshaped_input_size = [image.height, image.width];
 
         // TODO is it okay to pad before rescaling/normalizing?
-        if (this.do_pad) {
+        if (this.do_pad && this.pad_size) {
             let left = 0;
             let right = this.pad_size.width - image.width;
             let top = 0;
@@ -362,6 +409,7 @@ export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
+export class DonutFeatureExtractor extends ImageFeatureExtractor { }
 
 /**
  * Detr Feature Extractor.
@@ -1329,6 +1377,7 @@ export class AutoProcessor {
         DeiTFeatureExtractor,
         DetrFeatureExtractor,
         YolosFeatureExtractor,
+        DonutFeatureExtractor,
 
         SamImageProcessor,
         Wav2Vec2FeatureExtractor,
@@ -1379,10 +1428,10 @@ export class AutoProcessor {
         if (!feature_extractor_class) {
             if (preprocessorConfig.size !== undefined) {
                 // Assume ImageFeatureExtractor
-                console.warn('Feature extractor type not specified, assuming ImageFeatureExtractor due to size parameter in config.');
+                console.warn(`Feature extractor type "${key}" not found, assuming ImageFeatureExtractor due to size parameter in config.`);
                 feature_extractor_class = ImageFeatureExtractor;
             } else {
-                throw new Error(`Unknown Feature Extractor type: ${preprocessorConfig.feature_extractor_type}`);
+                throw new Error(`Unknown Feature Extractor type: ${key}`);
             }
         }
 

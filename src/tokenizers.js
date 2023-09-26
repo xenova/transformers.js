@@ -2269,6 +2269,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {Object} options An optional object containing the following properties:
      * @param {string|string[]} [options.text_pair=null] Optional second sequence to be encoded. If set, must be the same type as text.
      * @param {boolean} [options.padding=false] Whether to pad the input sequences.
+     * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
@@ -2281,7 +2282,7 @@ export class PreTrainedTokenizer extends Callable {
         // Optional keyword arguments
         {
             text_pair = null,
-            // add_special_tokens = true, // TODO
+            add_special_tokens = true,
             padding = false,
             truncation = null,
             max_length = null,
@@ -2306,11 +2307,11 @@ export class PreTrainedTokenizer extends Callable {
                 }
 
                 tokens = text.map(
-                    (t, i) => this.encode(t, text_pair[i])
+                    (t, i) => this.encode(t, text_pair[i], { add_special_tokens })
                 )
 
             } else {
-                tokens = text.map(x => this.encode(x));
+                tokens = text.map(x => this.encode(x, null, { add_special_tokens }));
             }
 
         } else {
@@ -2323,7 +2324,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             // For single input, we just wrap in an array, and then unwrap later.
-            tokens = [this.encode(text, text_pair)];
+            tokens = [this.encode(text, text_pair, { add_special_tokens })];
         }
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
@@ -2474,14 +2475,19 @@ export class PreTrainedTokenizer extends Callable {
      *
      * @param {string} text The text to encode.
      * @param {string|null} text_pair The optional second text to encode.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
-    encode(text, text_pair = null) {
+    encode(text, text_pair = null, {
+        add_special_tokens = true,
+    } = {}) {
         // Function called by users to encode possibly multiple texts
         let tokens = this._encode_text(text);
         let tokens2 = this._encode_text(text_pair);
 
-        let combinedTokens = (this.post_processor !== null)
+        // TODO improve `add_special_tokens` and ensure correctness
+        let combinedTokens = (this.post_processor !== null && add_special_tokens)
             ? this.post_processor(tokens, tokens2)
             : mergeArrays(tokens ?? [], tokens2 ?? []);
 
