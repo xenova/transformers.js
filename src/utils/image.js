@@ -512,6 +512,7 @@ export class RawImage {
      * @param {number} width The new width of the image.
      * @param {number} height The new height of the image.
      * @param {1|2|3|4|null} [channels] The new number of channels of the image.
+     * @private
      */
     _update(data, width, height, channels = null) {
         this.data = data;
