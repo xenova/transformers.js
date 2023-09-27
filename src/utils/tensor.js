@@ -16,7 +16,7 @@ import {
 
 
 /**
- * @typedef {import('./maths.js').AnyTypedArray} AnyTypedArray
+ * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
  */
 
 /** @type {Object} */
@@ -25,7 +25,7 @@ const ONNXTensor = ONNX.Tensor;
 export class Tensor extends ONNXTensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
-     * @param {[string, Array|AnyTypedArray, number[]]|[ONNXTensor]} args
+     * @param {[string, DataArray, number[]]|[ONNXTensor]} args
      */
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
