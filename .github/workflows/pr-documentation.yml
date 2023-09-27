@@ -9,7 +9,7 @@ concurrency:
 
 jobs:
   build:
-    uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@main
+    uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@fix_metadata_postprocessing
     with:
       repo_owner: xenova
       commit_sha: ${{ github.sha }}
@@ -18,3 +18,4 @@ jobs:
       path_to_docs: transformers.js/docs/source
       pre_command: cd transformers.js && npm install && npm run docs-api
       additional_args: --not_python_module
+      doc_builder_revision: fix_metadata_postprocessing
