@@ -378,10 +378,17 @@ export class QuestionAnsweringPipeline extends Pipeline {
                     skip_special_tokens: true,
                 });
 
-                // TODO add start and end?
-                // NOTE: HF returns character index
+                // Get start and end character indexes of answer within context
+                let startCharIndexOfContext = null
+                let endCharIndexOfContext = null
+                if (answer) {
+                    const textBeforeAnswer = this.tokenizer.decode([...ids].slice(sepIndex + 1, start))
+                    startCharIndexOfContext = textBeforeAnswer.length + 1
+                    endCharIndexOfContext = startCharIndexOfContext + answer.length
+                }
+
                 toReturn.push({
-                    answer, score
+                    answer, score, start: startCharIndexOfContext, end: endCharIndexOfContext
                 });
             }
         }
