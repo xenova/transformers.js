@@ -382,8 +382,12 @@ export class QuestionAnsweringPipeline extends Pipeline {
                 let startCharIndexOfContext = null
                 let endCharIndexOfContext = null
                 if (answer) {
-                    const textBeforeAnswer = this.tokenizer.decode([...ids].slice(sepIndex + 1, start))
-                    startCharIndexOfContext = textBeforeAnswer.length + 1
+                    if (sepIndex + 1 !== start) {
+                        const textBeforeAnswer = this.tokenizer.decode([...ids].slice(sepIndex + 1, start))
+                        startCharIndexOfContext = textBeforeAnswer.length + 1
+                    } else {
+                        startCharIndexOfContext = 0
+                    }
                     endCharIndexOfContext = startCharIndexOfContext + answer.length
                 }
 
