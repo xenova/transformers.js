@@ -14,17 +14,30 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         'tiiuae/falcon-7b',
     ],
     "llama": [
-        "hf-internal-testing/llama-tokenizer",
+        'hf-internal-testing/llama-tokenizer',
+        'hf-internal-testing/llama-code-tokenizer',
     ],
     'mpt': [
         'mosaicml/mpt-7b',
     ],
 }
 
+MODELS_TO_IGNORE = [
+    # TODO: remove when https://github.com/huggingface/tokenizers/issues/251 is fixed
+    'xlm',
+
+    # TODO: remove when https://github.com/huggingface/transformers/issues/26018 is fixed
+    'marian',
+]
+
 TOKENIZERS_TO_IGNORE = [
     # TODO: remove when https://github.com/huggingface/transformers/pull/25478 is merged
     'facebook/m2m100_418M',
 ]
+
+MAX_TESTS = {
+    'marian': 10,
+}
 
 TOKENIZER_TEST_DATA = {
     "shared": [
@@ -50,6 +63,13 @@ TOKENIZER_TEST_DATA = {
         "weird \uFF5E edge \uFF5E case",
     ],
     "custom": {
+        "facebook/blenderbot_small-90M": [
+            # Test special tokens
+            "__start__hello world__end__",
+            # The original (python) tokenizer simply joins by spaces (regardless of special tokens or not)
+            "__start__ hey __end__" # --> ... --> "__start__ hey __end__"
+            "__start__hey __end__" # --> ... --> "__start__ hey __end__"
+        ],
         "tiiuae/falcon-7b": [
             "12 and 123 and 1234",  # Special case for splitting on 3 numbers
         ],
@@ -95,6 +115,11 @@ def generate_tokenizer_tests():
         list(ADDITIONAL_TOKENIZERS_TO_TEST.items())
 
     for model_type, tokenizer_names in tokenizers_to_test:
+        if model_type in MODELS_TO_IGNORE:
+            continue
+        if model_type in MAX_TESTS:
+            tokenizer_names = tokenizer_names[:MAX_TESTS[model_type]]
+
         print(f'Generating tests for {model_type}')
         for tokenizer_name in tokenizer_names:
             if tokenizer_name in TOKENIZERS_TO_IGNORE:
@@ -109,6 +134,12 @@ def generate_tokenizer_tests():
                 # If a KeyError/EnvironmentError is raised from the AutoTokenizer, it
                 # means the model does not use a tokenizer (e.g., vision models)
                 continue
+
+            try:
+                # Disable dropout, if the model allows it
+                tokenizer.backend_tokenizer.model.dropout = 0
+            except AttributeError:
+                pass
 
             tokenizer_results = []
 
@@ -146,11 +177,16 @@ def generate_tokenizer_tests():
 def generate_config_tests():
     results = {}
     for model_type, config_names in SUPPORTED_MODELS.items():
+        print(f'Generating tests for {model_type}')
 
         for config_name in config_names:
-            # Load config
-            config = AutoConfig.from_pretrained(config_name)
-
+            print('  -', config_name)
+            try:
+                # Load config
+                config = AutoConfig.from_pretrained(config_name)
+            except Exception:
+                # Something went wrong, skip this config
+                continue
             results[config_name] = config.to_dict()
 
             # TODO: Remove after https://github.com/huggingface/transformers/issues/23876 fixed

@@ -122,7 +122,10 @@ export class RawImage {
      * @param {1|2|3|4} channels The number of channels.
      */
     constructor(data, width, height, channels) {
-        this._update(data, width, height, channels);
+        this.data = data;
+        this.width = width;
+        this.height = height;
+        this.channels = channels;
     }
 
     /**
@@ -655,7 +658,8 @@ export class RawImage {
      * @param {Uint8ClampedArray} data The new image data.
      * @param {number} width The new width of the image.
      * @param {number} height The new height of the image.
-     * @param {1|2|3|4} channels The new number of channels of the image.
+     * @param {1|2|3|4|null} [channels] The new number of channels of the image.
+     * @private
      */
     _update(data, width, height, channels = null) {
         this.data = data;
