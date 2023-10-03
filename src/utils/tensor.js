@@ -988,3 +988,25 @@ function dimsToStride(dims) {
     }
     return stride;
 }
+
+/**
+ * Returns a tensor filled with the scalar value 1, with the shape defined by the variable argument size.
+ * @param {number[]} size A sequence of integers defining the shape of the output tensor.
+ */
+export function ones(size) {
+    const numElements = size.reduce((a, b) => a * b, 1);
+    return new Tensor(
+        'int64',
+        new BigInt64Array(numElements).fill(1n),
+        size
+    )
+}
+
+/**
+ * Returns a tensor filled with the scalar value 1, with the same size as input.
+ * @param {Tensor} tensor The size of input will determine size of the output tensor.
+ * @returns The ones tensor.
+ */
+export function ones_like(tensor) {
+    return ones(tensor.dims);
+}
