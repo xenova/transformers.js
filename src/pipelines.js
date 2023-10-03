@@ -25,6 +25,8 @@ import {
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
+    AutoModelForSpeechSeq2Seq,
+    AutoModelForTextToSpectrogram,
     AutoModelForCTC,
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
@@ -1950,7 +1952,7 @@ const SUPPORTED_TASKS = {
     "automatic-speech-recognition": {
         "tokenizer": AutoTokenizer,
         "pipeline": AutomaticSpeechRecognitionPipeline,
-        "model": [AutoModelForSeq2SeqLM, AutoModelForCTC],
+        "model": [AutoModelForSpeechSeq2Seq, AutoModelForCTC],
         "processor": AutoProcessor,
         "default": {
             // TODO: replace with original
