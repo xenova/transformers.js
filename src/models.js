@@ -74,6 +74,7 @@ import {
     cat,
     dynamicTimeWarping,
     mean,
+    ones_like,
     stack,
     std_mean,
     Tensor,
@@ -278,11 +279,7 @@ function prepareAttentionMask(self, tokens) {
         )
         return new Tensor('int64', data, tokens.dims)
     } else {
-        return new Tensor(
-            'int64',
-            new BigInt64Array(tokens.data.length).fill(1n),
-            tokens.dims
-        )
+        return ones_like(tokens);
     }
 }
 
@@ -928,7 +925,9 @@ export class PreTrainedModel extends Callable {
             const modelType = this.config.model_type;
             const possibleInfo =
                 MODEL_WITH_LM_HEAD_MAPPING_NAMES.get(modelType)
-                ?? MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES.get(modelType)
+                ?? MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES.get(modelType)
+                ?? MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES.get(modelType)
+                // ?? MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES.get(modelType) // TODO
                 ?? MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES.get(modelType);
 
             if (possibleInfo) {
@@ -3564,6 +3563,151 @@ export class WavLMForSequenceClassification extends WavLMPreTrainedModel {
 }
 
 //////////////////////////////////////////////////
+// SpeechT5 models
+/**
+ * An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained models.
+ */
+export class SpeechT5PreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare SpeechT5 Encoder-Decoder Model outputting raw hidden-states without any specific pre- or post-nets.
+ */
+export class SpeechT5Model extends SpeechT5PreTrainedModel { };
+
+/**
+ * SpeechT5 Model with a speech encoder and a text decoder.
+ */
+export class SpeechT5ForSpeechToText extends SpeechT5PreTrainedModel { }
+
+/**
+ * SpeechT5 Model with a text encoder and a speech decoder.
+ */
+export class SpeechT5ForTextToSpeech extends SpeechT5PreTrainedModel {
+
+    /**
+     * Creates a new instance of the `SpeechT5ForTextToSpeech` class.
+     * @param {Object} config The model configuration.
+     * @param {any} session session for the model.
+     * @param {any} decoder_merged_session session for the decoder.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        this.num_decoder_layers = this.config.decoder_layers;
+        this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.decoder_dim_kv = this.config.hidden_size / this.num_decoder_heads;
+
+        this.num_encoder_layers = this.config.encoder_layers;
+        this.num_encoder_heads = this.config.encoder_attention_heads;
+        this.encoder_dim_kv = this.config.hidden_size / this.num_encoder_heads;
+    }
+
+    /**
+     * @typedef {Object} SpeechOutput
+     * @property {Tensor} [spectrogram] The predicted log-mel spectrogram of shape
+     * `(output_sequence_length, config.num_mel_bins)`. Returned when no `vocoder` is provided
+     * @property {Tensor} [waveform] The predicted waveform of shape `(num_frames,)`. Returned when a `vocoder` is provided.
+     * @property {Tensor} [cross_attentions] The outputs of the decoder's cross-attention layers of shape
+     * `(config.decoder_layers, config.decoder_attention_heads, output_sequence_length, input_sequence_length)`. returned when `output_cross_attentions` is `true`.
+     */
+
+    /**
+     * Converts a sequence of input tokens into a sequence of mel spectrograms, which are subsequently turned into a speech waveform using a vocoder.
+     * @param {Tensor} input_values Indices of input sequence tokens in the vocabulary.
+     * @param {Tensor} speaker_embeddings Tensor containing the speaker embeddings.
+     * @param {Object} options Optional parameters for generating speech.
+     * @param {number} [options.threshold=0.5] The generated sequence ends when the predicted stop token probability exceeds this value.
+     * @param {number} [options.minlenratio=0.0] Used to calculate the minimum required length for the output sequence.
+     * @param {number} [options.maxlenratio=20.0] Used to calculate the maximum allowed length for the output sequence.
+     * @param {Object} [options.vocoder=null] The vocoder that converts the mel spectrogram into a speech waveform. If `null`, the output is the mel spectrogram.
+     * @param {boolean} [options.output_cross_attentions=false] Whether or not to return the attentions tensors of the decoder's cross-attention layers.
+     * @returns {Promise<SpeechOutput>} A promise which resolves to an object containing the spectrogram, waveform, and cross-attention tensors.
+     */
+    async generate_speech(input_values, speaker_embeddings, {
+        threshold = 0.5,
+        minlenratio = 0.0,
+        maxlenratio = 20.0,
+        vocoder = null,
+        // output_cross_attentions = false, // TODO add
+    } = {}) {
+
+        const model_inputs = {
+            input_ids: input_values
+        }
+
+        const { encoder_outputs, encoder_attention_mask } = await encoderForward(this, model_inputs);
+
+        const r = encoder_outputs.dims[1] / this.config.reduction_factor;
+        const maxlen = Math.floor(r * maxlenratio);
+        const minlen = Math.floor(r * minlenratio);
+
+        const num_mel_bins = this.config.num_mel_bins;
+
+        let spectrogramParts = [];
+        let past_key_values = null;
+        let decoder_outputs = null;
+        let idx = 0;
+
+        while (true) {
+            ++idx;
+
+            const use_cache_branch = boolTensor(!!decoder_outputs);
+            let output_sequence;
+            if (decoder_outputs) {
+                output_sequence = decoder_outputs.output_sequence_out;
+            } else {
+                output_sequence = new Tensor(
+                    'float32',
+                    new Float32Array(num_mel_bins),
+                    [1, 1, num_mel_bins],
+                )
+            }
+            let decoderFeeds = {
+                use_cache_branch,
+                output_sequence,
+                encoder_attention_mask: encoder_attention_mask,
+                speaker_embeddings: speaker_embeddings,
+                encoder_hidden_states: encoder_outputs,
+            };
+
+            this.addPastKeyValues(decoderFeeds, past_key_values);
+            decoder_outputs = await sessionRun(this.decoder_merged_session, decoderFeeds);
+            past_key_values = this.getPastKeyValues(decoder_outputs, past_key_values);
+
+            const { prob, spectrum } = decoder_outputs;
+            spectrogramParts.push(spectrum);
+
+            if (idx >= minlen && (
+                // Finished when stop token or maximum length is reached.
+                Array.from(prob.data).filter(p => p >= threshold).length > 0 || idx >= maxlen
+            )) {
+                break;
+            }
+        }
+
+        const spectrogram = cat(spectrogramParts);
+        const { waveform } = await sessionRun(vocoder.session, { spectrogram });
+
+        return {
+            spectrogram,
+            waveform,
+            // cross_attentions: null, // TODO add
+        }
+    }
+}
+
+/**
+ * HiFi-GAN vocoder.
+ */
+export class SpeechT5HifiGan extends PreTrainedModel {
+    main_input_name = 'spectrogram';
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
 
@@ -3659,6 +3803,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['donut-swin', ['DonutSwinModel', DonutSwinModel]],
     ['yolos', ['YolosModel', YolosModel]],
 
+    ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
+
     ['sam', ['SamModel', SamModel]], // TODO change to encoder-decoder when model is split correctly
 ]);
 
@@ -3689,6 +3835,15 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['opt', ['OPTModel', OPTModel]],
 ]);
 
+const MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES = new Map([
+    ['speecht5', ['SpeechT5ForSpeechToText', SpeechT5ForSpeechToText]],
+    ['whisper', ['WhisperForConditionalGeneration', WhisperForConditionalGeneration]],
+])
+
+const MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES = new Map([
+    ['speecht5', ['SpeechT5ForTextToSpeech', SpeechT5ForTextToSpeech]],
+])
+
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
     ['camembert', ['CamembertForSequenceClassification', CamembertForSequenceClassification]],
@@ -3718,13 +3873,12 @@ const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['xlm-roberta', ['XLMRobertaForTokenClassification', XLMRobertaForTokenClassification]],
 ]);
 
-const MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES = new Map([
+const MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES = new Map([
     ['t5', ['T5ForConditionalGeneration', T5ForConditionalGeneration]],
     ['longt5', ['LongT5ForConditionalGeneration', LongT5ForConditionalGeneration]],
     ['mt5', ['MT5ForConditionalGeneration', MT5ForConditionalGeneration]],
     ['bart', ['BartForConditionalGeneration', BartForConditionalGeneration]],
     ['mbart', ['MBartForConditionalGeneration', MBartForConditionalGeneration]],
-    ['whisper', ['WhisperForConditionalGeneration', WhisperForConditionalGeneration]],
     ['marian', ['MarianMTModel', MarianMTModel]],
     ['m2m_100', ['M2M100ForConditionalGeneration', M2M100ForConditionalGeneration]],
     ['blenderbot', ['BlenderbotForConditionalGeneration', BlenderbotForConditionalGeneration]],
@@ -3822,7 +3976,8 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_DECODER_ONLY, MODEL_TYPES.DecoderOnly],
     [MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
+    [MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
+    [MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_WITH_LM_HEAD_MAPPING_NAMES, MODEL_TYPES.DecoderOnly],
     [MODEL_FOR_MASKED_LM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -3833,6 +3988,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -3897,7 +4053,29 @@ export class AutoModelForTokenClassification extends PretrainedMixin {
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
  */
 export class AutoModelForSeq2SeqLM extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEQ_2_SEQ_MAPPING_NAMES];
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES];
+}
+
+/**
+ * Helper class which is used to instantiate pretrained sequence-to-sequence speech-to-text models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForSpeechSeq2Seq.from_pretrained('openai/whisper-tiny.en');
+ */
+export class AutoModelForSpeechSeq2Seq extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES];
+}
+
+/**
+ * Helper class which is used to instantiate pretrained sequence-to-sequence text-to-spectrogram models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForTextToSpectrogram.from_pretrained('microsoft/speecht5_tts');
+ */
+export class AutoModelForTextToSpectrogram extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES];
 }
 
 /**
