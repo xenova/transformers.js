@@ -10,7 +10,7 @@ from scripts.supported_models import SUPPORTED_MODELS
 
 # List of tokenizers where the model isn't yet supported, but the tokenizer is
 ADDITIONAL_TOKENIZERS_TO_TEST = {
-    'RefinedWebModel': [
+    'falcon': [
         'tiiuae/falcon-7b',
     ],
     "llama": [
