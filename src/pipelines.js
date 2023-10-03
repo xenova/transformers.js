@@ -1896,7 +1896,7 @@ export class TextToAudioPipeline extends Pipeline {
         // Load vocoder, if not provided
         if (!this.vocoder) {
             console.log('No vocoder specified, using default HifiGan vocoder.');
-            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID);
+            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { quantized: false });
         }
 
         // Load speaker embeddings as Float32Array from path/URL
