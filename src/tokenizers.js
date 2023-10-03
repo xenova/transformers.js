@@ -2705,12 +2705,7 @@ export class CodeLlamaTokenizer extends PreTrainedTokenizer { }
 export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
 export class MPNetTokenizer extends PreTrainedTokenizer { }
 
-export class FalconTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
-}
+export class FalconTokenizer extends PreTrainedTokenizer { }
 
 export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
 
