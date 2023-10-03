@@ -3752,6 +3752,8 @@ export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
 export class BlenderbotTokenizer extends PreTrainedTokenizer { }
 export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
 
+export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -3793,6 +3795,7 @@ export class AutoTokenizer {
         Wav2Vec2CTCTokenizer,
         BlenderbotTokenizer,
         BlenderbotSmallTokenizer,
+        SpeechT5Tokenizer,
 
         // Base case:
         PreTrainedTokenizer,
