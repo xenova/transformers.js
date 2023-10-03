@@ -28,13 +28,18 @@ let createCanvasFunction;
 let ImageDataClass;
 let loadImageFunction;
 if (IS_REACT_NATIVE) {
-    // Optional Support `@flyskywhy/react-native-browser-polyfill` for better performance
-    if (typeof document !== 'undefined' && typeof Image !== 'undefined') {
+    // Optional Support gcanvas or skia with web polyfill for better performance
+    const offscreenCanvasExists = typeof OffscreenCanvas !== 'undefined';
+    if (typeof Image !== 'undefined' && (typeof document !== 'undefined' || offscreenCanvasExists)) {
         createCanvasFunction = (/** @type {number} */ width, /** @type {number} */ height) => {
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            return canvas;
+            if (offscreenCanvasExists) {
+                return new OffscreenCanvas(width, height);
+            } else {
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                return canvas;
+            }
         };
         loadImageFunction = async (/**@type {URL|string}*/url) => {
             const info = await new Promise((resolve, reject) => {
