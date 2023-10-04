@@ -127,7 +127,7 @@ Want to jump straight in? Get started with one of our sample applications/templa
 
 
 
-By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.2/dist/), which should work out-of-the-box. You can customize this as follows:
+By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models?library=transformers.js) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.2/dist/), which should work out-of-the-box. You can customize this as follows:
 
 
 ### Settings
