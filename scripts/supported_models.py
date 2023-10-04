@@ -370,7 +370,7 @@ SUPPORTED_MODELS = {
             'voidful/long-t5-encodec-tglobal-base',
         ],
     },
-    'm2m_100': [
+    'm2m_100': {
         # Translation
         'translation': [
             'facebook/nllb-200-distilled-600M',
