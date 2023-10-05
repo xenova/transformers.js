@@ -1848,7 +1848,7 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
  * let synthesizer = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false });
  * let out = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
  * // {
- * //   audio: Float32Array(28672) [-0.0004919943166896701, -0.00023953932395670563, ...],
+ * //   audio: Float32Array(26112) [-0.00005657337896991521, 0.00020583874720614403, ...],
  * //   sampling_rate: 16000
  * // }
  * ```
