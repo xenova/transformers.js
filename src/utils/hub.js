@@ -246,9 +246,10 @@ function fetchBinary(url) {
 async function readFile(filePath) {
     const path = filePath.toString()
     const stat = await fs.stat(path);
+    const type = getMIME(path);
     const headers = new Headers();
     headers.append('content-length', stat.size);
-    headers.append('content-type', getMIME(path));
+    headers.append('content-type', type);
     let content;
     const reqOptions = {
         status: 200,
