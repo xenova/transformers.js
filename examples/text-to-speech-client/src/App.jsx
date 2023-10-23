@@ -89,15 +89,15 @@ const App = () => {
 
   const isLoading = ready === false;
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="absolute gap-1 z-50 top-0 left-0 w-full h-full transition-all px-8 flex flex-col justify-center text-center" style={{
+    <div className='min-h-screen flex items-center justify-center bg-gray-100'>
+      <div className='absolute gap-1 z-50 top-0 left-0 w-full h-full transition-all px-8 flex flex-col justify-center text-center' style={{
         opacity: isLoading ? 1 : 0,
         pointerEvents: isLoading ? 'all' : 'none',
         background: 'rgba(0, 0, 0, 0.9)',
         backdropFilter: 'blur(8px)',
       }}>
         {isLoading && (
-          <label className="text-white text-xl p-3">Loading models... (only run once)</label>
+          <label className='text-white text-xl p-3'>Loading models... (only run once)</label>
         )}
         {progressItems.map(data => (
           <div key={`${data.name}/${data.file}`}>
@@ -105,29 +105,29 @@ const App = () => {
           </div>
         ))}
       </div>
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-xl m-2">
-        <h1 className="text-3xl font-semibold text-gray-800 mb-1 text-center">In-browser Text to Speech</h1>
-        <h2 className="text-base font-medium text-gray-700 mb-2 text-center">Made with <a href="https://huggingface.co/docs/transformers.js">🤗 Transformers.js</a></h2>
-        <div className="mb-4">
-          <label htmlFor="text" className="block text-sm font-medium text-gray-600">
+      <div className='bg-white p-8 rounded-lg shadow-lg w-full max-w-xl m-2'>
+        <h1 className='text-3xl font-semibold text-gray-800 mb-1 text-center'>In-browser Text to Speech</h1>
+        <h2 className='text-base font-medium text-gray-700 mb-2 text-center'>Made with <a href='https://huggingface.co/docs/transformers.js'>🤗 Transformers.js</a></h2>
+        <div className='mb-4'>
+          <label htmlFor='text' className='block text-sm font-medium text-gray-600'>
             Text
           </label>
           <textarea
-            id="text"
-            className="border border-gray-300 rounded-md p-2 w-full"
-            rows="4"
-            placeholder="Enter text here"
+            id='text'
+            className='border border-gray-300 rounded-md p-2 w-full'
+            rows='4'
+            placeholder='Enter text here'
             value={text}
             onChange={(e) => setText(e.target.value)}
           ></textarea>
         </div>
-        <div className="mb-4">
-          <label htmlFor="speaker" className="block text-sm font-medium text-gray-600">
+        <div className='mb-4'>
+          <label htmlFor='speaker' className='block text-sm font-medium text-gray-600'>
             Speaker
           </label>
           <select
-            id="speaker"
-            className="border border-gray-300 rounded-md p-2 w-full"
+            id='speaker'
+            className='border border-gray-300 rounded-md p-2 w-full'
             value={selectedSpeaker}
             onChange={(e) => setSelectedSpeaker(e.target.value)}
           >
@@ -138,7 +138,7 @@ const App = () => {
             ))}
           </select>
         </div>
-        <div className="flex justify-center">
+        <div className='flex justify-center'>
           <button
             className={`${disabled
               ? 'bg-gray-400 cursor-not-allowed'
