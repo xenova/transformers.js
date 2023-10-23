@@ -28,6 +28,9 @@ MODELS_TO_IGNORE = [
 
     # TODO: remove when https://github.com/huggingface/transformers/issues/26018 is fixed
     'marian',
+
+    # TODO: remove when https://github.com/huggingface/transformers/issues/26547 is fixed
+    'speecht5',
 ]
 
 TOKENIZERS_TO_IGNORE = [

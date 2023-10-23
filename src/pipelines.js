@@ -25,6 +25,8 @@ import {
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
+    AutoModelForSpeechSeq2Seq,
+    AutoModelForTextToSpectrogram,
     AutoModelForCTC,
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
@@ -32,6 +34,7 @@ import {
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
     AutoModelForDocumentQuestionAnswering,
+    // AutoModelForTextToWaveform,
     PreTrainedModel,
 } from './models.js';
 import {
@@ -57,6 +60,7 @@ import {
     read_audio
 } from './utils/audio.js';
 import {
+    Tensor,
     mean_pooling,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
@@ -1127,8 +1131,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
     }
 
     /**
-     * @typedef {import('./utils/tensor.js').Tensor} Tensor
-     * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} Chunk
+     * @typedef {{stride: number[], input_features: import('./utils/tensor.js').Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} Chunk
      * 
      * @callback ChunkCallback
      * @param {Chunk} chunk The chunk to process.
@@ -1835,6 +1838,103 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
     }
 }
 
+/**
+ * Text-to-audio generation pipeline using any `AutoModelForTextToWaveform` or `AutoModelForTextToSpectrogram`.
+ * This pipeline generates an audio file from an input text and optional other conditional inputs.
+ * 
+ * **Example:** Generate audio from text with `Xenova/speecht5_tts`.
+ * ```js
+ * let speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
+ * let synthesizer = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false });
+ * let out = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
+ * // {
+ * //   audio: Float32Array(26112) [-0.00005657337896991521, 0.00020583874720614403, ...],
+ * //   sampling_rate: 16000
+ * // }
+ * ```
+ * 
+ * You can then save the audio to a .wav file with the `wavefile` package:
+ * ```js
+ * import wavefile from 'wavefile';
+ * import fs from 'fs';
+ * 
+ * let wav = new wavefile.WaveFile();
+ * wav.fromScratch(1, out.sampling_rate, '32f', out.audio);
+ * fs.writeFileSync('out.wav', wav.toBuffer());
+ * ```
+ */
+export class TextToAudioPipeline extends Pipeline {
+    DEFAULT_VOCODER_ID = "Xenova/speecht5_hifigan"
+
+    /**
+     * Create a new TextToAudioPipeline.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
+     * @param {PreTrainedModel} [options.vocoder] The vocoder to use.
+     */
+    constructor(options) {
+        super(options);
+
+        // TODO: Find a better way for `pipeline` to set the default vocoder
+        this.vocoder = options.vocoder ?? null;
+    }
+
+    /**
+     * Generates speech/audio from the inputs.
+     * @param {string|string[]} text_inputs The text(s) to generate.
+     * @param {Object} options Parameters passed to the model generation/forward method.
+     * @param {PreTrainedModel} [options.vocoder=null] The vocoder to use (if the model uses one). If not provided, use the default HifiGan vocoder.
+     * @param {Tensor|Float32Array|string|URL} [options.speaker_embeddings=null]
+     * @returns {Promise<Object>} An object containing the generated audio and sampling rate.
+     */
+    async _call(text_inputs, {
+        speaker_embeddings = null,
+    } = {}) {
+        // Load vocoder, if not provided
+        if (!this.vocoder) {
+            console.log('No vocoder specified, using default HifiGan vocoder.');
+            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { quantized: false });
+        }
+
+        // Load speaker embeddings as Float32Array from path/URL
+        if (typeof speaker_embeddings === 'string' || speaker_embeddings instanceof URL) {
+            // Load from URL with fetch
+            speaker_embeddings = new Float32Array(
+                await (await fetch(speaker_embeddings)).arrayBuffer()
+            );
+        }
+
+        if (speaker_embeddings instanceof Float32Array) {
+            speaker_embeddings = new Tensor(
+                'float32',
+                speaker_embeddings,
+                [1, speaker_embeddings.length]
+            )
+        } else if (!(speaker_embeddings instanceof Tensor)) {
+            throw new Error("Speaker embeddings must be a `Tensor`, `Float32Array`, `string`, or `URL`.")
+        }
+
+        // Run tokenization
+        const { input_ids } = this.tokenizer(text_inputs, {
+            padding: true,
+            truncation: true
+        });
+
+        // NOTE: At this point, we are guaranteed that `speaker_embeddings` is a `Tensor`
+        // @ts-ignore
+        const { waveform } = await this.model.generate_speech(input_ids, speaker_embeddings, { vocoder: this.vocoder });
+
+        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+        return {
+            audio: waveform.data,
+            sampling_rate,
+        }
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
@@ -1950,7 +2050,7 @@ const SUPPORTED_TASKS = {
     "automatic-speech-recognition": {
         "tokenizer": AutoTokenizer,
         "pipeline": AutomaticSpeechRecognitionPipeline,
-        "model": [AutoModelForSeq2SeqLM, AutoModelForCTC],
+        "model": [AutoModelForSpeechSeq2Seq, AutoModelForCTC],
         "processor": AutoProcessor,
         "default": {
             // TODO: replace with original
@@ -1959,7 +2059,18 @@ const SUPPORTED_TASKS = {
         },
         "type": "multimodal",
     },
-
+    "text-to-audio": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": TextToAudioPipeline,
+        "model": [ /* TODO: AutoModelForTextToWaveform, */ AutoModelForTextToSpectrogram],
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "microsoft/speecht5_tts",
+            "model": "Xenova/speecht5_tts",
+        },
+        "type": "text",
+    },
     "image-to-text": {
         "tokenizer": AutoTokenizer,
         "pipeline": ImageToTextPipeline,
@@ -2058,6 +2169,7 @@ const TASK_ALIASES = {
     "ner": "token-classification",
     "vqa": "visual-question-answering",
     "asr": "automatic-speech-recognition",
+    "text-to-speech": "text-to-audio",
 
     // Add for backwards compatibility
     "embeddings": "feature-extraction",
