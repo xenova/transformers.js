@@ -107,7 +107,7 @@ const App = () => {
       </div>
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-xl m-2">
         <h1 className="text-3xl font-semibold text-gray-800 mb-1 text-center">In-browser Text to Speech</h1>
-        <h2 className="text-base font-medium text-gray-700 mb-2 text-center">Made with 🤗 Transformers.js</h2>
+        <h2 className="text-base font-medium text-gray-700 mb-2 text-center">Made with <a href="https://huggingface.co/docs/transformers.js">🤗 Transformers.js</a></h2>
         <div className="mb-4">
           <label htmlFor="text" className="block text-sm font-medium text-gray-600">
             Text
