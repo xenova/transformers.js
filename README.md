@@ -116,6 +116,7 @@ Want to jump straight in? Get started with one of our sample applications/templa
 | Semantic Image Search (server-side) | Search for images with text (Supabase) | [code](./examples/semantic-image-search/), [demo](https://huggingface.co/spaces/Xenova/semantic-image-search) |
 | Vanilla JavaScript | In-browser object detection     | [video](https://scrimba.com/scrim/cKm9bDAg), [code](./examples/vanilla-js/), [demo](https://huggingface.co/spaces/Scrimba/vanilla-js-object-detector) |
 | React             | Multilingual translation website | [code](./examples/react-translator/), [demo](https://huggingface.co/spaces/Xenova/react-translator) |
+| Text to speech (client-side) | In-browser speech synthesis | [code](./examples/text-to-speech-client/), [demo](https://huggingface.co/spaces/Xenova/text-to-speech-client) |
 | Browser extension | Text classification extension    | [code](./examples/extension/) |
 | Electron          | Text classification application  | [code](./examples/electron/)  |
 | Next.js (client-side) | Sentiment analysis (in-browser inference) | [code](./examples/next-client/), [demo](https://huggingface.co/spaces/Xenova/next-example-app) |
