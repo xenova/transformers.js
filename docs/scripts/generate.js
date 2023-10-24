@@ -58,9 +58,6 @@ for (const moduleName of moduleNames) {
     // TODO: May need to extend this list
     output = output.replace(/\\([|_&*])/gm, '$1');
 
-    output = output.replaceAll('&lt;', '&amp;lt;');
-    output = output.replaceAll('&gt;', '&amp;gt;');
-
     output = output.replaceAll('new exports.', 'new ');
 
     let outputPath = path.resolve(outputDir, `${moduleName}.md`);

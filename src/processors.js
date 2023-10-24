@@ -1309,6 +1309,8 @@ export class Wav2Vec2FeatureExtractor extends FeatureExtractor {
     }
 }
 
+export class SpeechT5FeatureExtractor extends FeatureExtractor { }
+
 /**
  * Represents a Processor that extracts features from an input.
  * @extends Callable
@@ -1381,6 +1383,18 @@ export class Wav2Vec2ProcessorWithLM extends Processor {
     }
 }
 
+export class SpeechT5Processor extends Processor {
+    /**
+     * Calls the feature_extractor function with the given input.
+     * @param {any} input The input to extract features from.
+     * @returns {Promise<any>} A Promise that resolves with the extracted features.
+     */
+    async _call(input) {
+        return await this.feature_extractor(input)
+    }
+}
+
+
 //////////////////////////////////////////////////
 /**
  * Helper class which is used to instantiate pretrained processors with the `from_pretrained` function.
@@ -1426,12 +1440,14 @@ export class AutoProcessor {
 
         SamImageProcessor,
         Wav2Vec2FeatureExtractor,
+        SpeechT5FeatureExtractor,
     }
 
     static PROCESSOR_CLASS_MAPPING = {
         WhisperProcessor,
         Wav2Vec2ProcessorWithLM,
         SamProcessor,
+        SpeechT5Processor,
     }
 
     /**

@@ -136,7 +136,7 @@ export class RawImage {
      * **Example:** Read image from a URL.
      * ```javascript
      * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
-     * // test {
+     * // RawImage {
      * //   "data": Uint8ClampedArray [ 25, 25, 25, 19, 19, 19, ... ],
      * //   "width": 800,
      * //   "height": 533,

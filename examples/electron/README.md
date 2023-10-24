@@ -14,17 +14,6 @@ An example project to show how to run 🤗 Transformers in an [Electron](https:/
     npm install 
     ```
 
-1. Add your model files to `./models/`. For this demo, we use [distilbert-base-uncased-finetuned-sst-2-english](https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/tree/main) from the Hugging Face Hub. It should look something like this:
-    ```
-    distilbert-base-uncased-finetuned-sst-2-english/
-    ├── config.json
-    ├── tokenizer.json
-    ├── tokenizer_config.json
-    └── onnx/
-        ├── model.onnx
-        └── model_quantized.onnx
-    ```
-
 1. Run the application:
     ```bash
     npm run start 

@@ -375,6 +375,10 @@ SUPPORTED_MODELS = {
     #     'facebook/sam-vit-large',
     #     'facebook/sam-vit-huge',
     # ],
+    'speecht5': [
+        # Text-to-speech
+        'microsoft/speecht5_tts',
+    ],
     'squeezebert': [
         # Feature extraction
         'squeezebert/squeezebert-uncased',
