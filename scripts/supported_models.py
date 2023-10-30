@@ -200,7 +200,7 @@ SUPPORTED_MODELS = {
         'distilbert-base-uncased',
         'distilbert-base-cased',
     ],
-    'donut': [
+    'donut': [  # NOTE: also a `vision-encoder-decoder`
         # Image-to-text
         'naver-clova-ix/donut-base-finetuned-cord-v2',
         'naver-clova-ix/donut-base-finetuned-zhtrainticket',
@@ -416,6 +416,13 @@ SUPPORTED_MODELS = {
         'sentence-transformers/sentence-t5-large',
         'hkunlp/instructor-base',
         'hkunlp/instructor-large',
+    ],
+    'trocr': [  # NOTE: also a `vision-encoder-decoder`
+        # Text-to-image
+        'microsoft/trocr-small-printed',
+        'microsoft/trocr-base-printed',
+        'microsoft/trocr-small-handwritten',
+        'microsoft/trocr-base-handwritten',
     ],
     'vision-encoder-decoder': [
         # Text-to-image
