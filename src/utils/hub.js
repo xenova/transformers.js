@@ -498,7 +498,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         file: filename
     }
 
-    /**@type {Uint8Array} */
+    /** @type {Uint8Array} */
     let buffer;
 
     if (!options.progress_callback) {
