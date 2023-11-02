@@ -67,6 +67,10 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
+    'mistral': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
 
     # Encoder-decoder models
     'whisper': {

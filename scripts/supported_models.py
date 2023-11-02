@@ -303,6 +303,10 @@ SUPPORTED_MODELS = {
         'facebook/mbart-large-50-many-to-one-mmt',
         'facebook/mbart-large-50',
     ],
+    'mistral': [
+        # Text generation
+        'echarlaix/tiny-random-mistral',
+    ],
     'mobilebert': [
         # Zero-shot classification
         'typeform/mobilebert-uncased-mnli',
