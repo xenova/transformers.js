@@ -1263,12 +1263,14 @@ export class PreTrainedModel extends Callable {
             Object.assign(decoderFeeds, pastKeyValues)
         } else {
             // TODO support batches (i.e., batch_size > 1)
+            const batch_size = 1;
+
             // @ts-ignore
             if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
                 // @ts-ignore
-                let encoder_dims = [1, this.num_encoder_heads, 0, this.encoder_dim_kv];
+                let encoder_dims = [batch_size, this.num_encoder_heads, 0, this.encoder_dim_kv];
                 // @ts-ignore
-                let decoder_dims = [1, this.num_decoder_heads, 0, this.decoder_dim_kv];
+                let decoder_dims = [batch_size, this.num_decoder_heads, 0, this.decoder_dim_kv];
                 // @ts-ignore
                 for (let i = 0; i < this.num_decoder_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
@@ -1279,7 +1281,7 @@ export class PreTrainedModel extends Callable {
             } else if (this.config.model_type === 'falcon') {
                 // NOTE: Custom implementation for Falcon
                 // @ts-ignore
-                let dims = [1 * this.num_heads, 0, this.dim_kv]
+                let dims = [batch_size * this.num_heads, 0, this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
@@ -1287,7 +1289,7 @@ export class PreTrainedModel extends Callable {
                 }
             } else if (this.config.multi_query) { // e.g., for `gpt_bigcode`
                 // @ts-ignore
-                let dims = [1 * this.num_heads, 0, 2 * this.dim_kv]
+                let dims = [batch_size * this.num_heads, 0, 2 * this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
@@ -1296,9 +1298,9 @@ export class PreTrainedModel extends Callable {
                 // NOTE: Custom implementation for Bloom
 
                 // @ts-ignore
-                let keyDims = [1 * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
+                let keyDims = [batch_size * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
                 // @ts-ignore
-                let valueDims = [1 * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
+                let valueDims = [batch_size * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
@@ -1306,7 +1308,7 @@ export class PreTrainedModel extends Callable {
                 }
             } else { // Decoder-only
                 // @ts-ignore
-                let dims = [1, this.num_heads, 0, this.dim_kv]
+                let dims = [batch_size, this.num_heads, 0, this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
