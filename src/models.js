@@ -1276,9 +1276,18 @@ export class PreTrainedModel extends Callable {
                     decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor('float32', [], decoder_dims)
                     decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor('float32', [], decoder_dims)
                 }
+            } else if (this.config.model_type === 'falcon') {
+                // NOTE: Custom implementation for Falcon
+                // @ts-ignore
+                let dims = [1 * this.num_heads, 0, this.dim_kv]
+                // @ts-ignore
+                for (let i = 0; i < this.num_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                }
             } else if (this.config.multi_query) { // e.g., for `gpt_bigcode`
                 // @ts-ignore
-                let dims = [1, 0, 2 * this.dim_kv]
+                let dims = [1 * this.num_heads, 0, 2 * this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
@@ -3784,6 +3793,36 @@ export class MistralModel extends MistralPreTrainedModel { }
 export class MistralForCausalLM extends MistralPreTrainedModel { }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// Falcon models
+/**
+ * The bare Falcon Model outputting raw hidden-states without any specific head on top.
+ */
+export class FalconPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `FalconPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
+    }
+}
+
+export class FalconModel extends FalconPreTrainedModel { }
+
+export class FalconForCausalLM extends FalconPreTrainedModel { }
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -3912,6 +3951,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['mpt', ['MptModel', MptModel]],
     ['opt', ['OPTModel', OPTModel]],
     ['mistral', ['MistralModel', MistralModel]],
+    ['falcon', ['FalconModel', FalconModel]],
 ]);
 
 const MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES = new Map([
@@ -3977,6 +4017,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
     ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
     ['mistral', ['MistralForCausalLM', MistralForCausalLM]],
+    ['falcon', ['FalconForCausalLM', FalconForCausalLM]],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([

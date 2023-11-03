@@ -208,6 +208,11 @@ SUPPORTED_MODELS = {
         # Document Question Answering
         'naver-clova-ix/donut-base-finetuned-docvqa',
     ],
+    'falcon': [
+        # Text generation
+        'Rocketknight1/tiny-random-falcon-7b',
+        'fxmarty/really-tiny-falcon-testing',
+    ],
     'gpt_neo': [
         # Text generation
         'EleutherAI/gpt-neo-125M',
