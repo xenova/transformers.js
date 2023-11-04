@@ -3386,7 +3386,7 @@ export class SamPreTrainedModel extends PreTrainedModel { }
  * //     size: 14002632
  * //   }
  * // ]
-* const scores = outputs.iou_scores;
+ * const scores = outputs.iou_scores;
  * // Tensor {
  * //   dims: [ 1, 1, 3 ],
  * //   type: 'float32',
@@ -3452,7 +3452,11 @@ export class SamModel extends SamPreTrainedModel {
         // Returns:
         //  - iou_scores: tensor.float32[batch_size,point_batch_size,3]
         //  - pred_masks: tensor.float32[batch_size,point_batch_size,3,256,256]
-        return await sessionRun(this.prompt_encoder_mask_decoder, model_inputs);
+        return await sessionRun(this.prompt_encoder_mask_decoder, {
+            input_points: model_inputs.input_points,
+            image_embeddings: model_inputs.image_embeddings,
+            image_positional_embeddings: model_inputs.image_positional_embeddings,
+        });
     }
 
     /**
