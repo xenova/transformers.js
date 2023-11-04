@@ -299,11 +299,11 @@ function preparePositionIds(session, feeds, use_cache_branch) {
     // Compute cumulative sum of the attention mask along the sequence length dimension
     for (let i = 0; i < feeds.attention_mask.dims[0]; ++i) {
         let start = i * feeds.attention_mask.dims[1];
-        let sum = 0n;
+        let sum = BigInt(0);
         for (let j = 0; j < feeds.attention_mask.dims[1]; ++j) {
             const index = start + j;
             if (feeds.attention_mask.data[index] === 0n) {
-                data[index] = 1n;
+                data[index] = BigInt(1);
             } else { // === 1n
                 data[index] = sum;
                 sum += feeds.attention_mask.data[index];
