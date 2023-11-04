@@ -421,6 +421,77 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
 }
 
 /**
+ * A logits processor that enforces a minimum number of tokens.
+ * 
+ * @extends LogitsProcessor
+ */
+export class MinLengthLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a MinLengthLogitsProcessor.
+     * @param {number} min_length The minimum length below which the score of `eos_token_id` is set to negative infinity.
+     * @param {number|number[]} eos_token_id The ID/IDs of the end-of-sequence token.
+     */
+    constructor(min_length, eos_token_id) {
+        super();
+        this.min_length = min_length;
+        this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
+    }
+
+    /**
+     * Apply logit processor.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
+     * @returns {Object} The processed logits.
+     */
+    _call(input_ids, logits) {
+        if (input_ids.length < this.min_length) {
+            for (const eos_token of this.eos_token_id) {
+                logits.data[eos_token] = -Infinity;
+            }
+        }
+
+        return logits
+    }
+}
+
+/**
+ * A logits processor that enforces a minimum number of new tokens.
+ * 
+ * @extends LogitsProcessor
+ */
+export class MinNewTokensLengthLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a MinNewTokensLengthLogitsProcessor.
+     * @param {number} prompt_length_to_skip The input tokens length.
+     * @param {number} min_new_tokens The minimum *new* tokens length below which the score of `eos_token_id` is set to negative infinity.
+     * @param {number|number[]} eos_token_id The ID/IDs of the end-of-sequence token.
+     */
+    constructor(prompt_length_to_skip, min_new_tokens, eos_token_id) {
+        super();
+        this.prompt_length_to_skip = prompt_length_to_skip;
+        this.min_new_tokens = min_new_tokens;
+        this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
+    }
+
+    /**
+     * Apply logit processor.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
+     * @returns {Object} The processed logits.
+     */
+    _call(input_ids, logits) {
+        const new_tokens_length = input_ids.length - this.prompt_length_to_skip;
+        if (new_tokens_length < this.min_new_tokens) {
+            for (const eos_token of this.eos_token_id) {
+                logits.data[eos_token] = -Infinity;
+            }
+        }
+
+        return logits
+    }
+}
+
+/**
  * Class that holds a configuration for a generation task.
  */
 export class GenerationConfig {

@@ -1,12 +1,6 @@
 // background.js - Handles requests from the UI, runs the model, then sends back a response
 
 import { pipeline, env } from '@xenova/transformers';
-import { CustomCache } from "./cache.js";
-
-// Define caching parameters
-env.useBrowserCache = false;
-env.useCustomCache = true;
-env.customCache = new CustomCache('transformers-cache');
 
 // Skip initial check for local models, since we are not loading any local models.
 env.allowLocalModels = false;

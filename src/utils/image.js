@@ -8,7 +8,6 @@
  * @module utils/image
  */
 
-import fs from 'fs';
 import { isString } from './core.js';
 import { getFile } from './hub.js';
 import { env } from '../env.js';
@@ -85,7 +84,10 @@ export class RawImage {
      * @param {1|2|3|4} channels The number of channels.
      */
     constructor(data, width, height, channels) {
-        this._update(data, width, height, channels);
+        this.data = data;
+        this.width = width;
+        this.height = height;
+        this.channels = channels;
     }
 
     /**
@@ -96,7 +98,7 @@ export class RawImage {
      * **Example:** Read image from a URL.
      * ```javascript
      * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
-     * // test {
+     * // RawImage {
      * //   "data": Uint8ClampedArray [ 25, 25, 25, 19, 19, 19, ... ],
      * //   "width": 800,
      * //   "height": 533,
@@ -509,7 +511,8 @@ export class RawImage {
      * @param {Uint8ClampedArray} data The new image data.
      * @param {number} width The new width of the image.
      * @param {number} height The new height of the image.
-     * @param {1|2|3|4} channels The new number of channels of the image.
+     * @param {1|2|3|4|null} [channels] The new number of channels of the image.
+     * @private
      */
     _update(data, width, height, channels = null) {
         this.data = data;

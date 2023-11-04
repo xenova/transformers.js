@@ -26,14 +26,62 @@ DEFAULT_QUANTIZE_PARAMS = {
 }
 
 MODEL_SPECIFIC_QUANTIZE_PARAMS = {
+    # Decoder-only models
+    'codegen': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gpt2': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gpt_bigcode': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gptj': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gpt-neo': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'gpt-neox': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'mpt': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'bloom': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'llama': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'opt': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+
+    # Encoder-decoder models
     'whisper': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'vision-encoder-decoder': {
         'per_channel': False,
         'reduce_range': False,
     }
 }
 
 MODELS_WITHOUT_TOKENIZERS = [
-    'wav2vec2'
+    'wav2vec2',
+    'wavlm',
 ]
 
 
@@ -66,7 +114,7 @@ class ConversionArguments:
         metadata={
             "help": (
                 "The task to export the model for. If not specified, the task will be auto-inferred based on the model. Available tasks depend on the model, but are among:"
-                f" {str(list(TasksManager._TASKS_TO_AUTOMODELS.keys()))}. For decoder models, use `xxx-with-past` to export the model using past key values in the decoder."
+                f" {str(TasksManager.get_all_tasks())}. For decoder models, use `xxx-with-past` to export the model using past key values in the decoder."
             )
         }
     )
@@ -259,6 +307,17 @@ def main():
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
                 json.dump(tokenizer_json, fp, indent=4)
 
+    elif config.model_type == 'speecht5':
+        # TODO allow user to specify vocoder path
+        export_kwargs["model_kwargs"] = {"vocoder": "microsoft/speecht5_hifigan"}
+
+        if tokenizer is not None:
+            from .extra.speecht5 import generate_tokenizer_json
+            tokenizer_json = generate_tokenizer_json(tokenizer)
+
+            with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
+                json.dump(tokenizer_json, fp, indent=4)
+
     else:
         pass  # TODO
 
@@ -289,6 +348,13 @@ def main():
         # Update quantize config with model specific defaults
         quantize_config = MODEL_SPECIFIC_QUANTIZE_PARAMS.get(
             config.model_type, DEFAULT_QUANTIZE_PARAMS)
+
+        # Update if user specified values
+        if conv_args.per_channel is not None:
+            quantize_config['per_channel'] = conv_args.per_channel
+
+        if conv_args.reduce_range is not None:
+            quantize_config['reduce_range'] = conv_args.reduce_range
 
         quantize([
             os.path.join(output_model_folder, x)
