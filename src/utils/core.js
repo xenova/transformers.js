@@ -121,7 +121,7 @@ export function exists(x) {
  * Calculates the dimensions of a nested array.
  *
  * @param {Array} arr The nested array to calculate dimensions for.
- * @returns {Array} An array containing the dimensions of the input array.
+ * @returns {number[]} An array containing the dimensions of the input array.
  */
 export function calculateDimensions(arr) {
     const dimensions = [];
