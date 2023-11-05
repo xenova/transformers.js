@@ -16,6 +16,7 @@ import { env } from '../env.js';
 import sharp from 'sharp';
 
 const BROWSER_ENV = typeof self !== 'undefined';
+const WEBWORKER_ENV = BROWSER_ENV && self.constructor.name === 'DedicatedWorkerGlobalScope';
 
 let createCanvasFunction;
 let ImageDataClass;
@@ -154,6 +155,21 @@ export class RawImage {
 
             return await loadImageFunction(img);
         }
+    }
+
+    /**
+     * Helper method to create a new Image from a tensor
+     * @param {import('./tensor.js').Tensor} tensor 
+     */
+    static fromTensor(tensor, channel_format = 'CHW') {
+        if (channel_format === 'CHW') {
+            tensor = tensor.transpose(1, 2, 0);
+        } else if (channel_format === 'HWC') {
+            // Do nothing
+        } else {
+            throw new Error(`Unsupported channel format: ${channel_format}`);
+        }
+        return new RawImage(tensor.data, tensor.dims[1], tensor.dims[0], tensor.dims[2]);
     }
 
     /**
@@ -487,6 +503,15 @@ export class RawImage {
         }
     }
 
+    async toBlob(type = 'image/png', quality = 1) {
+        if (!BROWSER_ENV) {
+            throw new Error('toBlob() is only supported in browser environments.')
+        }
+
+        const canvas = this.toCanvas();
+        return await canvas.convertToBlob({ type, quality });
+    }
+
     toCanvas() {
         if (!BROWSER_ENV) {
             throw new Error('toCanvas() is only supported in browser environments.')
@@ -563,14 +588,15 @@ export class RawImage {
     save(path) {
 
         if (BROWSER_ENV) {
+            if (WEBWORKER_ENV) {
+                throw new Error('Unable to save an image from a Web Worker.')
+            }
+
             const extension = path.split('.').pop().toLowerCase();
             const mime = this._CONTENT_TYPE_MAP[extension] ?? 'image/png';
 
-            // Convert image to canvas
-            const canvas = this.toCanvas();
-
             // Convert the canvas content to a data URL
-            const dataURL = canvas.toDataURL(mime);
+            const dataURL = this.toDataURL(mime);
 
             // Create an anchor element with the data URL as the href attribute
             const downloadLink = document.createElement('a');
@@ -594,6 +620,21 @@ export class RawImage {
         }
     }
 
+    /**
+     * Convert the image to a data URL.
+     * @param {string} mime The MIME type of the image.
+     * @returns {string} The data URL.
+     */
+    toDataURL(mime = 'image/png') {
+        if (!BROWSER_ENV || WEBWORKER_ENV) {
+            throw new Error('toDataURL() is only supported in browser environments.')
+        }
+        // Convert image to canvas
+        const canvas = this.toCanvas();
+
+        // Convert the canvas content to a data URL
+        return canvas.toDataURL(mime);
+    }
     toSharp() {
         if (BROWSER_ENV) {
             throw new Error('toSharp() is only supported in server-side environments.')
