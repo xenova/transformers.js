@@ -773,20 +773,18 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
  */
 
 export class SamImageProcessor extends ImageFeatureExtractor {
-    /**
-     * @param {any[]} images The URL(s) of the image(s) to extract features from.
-     * @param {*} input_points A 3D or 4D array, representing the input points provided by the user.
-     * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
-     * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
-     * @returns {Promise<SamImageProcessorResult>}
-     */
-    async _call(images, input_points) {
-        let {
-            pixel_values,
-            original_sizes,
-            reshaped_input_sizes,
-        } = await super._call(images);
 
+    /**
+     * 
+     * @param {*} input_points 
+     * @param {HeightWidth[]} original_sizes 
+     * @param {HeightWidth[]} reshaped_input_sizes 
+     * @returns {Tensor}
+     */
+    reshape_input_points(input_points, original_sizes, reshaped_input_sizes) {
+
+        // Make deep copy to avoid altering user's input
+        input_points = structuredClone(input_points);
         let shape = calculateDimensions(input_points);
 
         // TODO: add support for 2D input_points
@@ -817,18 +815,31 @@ export class SamImageProcessor extends ImageFeatureExtractor {
             }
         }
 
-        let input_points_tensor = new Tensor(
+        return new Tensor(
             'float32',
             Float32Array.from(input_points.flat(Infinity)),
             shape
         )
 
-        // TODO: allowed to be floats?
-        // let input_points_tensor = new Tensor(
-        //     'float32',
-        //     Float32Array.from(input_points.flat(Infinity)),
-        //     shape
-        // )
+    }
+    /**
+     * @param {any[]} images The URL(s) of the image(s) to extract features from.
+     * @param {*} input_points A 3D or 4D array, representing the input points provided by the user.
+     * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
+     * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
+     * @returns {Promise<SamImageProcessorResult>}
+     */
+    async _call(images, input_points) {
+        // TODO allow user to use preprocessed images
+        const {
+            pixel_values,
+            original_sizes,
+            reshaped_input_sizes,
+        } = await super._call(images);
+
+        const input_points_tensor = this.reshape_input_points(
+            input_points, original_sizes, reshaped_input_sizes
+        );
 
         return {
             pixel_values,
@@ -905,6 +916,30 @@ export class SamImageProcessor extends ImageFeatureExtractor {
 
         return output_masks;
 
+    }
+
+    /**
+     * Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
+     * @param {RawImage} image Input original image
+     * @param {number} target_size Target size of the resized image
+     * @param {Object} options Options for generating crop boxes 
+     * @param {number} [options.crop_n_layers] If >0, mask prediction will be run again on crops of the image.
+     * Sets the number of layers to run, where each layer has 2**i_layer number of image crops.
+     * @param {number} [options.overlap_ratio] Sets the degree to which crops overlap. In the first crop layer,
+     * crops will overlap by this fraction of the image length. Later layers with more crops scale down this overlap.
+     * @param {number} [options.points_per_crop] Number of points to sample from each crop.
+     * @param {number} [options.crop_n_points_downscale_factor] The number of points-per-side sampled in layer n is
+     * scaled down by crop_n_points_downscale_factor**n.
+     * @returns {Object} An object containing the crop boxes, number of points per crop, cropped images, and input labels.
+     */
+    generate_crop_boxes(image, target_size, {
+        crop_n_layers = 0,
+        overlap_ratio = 512 / 1500,
+        points_per_crop = 32,
+        crop_n_points_downscale_factor = 1,
+    } = {}) {
+        // TODO: Implement
+        // return { crop_boxes, points_per_crop, cropped_images, input_labels }
     }
 }
 
