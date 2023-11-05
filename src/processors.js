@@ -887,7 +887,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 if (binarize) {
                     interpolated_mask = new Tensor(
                         'bool',
-                        Array.from(interpolated_mask.data).map(x => x > mask_threshold),
+                        Uint8Array.from(interpolated_mask.data.map(x => +(x > mask_threshold))),
                         interpolated_mask.dims
                     )
                 }
