@@ -339,17 +339,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         /** @type {HeightWidth} */
         let reshaped_input_size = [image.height, image.width];
 
-        // TODO is it okay to pad before rescaling/normalizing?
-        if (this.do_pad && this.pad_size) {
-            let left = 0;
-            let right = this.pad_size.width - image.width;
-            let top = 0;
-            let bottom = this.pad_size.height - image.height;
-
-            image = await image.pad([left, right, top, bottom]);
-        }
-
-        const pixelData = Float32Array.from(image.data);
+        let pixelData = Float32Array.from(image.data);
+        let imgDims = [image.height, image.width, image.channels];
 
         if (this.do_rescale) {
             for (let i = 0; i < pixelData.length; ++i) {
@@ -379,10 +370,34 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             }
         }
 
+        // do padding after rescaling/normalizing
+        if (this.do_pad && this.pad_size) {
+
+            const paddedPixelData = new Float32Array(this.pad_size.width * this.pad_size.height * image.channels);
+
+            // Copy the original image into the padded image
+            for (let i = 0; i < image.height; ++i) {
+                const a = i * this.pad_size.width;
+                const b = i * image.width;
+                for (let j = 0; j < image.width; ++j) {
+                    const c = (a + j) * image.channels;
+                    const d = (b + j) * image.channels;
+                    for (let k = 0; k < image.channels; ++k) {
+                        paddedPixelData[c + k] = pixelData[d + k];
+                    }
+                }
+            }
+
+            // Update pixel data and image dimensions
+            pixelData = paddedPixelData;
+            imgDims = [this.pad_size.height, this.pad_size.width, image.channels]
+        }
+
+        // Create HWC tensor
+        const img = new Tensor('float32', pixelData, imgDims);
+
         // convert to channel dimension format:
-        let imgDims = [image.height, image.width, image.channels];
-        let img = new Tensor('float32', pixelData, imgDims);
-        let transposed = transpose(img, [2, 0, 1]); // hwc -> chw
+        const transposed = transpose(img, [2, 0, 1]); // hwc -> chw
 
         return {
             original_size: [srcHeight, srcWidth],
