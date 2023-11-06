@@ -286,10 +286,10 @@ export class RawImage {
             // TODO use `resample` in browser environment
 
             // Store number of channels before resizing
-            let numChannels = this.channels;
+            const numChannels = this.channels;
 
             // Create canvas object for this image
-            let canvas = this.toCanvas();
+            const canvas = this.toCanvas();
 
             // Actually perform resizing using the canvas API
             const ctx = createCanvasFunction(width, height).getContext('2d');
@@ -297,8 +297,11 @@ export class RawImage {
             // Draw image to context, resizing in the process
             ctx.drawImage(canvas, 0, 0, width, height);
 
+            // Extract the resized data
+            const imageData = ctx.getImageData(0, 0, width, height).data;
+
             // Create image from the resized data
-            let resizedImage = new RawImage(ctx.getImageData(0, 0, width, height).data, width, height, 4);
+            const resizedImage = new RawImage(imageData, width, height, 4);
 
             // Convert back so that image has the same number of channels as before
             return resizedImage.convert(numChannels);
