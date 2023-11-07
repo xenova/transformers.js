@@ -482,6 +482,26 @@ export class Tensor extends ONNXTensor {
     neg() {
         return this.clone().neg_();
     }
+
+    /**
+     * In-place version of @see {@link Tensor.clamp}
+     */
+    clamp_(min, max) {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = Math.min(Math.max(this.data[i], min), max);
+        }
+        return this;
+    }
+
+    /**
+     * Clamps all elements in input into the range [ min, max ]
+     * @param {number} min lower-bound of the range to be clamped to
+     * @param {number} max upper-bound of the range to be clamped to
+     * @returns the output tensor.
+     */
+    clamp(min, max) {
+        return this.clone().clamp_(min, max);
+    }
 }
 
 /**
