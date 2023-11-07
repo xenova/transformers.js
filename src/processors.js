@@ -908,6 +908,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     }
 }
 
+export class Swin2SRImageProcessor extends ImageFeatureExtractor { }
 
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
@@ -1439,6 +1440,7 @@ export class AutoProcessor {
         DonutFeatureExtractor,
 
         SamImageProcessor,
+        Swin2SRImageProcessor,
         Wav2Vec2FeatureExtractor,
         SpeechT5FeatureExtractor,
     }
