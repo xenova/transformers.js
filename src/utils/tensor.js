@@ -15,6 +15,21 @@ import {
 } from './maths.js';
 
 
+// @ts-ignore
+const DataTypeMap = new Map([
+    ['bool', Uint8Array],
+    ['float32', Float32Array],
+    ['float64', Float64Array],
+    ['string', Array], // string[]
+    ['int8', Int8Array],
+    ['uint8', Uint8Array],
+    ['int16', Int16Array],
+    ['uint16', Uint16Array],
+    ['int32', Int32Array],
+    ['uint32', Uint32Array],
+    ['int64', BigInt64Array],
+])
+
 /**
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
  */
@@ -501,6 +516,23 @@ export class Tensor extends ONNXTensor {
      */
     clamp(min, max) {
         return this.clone().clamp_(min, max);
+    }
+
+    /**
+     * Performs Tensor dtype conversion.
+     * @param {'bool'|'float32'|'float64'|'string'|'int8'|'uint8'|'int16'|'uint16'|'int32'|'uint32'|'int64'} type 
+     * @returns {Tensor} The converted tensor.
+     */
+    to(type) {
+        // If the self Tensor already has the correct dtype, then self is returned.
+        if (this.type === type) return this;
+
+        // Otherwise, the returned tensor is a copy of self with the desired dtype.
+        const ArrayConstructor = DataTypeMap.get(type);
+        if (!ArrayConstructor) {
+            throw new Error(`Unsupported type: ${type}`);
+        }
+        return new Tensor(type, ArrayConstructor.from(this.data), this.dims);
     }
 }
 
