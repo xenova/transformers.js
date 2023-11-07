@@ -157,6 +157,21 @@ export class RawImage {
     }
 
     /**
+     * Helper method to create a new Image from a tensor
+     * @param {import('./tensor.js').Tensor} tensor 
+     */
+    static fromTensor(tensor, channel_format = 'CHW') {
+        if (channel_format === 'CHW') {
+            tensor = tensor.transpose(1, 2, 0);
+        } else if (channel_format === 'HWC') {
+            // Do nothing
+        } else {
+            throw new Error(`Unsupported channel format: ${channel_format}`);
+        }
+        return new RawImage(tensor.data, tensor.dims[1], tensor.dims[0], tensor.dims[2]);
+    }
+
+    /**
      * Convert the image to grayscale format.
      * @returns {RawImage} `this` to support chaining.
      */
