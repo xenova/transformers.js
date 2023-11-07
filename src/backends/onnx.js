@@ -77,7 +77,7 @@ export async function createInferenceSession(buffer) {
         // If WebGPU is available and the user enables the experimental flag, try to use the WebGPU execution provider.
         executionProviders = ['webgpu', 'wasm'];
 
-        ONNX_WEBGPU.env = env.backends.onnx;
+        Object.assign(ONNX_WEBGPU.env, env.backends.onnx);
 
     } else {
         const ONNX_WEB = ONNX_MODULES.get('web');
