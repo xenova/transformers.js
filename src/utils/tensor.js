@@ -519,6 +519,24 @@ export class Tensor extends ONNXTensor {
     }
 
     /**
+     * In-place version of @see {@link Tensor.round}
+     */
+    round_() {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = Math.round(this.data[i]);
+        }
+        return this;
+    }
+
+    /**
+     * Rounds elements of input to the nearest integer.
+     * @returns the output tensor.
+     */
+    round() {
+        return this.clone().round_();
+    }
+
+    /**
      * Performs Tensor dtype conversion.
      * @param {'bool'|'float32'|'float64'|'string'|'int8'|'uint8'|'int16'|'uint16'|'int32'|'uint32'|'int64'} type 
      * @returns {Tensor} The converted tensor.
