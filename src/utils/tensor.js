@@ -7,8 +7,6 @@
  * @module utils/tensor
  */
 
-import { ONNX } from '../backends/onnx.js';
-
 import {
     interpolate_data,
     transpose_data
@@ -19,22 +17,21 @@ import {
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
  */
 
-/** @type {Object} */
-const ONNXTensor = ONNX.Tensor;
-
-export class Tensor extends ONNXTensor {
+export class Tensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
-     * @param {[string, DataArray, number[]]|[ONNXTensor]} args
+     * @param {[string, DataArray, number[]]|Object} args
      */
     constructor(...args) {
-        if (args[0] instanceof ONNX.Tensor) {
+        if (args.length === 1) {
             // Create shallow copy
-            super(args[0].type, args[0].data, args[0].dims);
+            Object.assign(this, args[0]);
 
         } else {
-            // Create new
-            super(...args);
+            // Create new tensor
+            this.type = args[0];
+            this.data = args[1];
+            this.dims = args[2];
         }
 
         return new Proxy(this, {

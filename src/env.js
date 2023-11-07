@@ -26,9 +26,6 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 
-import { ONNX } from './backends/onnx.js';
-const { env: onnx_env } = ONNX;
-
 const VERSION = '3.0.0-alpha.0';
 
 // Check if various APIs are available (depends on environment)
@@ -36,7 +33,7 @@ const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
 const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
-const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
+export const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 
 const __dirname = RUNNING_LOCALLY
     ? path.dirname(path.dirname(url.fileURLToPath(import.meta.url)))
@@ -52,14 +49,6 @@ const DEFAULT_LOCAL_MODEL_PATH = '/models/';
 const localModelPath = RUNNING_LOCALLY
     ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
-
-// Set path to wasm files. This is needed when running in a web worker.
-// https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
-// We use remote wasm files by default to make it easier for newer users.
-// In practice, users should probably self-host the necessary .wasm files.
-onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
-    ? path.join(__dirname, '/dist/')
-    : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
 
 
 /**
@@ -83,14 +72,22 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
  * @property {Object} customCache The custom cache to use. Defaults to `null`. Note: this must be an object which
  * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache
  */
+
 export const env = {
     /////////////////// Backends settings ///////////////////
+    // NOTE: These will be populated later by the backends themselves.
     backends: {
         // onnxruntime-web/onnxruntime-node
-        onnx: onnx_env,
+        onnx: {},
 
         // TensorFlow.js
         tfjs: {},
+    },
+
+    /////////////////// Experimental settings ///////////////////
+    experimental: {
+        // Whether to use the experimental WebGPU backend for ONNX.js.
+        useWebGPU: false,
     },
 
     __dirname,

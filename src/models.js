@@ -80,9 +80,8 @@ import {
     Tensor,
 } from './utils/tensor.js';
 
-import { executionProviders, ONNX } from './backends/onnx.js';
+import { createInferenceSession, isONNXTensor } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
-const { InferenceSession, Tensor: ONNXTensor } = ONNX;
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -111,38 +110,19 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
  * @param {string} fileName The name of the model file.
  * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the model.
- * @returns {Promise<InferenceSession>} A Promise that resolves to an InferenceSession object.
+ * @returns {Promise<Object>} A Promise that resolves to an InferenceSession object.
  * @private
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
     // TODO add option for user to force specify their desired execution provider
     let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
     let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
-
-    try {
-        return await InferenceSession.create(buffer, {
-            executionProviders,
-        });
-    } catch (err) {
-        // If the execution provided was only wasm, throw the error
-        if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
-            throw err;
-        }
-
-        console.warn(err);
-        console.warn(
-            'Something went wrong during model construction (most likely a missing operation). ' +
-            'Using `wasm` as a fallback. '
-        )
-        return await InferenceSession.create(buffer, {
-            executionProviders: ['wasm']
-        });
-    }
+    return await createInferenceSession(buffer);
 }
 
 /**
  * Validate model inputs
- * @param {InferenceSession} session The InferenceSession object that will be run.
+ * @param {Object} session The InferenceSession object that will be run.
  * @param {Object} inputs The inputs to check.
  * @returns {Promise<Object>} A Promise that resolves to the checked inputs.
  * @throws {Error} If any inputs are missing.
@@ -182,7 +162,7 @@ async function validateInputs(session, inputs) {
  *  - If additional inputs are passed, they will be ignored.
  *  - If inputs are missing, an error will be thrown.
  * 
- * @param {InferenceSession} session The InferenceSession object to run.
+ * @param {Object} session The InferenceSession object to run.
  * @param {Object} inputs An object that maps input names to input tensors.
  * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
  * @private
@@ -209,7 +189,7 @@ async function sessionRun(session, inputs) {
  */
 function replaceTensors(obj) {
     for (let prop in obj) {
-        if (obj[prop] instanceof ONNXTensor) {
+        if (isONNXTensor(obj[prop])) {
             obj[prop] = new Tensor(obj[prop]);
         } else if (typeof obj[prop] === 'object') {
             replaceTensors(obj[prop]);
@@ -639,7 +619,8 @@ export class PreTrainedModel extends Callable {
         let promises = [];
         for (let key of Object.keys(this)) {
             let item = this[key];
-            if (item instanceof InferenceSession) {
+            // TODO improve check for ONNX session
+            if (item?.handler?.dispose !== undefined) {
                 promises.push(item.handler.dispose())
             }
         }
