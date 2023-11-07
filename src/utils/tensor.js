@@ -175,6 +175,27 @@ export class Tensor extends ONNXTensor {
         return this;
     }
 
+    /**
+     * Return a new Tensor with every element multiplied by a constant.
+     * @param {number} val The value to multiply by.
+     * @returns {Tensor} The new tensor.
+     */
+    mul(val) {
+        return this.clone().mul_(val);
+    }
+
+    /**
+     * Multiply the tensor by a constant in place.
+     * @param {number} val The value to multiply by.
+     * @returns {Tensor} Returns `this`.
+     */
+    mul_(val) {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] *= val;
+        }
+        return this;
+    }
+
     clone() {
         return new Tensor(this.type, this.data.slice(), this.dims.slice());
     }
