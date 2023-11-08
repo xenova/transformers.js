@@ -22,6 +22,7 @@
 import {
     Callable,
     calculateDimensions,
+    calculateReflectOffset,
 } from './utils/core.js';
 
 import {
@@ -375,8 +376,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
             let pad_size = this.pad_size;
             let paddedImageWidth, paddedImageHeight;
-            if (typeof pad_size === 'number') {
-                // When `pad_size` is a number, we must ensure that the image's width/height is a multiple of `pad_size`
+
+            // When `pad_size` is a number, we must ensure that the image's width/height is a multiple of `pad_size`
+            let doPadToMultipleOf = typeof pad_size === 'number';
+            if (doPadToMultipleOf) {
                 // NOTE: For Swin2SR models, the original python implementation adds padding even when `pad_size` is already
                 // a multiple of `pad_size`. However, this is most likely a bug (PR: https://github.com/mv-lab/swin2sr/pull/19).
                 // For this reason, we only add padding when the image's width/height is not a multiple of `pad_size`.
@@ -405,7 +408,28 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                     }
                 }
 
-                // TODO: For Swin2SR models, reflect padding is used instead of zero padding
+                if (doPadToMultipleOf) {
+                    // By default, we do reflection padding when `pad_size`.
+                    // TODO: Determine whether to do this from config/model type
+                    const h1 = image.height - 1;
+                    const w1 = image.width - 1;
+                    for (let i = 0; i < paddedImageHeight; ++i) {
+                        const a = i * paddedImageWidth;
+                        const b = calculateReflectOffset(i, h1) * image.width;
+
+                        for (let j = 0; j < paddedImageWidth; ++j) {
+                            if (i < image.height && j < image.width) continue; // Do not overwrite original image
+                            const c = (a + j) * image.channels;
+                            const d = (b + calculateReflectOffset(j, w1)) * image.channels;
+
+                            // Copy channel-wise
+                            for (let k = 0; k < image.channels; ++k) {
+                                paddedPixelData[c + k] = pixelData[d + k];
+                            }
+                        }
+                    }
+                }
+
 
                 // Update pixel data and image dimensions
                 pixelData = paddedPixelData;
@@ -953,15 +977,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
         // Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
         this.config.mel_filters ??= getMelFilters(this.config.sampling_rate, this.config.n_fft, this.config.feature_size);
     }
-    /**
-     * Calculates the index offset for a given index and window size.
-     * @param {number} i The index.
-     * @param {number} w The window size.
-     * @returns {number} The index offset.
-     */
-    calcOffset(i, w) {
-        return Math.abs((i + w) % (2 * w) - w);
-    }
+
 
     /**
      * Pads an array with a reflected version of itself on both ends.
@@ -979,11 +995,11 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
         }
 
         for (let i = 1; i <= left; ++i) {
-            padded[left - i] = array[this.calcOffset(i, w)];
+            padded[left - i] = array[calculateReflectOffset(i, w)];
         }
 
         for (let i = 1; i <= right; ++i) {
-            padded[w + left + i] = array[this.calcOffset(w - i, w)];
+            padded[w + left + i] = array[calculateReflectOffset(w - i, w)];
         }
 
         return padded;
