@@ -483,7 +483,7 @@ export class FillMaskPipeline extends Pipeline {
  * ```
  */
 export class Text2TextGenerationPipeline extends Pipeline {
-    _key = null;
+    _key = 'generated_text';
 
     /**
      * Fill the masked token in the text(s) given as inputs.
