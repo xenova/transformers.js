@@ -3707,6 +3707,37 @@ export class SpeechT5HifiGan extends PreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// TrOCR models
+export class TrOCRPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `TrOCRPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id;
+
+        this.num_encoder_layers = this.num_decoder_layers = this.config.decoder_layers;
+        this.num_encoder_heads = this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.encoder_dim_kv = this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+    }
+}
+
+/**
+ * The TrOCR Decoder with a language modeling head.
+ */
+export class TrOCRForCausalLM extends TrOCRPreTrainedModel { }
+
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
@@ -3897,6 +3928,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['mpt', ['MptForCausalLM', MptForCausalLM]],
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
     ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
+    ['trocr', ['TrOCRForCausalLM', TrOCRForCausalLM]],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
