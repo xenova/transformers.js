@@ -64,17 +64,17 @@ const RESAMPLING_MAPPING = {
     5: 'hamming',
 }
 
-export class RawImage {
+/**
+ * Mapping from file extensions to MIME types.
+ */
+const CONTENT_TYPE_MAP = new Map([
+    ['png', 'image/png'],
+    ['jpg', 'image/jpeg'],
+    ['jpeg', 'image/jpeg'],
+    ['gif', 'image/gif'],
+]);
 
-    /**
-     * Mapping from file extensions to MIME types.
-     */
-    _CONTENT_TYPE_MAP = {
-        'png': 'image/png',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'gif': 'image/gif',
-    }
+export class RawImage {
 
     /**
      * Create a new `RawImage` object.
@@ -579,7 +579,7 @@ export class RawImage {
 
         if (BROWSER_ENV) {
             const extension = path.split('.').pop().toLowerCase();
-            const mime = this._CONTENT_TYPE_MAP[extension] ?? 'image/png';
+            const mime = CONTENT_TYPE_MAP.get(extension) ?? 'image/png';
 
             // Convert image to canvas
             const canvas = this.toCanvas();
