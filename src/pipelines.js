@@ -1336,6 +1336,14 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
  * let output = await captioner(url);
  * // [{ generated_text: 'a cat laying on a couch with another cat' }]
  * ```
+ * 
+ * **Example:** Optical Character Recognition (OCR) w/ `Xenova/trocr-small-handwritten`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/handwriting.jpg';
+ * let captioner = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten');
+ * let output = await captioner(url);
+ * // [{ generated_text: 'Mr. Brown commented icily.' }]
+ * ```
  */
 export class ImageToTextPipeline extends Pipeline {
     /**
