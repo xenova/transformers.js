@@ -631,16 +631,16 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
  * ```javascript
  * let text = 'I enjoy walking with my cute dog,';
- * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await classifier(text);
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text);
  * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
  * ```
  * 
  * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
  * ```javascript
  * let text = 'Once upon a time, there was';
- * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await classifier(text, {
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text, {
  *   temperature: 2,
  *   max_new_tokens: 10,
  *   repetition_penalty: 1.5,
@@ -658,8 +658,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
  * ```javascript
  * let text = 'def fib(n):';
- * let classifier = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
- * let output = await classifier(text, {
+ * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * let output = await generator(text, {
  *   max_new_tokens: 44,
  * });
  * // [{
