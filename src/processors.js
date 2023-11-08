@@ -374,39 +374,43 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         if (this.do_pad && this.pad_size) {
 
             let pad_size = this.pad_size;
-            let padWidth, padHeight;
+            let paddedImageWidth, paddedImageHeight;
             if (typeof pad_size === 'number') {
                 // When `pad_size` is a number, we must ensure that the image's width/height is a multiple of `pad_size`
                 // NOTE: For Swin2SR models, the original python implementation adds padding even when `pad_size` is already
                 // a multiple of `pad_size`. However, this is most likely a bug (PR: https://github.com/mv-lab/swin2sr/pull/19).
                 // For this reason, we only add padding when the image's width/height is not a multiple of `pad_size`.
-                padWidth = image.width + (pad_size - image.width % pad_size) % pad_size;
-                padHeight = image.height + (pad_size - image.height % pad_size) % pad_size;
+                paddedImageWidth = image.width + (pad_size - image.width % pad_size) % pad_size;
+                paddedImageHeight = image.height + (pad_size - image.height % pad_size) % pad_size;
             } else {
-                padWidth = pad_size.width;
-                padHeight = pad_size.height;
+                paddedImageWidth = pad_size.width;
+                paddedImageHeight = pad_size.height;
             }
 
-            const paddedPixelData = new Float32Array(padWidth * padHeight * image.channels);
+            if (paddedImageWidth !== image.width || paddedImageHeight !== image.height) {
+                // Only add padding if there is a difference in size
 
-            // Copy the original image into the padded image
-            for (let i = 0; i < image.height; ++i) {
-                const a = i * padWidth;
-                const b = i * image.width;
-                for (let j = 0; j < image.width; ++j) {
-                    const c = (a + j) * image.channels;
-                    const d = (b + j) * image.channels;
-                    for (let k = 0; k < image.channels; ++k) {
-                        paddedPixelData[c + k] = pixelData[d + k];
+                const paddedPixelData = new Float32Array(paddedImageWidth * paddedImageHeight * image.channels);
+
+                // Copy the original image into the padded image
+                for (let i = 0; i < image.height; ++i) {
+                    const a = i * paddedImageWidth;
+                    const b = i * image.width;
+                    for (let j = 0; j < image.width; ++j) {
+                        const c = (a + j) * image.channels;
+                        const d = (b + j) * image.channels;
+                        for (let k = 0; k < image.channels; ++k) {
+                            paddedPixelData[c + k] = pixelData[d + k];
+                        }
                     }
                 }
+
+                // TODO: For Swin2SR models, reflect padding is used instead of zero padding
+
+                // Update pixel data and image dimensions
+                pixelData = paddedPixelData;
+                imgDims = [paddedImageHeight, paddedImageWidth, image.channels]
             }
-
-            // TODO: For Swin2SR models, reflect padding is used instead of zero padding
-
-            // Update pixel data and image dimensions
-            pixelData = paddedPixelData;
-            imgDims = [padHeight, padWidth, image.channels]
         }
 
         // Create HWC tensor
