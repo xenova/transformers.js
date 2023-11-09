@@ -34,6 +34,7 @@ import {
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
     AutoModelForDocumentQuestionAnswering,
+    AutoModelForImageToImage,
     // AutoModelForTextToWaveform,
     PreTrainedModel,
 } from './models.js';
@@ -1947,6 +1948,44 @@ export class TextToAudioPipeline extends Pipeline {
     }
 }
 
+/**
+ * Image to Image pipeline using any `AutoModelForImageToImage`. This pipeline generates an image based on a previous image input.
+ * 
+ * **Example:** Super-resolution w/ `Xenova/swin2SR-classical-sr-x2-64`
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/butterfly.jpg';
+ * let upscaler = await pipeline('image-to-image', 'Xenova/swin2SR-classical-sr-x2-64');
+ * let output = await upscaler(url);
+ * // RawImage {
+ * //   data: Uint8Array(786432) [ 41, 31, 24,  43, ... ],
+ * //   width: 512,
+ * //   height: 512,
+ * //   channels: 3
+ * // }
+ * ```
+ */
+export class ImageToImagePipeline extends Pipeline {
+    /**
+     * Transform the image(s) passed as inputs.
+     * @param {any} images The images to transform.
+     * @returns {Promise<any>} An image or a list of images containing result(s).
+     */
+    async _call(images) {
+        images = await prepareImages(images);
+
+        let inputs = await this.processor(images);
+        let outputs = await this.model(inputs);
+
+        let toReturn = [];
+        for (let batch of outputs.reconstruction) {
+            const output = batch.squeeze().clamp_(0, 1).mul_(255).round_().to('uint8');
+            toReturn.push(RawImage.fromTensor(output));
+        }
+
+        return toReturn.length > 1 ? toReturn : toReturn[0];
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
@@ -2159,6 +2198,18 @@ const SUPPORTED_TASKS = {
             "model": "Xenova/donut-base-finetuned-docvqa",
         },
         "type": "multimodal",
+    },
+    "image-to-image": {
+        // no tokenizer
+        "pipeline": ImageToImagePipeline,
+        "model": AutoModelForImageToImage,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "caidas/swin2SR-classical-sr-x2-64",
+            "model": "Xenova/swin2SR-classical-sr-x2-64",
+        },
+        "type": "image",
     },
 
     // This task serves as a useful interface for dealing with sentence-transformers (https://huggingface.co/sentence-transformers).

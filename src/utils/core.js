@@ -174,3 +174,13 @@ export function product(...a) {
     // Adapted from https://stackoverflow.com/a/43053803
     return a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e])));
 }
+
+/**
+ * Calculates the index offset for a given index and window size.
+ * @param {number} i The index.
+ * @param {number} w The window size.
+ * @returns {number} The index offset.
+ */
+export function calculateReflectOffset(i, w) {
+    return Math.abs((i + w) % (2 * w) - w);
+}

@@ -406,6 +406,17 @@ SUPPORTED_MODELS = {
         'microsoft/swin-large-patch4-window7-224-in22k',
         'microsoft/swin-large-patch4-window12-384',
     ],
+    'swin2sr': [
+        # Image-to-image (Super-resolution)
+        'caidas/swin2SR-classical-sr-x2-64',
+        'caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr',
+        'caidas/swin2SR-classical-sr-x4-64',
+        'caidas/swin2SR-compressed-sr-x4-48',
+        'caidas/swin2SR-lightweight-x2-64',
+
+        # Feature extraction
+        'hf-tiny-model-private/tiny-random-Swin2SRModel',
+    ],
     't5': [
         # Text-to-text (Translation/Summarization)
         't5-small',
