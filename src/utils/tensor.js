@@ -196,6 +196,27 @@ export class Tensor extends ONNXTensor {
         return this;
     }
 
+
+    /**
+     * Return a new Tensor with every element added by a constant.
+     * @param {number} val The value to add by.
+     * @returns {Tensor} The new tensor.
+     */
+    add(val) {
+        return this.clone().add_(val);
+    }
+
+    /**
+     * Add the tensor by a constant in place.
+     * @param {number} val The value to add by.
+     * @returns {Tensor} Returns `this`.
+     */
+    add_(val) {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] += val;
+        }
+        return this;
+    }
     clone() {
         return new Tensor(this.type, this.data.slice(), this.dims.slice());
     }
