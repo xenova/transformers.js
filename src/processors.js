@@ -230,6 +230,90 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         return await image.resize(width, height, { resample });
     }
 
+
+    /**
+     * Pad the image by a certain amount.
+     * @param {Float32Array} pixelData The pixel data to pad.
+     * @param {number[]} imgDims The dimensions of the image.
+     * @param {{width:number; height:number}|number} padSize The dimensions of the padded image.
+     * @param {Object} options The options for padding.
+     * @param {'constant'|'symmetric'} [options.mode='constant'] The type of padding to add.
+     * @param {boolean} [options.center=false] Whether to center the image.
+     * @param {number} [options.constant_values=0] The constant value to use for padding.
+     * @returns {[Float32Array, number[]]} The padded pixel data and image dimensions.
+     */
+    pad_image(pixelData, imgDims, padSize, {
+        mode = 'constant',
+        center = false,
+        constant_values = 0,
+    } = {}) {
+        const [imageWidth, imageHeight, imageChannels] = imgDims;
+
+        let paddedImageWidth, paddedImageHeight;
+        if (typeof padSize === 'number') {
+            paddedImageWidth = padSize;
+            paddedImageHeight = padSize;
+        } else {
+            paddedImageWidth = padSize.width;
+            paddedImageHeight = padSize.height;
+        }
+
+        // Only add padding if there is a difference in size
+        if (paddedImageWidth !== imageWidth || paddedImageHeight !== imageHeight) {
+            const paddedPixelData = new Float32Array(paddedImageWidth * paddedImageHeight * imageChannels);
+            if (constant_values !== 0) {
+                paddedPixelData.fill(constant_values);
+            }
+
+            const [left, top] = center
+                ? [Math.floor((paddedImageWidth - imageWidth) / 2), Math.floor((paddedImageHeight - imageHeight) / 2)]
+                : [0, 0];
+
+            // Copy the original image into the padded image
+            for (let i = 0; i < imageHeight; ++i) {
+                const a = (i + top) * paddedImageWidth;
+                const b = i * imageWidth;
+                for (let j = 0; j < imageWidth; ++j) {
+                    const c = (a + j + left) * imageChannels;
+                    const d = (b + j) * imageChannels;
+                    for (let k = 0; k < imageChannels; ++k) {
+                        paddedPixelData[c + k] = pixelData[d + k];
+                    }
+                }
+            }
+
+            if (mode === 'symmetric') {
+                if (center) {
+                    throw new Error('`center` padding is not supported when `mode` is set to `symmetric`.');
+                    // TODO: Implement this
+                }
+                const h1 = imageHeight - 1;
+                const w1 = imageWidth - 1;
+                for (let i = 0; i < paddedImageHeight; ++i) {
+                    const a = i * paddedImageWidth;
+                    const b = calculateReflectOffset(i, h1) * imageWidth;
+
+                    for (let j = 0; j < paddedImageWidth; ++j) {
+                        if (i < imageHeight && j < imageWidth) continue; // Do not overwrite original image
+                        const c = (a + j) * imageChannels;
+                        const d = (b + calculateReflectOffset(j, w1)) * imageChannels;
+
+                        // Copy channel-wise
+                        for (let k = 0; k < imageChannels; ++k) {
+                            paddedPixelData[c + k] = pixelData[d + k];
+                        }
+                    }
+                }
+            }
+
+
+            // Update pixel data and image dimensions
+            pixelData = paddedPixelData;
+            imgDims = [paddedImageHeight, paddedImageWidth, imageChannels]
+        }
+        return [pixelData, imgDims];
+    }
+
     /**
      * @typedef {object} PreprocessedImage
      * @property {HeightWidth} original_size The original size of the image.
@@ -373,68 +457,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
         // do padding after rescaling/normalizing
         if (this.do_pad && this.pad_size) {
-
-            let pad_size = this.pad_size;
-            let paddedImageWidth, paddedImageHeight;
-
-            // When `pad_size` is a number, we must ensure that the image's width/height is a multiple of `pad_size`
-            let doPadToMultipleOf = typeof pad_size === 'number';
-            if (doPadToMultipleOf) {
-                // NOTE: For Swin2SR models, the original python implementation adds padding even when `pad_size` is already
-                // a multiple of `pad_size`. However, this is most likely a bug (PR: https://github.com/mv-lab/swin2sr/pull/19).
-                // For this reason, we only add padding when the image's width/height is not a multiple of `pad_size`.
-                paddedImageWidth = image.width + (pad_size - image.width % pad_size) % pad_size;
-                paddedImageHeight = image.height + (pad_size - image.height % pad_size) % pad_size;
-            } else {
-                paddedImageWidth = pad_size.width;
-                paddedImageHeight = pad_size.height;
-            }
-
-            if (paddedImageWidth !== image.width || paddedImageHeight !== image.height) {
-                // Only add padding if there is a difference in size
-
-                const paddedPixelData = new Float32Array(paddedImageWidth * paddedImageHeight * image.channels);
-
-                // Copy the original image into the padded image
-                for (let i = 0; i < image.height; ++i) {
-                    const a = i * paddedImageWidth;
-                    const b = i * image.width;
-                    for (let j = 0; j < image.width; ++j) {
-                        const c = (a + j) * image.channels;
-                        const d = (b + j) * image.channels;
-                        for (let k = 0; k < image.channels; ++k) {
-                            paddedPixelData[c + k] = pixelData[d + k];
-                        }
-                    }
-                }
-
-                if (doPadToMultipleOf) {
-                    // By default, we do reflection padding when `pad_size`.
-                    // TODO: Determine whether to do this from config/model type
-                    const h1 = image.height - 1;
-                    const w1 = image.width - 1;
-                    for (let i = 0; i < paddedImageHeight; ++i) {
-                        const a = i * paddedImageWidth;
-                        const b = calculateReflectOffset(i, h1) * image.width;
-
-                        for (let j = 0; j < paddedImageWidth; ++j) {
-                            if (i < image.height && j < image.width) continue; // Do not overwrite original image
-                            const c = (a + j) * image.channels;
-                            const d = (b + calculateReflectOffset(j, w1)) * image.channels;
-
-                            // Copy channel-wise
-                            for (let k = 0; k < image.channels; ++k) {
-                                paddedPixelData[c + k] = pixelData[d + k];
-                            }
-                        }
-                    }
-                }
-
-
-                // Update pixel data and image dimensions
-                pixelData = paddedPixelData;
-                imgDims = [paddedImageHeight, paddedImageWidth, image.channels]
-            }
+            const padded = this.pad_image(pixelData, [image.width, image.height, image.channels], this.pad_size);
+            [pixelData, imgDims] = padded; // Update pixel data and image dimensions
         }
 
         // Create HWC tensor
@@ -490,7 +514,19 @@ export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
-export class DonutFeatureExtractor extends ImageFeatureExtractor { }
+export class DonutFeatureExtractor extends ImageFeatureExtractor {
+    pad_image(pixelData, imgDims, padSize, options = {}) {
+        return super.pad_image(pixelData, imgDims, padSize, {
+            center: true,
+
+            // Since normalization is done after padding, we need to pad with -1.
+            // NOTE: This only works if `image_mean = 0.5` and `image_std = 0.5`.
+            // For more information, see https://github.com/huggingface/transformers/blob/main/src/transformers/models/donut/image_processing_donut.py#L433-L451
+            constant_values: -1,
+            ...options,
+        });
+    }
+}
 
 /**
  * @typedef {object} DetrFeatureExtractorResultProps
@@ -967,7 +1003,26 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     }
 }
 
-export class Swin2SRImageProcessor extends ImageFeatureExtractor { }
+export class Swin2SRImageProcessor extends ImageFeatureExtractor {
+    pad_image(pixelData, imgDims, padSize, options = {}) {
+        // NOTE: In this case, `padSize` represents the size of the sliding window for the local attention.
+        // In other words, the image is padded so that its width and height are multiples of `padSize`.
+        const [imageWidth, imageHeight, imageChannels] = imgDims;
+
+        return super.pad_image(pixelData, imgDims, {
+            // NOTE: For Swin2SR models, the original python implementation adds padding even when `pad_size` is already
+            // a multiple of `pad_size`. However, this is most likely a bug (PR: https://github.com/mv-lab/swin2sr/pull/19).
+            // For this reason, we only add padding when the image's width/height is not a multiple of `pad_size`.
+            width: imageWidth + (padSize - imageWidth % padSize) % padSize,
+            height: imageHeight + (padSize - imageHeight % padSize) % padSize,
+        }, {
+            mode: 'symmetric',
+            center: false,
+            constant_values: -1,
+            ...options,
+        })
+    }
+}
 
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
