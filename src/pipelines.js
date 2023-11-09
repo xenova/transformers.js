@@ -686,8 +686,12 @@ export class TextGenerationPipeline extends Pipeline {
             texts = [texts];
         }
 
+        // By default, do not add special tokens
+        const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
+
         this.tokenizer.padding_side = 'left';
         let inputs = this.tokenizer(texts, {
+            add_special_tokens,
             padding: true,
             truncation: true,
         });

@@ -208,6 +208,11 @@ SUPPORTED_MODELS = {
         # Document Question Answering
         'naver-clova-ix/donut-base-finetuned-docvqa',
     ],
+    'falcon': [
+        # Text generation
+        'Rocketknight1/tiny-random-falcon-7b',
+        'fxmarty/really-tiny-falcon-testing',
+    ],
     'gpt_neo': [
         # Text generation
         'EleutherAI/gpt-neo-125M',
@@ -302,6 +307,10 @@ SUPPORTED_MODELS = {
         'facebook/mbart-large-50-many-to-many-mmt',
         'facebook/mbart-large-50-many-to-one-mmt',
         'facebook/mbart-large-50',
+    ],
+    'mistral': [
+        # Text generation
+        'echarlaix/tiny-random-mistral',
     ],
     'mobilebert': [
         # Zero-shot classification

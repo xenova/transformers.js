@@ -284,6 +284,41 @@ function prepareAttentionMask(self, tokens) {
 }
 
 /**
+ * Add position IDs to the feeds object.
+ * @param {Object} session The inference session.
+ * @param {Object} feeds The input to the model.
+ * @param {boolean} use_cache_branch Whether to use the cache branch of the model.
+ * @returns {void}
+ * @private
+ */
+function preparePositionIds(session, feeds, use_cache_branch) {
+    if (!session.inputNames.includes('position_ids')) return;
+
+    const data = new BigInt64Array(feeds.attention_mask.data.length);
+
+    // Compute cumulative sum of the attention mask along the sequence length dimension
+    for (let i = 0; i < feeds.attention_mask.dims[0]; ++i) {
+        let start = i * feeds.attention_mask.dims[1];
+        let sum = BigInt(0);
+        for (let j = 0; j < feeds.attention_mask.dims[1]; ++j) {
+            const index = start + j;
+            if (feeds.attention_mask.data[index] === 0n) {
+                data[index] = BigInt(1);
+            } else { // === 1n
+                data[index] = sum;
+                sum += feeds.attention_mask.data[index];
+            }
+        }
+    }
+
+    feeds.position_ids = new Tensor('int64', data, feeds.attention_mask.dims);
+
+    if (use_cache_branch) {
+        feeds.position_ids = feeds.position_ids.slice(null, -1).unsqueeze_(-1);
+    }
+}
+
+/**
  * Creates a boolean tensor with a single value.
  * @param {boolean} value The value of the tensor.
  * @returns {Tensor} The boolean tensor.
@@ -312,12 +347,18 @@ async function seq2seqForward(self, model_inputs) {
     let decoderFeeds = {
         input_ids: model_inputs.decoder_input_ids,
         encoder_hidden_states: encoder_outputs,
-        use_cache_branch: boolTensor(!!past_key_values)
     };
+    const use_cache_branch = !!past_key_values;
+
+    if (self.decoder_merged_session.inputNames.includes('use_cache_branch')) {
+        decoderFeeds.use_cache_branch = boolTensor(use_cache_branch);
+    }
 
     if (self.decoder_merged_session.inputNames.includes('encoder_attention_mask')) {
         decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
     }
+
+    preparePositionIds(self.decoder_merged_session, decoderFeeds, use_cache_branch);
     self.addPastKeyValues(decoderFeeds, past_key_values);
 
     const decoderResults = await sessionRun(self.decoder_merged_session, decoderFeeds);
@@ -467,8 +508,14 @@ async function decoderForward(self, model_inputs) {
     let decoderFeeds = {
         input_ids: input_ids,
         attention_mask: attention_mask ?? prepareAttentionMask(self, input_ids),
-        use_cache_branch: boolTensor(!!past_key_values)
     }
+    const use_cache_branch = !!past_key_values;
+
+    if (self.session.inputNames.includes('use_cache_branch')) {
+        decoderFeeds.use_cache_branch = boolTensor(use_cache_branch);
+    }
+
+    preparePositionIds(self.session, decoderFeeds, use_cache_branch);
 
     self.addPastKeyValues(decoderFeeds, past_key_values);
 
@@ -1216,12 +1263,14 @@ export class PreTrainedModel extends Callable {
             Object.assign(decoderFeeds, pastKeyValues)
         } else {
             // TODO support batches (i.e., batch_size > 1)
+            const batch_size = 1;
+
             // @ts-ignore
             if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
                 // @ts-ignore
-                let encoder_dims = [1, this.num_encoder_heads, 0, this.encoder_dim_kv];
+                let encoder_dims = [batch_size, this.num_encoder_heads, 0, this.encoder_dim_kv];
                 // @ts-ignore
-                let decoder_dims = [1, this.num_decoder_heads, 0, this.decoder_dim_kv];
+                let decoder_dims = [batch_size, this.num_decoder_heads, 0, this.decoder_dim_kv];
                 // @ts-ignore
                 for (let i = 0; i < this.num_decoder_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
@@ -1229,9 +1278,18 @@ export class PreTrainedModel extends Callable {
                     decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor('float32', [], decoder_dims)
                     decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor('float32', [], decoder_dims)
                 }
+            } else if (this.config.model_type === 'falcon') {
+                // NOTE: Custom implementation for Falcon
+                // @ts-ignore
+                let dims = [batch_size * this.num_heads, 0, this.dim_kv]
+                // @ts-ignore
+                for (let i = 0; i < this.num_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                }
             } else if (this.config.multi_query) { // e.g., for `gpt_bigcode`
                 // @ts-ignore
-                let dims = [1, 0, 2 * this.dim_kv]
+                let dims = [batch_size * this.num_heads, 0, 2 * this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
@@ -1240,9 +1298,9 @@ export class PreTrainedModel extends Callable {
                 // NOTE: Custom implementation for Bloom
 
                 // @ts-ignore
-                let keyDims = [1 * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
+                let keyDims = [batch_size * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
                 // @ts-ignore
-                let valueDims = [1 * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
+                let valueDims = [batch_size * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
@@ -1250,7 +1308,7 @@ export class PreTrainedModel extends Callable {
                 }
             } else { // Decoder-only
                 // @ts-ignore
-                let dims = [1, this.num_heads, 0, this.dim_kv]
+                let dims = [batch_size, this.num_heads, 0, this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
@@ -3739,6 +3797,67 @@ export class TrOCRForCausalLM extends TrOCRPreTrainedModel { }
 
 
 //////////////////////////////////////////////////
+// Mistral models
+/**
+ * The bare Mistral Model outputting raw hidden-states without any specific head on top.
+ */
+export class MistralPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `MistralPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_key_value_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
+    }
+}
+
+export class MistralModel extends MistralPreTrainedModel { }
+
+export class MistralForCausalLM extends MistralPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Falcon models
+/**
+ * The bare Falcon Model outputting raw hidden-states without any specific head on top.
+ */
+export class FalconPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `FalconPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
+    }
+}
+
+export class FalconModel extends FalconPreTrainedModel { }
+
+export class FalconForCausalLM extends FalconPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
 
@@ -3864,6 +3983,8 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['llama', ['LlamaModel', LlamaModel]],
     ['mpt', ['MptModel', MptModel]],
     ['opt', ['OPTModel', OPTModel]],
+    ['mistral', ['MistralModel', MistralModel]],
+    ['falcon', ['FalconModel', FalconModel]],
 ]);
 
 const MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES = new Map([
@@ -3928,6 +4049,8 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['mpt', ['MptForCausalLM', MptForCausalLM]],
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
     ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
+    ['mistral', ['MistralForCausalLM', MistralForCausalLM]],
+    ['falcon', ['FalconForCausalLM', FalconForCausalLM]],
     ['trocr', ['TrOCRForCausalLM', TrOCRForCausalLM]],
 ]);
 
