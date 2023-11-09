@@ -1010,7 +1010,7 @@ export class Swin2SRImageProcessor extends ImageFeatureExtractor {
         const [imageWidth, imageHeight, imageChannels] = imgDims;
 
         return super.pad_image(pixelData, imgDims, {
-            // NOTE: For Swin2SR models, the original python implementation adds padding even when `pad_size` is already
+            // NOTE: For Swin2SR models, the original python implementation adds padding even when the image's width/height is already
             // a multiple of `pad_size`. However, this is most likely a bug (PR: https://github.com/mv-lab/swin2sr/pull/19).
             // For this reason, we only add padding when the image's width/height is not a multiple of `pad_size`.
             width: imageWidth + (padSize - imageWidth % padSize) % padSize,
