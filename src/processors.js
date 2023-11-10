@@ -22,6 +22,7 @@
 import {
     Callable,
     calculateDimensions,
+    calculateReflectOffset,
 } from './utils/core.js';
 
 import {
@@ -229,6 +230,90 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         return await image.resize(width, height, { resample });
     }
 
+
+    /**
+     * Pad the image by a certain amount.
+     * @param {Float32Array} pixelData The pixel data to pad.
+     * @param {number[]} imgDims The dimensions of the image.
+     * @param {{width:number; height:number}|number} padSize The dimensions of the padded image.
+     * @param {Object} options The options for padding.
+     * @param {'constant'|'symmetric'} [options.mode='constant'] The type of padding to add.
+     * @param {boolean} [options.center=false] Whether to center the image.
+     * @param {number} [options.constant_values=0] The constant value to use for padding.
+     * @returns {[Float32Array, number[]]} The padded pixel data and image dimensions.
+     */
+    pad_image(pixelData, imgDims, padSize, {
+        mode = 'constant',
+        center = false,
+        constant_values = 0,
+    } = {}) {
+        const [imageWidth, imageHeight, imageChannels] = imgDims;
+
+        let paddedImageWidth, paddedImageHeight;
+        if (typeof padSize === 'number') {
+            paddedImageWidth = padSize;
+            paddedImageHeight = padSize;
+        } else {
+            paddedImageWidth = padSize.width;
+            paddedImageHeight = padSize.height;
+        }
+
+        // Only add padding if there is a difference in size
+        if (paddedImageWidth !== imageWidth || paddedImageHeight !== imageHeight) {
+            const paddedPixelData = new Float32Array(paddedImageWidth * paddedImageHeight * imageChannels);
+            if (constant_values !== 0) {
+                paddedPixelData.fill(constant_values);
+            }
+
+            const [left, top] = center
+                ? [Math.floor((paddedImageWidth - imageWidth) / 2), Math.floor((paddedImageHeight - imageHeight) / 2)]
+                : [0, 0];
+
+            // Copy the original image into the padded image
+            for (let i = 0; i < imageHeight; ++i) {
+                const a = (i + top) * paddedImageWidth;
+                const b = i * imageWidth;
+                for (let j = 0; j < imageWidth; ++j) {
+                    const c = (a + j + left) * imageChannels;
+                    const d = (b + j) * imageChannels;
+                    for (let k = 0; k < imageChannels; ++k) {
+                        paddedPixelData[c + k] = pixelData[d + k];
+                    }
+                }
+            }
+
+            if (mode === 'symmetric') {
+                if (center) {
+                    throw new Error('`center` padding is not supported when `mode` is set to `symmetric`.');
+                    // TODO: Implement this
+                }
+                const h1 = imageHeight - 1;
+                const w1 = imageWidth - 1;
+                for (let i = 0; i < paddedImageHeight; ++i) {
+                    const a = i * paddedImageWidth;
+                    const b = calculateReflectOffset(i, h1) * imageWidth;
+
+                    for (let j = 0; j < paddedImageWidth; ++j) {
+                        if (i < imageHeight && j < imageWidth) continue; // Do not overwrite original image
+                        const c = (a + j) * imageChannels;
+                        const d = (b + calculateReflectOffset(j, w1)) * imageChannels;
+
+                        // Copy channel-wise
+                        for (let k = 0; k < imageChannels; ++k) {
+                            paddedPixelData[c + k] = pixelData[d + k];
+                        }
+                    }
+                }
+            }
+
+
+            // Update pixel data and image dimensions
+            pixelData = paddedPixelData;
+            imgDims = [paddedImageHeight, paddedImageWidth, imageChannels]
+        }
+        return [pixelData, imgDims];
+    }
+
     /**
      * @typedef {object} PreprocessedImage
      * @property {HeightWidth} original_size The original size of the image.
@@ -339,17 +424,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         /** @type {HeightWidth} */
         let reshaped_input_size = [image.height, image.width];
 
-        // TODO is it okay to pad before rescaling/normalizing?
-        if (this.do_pad && this.pad_size) {
-            let left = 0;
-            let right = this.pad_size.width - image.width;
-            let top = 0;
-            let bottom = this.pad_size.height - image.height;
-
-            image = await image.pad([left, right, top, bottom]);
-        }
-
-        const pixelData = Float32Array.from(image.data);
+        let pixelData = Float32Array.from(image.data);
+        let imgDims = [image.height, image.width, image.channels];
 
         if (this.do_rescale) {
             for (let i = 0; i < pixelData.length; ++i) {
@@ -379,10 +455,17 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             }
         }
 
+        // do padding after rescaling/normalizing
+        if (this.do_pad && this.pad_size) {
+            const padded = this.pad_image(pixelData, [image.width, image.height, image.channels], this.pad_size);
+            [pixelData, imgDims] = padded; // Update pixel data and image dimensions
+        }
+
+        // Create HWC tensor
+        const img = new Tensor('float32', pixelData, imgDims);
+
         // convert to channel dimension format:
-        let imgDims = [image.height, image.width, image.channels];
-        let img = new Tensor('float32', pixelData, imgDims);
-        let transposed = transpose(img, [2, 0, 1]); // hwc -> chw
+        const transposed = transpose(img, [2, 0, 1]); // hwc -> chw
 
         return {
             original_size: [srcHeight, srcWidth],
@@ -431,7 +514,19 @@ export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
-export class DonutFeatureExtractor extends ImageFeatureExtractor { }
+export class DonutFeatureExtractor extends ImageFeatureExtractor {
+    pad_image(pixelData, imgDims, padSize, options = {}) {
+        return super.pad_image(pixelData, imgDims, padSize, {
+            center: true,
+
+            // Since normalization is done after padding, we need to pad with -1.
+            // NOTE: This only works if `image_mean = 0.5` and `image_std = 0.5`.
+            // For more information, see https://github.com/huggingface/transformers/blob/main/src/transformers/models/donut/image_processing_donut.py#L433-L451
+            constant_values: -1,
+            ...options,
+        });
+    }
+}
 
 /**
  * @typedef {object} DetrFeatureExtractorResultProps
@@ -908,6 +1003,26 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     }
 }
 
+export class Swin2SRImageProcessor extends ImageFeatureExtractor {
+    pad_image(pixelData, imgDims, padSize, options = {}) {
+        // NOTE: In this case, `padSize` represents the size of the sliding window for the local attention.
+        // In other words, the image is padded so that its width and height are multiples of `padSize`.
+        const [imageWidth, imageHeight, imageChannels] = imgDims;
+
+        return super.pad_image(pixelData, imgDims, {
+            // NOTE: For Swin2SR models, the original python implementation adds padding even when the image's width/height is already
+            // a multiple of `pad_size`. However, this is most likely a bug (PR: https://github.com/mv-lab/swin2sr/pull/19).
+            // For this reason, we only add padding when the image's width/height is not a multiple of `pad_size`.
+            width: imageWidth + (padSize - imageWidth % padSize) % padSize,
+            height: imageHeight + (padSize - imageHeight % padSize) % padSize,
+        }, {
+            mode: 'symmetric',
+            center: false,
+            constant_values: -1,
+            ...options,
+        })
+    }
+}
 
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
@@ -917,15 +1032,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
         // Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
         this.config.mel_filters ??= getMelFilters(this.config.sampling_rate, this.config.n_fft, this.config.feature_size);
     }
-    /**
-     * Calculates the index offset for a given index and window size.
-     * @param {number} i The index.
-     * @param {number} w The window size.
-     * @returns {number} The index offset.
-     */
-    calcOffset(i, w) {
-        return Math.abs((i + w) % (2 * w) - w);
-    }
+
 
     /**
      * Pads an array with a reflected version of itself on both ends.
@@ -943,11 +1050,11 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
         }
 
         for (let i = 1; i <= left; ++i) {
-            padded[left - i] = array[this.calcOffset(i, w)];
+            padded[left - i] = array[calculateReflectOffset(i, w)];
         }
 
         for (let i = 1; i <= right; ++i) {
-            padded[w + left + i] = array[this.calcOffset(w - i, w)];
+            padded[w + left + i] = array[calculateReflectOffset(w - i, w)];
         }
 
         return padded;
@@ -1309,6 +1416,8 @@ export class Wav2Vec2FeatureExtractor extends FeatureExtractor {
     }
 }
 
+export class SpeechT5FeatureExtractor extends FeatureExtractor { }
+
 /**
  * Represents a Processor that extracts features from an input.
  * @extends Callable
@@ -1381,6 +1490,18 @@ export class Wav2Vec2ProcessorWithLM extends Processor {
     }
 }
 
+export class SpeechT5Processor extends Processor {
+    /**
+     * Calls the feature_extractor function with the given input.
+     * @param {any} input The input to extract features from.
+     * @returns {Promise<any>} A Promise that resolves with the extracted features.
+     */
+    async _call(input) {
+        return await this.feature_extractor(input)
+    }
+}
+
+
 //////////////////////////////////////////////////
 /**
  * Helper class which is used to instantiate pretrained processors with the `from_pretrained` function.
@@ -1425,13 +1546,16 @@ export class AutoProcessor {
         DonutFeatureExtractor,
 
         SamImageProcessor,
+        Swin2SRImageProcessor,
         Wav2Vec2FeatureExtractor,
+        SpeechT5FeatureExtractor,
     }
 
     static PROCESSOR_CLASS_MAPPING = {
         WhisperProcessor,
         Wav2Vec2ProcessorWithLM,
         SamProcessor,
+        SpeechT5Processor,
     }
 
     /**

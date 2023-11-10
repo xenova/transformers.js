@@ -25,6 +25,8 @@ import {
     AutoModelForQuestionAnswering,
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
+    AutoModelForSpeechSeq2Seq,
+    AutoModelForTextToSpectrogram,
     AutoModelForCTC,
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
@@ -32,6 +34,8 @@ import {
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
     AutoModelForDocumentQuestionAnswering,
+    AutoModelForImageToImage,
+    // AutoModelForTextToWaveform,
     PreTrainedModel,
 } from './models.js';
 import {
@@ -57,6 +61,7 @@ import {
     read_audio
 } from './utils/audio.js';
 import {
+    Tensor,
     mean_pooling,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
@@ -475,11 +480,11 @@ export class FillMaskPipeline extends Pipeline {
  * let output = await generator('how can I become more healthy?', {
  *   max_new_tokens: 100,
  * });
- * // [ 'To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues.' ]
+ * // [{ generated_text: "To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues." }]
  * ```
  */
 export class Text2TextGenerationPipeline extends Pipeline {
-    _key = null;
+    _key = 'generated_text';
 
     /**
      * Fill the masked token in the text(s) given as inputs.
@@ -627,16 +632,16 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
  * ```javascript
  * let text = 'I enjoy walking with my cute dog,';
- * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await classifier(text);
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text);
  * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
  * ```
  * 
  * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
  * ```javascript
  * let text = 'Once upon a time, there was';
- * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await classifier(text, {
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text, {
  *   temperature: 2,
  *   max_new_tokens: 10,
  *   repetition_penalty: 1.5,
@@ -654,8 +659,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
  * ```javascript
  * let text = 'def fib(n):';
- * let classifier = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
- * let output = await classifier(text, {
+ * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * let output = await generator(text, {
  *   max_new_tokens: 44,
  * });
  * // [{
@@ -682,8 +687,12 @@ export class TextGenerationPipeline extends Pipeline {
             texts = [texts];
         }
 
+        // By default, do not add special tokens
+        const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
+
         this.tokenizer.padding_side = 'left';
         let inputs = this.tokenizer(texts, {
+            add_special_tokens,
             padding: true,
             truncation: true,
         });
@@ -1125,8 +1134,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
     }
 
     /**
-     * @typedef {import('./utils/tensor.js').Tensor} Tensor
-     * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} Chunk
+     * @typedef {{stride: number[], input_features: import('./utils/tensor.js').Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} Chunk
      * 
      * @callback ChunkCallback
      * @param {Chunk} chunk The chunk to process.
@@ -1326,6 +1334,14 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
  * let captioner = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
  * let output = await captioner(url);
  * // [{ generated_text: 'a cat laying on a couch with another cat' }]
+ * ```
+ * 
+ * **Example:** Optical Character Recognition (OCR) w/ `Xenova/trocr-small-handwritten`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/handwriting.jpg';
+ * let captioner = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten');
+ * let output = await captioner(url);
+ * // [{ generated_text: 'Mr. Brown commented icily.' }]
  * ```
  */
 export class ImageToTextPipeline extends Pipeline {
@@ -1833,6 +1849,141 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
     }
 }
 
+/**
+ * Text-to-audio generation pipeline using any `AutoModelForTextToWaveform` or `AutoModelForTextToSpectrogram`.
+ * This pipeline generates an audio file from an input text and optional other conditional inputs.
+ * 
+ * **Example:** Generate audio from text with `Xenova/speecht5_tts`.
+ * ```js
+ * let speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
+ * let synthesizer = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false });
+ * let out = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
+ * // {
+ * //   audio: Float32Array(26112) [-0.00005657337896991521, 0.00020583874720614403, ...],
+ * //   sampling_rate: 16000
+ * // }
+ * ```
+ * 
+ * You can then save the audio to a .wav file with the `wavefile` package:
+ * ```js
+ * import wavefile from 'wavefile';
+ * import fs from 'fs';
+ * 
+ * let wav = new wavefile.WaveFile();
+ * wav.fromScratch(1, out.sampling_rate, '32f', out.audio);
+ * fs.writeFileSync('out.wav', wav.toBuffer());
+ * ```
+ */
+export class TextToAudioPipeline extends Pipeline {
+    DEFAULT_VOCODER_ID = "Xenova/speecht5_hifigan"
+
+    /**
+     * Create a new TextToAudioPipeline.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
+     * @param {PreTrainedModel} [options.vocoder] The vocoder to use.
+     */
+    constructor(options) {
+        super(options);
+
+        // TODO: Find a better way for `pipeline` to set the default vocoder
+        this.vocoder = options.vocoder ?? null;
+    }
+
+    /**
+     * Generates speech/audio from the inputs.
+     * @param {string|string[]} text_inputs The text(s) to generate.
+     * @param {Object} options Parameters passed to the model generation/forward method.
+     * @param {PreTrainedModel} [options.vocoder=null] The vocoder to use (if the model uses one). If not provided, use the default HifiGan vocoder.
+     * @param {Tensor|Float32Array|string|URL} [options.speaker_embeddings=null]
+     * @returns {Promise<Object>} An object containing the generated audio and sampling rate.
+     */
+    async _call(text_inputs, {
+        speaker_embeddings = null,
+    } = {}) {
+        // Load vocoder, if not provided
+        if (!this.vocoder) {
+            console.log('No vocoder specified, using default HifiGan vocoder.');
+            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { quantized: false });
+        }
+
+        // Load speaker embeddings as Float32Array from path/URL
+        if (typeof speaker_embeddings === 'string' || speaker_embeddings instanceof URL) {
+            // Load from URL with fetch
+            speaker_embeddings = new Float32Array(
+                await (await fetch(speaker_embeddings)).arrayBuffer()
+            );
+        }
+
+        if (speaker_embeddings instanceof Float32Array) {
+            speaker_embeddings = new Tensor(
+                'float32',
+                speaker_embeddings,
+                [1, speaker_embeddings.length]
+            )
+        } else if (!(speaker_embeddings instanceof Tensor)) {
+            throw new Error("Speaker embeddings must be a `Tensor`, `Float32Array`, `string`, or `URL`.")
+        }
+
+        // Run tokenization
+        const { input_ids } = this.tokenizer(text_inputs, {
+            padding: true,
+            truncation: true
+        });
+
+        // NOTE: At this point, we are guaranteed that `speaker_embeddings` is a `Tensor`
+        // @ts-ignore
+        const { waveform } = await this.model.generate_speech(input_ids, speaker_embeddings, { vocoder: this.vocoder });
+
+        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+        return {
+            audio: waveform.data,
+            sampling_rate,
+        }
+    }
+}
+
+/**
+ * Image to Image pipeline using any `AutoModelForImageToImage`. This pipeline generates an image based on a previous image input.
+ * 
+ * **Example:** Super-resolution w/ `Xenova/swin2SR-classical-sr-x2-64`
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/butterfly.jpg';
+ * let upscaler = await pipeline('image-to-image', 'Xenova/swin2SR-classical-sr-x2-64');
+ * let output = await upscaler(url);
+ * // RawImage {
+ * //   data: Uint8Array(786432) [ 41, 31, 24,  43, ... ],
+ * //   width: 512,
+ * //   height: 512,
+ * //   channels: 3
+ * // }
+ * ```
+ */
+export class ImageToImagePipeline extends Pipeline {
+    /**
+     * Transform the image(s) passed as inputs.
+     * @param {any} images The images to transform.
+     * @returns {Promise<any>} An image or a list of images containing result(s).
+     */
+    async _call(images) {
+        images = await prepareImages(images);
+
+        let inputs = await this.processor(images);
+        let outputs = await this.model(inputs);
+
+        let toReturn = [];
+        for (let batch of outputs.reconstruction) {
+            const output = batch.squeeze().clamp_(0, 1).mul_(255).round_().to('uint8');
+            toReturn.push(RawImage.fromTensor(output));
+        }
+
+        return toReturn.length > 1 ? toReturn : toReturn[0];
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
@@ -1948,7 +2099,7 @@ const SUPPORTED_TASKS = {
     "automatic-speech-recognition": {
         "tokenizer": AutoTokenizer,
         "pipeline": AutomaticSpeechRecognitionPipeline,
-        "model": [AutoModelForSeq2SeqLM, AutoModelForCTC],
+        "model": [AutoModelForSpeechSeq2Seq, AutoModelForCTC],
         "processor": AutoProcessor,
         "default": {
             // TODO: replace with original
@@ -1957,7 +2108,18 @@ const SUPPORTED_TASKS = {
         },
         "type": "multimodal",
     },
-
+    "text-to-audio": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": TextToAudioPipeline,
+        "model": [ /* TODO: AutoModelForTextToWaveform, */ AutoModelForTextToSpectrogram],
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "microsoft/speecht5_tts",
+            "model": "Xenova/speecht5_tts",
+        },
+        "type": "text",
+    },
     "image-to-text": {
         "tokenizer": AutoTokenizer,
         "pipeline": ImageToTextPipeline,
@@ -2035,6 +2197,18 @@ const SUPPORTED_TASKS = {
         },
         "type": "multimodal",
     },
+    "image-to-image": {
+        // no tokenizer
+        "pipeline": ImageToImagePipeline,
+        "model": AutoModelForImageToImage,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "caidas/swin2SR-classical-sr-x2-64",
+            "model": "Xenova/swin2SR-classical-sr-x2-64",
+        },
+        "type": "image",
+    },
 
     // This task serves as a useful interface for dealing with sentence-transformers (https://huggingface.co/sentence-transformers).
     "feature-extraction": {
@@ -2056,6 +2230,7 @@ const TASK_ALIASES = {
     "ner": "token-classification",
     "vqa": "visual-question-answering",
     "asr": "automatic-speech-recognition",
+    "text-to-speech": "text-to-audio",
 
     // Add for backwards compatibility
     "embeddings": "feature-extraction",

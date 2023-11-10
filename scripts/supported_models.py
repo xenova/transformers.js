@@ -265,7 +265,7 @@ SUPPORTED_MODELS = {
             'distilbert-base-cased',
         ],
     },
-    'donut': {
+    'donut': { # NOTE: also a `vision-encoder-decoder`
         # Image-to-text
         'image-to-text': [
             'naver-clova-ix/donut-base-finetuned-cord-v2',
@@ -276,6 +276,13 @@ SUPPORTED_MODELS = {
         'document-question-answering': [
             'naver-clova-ix/donut-base-finetuned-docvqa',
         ],
+    },
+    'falcon': {
+        # Text generation
+        'text-generation': [
+            'Rocketknight1/tiny-random-falcon-7b',
+            'fxmarty/really-tiny-falcon-testing',
+        ]
     },
     'gpt_neo': {
         # Text generation
@@ -385,10 +392,17 @@ SUPPORTED_MODELS = {
         ],
     },
     'mbart': {
+        # Translation
         'translation': [
             'facebook/mbart-large-50-many-to-many-mmt',
             'facebook/mbart-large-50-many-to-one-mmt',
             'facebook/mbart-large-50',
+        ],
+    },
+    'mistral': {
+        # Text generation
+        'text-generation': [
+            'echarlaix/tiny-random-mistral',
         ],
     },
     'mobilebert': {
@@ -489,6 +503,13 @@ SUPPORTED_MODELS = {
     #     'facebook/sam-vit-large',
     #     'facebook/sam-vit-huge',
     # ],
+    
+    'speecht5': {
+        # Text-to-audio/Text-to-speech
+        'text-to-audio': [
+            'microsoft/speecht5_tts',
+        ],
+    },
     'squeezebert': {
         # Feature extraction
         'feature-extraction': [
@@ -509,6 +530,21 @@ SUPPORTED_MODELS = {
             'microsoft/swin-small-patch4-window7-224',
             'microsoft/swin-large-patch4-window7-224-in22k',
             'microsoft/swin-large-patch4-window12-384',
+        ],
+    },
+    'swin2sr': {
+        # Image-to-image (Super-resolution)
+        'image-to-image': [
+            'caidas/swin2SR-classical-sr-x2-64',
+            'caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr',
+            'caidas/swin2SR-classical-sr-x4-64',
+            'caidas/swin2SR-compressed-sr-x4-48',
+            'caidas/swin2SR-lightweight-x2-64',
+        ],
+
+        # Feature extraction
+        'feature-extraction': [
+            'hf-tiny-model-private/tiny-random-Swin2SRModel',
         ],
     },
     't5': {
@@ -538,6 +574,15 @@ SUPPORTED_MODELS = {
             'hkunlp/instructor-base',
             'hkunlp/instructor-large',
         ],
+    },
+    'trocr': {  # NOTE: also a `vision-encoder-decoder`
+        # Text-to-image
+        'text-to-image': [
+            'microsoft/trocr-small-printed',
+            'microsoft/trocr-base-printed',
+            'microsoft/trocr-small-handwritten',
+            'microsoft/trocr-base-handwritten',
+        ]
     },
     'vision-encoder-decoder': {
         # Image-to-text

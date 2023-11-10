@@ -67,6 +67,14 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
+    'mistral': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'falcon': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
 
     # Encoder-decoder models
     'whisper': {
@@ -302,6 +310,17 @@ def main():
     elif config.model_type == 'wav2vec2':
         if tokenizer is not None:
             from .extra.wav2vec2 import generate_tokenizer_json
+            tokenizer_json = generate_tokenizer_json(tokenizer)
+
+            with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
+                json.dump(tokenizer_json, fp, indent=4)
+
+    elif config.model_type == 'speecht5':
+        # TODO allow user to specify vocoder path
+        export_kwargs["model_kwargs"] = {"vocoder": "microsoft/speecht5_hifigan"}
+
+        if tokenizer is not None:
+            from .extra.speecht5 import generate_tokenizer_json
             tokenizer_json = generate_tokenizer_json(tokenizer)
 
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:

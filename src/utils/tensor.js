@@ -15,6 +15,21 @@ import {
 } from './maths.js';
 
 
+// @ts-ignore
+const DataTypeMap = new Map([
+    ['bool', Uint8Array],
+    ['float32', Float32Array],
+    ['float64', Float64Array],
+    ['string', Array], // string[]
+    ['int8', Int8Array],
+    ['uint8', Uint8Array],
+    ['int16', Int16Array],
+    ['uint16', Uint16Array],
+    ['int32', Int32Array],
+    ['uint32', Uint32Array],
+    ['int64', BigInt64Array],
+])
+
 /**
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
  */
@@ -160,6 +175,48 @@ export class Tensor extends ONNXTensor {
         return this;
     }
 
+    /**
+     * Return a new Tensor with every element multiplied by a constant.
+     * @param {number} val The value to multiply by.
+     * @returns {Tensor} The new tensor.
+     */
+    mul(val) {
+        return this.clone().mul_(val);
+    }
+
+    /**
+     * Multiply the tensor by a constant in place.
+     * @param {number} val The value to multiply by.
+     * @returns {Tensor} Returns `this`.
+     */
+    mul_(val) {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] *= val;
+        }
+        return this;
+    }
+
+
+    /**
+     * Return a new Tensor with every element added by a constant.
+     * @param {number} val The value to add by.
+     * @returns {Tensor} The new tensor.
+     */
+    add(val) {
+        return this.clone().add_(val);
+    }
+
+    /**
+     * Add the tensor by a constant in place.
+     * @param {number} val The value to add by.
+     * @returns {Tensor} Returns `this`.
+     */
+    add_(val) {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] += val;
+        }
+        return this;
+    }
     clone() {
         return new Tensor(this.type, this.data.slice(), this.dims.slice());
     }
@@ -481,6 +538,61 @@ export class Tensor extends ONNXTensor {
     }
     neg() {
         return this.clone().neg_();
+    }
+
+    /**
+     * In-place version of @see {@link Tensor.clamp}
+     */
+    clamp_(min, max) {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = Math.min(Math.max(this.data[i], min), max);
+        }
+        return this;
+    }
+
+    /**
+     * Clamps all elements in input into the range [ min, max ]
+     * @param {number} min lower-bound of the range to be clamped to
+     * @param {number} max upper-bound of the range to be clamped to
+     * @returns the output tensor.
+     */
+    clamp(min, max) {
+        return this.clone().clamp_(min, max);
+    }
+
+    /**
+     * In-place version of @see {@link Tensor.round}
+     */
+    round_() {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = Math.round(this.data[i]);
+        }
+        return this;
+    }
+
+    /**
+     * Rounds elements of input to the nearest integer.
+     * @returns the output tensor.
+     */
+    round() {
+        return this.clone().round_();
+    }
+
+    /**
+     * Performs Tensor dtype conversion.
+     * @param {'bool'|'float32'|'float64'|'string'|'int8'|'uint8'|'int16'|'uint16'|'int32'|'uint32'|'int64'} type 
+     * @returns {Tensor} The converted tensor.
+     */
+    to(type) {
+        // If the self Tensor already has the correct dtype, then self is returned.
+        if (this.type === type) return this;
+
+        // Otherwise, the returned tensor is a copy of self with the desired dtype.
+        const ArrayConstructor = DataTypeMap.get(type);
+        if (!ArrayConstructor) {
+            throw new Error(`Unsupported type: ${type}`);
+        }
+        return new Tensor(type, ArrayConstructor.from(this.data), this.dims);
     }
 }
 
@@ -987,4 +1099,26 @@ function dimsToStride(dims) {
         s2 *= dims[i];
     }
     return stride;
+}
+
+/**
+ * Returns a tensor filled with the scalar value 1, with the shape defined by the variable argument size.
+ * @param {number[]} size A sequence of integers defining the shape of the output tensor.
+ */
+export function ones(size) {
+    const numElements = size.reduce((a, b) => a * b, 1);
+    return new Tensor(
+        'int64',
+        new BigInt64Array(numElements).fill(1n),
+        size
+    )
+}
+
+/**
+ * Returns a tensor filled with the scalar value 1, with the same size as input.
+ * @param {Tensor} tensor The size of input will determine size of the output tensor.
+ * @returns The ones tensor.
+ */
+export function ones_like(tensor) {
+    return ones(tensor.dims);
 }
