@@ -34,6 +34,7 @@ import {
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
     AutoModelForDocumentQuestionAnswering,
+    AutoModelForImageToImage,
     // AutoModelForTextToWaveform,
     PreTrainedModel,
 } from './models.js';
@@ -479,11 +480,11 @@ export class FillMaskPipeline extends Pipeline {
  * let output = await generator('how can I become more healthy?', {
  *   max_new_tokens: 100,
  * });
- * // [ 'To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues.' ]
+ * // [{ generated_text: "To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues." }]
  * ```
  */
 export class Text2TextGenerationPipeline extends Pipeline {
-    _key = null;
+    _key = 'generated_text';
 
     /**
      * Fill the masked token in the text(s) given as inputs.
@@ -631,16 +632,16 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
  * ```javascript
  * let text = 'I enjoy walking with my cute dog,';
- * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await classifier(text);
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text);
  * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
  * ```
  * 
  * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
  * ```javascript
  * let text = 'Once upon a time, there was';
- * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await classifier(text, {
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text, {
  *   temperature: 2,
  *   max_new_tokens: 10,
  *   repetition_penalty: 1.5,
@@ -658,8 +659,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
  * ```javascript
  * let text = 'def fib(n):';
- * let classifier = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
- * let output = await classifier(text, {
+ * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * let output = await generator(text, {
  *   max_new_tokens: 44,
  * });
  * // [{
@@ -686,8 +687,12 @@ export class TextGenerationPipeline extends Pipeline {
             texts = [texts];
         }
 
+        // By default, do not add special tokens
+        const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
+
         this.tokenizer.padding_side = 'left';
         let inputs = this.tokenizer(texts, {
+            add_special_tokens,
             padding: true,
             truncation: true,
         });
@@ -1332,6 +1337,14 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
  * let output = await captioner(url);
  * // [{ generated_text: 'a cat laying on a couch with another cat' }]
  * ```
+ * 
+ * **Example:** Optical Character Recognition (OCR) w/ `Xenova/trocr-small-handwritten`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/handwriting.jpg';
+ * let captioner = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten');
+ * let output = await captioner(url);
+ * // [{ generated_text: 'Mr. Brown commented icily.' }]
+ * ```
  */
 export class ImageToTextPipeline extends Pipeline {
     /**
@@ -1935,6 +1948,44 @@ export class TextToAudioPipeline extends Pipeline {
     }
 }
 
+/**
+ * Image to Image pipeline using any `AutoModelForImageToImage`. This pipeline generates an image based on a previous image input.
+ * 
+ * **Example:** Super-resolution w/ `Xenova/swin2SR-classical-sr-x2-64`
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/butterfly.jpg';
+ * let upscaler = await pipeline('image-to-image', 'Xenova/swin2SR-classical-sr-x2-64');
+ * let output = await upscaler(url);
+ * // RawImage {
+ * //   data: Uint8Array(786432) [ 41, 31, 24,  43, ... ],
+ * //   width: 512,
+ * //   height: 512,
+ * //   channels: 3
+ * // }
+ * ```
+ */
+export class ImageToImagePipeline extends Pipeline {
+    /**
+     * Transform the image(s) passed as inputs.
+     * @param {any} images The images to transform.
+     * @returns {Promise<any>} An image or a list of images containing result(s).
+     */
+    async _call(images) {
+        images = await prepareImages(images);
+
+        let inputs = await this.processor(images);
+        let outputs = await this.model(inputs);
+
+        let toReturn = [];
+        for (let batch of outputs.reconstruction) {
+            const output = batch.squeeze().clamp_(0, 1).mul_(255).round_().to('uint8');
+            toReturn.push(RawImage.fromTensor(output));
+        }
+
+        return toReturn.length > 1 ? toReturn : toReturn[0];
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
@@ -2147,6 +2198,18 @@ const SUPPORTED_TASKS = {
             "model": "Xenova/donut-base-finetuned-docvqa",
         },
         "type": "multimodal",
+    },
+    "image-to-image": {
+        // no tokenizer
+        "pipeline": ImageToImagePipeline,
+        "model": AutoModelForImageToImage,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "caidas/swin2SR-classical-sr-x2-64",
+            "model": "Xenova/swin2SR-classical-sr-x2-64",
+        },
+        "type": "image",
     },
 
     // This task serves as a useful interface for dealing with sentence-transformers (https://huggingface.co/sentence-transformers).

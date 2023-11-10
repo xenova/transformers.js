@@ -589,6 +589,8 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         response = await tryCache(cache, localPath, proposedCacheKey);
     }
 
+    const cacheHit = response !== undefined;
+
     if (response === undefined) {
         // Caching not available, or file is not cached, so we perform the request
 
@@ -660,31 +662,57 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         name: path_or_repo_id,
         file: filename
     })
+  
+    const progressInfo = {
+        status: 'progress',
+        name: path_or_repo_id,
+        file: filename
+    }
+    
+    /** @type {Uint8Array} */
+    let buffer;
 
     if (useDownloadAPI) {
         const cachePath = path.join(options.cache_dir ?? env.cacheDir, cacheKey);
         await downloadFile(remoteURL, cachePath, data => {
             dispatchCallback(options.progress_callback, {
-                status: 'progress',
+                ...progressInfo,
                 ...data,
-                name: path_or_repo_id,
-                file: filename
             })
         });
         response = await getFile(cachePath);
         if (response.status !== 200) {
             return handleError(response.status, remoteURL, fatal);
         }
-    }
+    } else if (!options.progress_callback) {
+        // If no progress callback is specified, we can use the `.arrayBuffer()`
+        // method to read the response.
+        buffer = new Uint8Array(await response.arrayBuffer());
 
-    const buffer = await readResponse(response, data => {
+    } else if (
+        cacheHit // The item is being read from the cache
+        &&
+        typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent) // We are in Firefox
+    ) {
+        // Due to bug in Firefox, we cannot display progress when loading from cache.
+        // Fortunately, since this should be instantaneous, this should not impact users too much.
+        buffer = new Uint8Array(await response.arrayBuffer());
+
+        // For completeness, we still fire the final progress callback
         dispatchCallback(options.progress_callback, {
-            status: 'progress',
-            ...data,
-            name: path_or_repo_id,
-            file: filename
+            ...progressInfo,
+            progress: 100,
+            loaded: buffer.length,
+            total: buffer.length,
         })
-    })
+    } else {
+        buffer = await readResponse(response, data => {
+            dispatchCallback(options.progress_callback, {
+                ...progressInfo,
+                ...data,
+            })
+        })
+    }
 
     if (
         // Only cache web responses

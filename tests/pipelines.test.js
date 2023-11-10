@@ -568,7 +568,7 @@ describe('Pipelines', () => {
                     do_sample: false
                 });
                 expect(outputs).toHaveLength(1);
-                expect(outputs[0].length).toBeGreaterThan(1);
+                expect(outputs[0].generated_text.length).toBeGreaterThan(1);
             }
 
             await generator.dispose();
@@ -593,7 +593,7 @@ describe('Pipelines', () => {
                     do_sample: false
                 });
                 expect(outputs).toHaveLength(1);
-                expect(outputs[0].length).toBeGreaterThan(10);
+                expect(outputs[0].generated_text.length).toBeGreaterThan(10);
             }
             await generator.dispose();
         }, MAX_TEST_EXECUTION_TIME);
@@ -1323,6 +1323,44 @@ describe('Pipelines', () => {
             }
 
             await detector.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
+    describe('Image-to-image', () => {
+
+        // List all models which will be tested
+        const models = [
+            'caidas/swin2SR-classical-sr-x2-64',
+        ];
+
+        it(models[0], async () => {
+            let upscaler = await pipeline('image-to-image', m(models[0]));
+
+            // Input is 3x3 => padded to 8x8 => upscaled to 16x16
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/pattern_3x3.png';
+
+            // single
+            {
+                let outputs = await upscaler(url);
+                expect(outputs.width).toEqual(16);
+                expect(outputs.height).toEqual(16);
+                expect(outputs.channels).toEqual(3);
+                expect(outputs.data).toHaveLength(768);
+            }
+
+            // batched
+            {
+                let outputs = await upscaler([url, url]);
+                expect(outputs).toHaveLength(2);
+                for (let output of outputs) {
+                    expect(output.width).toEqual(16);
+                    expect(output.height).toEqual(16);
+                    expect(output.channels).toEqual(3);
+                    expect(output.data).toHaveLength(768);
+                }
+            }
+
+            await upscaler.dispose();
         }, MAX_TEST_EXECUTION_TIME);
     });
 
