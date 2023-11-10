@@ -65,8 +65,15 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
 function createPattern(pattern, invert = true) {
 
     if (pattern.Regex !== undefined) {
+        // In certain cases, the pattern may contain unnecessary escape sequences (e.g., \# or \& or \~).
+        // i.e., valid in Python (where the patterns are exported from) but invalid in JavaScript (where the patterns are parsed).
+        // This isn't an issue when creating the regex w/o the 'u' flag, but it is when the 'u' flag is used.
+        // For this reason, it is necessary to remove these backslashes before creating the regex.
+        // See https://stackoverflow.com/a/63007777/13989043 for more information
+        const regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+
         // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
-        return new RegExp(invert ? pattern.Regex : `(${pattern.Regex})`, 'gu');
+        return new RegExp(invert ? regex : `(${regex})`, 'gu');
 
     } else if (pattern.String !== undefined) {
         return pattern.String;
@@ -806,6 +813,8 @@ class Normalizer extends Callable {
                 return new Replace(config);
             case 'NFC':
                 return new NFC(config);
+            case 'NFKC':
+                return new NFKC(config);
             case 'NFKD':
                 return new NFKD(config);
             case 'Strip':
@@ -881,6 +890,21 @@ class NFC extends Normalizer {
     }
 }
 
+/**
+ * NFKC Normalizer.
+ * @extends Normalizer
+ */
+class NFKC extends Normalizer {
+    /**
+     * Normalize text using NFKC normalization.
+     * @param {string} text The text to be normalized.
+     * @returns {string} The normalized text.
+     */
+    normalize(text) {
+        text = text.normalize('NFKC')
+        return text;
+    }
+}
 /**
  * NFKD Normalizer.
  * @extends Normalizer
@@ -3749,6 +3773,8 @@ export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
 
 export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
 
+export class NougatTokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -3791,6 +3817,7 @@ export class AutoTokenizer {
         BlenderbotTokenizer,
         BlenderbotSmallTokenizer,
         SpeechT5Tokenizer,
+        NougatTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
