@@ -15,7 +15,7 @@
   "author": "Xenova",
   "license": "MIT",
   "dependencies": {
-    "@xenova/transformers": "^2.0.0",
+    "@xenova/transformers": "^2.6.2",
     "electron-squirrel-startup": "^1.0.0"
   },
   "devDependencies": {

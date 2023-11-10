@@ -122,16 +122,20 @@ SUPPORTED_MODELS = {
             'emilyalsentzer/Bio_ClinicalBERT',
         ]
     },
-    # 'blenderbot': [
-    #     # Text2text generation (TODO add conversational)
-    #     'facebook/blenderbot-400M-distill',
-    #     'facebook/blenderbot-1B-distill',
-    # ],
-    # 'blenderbot-small': [
-    #     # Text2text generation (TODO add conversational)
-    #     'facebook/blenderbot-90M', # DEPRECATED
-    #     'facebook/blenderbot_small-90M',
-    # ],
+    'blenderbot': {
+        # Text-to-text (TODO add conversational)
+        'text2text-generation': [
+            'facebook/blenderbot-400M-distill',
+            # 'facebook/blenderbot-1B-distill',
+        ]
+    },
+    'blenderbot-small': {
+        # Text-to-text (TODO add conversational)
+        'text2text-generation': [
+            # 'facebook/blenderbot-90M',  # DEPRECATED
+            'facebook/blenderbot_small-90M',
+        ]
+    },
     'bloom': {
         # Text generation
         'text-generation': [
@@ -265,6 +269,7 @@ SUPPORTED_MODELS = {
         # Image-to-text
         'image-to-text': [
             'naver-clova-ix/donut-base-finetuned-cord-v2',
+            'naver-clova-ix/donut-base-finetuned-zhtrainticket',
         ],
 
         # Document Question Answering
@@ -336,7 +341,6 @@ SUPPORTED_MODELS = {
     'llama': {
         # Text generation
         'text-generation': [
-            # Text generation
             'Xenova/llama2.c-stories15M',
             'Xenova/llama2.c-stories42M',
             'Xenova/llama2.c-stories110M',
@@ -344,6 +348,27 @@ SUPPORTED_MODELS = {
             'JackFram/llama-68m',
             'JackFram/llama-160m',
         ]
+    },
+    'longt5': {
+        # Text-to-text
+        'text2text-generation': [
+            'google/long-t5-local-base',
+            'google/long-t5-tglobal-base',
+            # 'google/long-t5-tglobal-xl', # too large
+            # 'google/long-t5-tglobal-large', # too large
+            # 'google/long-t5-local-large', # too large
+        ],
+
+        # Summarization
+        'summarization': [
+            'pszemraj/long-t5-tglobal-base-16384-book-summary',
+        ],
+
+        # Feature extraction
+        'feature-extraction': [
+            # NOTE: requires --task feature-extraction
+            'voidful/long-t5-encodec-tglobal-base',
+        ],
     },
     'm2m_100': {
         # Translation

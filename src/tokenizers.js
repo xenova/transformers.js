@@ -42,14 +42,10 @@ import {
 } from './utils/data-structures.js';
 
 /**
- * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
- */
-
-/**
  * Loads a tokenizer from the specified path.
  * @param {string} pretrained_model_name_or_path The path to the tokenizer directory.
- * @param {PretrainedOptions} options Additional options for loading the tokenizer.
- * @returns {Promise<Array>} A promise that resolves with information about the loaded tokenizer.
+ * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
+ * @returns {Promise<any[]>} A promise that resolves with information about the loaded tokenizer.
  */
 async function loadTokenizer(pretrained_model_name_or_path, options) {
 
@@ -516,6 +512,7 @@ class BPE extends TokenizerModel {
      * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
+     * @param {string} [config.continuing_subword_suffix] The suffix to insert between words.
      * @param {Array} config.merges An array of BPE merges as strings.
      */
     constructor(config) {
@@ -538,6 +535,9 @@ class BPE extends TokenizerModel {
         this.merges = config.merges.map(x => x.split(this.BPE_SPLIT_TOKEN));
 
         this.end_of_word_suffix = config.end_of_word_suffix;
+
+        // NOTE: `continuing_subword_suffix` is custom (to support `BlenderbotSmallTokenizer`)
+        this.continuing_subword_suffix = config.continuing_subword_suffix ?? null;
 
         this.byte_fallback = this.config.byte_fallback ?? false;
 
@@ -663,6 +663,14 @@ class BPE extends TokenizerModel {
             }
         } else {
             result = word;
+        }
+
+        // Possibly append suffix
+        if (this.continuing_subword_suffix) {
+            // Do not append suffix to the last token
+            for (let i = 0; i < result.length - 1; ++i) {
+                result[i] += this.continuing_subword_suffix;
+            }
         }
 
         // Save the result to the cache
@@ -1116,6 +1124,8 @@ class PreTokenizer extends Callable {
                 return new PunctuationPreTokenizer(config);
             case 'Digits':
                 return new DigitsPreTokenizer(config);
+            case 'Replace':
+                return new ReplacePreTokenizer(config);
             default:
                 throw new Error(`Unknown PreTokenizer type: ${config.type}`);
         }
@@ -2079,6 +2089,34 @@ class WhitespaceSplit extends PreTokenizer {
     }
 }
 
+// NOTE: `ReplacePreTokenizer` is custom (to support `BlenderbotSmallTokenizer`)
+class ReplacePreTokenizer extends PreTokenizer {
+    /**
+     * @param {Object} config The configuration options for the pre-tokenizer.
+     * @param {Object} config.pattern The pattern used to split the text. Can be a string or a regex object.
+     * @param {string} config.content What to replace the pattern with.
+     */
+    constructor(config) {
+        super();
+        this.config = config;
+        this.pattern = createPattern(this.config.pattern);
+        this.content = this.config.content;
+    }
+
+    /**
+     * Pre-tokenizes the input text by replacing certain characters.
+     * @param {string} text The text to be pre-tokenized.
+     * @returns {string[]} An array of tokens produced by replacing certain characters.
+     */
+    pre_tokenize_text(text) {
+        if (this.pattern === null) {
+            return [text];
+        }
+        return [text.replaceAll(this.pattern, this.config.content)];
+    }
+}
+
+
 export class PreTrainedTokenizer extends Callable {
     /**
      * Create a new PreTrainedTokenizer instance.
@@ -2186,7 +2224,7 @@ export class PreTrainedTokenizer extends Callable {
      * Loads a pre-trained tokenizer from the given `pretrained_model_name_or_path`. 
      * 
      * @param {string} pretrained_model_name_or_path The path to the pre-trained tokenizer.
-     * @param {PretrainedOptions} options Additional options for loading the tokenizer.
+     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
      * 
      * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the `pretrained_model_name_or_path`.
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the `PreTrainedTokenizer` class.
@@ -2227,6 +2265,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {Object} options An optional object containing the following properties:
      * @param {string|string[]} [options.text_pair=null] Optional second sequence to be encoded. If set, must be the same type as text.
      * @param {boolean} [options.padding=false] Whether to pad the input sequences.
+     * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
@@ -2239,7 +2278,7 @@ export class PreTrainedTokenizer extends Callable {
         // Optional keyword arguments
         {
             text_pair = null,
-            // add_special_tokens = true, // TODO
+            add_special_tokens = true,
             padding = false,
             truncation = null,
             max_length = null,
@@ -2264,11 +2303,11 @@ export class PreTrainedTokenizer extends Callable {
                 }
 
                 tokens = text.map(
-                    (t, i) => this.encode(t, text_pair[i])
+                    (t, i) => this.encode(t, text_pair[i], { add_special_tokens })
                 )
 
             } else {
-                tokens = text.map(x => this.encode(x));
+                tokens = text.map(x => this.encode(x, null, { add_special_tokens }));
             }
 
         } else {
@@ -2281,7 +2320,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             // For single input, we just wrap in an array, and then unwrap later.
-            tokens = [this.encode(text, text_pair)];
+            tokens = [this.encode(text, text_pair, { add_special_tokens })];
         }
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
@@ -2432,14 +2471,19 @@ export class PreTrainedTokenizer extends Callable {
      *
      * @param {string} text The text to encode.
      * @param {string|null} text_pair The optional second text to encode.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
-    encode(text, text_pair = null) {
+    encode(text, text_pair = null, {
+        add_special_tokens = true,
+    } = {}) {
         // Function called by users to encode possibly multiple texts
         let tokens = this._encode_text(text);
         let tokens2 = this._encode_text(text_pair);
 
-        let combinedTokens = (this.post_processor !== null)
+        // TODO improve `add_special_tokens` and ensure correctness
+        let combinedTokens = (this.post_processor !== null && add_special_tokens)
             ? this.post_processor(tokens, tokens2)
             : mergeArrays(tokens ?? [], tokens2 ?? []);
 
@@ -2661,12 +2705,7 @@ export class CodeLlamaTokenizer extends PreTrainedTokenizer { }
 export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
 export class MPNetTokenizer extends PreTrainedTokenizer { }
 
-export class FalconTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
-}
+export class FalconTokenizer extends PreTrainedTokenizer { }
 
 export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
 
@@ -3705,6 +3744,9 @@ export class MarianTokenizer extends PreTrainedTokenizer {
 
 export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
 
+export class BlenderbotTokenizer extends PreTrainedTokenizer { }
+export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -3744,6 +3786,8 @@ export class AutoTokenizer {
         FalconTokenizer,
         GPTNeoXTokenizer,
         Wav2Vec2CTCTokenizer,
+        BlenderbotTokenizer,
+        BlenderbotSmallTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
@@ -3761,7 +3805,7 @@ export class AutoTokenizer {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing tokenizer files, e.g., `./my_model_directory/`.
-     * @param {PretrainedOptions} options Additional options for loading the tokenizer.
+     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
      * 
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */

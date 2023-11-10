@@ -1325,4 +1325,29 @@ describe('Pipelines', () => {
             await detector.dispose();
         }, MAX_TEST_EXECUTION_TIME);
     });
+
+    describe('Document question answering', () => {
+
+        // List all models which will be tested
+        const models = [
+            'naver-clova-ix/donut-base-finetuned-docvqa',
+        ];
+        const image = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/invoice.png';
+        const question = 'What is the invoice number?';
+
+        it(models[0], async () => {
+            let qa_pipeline = await pipeline('document-question-answering', m(models[0]));
+
+            // basic
+            {
+                let output = await qa_pipeline(image, question);
+                let expected = [{ answer: 'us-001' }];
+                compare(output, expected);
+            }
+
+            await qa_pipeline.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
 });
