@@ -35,6 +35,7 @@ import {
     AutoModelForObjectDetection,
     AutoModelForDocumentQuestionAnswering,
     AutoModelForImageToImage,
+    AutoModelForDepthEstimation,
     // AutoModelForTextToWaveform,
     PreTrainedModel,
 } from './models.js';
@@ -63,6 +64,7 @@ import {
 import {
     Tensor,
     mean_pooling,
+    interpolate,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
 
@@ -1986,6 +1988,56 @@ export class ImageToImagePipeline extends Pipeline {
     }
 }
 
+/**
+ * Depth estimation pipeline using any `AutoModelForDepthEstimation`. This pipeline predicts the depth of an image.
+ * 
+ * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * let depth_estimator = await pipeline('depth-estimation', 'Xenova/dpt-hybrid-midas');
+ * let out = await depth_estimator(url);
+ * // {
+ * //   predicted_depth: Tensor {
+ * //     dims: [ 384, 384 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(147456) [ 542.859130859375, 545.2833862304688, 546.1649169921875, ... ],
+ * //     size: 147456
+ * //   },
+ * //   depth: RawImage {
+ * //     data: Uint8Array(307200) [ 86, 86, 86, ... ],
+ * //     width: 640,
+ * //     height: 480,
+ * //     channels: 1
+ * //   }
+ * // }
+ * ```
+ */
+export class DepthEstimationPipeline extends Pipeline {
+    /**
+     * Predicts the depth for the image(s) passed as inputs.
+     * @param {any} images The images to compute depth for.
+     * @returns {Promise<any>} An image or a list of images containing result(s).
+     */
+    async _call(images) {
+        images = await prepareImages(images);
+
+        const inputs = await this.processor(images);
+        const { predicted_depth } = await this.model(inputs);
+
+        const toReturn = [];
+        for (let i = 0; i < images.length; ++i) {
+            const prediction = interpolate(predicted_depth[i], images[i].size.reverse(), 'bilinear', false);
+            const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
+            toReturn.push({
+                predicted_depth: predicted_depth[i],
+                depth: RawImage.fromTensor(formatted),
+            });
+        }
+
+        return toReturn.length > 1 ? toReturn : toReturn[0];
+    }
+}
+
 const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
@@ -2208,6 +2260,18 @@ const SUPPORTED_TASKS = {
             // TODO: replace with original
             // "model": "caidas/swin2SR-classical-sr-x2-64",
             "model": "Xenova/swin2SR-classical-sr-x2-64",
+        },
+        "type": "image",
+    },
+    "depth-estimation": {
+        // no tokenizer
+        "pipeline": DepthEstimationPipeline,
+        "model": AutoModelForDepthEstimation,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "Intel/dpt-large",
+            "model": "Xenova/dpt-large",
         },
         "type": "image",
     },
