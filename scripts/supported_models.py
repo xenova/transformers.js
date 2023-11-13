@@ -218,6 +218,11 @@ SUPPORTED_MODELS = {
         'Rocketknight1/tiny-random-falcon-7b',
         'fxmarty/really-tiny-falcon-testing',
     ],
+    'glpn': [
+        # Depth estimation
+        'vinvino02/glpn-kitti',
+        'vinvino02/glpn-nyu',
+    ],
     'gpt_neo': [
         # Text generation
         'EleutherAI/gpt-neo-125M',
