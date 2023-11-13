@@ -348,6 +348,11 @@ SUPPORTED_MODELS = {
         'google/mt5-small',
         'google/mt5-base',
     ],
+    'nougat': [
+        # Image-to-text
+        'facebook/nougat-small',
+        'facebook/nougat-base',
+    ],
     'opt': [
         # Text generation
         'facebook/opt-125m',
