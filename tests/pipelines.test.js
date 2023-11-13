@@ -1364,6 +1364,47 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
     });
 
+
+    describe('Depth estimation', () => {
+
+        // List all models which will be tested
+        const models = [
+            'Intel/dpt-hybrid-midas',
+        ];
+
+        it(models[0], async () => {
+            let depth_estimator = await pipeline('depth-estimation', m(models[0]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+
+            // single
+            {
+                let { predicted_depth, depth } = await depth_estimator(url);
+                compare(predicted_depth.dims, [384, 384]);
+                expect(depth.width).toEqual(640);
+                expect(depth.height).toEqual(480);
+                expect(depth.channels).toEqual(1);
+                expect(depth.data).toHaveLength(307200);
+            }
+
+            // batched
+            {
+                let outputs = await depth_estimator([url, url]);
+                expect(outputs).toHaveLength(2);
+                for (let output of outputs) {
+                    let { predicted_depth, depth } = output;
+                    compare(predicted_depth.dims, [384, 384]);
+                    expect(depth.width).toEqual(640);
+                    expect(depth.height).toEqual(480);
+                    expect(depth.channels).toEqual(1);
+                    expect(depth.data).toHaveLength(307200);
+                }
+            }
+
+            await depth_estimator.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
     describe('Document question answering', () => {
 
         // List all models which will be tested
