@@ -4268,7 +4268,7 @@ const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
     ['swin2sr', ['Swin2SRForImageSuperResolution', Swin2SRForImageSuperResolution]],
 ])
 
-const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES  = new Map([
+const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
     ['dpt', ['DPTForDepthEstimation', DPTForDepthEstimation]],
     ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
 ])
@@ -4489,7 +4489,7 @@ export class AutoModelForImageToImage extends PretrainedMixin {
 }
 
 export class AutoModelForDepthEstimation extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES ];
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES];
 }
 
 //////////////////////////////////////////////////
