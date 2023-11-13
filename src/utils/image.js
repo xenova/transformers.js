@@ -16,6 +16,7 @@ import { env } from '../env.js';
 import sharp from 'sharp';
 
 const BROWSER_ENV = typeof self !== 'undefined';
+const WEBWORKER_ENV = BROWSER_ENV && self.constructor.name === 'DedicatedWorkerGlobalScope';
 
 let createCanvasFunction;
 let ImageDataClass;
@@ -554,6 +555,15 @@ export class RawImage {
         }
     }
 
+    async toBlob(type = 'image/png', quality = 1) {
+        if (!BROWSER_ENV) {
+            throw new Error('toBlob() is only supported in browser environments.')
+        }
+
+        const canvas = this.toCanvas();
+        return await canvas.convertToBlob({ type, quality });
+    }
+
     toCanvas() {
         if (!BROWSER_ENV) {
             throw new Error('toCanvas() is only supported in browser environments.')
@@ -627,17 +637,21 @@ export class RawImage {
      * Save the image to the given path.
      * @param {string} path The path to save the image to.
      */
-    save(path) {
+    async save(path) {
 
         if (BROWSER_ENV) {
+            if (WEBWORKER_ENV) {
+                throw new Error('Unable to save an image from a Web Worker.')
+            }
+
             const extension = path.split('.').pop().toLowerCase();
             const mime = CONTENT_TYPE_MAP.get(extension) ?? 'image/png';
 
-            // Convert image to canvas
-            const canvas = this.toCanvas();
+            // Convert image to Blob
+            const blob = await this.toBlob(mime);
 
             // Convert the canvas content to a data URL
-            const dataURL = canvas.toDataURL(mime);
+            const dataURL = URL.createObjectURL(blob);
 
             // Create an anchor element with the data URL as the href attribute
             const downloadLink = document.createElement('a');
@@ -657,7 +671,7 @@ export class RawImage {
 
         } else {
             const img = this.toSharp();
-            img.toFile(path);
+            return await img.toFile(path);
         }
     }
 
