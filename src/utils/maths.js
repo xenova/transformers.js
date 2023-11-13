@@ -232,7 +232,7 @@ export function magnitude(arr) {
 
 /**
  * Returns the value and index of the minimum element in an array.
- * @param {number[]} arr array of numbers.
+ * @param {number[]|TypedArray} arr array of numbers.
  * @returns {number[]} the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
  * @throws {Error} If array is empty.
  */
@@ -252,7 +252,7 @@ export function min(arr) {
 
 /**
  * Returns the value and index of the maximum element in an array.
- * @param {number[]} arr array of numbers.
+ * @param {number[]|TypedArray} arr array of numbers.
  * @returns {number[]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
  * @throws {Error} If array is empty.
  */
