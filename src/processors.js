@@ -509,6 +509,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class DPTFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
@@ -1539,6 +1540,7 @@ export class AutoProcessor {
         ViTFeatureExtractor,
         MobileViTFeatureExtractor,
         ConvNextFeatureExtractor,
+        DPTFeatureExtractor,
         BeitFeatureExtractor,
         DeiTFeatureExtractor,
         DetrFeatureExtractor,
