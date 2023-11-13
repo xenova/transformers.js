@@ -64,6 +64,7 @@ import {
     WhisperTimeStampLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
     RepetitionPenaltyLogitsProcessor,
+    NoBadWordsLogitsProcessor,
     MinLengthLogitsProcessor,
     MinNewTokensLengthLogitsProcessor,
 
@@ -836,9 +837,9 @@ export class PreTrainedModel extends Callable {
         //     }
         // }
 
-        // if (generation_config.bad_words_ids !== null) {
-        //     processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
-        // }
+        if (generation_config.bad_words_ids !== null) {
+            processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
+        }
 
         if (generation_config.min_length !== null && generation_config.eos_token_id !== null && generation_config.min_length > 0) {
             processors.push(new MinLengthLogitsProcessor(generation_config.min_length, generation_config.eos_token_id));
