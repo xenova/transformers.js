@@ -70,7 +70,9 @@ function createPattern(pattern, invert = true) {
         // This isn't an issue when creating the regex w/o the 'u' flag, but it is when the 'u' flag is used.
         // For this reason, it is necessary to remove these backslashes before creating the regex.
         // See https://stackoverflow.com/a/63007777/13989043 for more information
-        const regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+        const regex = pattern.Regex
+            .replace(/\\([#&~])/g, '$1') // TODO: add more characters to this list if necessary
+            .replace(/\\(\d+)/g, '$$$1') // Python uses \1, \2, etc. for group substitutions, but JavaScript uses $1, $2, etc.
 
         // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
         return new RegExp(invert ? regex : `(${regex})`, 'gu');
