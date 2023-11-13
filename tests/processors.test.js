@@ -38,6 +38,7 @@ describe('Processors', () => {
             beit: 'microsoft/beit-base-patch16-224-pt22k-ft22k',
             detr: 'facebook/detr-resnet-50',
             yolos: 'hustvl/yolos-small-300',
+            dpt: 'Intel/dpt-hybrid-midas',
         }
 
         const TEST_IMAGES = {
@@ -45,6 +46,7 @@ describe('Processors', () => {
             checkerboard_8x8: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/checkerboard_8x8.png',
             receipt: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/receipt.png',
             tiger: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg',
+            cats: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg',
 
             // grayscale image
             skateboard: 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/blog/ml-web-games/skateboard.png',
@@ -234,6 +236,23 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[408, 612]]);
                 compare(reshaped_input_sizes, [[888, 1333]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+
+        // DPTFeatureExtractor
+        it(MODELS.dpt, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt))
+
+            { // Tests grayscale image
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+                console.log({ pixel_values, original_sizes, reshaped_input_sizes })
+                compare(pixel_values.dims, [1, 3, 384, 384]);
+                compare(avg(pixel_values.data), 0.0372855559389454);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[384, 384]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
     });
