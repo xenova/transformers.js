@@ -3356,6 +3356,8 @@ export class DPTModel extends DPTPreTrainedModel { }
  * 
  * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`.
  * ```javascript
+ * import { DPTForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * 
  * // Load model and processor
  * const model_id = 'Xenova/dpt-hybrid-midas';
  * const model = await DPTForDepthEstimation.from_pretrained(model_id);
