@@ -90,6 +90,10 @@ export class RawImage {
         this.channels = channels;
     }
 
+    get size() {
+        return [this.width, this.height];
+    }
+
     /**
      * Helper method for reading an image from a variety of input types.
      * @param {RawImage|string|URL} input 
