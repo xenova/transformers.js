@@ -3389,6 +3389,20 @@ export class DPTForDepthEstimation extends DPTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class GLPNPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare GLPN encoder (Mix-Transformer) outputting raw hidden-states without any specific head on top.
+ */
+export class GLPNModel extends GLPNPreTrainedModel { }
+
+/**
+ * GLPN Model transformer with a lightweight depth estimation head on top e.g. for KITTI, NYUv2.
+ */
+export class GLPNForDepthEstimation extends GLPNPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class DonutSwinPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -4042,6 +4056,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['donut-swin', ['DonutSwinModel', DonutSwinModel]],
     ['yolos', ['YolosModel', YolosModel]],
     ['dpt', ['DPTModel', DPTModel]],
+    ['glpn', ['GLPNModel', GLPNModel]],
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
 
@@ -4220,6 +4235,7 @@ const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES  = new Map([
     ['dpt', ['DPTForDepthEstimation', DPTForDepthEstimation]],
+    ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
 ])
 
 
