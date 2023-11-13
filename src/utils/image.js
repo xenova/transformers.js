@@ -387,6 +387,58 @@ export class RawImage {
         }
     }
 
+    async crop([x_min, y_min, x_max, y_max]) {
+        // Ensure crop bounds are within the image
+        x_min = Math.max(x_min, 0);
+        y_min = Math.max(y_min, 0);
+        x_max = Math.min(x_max, this.width - 1);
+        y_max = Math.min(y_max, this.height - 1);
+
+        // Do nothing if the crop is the entire image
+        if (x_min === 0 && y_min === 0 && x_max === this.width - 1 && y_max === this.height - 1) {
+            return this;
+        }
+
+        const crop_width = x_max - x_min + 1;
+        const crop_height = y_max - y_min + 1;
+
+        if (BROWSER_ENV) {
+            // Store number of channels before resizing
+            const numChannels = this.channels;
+
+            // Create canvas object for this image
+            const canvas = this.toCanvas();
+
+            // Create a new canvas of the desired size. This is needed since if the 
+            // image is too small, we need to pad it with black pixels.
+            const ctx = createCanvasFunction(crop_width, crop_height).getContext('2d');
+
+            // Draw image to context, cropping in the process
+            ctx.drawImage(canvas,
+                x_min, y_min, crop_width, crop_height,
+                0, 0, crop_width, crop_height
+            );
+
+            // Create image from the resized data
+            const resizedImage = new RawImage(ctx.getImageData(0, 0, crop_width, crop_height).data, crop_width, crop_height, 4);
+
+            // Convert back so that image has the same number of channels as before
+            return resizedImage.convert(numChannels);
+
+        } else {
+            // Create sharp image from raw data
+            const img = this.toSharp().extract({
+                left: x_min,
+                top: y_min,
+                width: crop_width,
+                height: crop_height,
+            });
+
+            return await loadImageFunction(img);
+        }
+
+    }
+
     async center_crop(crop_width, crop_height) {
         // If the image is already the desired size, return it
         if (this.width === crop_width && this.height === crop_height) {
