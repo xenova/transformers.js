@@ -56,13 +56,41 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
     return info;
 }
 
+
+/**
+ * Helper function to split a string on a regex, but keep the delimiters.
+ * This is required, because the JavaScript `.split()` method does not keep the delimiters,
+ * and wrapping in a capturing group causes issues with existing capturing groups (due to nesting).
+ * @param {string} text The text to split.
+ * @param {RegExp} regex The regex to split on.
+ * @returns {string[]} The split string.
+ */
+function regexSplit(text, regex) {
+    const result = [];
+    let prev = 0;
+    for (const match of text.matchAll(regex)) {
+        const fullMatch = match[0];
+        if (prev < match.index) {
+            result.push(text.slice(prev, match.index));
+        }
+        if (fullMatch.length > 0) {
+            result.push(fullMatch);
+        }
+        prev = match.index + fullMatch.length;
+    }
+    if (prev < text.length) {
+        result.push(text.slice(prev));
+    }
+    return result;
+}
+
+
 /**
  * Helper method to construct a pattern from a config object.
  * @param {Object} pattern The pattern object.
- * @param {boolean} invert Whether to invert the pattern (only applicable for Regex patterns).
  * @returns {RegExp|string|null} The compiled pattern.
  */
-function createPattern(pattern, invert = true) {
+function createPattern(pattern) {
 
     if (pattern.Regex !== undefined) {
         // In certain cases, the pattern may contain unnecessary escape sequences (e.g., \# or \& or \~).
@@ -70,12 +98,8 @@ function createPattern(pattern, invert = true) {
         // This isn't an issue when creating the regex w/o the 'u' flag, but it is when the 'u' flag is used.
         // For this reason, it is necessary to remove these backslashes before creating the regex.
         // See https://stackoverflow.com/a/63007777/13989043 for more information
-        const regex = pattern.Regex
-            .replace(/\\([#&~])/g, '$1') // TODO: add more characters to this list if necessary
-            .replace(/\\(\d+)/g, '$$$1') // Python uses \1, \2, etc. for group substitutions, but JavaScript uses $1, $2, etc.
-
-        // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
-        return new RegExp(invert ? regex : `(${regex})`, 'gu');
+        const regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+        return new RegExp(regex, 'gu');
 
     } else if (pattern.String !== undefined) {
         return pattern.String;
@@ -1317,6 +1341,8 @@ class SplitPreTokenizer extends PreTokenizer {
 
         if (this.config.invert) {
             return text.match(this.pattern) || [];
+        } else if (this.pattern instanceof RegExp) {
+            return regexSplit(text, this.pattern);
         } else {
             return text.split(this.pattern).filter(x => x);
         }
