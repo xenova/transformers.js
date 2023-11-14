@@ -326,6 +326,11 @@ def main():
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
                 json.dump(tokenizer_json, fp, indent=4)
 
+    elif config.model_type == 'owlvit':
+        # Override default batch size to 1, needed because non-maximum suppression is performed for exporting.
+        # For more information, see https://github.com/huggingface/optimum/blob/e3b7efb1257c011db907ef40ab340e795cc5684c/optimum/exporters/onnx/model_configs.py#L1028-L1032
+        export_kwargs['batch_size'] = 1
+
     else:
         pass  # TODO
 
