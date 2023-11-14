@@ -88,9 +88,10 @@ function regexSplit(text, regex) {
 /**
  * Helper method to construct a pattern from a config object.
  * @param {Object} pattern The pattern object.
- * @returns {RegExp|string|null} The compiled pattern.
+ * @param {boolean} invert Whether to invert the pattern (only applicable for Regex patterns).
+ * @returns {RegExp|null} The compiled pattern.
  */
-function createPattern(pattern) {
+function createPattern(pattern, invert = true) {
 
     if (pattern.Regex !== undefined) {
         // In certain cases, the pattern may contain unnecessary escape sequences (e.g., \# or \& or \~).
@@ -102,7 +103,9 @@ function createPattern(pattern) {
         return new RegExp(regex, 'gu');
 
     } else if (pattern.String !== undefined) {
-        return pattern.String;
+        const escaped = escapeRegExp(pattern.String);
+        // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
+        return new RegExp(invert ? escaped : `(${escaped})`, 'gu');
 
     } else {
         console.warn('Unknown pattern type:', pattern)
@@ -1341,10 +1344,8 @@ class SplitPreTokenizer extends PreTokenizer {
 
         if (this.config.invert) {
             return text.match(this.pattern) || [];
-        } else if (this.pattern instanceof RegExp) {
-            return regexSplit(text, this.pattern);
         } else {
-            return text.split(this.pattern).filter(x => x);
+            return regexSplit(text, this.pattern);
         }
     }
 }
