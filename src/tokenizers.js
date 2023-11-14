@@ -88,7 +88,7 @@ function regexSplit(text, regex) {
 /**
  * Helper method to construct a pattern from a config object.
  * @param {Object} pattern The pattern object.
- * @param {boolean} invert Whether to invert the pattern (only applicable for Regex patterns).
+ * @param {boolean} invert Whether to invert the pattern.
  * @returns {RegExp|null} The compiled pattern.
  */
 function createPattern(pattern, invert = true) {
