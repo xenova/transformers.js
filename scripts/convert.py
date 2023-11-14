@@ -84,7 +84,11 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
     'vision-encoder-decoder': {
         'per_channel': False,
         'reduce_range': False,
-    }
+    },
+    'owlvit': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
 }
 
 MODELS_WITHOUT_TOKENIZERS = [
