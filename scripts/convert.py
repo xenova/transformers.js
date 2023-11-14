@@ -85,10 +85,6 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
-    'owlvit': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
 }
 
 MODELS_WITHOUT_TOKENIZERS = [
