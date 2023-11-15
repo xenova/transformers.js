@@ -2308,6 +2308,7 @@ const TASK_ALIASES = {
  * @param {string} task The task defining which pipeline will be returned. Currently accepted tasks are:
  *  - `"audio-classification"`: will return a `AudioClassificationPipeline`.
  *  - `"automatic-speech-recognition"`: will return a `AutomaticSpeechRecognitionPipeline`.
+ *  - `"depth-estimation"`: will return a `DepthEstimationPipeline`.
  *  - `"document-question-answering"`: will return a `DocumentQuestionAnsweringPipeline`.
  *  - `"feature-extraction"`: will return a `FeatureExtractionPipeline`.
  *  - `"fill-mask"`: will return a `FillMaskPipeline`.
