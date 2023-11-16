@@ -317,7 +317,7 @@ class WordPieceTokenizer extends TokenizerModel {
         let outputTokens = [];
         for (let token of tokens) {
             let chars = [...token];
-            if (chars.length > this.maxInputCharsPerWord) {
+            if (chars.length > this.max_input_chars_per_word) {
                 outputTokens.push(this.unk_token);
                 continue;
             }
