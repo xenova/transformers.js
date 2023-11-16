@@ -270,7 +270,7 @@ class WordPieceTokenizer extends TokenizerModel {
      * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token string.
      * @param {string} config.continuing_subword_prefix The prefix to use for continuing subwords.
-     * @param {number} [config.maxInputCharsPerWord=100] The maximum number of characters per word.
+     * @param {number} [config.max_input_chars_per_word=100] The maximum number of characters per word.
      */
     constructor(config) {
         super(config);
