@@ -242,7 +242,7 @@ describe('Processors', () => {
         }, MAX_TEST_EXECUTION_TIME);
 
 
-      // DPTFeatureExtractor
+        // DPTFeatureExtractor
         it(MODELS.dpt, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt))
 
@@ -282,6 +282,8 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[408, 612]]);
                 compare(reshaped_input_sizes, [[384, 608]]);
+            }
+        });
 
         // CLIPFeatureExtractor
         //  - tests center crop (do_center_crop=true, crop_size=224)
