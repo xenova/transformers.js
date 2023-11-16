@@ -270,6 +270,7 @@ class WordPieceTokenizer extends TokenizerModel {
      * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token string.
      * @param {string} config.continuing_subword_prefix The prefix to use for continuing subwords.
+     * @param {number} [config.maxInputCharsPerWord=100] The maximum number of characters per word.
      */
     constructor(config) {
         super(config);
@@ -292,6 +293,12 @@ class WordPieceTokenizer extends TokenizerModel {
         this.unk_token = config.unk_token;
 
         /**
+         * The maximum number of characters allowed per word.
+         * @type {number}
+         */
+        this.maxInputCharsPerWord = config.maxInputCharsPerWord || 100;
+
+        /**
          * An array of tokens.
          * @type {string[]}
          */
@@ -310,10 +317,10 @@ class WordPieceTokenizer extends TokenizerModel {
         let outputTokens = [];
         for (let token of tokens) {
             let chars = [...token];
-            // TODO add
-            // if len(chars) > self.max_input_chars_per_word:
-            //     output_tokens.append(self.unk_token)
-            //     continue
+            if (chars.length > this.maxInputCharsPerWord) {
+                outputTokens.push(this.unk_token);
+                continue;
+            }
 
             let isUnknown = false;
             let start = 0;
