@@ -39,6 +39,7 @@ describe('Processors', () => {
             detr: 'facebook/detr-resnet-50',
             yolos: 'hustvl/yolos-small-300',
             nougat: 'facebook/nougat-small',
+            clip: 'openai/clip-vit-base-patch16',
         }
 
         const TEST_IMAGES = {
@@ -174,7 +175,7 @@ describe('Processors', () => {
         it(MODELS.deit, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.deit))
 
-            { // Tests grayscale image
+            {
                 const image = await load_image(TEST_IMAGES.tiger);
                 const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
 
@@ -190,7 +191,7 @@ describe('Processors', () => {
         it(MODELS.beit, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.beit))
 
-            { // Tests grayscale image
+            {
                 const image = await load_image(TEST_IMAGES.tiger);
                 const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
 
@@ -207,7 +208,7 @@ describe('Processors', () => {
         it(MODELS.detr, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.detr))
 
-            { // Tests grayscale image
+            {
                 const image = await load_image(TEST_IMAGES.tiger);
                 const { pixel_values, original_sizes, reshaped_input_sizes, pixel_mask } = await processor(image);
 
@@ -228,7 +229,7 @@ describe('Processors', () => {
         it(MODELS.yolos, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.yolos))
 
-            { // Tests grayscale image
+            {
                 const image = await load_image(TEST_IMAGES.tiger);
                 const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
 
@@ -257,5 +258,21 @@ describe('Processors', () => {
             }
         }, MAX_TEST_EXECUTION_TIME);
 
+        // CLIPFeatureExtractor
+        //  - tests center crop (do_center_crop=true, crop_size=224)
+        it(MODELS.clip, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.clip))
+
+            {
+                const image = await load_image(TEST_IMAGES.tiger);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 224, 224]);
+                compare(avg(pixel_values.data), -0.06678297738282096);
+
+                compare(original_sizes, [[408, 612]]);
+                compare(reshaped_input_sizes, [[224, 224]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
     });
 });

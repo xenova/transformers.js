@@ -560,6 +560,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
@@ -1603,6 +1604,7 @@ export class AutoProcessor {
         WhisperFeatureExtractor,
         ViTFeatureExtractor,
         MobileViTFeatureExtractor,
+        CLIPFeatureExtractor,
         ConvNextFeatureExtractor,
         BeitFeatureExtractor,
         DeiTFeatureExtractor,
