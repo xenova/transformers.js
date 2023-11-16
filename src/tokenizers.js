@@ -296,7 +296,7 @@ class WordPieceTokenizer extends TokenizerModel {
          * The maximum number of characters allowed per word.
          * @type {number}
          */
-        this.maxInputCharsPerWord = config.maxInputCharsPerWord || 100;
+        this.max_input_chars_per_word = config.max_input_chars_per_word ?? 100;
 
         /**
          * An array of tokens.
