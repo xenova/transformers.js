@@ -254,6 +254,8 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[480, 640]]);
                 compare(reshaped_input_sizes, [[768, 768]]);
+            }
+        });
 
         // CLIPFeatureExtractor
         //  - tests center crop (do_center_crop=true, crop_size=224)
