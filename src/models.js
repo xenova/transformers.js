@@ -151,7 +151,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
  */
 async function validateInputs(session, inputs) {
     // NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
-    const checkedInputs = {};
+    const checkedInputs = Object.create(null);
     const missingInputs = [];
     for (const inputName of session.inputNames) {
         const tensor = inputs[inputName];
