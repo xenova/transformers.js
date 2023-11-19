@@ -492,6 +492,9 @@ async function encoderForward(self, model_inputs) {
     for (let key of self.session.inputNames) {
         encoderFeeds[key] = model_inputs[key];
     }
+    if (!encoderFeeds.token_type_ids && self.session.inputNames.includes('token_type_ids')) {
+        add_token_types(encoderFeeds);
+    }
     return await sessionRun(self.session, encoderFeeds);
 }
 
