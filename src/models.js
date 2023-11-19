@@ -151,20 +151,17 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
  */
 async function validateInputs(session, inputs) {
     // NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
-    const checkedInputs = {};
+    const checkedInputs = Object.create(null);
     const missingInputs = [];
     for (const inputName of session.inputNames) {
         const tensor = inputs[inputName];
         if (!tensor) {
             missingInputs.push(inputName);
         } else {
-            if (env.wasm.proxy) {
-                // Moving the tensor across Worker boundary moves ownership to the worker,
-                // which invalidates the tensor. So we simply sacrifize the clone for it.
-                checkedInputs[inputName] = tensor.clone();
-            } else {
-                checkedInputs[inputName] = tensor;
-            }
+            // NOTE: When `env.wasm.proxy is true`, when the tensor is moved across the Worker
+            // boundary, the ownership is transferred to the worker, invalidating the tensor.
+            // So, in this case, we simply sacrifice a clone for it.
+            checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
         }
     }
     if (missingInputs.length > 0) {
