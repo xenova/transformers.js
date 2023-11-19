@@ -9,6 +9,12 @@ import { onnxruntimeBackend } from "onnxruntime-node/dist/backend";
 import ONNX_COMMON from "onnxruntime-common";
 
 export function init() {
+    // In rare cases (specifically when running unit tests with GitHub actions), possibly due to
+    // a large number of concurrent executions, onnxruntime might fallback to use the WASM backend.
+    // In this case, we set the number of threads to 1 to avoid errors like:
+    //  - `TypeError: The worker script or module filename must be an absolute path or a relative path starting with './' or '../'. Received "blob:nodedata:..."`
+    ONNX_COMMON.env.wasm.numThreads = 1;
+
     // A workaround to define a new backend for onnxruntime, which
     // will not throw an error when running tests with jest.
     // For more information, see: https://github.com/jestjs/jest/issues/11864#issuecomment-1261468011
