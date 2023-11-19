@@ -158,13 +158,10 @@ async function validateInputs(session, inputs) {
         if (!tensor) {
             missingInputs.push(inputName);
         } else {
-            if (env.wasm.proxy) {
-                // Moving the tensor across Worker boundary moves ownership to the worker,
-                // which invalidates the tensor. So we simply sacrifize the clone for it.
-                checkedInputs[inputName] = tensor.clone();
-            } else {
-                checkedInputs[inputName] = tensor;
-            }
+            // NOTE: When `env.wasm.proxy is true`, when the tensor is moved across the Worker
+            // boundary, the ownership is transferred to the worker, invalidating the tensor.
+            // So, in this case, we simply sacrifice a clone for it.
+            checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
         }
     }
     if (missingInputs.length > 0) {
