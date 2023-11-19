@@ -9,8 +9,8 @@ describe('Generation parameters', () => {
 
     // List all models which will be tested
     const models = [
-        'Xenova/LaMini-Flan-T5-77M', // encoder-decoder
-        'Xenova/LaMini-GPT-124M', // decoder-only
+        'MBZUAI/LaMini-Flan-T5-77M', // encoder-decoder
+        'MBZUAI/LaMini-GPT-124M', // decoder-only
     ];
 
     // encoder-decoder model
