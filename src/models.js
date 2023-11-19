@@ -446,6 +446,11 @@ async function encoderForward(self, model_inputs) {
     for (let key of self.session.inputNames) {
         encoderFeeds[key] = model_inputs[key];
     }
+    if (self.session.inputNames.includes('token_type_ids')) {
+        const token_type_ids = model_inputs.attention_mask.clone();
+        token_type_ids.data.fill(0n);
+        encoderFeeds.token_type_ids = token_type_ids
+    }
     return await sessionRun(self.session, encoderFeeds);
 }
 
