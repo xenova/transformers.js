@@ -145,7 +145,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
  * Validate model inputs
  * @param {InferenceSession} session The InferenceSession object that will be run.
  * @param {Record<string, Tensor>} inputs The inputs to check.
- * @returns {Record<string, Tensor>} A Promise that resolves to the checked inputs.
+ * @returns {Record<string, Tensor>} The checked inputs.
  * @throws {Error} If any inputs are missing.
  * @private
  */
