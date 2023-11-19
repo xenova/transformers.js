@@ -2578,7 +2578,7 @@ export class PreTrainedTokenizer extends Callable {
 * @param {Object} inputs An object containing the input ids and attention mask.
 * @returns {Object} The prepared inputs object.
 */
-function add_token_types(inputs) {
+export function add_token_types(inputs) {
     // TODO ensure correctness when token pair is present
     if (inputs.input_ids instanceof Tensor) {
         inputs.token_type_ids = new Tensor(
