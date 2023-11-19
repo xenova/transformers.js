@@ -82,7 +82,9 @@ import {
 
 import { executionProviders, ONNX } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
-const { InferenceSession, Tensor: ONNXTensor } = ONNX;
+const { InferenceSession, Tensor: ONNXTensor, env } = ONNX;
+
+/** @typedef {import('onnxruntime-web').InferenceSession} InferenceSession */
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -142,20 +144,27 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 /**
  * Validate model inputs
  * @param {InferenceSession} session The InferenceSession object that will be run.
- * @param {Object} inputs The inputs to check.
+ * @param {Record<string, Tensor>} inputs The inputs to check.
  * @returns {Promise<Object>} A Promise that resolves to the checked inputs.
  * @throws {Error} If any inputs are missing.
  * @private
  */
 async function validateInputs(session, inputs) {
-    // NOTE: Only create a shallow copy
+    // NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
     const checkedInputs = {};
     const missingInputs = [];
-    for (let inputName of session.inputNames) {
-        if (inputs[inputName] === undefined) {
+    for (const inputName of session.inputNames) {
+        const tensor = inputs[inputName];
+        if (!tensor) {
             missingInputs.push(inputName);
         } else {
-            checkedInputs[inputName] = inputs[inputName];
+            if (env.wasm.proxy) {
+                // Moving the tensor across Worker boundary moves ownership to the worker,
+                // which invalidates the tensor. So we simply sacrifize the clone for it.
+                checkedInputs[inputName] = tensor.clone();
+            } else {
+                checkedInputs[inputName] = tensor;
+            }
         }
     }
     if (missingInputs.length > 0) {

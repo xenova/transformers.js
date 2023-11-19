@@ -21,7 +21,7 @@
 import * as ONNX_NODE from 'onnxruntime-node';
 import * as ONNX_WEB from 'onnxruntime-web';
 
-/** @type {module} The ONNX runtime module. */
+/** @type {import('onnxruntime-web')} The ONNX runtime module. */
 export let ONNX;
 
 export const executionProviders = [
