@@ -492,11 +492,13 @@ function seq2seqUpdatebeam(beam, newTokenId) {
  * @private
  */
 async function encoderForward(self, model_inputs) {
-    let encoderFeeds = {};
-    for (let key of self.session.inputNames) {
+    const encoderFeeds = Object.create(null);
+    for (const key of self.session.inputNames) {
         encoderFeeds[key] = model_inputs[key];
     }
-    if (!encoderFeeds.token_type_ids && self.session.inputNames.includes('token_type_ids')) {
+    if (self.session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
+        // Assign default `token_type_ids` to the `encoderFeeds` if the model expects it,
+        // but they weren't created by the tokenizer.
         add_token_types(encoderFeeds);
     }
     return await sessionRun(self.session, encoderFeeds);
