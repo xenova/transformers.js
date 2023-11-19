@@ -145,24 +145,30 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
  * Validate model inputs
  * @param {InferenceSession} session The InferenceSession object that will be run.
  * @param {Record<string, Tensor>} inputs The inputs to check.
- * @returns {Promise<Object>} A Promise that resolves to the checked inputs.
+ * @returns {Record<string, Tensor>} A Promise that resolves to the checked inputs.
  * @throws {Error} If any inputs are missing.
  * @private
  */
-async function validateInputs(session, inputs) {
-    // NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
+function validateInputs(session, inputs) {
+    /**
+     * NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
+     * @type {Record<string, Tensor>}
+     */
     const checkedInputs = Object.create(null);
     const missingInputs = [];
     for (const inputName of session.inputNames) {
         const tensor = inputs[inputName];
-        if (!tensor) {
+        // Rare case where one of the model's input names corresponds to a built-in
+        // object name (e.g., toString), which would cause a simple (!tensor) check to fail,
+        // because it's not undefined but a function.
+        if (!(tensor instanceof Tensor)) {
             missingInputs.push(inputName);
-        } else {
-            // NOTE: When `env.wasm.proxy is true`, when the tensor is moved across the Worker
-            // boundary, the ownership is transferred to the worker, invalidating the tensor.
-            // So, in this case, we simply sacrifice a clone for it.
-            checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
+            continue;
         }
+        // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
+        // boundary, the ownership is transferred to the worker, invalidating the tensor.
+        // So, in this case, we simply sacrifice a clone for it.
+        checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
     }
     if (missingInputs.length > 0) {
         throw new Error(
@@ -193,7 +199,7 @@ async function validateInputs(session, inputs) {
  * @private
  */
 async function sessionRun(session, inputs) {
-    const checkedInputs = await validateInputs(session, inputs);
+    const checkedInputs = validateInputs(session, inputs);
     try {
         let output = await session.run(checkedInputs);
         output = replaceTensors(output);
