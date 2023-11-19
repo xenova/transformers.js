@@ -43,6 +43,10 @@ import {
 } from './configs.js';
 
 import {
+    add_token_types,
+} from './tokenizers.js';
+
+import {
     Callable,
     isIntegralNumber,
     isTypedArray,
