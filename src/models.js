@@ -166,7 +166,7 @@ function validateInputs(session, inputs) {
             continue;
         }
         // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
-        // boundary, the ownership is transferred to the worker, invalidating the tensor.
+        // boundary, transferring ownership to the worker and invalidating the tensor.
         // So, in this case, we simply sacrifice a clone for it.
         checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
     }
