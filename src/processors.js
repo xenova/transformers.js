@@ -30,6 +30,7 @@ import {
 } from './utils/hub.js';
 
 import {
+    min,
     max,
     softmax,
     FFT,
@@ -207,6 +208,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.do_center_crop = this.config.do_center_crop;
         this.crop_size = this.config.crop_size;
         this.do_convert_rgb = this.config.do_convert_rgb ?? true;
+        this.do_crop_margin = this.config.do_crop_margin;
 
         this.pad_size = this.config.pad_size;
         this.do_pad = this.config.do_pad;
@@ -250,6 +252,44 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 
     /**
+     * Crops the margin of the image. Gray pixels are considered margin (i.e., pixels with a value below the threshold).
+     * @param {RawImage} image The image to be cropped.
+     * @param {number} gray_threshold Value below which pixels are considered to be gray.
+     * @returns {Promise<RawImage>} The cropped image.
+     */
+    async crop_margin(image, gray_threshold = 200) {
+
+        const gray_image = image.clone().grayscale();
+
+        const minValue = min(gray_image.data)[0];
+        const maxValue = max(gray_image.data)[0];
+        const diff = maxValue - minValue;
+
+        if (diff === 0) {
+            return image;
+        }
+
+        const threshold = gray_threshold / 255;
+
+        let x_min = gray_image.width, y_min = gray_image.height, x_max = 0, y_max = 0;
+        for (let j = 0; j < gray_image.height; ++j) {
+            const row = j * gray_image.width;
+            for (let i = 0; i < gray_image.width; ++i) {
+                if ((gray_image.data[row + i] - minValue) / diff < threshold) {
+                    // We have a non-zero pixel, so we update the min/max values accordingly
+                    x_min = Math.min(x_min, i);
+                    y_min = Math.min(y_min, j);
+                    x_max = Math.max(x_max, i);
+                    y_max = Math.max(y_max, j);
+                }
+            }
+        }
+
+        image = await image.crop([x_min, y_min, x_max, y_max]);
+        return image;
+    }
+
+    /**
      * Pad the image by a certain amount.
      * @param {Float32Array} pixelData The pixel data to pad.
      * @param {number[]} imgDims The dimensions of the image.
@@ -279,7 +319,12 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         // Only add padding if there is a difference in size
         if (paddedImageWidth !== imageWidth || paddedImageHeight !== imageHeight) {
             const paddedPixelData = new Float32Array(paddedImageWidth * paddedImageHeight * imageChannels);
-            if (constant_values !== 0) {
+            if (Array.isArray(constant_values)) {
+                // Fill with constant values, cycling through the array
+                for (let i = 0; i < paddedPixelData.length; ++i) {
+                    paddedPixelData[i] = constant_values[i % imageChannels];
+                }
+            } else if (constant_values !== 0) {
                 paddedPixelData.fill(constant_values);
             }
 
@@ -347,15 +392,21 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      */
     async preprocess(image) {
 
-        // First, convert image to RGB if specified in config.
-        if (this.do_convert_rgb) {
-            image = image.rgb();
+        if (this.do_crop_margin) {
+            // NOTE: Specific to nougat processors. This is done before resizing,
+            // and can be interpreted as a pre-preprocessing step.
+            image = await this.crop_margin(image);
         }
 
         const srcWidth = image.width;   // original width
         const srcHeight = image.height; // original height
 
-        // Next, resize all images
+        // Convert image to RGB if specified in config.
+        if (this.do_convert_rgb) {
+            image = image.rgb();
+        }
+
+        // Resize all images
         if (this.do_resize) {
             // TODO:
             // For efficiency reasons, it might be best to merge the resize and center crop operations into one.
@@ -541,17 +592,31 @@ export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
 export class DonutFeatureExtractor extends ImageFeatureExtractor {
     pad_image(pixelData, imgDims, padSize, options = {}) {
+        const [imageWidth, imageHeight, imageChannels] = imgDims;
+
+        let image_mean = this.image_mean;
+        if (!Array.isArray(this.image_mean)) {
+            image_mean = new Array(imageChannels).fill(image_mean);
+        }
+
+        let image_std = this.image_std;
+        if (!Array.isArray(this.image_std)) {
+            image_std = new Array(imageChannels).fill(image_mean);
+        }
+
+        const constant_values = image_mean.map((x, i) => - x / this.image_std[i]);
+
         return super.pad_image(pixelData, imgDims, padSize, {
             center: true,
 
-            // Since normalization is done after padding, we need to pad with -1.
-            // NOTE: This only works if `image_mean = 0.5` and `image_std = 0.5`.
+            // Since normalization is done after padding, we need to use certain constant values to ensure the same behaviour is observed.
             // For more information, see https://github.com/huggingface/transformers/blob/main/src/transformers/models/donut/image_processing_donut.py#L433-L451
-            constant_values: -1,
+            constant_values: constant_values,
             ...options,
         });
     }
 }
+export class NougatImageProcessor extends DonutFeatureExtractor { } // NOTE extends DonutFeatureExtractor
 
 /**
  * @typedef {object} DetrFeatureExtractorResultProps
@@ -1573,6 +1638,7 @@ export class AutoProcessor {
         DetrFeatureExtractor,
         YolosFeatureExtractor,
         DonutFeatureExtractor,
+        NougatImageProcessor,
 
         SamImageProcessor,
         Swin2SRImageProcessor,

@@ -56,20 +56,56 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
     return info;
 }
 
+
+/**
+ * Helper function to split a string on a regex, but keep the delimiters.
+ * This is required, because the JavaScript `.split()` method does not keep the delimiters,
+ * and wrapping in a capturing group causes issues with existing capturing groups (due to nesting).
+ * @param {string} text The text to split.
+ * @param {RegExp} regex The regex to split on.
+ * @returns {string[]} The split string.
+ */
+function regexSplit(text, regex) {
+    const result = [];
+    let prev = 0;
+    for (const match of text.matchAll(regex)) {
+        const fullMatch = match[0];
+        if (prev < match.index) {
+            result.push(text.slice(prev, match.index));
+        }
+        if (fullMatch.length > 0) {
+            result.push(fullMatch);
+        }
+        prev = match.index + fullMatch.length;
+    }
+    if (prev < text.length) {
+        result.push(text.slice(prev));
+    }
+    return result;
+}
+
+
 /**
  * Helper method to construct a pattern from a config object.
  * @param {Object} pattern The pattern object.
- * @param {boolean} invert Whether to invert the pattern (only applicable for Regex patterns).
- * @returns {RegExp|string|null} The compiled pattern.
+ * @param {boolean} invert Whether to invert the pattern.
+ * @returns {RegExp|null} The compiled pattern.
  */
 function createPattern(pattern, invert = true) {
 
     if (pattern.Regex !== undefined) {
-        // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
-        return new RegExp(invert ? pattern.Regex : `(${pattern.Regex})`, 'gu');
+        // In certain cases, the pattern may contain unnecessary escape sequences (e.g., \# or \& or \~).
+        // i.e., valid in Python (where the patterns are exported from) but invalid in JavaScript (where the patterns are parsed).
+        // This isn't an issue when creating the regex w/o the 'u' flag, but it is when the 'u' flag is used.
+        // For this reason, it is necessary to remove these backslashes before creating the regex.
+        // See https://stackoverflow.com/a/63007777/13989043 for more information
+        const regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+        return new RegExp(regex, 'gu');
 
     } else if (pattern.String !== undefined) {
-        return pattern.String;
+        const escaped = escapeRegExp(pattern.String);
+        // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
+        return new RegExp(invert ? escaped : `(${escaped})`, 'gu');
 
     } else {
         console.warn('Unknown pattern type:', pattern)
@@ -813,6 +849,8 @@ class Normalizer extends Callable {
                 return new Replace(config);
             case 'NFC':
                 return new NFC(config);
+            case 'NFKC':
+                return new NFKC(config);
             case 'NFKD':
                 return new NFKD(config);
             case 'Strip':
@@ -888,6 +926,21 @@ class NFC extends Normalizer {
     }
 }
 
+/**
+ * NFKC Normalizer.
+ * @extends Normalizer
+ */
+class NFKC extends Normalizer {
+    /**
+     * Normalize text using NFKC normalization.
+     * @param {string} text The text to be normalized.
+     * @returns {string} The normalized text.
+     */
+    normalize(text) {
+        text = text.normalize('NFKC')
+        return text;
+    }
+}
 /**
  * NFKD Normalizer.
  * @extends Normalizer
@@ -1299,7 +1352,7 @@ class SplitPreTokenizer extends PreTokenizer {
         if (this.config.invert) {
             return text.match(this.pattern) || [];
         } else {
-            return text.split(this.pattern).filter(x => x);
+            return regexSplit(text, this.pattern);
         }
     }
 }
@@ -2189,6 +2242,9 @@ export class PreTrainedTokenizer extends Callable {
 
         this.sep_token = this.getToken(tokenizerConfig, 'sep_token');
         this.sep_token_id = this.model.tokens_to_ids.get(this.sep_token);
+
+        this.unk_token = this.getToken(tokenizerConfig, 'unk_token');
+        this.unk_token_id = this.model.tokens_to_ids.get(this.unk_token);
 
         this.model_max_length = tokenizerConfig.model_max_length;
 
@@ -3756,6 +3812,8 @@ export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
 
 export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
 
+export class NougatTokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -3798,6 +3856,7 @@ export class AutoTokenizer {
         BlenderbotTokenizer,
         BlenderbotSmallTokenizer,
         SpeechT5Tokenizer,
+        NougatTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
