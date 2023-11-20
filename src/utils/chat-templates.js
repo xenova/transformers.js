@@ -327,12 +327,11 @@ function isInteger(char) {
 }
 
 /**
- * 
+ * Generate a list of tokens from a source string.
  * @param {string} source
  * @returns {Token[]} 
- * @private
  */
-function tokenize(source) {
+export function tokenize(source) {
     /** @type {Token[]} */
     const tokens = [];
     const src = Array.from(source);
@@ -483,9 +482,8 @@ function tokenize(source) {
  * Generate the Abstract Syntax Tree (AST) from a list of tokens
  * @param {Token[]} tokens 
  * @returns {Program}
- * @private
  */
-function parse(tokens) {
+export function parse(tokens) {
     const program = new Program([]);
     let current = 0;
 
@@ -878,7 +876,7 @@ class NullValue extends RuntimeValue {
 /**
  * Represents the current environment (scope) at runtime.
  */
-class Environment {
+export class Environment {
     /**
      * 
      * @param {Environment?} parent 
@@ -894,10 +892,21 @@ class Environment {
     }
 
     /**
+     * Set the value of a variable in the current environment.
+     * @param {string} name The name of the variable.
+     * @param {any} value The value to set.
+     * @returns {RuntimeValue}
+     */
+    set(name, value) {
+        return this.declareVariable(name, convertToRuntimeValues(value));
+    }
+
+    /**
      * 
      * @param {string} name 
      * @param {RuntimeValue} value 
      * @returns {RuntimeValue}
+     * @private
      */
     declareVariable(name, value) {
         if (this.variables.has(name)) {
@@ -912,6 +921,7 @@ class Environment {
      * @param {string} name 
      * @param {RuntimeValue} value 
      * @returns {RuntimeValue}
+     * @private
      */
     assignVariable(name, value) {
         const env = this.resolve(name);
@@ -926,6 +936,7 @@ class Environment {
      * @returns {RuntimeValue}
      */
     setVariable(name, value) {
+        /** @type {Environment} */
         let env = this;
         try {
             env = this.resolve(name);
@@ -934,6 +945,12 @@ class Environment {
         return value;
     }
 
+    /**
+     * Resolve the environment in which the variable is declared.
+     * @param {string} name The name of the variable.
+     * @returns {Environment} The environment in which the variable is declared.
+     * @private
+     */
     resolve(name) {
         if (this.variables.has(name)) {
             return this;
@@ -957,7 +974,7 @@ class Environment {
     }
 }
 
-class Interpreter {
+export class Interpreter {
 
     /**
      * 
@@ -1219,7 +1236,8 @@ class Interpreter {
  * @param {any} input 
  * @returns {RuntimeValue}
  */
-function convertToRuntimeValues(input) {
+export function convertToRuntimeValues(input) {
+    console.log('typeof input', typeof input)
     switch (typeof input) {
         case 'number':
             return new NumericValue(input);
@@ -1264,15 +1282,15 @@ export class Template {
         const env = new Environment();
 
         // Declare global variables
-        env.declareVariable('false', new BooleanValue(false));
-        env.declareVariable('true', new BooleanValue(true));
-        env.declareVariable('raise_exception', new NativeFunctionValue((args, scope) => {
+        env.set('false', false);
+        env.set('true', true);
+        env.set('raise_exception', (args, scope) => {
             throw new Error(args[0].value);
-        }));
+        });
 
         // Add user-defined variables
         for (const [key, value] of Object.entries(items)) {
-            env.declareVariable(key, convertToRuntimeValues(value));
+            env.set(key, value);
         }
 
         const interpreter = new Interpreter(env);
