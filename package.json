@@ -10,7 +10,7 @@
     "dev": "webpack serve --no-client-overlay",
     "build": "webpack && npm run typegen",
     "generate-tests": "python -m tests.generate_tests",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose --maxConcurrency 1",
     "readme": "python ./docs/scripts/build_readme.py",
     "docs-api": "node ./docs/scripts/generate.js",
     "docs-preview": "doc-builder preview transformers.js ./docs/source/ --not_python_module",

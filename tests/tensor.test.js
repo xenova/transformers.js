@@ -1,9 +1,6 @@
 
-import { AutoProcessor, Tensor } from '../src/transformers.js';
-
-import { MAX_TEST_EXECUTION_TIME, m } from './init.js';
+import { Tensor } from '../src/transformers.js';
 import { compare } from './test_utils.js';
-
 import { cat, mean, stack } from '../src/utils/tensor.js';
 
 describe('Tensor operations', () => {

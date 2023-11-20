@@ -33,6 +33,7 @@ import {
     AutoModelForImageClassification,
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
+    AutoModelForZeroShotObjectDetection,
     AutoModelForDocumentQuestionAnswering,
     AutoModelForImageToImage,
     AutoModelForDepthEstimation,
@@ -51,6 +52,7 @@ import {
     dispatchCallback,
     pop,
     product,
+    get_bounding_box,
 } from './utils/core.js';
 import {
     softmax,
@@ -1755,28 +1757,148 @@ export class ObjectDetectionPipeline extends Pipeline {
                 return {
                     score: batch.scores[i],
                     label: id2label[batch.classes[i]],
-                    box: this._get_bounding_box(box, !percentage),
+                    box: get_bounding_box(box, !percentage),
                 }
             })
         })
 
         return isBatched ? result : result[0];
     }
+}
+
+/**
+ * Zero-shot object detection pipeline. This pipeline predicts bounding boxes of
+ * objects when you provide an image and a set of `candidate_labels`.
+ * 
+ * **Example:** Zero-shot object detection w/ `Xenova/clip-vit-base-patch32`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/astronaut.png';
+ * let candidate_labels = ['human face', 'rocket', 'helmet', 'american flag'];
+ * let detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
+ * let output = await detector(url, candidate_labels);
+ * // [
+ * //   {
+ * //     score: 0.24392342567443848,
+ * //     label: 'human face',
+ * //     box: { xmin: 180, ymin: 67, xmax: 274, ymax: 175 }
+ * //   },
+ * //   {
+ * //     score: 0.15129457414150238,
+ * //     label: 'american flag',
+ * //     box: { xmin: 0, ymin: 4, xmax: 106, ymax: 513 }
+ * //   },
+ * //   {
+ * //     score: 0.13649864494800568,
+ * //     label: 'helmet',
+ * //     box: { xmin: 277, ymin: 337, xmax: 511, ymax: 511 }
+ * //   },
+ * //   {
+ * //     score: 0.10262022167444229,
+ * //     label: 'rocket',
+ * //     box: { xmin: 352, ymin: -1, xmax: 463, ymax: 287 }
+ * //   }
+ * // ]
+ * ```
+ * 
+ * **Example:** Zero-shot object detection w/ `Xenova/clip-vit-base-patch32` (returning top 4 matches and setting a threshold).
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png';
+ * let candidate_labels = ['hat', 'book', 'sunglasses', 'camera'];
+ * let detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
+ * let output = await detector(url, candidate_labels, { topk: 4, threshold: 0.05 });
+ * // [
+ * //   {
+ * //     score: 0.1606510728597641,
+ * //     label: 'sunglasses',
+ * //     box: { xmin: 347, ymin: 229, xmax: 429, ymax: 264 }
+ * //   },
+ * //   {
+ * //     score: 0.08935828506946564,
+ * //     label: 'hat',
+ * //     box: { xmin: 38, ymin: 174, xmax: 258, ymax: 364 }
+ * //   },
+ * //   {
+ * //     score: 0.08530698716640472,
+ * //     label: 'camera',
+ * //     box: { xmin: 187, ymin: 350, xmax: 260, ymax: 411 }
+ * //   },
+ * //   {
+ * //     score: 0.08349756896495819,
+ * //     label: 'book',
+ * //     box: { xmin: 261, ymin: 280, xmax: 494, ymax: 425 }
+ * //   }
+ * // ]
+ * ```
+ */
+export class ZeroShotObjectDetectionPipeline extends Pipeline {
 
     /**
-     * Helper function to convert list [xmin, xmax, ymin, ymax] into object { "xmin": xmin, ... }
-     * @param {number[]} box The bounding box as a list.
-     * @param {boolean} asInteger Whether to cast to integers.
-     * @returns {Object} The bounding box as an object.
-     * @private
+     * Create a new ZeroShotObjectDetectionPipeline.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    _get_bounding_box(box, asInteger) {
-        if (asInteger) {
-            box = box.map(x => x | 0);
-        }
-        const [xmin, ymin, xmax, ymax] = box;
+    constructor(options) {
+        super(options);
+    }
 
-        return { xmin, ymin, xmax, ymax };
+    /**
+     * Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
+     * @param {Array} images The input images.
+     * @param {string[]} candidate_labels What the model should recognize in the image.
+     * @param {Object} options The options for the classification.
+     * @param {number} [options.threshold] The probability necessary to make a prediction.
+     * @param {number} [options.topk] The number of top predictions that will be returned by the pipeline.
+     * If the provided number is `null` or higher than the number of predictions available, it will default
+     * to the number of predictions.
+     * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
+     * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
+     */
+    async _call(images, candidate_labels, {
+        threshold = 0.1,
+        topk = null,
+        percentage = false,
+    } = {}) {
+        const isBatched = Array.isArray(images);
+        images = await prepareImages(images);
+
+        // Run tokenization
+        const text_inputs = this.tokenizer(candidate_labels, {
+            padding: true,
+            truncation: true
+        });
+
+        // Run processor
+        const model_inputs = await this.processor(images);
+
+        // Since non-maximum suppression is performed for exporting, we need to
+        // process each image separately. For more information, see:
+        // https://github.com/huggingface/optimum/blob/e3b7efb1257c011db907ef40ab340e795cc5684c/optimum/exporters/onnx/model_configs.py#L1028-L1032
+        const toReturn = [];
+        for (let i = 0; i < images.length; ++i) {
+            const image = images[i];
+            const imageSize = [[image.height, image.width]];
+            const pixel_values = model_inputs.pixel_values[i].unsqueeze_(0);
+
+            // Run model with both text and pixel inputs
+            const output = await this.model({ ...text_inputs, pixel_values });
+
+            // @ts-ignore
+            const processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSize, true)[0];
+            let result = processed.boxes.map((box, i) => ({
+                score: processed.scores[i],
+                label: candidate_labels[processed.classes[i]],
+                box: get_bounding_box(box, !percentage),
+            })).sort((a, b) => b.score - a.score);
+            if (topk !== null) {
+                result = result.slice(0, topk);
+            }
+            toReturn.push(result)
+        }
+
+        return isBatched ? toReturn : toReturn[0];
     }
 }
 
@@ -2239,6 +2361,18 @@ const SUPPORTED_TASKS = {
         },
         "type": "multimodal",
     },
+    "zero-shot-object-detection": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": ZeroShotObjectDetectionPipeline,
+        "model": AutoModelForZeroShotObjectDetection,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "google/owlvit-base-patch32",
+            "model": "Xenova/owlvit-base-patch32",
+        },
+        "type": "multimodal",
+    },
     "document-question-answering": {
         "tokenizer": AutoTokenizer,
         "pipeline": DocumentQuestionAnsweringPipeline,
@@ -2326,6 +2460,7 @@ const TASK_ALIASES = {
  *  - `"translation_xx_to_yy"`: will return a `TranslationPipeline`.
  *  - `"zero-shot-classification"`: will return a `ZeroShotClassificationPipeline`.
  *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
+ *  - `"zero-shot-object-detection"`: will return a `ZeroShotObjectDetectionPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
  * @param {import('./utils/hub.js').PretrainedOptions} [options] Optional parameters for the pipeline.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.

@@ -40,6 +40,8 @@ describe('Processors', () => {
             yolos: 'hustvl/yolos-small-300',
             dpt: 'Intel/dpt-hybrid-midas',
             glpn: 'vinvino02/glpn-kitti',
+            nougat: 'facebook/nougat-small',
+            owlvit: 'google/owlvit-base-patch32',
             clip: 'openai/clip-vit-base-patch16',
         }
 
@@ -48,6 +50,7 @@ describe('Processors', () => {
             checkerboard_8x8: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/checkerboard_8x8.png',
             receipt: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/receipt.png',
             tiger: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg',
+            paper: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/nougat_paper.png',
             cats: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg',
 
             // grayscale image
@@ -91,6 +94,7 @@ describe('Processors', () => {
 
         // DonutProcessor/DonutFeatureExtractor
         //  - tests thumbnail resizing (do_thumbnail=true, size=[960, 1280])
+        //  - tests padding after normalization (image_mean=image_std=0.5)
         it(MODELS['donut-swin'], async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS['donut-swin']))
 
@@ -241,7 +245,6 @@ describe('Processors', () => {
             }
         }, MAX_TEST_EXECUTION_TIME);
 
-
         // DPTFeatureExtractor
         it(MODELS.dpt, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt))
@@ -282,6 +285,38 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[408, 612]]);
                 compare(reshaped_input_sizes, [[384, 608]]);
+            }
+        });
+
+        // NougatImageProcessor
+        //  - tests padding after normalization (image_mean != 0.5, image_std != 0.5)
+        it(MODELS.nougat, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.nougat))
+
+            {
+                const image = await load_image(TEST_IMAGES.paper);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 896, 672]);
+                compare(avg(pixel_values.data), 1.8447155005897355);
+
+                compare(original_sizes, [[850, 685]]);
+                compare(reshaped_input_sizes, [[833, 672]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        // OwlViTFeatureExtractor
+        it(MODELS.owlvit, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.owlvit))
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 768, 768]);
+                compare(avg(pixel_values.data), 0.250620447910435);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[768, 768]]);
             }
         });
 

@@ -34,7 +34,6 @@ const DataTypeMap = new Map([
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
  */
 
-/** @type {Object} */
 const ONNXTensor = ONNX.Tensor;
 
 export class Tensor extends ONNXTensor {

@@ -1326,6 +1326,105 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
     });
 
+    describe('Zero-shot object detection', () => {
+
+        // List all models which will be tested
+        const models = [
+            'google/owlvit-base-patch32',
+        ];
+
+        it(models[0], async () => {
+            let detector = await pipeline('zero-shot-object-detection', m(models[0]));
+
+
+            // single (default)
+            {
+                let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/astronaut.png';
+                let candidate_labels = ['human face', 'rocket', 'helmet', 'american flag'];
+
+                let output = await detector(url, candidate_labels);
+
+                // let expected = [
+                //     {
+                //         score: 0.24392342567443848,
+                //         label: 'human face',
+                //         box: { xmin: 180, ymin: 67, xmax: 274, ymax: 175 }
+                //     },
+                //     {
+                //         score: 0.15129457414150238,
+                //         label: 'american flag',
+                //         box: { xmin: 0, ymin: 4, xmax: 106, ymax: 513 }
+                //     },
+                //     {
+                //         score: 0.13649864494800568,
+                //         label: 'helmet',
+                //         box: { xmin: 277, ymin: 337, xmax: 511, ymax: 511 }
+                //     },
+                //     {
+                //         score: 0.10262022167444229,
+                //         label: 'rocket',
+                //         box: { xmin: 352, ymin: -1, xmax: 463, ymax: 287 }
+                //     }
+                // ]
+
+                expect(output.length).toBeGreaterThan(0);
+                for (let cls of output) {
+                    expect(typeof cls.score).toBe('number');
+                    expect(typeof cls.label).toBe('string');
+                    for (let key of ['xmin', 'ymin', 'xmax', 'ymax']) {
+                        expect(typeof cls.box[key]).toBe('number');
+                    }
+                }
+            }
+
+            // topk + threshold + percentage
+            {
+                let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png';
+                let candidate_labels = ['hat', 'book', 'sunglasses', 'camera'];
+
+                let output = await detector(url, candidate_labels, {
+                    topk: 4,
+                    threshold: 0.05,
+                    percentage: true,
+                });
+
+                // let expected = [
+                //     {
+                //         score: 0.1606510728597641,
+                //         label: 'sunglasses',
+                //         box: { xmin: 347, ymin: 229, xmax: 429, ymax: 264 }
+                //     },
+                //     {
+                //         score: 0.08935828506946564,
+                //         label: 'hat',
+                //         box: { xmin: 38, ymin: 174, xmax: 258, ymax: 364 }
+                //     },
+                //     {
+                //         score: 0.08530698716640472,
+                //         label: 'camera',
+                //         box: { xmin: 187, ymin: 350, xmax: 260, ymax: 411 }
+                //     },
+                //     {
+                //         score: 0.08349756896495819,
+                //         label: 'book',
+                //         box: { xmin: 261, ymin: 280, xmax: 494, ymax: 425 }
+                //     }
+                // ]
+
+                expect(output.length).toBeGreaterThan(0);
+                for (let cls of output) {
+                    expect(typeof cls.score).toBe('number');
+                    expect(typeof cls.label).toBe('string');
+                    for (let key of ['xmin', 'ymin', 'xmax', 'ymax']) {
+                        expect(typeof cls.box[key]).toBe('number');
+                    }
+                }
+            }
+
+            await detector.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
     describe('Image-to-image', () => {
 
         // List all models which will be tested
