@@ -360,6 +360,13 @@ SUPPORTED_MODELS = {
         # (TODO conversational)
         'PygmalionAI/pygmalion-350m',
     ],
+    'owlvit': [
+        # Object detection (Zero-shot object detection)
+        # NOTE: Exported with --batch_size 1
+        'google/owlvit-base-patch32',
+        'google/owlvit-base-patch16',
+        'google/owlvit-large-patch14',
+    ],
     'resnet': [
         # Image classification
         'microsoft/resnet-18',

@@ -65,9 +65,13 @@ function center_to_corners_format([centerX, centerY, width, height]) {
  * @param {Object} outputs The outputs of the model that must be post-processed
  * @param {Tensor} outputs.logits The logits
  * @param {Tensor} outputs.pred_boxes The predicted boxes.
+ * @param {number} [threshold=0.5] The threshold to use for the scores.
+ * @param {number[][]} [target_sizes=null] The sizes of the original images.
+ * @param {boolean} [is_zero_shot=false] Whether zero-shot object detection was performed.
  * @return {Object[]} An array of objects containing the post-processed outputs.
+ * @private
  */
-function post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
+function post_process_object_detection(outputs, threshold = 0.5, target_sizes = null, is_zero_shot = false) {
     const out_logits = outputs.logits;
     const out_bbox = outputs.pred_boxes;
     const [batch_size, num_boxes, num_classes] = out_logits.dims;
@@ -89,19 +93,33 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
         for (let j = 0; j < num_boxes; ++j) {
             let logit = logits[j];
 
-            // Get most probable class
-            let maxIndex = max(logit.data)[1];
+            let indices = [];
+            let probs;
+            if (is_zero_shot) {
+                // Get indices of classes with high enough probability
+                probs = logit.sigmoid().data;
+                for (let k = 0; k < probs.length; ++k) {
+                    if (probs[k] > threshold) {
+                        indices.push(k);
+                    }
+                }
 
-            if (maxIndex === num_classes - 1) {
-                // This is the background class, skip it
-                continue;
+            } else {
+                // Get most probable class
+                let maxIndex = max(logit.data)[1];
+
+                if (maxIndex === num_classes - 1) {
+                    // This is the background class, skip it
+                    continue;
+                }
+                indices.push(maxIndex);
+
+                // Compute softmax over classes
+                probs = softmax(logit.data);
             }
 
-            // Compute softmax over classes
-            let probs = softmax(logit.data);
+            for (const index of indices) {
 
-            let score = probs[maxIndex];
-            if (score > threshold) {
                 // Some class has a high enough probability
                 /** @type {number[]} */
                 let box = bbox[j].data;
@@ -113,8 +131,8 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
                 }
 
                 info.boxes.push(box);
-                info.classes.push(maxIndex);
-                info.scores.push(score);
+                info.classes.push(index);
+                info.scores.push(probs[index]);
             }
         }
         toReturn.push(info);
@@ -564,6 +582,12 @@ export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
+export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
+    /** @type {post_process_object_detection} */
+    post_process_object_detection(...args) {
+        return post_process_object_detection(...args);
+    }
+}
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
 export class DonutFeatureExtractor extends ImageFeatureExtractor {
@@ -1567,6 +1591,8 @@ export class SpeechT5Processor extends Processor {
     }
 }
 
+export class OwlViTProcessor extends Processor { }
+
 
 //////////////////////////////////////////////////
 /**
@@ -1604,6 +1630,7 @@ export class AutoProcessor {
         WhisperFeatureExtractor,
         ViTFeatureExtractor,
         MobileViTFeatureExtractor,
+        OwlViTFeatureExtractor,
         CLIPFeatureExtractor,
         ConvNextFeatureExtractor,
         BeitFeatureExtractor,
@@ -1624,6 +1651,7 @@ export class AutoProcessor {
         Wav2Vec2ProcessorWithLM,
         SamProcessor,
         SpeechT5Processor,
+        OwlViTProcessor,
     }
 
     /**

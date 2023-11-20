@@ -43,6 +43,10 @@ import {
 } from './configs.js';
 
 import {
+    add_token_types,
+} from './tokenizers.js';
+
+import {
     Callable,
     isIntegralNumber,
     isTypedArray,
@@ -83,7 +87,9 @@ import {
 
 import { executionProviders, ONNX } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
-const { InferenceSession, Tensor: ONNXTensor } = ONNX;
+const { InferenceSession, Tensor: ONNXTensor, env } = ONNX;
+
+/** @typedef {import('onnxruntime-web').InferenceSession} InferenceSession */
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -143,21 +149,31 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 /**
  * Validate model inputs
  * @param {InferenceSession} session The InferenceSession object that will be run.
- * @param {Object} inputs The inputs to check.
- * @returns {Promise<Object>} A Promise that resolves to the checked inputs.
+ * @param {Record<string, Tensor>} inputs The inputs to check.
+ * @returns {Record<string, Tensor>} The checked inputs.
  * @throws {Error} If any inputs are missing.
  * @private
  */
-async function validateInputs(session, inputs) {
-    // NOTE: Only create a shallow copy
-    const checkedInputs = {};
+function validateInputs(session, inputs) {
+    /**
+     * NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
+     * @type {Record<string, Tensor>}
+     */
+    const checkedInputs = Object.create(null);
     const missingInputs = [];
-    for (let inputName of session.inputNames) {
-        if (inputs[inputName] === undefined) {
+    for (const inputName of session.inputNames) {
+        const tensor = inputs[inputName];
+        // Rare case where one of the model's input names corresponds to a built-in
+        // object name (e.g., toString), which would cause a simple (!tensor) check to fail,
+        // because it's not undefined but a function.
+        if (!(tensor instanceof Tensor)) {
             missingInputs.push(inputName);
-        } else {
-            checkedInputs[inputName] = inputs[inputName];
+            continue;
         }
+        // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
+        // boundary, transferring ownership to the worker and invalidating the tensor.
+        // So, in this case, we simply sacrifice a clone for it.
+        checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
     }
     if (missingInputs.length > 0) {
         throw new Error(
@@ -188,7 +204,7 @@ async function validateInputs(session, inputs) {
  * @private
  */
 async function sessionRun(session, inputs) {
-    const checkedInputs = await validateInputs(session, inputs);
+    const checkedInputs = validateInputs(session, inputs);
     try {
         let output = await session.run(checkedInputs);
         output = replaceTensors(output);
@@ -489,9 +505,14 @@ function seq2seqUpdatebeam(beam, newTokenId) {
  * @private
  */
 async function encoderForward(self, model_inputs) {
-    let encoderFeeds = {};
-    for (let key of self.session.inputNames) {
+    const encoderFeeds = Object.create(null);
+    for (const key of self.session.inputNames) {
         encoderFeeds[key] = model_inputs[key];
+    }
+    if (self.session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
+        // Assign default `token_type_ids` to the `encoderFeeds` if the model expects it,
+        // but they weren't created by the tokenizer.
+        add_token_types(encoderFeeds);
     }
     return await sessionRun(self.session, encoderFeeds);
 }
@@ -3181,6 +3202,12 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class OwlViTPreTrainedModel extends PreTrainedModel { }
+export class OwlViTModel extends OwlViTPreTrainedModel { }
+export class OwlViTForObjectDetection extends OwlViTPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Beit Models
 export class BeitPreTrainedModel extends PreTrainedModel { }
 export class BeitModel extends BeitPreTrainedModel { }
@@ -3990,6 +4017,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['detr', ['DetrModel', DetrModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
+    ['owlvit', ['OwlViTModel', OwlViTModel]],
     ['beit', ['BeitModel', BeitModel]],
     ['deit', ['DeiTModel', DeiTModel]],
     ['resnet', ['ResNetModel', ResNetModel]],
@@ -4151,6 +4179,10 @@ const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['yolos', ['YolosForObjectDetection', YolosForObjectDetection]],
 ]);
 
+const MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES = new Map([
+    ['owlvit', ['OwlViTForObjectDetection', OwlViTForObjectDetection]],
+]);
+
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
     ['detr', ['DetrForSegmentation', DetrForSegmentation]],
 ]);
@@ -4190,6 +4222,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -4359,6 +4392,11 @@ export class AutoModelForImageSegmentation extends PretrainedMixin {
 export class AutoModelForObjectDetection extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES];
 }
+
+export class AutoModelForZeroShotObjectDetection extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES];
+}
+
 
 /**
  * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
