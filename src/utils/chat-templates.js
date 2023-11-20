@@ -53,6 +53,7 @@ class Program extends Statement {
         this.body = body;
     }
 }
+
 class If extends Statement {
     type = 'If';
 
@@ -86,7 +87,6 @@ class For extends Statement {
         this.body = body;
     }
 }
-
 
 class SetStatement extends Statement { // `Set` is taken
     type = 'Set';
@@ -156,7 +156,6 @@ class Identifier extends Expression {
         this.value = value;
     }
 }
-
 
 /**
  * Abstract base class for all Literal expressions.
@@ -287,6 +286,10 @@ const TOKEN_TYPES = Object.freeze({
 })
 
 /**
+ * @typedef {keyof typeof TOKEN_TYPES} TokenType
+ */
+
+/**
  * Constant lookup for keywords and known identifiers + symbols.
  */
 const KEYWORDS = Object.freeze({
@@ -299,10 +302,6 @@ const KEYWORDS = Object.freeze({
     elif: TOKEN_TYPES.ElseIf,
     endfor: TOKEN_TYPES.EndFor,
 })
-
-/**
- * @typedef {keyof typeof TOKEN_TYPES} TokenType
- */
 
 /**
  * Represents a single token in the template.
@@ -801,7 +800,6 @@ function parse(tokens) {
     return program;
 }
 
-
 /**
  * Abstract base class for all Runtime values.
  * Should not be instantiated directly.
@@ -876,7 +874,6 @@ class NativeFunctionValue extends RuntimeValue {
 class NullValue extends RuntimeValue {
     type = 'NullValue';
 }
-
 
 /**
  * Represents the current environment (scope) at runtime.
