@@ -1255,6 +1255,12 @@ export function convertToRuntimeValues(input) {
                     new Map(Object.entries(input).map(([key, value]) => [key, convertToRuntimeValues(value)]))
                 );
             }
+        case 'function':
+            // Wrap the user's function in a runtime function
+            return new NativeFunctionValue((args, scope) => {
+                const result = input(args, scope) ?? null; // map undefined -> null
+                return convertToRuntimeValues(result);
+            });
         default:
             throw new Error(`Cannot convert to runtime value: ${input}`);
     }
