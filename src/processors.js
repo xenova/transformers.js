@@ -204,6 +204,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.do_resize = this.config.do_resize;
         this.do_thumbnail = this.config.do_thumbnail;
         this.size = this.config.size;
+        this.size_divisor = this.config.size_divisor;
 
         this.do_center_crop = this.config.do_center_crop;
         this.crop_size = this.config.crop_size;
@@ -427,7 +428,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                 shortest_edge = this.size;
                 longest_edge = this.config.max_size ?? shortest_edge;
 
-            } else {
+            } else if (this.size !== undefined) {
                 // Extract known properties from `this.size`
                 shortest_edge = this.size.shortest_edge;
                 longest_edge = this.size.longest_edge;
@@ -460,11 +461,20 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                     resample: this.resample,
                 });
 
-            } else if (this.size.width !== undefined && this.size.height !== undefined) {
+            } else if (this.size !== undefined && this.size.width !== undefined && this.size.height !== undefined) {
                 // If `width` and `height` are set, resize to those dimensions
                 image = await image.resize(this.size.width, this.size.height, {
                     resample: this.resample,
                 });
+
+            } else if (this.size_divisor !== undefined) {
+                // Rounds the height and width down to the closest multiple of size_divisor
+                const newWidth = Math.floor(srcWidth / this.size_divisor) * this.size_divisor;
+                const newHeight = Math.floor(srcHeight / this.size_divisor) * this.size_divisor;
+                image = await image.resize(newWidth, newHeight, {
+                    resample: this.resample,
+                });
+
             } else {
                 throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(this.size)}`);
             }
@@ -578,6 +588,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class DPTFeatureExtractor extends ImageFeatureExtractor { }
+export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
@@ -1633,6 +1645,8 @@ export class AutoProcessor {
         OwlViTFeatureExtractor,
         CLIPFeatureExtractor,
         ConvNextFeatureExtractor,
+        DPTFeatureExtractor,
+        GLPNFeatureExtractor,
         BeitFeatureExtractor,
         DeiTFeatureExtractor,
         DetrFeatureExtractor,

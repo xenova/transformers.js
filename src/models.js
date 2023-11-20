@@ -3372,6 +3372,100 @@ export class Swin2SRForImageSuperResolution extends Swin2SRPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class DPTPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DPT Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class DPTModel extends DPTPreTrainedModel { }
+
+/**
+ * DPT Model with a depth estimation head on top (consisting of 3 convolutional layers) e.g. for KITTI, NYUv2.
+ * 
+ * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`.
+ * ```javascript
+ * import { DPTForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * 
+ * // Load model and processor
+ * const model_id = 'Xenova/dpt-hybrid-midas';
+ * const model = await DPTForDepthEstimation.from_pretrained(model_id);
+ * const processor = await AutoProcessor.from_pretrained(model_id);
+ * 
+ * // Load image from URL
+ * const url = 'http://images.cocodataset.org/val2017/000000039769.jpg';
+ * const image = await RawImage.fromURL(url);
+ * 
+ * // Prepare image for the model
+ * const inputs = await processor(image);
+ * 
+ * // Run model
+ * const { predicted_depth } = await model(inputs);
+ * 
+ * // Interpolate to original size
+ * const prediction = interpolate(predicted_depth, image.size.reverse(), 'bilinear', false);
+ * 
+ * // Visualize the prediction
+ * const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
+ * const depth = RawImage.fromTensor(formatted);
+ * // RawImage {
+ * //   data: Uint8Array(307200) [ 85, 85, 84, ... ],
+ * //   width: 640,
+ * //   height: 480,
+ * //   channels: 1
+ * // }
+ * ```
+ */
+export class DPTForDepthEstimation extends DPTPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class GLPNPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare GLPN encoder (Mix-Transformer) outputting raw hidden-states without any specific head on top.
+ */
+export class GLPNModel extends GLPNPreTrainedModel { }
+
+/**
+ * GLPN Model transformer with a lightweight depth estimation head on top e.g. for KITTI, NYUv2.
+ * 
+ * **Example:** Depth estimation w/ `Xenova/glpn-kitti`.
+ * ```javascript
+ * import { GLPNForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * 
+ * // Load model and processor
+ * const model_id = 'Xenova/glpn-kitti';
+ * const model = await GLPNForDepthEstimation.from_pretrained(model_id);
+ * const processor = await AutoProcessor.from_pretrained(model_id);
+ * 
+ * // Load image from URL
+ * const url = 'http://images.cocodataset.org/val2017/000000039769.jpg';
+ * const image = await RawImage.fromURL(url);
+ * 
+ * // Prepare image for the model
+ * const inputs = await processor(image);
+ * 
+ * // Run model
+ * const { predicted_depth } = await model(inputs);
+ * 
+ * // Interpolate to original size
+ * const prediction = interpolate(predicted_depth, image.size.reverse(), 'bilinear', false);
+ * 
+ * // Visualize the prediction
+ * const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
+ * const depth = RawImage.fromTensor(formatted);
+ * // RawImage {
+ * //   data: Uint8Array(307200) [ 207, 169, 154, ... ],
+ * //   width: 640,
+ * //   height: 480,
+ * //   channels: 1
+ * // }
+ * ```
+ */
+export class GLPNForDepthEstimation extends GLPNPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class DonutSwinPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -4025,6 +4119,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['swin2sr', ['Swin2SRModel', Swin2SRModel]],
     ['donut-swin', ['DonutSwinModel', DonutSwinModel]],
     ['yolos', ['YolosModel', YolosModel]],
+    ['dpt', ['DPTModel', DPTModel]],
+    ['glpn', ['GLPNModel', GLPNModel]],
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
 
@@ -4205,6 +4301,11 @@ const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
     ['swin2sr', ['Swin2SRForImageSuperResolution', Swin2SRForImageSuperResolution]],
 ])
 
+const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
+    ['dpt', ['DPTForDepthEstimation', DPTForDepthEstimation]],
+    ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
+])
+
 
 const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_TYPES.EncoderOnly],
@@ -4221,6 +4322,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -4423,6 +4525,10 @@ export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
 
 export class AutoModelForImageToImage extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES];
+}
+
+export class AutoModelForDepthEstimation extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES];
 }
 
 //////////////////////////////////////////////////

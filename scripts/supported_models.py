@@ -208,10 +208,20 @@ SUPPORTED_MODELS = {
         # Document Question Answering
         'naver-clova-ix/donut-base-finetuned-docvqa',
     ],
+    'dpt': [
+        # Depth estimation
+        'Intel/dpt-hybrid-midas',
+        'Intel/dpt-large',
+    ],
     'falcon': [
         # Text generation
         'Rocketknight1/tiny-random-falcon-7b',
         'fxmarty/really-tiny-falcon-testing',
+    ],
+    'glpn': [
+        # Depth estimation
+        'vinvino02/glpn-kitti',
+        'vinvino02/glpn-nyu',
     ],
     'gpt_neo': [
         # Text generation

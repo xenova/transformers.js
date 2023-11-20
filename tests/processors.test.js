@@ -38,6 +38,8 @@ describe('Processors', () => {
             beit: 'microsoft/beit-base-patch16-224-pt22k-ft22k',
             detr: 'facebook/detr-resnet-50',
             yolos: 'hustvl/yolos-small-300',
+            dpt: 'Intel/dpt-hybrid-midas',
+            glpn: 'vinvino02/glpn-kitti',
             nougat: 'facebook/nougat-small',
             owlvit: 'google/owlvit-base-patch32',
             clip: 'openai/clip-vit-base-patch16',
@@ -243,6 +245,49 @@ describe('Processors', () => {
             }
         }, MAX_TEST_EXECUTION_TIME);
 
+        // DPTFeatureExtractor
+        it(MODELS.dpt, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt))
+
+            { // Tests grayscale image
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 384, 384]);
+                compare(avg(pixel_values.data), 0.0372855559389454);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[384, 384]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        // GLPNForDepthEstimation
+        //  - tests `size_divisor` and no size (size_divisor=32)
+        it(MODELS.glpn, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.glpn))
+
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+                compare(pixel_values.dims, [1, 3, 480, 640]);
+                compare(avg(pixel_values.data), 0.5186172404123327);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[480, 640]]);
+            }
+
+            { // Tests input which is not a multiple of 32 ([408, 612] -> [384, 608])
+                const image = await load_image(TEST_IMAGES.tiger);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 384, 608]);
+                compare(avg(pixel_values.data), 0.38628831535989555);
+
+                compare(original_sizes, [[408, 612]]);
+                compare(reshaped_input_sizes, [[384, 608]]);
+            }
+        });
+
         // NougatImageProcessor
         //  - tests padding after normalization (image_mean != 0.5, image_std != 0.5)
         it(MODELS.nougat, async () => {
@@ -263,7 +308,6 @@ describe('Processors', () => {
         // OwlViTFeatureExtractor
         it(MODELS.owlvit, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.owlvit))
-
             {
                 const image = await load_image(TEST_IMAGES.cats);
                 const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
