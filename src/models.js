@@ -3201,6 +3201,12 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class OwlViTPreTrainedModel extends PreTrainedModel { }
+export class OwlViTModel extends OwlViTPreTrainedModel { }
+export class OwlViTForObjectDetection extends OwlViTPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Beit Models
 export class BeitPreTrainedModel extends PreTrainedModel { }
 export class BeitModel extends BeitPreTrainedModel { }
@@ -4010,6 +4016,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['detr', ['DetrModel', DetrModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
+    ['owlvit', ['OwlViTModel', OwlViTModel]],
     ['beit', ['BeitModel', BeitModel]],
     ['deit', ['DeiTModel', DeiTModel]],
     ['resnet', ['ResNetModel', ResNetModel]],
@@ -4171,6 +4178,10 @@ const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['yolos', ['YolosForObjectDetection', YolosForObjectDetection]],
 ]);
 
+const MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES = new Map([
+    ['owlvit', ['OwlViTForObjectDetection', OwlViTForObjectDetection]],
+]);
+
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
     ['detr', ['DetrForSegmentation', DetrForSegmentation]],
 ]);
@@ -4210,6 +4221,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -4379,6 +4391,11 @@ export class AutoModelForImageSegmentation extends PretrainedMixin {
 export class AutoModelForObjectDetection extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES];
 }
+
+export class AutoModelForZeroShotObjectDetection extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES];
+}
+
 
 /**
  * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.

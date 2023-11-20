@@ -38,6 +38,7 @@ describe('Processors', () => {
             beit: 'microsoft/beit-base-patch16-224-pt22k-ft22k',
             detr: 'facebook/detr-resnet-50',
             yolos: 'hustvl/yolos-small-300',
+            owlvit: 'google/owlvit-base-patch32',
             clip: 'openai/clip-vit-base-patch16',
         }
 
@@ -46,6 +47,7 @@ describe('Processors', () => {
             checkerboard_8x8: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/checkerboard_8x8.png',
             receipt: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/receipt.png',
             tiger: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg',
+            cats: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg',
 
             // grayscale image
             skateboard: 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/blog/ml-web-games/skateboard.png',
@@ -237,6 +239,23 @@ describe('Processors', () => {
                 compare(reshaped_input_sizes, [[888, 1333]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
+
+
+        // OwlViTFeatureExtractor
+        it(MODELS.owlvit, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.owlvit))
+
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 768, 768]);
+                compare(avg(pixel_values.data), 0.250620447910435);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[768, 768]]);
+            }
+        });
 
         // CLIPFeatureExtractor
         //  - tests center crop (do_center_crop=true, crop_size=224)
