@@ -41,6 +41,10 @@ import {
     CharTrie,
 } from './utils/data-structures.js';
 
+import {
+    Template,
+} from './utils/chat-templates.js';
+
 /**
  * Loads a tokenizer from the specified path.
  * @param {string} pretrained_model_name_or_path The path to the tokenizer directory.
@@ -2123,6 +2127,16 @@ class ReplacePreTokenizer extends PreTokenizer {
     }
 }
 
+const SPECIAL_TOKEN_ATTRIBUTES = [
+    'bos_token',
+    'eos_token',
+    'unk_token',
+    'sep_token',
+    'pad_token',
+    'cls_token',
+    'mask_token',
+    // additional_special_tokens (TODO)
+]
 
 export class PreTrainedTokenizer extends Callable {
     /**
@@ -2133,6 +2147,8 @@ export class PreTrainedTokenizer extends Callable {
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
 
+        this._tokenizer_config = tokenizerConfig;
+
         // Construct parts of the tokenizer from the JSON
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
@@ -2142,7 +2158,6 @@ export class PreTrainedTokenizer extends Callable {
 
         // TODO: maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
-
 
         // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
         // This is needed for cases where BPE model and ByteLevel decoder are used
@@ -2170,7 +2185,8 @@ export class PreTrainedTokenizer extends Callable {
         }
 
         // Update additional_special_tokens
-        this.special_tokens.push(...(tokenizerConfig.additional_special_tokens ?? []));
+        this.additional_special_tokens = tokenizerConfig.additional_special_tokens ?? [];
+        this.special_tokens.push(...this.additional_special_tokens);
         this.special_tokens = [...new Set(this.special_tokens)]; // Remove duplicates
 
         // Slight hack, but it prevents code duplication:
@@ -2181,13 +2197,13 @@ export class PreTrainedTokenizer extends Callable {
         ) : null;
 
         // Set mask token if present (otherwise will be undefined, which is fine)
-        this.mask_token = this.getToken(tokenizerConfig, 'mask_token');
+        this.mask_token = this.getToken('mask_token');
         this.mask_token_id = this.model.tokens_to_ids.get(this.mask_token);
 
-        this.pad_token = this.getToken(tokenizerConfig, 'pad_token', 'eos_token');
+        this.pad_token = this.getToken('pad_token', 'eos_token');
         this.pad_token_id = this.model.tokens_to_ids.get(this.pad_token);
 
-        this.sep_token = this.getToken(tokenizerConfig, 'sep_token');
+        this.sep_token = this.getToken('sep_token');
         this.sep_token_id = this.model.tokens_to_ids.get(this.sep_token);
 
         this.model_max_length = tokenizerConfig.model_max_length;
@@ -2200,6 +2216,10 @@ export class PreTrainedTokenizer extends Callable {
 
         // TODO allow user to change this
         this.padding_side = 'right';
+
+        this.chat_template = tokenizerConfig.chat_template ?? null;
+        /** @type {Map<string, Template>} */
+        this._compiled_template_cache = new Map();
     }
 
     /**
@@ -2208,9 +2228,9 @@ export class PreTrainedTokenizer extends Callable {
      * @returns {string|null} The value associated with the first matching key, or null if no match is found.
      * @throws {Error} If an object is found for a matching key and its __type property is not "AddedToken".
      */
-    getToken(tokenizerConfig, ...keys) {
+    getToken(...keys) {
         for (let key of keys) {
-            let item = tokenizerConfig[key];
+            let item = this._tokenizer_config[key];
 
             if (!item) continue;
 
@@ -2571,6 +2591,86 @@ export class PreTrainedTokenizer extends Callable {
         return decoded;
     }
 
+    get default_chat_template() {
+        if (!this._warned_about_chat_template) {
+            console.warn(
+                "No chat template is defined for this tokenizer - using a default chat template " +
+                "that implements the ChatML format. If the default is not appropriate for " +
+                "your model, please set `tokenizer.chat_template` to an appropriate template. " +
+                "See https://huggingface.co/docs/transformers/main/chat_templating for more information."
+            )
+            this._warned_about_chat_template = true; // TODO move to logger.warning_once()
+        }
+
+        return (
+            "{% for message in messages %}" +
+            "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}" +
+            "{% endfor %}" +
+            "{% if add_generation_prompt %}" +
+            "{{ '<|im_start|>assistant\n' }}" +
+            "{% endif %}"
+        )
+    }
+
+    /**
+     * @typedef {Object} Message
+     * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
+     * @property {string} content The content of the message.
+     */
+
+    /**
+     * Converts a list of message objects with `"role"` and `"content"` keys to a list of token
+     * ids. This method is intended for use with chat models, and will read the tokenizer's chat_template attribute to
+     * determine the format and control tokens to use when converting. When chat_template is None, it will fall back
+     * to the default_chat_template specified at the class level.
+     * @param {Message[]} conversation A list of message objects with `"role"` and `"content"` keys.
+     */
+    apply_chat_template(conversation, {
+        chat_template = null,
+        add_generation_prompt = false,
+        tokenize = true,
+        padding = false,
+        truncation = false,
+        max_length = null,
+        return_tensor = true,
+    } = {}) {
+
+        chat_template ??= this.chat_template ?? this.default_chat_template;
+
+        // Compilation function uses a cache to avoid recompiling the same template
+        let compiledTemplate = this._compiled_template_cache.get(chat_template);
+        if (compiledTemplate === undefined) {
+            compiledTemplate = new Template(chat_template);
+            this._compiled_template_cache.set(chat_template, compiledTemplate);
+        }
+
+        const special_tokens_map = Object.create(null);
+        for (const key of SPECIAL_TOKEN_ATTRIBUTES) {
+            const value = this.getToken(key);
+            if (value) {
+                special_tokens_map[key] = value;
+            }
+        }
+
+        const rendered = compiledTemplate.render({
+            messages: conversation,
+            add_generation_prompt: add_generation_prompt,
+
+            ...special_tokens_map,
+        });
+
+        if (tokenize) {
+            return this._call(rendered, {
+                add_special_tokens: false,
+                padding,
+                truncation,
+                max_length,
+                return_tensor,
+            }).input_ids;
+        }
+
+        return rendered;
+    }
 }
 
 /**
