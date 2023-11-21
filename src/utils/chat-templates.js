@@ -870,6 +870,12 @@ class RuntimeValue {
     type = 'RuntimeValue';
 
     /**
+     * A collection of built-in functions for this type.
+     * @type {Map<string, RuntimeValue>}
+     */
+    builtins = new Map();
+
+    /**
      * Creates a new RuntimeValue.
      * @param {T} value 
      */
@@ -892,6 +898,19 @@ class NumericValue extends RuntimeValue {
  */
 class StringValue extends RuntimeValue {
     type = 'StringValue';
+
+    builtins = new Map(/** @type {[string, RuntimeValue][]} */([
+        ['upper', new FunctionValue(() => {
+            return new StringValue(this.value.toUpperCase());
+        })],
+        ['lower', new FunctionValue(() => {
+            return new StringValue(this.value.toLowerCase());
+        })],
+        ['strip', new FunctionValue(() => {
+            return new StringValue(this.value.trim());
+        })],
+        ['length', new NumericValue(this.value.length)],
+    ]));
 }
 
 /**
@@ -922,8 +941,8 @@ class ArrayValue extends RuntimeValue {
  * Represents a Function value at runtime.
  * @extends {RuntimeValue<function (RuntimeValue[], Environment): RuntimeValue>}
  */
-class NativeFunctionValue extends RuntimeValue {
-    type = 'NativeFunctionValue';
+class FunctionValue extends RuntimeValue {
+    type = 'FunctionValue';
 }
 
 /**
@@ -1077,12 +1096,12 @@ export class Interpreter {
                 case '%': return new NumericValue(left.value % right.value);
 
                 // Comparison operators
-                case '<': return new BooleanLiteral(left.value < right.value);
-                case '>': return new BooleanLiteral(left.value > right.value);
-                case '>=': return new BooleanLiteral(left.value >= right.value);
-                case '<=': return new BooleanLiteral(left.value <= right.value);
-                case '==': return new BooleanLiteral(left.value == right.value);
-                case '!=': return new BooleanLiteral(left.value != right.value);
+                case '<': return new BooleanValue(left.value < right.value);
+                case '>': return new BooleanValue(left.value > right.value);
+                case '>=': return new BooleanValue(left.value >= right.value);
+                case '<=': return new BooleanValue(left.value <= right.value);
+                case '==': return new BooleanValue(left.value == right.value);
+                case '!=': return new BooleanValue(left.value != right.value);
 
                 default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
             }
@@ -1093,15 +1112,15 @@ export class Interpreter {
         ) {
             // Logical operators
             switch (node.operator.value) {
-                case 'and': return new BooleanLiteral(left.value && right.value);
-                case 'or': return new BooleanLiteral(left.value || right.value);
+                case 'and': return new BooleanValue(left.value && right.value);
+                case 'or': return new BooleanValue(left.value || right.value);
                 default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
             }
         } else {
             switch (node.operator.value) {
                 case '+': return new StringValue(left.value + right.value);
-                case '==': return new BooleanLiteral(left.value == right.value);
-                case '!=': return new BooleanLiteral(left.value != right.value);
+                case '==': return new BooleanValue(left.value == right.value);
+                case '!=': return new BooleanValue(left.value != right.value);
                 default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
             }
         }
@@ -1118,7 +1137,7 @@ export class Interpreter {
         const argument = this.evaluate(node.argument, environment);
 
         switch (node.operator.value) {
-            case 'not': return new BooleanLiteral(!argument.value);
+            case 'not': return new BooleanValue(!argument.value);
             default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
         }
     }
@@ -1178,10 +1197,10 @@ export class Interpreter {
     evaluateCallExpression(expr, environment) {
         const args = expr.args.map(arg => this.evaluate(arg, environment));
         const fn = this.evaluate(expr.callee, environment);
-        if (fn.type !== 'NativeFunctionValue') {
+        if (fn.type !== 'FunctionValue') {
             throw new Error(`Cannot call something that is not a function: got ${fn.type}`);
         }
-        return /** @type {NativeFunctionValue} */ (fn).value(args, environment);
+        return /** @type {FunctionValue} */ (fn).value(args, environment);
     }
 
     /**
@@ -1191,20 +1210,23 @@ export class Interpreter {
      * @private
      */
     evaluateMemberExpression(expr, environment) {
-        const object = this.evaluate(expr.object, environment);
         const property = expr.computed
             ? this.evaluate(expr.property, environment)
             : new StringValue(/** @type {Identifier} */(expr.property).value); // expr.property.value
-        if (object.type !== 'ObjectValue') {
-            throw new Error(`Cannot access property of non-object: got ${object.type}`);
-        }
+
         if (property.type !== 'StringValue') {
+            // TODO integer indexing for arrays
             throw new Error(`Cannot access property with non-string: got ${property.type}`);
         }
 
-        const value = /** @type {ObjectValue} */(object).value.get(property.value);
-        if (!value) {
-            throw new Error(`Object does not have property: ${property.value}`);
+        const object = this.evaluate(expr.object, environment);
+
+        const value = object instanceof ObjectValue
+            ? object.value.get(property.value) ?? object.builtins.get(property.value)
+            : object.builtins.get(property.value);
+
+        if (!(value instanceof RuntimeValue)) {
+            throw new Error(`${object.type} has no property '${property.value}'`);
         }
         return value;
     }
@@ -1358,7 +1380,7 @@ function convertToRuntimeValues(input) {
             }
         case 'function':
             // Wrap the user's function in a runtime function
-            return new NativeFunctionValue((args, scope) => {
+            return new FunctionValue((args, scope) => {
                 // NOTE: `scope` is not used since it's in the global scope
                 const result = input(...args) ?? null; // map undefined -> null
                 return convertToRuntimeValues(result);
