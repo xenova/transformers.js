@@ -39,6 +39,7 @@ const TEST_STRINGS = {
 
     // Object methods
     OBJ_METHODS: `{{ obj.x(x, y) }} {{ obj.x() }} {{ obj.x[x](x, y) }} `,
+    STRING_METHODS: `{{ '  A  '.strip() }} {% set x = '  B  ' %} {{ x.strip() }} {% set y = ' aBcD ' %} {{ y.upper() }} {{ y.lower() }}`,
 }
 
 
@@ -97,7 +98,7 @@ const TEST_PARSED = {
         { value: 'not', type: 'UnaryOperator' },
         { value: 'false', type: 'Identifier' },
         { value: '}}', type: 'CloseExpression' }
-      ],
+    ],
     LOGICAL_NOT_NOT: [
         { value: '{{', type: 'OpenExpression' },
         { value: 'not', type: 'UnaryOperator' },
@@ -109,7 +110,7 @@ const TEST_PARSED = {
         { value: 'not', type: 'UnaryOperator' },
         { value: 'false', type: 'Identifier' },
         { value: '}}', type: 'CloseExpression' }
-      ],
+    ],
     LOGICAL_AND_OR: [
         { value: '{{', type: 'OpenExpression' },
         { value: 'true', type: 'Identifier' },
@@ -146,7 +147,7 @@ const TEST_PARSED = {
         { value: 'or', type: 'Or' },
         { value: 'false', type: 'Identifier' },
         { value: '}}', type: 'CloseExpression' }
-      ],
+    ],
     LOGICAL_AND_NOT: [
         { value: '{{', type: 'OpenExpression' },
         { value: 'true', type: 'Identifier' },
@@ -172,7 +173,7 @@ const TEST_PARSED = {
         { value: 'not', type: 'UnaryOperator' },
         { value: 'false', type: 'Identifier' },
         { value: '}}', type: 'CloseExpression' }
-      ],
+    ],
     LOGICAL_OR_NOT: [
         { value: '{{', type: 'OpenExpression' },
         { value: 'true', type: 'Identifier' },
@@ -198,7 +199,7 @@ const TEST_PARSED = {
         { value: 'not', type: 'UnaryOperator' },
         { value: 'false', type: 'Identifier' },
         { value: '}}', type: 'CloseExpression' }
-      ],
+    ],
     LOGICAL_COMBINED: [
         { value: '{{', type: 'OpenExpression' },
         { value: '1', type: 'NumericLiteral' },
@@ -218,7 +219,7 @@ const TEST_PARSED = {
         { value: '==', type: 'ComparisonBinaryOperator' },
         { value: '2', type: 'NumericLiteral' },
         { value: '}}', type: 'CloseExpression' }
-      ],
+    ],
 
     // If statements
     IF_ONLY: [
@@ -500,6 +501,48 @@ const TEST_PARSED = {
         { value: ')', type: 'CloseParen' },
         { value: '}}', type: 'CloseExpression' }
     ],
+    STRING_METHODS: [
+        { value: '{{', type: 'OpenExpression' },
+        { value: '  A  ', type: 'StringLiteral' },
+        { value: '.', type: 'Dot' },
+        { value: 'strip', type: 'Identifier' },
+        { value: '(', type: 'OpenParen' },
+        { value: ')', type: 'CloseParen' },
+        { value: '}}', type: 'CloseExpression' },
+        { value: '{%', type: 'OpenStatement' },
+        { value: 'set', type: 'Set' },
+        { value: 'x', type: 'Identifier' },
+        { value: '=', type: 'Equals' },
+        { value: '  B  ', type: 'StringLiteral' },
+        { value: '%}', type: 'CloseStatement' },
+        { value: '{{', type: 'OpenExpression' },
+        { value: 'x', type: 'Identifier' },
+        { value: '.', type: 'Dot' },
+        { value: 'strip', type: 'Identifier' },
+        { value: '(', type: 'OpenParen' },
+        { value: ')', type: 'CloseParen' },
+        { value: '}}', type: 'CloseExpression' },
+        { value: '{%', type: 'OpenStatement' },
+        { value: 'set', type: 'Set' },
+        { value: 'y', type: 'Identifier' },
+        { value: '=', type: 'Equals' },
+        { value: ' aBcD ', type: 'StringLiteral' },
+        { value: '%}', type: 'CloseStatement' },
+        { value: '{{', type: 'OpenExpression' },
+        { value: 'y', type: 'Identifier' },
+        { value: '.', type: 'Dot' },
+        { value: 'upper', type: 'Identifier' },
+        { value: '(', type: 'OpenParen' },
+        { value: ')', type: 'CloseParen' },
+        { value: '}}', type: 'CloseExpression' },
+        { value: '{{', type: 'OpenExpression' },
+        { value: 'y', type: 'Identifier' },
+        { value: '.', type: 'Dot' },
+        { value: 'lower', type: 'Identifier' },
+        { value: '(', type: 'OpenParen' },
+        { value: ')', type: 'CloseParen' },
+        { value: '}}', type: 'CloseExpression' }
+    ],
 }
 
 const TEST_CONTEXT = {
@@ -552,6 +595,7 @@ const TEST_CONTEXT = {
 
     // Object methods
     // OBJ_METHODS: {},
+    STRING_METHODS: {},
 }
 
 const EXPECTED_OUTPUTS = {
@@ -589,7 +633,8 @@ const EXPECTED_OUTPUTS = {
     PROPERTIES: '3030',
 
     // Object methods
-    // OBJ_METHODS
+    // OBJ_METHODS: '',
+    STRING_METHODS: 'AB ABCD  abcd ',
 }
 
 describe('Templates', () => {
@@ -597,6 +642,10 @@ describe('Templates', () => {
         it('should tokenize an input string', () => {
             for (const [name, text] of Object.entries(TEST_STRINGS)) {
                 const tokens = tokenize(text);
+
+                if (!TEST_PARSED[name]) {
+                    throw new Error(`Test case "${name}" not found`);
+                }
 
                 if (tokens.length !== TEST_PARSED[name].length) {
                     console.log(tokens);
