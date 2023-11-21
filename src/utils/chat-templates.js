@@ -1236,8 +1236,7 @@ export class Interpreter {
  * @param {any} input 
  * @returns {RuntimeValue}
  */
-export function convertToRuntimeValues(input) {
-    console.log('typeof input', typeof input)
+function convertToRuntimeValues(input) {
     switch (typeof input) {
         case 'number':
             return new NumericValue(input);
