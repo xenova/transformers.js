@@ -1140,7 +1140,7 @@ export class Interpreter {
      * 
      * @param {If} node 
      * @param {Environment} environment 
-     * @returns 
+     * @returns {RuntimeValue}
      * @private
      */
     evaluateIf(node, environment) {
@@ -1155,6 +1155,7 @@ export class Interpreter {
      * 
      * @param {For} node 
      * @param {Environment} environment 
+     * @returns {RuntimeValue}
      * @private
      */
     evaluateFor(node, environment) {
