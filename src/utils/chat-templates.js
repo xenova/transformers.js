@@ -247,6 +247,24 @@ class BinaryExpression extends Expression {
 }
 
 /**
+ * An operation with one side (operator on the left).
+ */
+class UnaryExpression extends Expression {
+    type = 'UnaryExpression';
+
+    /**
+     * 
+     * @param {Token} operator 
+     * @param {Expression} argument 
+     */
+    constructor(operator, argument) {
+        super();
+        this.operator = operator;
+        this.argument = argument;
+    }
+}
+
+/**
  * Represents tokens that our language understands in parsing.
  */
 const TOKEN_TYPES = Object.freeze({
@@ -271,7 +289,7 @@ const TOKEN_TYPES = Object.freeze({
     AdditiveBinaryOperator: 'AdditiveBinaryOperator',
     MultiplicativeBinaryOperator: 'MultiplicativeBinaryOperator',
     ComparisonBinaryOperator: 'ComparisonBinaryOperator',
-    LogicalBinaryOperator: 'LogicalBinaryOperator',
+    UnaryOperator: 'UnaryOperator', // not
 
     Set: 'Set',
     If: 'If',
@@ -281,6 +299,10 @@ const TOKEN_TYPES = Object.freeze({
     EndIf: 'EndIf',
     ElseIf: 'ElseIf',
     EndFor: 'EndFor',
+
+    // Logical operators
+    And: 'And',
+    Or: 'Or',
 
     // TODO Add unary operators
 })
@@ -301,6 +323,10 @@ const KEYWORDS = Object.freeze({
     endif: TOKEN_TYPES.EndIf,
     elif: TOKEN_TYPES.ElseIf,
     endfor: TOKEN_TYPES.EndFor,
+
+    and: TOKEN_TYPES.And,
+    or: TOKEN_TYPES.Or,
+    not: TOKEN_TYPES.UnaryOperator,
 })
 
 /**
@@ -479,7 +505,8 @@ export function tokenize(source) {
 }
 
 /**
- * Generate the Abstract Syntax Tree (AST) from a list of tokens
+ * Generate the Abstract Syntax Tree (AST) from a list of tokens.
+ * Operator precedence can be found here: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence#table
  * @param {Token[]} tokens 
  * @returns {Program}
  */
@@ -659,7 +686,28 @@ export function parse(tokens) {
 
     function parseExpression() {
         // Choose parse function with lowest precedence
-        return parseComparisonExpression();
+        return parseLogicalOrExpression();
+    }
+    function parseLogicalOrExpression() {
+        let left = parseLogicalAndExpression();
+        while (is(TOKEN_TYPES.Or)) {
+            const operator = tokens[current];
+            ++current;
+            const right = parseLogicalAndExpression();
+            left = new BinaryExpression(operator, left, right);
+        }
+        return left;
+    }
+
+    function parseLogicalAndExpression() {
+        let left = parseComparisonExpression();
+        while (is(TOKEN_TYPES.And)) {
+            const operator = tokens[current];
+            ++current;
+            const right = parseComparisonExpression();
+            left = new BinaryExpression(operator, left, right);
+        }
+        return left;
     }
 
     function parseComparisonExpression() {
@@ -682,7 +730,6 @@ export function parse(tokens) {
         }
         return left;
     }
-
 
 
     function parseCallMemberExpression() {
@@ -754,15 +801,29 @@ export function parse(tokens) {
     }
 
     function parseMultiplicativeExpression() {
-        let left = parseCallMemberExpression();
+        let left = parseLogicalNegationExpression();
 
         while (is(TOKEN_TYPES.MultiplicativeBinaryOperator)) {
             const operator = tokens[current];
             ++current;
-            const right = parseCallMemberExpression();
+            const right = parseLogicalNegationExpression();
             left = new BinaryExpression(operator, left, right);
         }
         return left;
+    }
+
+    function parseLogicalNegationExpression() {
+        let right;
+
+        // Try parse unary operators
+        while (is(TOKEN_TYPES.UnaryOperator)) { // not not ...
+            const operator = tokens[current];
+            ++current;
+            const arg = parseCallMemberExpression(); // not test.x === not (test.x)
+            right = new UnaryExpression(operator, arg);
+        }
+
+        return right ?? parseCallMemberExpression();
     }
 
     function parsePrimaryExpression() {
@@ -1004,6 +1065,7 @@ export class Interpreter {
         const left = this.evaluate(node.left, environment);
         const right = this.evaluate(node.right, environment);
 
+
         if (left instanceof NumericValue && right instanceof NumericValue) {
             // Evaulate pure numeric operations with binary operators.
             switch (node.operator.value) {
@@ -1021,6 +1083,18 @@ export class Interpreter {
                 case '<=': return new BooleanLiteral(left.value <= right.value);
                 case '==': return new BooleanLiteral(left.value == right.value);
                 case '!=': return new BooleanLiteral(left.value != right.value);
+
+                default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
+            }
+        } else if (
+            (left instanceof BooleanValue || left instanceof BooleanLiteral)
+            &&
+            (right instanceof BooleanValue || right instanceof BooleanLiteral)
+        ) {
+            // Logical operators
+            switch (node.operator.value) {
+                case 'and': return new BooleanLiteral(left.value && right.value);
+                case 'or': return new BooleanLiteral(left.value || right.value);
                 default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
             }
         } else {
@@ -1030,6 +1104,22 @@ export class Interpreter {
                 case '!=': return new BooleanLiteral(left.value != right.value);
                 default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
             }
+        }
+    }
+
+    /**
+     * Evaulates expressions following the unary operation type.
+     * @param {UnaryExpression} node 
+     * @param {Environment} environment
+     * @returns {RuntimeValue}
+     * @private
+     */
+    evaluateUnaryExpression(node, environment) {
+        const argument = this.evaluate(node.argument, environment);
+
+        switch (node.operator.value) {
+            case 'not': return new BooleanLiteral(!argument.value);
+            default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
         }
     }
 
@@ -1219,12 +1309,15 @@ export class Interpreter {
                 return new BooleanValue(/** @type {BooleanLiteral} */(statement).value);
             case 'Identifier':
                 return this.evaluateIdentifier(/** @type {Identifier} */(statement), environment);
-            case 'BinaryExpression':
-                return this.evaluateBinaryExpression(/** @type {BinaryExpression} */(statement), environment);
             case 'CallExpression':
                 return this.evaluateCallExpression(/** @type {CallExpression} */(statement), environment);
             case 'MemberExpression':
                 return this.evaluateMemberExpression(/** @type {MemberExpression} */(statement), environment);
+
+            case 'UnaryExpression':
+                return this.evaluateUnaryExpression(/** @type {UnaryExpression} */(statement), environment);
+            case 'BinaryExpression':
+                return this.evaluateBinaryExpression(/** @type {BinaryExpression} */(statement), environment);
 
             default:
                 throw new SyntaxError(`Unknown node type: ${statement.type}`);
