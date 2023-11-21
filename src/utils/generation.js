@@ -491,6 +491,49 @@ export class MinNewTokensLengthLogitsProcessor extends LogitsProcessor {
     }
 }
 
+export class NoBadWordsLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a `NoBadWordsLogitsProcessor`.
+     * @param {number[][]} bad_words_ids List of list of token ids that are not allowed to be generated.
+     * @param {number|number[]} eos_token_id The id of the *end-of-sequence* token. Optionally, use a list to set multiple *end-of-sequence* tokens.
+     */
+    constructor(bad_words_ids, eos_token_id) {
+        super();
+        this.bad_words_ids = bad_words_ids;
+        this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
+    }
+
+    /**
+     * Apply logit processor.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
+     * @returns {Object} The processed logits.
+     */
+    _call(input_ids, logits) {
+
+        for (const bad_word_ids of this.bad_words_ids) {
+            // Whether to modify the logits of the last token in the bad word id sequence
+            let mark = true;
+
+            // For each bad word in the list, if the current sequence of input ids ends with this sequence (excluding the last),
+            // then we set the logits of the last bad word id to -Infinity.
+            for (let i = 1; i <= bad_word_ids.length - 1 && bad_word_ids.length < input_ids.length; ++i) {
+
+                if (bad_word_ids.at(-i - 1) !== input_ids.at(-i)) {
+                    // We have found a mismatch
+                    mark = false;
+                    break;
+                }
+            }
+            if (mark) {
+                logits.data[bad_word_ids.at(-1)] = -Infinity;
+            }
+        }
+
+        return logits
+    }
+}
+
 /**
  * Class that holds a configuration for a generation task.
  */

@@ -208,10 +208,20 @@ SUPPORTED_MODELS = {
         # Document Question Answering
         'naver-clova-ix/donut-base-finetuned-docvqa',
     ],
+    'dpt': [
+        # Depth estimation
+        'Intel/dpt-hybrid-midas',
+        'Intel/dpt-large',
+    ],
     'falcon': [
         # Text generation
         'Rocketknight1/tiny-random-falcon-7b',
         'fxmarty/really-tiny-falcon-testing',
+    ],
+    'glpn': [
+        # Depth estimation
+        'vinvino02/glpn-kitti',
+        'vinvino02/glpn-nyu',
     ],
     'gpt_neo': [
         # Text generation
@@ -348,12 +358,24 @@ SUPPORTED_MODELS = {
         'google/mt5-small',
         'google/mt5-base',
     ],
+    'nougat': [
+        # Image-to-text
+        'facebook/nougat-small',
+        'facebook/nougat-base',
+    ],
     'opt': [
         # Text generation
         'facebook/opt-125m',
         'facebook/opt-350m',
         # (TODO conversational)
         'PygmalionAI/pygmalion-350m',
+    ],
+    'owlvit': [
+        # Object detection (Zero-shot object detection)
+        # NOTE: Exported with --batch_size 1
+        'google/owlvit-base-patch32',
+        'google/owlvit-base-patch16',
+        'google/owlvit-large-patch14',
     ],
     'resnet': [
         # Image classification

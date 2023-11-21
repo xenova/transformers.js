@@ -43,6 +43,10 @@ import {
 } from './configs.js';
 
 import {
+    add_token_types,
+} from './tokenizers.js';
+
+import {
     Callable,
     isIntegralNumber,
     isTypedArray,
@@ -64,6 +68,7 @@ import {
     WhisperTimeStampLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
     RepetitionPenaltyLogitsProcessor,
+    NoBadWordsLogitsProcessor,
     MinLengthLogitsProcessor,
     MinNewTokensLengthLogitsProcessor,
 
@@ -82,7 +87,9 @@ import {
 
 import { executionProviders, ONNX } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
-const { InferenceSession, Tensor: ONNXTensor } = ONNX;
+const { InferenceSession, Tensor: ONNXTensor, env } = ONNX;
+
+/** @typedef {import('onnxruntime-web').InferenceSession} InferenceSession */
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -142,21 +149,31 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 /**
  * Validate model inputs
  * @param {InferenceSession} session The InferenceSession object that will be run.
- * @param {Object} inputs The inputs to check.
- * @returns {Promise<Object>} A Promise that resolves to the checked inputs.
+ * @param {Record<string, Tensor>} inputs The inputs to check.
+ * @returns {Record<string, Tensor>} The checked inputs.
  * @throws {Error} If any inputs are missing.
  * @private
  */
-async function validateInputs(session, inputs) {
-    // NOTE: Only create a shallow copy
-    const checkedInputs = {};
+function validateInputs(session, inputs) {
+    /**
+     * NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
+     * @type {Record<string, Tensor>}
+     */
+    const checkedInputs = Object.create(null);
     const missingInputs = [];
-    for (let inputName of session.inputNames) {
-        if (inputs[inputName] === undefined) {
+    for (const inputName of session.inputNames) {
+        const tensor = inputs[inputName];
+        // Rare case where one of the model's input names corresponds to a built-in
+        // object name (e.g., toString), which would cause a simple (!tensor) check to fail,
+        // because it's not undefined but a function.
+        if (!(tensor instanceof Tensor)) {
             missingInputs.push(inputName);
-        } else {
-            checkedInputs[inputName] = inputs[inputName];
+            continue;
         }
+        // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
+        // boundary, transferring ownership to the worker and invalidating the tensor.
+        // So, in this case, we simply sacrifice a clone for it.
+        checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
     }
     if (missingInputs.length > 0) {
         throw new Error(
@@ -187,7 +204,7 @@ async function validateInputs(session, inputs) {
  * @private
  */
 async function sessionRun(session, inputs) {
-    const checkedInputs = await validateInputs(session, inputs);
+    const checkedInputs = validateInputs(session, inputs);
     try {
         let output = await session.run(checkedInputs);
         output = replaceTensors(output);
@@ -488,9 +505,14 @@ function seq2seqUpdatebeam(beam, newTokenId) {
  * @private
  */
 async function encoderForward(self, model_inputs) {
-    let encoderFeeds = {};
-    for (let key of self.session.inputNames) {
+    const encoderFeeds = Object.create(null);
+    for (const key of self.session.inputNames) {
         encoderFeeds[key] = model_inputs[key];
+    }
+    if (self.session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
+        // Assign default `token_type_ids` to the `encoderFeeds` if the model expects it,
+        // but they weren't created by the tokenizer.
+        add_token_types(encoderFeeds);
     }
     return await sessionRun(self.session, encoderFeeds);
 }
@@ -836,9 +858,9 @@ export class PreTrainedModel extends Callable {
         //     }
         // }
 
-        // if (generation_config.bad_words_ids !== null) {
-        //     processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
-        // }
+        if (generation_config.bad_words_ids !== null) {
+            processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
+        }
 
         if (generation_config.min_length !== null && generation_config.eos_token_id !== null && generation_config.min_length > 0) {
             processors.push(new MinLengthLogitsProcessor(generation_config.min_length, generation_config.eos_token_id));
@@ -3180,6 +3202,12 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class OwlViTPreTrainedModel extends PreTrainedModel { }
+export class OwlViTModel extends OwlViTPreTrainedModel { }
+export class OwlViTForObjectDetection extends OwlViTPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Beit Models
 export class BeitPreTrainedModel extends PreTrainedModel { }
 export class BeitModel extends BeitPreTrainedModel { }
@@ -3341,6 +3369,100 @@ export class Swin2SRModel extends Swin2SRPreTrainedModel { }
  * ```
  */
 export class Swin2SRForImageSuperResolution extends Swin2SRPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class DPTPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DPT Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class DPTModel extends DPTPreTrainedModel { }
+
+/**
+ * DPT Model with a depth estimation head on top (consisting of 3 convolutional layers) e.g. for KITTI, NYUv2.
+ * 
+ * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`.
+ * ```javascript
+ * import { DPTForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * 
+ * // Load model and processor
+ * const model_id = 'Xenova/dpt-hybrid-midas';
+ * const model = await DPTForDepthEstimation.from_pretrained(model_id);
+ * const processor = await AutoProcessor.from_pretrained(model_id);
+ * 
+ * // Load image from URL
+ * const url = 'http://images.cocodataset.org/val2017/000000039769.jpg';
+ * const image = await RawImage.fromURL(url);
+ * 
+ * // Prepare image for the model
+ * const inputs = await processor(image);
+ * 
+ * // Run model
+ * const { predicted_depth } = await model(inputs);
+ * 
+ * // Interpolate to original size
+ * const prediction = interpolate(predicted_depth, image.size.reverse(), 'bilinear', false);
+ * 
+ * // Visualize the prediction
+ * const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
+ * const depth = RawImage.fromTensor(formatted);
+ * // RawImage {
+ * //   data: Uint8Array(307200) [ 85, 85, 84, ... ],
+ * //   width: 640,
+ * //   height: 480,
+ * //   channels: 1
+ * // }
+ * ```
+ */
+export class DPTForDepthEstimation extends DPTPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class GLPNPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare GLPN encoder (Mix-Transformer) outputting raw hidden-states without any specific head on top.
+ */
+export class GLPNModel extends GLPNPreTrainedModel { }
+
+/**
+ * GLPN Model transformer with a lightweight depth estimation head on top e.g. for KITTI, NYUv2.
+ * 
+ * **Example:** Depth estimation w/ `Xenova/glpn-kitti`.
+ * ```javascript
+ * import { GLPNForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * 
+ * // Load model and processor
+ * const model_id = 'Xenova/glpn-kitti';
+ * const model = await GLPNForDepthEstimation.from_pretrained(model_id);
+ * const processor = await AutoProcessor.from_pretrained(model_id);
+ * 
+ * // Load image from URL
+ * const url = 'http://images.cocodataset.org/val2017/000000039769.jpg';
+ * const image = await RawImage.fromURL(url);
+ * 
+ * // Prepare image for the model
+ * const inputs = await processor(image);
+ * 
+ * // Run model
+ * const { predicted_depth } = await model(inputs);
+ * 
+ * // Interpolate to original size
+ * const prediction = interpolate(predicted_depth, image.size.reverse(), 'bilinear', false);
+ * 
+ * // Visualize the prediction
+ * const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
+ * const depth = RawImage.fromTensor(formatted);
+ * // RawImage {
+ * //   data: Uint8Array(307200) [ 207, 169, 154, ... ],
+ * //   width: 640,
+ * //   height: 480,
+ * //   channels: 1
+ * // }
+ * ```
+ */
+export class GLPNForDepthEstimation extends GLPNPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3989,6 +4111,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['detr', ['DetrModel', DetrModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
+    ['owlvit', ['OwlViTModel', OwlViTModel]],
     ['beit', ['BeitModel', BeitModel]],
     ['deit', ['DeiTModel', DeiTModel]],
     ['resnet', ['ResNetModel', ResNetModel]],
@@ -3996,6 +4119,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['swin2sr', ['Swin2SRModel', Swin2SRModel]],
     ['donut-swin', ['DonutSwinModel', DonutSwinModel]],
     ['yolos', ['YolosModel', YolosModel]],
+    ['dpt', ['DPTModel', DPTModel]],
+    ['glpn', ['GLPNModel', GLPNModel]],
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
 
@@ -4150,6 +4275,10 @@ const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['yolos', ['YolosForObjectDetection', YolosForObjectDetection]],
 ]);
 
+const MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES = new Map([
+    ['owlvit', ['OwlViTForObjectDetection', OwlViTForObjectDetection]],
+]);
+
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
     ['detr', ['DetrForSegmentation', DetrForSegmentation]],
 ]);
@@ -4172,6 +4301,11 @@ const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
     ['swin2sr', ['Swin2SRForImageSuperResolution', Swin2SRForImageSuperResolution]],
 ])
 
+const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
+    ['dpt', ['DPTForDepthEstimation', DPTForDepthEstimation]],
+    ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
+])
+
 
 const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_TYPES.EncoderOnly],
@@ -4188,7 +4322,9 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -4359,6 +4495,11 @@ export class AutoModelForObjectDetection extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES];
 }
 
+export class AutoModelForZeroShotObjectDetection extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES];
+}
+
+
 /**
  * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
@@ -4384,6 +4525,10 @@ export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
 
 export class AutoModelForImageToImage extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES];
+}
+
+export class AutoModelForDepthEstimation extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES];
 }
 
 //////////////////////////////////////////////////
