@@ -2680,6 +2680,20 @@ export class PreTrainedTokenizer extends Callable {
      * determine the format and control tokens to use when converting. When chat_template is None, it will fall back
      * to the default_chat_template specified at the class level.
      * @param {Message[]} conversation A list of message objects with `"role"` and `"content"` keys.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.chat_template=null] A Jinja template to use for this conversion. If
+     * this is not passed, the model's default chat template will be used instead.
+     * @param {boolean} [options.add_generation_prompt=false] Whether to end the prompt with the token(s) that indicate
+     * the start of an assistant message. This is useful when you want to generate a response from the model.
+     * Note that this argument will be passed to the chat template, and so it must be supported in the
+     * template for this argument to have any effect.
+     * @param {boolean} [options.tokenize=true] Whether to tokenize the output. If false, the output will be a string.
+     * @param {boolean} [options.padding=false] Whether to pad sequences to the maximum length. Has no effect if tokenize is false.
+     * @param {boolean} [options.truncation=false] Whether to truncate sequences to the maximum length. Has no effect if tokenize is false.
+     * @param {number} [options.max_length=null] Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize is false.
+     * If not specified, the tokenizer's `max_length` attribute will be used as a default.
+     * @param {boolean} [options.return_tensor=true] Whether to return the output as a Tensor or an Array. Has no effect if tokenize is false.
+     * @returns {string | Tensor | number[]| number[][]} The tokenized output.
      */
     apply_chat_template(conversation, {
         chat_template = null,

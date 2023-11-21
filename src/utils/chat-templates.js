@@ -1281,7 +1281,7 @@ export class Template {
      * 
      * @param {Object} items 
      * 
-     * @returns 
+     * @returns {string}
      */
     render(items) {
         // Create a new environment for this template
