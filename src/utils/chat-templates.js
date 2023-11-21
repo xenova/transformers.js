@@ -1257,7 +1257,8 @@ function convertToRuntimeValues(input) {
         case 'function':
             // Wrap the user's function in a runtime function
             return new NativeFunctionValue((args, scope) => {
-                const result = input(args, scope) ?? null; // map undefined -> null
+                // NOTE: `scope` is not used since it's in the global scope
+                const result = input(...args) ?? null; // map undefined -> null
                 return convertToRuntimeValues(result);
             });
         default:
