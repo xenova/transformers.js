@@ -819,7 +819,7 @@ export function parse(tokens) {
         while (is(TOKEN_TYPES.UnaryOperator)) { // not not ...
             const operator = tokens[current];
             ++current;
-            const arg = parseCallMemberExpression(); // not test.x === not (test.x)
+            const arg = parseLogicalNegationExpression(); // not test.x === not (test.x)
             right = new UnaryExpression(operator, arg);
         }
 
