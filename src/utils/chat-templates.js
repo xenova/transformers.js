@@ -1415,7 +1415,7 @@ export class Template {
         env.set('false', false);
         env.set('true', true);
         env.set('raise_exception', (args, scope) => {
-            throw new Error(args[0].value);
+            throw new Error(args);
         });
 
         // Add user-defined variables
