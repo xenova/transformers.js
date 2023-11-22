@@ -3,21 +3,24 @@ import { compare } from './test_utils.js';
 
 
 const TEST_STRINGS = {
+    // Text nodes
+    NO_TEMPLATE: `Hello world!`,
+    TEXT_NODES: `0{{ 'A' }}1{{ 'B' }}{{ 'C' }}2{{ 'D' }}3`,
 
     // Logical operators
-    LOGICAL_AND: `{{ true and true }} {{ true and false }} {{ false and true }} {{ false and false }}`,
-    LOGICAL_OR: `{{ true or true }} {{ true or false }} {{ false or true }} {{ false or false }}`,
-    LOGICAL_NOT: `{{ not true }} {{ not false }}`,
-    LOGICAL_NOT_NOT: `{{ not not true }} {{ not not false }}`,
-    LOGICAL_AND_OR: `{{ true and true or false }} {{ true and false or true }} {{ false and true or true }} {{ false and false or true }} {{ false and false or false }}`,
-    LOGICAL_AND_NOT: `{{ true and not true }} {{ true and not false }} {{ false and not true }} {{ false and not false }}`,
-    LOGICAL_OR_NOT: `{{ true or not true }} {{ true or not false }} {{ false or not true }} {{ false or not false }}`,
-    LOGICAL_COMBINED: `{{ 1 == 2 and 2 == 2 }} {{ 1 == 2 or 2 == 2}}`,
+    LOGICAL_AND: `{{ true and true }}{{ true and false }}{{ false and true }}{{ false and false }}`,
+    LOGICAL_OR: `{{ true or true }}{{ true or false }}{{ false or true }}{{ false or false }}`,
+    LOGICAL_NOT: `{{ not true }}{{ not false }}`,
+    LOGICAL_NOT_NOT: `{{ not not true }}{{ not not false }}`,
+    LOGICAL_AND_OR: `{{ true and true or false }}{{ true and false or true }}{{ false and true or true }}{{ false and false or true }}{{ false and false or false }}`,
+    LOGICAL_AND_NOT: `{{ true and not true }}{{ true and not false }}{{ false and not true }}{{ false and not false }}`,
+    LOGICAL_OR_NOT: `{{ true or not true }}{{ true or not false }}{{ false or not true }}{{ false or not false }}`,
+    LOGICAL_COMBINED: `{{ 1 == 2 and 2 == 2 }}{{ 1 == 2 or 2 == 2}}`,
 
     // If statements
-    IF_ONLY: `{% if 1 == 1 %} {{ 'A' }} {% endif %} {{ 'B' }}`,
-    IF_ELSE_ONLY: `{% if 1 == 2 %} {{ 'A' }} {% else %} {{ 'B' }} {% endif %} {{ 'C' }}`,
-    IF_ELIF_ELSE: `{% if 1 == 2 %} {{ 'A' }} {{ 'B' }} {{ 'C' }} {% elif 1 == 2 %} {{ 'D' }} {% elif 1 == 3 %} {{ 'E' }} {{ 'F' }} {% else %} {{ 'G' }} {{ 'H' }} {{ 'I' }} {% endif %} {{ 'J' }} `,
+    IF_ONLY: `{% if 1 == 1 %}{{ 'A' }}{% endif %}{{ 'B' }}`,
+    IF_ELSE_ONLY: `{% if 1 == 2 %}{{ 'A' }}{% else %}{{ 'B' }}{% endif %}{{ 'C' }}`,
+    IF_ELIF_ELSE: `{% if 1 == 2 %}{{ 'A' }}{{ 'B' }}{{ 'C' }}{% elif 1 == 2 %}{{ 'D' }}{% elif 1 == 3 %}{{ 'E' }}{{ 'F' }}{% else %}{{ 'G' }}{{ 'H' }}{{ 'I' }}{% endif %}{{ 'J' }}`,
 
     // For loops
     FOR_LOOP: `{% for message in messages %}{{ message['content'] }}{% endfor %}`,
@@ -29,21 +32,44 @@ const TEST_STRINGS = {
     BINOP_EXPR: `{{ 1 % 2 }}{{ 1 < 2 }}{{ 1 > 2 }}{{ 1 >= 2 }}{{ 2 <= 2 }}{{ 2 == 2 }}{{ 2 != 3 }}{{ 2 + 3 }}`,
 
     // Strings
-    STRINGS: `{{ 'Bye' }} {{ bos_token + '[INST] ' }}`,
+    STRINGS: `{{ 'Bye' }}{{ bos_token + '[INST] ' }}`,
 
     // Function calls
-    FUNCTIONS: `{{ func() }} {{ func(apple) }} {{ func(x, 'test', 2, false) }}`,
+    FUNCTIONS: `{{ func() }}{{ func(apple) }}{{ func(x, 'test', 2, false) }}`,
 
     // Object properties
-    PROPERTIES: `{{ obj.x + obj.y }} {{ obj['x'] + obj.y }}`,
+    PROPERTIES: `{{ obj.x + obj.y }}{{ obj['x'] + obj.y }}`,
 
     // Object methods
-    OBJ_METHODS: `{{ obj.x(x, y) }} {{ ' ' + obj.x() + ' ' }} {{ obj.z[x](x, y) }}`,
-    STRING_METHODS: `{{ '  A  '.strip() }} {% set x = '  B  ' %} {{ x.strip() }} {% set y = ' aBcD ' %} {{ y.upper() }} {{ y.lower() }}`,
+    OBJ_METHODS: `{{ obj.x(x, y) }}{{ ' ' + obj.x() + ' ' }}{{ obj.z[x](x, y) }}`,
+    STRING_METHODS: `{{ '  A  '.strip() }}{% set x = '  B  ' %}{{ x.strip() }}{% set y = ' aBcD ' %}{{ y.upper() }}{{ y.lower() }}`,
 }
 
 
 const TEST_PARSED = {
+    // Text nodes
+    NO_TEMPLATE: [
+        { value: 'Hello world!', type: 'Text' }
+    ],
+    TEXT_NODES: [
+        { value: '0', type: 'Text' },
+        { value: '{{', type: 'OpenExpression' },
+        { value: 'A', type: 'StringLiteral' },
+        { value: '}}', type: 'CloseExpression' },
+        { value: '1', type: 'Text' },
+        { value: '{{', type: 'OpenExpression' },
+        { value: 'B', type: 'StringLiteral' },
+        { value: '}}', type: 'CloseExpression' },
+        { value: '{{', type: 'OpenExpression' },
+        { value: 'C', type: 'StringLiteral' },
+        { value: '}}', type: 'CloseExpression' },
+        { value: '2', type: 'Text' },
+        { value: '{{', type: 'OpenExpression' },
+        { value: 'D', type: 'StringLiteral' },
+        { value: '}}', type: 'CloseExpression' },
+        { value: '3', type: 'Text' }
+    ],
+
     // Logical operators
     LOGICAL_AND: [
         { value: '{{', type: 'OpenExpression' },
@@ -551,6 +577,10 @@ const TEST_PARSED = {
 }
 
 const TEST_CONTEXT = {
+    // Text nodes
+    NO_TEMPLATE: {},
+    TEXT_NODES: {},
+
     // Logical operators
     LOGICAL_AND: {},
     LOGICAL_OR: {},
@@ -613,6 +643,10 @@ const TEST_CONTEXT = {
 }
 
 const EXPECTED_OUTPUTS = {
+    // Text nodes
+    NO_TEMPLATE: `Hello world!`,
+    TEXT_NODES: `0A1BC2D3`,
+
     // Logical operators
     LOGICAL_AND: `truefalsefalsefalse`,
     LOGICAL_OR: `truetruetruefalse`,
