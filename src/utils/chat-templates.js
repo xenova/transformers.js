@@ -367,20 +367,6 @@ export function tokenize(source) {
 
     let cursorPosition = 0;
 
-    // Helper function to consume all text between Jinja statements or expressions
-    const createTextNode = () => {
-        let text = '';
-        while (cursorPosition < src.length) {
-
-            const lastTokenType = tokens.at(-1)?.type;
-            if (lastTokenType === TOKEN_TYPES.CloseStatement || lastTokenType === TOKEN_TYPES.CloseExpression) {
-
-            }
-        }
-        return text;
-
-    }
-
     // Build each token until end of input
     while (cursorPosition < src.length) {
 
