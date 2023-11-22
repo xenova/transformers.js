@@ -268,6 +268,9 @@ class UnaryExpression extends Expression {
  * Represents tokens that our language understands in parsing.
  */
 const TOKEN_TYPES = Object.freeze({
+    Text: 'Text', // The text between Jinja statements or expressions
+
+
     NumericLiteral: 'NumericLiteral',
     BooleanLiteral: 'BooleanLiteral',
     StringLiteral: 'StringLiteral',
@@ -364,10 +367,46 @@ export function tokenize(source) {
 
     let cursorPosition = 0;
 
+    // Helper function to consume all text between Jinja statements or expressions
+    const createTextNode = () => {
+        let text = '';
+        while (cursorPosition < src.length) {
+
+            const lastTokenType = tokens.at(-1)?.type;
+            if (lastTokenType === TOKEN_TYPES.CloseStatement || lastTokenType === TOKEN_TYPES.CloseExpression) {
+
+            }
+        }
+        return text;
+
+    }
+
     // Build each token until end of input
     while (cursorPosition < src.length) {
+
+        // First, consume all text that is outside of a Jinja statement or expression
+        const lastTokenType = tokens.at(-1)?.type;
+        if (lastTokenType === undefined || lastTokenType === TOKEN_TYPES.CloseStatement || lastTokenType === TOKEN_TYPES.CloseExpression) {
+            let text = '';
+            while (
+                cursorPosition < src.length &&
+                // Keep going until we hit the next Jinja statement or expression
+                !(src[cursorPosition] === '{' && (src[cursorPosition + 1] === '%' || src[cursorPosition + 1] === '{'))
+            ) {
+                // Consume text
+                text += src[cursorPosition++];
+            }
+
+            // There is some text to add
+            if (text.length > 0) {
+                tokens.push(new Token(text, TOKEN_TYPES.Text));
+                continue;
+            }
+        }
+
         let char = src[cursorPosition];
 
+        // NOTE: Whitespace is only ignored if inside Jinja statements or expressions: {% %} or {{ }}
         if (/\s/.test(char)) { // Ignore whitespace
             ++cursorPosition; continue;
         }
@@ -529,6 +568,8 @@ export function parse(tokens) {
 
     function parseAny() {
         switch (tokens[current].type) {
+            case TOKEN_TYPES.Text:
+                return parseText();
             case TOKEN_TYPES.OpenStatement:
                 return parseJinjaStatement();
             case TOKEN_TYPES.OpenExpression:
@@ -566,6 +607,10 @@ export function parse(tokens) {
             body.push(parseAny());
         }
         return body;
+    }
+
+    function parseText() {
+        return new StringLiteral(expect(TOKEN_TYPES.Text, 'Expected text token').value);
     }
 
     function parseJinjaStatement() {
