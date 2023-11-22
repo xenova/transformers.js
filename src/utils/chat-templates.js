@@ -1298,6 +1298,7 @@ export class Interpreter {
                     // missing: revindex, revindex0, cycle, depth, depth0, previtem, nextitem, changed
                 ])
             )));
+            ++loopIndex; // Increment loop index
 
             // For this iteration, set the loop variable to the current element
             scope.setVariable(loopVariable, element);
