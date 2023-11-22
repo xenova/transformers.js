@@ -38,7 +38,7 @@ const TEST_STRINGS = {
     PROPERTIES: `{{ obj.x + obj.y }} {{ obj['x'] + obj.y }}`,
 
     // Object methods
-    OBJ_METHODS: `{{ obj.x(x, y) }} {{ obj.x() }} {{ obj.x[x](x, y) }} `,
+    OBJ_METHODS: `{{ obj.x(x, y) }} {{ ' ' + obj.x() + ' ' }} {{ obj.z[x](x, y) }}`,
     STRING_METHODS: `{{ '  A  '.strip() }} {% set x = '  B  ' %} {{ x.strip() }} {% set y = ' aBcD ' %} {{ y.upper() }} {{ y.lower() }}`,
 }
 
@@ -481,16 +481,20 @@ const TEST_PARSED = {
         { value: ')', type: 'CloseParen' },
         { value: '}}', type: 'CloseExpression' },
         { value: '{{', type: 'OpenExpression' },
+        { value: ' ', type: 'StringLiteral' },
+        { value: '+', type: 'AdditiveBinaryOperator' },
         { value: 'obj', type: 'Identifier' },
         { value: '.', type: 'Dot' },
         { value: 'x', type: 'Identifier' },
         { value: '(', type: 'OpenParen' },
         { value: ')', type: 'CloseParen' },
+        { value: '+', type: 'AdditiveBinaryOperator' },
+        { value: ' ', type: 'StringLiteral' },
         { value: '}}', type: 'CloseExpression' },
         { value: '{{', type: 'OpenExpression' },
         { value: 'obj', type: 'Identifier' },
         { value: '.', type: 'Dot' },
-        { value: 'x', type: 'Identifier' },
+        { value: 'z', type: 'Identifier' },
         { value: '[', type: 'OpenSquareBracket' },
         { value: 'x', type: 'Identifier' },
         { value: ']', type: 'CloseSquareBracket' },
@@ -501,6 +505,7 @@ const TEST_PARSED = {
         { value: ')', type: 'CloseParen' },
         { value: '}}', type: 'CloseExpression' }
     ],
+
     STRING_METHODS: [
         { value: '{{', type: 'OpenExpression' },
         { value: '  A  ', type: 'StringLiteral' },
@@ -594,7 +599,16 @@ const TEST_CONTEXT = {
     },
 
     // Object methods
-    // OBJ_METHODS: {},
+    OBJ_METHODS: {
+        x: 'A',
+        y: 'B',
+        obj: {
+            x: (...args) => args.join(''),
+            z: {
+                A: (...args) => args.join('_'),
+            },
+        }
+    },
     STRING_METHODS: {},
 }
 
@@ -633,7 +647,7 @@ const EXPECTED_OUTPUTS = {
     PROPERTIES: '3030',
 
     // Object methods
-    // OBJ_METHODS: '',
+    OBJ_METHODS: 'AB  A_B',
     STRING_METHODS: 'AB ABCD  abcd ',
 }
 
