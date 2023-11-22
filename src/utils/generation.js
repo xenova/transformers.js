@@ -599,7 +599,21 @@ export class Sampler extends Callable {
 
         // add temperature
         if (this.generation_config.temperature > 0) {
-            logs = logs.map(x => x / this.generation_config.temperature)
+            if (!isFinite(logs[0]) || isNaN(logs[0])) {
+                debugger;
+            }
+            // huge time drain, why not just inplace????
+            // huge time drain, why not just inplace????
+            // huge time drain, why not just inplace????
+            // huge time drain, why not just inplace????
+            // =??????
+            // =??????
+            // =??????
+            // =??????
+            logs = logs.map(x => x / this.generation_config.temperature);
+            //if (!isFinite(logs[0]) || isNaN(logs[0])) {
+            //    debugger;
+            //}
         }
         return logs;
     }

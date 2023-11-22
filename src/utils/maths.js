@@ -131,8 +131,9 @@ export function transpose_data(array, dims, axes) {
 /**
  * Compute the softmax of an array of numbers.
  *
- * @param {number[]} arr The array of numbers to compute the softmax of.
- * @returns {number[]} The softmax array.
+ * @param {T} arr The array of numbers to compute the softmax of.
+ * @template {NumericArray} T
+ * @returns {T} The softmax array.
  */
 export function softmax(arr) {
     // Compute the maximum value in the array
@@ -152,8 +153,9 @@ export function softmax(arr) {
 
 /**
  * Calculates the logarithm of the softmax function for the input array.
- * @param {number[]} arr The input array to calculate the log_softmax function for.
- * @returns {any} The resulting log_softmax array.
+ * @param {T} arr The input array to calculate the log_softmax function for.
+ * @template {NumericArray} T
+ * @returns {T} The resulting log_softmax array.
  */
 export function log_softmax(arr) {
     // Compute the softmax values
@@ -167,8 +169,8 @@ export function log_softmax(arr) {
 
 /**
  * Calculates the dot product of two arrays.
- * @param {number[]} arr1 The first array.
- * @param {number[]} arr2 The second array.
+ * @param {NumericArray} arr1 The first array.
+ * @param {NumericArray} arr2 The second array.
  * @returns {number} The dot product of arr1 and arr2.
  */
 export function dot(arr1, arr2) {
@@ -179,9 +181,10 @@ export function dot(arr1, arr2) {
 /**
  * Get the top k items from an iterable, sorted by descending order
  *
- * @param {Array} items The items to be sorted
+ * @todo examples + unit tests
+ * @param {NumericArray} items The items to be sorted
  * @param {number} [top_k=0] The number of top items to return (default: 0 = return all)
- * @returns {Array} The top k items, sorted by descending order
+ * @returns {number[]} The top k items, sorted by descending order
  */
 export function getTopItems(items, top_k = 0) {
     // if top == 0, return all
@@ -191,6 +194,7 @@ export function getTopItems(items, top_k = 0) {
         .sort((a, b) => b[1] - a[1])      // Sort by log probabilities
 
     if (top_k > 0) {
+        // TODO: .length = top_k ???
         items = items.slice(0, top_k);    // Get top k items
     }
 
@@ -200,8 +204,8 @@ export function getTopItems(items, top_k = 0) {
 /**
  * Computes the cosine similarity between two arrays.
  *
- * @param {number[]} arr1 The first array.
- * @param {number[]} arr2 The second array.
+ * @param {NumericArray} arr1 The first array.
+ * @param {NumericArray} arr2 The second array.
  * @returns {number} The cosine similarity between the two arrays.
  */
 export function cos_sim(arr1, arr2) {
@@ -222,7 +226,7 @@ export function cos_sim(arr1, arr2) {
 
 /**
  * Calculates the magnitude of a given array.
- * @param {number[]} arr The array to calculate the magnitude of.
+ * @param {NumericArray} arr The array to calculate the magnitude of.
  * @returns {number} The magnitude of the array.
  */
 export function magnitude(arr) {
@@ -232,8 +236,8 @@ export function magnitude(arr) {
 
 /**
  * Returns the value and index of the minimum element in an array.
- * @param {number[]} arr array of numbers.
- * @returns {number[]} the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
+ * @param {NumericArray} arr array of numbers.
+ * @returns {[min: number, indexOfMin: number]} the value and index of the minimum element, of the form: [valueOfMin, indexOfMin]
  * @throws {Error} If array is empty.
  */
 export function min(arr) {
@@ -252,8 +256,8 @@ export function min(arr) {
 
 /**
  * Returns the value and index of the maximum element in an array.
- * @param {number[]} arr array of numbers.
- * @returns {number[]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
+ * @param {NumericArray} arr array of numbers.
+ * @returns {[max: number, indexOfMin: number]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
  * @throws {Error} If array is empty.
  */
 export function max(arr) {

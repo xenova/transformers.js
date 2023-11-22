@@ -1,0 +1,366 @@
+// TESTING: http://127.0.0.1/transformer/snippets/test_onnx_remote_1_14_rti.html
+
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+
+// 1st party Rollup plugins
+import { createFilter } from '@rollup/pluginutils';
+import { babel } from '@rollup/plugin-babel';
+import resolve from '@rollup/plugin-node-resolve';
+import terser from '@rollup/plugin-terser';
+
+// 3rd party Rollup plugins
+import dts from 'rollup-plugin-dts';
+import { visualizer } from 'rollup-plugin-visualizer';
+
+import { runtimeTypeInspector } from "@runtime-type-inspector/plugin-rollup";
+//import { expandType } from 'runtime-type-inspector';
+//const { addTypeChecks } = await import("runtime-type-inspector/src/typeInserter.mjs");
+
+/** @typedef {import('rollup').RollupOptions} RollupOptions */
+/** @typedef {import('rollup').Plugin} Plugin */
+/** @typedef {import('rollup').OutputOptions} OutputOptions */
+/** @typedef {import('@rollup/plugin-babel').RollupBabelInputPluginOptions} RollupBabelInputPluginOptions */
+
+/**
+ * @returns {string} Version string like `1.58.0-dev`
+ */
+function getVersion() {
+    const text = fs.readFileSync('./package.json', 'utf8');
+    const json = JSON.parse(text);
+    return json.version;
+}
+
+/**
+ * @returns {string} Revision string like `644d08d39` (9 digits/chars).
+ */
+function getRevision() {
+    let revision;
+    try {
+        revision = execSync('git rev-parse --short HEAD').toString().trim();
+    } catch (e) {
+        revision = 'unknown';
+    }
+    return revision;
+}
+
+const version = getVersion();
+const revision = getRevision();
+console.log(`Building PlayCanvas Engine v${version} revision ${revision}`);
+
+/**
+ * Build the banner with build date and revision. Revision only works for git repo, not zip.
+ *
+ * @param {string} config - A string like `(DEBUG PROFILER)` or even an empty string.
+ * @returns {string} - The banner.
+ */
+function getBanner(config) {
+    return [
+        '/**',
+        ' * @license',
+        ' * PlayCanvas Engine v' + version + ' revision ' + revision + config,
+        ' * Copyright 2011-' + new Date().getFullYear() + ' PlayCanvas Ltd. All rights reserved.',
+        ' */'
+    ].join('\n');
+}
+
+/**
+ * This plugin converts every two spaces into one tab. Two spaces is the default the babel plugin
+ * outputs, which is independent of the four spaces of the code base.
+ *
+ * @param {boolean} enable - Enable or disable the plugin.
+ * @returns {Plugin} The plugin.
+ */
+function spacesToTabs(enable) {
+    const filter = createFilter([
+        '**/*.js'
+    ], []);
+
+    return {
+        name: "spacesToTabs",
+        transform(code, id) {
+            if (!enable || !filter(id)) return undefined;
+            // ^    = start of line
+            // " +" = one or more spaces
+            // gm   = find all + multiline
+            const regex = /^ +/gm;
+            code = code.replace(
+                regex,
+                startSpaces => startSpaces.replace(/ {2}/g, '\t')
+            );
+            return {
+                code,
+                map: null
+            };
+        }
+    };
+}
+
+/**
+ * Validate and print warning if an engine module on a lower level imports module on a higher level
+ *
+ * @param {string} rootFile - The root file, typically `src/index.js`.
+ * @param {boolean} enable - Enable or disable the plugin.
+ * @returns {Plugin} The plugin.
+ */
+function engineLayerImportValidation(rootFile, enable) {
+
+    const folderLevels = {
+        'core': 0,
+        'platform': 1,
+        'scene': 2,
+        'framework': 3
+    };
+
+    let rootPath;
+
+    return {
+        name: 'engineLayerImportValidation',
+
+        buildStart() {
+            rootPath = path.parse(path.resolve(rootFile)).dir;
+        },
+
+        resolveId(imported, importer) {
+            if (enable) {
+
+                // skip non-relative paths, those are not our imports, for example 'rollupPluginBabelHelpers.js'
+                if (importer && imported && imported.includes('./')) {
+
+                    // convert importer path
+                    const importerDir = path.parse(importer).dir;
+                    const relImporter = path.dirname(path.relative(rootPath, importer));
+                    const folderImporter = relImporter.split(path.sep)[0];
+                    const levelImporter = folderLevels[folderImporter];
+
+                    // convert imported path
+                    const absImported = path.resolve(path.join(importerDir, imported));
+                    const relImported = path.dirname(path.relative(rootPath, absImported));
+                    const folderImported = relImported.split(path.sep)[0];
+                    const levelImported = folderLevels[folderImported];
+
+                    if (levelImporter < levelImported) {
+                        console.log(`(!) Incorrect import: [${path.relative(rootPath, importer)}] -> [${imported}]`);
+                    }
+                }
+            }
+
+            // we don't process imports, return null to allow chaining
+            return null;
+        }
+    };
+}
+
+/**
+ * The ES5 options for babel(...) plugin.
+ *
+ * @param {string} buildType - Only 'debug' requires special handling so far.
+ * @returns {RollupBabelInputPluginOptions} The babel options.
+ */
+const es5Options = buildType => ({
+    babelHelpers: 'bundled',
+    babelrc: false,
+    comments: buildType === 'debug' || buildType === 'rti',
+    compact: false,
+    minified: false,
+    presets: [
+        [
+            '@babel/preset-env', {
+                loose: true,
+                modules: false,
+                targets: {
+                    ie: '11'
+                }
+            }
+        ]
+    ]
+});
+
+/**
+ * The ES6 options for babel(...) plugin.
+ *
+ * @param {string} buildType - Only 'debug' requires special handling so far.
+ * @returns {RollupBabelInputPluginOptions} The babel options.
+ */
+const moduleOptions = buildType => ({
+    babelHelpers: 'bundled',
+    babelrc: false,
+    comments: buildType === 'debug',
+    compact: false,
+    minified: false,
+    presets: [
+        [
+            '@babel/preset-env', {
+                bugfixes: true,
+                loose: true,
+                modules: false,
+                targets: {
+                    esmodules: true
+                }
+            }
+        ]
+    ]
+});
+
+/**
+ * Build a target that rollup is supposed to build.
+ *
+ * @param {'debug'|'release'|'profiler'|'min'} buildType - The build type.
+ * @param {'es5'|'es6'} moduleFormat - The module format.
+ * @returns {RollupOptions} One rollup target.
+ */
+function buildTarget(buildType, moduleFormat) {
+    const banner = {
+        debug: ' (DEBUG)',
+        release: ' (RELEASE)',
+        profiler: ' (PROFILE)',
+        min: ' (RELEASE)'
+    };
+
+    const outputPlugins = {
+        release: [],
+        min: [
+            terser()
+        ]
+    };
+
+    if (process.env.treemap) {
+        outputPlugins.min.push(visualizer({
+            filename: 'treemap.html',
+            brotliSize: true,
+            gzipSize: true
+        }));
+    }
+
+    if (process.env.treenet) {
+        outputPlugins.min.push(visualizer({
+            filename: 'treenet.html',
+            template: 'network'
+        }));
+    }
+
+    if (process.env.treesun) {
+        outputPlugins.min.push(visualizer({
+            filename: 'treesun.html',
+            template: 'sunburst'
+        }));
+    }
+
+    const outputFile = {
+        debug: 'build/transformers.dbg',
+        release: 'build/transformers',
+        profiler: 'build/transformers.prf',
+        min: 'build/transformers.min',
+        rti: 'build/transformers.rti',
+    };
+
+    const outputExtension = {
+        es5: '.js',
+        es6: '.mjs'
+    };
+
+    /** @type {Record<string, 'umd'|'es'>} */
+    const outputFormat = {
+        es5: 'umd',
+        es6: 'es'
+    };
+
+    const sourceMap = {
+        debug: 'inline',
+        release: null
+    };
+    /** @type {OutputOptions} */
+    const outputOptions = {
+        banner: moduleFormat === 'es5' && getBanner(banner[buildType]),
+        plugins: outputPlugins[buildType || outputPlugins.release],
+        format: outputFormat[moduleFormat],
+        indent: '\t',
+        //sourcemap: sourceMap[buildType] || sourceMap.release,
+        sourcemap: false,
+        name: 'pc',
+        preserveModules: moduleFormat === 'es6'
+    };
+    outputOptions.preserveModules = false;
+    outputOptions[outputOptions.preserveModules ? 'dir' : 'file'] = `${outputFile[buildType]}${outputExtension[moduleFormat]}`;
+
+    const sdkVersion = {
+        _CURRENT_SDK_VERSION: version,
+        _CURRENT_SDK_REVISION: revision
+    };
+
+    const jsccOptions = {
+        debug: {
+            values: {
+                ...sdkVersion,
+                _DEBUG: 1,
+                _PROFILER: 1
+            },
+            keepLines: true
+        },
+        release: {
+            values: sdkVersion
+        },
+        profiler: {
+            values: {
+                ...sdkVersion,
+                _PROFILER: 1
+            }
+        }
+    };
+    const babelOptions = {
+        es5: es5Options(buildType),
+        es6: moduleOptions(buildType)
+    };
+    const rootFile = 'src/transformers.js';
+    return {
+        input: rootFile,
+        output: outputOptions,
+        plugins: [
+            //jscc(jsccOptions[buildType] || jsccOptions.release),
+            runtimeTypeInspector({
+                enable: buildType === 'rti',
+                //selftest: true
+            }),
+            engineLayerImportValidation(rootFile, buildType === 'debug'),
+            babel(babelOptions[moduleFormat]),
+            spacesToTabs(buildType !== 'debug'),
+        ],
+        external: ['fs', 'path', 'url', 'sharp', 'onnxruntime-node', 'onnxruntime-web', 'stream/web'],
+    };
+}
+
+/** @type {RollupOptions} */
+const target_types = {
+    input: 'types/index.d.ts',
+    output: [{
+        file: 'build/playcanvas.d.ts',
+        footer: 'export as namespace pc;',
+        format: 'es'
+    }],
+    plugins: [
+        dts()
+    ]
+};
+
+export default (args) => {
+    /** @type {RollupOptions[]} */
+    let targets = [];
+
+    const envTarget = process.env.target ? process.env.target.toLowerCase() : null;
+    if (envTarget === 'types') {
+        targets.push(target_types);
+    } else if (envTarget === 'extras') {
+        targets = targets.concat(target_extras);
+    } else {
+        ['release', 'debug', 'profiler', 'min', 'rti'].forEach((t) => {
+            ['es5', 'es6'].forEach((m) => {
+                if (envTarget === null || envTarget === t || envTarget === m || envTarget === `${t}_${m}`) {
+                    targets.push(buildTarget(t, m));
+                }
+            });
+        });
+    }
+
+    return targets;
+};

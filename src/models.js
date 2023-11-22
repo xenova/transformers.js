@@ -861,7 +861,7 @@ export class PreTrainedModel extends Callable {
      * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
      * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
      *
-     * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
+     * @param {GenerationConfig} [generation_config] A `GenerationConfig` object containing generation parameters.
      * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
      */
     _get_generation_config(generation_config) {
@@ -1180,8 +1180,8 @@ export class PreTrainedModel extends Callable {
     /**
      * Adds past key values to the decoder feeds object. If pastKeyValues is null, creates new tensors for past key values.
      *
-     * @param {Object} decoderFeeds The decoder feeds object to add past key values to.
-     * @param {Object} pastKeyValues An object containing past key values.
+     * @param {Record<string, Tensor>} decoderFeeds The decoder feeds object to add past key values to.
+     * @param {Record<string, Tensor>} [pastKeyValues] An object containing past key values.
      * @param {boolean} [hasDecoder=false] Whether the model has a decoder.
      */
     addPastKeyValues(decoderFeeds, pastKeyValues, hasDecoder = false) {
@@ -2300,8 +2300,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     /**
      * Generates outputs based on input and generation configuration.
      * @param {Object} inputs Input data for the model.
-     * @param {WhisperGenerationConfig} generation_config Configuration object for the generation process.
-     * @param {Object} logits_processor Optional logits processor object.
+     * @param {WhisperGenerationConfig|null} [generation_config] Configuration object for the generation process.
+     * @param {Object|null} [logits_processor] Optional logits processor object.
      * @returns {Promise<Object>} Promise object represents the generated outputs.
      */
     async generate(
