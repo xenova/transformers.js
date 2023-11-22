@@ -617,7 +617,7 @@ export function parse(tokens) {
     function parseSetStatement() {
         const left = parseExpression();
 
-        if (tokens[current]?.type === TOKEN_TYPES.Equals) {
+        if (is(TOKEN_TYPES.Equals)) {
             ++current;
             const value = parseSetStatement();
 
@@ -643,7 +643,7 @@ export function parse(tokens) {
             && tokens[current + 1]?.type !== TOKEN_TYPES.EndIf // There is some body
         ) {
             ++current; // eat {% token
-            if (tokens[current]?.type === TOKEN_TYPES.ElseIf) {
+            if (is(TOKEN_TYPES.ElseIf)) {
                 expect(TOKEN_TYPES.ElseIf, 'Expected elseif token')
                 alternate = [parseIfStatement()];
             } else { //  if (tokens[current]?.type === TokenType.Else)
@@ -737,7 +737,7 @@ export function parse(tokens) {
 
         const member = parseMemberExpression(); // foo.x
 
-        if (tokens[current]?.type === TOKEN_TYPES.OpenParen) {
+        if (is(TOKEN_TYPES.OpenParen)) {
             // foo.x()
             return parseCallExpression(member);
         }
@@ -747,7 +747,7 @@ export function parse(tokens) {
     function parseCallExpression(callee) {
         let callExpression = new CallExpression(callee, parseArgs());
 
-        if (tokens[current]?.type === TOKEN_TYPES.OpenParen) {
+        if (is(TOKEN_TYPES.OpenParen)) {
             // foo.x()()
             callExpression = parseCallExpression(callExpression);
         }
@@ -758,10 +758,7 @@ export function parse(tokens) {
     function parseArgs() { // add (x + 5, foo())
         expect(TOKEN_TYPES.OpenParen, 'Expected opening parenthesis for arguments list');
 
-        const args =
-            tokens[current]?.type === TOKEN_TYPES.CloseParen
-                ? []
-                : parseArgumentsList();
+        const args = is(TOKEN_TYPES.CloseParen) ? [] : parseArgumentsList();
 
         expect(TOKEN_TYPES.CloseParen, 'Expected closing parenthesis for arguments list');
         return args;
