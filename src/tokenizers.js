@@ -2192,6 +2192,8 @@ const SPECIAL_TOKEN_ATTRIBUTES = [
 ]
 
 export class PreTrainedTokenizer extends Callable {
+    _default_chat_template = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`;
+
     /**
      * Create a new PreTrainedTokenizer instance.
      * @param {Object} tokenizerJSON The JSON of the tokenizer.
@@ -2658,14 +2660,7 @@ export class PreTrainedTokenizer extends Callable {
             this._warned_about_chat_template = true; // TODO move to logger.warning_once()
         }
 
-        return (
-            "{% for message in messages %}" +
-            "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}" +
-            "{% endfor %}" +
-            "{% if add_generation_prompt %}" +
-            "{{ '<|im_start|>assistant\n' }}" +
-            "{% endif %}"
-        )
+        return this._default_chat_template;
     }
 
     /**
@@ -2838,7 +2833,9 @@ export class XLMTokenizer extends PreTrainedTokenizer {
 }
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
-export class GPT2Tokenizer extends PreTrainedTokenizer { }
+export class GPT2Tokenizer extends PreTrainedTokenizer {
+    _default_chat_template = `{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}`
+}
 export class BartTokenizer extends PreTrainedTokenizer { }
 export class MBartTokenizer extends PreTrainedTokenizer {
     constructor(tokenizerJSON, tokenizerConfig) {
@@ -2864,7 +2861,8 @@ export class MBart50Tokenizer extends MBartTokenizer { } // NOTE: extends MBartT
 
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
-export class BloomTokenizer extends PreTrainedTokenizer {
+export class BloomTokenizer extends GPT2Tokenizer { // NOTE: `GPT2Tokenizer` to get the correct chat template
+
     constructor(tokenizerJSON, tokenizerConfig) {
         // Override the default (invalid) regex of the pretokenizer.
         // For more information, see https://github.com/xenova/transformers.js/issues/94
@@ -2876,8 +2874,10 @@ export class BloomTokenizer extends PreTrainedTokenizer {
         super(tokenizerJSON, tokenizerConfig);
     }
 }
-export class LlamaTokenizer extends PreTrainedTokenizer { }
-export class CodeLlamaTokenizer extends PreTrainedTokenizer { }
+export class LlamaTokenizer extends PreTrainedTokenizer {
+    _default_chat_template = `{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% elif USE_DEFAULT_PROMPT == true and not '<<SYS>>' in messages[0]['content'] %}{% set loop_messages = messages %}{% set system_message = 'DEFAULT_SYSTEM_MESSAGE' %}{% else %}{% set loop_messages = messages %}{% set system_message = false %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 and system_message != false %}{% set content = '<<SYS>>\n' + system_message + '\n<</SYS>>\n\n' + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ bos_token + '[INST] ' + content.strip() + ' [/INST]' }}{% elif message['role'] == 'system' %}{{ '<<SYS>>\n' + content.strip() + '\n<</SYS>>\n\n' }}{% elif message['role'] == 'assistant' %}{{ ' '  + content.strip() + ' ' + eos_token }}{% endif %}{% endfor %}`
+}
+export class CodeLlamaTokenizer extends LlamaTokenizer { } // NOTE: `LlamaTokenizer` to get the correct chat template
 
 export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
 export class MPNetTokenizer extends PreTrainedTokenizer { }
@@ -3134,6 +3134,7 @@ const WHISPER_TO_LANGUAGE_CODE_MAPPING = new Map([
  * @extends PreTrainedTokenizer
  */
 export class WhisperTokenizer extends PreTrainedTokenizer {
+    _default_chat_template = `{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}`;
 
     /**
      * Decodes automatic speech recognition (ASR) sequences.
@@ -3921,8 +3922,10 @@ export class MarianTokenizer extends PreTrainedTokenizer {
 
 export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
 
-export class BlenderbotTokenizer extends PreTrainedTokenizer { }
-export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
+export class BlenderbotTokenizer extends PreTrainedTokenizer {
+    _default_chat_template = `{% for message in messages %}{% if message['role'] == 'user' %}{{ ' ' }}{% endif %}{{ message['content'] }}{% if not loop.last %}{{ '  ' }}{% endif %}{% endfor %}{{ eos_token }}`;
+}
+export class BlenderbotSmallTokenizer extends BlenderbotTokenizer { } // NOTE `BlenderbotTokenizer` to get the correct chat template
 
 export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
 
@@ -4011,7 +4014,7 @@ export class AutoTokenizer {
         })
 
         // Some tokenizers are saved with the "Fast" suffix, so we remove that if present.
-        let tokenizerName = tokenizerConfig.tokenizer_class.replace(/Fast$/, '');
+        let tokenizerName = tokenizerConfig.tokenizer_class?.replace(/Fast$/, '') ?? 'PreTrainedTokenizer';
 
         let cls = this.TOKENIZER_CLASS_MAPPING[tokenizerName];
         if (!cls) {
