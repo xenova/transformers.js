@@ -110,9 +110,39 @@ TOKENIZER_TEST_DATA = {
 }
 
 
+CHAT_MESSAGES_EXAMPLES = {
+    'basic': [
+        {"role": "user", "content": "Hello, how are you?"},
+        {"role": "assistant", "content": "I'm doing great. How can I help you today?"},
+        {"role": "user", "content": "I'd like to show off how chat templating works!"},
+    ],
+
+    'system': [
+        { "role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate" },
+        { "role": "user", "content": "How many helicopters can a human eat in one sitting?" },
+    ],
+    
+}
+
+TOKENIZERS_WITH_CHAT_TEMPLATES = {
+    # https://huggingface.co/docs/transformers/main/en/chat_templating
+    'facebook/blenderbot-400M-distill': [
+        'basic',
+    ],
+
+    'mistralai/Mistral-7B-Instruct-v0.1': [
+        'basic',
+    ],
+
+    'HuggingFaceH4/zephyr-7b-beta': [
+        'system',
+    ],
+}
+
+
 def generate_tokenizer_tests():
 
-    results = {}
+    tokenization_results = {}
 
     tokenizers_to_test = list(SUPPORTED_MODELS.items()) + \
         list(ADDITIONAL_TOKENIZERS_TO_TEST.items())
@@ -172,9 +202,26 @@ def generate_tokenizer_tests():
                 ))
 
             if tokenizer_results:
-                results[tokenizer_name] = tokenizer_results
+                tokenization_results[tokenizer_name] = tokenizer_results
 
-    return results
+    template_results = {}
+
+    for tokenizer_id in TOKENIZERS_WITH_CHAT_TEMPLATES:
+        print(f'Generating chat templates for {tokenizer_id}')
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
+        tokenizer_results = []
+        for key in TOKENIZERS_WITH_CHAT_TEMPLATES[tokenizer_id]:
+            messages = CHAT_MESSAGES_EXAMPLES[key]
+            tokenizer_results.append(dict(
+                messages=messages,
+                prompt=tokenizer.apply_chat_template(messages, tokenize=False),
+            ))
+        template_results[tokenizer_id] = tokenizer_results
+        
+    return dict(
+        tokenization=tokenization_results,
+        templates=template_results,
+    )
 
 
 def generate_config_tests():
