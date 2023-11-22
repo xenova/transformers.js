@@ -1114,6 +1114,7 @@ export class Interpreter {
             switch (node.operator.value) {
                 case 'and': return new BooleanValue(left.value && right.value);
                 case 'or': return new BooleanValue(left.value || right.value);
+                case '!=': return new BooleanValue(left.value != right.value);
                 default: throw new SyntaxError(`Unknown operator: ${node.operator.value}`);
             }
         } else {
