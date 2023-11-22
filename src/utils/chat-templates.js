@@ -1279,32 +1279,29 @@ export class Interpreter {
         if (iterable.type !== 'ArrayValue') {
             throw new Error(`Expected object in for loop: got ${iterable.type}`);
         }
-        const loopVariable = node.loopvar.value;
-        const body = node.body;
-        let loopIndex = 0;
+
         let result = '';
 
-        for (const element of iterable.value) {
-            // Update the loop index variable
+        for (let i = 0; i < iterable.value.length; ++i) {
+            // Update the loop variable
             // TODO: Only create object once, then update value?
             scope.setVariable('loop', new ObjectValue(new Map(
                 /** @type {[string, RuntimeValue][]} */([
-                    ['index', new NumericValue(loopIndex + 1)],
-                    ['index0', new NumericValue(loopIndex)],
-                    ['first', new BooleanValue(loopIndex === 0)],
-                    ['last', new BooleanValue(loopIndex === iterable.value.length - 1)],
-                    ['length', new NumericValue(iterable.value.length)]
+                    ['index', new NumericValue(i + 1)],
+                    ['index0', new NumericValue(i)],
+                    ['first', new BooleanValue(i === 0)],
+                    ['last', new BooleanValue(i === iterable.value.length - 1)],
+                    ['length', new NumericValue(iterable.value.length)],
 
                     // missing: revindex, revindex0, cycle, depth, depth0, previtem, nextitem, changed
                 ])
             )));
-            ++loopIndex; // Increment loop index
 
             // For this iteration, set the loop variable to the current element
-            scope.setVariable(loopVariable, element);
+            scope.setVariable(node.loopvar.value, iterable.value[i]);
 
             // Evaluate the body of the for loop
-            const evaluated = this.evaluateBlock(body, scope);
+            const evaluated = this.evaluateBlock(node.body, scope);
             result += evaluated.value;
         }
 
