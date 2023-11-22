@@ -126,7 +126,7 @@ CHAT_MESSAGES_EXAMPLES = {
 
 TOKENIZERS_WITH_CHAT_TEMPLATES = {
     # https://huggingface.co/docs/transformers/main/en/chat_templating
-    'facebook/blenderbot-400M-distill': [
+    'Xenova/blenderbot-400M-distill': [
         'basic',
     ],
 
