@@ -134,9 +134,10 @@ TOKENIZERS_WITH_CHAT_TEMPLATES = {
         'basic',
     ],
 
-    'HuggingFaceH4/zephyr-7b-beta': [
-        'system',
-    ],
+    # TODO: Add support for this model
+    # 'HuggingFaceH4/zephyr-7b-beta': [
+    #     'system',
+    # ],
 }
 
 
