@@ -2607,7 +2607,6 @@ export class PreTrainedTokenizer extends Callable {
         }
 
         if (!Array.isArray(token_ids) || token_ids.length === 0 || !isIntegralNumber(token_ids[0])) {
-            console.log(token_ids)
             throw Error("token_ids must be a non-empty array of integers.");
         }
 
