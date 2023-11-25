@@ -57,3 +57,27 @@ describe('Edge cases', () => {
         compare(token_ids, [101, 100, 102])
     }, 5000); // NOTE: 5 seconds
 });
+
+describe('Extra decoding tests', () => {
+    it('should be able to decode the output of encode', async () => {
+        let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
+
+        let text = 'hello world!';
+
+        // Ensure all the following outputs are the same:
+        // 1. Tensor of ids: allow decoding of 1D or 2D tensors.
+        let encodedTensor = tokenizer(text);
+        let decoded1 = tokenizer.decode(encodedTensor.input_ids, { skip_special_tokens: true });
+        let decoded2 = tokenizer.batch_decode(encodedTensor.input_ids, { skip_special_tokens: true })[0];
+        expect(decoded1).toEqual(text);
+        expect(decoded2).toEqual(text);
+
+        // 2. List of ids
+        let encodedList = tokenizer(text, { return_tensor: false });
+        let decoded3 = tokenizer.decode(encodedList.input_ids, { skip_special_tokens: true });
+        let decoded4 = tokenizer.batch_decode([encodedList.input_ids], { skip_special_tokens: true })[0];
+        expect(decoded3).toEqual(text);
+        expect(decoded4).toEqual(text);
+
+    }, MAX_TEST_EXECUTION_TIME);
+});
