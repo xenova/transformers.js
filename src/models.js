@@ -1228,7 +1228,7 @@ export class PreTrainedModel extends Callable {
      * Returns an object containing past key values from the given decoder results object.
      *
      * @param {Object} decoderResults The decoder results object.
-     * @param {Object} pastKeyValues The previous past key values.
+     * @param {Object} [pastKeyValues] The previous past key values.
      * @returns {Object} An object containing past key values.
      */
     getPastKeyValues(decoderResults, pastKeyValues) {
@@ -1278,7 +1278,7 @@ export class PreTrainedModel extends Callable {
      * Adds past key values to the decoder feeds object. If pastKeyValues is null, creates new tensors for past key values.
      *
      * @param {Object} decoderFeeds The decoder feeds object to add past key values to.
-     * @param {Object} pastKeyValues An object containing past key values.
+     * @param {Object} [pastKeyValues] An object containing past key values.
      */
     addPastKeyValues(decoderFeeds, pastKeyValues) {
         if (pastKeyValues) {
