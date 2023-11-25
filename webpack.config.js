@@ -30,17 +30,19 @@ function buildTarget(buildType) {
             ],
         })
     ];
+    let devtool = 'source-map';
     if (buildType === 'rti') {
         entry = {
-            'dist/transformers.rti': './src/transformers.js',
+            'dist/transformers.rti': './src/transformers.rti.js',
         };
         plugins = [
             new RuntimeTypeInspectorPlugin()
         ];
+        devtool = false;
     }
     return {
         mode: 'development',
-        devtool: 'source-map',
+        devtool,
         entry,
         output: {
             filename: '[name].js',
