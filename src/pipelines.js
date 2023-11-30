@@ -954,7 +954,7 @@ export class FeatureExtractionPipeline extends Pipeline {
  * Audio classification pipeline using any `AutoModelForAudioClassification`.
  * This pipeline predicts the class of a raw waveform or an audio file.
  * 
- * **Example:** Perform audio classification.
+ * **Example:** Perform audio classification with `Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech`.
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
  * let classifier = await pipeline('audio-classification', 'Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech');
@@ -962,6 +962,19 @@ export class FeatureExtractionPipeline extends Pipeline {
  * // [
  * //   { label: 'male', score: 0.9981542229652405 },
  * //   { label: 'female', score: 0.001845747814513743 }
+ * // ]
+ * ```
+ * 
+ * **Example:** Perform audio classification with `Xenova/ast-finetuned-audioset-10-10-0.4593` and return top 4 results.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cat_meow.wav';
+ * let classifier = await pipeline('audio-classification', 'Xenova/ast-finetuned-audioset-10-10-0.4593');
+ * let output = await classifier(url, { topk: 4 });
+ * // [
+ * //   { label: 'Meow', score: 0.5617874264717102 },
+ * //   { label: 'Cat', score: 0.22365376353263855 },
+ * //   { label: 'Domestic animals, pets', score: 0.1141069084405899 },
+ * //   { label: 'Animal', score: 0.08985692262649536 },
  * // ]
  * ```
  */
