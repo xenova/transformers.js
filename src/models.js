@@ -2465,6 +2465,22 @@ export class XLMRobertaForQuestionAnswering extends XLMRobertaPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// Audio Spectrogram Transformer (AST) models
+export class ASTPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare AST Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class ASTModel extends ASTPreTrainedModel { }
+
+/**
+ * Audio Spectrogram Transformer model with an audio classification head on top
+ * (a linear layer on top of the pooled output) e.g. for datasets like AudioSet, Speech Commands v2.
+ */
+export class ASTForAudioClassification extends ASTPreTrainedModel {}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Whisper models
 export class WhisperPreTrainedModel extends PreTrainedModel { };
 
@@ -4107,6 +4123,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
     ['wav2vec2', ['Wav2Vec2Model', Wav2Vec2Model]],
     ['wavlm', ['WavLMModel', WavLMModel]],
+    ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
 
     ['detr', ['DetrModel', DetrModel]],
     ['vit', ['ViTModel', ViTModel]],
@@ -4295,7 +4312,10 @@ const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
 const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForSequenceClassification', Wav2Vec2ForSequenceClassification]],
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
-]);
+    ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
+]);    
+
+
 
 const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
     ['swin2sr', ['Swin2SRForImageSuperResolution', Swin2SRForImageSuperResolution]],
