@@ -89,8 +89,8 @@ export function interpolate_data(input, [in_channels, in_height, in_width], [out
 
 /**
  * Helper method to transpose a `AnyTypedArray` directly
- * @param {T} array 
  * @template {AnyTypedArray} T 
+ * @param {T} array 
  * @param {number[]} dims 
  * @param {number[]} axes 
  * @returns {[T, number[]]} The transposed array and the new shape.
@@ -269,44 +269,26 @@ export function max(arr) {
     return [max, indexOfMax];
 }
 
-/**
- * Return the Discrete Fourier Transform sample frequencies.
- * 
- * Code adapted from https://github.com/numpy/numpy/blob/25908cacd19915bf3ddd659c28be28a41bd97a54/numpy/fft/helper.py#L173-L221
- * Original Python doc: https://numpy.org/doc/stable/reference/generated/numpy.fft.rfftfreq.html
- * @example
- * rfftfreq(400, 1 / 16000) // (201) [0, 40, 80, 120, 160, 200, ..., 8000]
- * @param {number} n Window length
- * @param {number} [d = 1.0] Sample spacing (inverse of the sampling rate). Defaults to 1.
- * @throws {TypeError} If n is not an integer.
- * @returns {number[]} Array of length `Math.floor(n / 2) + 1;` containing the sample frequencies.
- */
-export function rfftfreq(n, d = 1.0) {
-    if (!Number.isInteger(n)) {
-        throw new TypeError(`n should be an integer, but ${n} given.`);
-    }
-    const val = 1.0 / (n * d);
-    const len = Math.floor(n / 2) + 1;
-    const results = new Array(len);
-    for (let i = 0; i < len; ++i) {
-        results[i] = i * val;
-    }
-    return results;
+function isPowerOfTwo(number) {
+    // Check if the number is greater than 0 and has only one bit set to 1
+    return (number > 0) && ((number & (number - 1)) === 0);
 }
 
 /**
- * FFT class provides functionality for performing Fast Fourier Transform on arrays
+ * Implementation of Radix-4 FFT.
+ *
+ * R4FFT class provides functionality for performing Fast Fourier Transform on arrays.
  * Code adapted from https://www.npmjs.com/package/fft.js
  */
-export class FFT {
+class R4FFT {
     /**
-     * @param {number} size The size of the input array. Must be a power of two and bigger than 1.
-     * @throws {Error} FFT size must be a power of two and bigger than 1.
+     * @param {number} size The size of the input array. Must be a power of two larger than 1.
+     * @throws {Error} FFT size must be a power of two larger than 1.
      */
     constructor(size) {
         this.size = size | 0; // convert to a 32-bit signed integer
-        if (this.size <= 1 || (this.size & (this.size - 1)) !== 0)
-            throw new Error('FFT size must be a power of two and bigger than 1');
+        if (this.size <= 1 || !isPowerOfTwo(this.size))
+            throw new Error('FFT size must be a power of two larger than 1');
 
         this._csize = size << 1;
 
@@ -341,16 +323,16 @@ export class FFT {
     /**
      * Create a complex number array with size `2 * size`
      *
-     * @returns {Float32Array} A complex number array with size `2 * size`
+     * @returns {Float64Array} A complex number array with size `2 * size`
      */
     createComplexArray() {
-        return new Float32Array(this._csize);
+        return new Float64Array(this._csize);
     }
 
     /**
-     * Converts a complex number representation stored in a Float32Array to an array of real numbers.
+     * Converts a complex number representation stored in a Float64Array to an array of real numbers.
      * 
-     * @param {Float32Array} complex The complex number representation to be converted.
+     * @param {Float64Array} complex The complex number representation to be converted.
      * @param {number[]} [storage] An optional array to store the result in.
      * @returns {number[]} An array of real numbers representing the input complex number representation.
      */
@@ -363,9 +345,9 @@ export class FFT {
 
     /**
      * Convert a real-valued input array to a complex-valued output array.
-     * @param {Float32Array} input The real-valued input array.
-     * @param {Float32Array} [storage] Optional buffer to store the output array.
-     * @returns {Float32Array} The complex-valued output array.
+     * @param {Float64Array} input The real-valued input array.
+     * @param {Float64Array} [storage] Optional buffer to store the output array.
+     * @returns {Float64Array} The complex-valued output array.
      */
     toComplexArray(input, storage) {
         const res = storage || this.createComplexArray();
@@ -378,7 +360,7 @@ export class FFT {
 
     /**
      * Completes the spectrum by adding its mirrored negative frequency components.
-     * @param {Float32Array} spectrum The input spectrum.
+     * @param {Float64Array} spectrum The input spectrum.
      * @returns {void}
      */
     completeSpectrum(spectrum) {
@@ -393,8 +375,8 @@ export class FFT {
     /**
      * Performs a Fast Fourier Transform (FFT) on the given input data and stores the result in the output buffer.
      * 
-     * @param {Float32Array} out The output buffer to store the result.
-     * @param {Float32Array} data The input data to transform.
+     * @param {Float64Array} out The output buffer to store the result.
+     * @param {Float64Array} data The input data to transform.
      * 
      * @throws {Error} Input and output buffers must be different.
      * 
@@ -412,8 +394,8 @@ export class FFT {
      * The input buffer must contain real values only, while the output buffer will contain complex values. The input and
      * output buffers must be different.
      *
-     * @param {Float32Array} out The output buffer.
-     * @param {Float32Array} data The input buffer containing real values.
+     * @param {Float64Array} out The output buffer.
+     * @param {Float64Array} data The input buffer containing real values.
      *
      * @throws {Error} If the input and output buffers are the same.
      */
@@ -429,8 +411,8 @@ export class FFT {
      * The `out` array must be a different buffer than the `data` array. The `out` array will contain the
      * result of the transformation. The `data` array will not be modified.
      * 
-     * @param {Float32Array} out The output buffer for the transformed data.
-     * @param {Float32Array} data The input data to transform.
+     * @param {Float64Array} out The output buffer for the transformed data.
+     * @param {Float64Array} data The input data to transform.
      * @throws {Error} If `out` and `data` refer to the same buffer.
      * @returns {void}
      */
@@ -446,8 +428,8 @@ export class FFT {
     /**
      * Performs a radix-4 implementation of a discrete Fourier transform on a given set of data.
      *
-     * @param {Float32Array} out The output buffer for the transformed data.
-     * @param {Float32Array} data The input buffer of data to be transformed.
+     * @param {Float64Array} out The output buffer for the transformed data.
+     * @param {Float64Array} data The input buffer of data to be transformed.
      * @param {number} inv A scaling factor to apply to the transform.
      * @returns {void}
      */
@@ -463,7 +445,7 @@ export class FFT {
 
         let outOff;
         let t;
-        let bitrev = this._bitrev;
+        const bitrev = this._bitrev;
         if (len === 4) {
             for (outOff = 0, t = 0; outOff < size; outOff += len, ++t) {
                 const off = bitrev[t];
@@ -480,12 +462,12 @@ export class FFT {
         // Loop through steps in decreasing order
         for (step >>= 2; step >= 2; step >>= 2) {
             len = (size / step) << 1;
-            let quarterLen = len >>> 2;
+            const quarterLen = len >>> 2;
 
             // Loop through offsets in the data
             for (outOff = 0; outOff < size; outOff += len) {
                 // Full case
-                let limit = outOff + quarterLen;
+                const limit = outOff + quarterLen - 1;
                 for (let i = outOff, k = 0; i < limit; i += 2, k += step) {
                     const A = i;
                     const B = A + quarterLen;
@@ -544,8 +526,8 @@ export class FFT {
     /**
      * Performs a radix-2 implementation of a discrete Fourier transform on a given set of data.
      *
-     * @param {Float32Array} data The input buffer of data to be transformed.
-     * @param {Float32Array} out The output buffer for the transformed data.
+     * @param {Float64Array} data The input buffer of data to be transformed.
+     * @param {Float64Array} out The output buffer for the transformed data.
      * @param {number} outOff The offset at which to write the output data.
      * @param {number} off The offset at which to begin reading the input data.
      * @param {number} step The step size for indexing the input data.
@@ -569,8 +551,8 @@ export class FFT {
     /**
      * Performs radix-4 transformation on input data of length 8
      *
-     * @param {Float32Array} data Input data array of length 8
-     * @param {Float32Array} out Output data array of length 8
+     * @param {Float64Array} data Input data array of length 8
+     * @param {Float64Array} out Output data array of length 8
      * @param {number} outOff Index of output array to start writing from
      * @param {number} off Index of input array to start reading from
      * @param {number} step Step size between elements in input array
@@ -617,8 +599,8 @@ export class FFT {
 
     /**
      * Real input radix-4 implementation
-     * @param {Float32Array} out Output array for the transformed data
-     * @param {Float32Array} data Input array of real data to be transformed
+     * @param {Float64Array} out Output array for the transformed data
+     * @param {Float64Array} data Input array of real data to be transformed
      * @param {number} inv The scale factor used to normalize the inverse transform
      */
     _realTransform4(out, data, inv) {
@@ -630,9 +612,9 @@ export class FFT {
         let step = 1 << width;
         let len = (size / step) << 1;
 
-        var outOff;
-        var t;
-        var bitrev = this._bitrev;
+        let outOff;
+        let t;
+        const bitrev = this._bitrev;
         if (len === 4) {
             for (outOff = 0, t = 0; outOff < size; outOff += len, ++t) {
                 const off = bitrev[t];
@@ -646,17 +628,18 @@ export class FFT {
             }
         }
 
+        // TODO: Optimize once https://github.com/indutny/fft.js/issues/25 is fixed
         // Loop through steps in decreasing order
         for (step >>= 2; step >= 2; step >>= 2) {
             len = (size / step) << 1;
-            const halfLen = len >>> 1;
-            const quarterLen = halfLen >>> 1;
-            const hquarterLen = quarterLen >>> 1;
+            const quarterLen = len >>> 2;
 
             // Loop through offsets in the data
             for (outOff = 0; outOff < size; outOff += len) {
-                for (let i = 0, k = 0; i <= hquarterLen; i += 2, k += step) {
-                    const A = outOff + i;
+                // Full case
+                const limit = outOff + quarterLen - 1;
+                for (let i = outOff, k = 0; i < limit; i += 2, k += step) {
+                    const A = i;
                     const B = A + quarterLen;
                     const C = B + quarterLen;
                     const D = C + quarterLen;
@@ -701,25 +684,10 @@ export class FFT {
                     out[A + 1] = T0i + T2i;
                     out[B] = T1r + T3i;
                     out[B + 1] = T1i - T3r;
-
-                    // Output final middle point
-                    if (i === 0) {
-                        out[C] = T0r - T2r;
-                        out[C + 1] = T0i - T2i;
-                        continue;
-                    }
-
-                    // Do not overwrite ourselves
-                    if (i === hquarterLen)
-                        continue;
-
-                    const SA = outOff + quarterLen - i;
-                    const SB = outOff + halfLen - i;
-
-                    out[SA] = T1r + -inv * T3i;
-                    out[SA + 1] = -T1i - inv * T3r;
-                    out[SB] = T0r + -inv * T2r;
-                    out[SB + 1] = -T0i + inv * T2i;
+                    out[C] = T0r - T2r;
+                    out[C + 1] = T0i - T2i;
+                    out[D] = T1r - T3i;
+                    out[D + 1] = T1i + T3r;
                 }
             }
         }
@@ -728,8 +696,8 @@ export class FFT {
     /**
      * Performs a single real input radix-2 transformation on the provided data
      * 
-     * @param {Float32Array} data The input data array
-     * @param {Float32Array} out The output data array
+     * @param {Float64Array} data The input data array
+     * @param {Float64Array} out The output data array
      * @param {number} outOff The output offset
      * @param {number} off The input offset
      * @param {number} step The step
@@ -753,8 +721,8 @@ export class FFT {
      * Computes a single real-valued transform using radix-4 algorithm.
      * This method is only called for len=8.
      *
-     * @param {Float32Array} data The input data array.
-     * @param {Float32Array} out The output data array.
+     * @param {Float64Array} data The input data array.
+     * @param {Float64Array} out The output data array.
      * @param {number} outOff The offset into the output array.
      * @param {number} off The offset into the input array.
      * @param {number} step The step size for the input array.
@@ -789,6 +757,174 @@ export class FFT {
         out[outOff + 7] = T3r;
     }
 }
+
+/**
+ * Helper class to support FFT with non-power-of-two sizes.
+ */
+export class FFT {
+
+    /**
+     * 
+     * @param {number} size The size of the input array.
+     * @param {boolean} complex Whether the input array is complex or real.
+     */
+    constructor(size, complex = false) {
+        this.complex = complex;
+        const fftSize = complex ? size / 2 : size;
+        this._isPowerOfTwo = isPowerOfTwo(fftSize);
+
+        // If is power of two, use R4FFT. Otherwise, we must perform
+        // FFT with chirp-z transform. For more information, see
+        // https://math.stackexchange.com/questions/77118/non-power-of-2-ffts/77156#77156
+
+        if (this._isPowerOfTwo) {
+            this.f = new R4FFT(fftSize);
+        } else {
+            // Helper variables
+            const a = 2 * (fftSize - 1);
+            const b = 2 * (2 * fftSize - 1);
+            const nextP2 = 2 ** (Math.ceil(Math.log2(b))); // Next power of two
+
+            // Define buffers
+            // Compute chirp for transform
+            const chirp = new Float64Array(b);
+            const ichirp = new Float64Array(nextP2);
+            this._chirpBuffer = new Float64Array(nextP2);
+
+            // Compute complex exponentiation
+            const theta = -2 * Math.PI / fftSize;
+            const baseR = Math.cos(theta);
+            const baseI = Math.sin(theta);
+
+            // Precompute helper for chirp-z transform
+            for (let i = 0; i < chirp.length >> 1; ++i) {
+                // Compute complex power:
+                const e = (i + 1 - fftSize) ** 2 / 2.0;
+
+                // Compute the modulus and argument of the result
+                const result_mod = Math.sqrt(baseR ** 2 + baseI ** 2) ** e;
+                const result_arg = e * Math.atan2(baseI, baseR);
+
+                // Convert the result back to rectangular form
+                // and assign to chirp and ichirp
+                const i2 = 2 * i;
+                chirp[i2] = result_mod * Math.cos(result_arg);
+                chirp[i2 + 1] = result_mod * Math.sin(result_arg);
+
+                // conjugate
+                ichirp[i2] = chirp[i2];
+                ichirp[i2 + 1] = - chirp[i2 + 1];
+            }
+
+            // create object to perform Fast Fourier Transforms
+            // with `nextP2` complex numbers
+            this.f = new R4FFT(nextP2 >> 1);
+            this.f.transform(this._chirpBuffer, ichirp);
+
+            this._slicedChirpBuffer = chirp.subarray(a, b);
+
+            // Allocate two buffers
+            this._inBuffer = new Float64Array(nextP2);
+            this._outBuffer = new Float64Array(nextP2);
+        }
+    }
+
+    /**
+     * Compute the one-dimensional discrete Fourier Transform.
+     * @param {Float64Array} arr Input array, can be complex.
+     * @param {Float64Array} [output] The output array. If specified, this array will be overwritten with the result.
+     * @returns {Float64Array} The output array.
+     */
+    transform(arr, output = undefined) {
+        if (output) {
+            // User provided an output array. Ensure that the size is correct
+            if (this.complex) {
+                if (output.length !== arr.length) {
+                    throw new Error(`Output array must be the same size as the (complex) input array: ${output.length} !== ${arr.length}`);
+                }
+            } else {
+                if (output.length !== 2 * arr.length) {
+                    throw new Error(`Output array must be double the size of the (real) input array: ${output.length} !== 2 * ${arr.length}`);
+                }
+            }
+        }
+
+        if (this._isPowerOfTwo) {
+            // Create output buffer if user did not provide one
+            output ??= this.f.createComplexArray();
+            if (this.complex) {
+                this.f.transform(output, arr);
+            } else {
+                this.f.realTransform(output, arr);
+            }
+        } else {
+            // Reuse buffers
+            const ib = this._inBuffer.fill(0); // Reset input buffer
+            const cb = this._chirpBuffer;
+            const ob = this._outBuffer;
+            const sb = this._slicedChirpBuffer;
+
+            if (this.complex) {
+                for (let j = 0; j < sb.length; j += 2) {
+                    const j2 = j + 1;
+
+                    // Complex multiplication
+                    ib[j] = arr[j] * sb[j] - arr[j2] * sb[j2];
+                    ib[j2] = arr[j] * sb[j2] + arr[j2] * sb[j];
+                }
+            } else {
+                for (let j = 0; j < sb.length; j += 2) {
+                    const j2 = j + 1;
+
+                    const a_real = arr[j >> 1];
+                    ib[j] = a_real * sb[j];
+                    ib[j2] = a_real * sb[j2];
+                }
+            }
+            this.f.transform(ob, ib);
+
+            for (let j = 0; j < cb.length; j += 2) {
+                const j2 = j + 1;
+
+                // Complex multiplication
+                ib[j] = ob[j] * cb[j] - ob[j2] * cb[j2];
+                ib[j2] = ob[j] * cb[j2] + ob[j2] * cb[j];
+            }
+            this.f.inverseTransform(ob, ib);
+
+            if (this.complex) {
+                output ??= new Float64Array(arr.length);
+
+                const offset = arr.length - 2;
+                for (let j = 0; j < output.length; j += 2) {
+                    const o = j + offset;
+                    const a_real = ob[o];
+                    const a_imag = ob[o + 1];
+                    const b_real = sb[j];
+                    const b_imag = sb[j + 1];
+
+                    output[j] = a_real * b_real - a_imag * b_imag;
+                    output[j + 1] = a_real * b_imag + a_imag * b_real;
+                }
+            } else {
+                output ??= new Float64Array(arr.length * 2);
+
+                const offset = 2 * (arr.length - 1);
+                for (let j = 0; j < output.length; j += 2) {
+                    const a_real = ob[j + offset];
+                    const a_imag = ob[j + offset + 1];
+                    const b_real = sb[j];
+                    const b_imag = sb[j + 1];
+
+                    output[j] = a_real * b_real - a_imag * b_imag;
+                    output[j + 1] = a_real * b_imag + a_imag * b_real;
+                }
+            }
+        }
+        return output;
+    }
+}
+
 
 /**
  * Performs median filter on the provided data. Padding is done by mirroring the data.
