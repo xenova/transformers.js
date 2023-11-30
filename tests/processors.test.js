@@ -386,5 +386,54 @@ describe('Processors', () => {
                 expect(input_values.data[10000]).toBeCloseTo(0.46703237295150757);
             }
         }, MAX_TEST_EXECUTION_TIME);
+
+        it('ClapFeatureExtractor', async () => {
+            const audio = await audioPromise;
+            const processor = await AutoProcessor.from_pretrained('Xenova/clap-htsat-unfused');
+            { // truncation
+                // Since truncation uses a random strategy, we override
+                // Math.random to ensure that the test is deterministic
+                const originalRandom = Math.random;
+                Math.random = () => 0.5;
+
+                let long_audio = new Float32Array(500000);
+                long_audio.set(audio);
+                long_audio.set(audio, long_audio.length - audio.length);
+
+                const { input_features } = await processor(long_audio);
+                compare(input_features.dims, [1, 1, 1001, 64]);
+
+                expect(avg(input_features.data)).toBeCloseTo(-37.94569396972656);
+                expect(input_features.data[0]).toBeCloseTo(-53.32647705078125);
+                expect(input_features.data[1]).toBeCloseTo(-47.76755142211914);
+                expect(input_features.data[65]).toBeCloseTo(-36.32261276245117);
+                expect(input_features.data[1002]).toBeCloseTo(-28.0314884185791);
+                expect(input_features.data[10000]).toBeCloseTo(-21.905902862548828);
+                expect(input_features.data[60000]).toBeCloseTo(-14.877863883972168);
+                expect(input_features.data[64062]).toBeCloseTo(-37.9784049987793);
+                expect(input_features.data[64063]).toBeCloseTo(-37.73963928222656);
+
+                // Reset Math.random
+                Math.random = originalRandom;
+            }
+            { // padding
+                const { input_features } = await processor(audio);
+                compare(input_features.dims, [1, 1, 1001, 64]);
+
+                expect(avg(input_features.data)).toBeCloseTo(-34.99049377441406);
+                expect(input_features.data[0]).toBeCloseTo(-21.32573890686035);
+                expect(input_features.data[1]).toBeCloseTo(-26.168411254882812);
+                expect(input_features.data[65]).toBeCloseTo(-29.716018676757812);
+                expect(input_features.data[1002]).toBeCloseTo(-32.16273498535156);
+                expect(input_features.data[10000]).toBeCloseTo(-19.9283390045166);
+
+                // padded values
+                expect(input_features.data[60000]).toBeCloseTo(-100.0);
+                expect(input_features.data[64062]).toBeCloseTo(-100.0);
+                expect(input_features.data[64063]).toBeCloseTo(-100.0);
+            }
+
+
+        }, MAX_TEST_EXECUTION_TIME);
     });
 });
