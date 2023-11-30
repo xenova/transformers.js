@@ -133,6 +133,10 @@ SUPPORTED_MODELS = {
         'camembert-base',
         'airesearch/wangchanberta-base-att-spm-uncased',
     ],
+    'clap': [
+        'laion/clap-htsat-unfused',
+        # TODO add 'laion/clap-htsat-fused',
+    ],
     'clip': [
         # Zero-shot image classification and feature extraction
         # (with and without `--split_modalities`)

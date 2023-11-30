@@ -4039,6 +4039,14 @@ export class FalconForCausalLM extends FalconPreTrainedModel { }
 
 
 //////////////////////////////////////////////////
+// CLAP models
+export class ClapPreTrainedModel extends PreTrainedModel { }
+
+export class ClapModel extends ClapPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
 
@@ -4118,6 +4126,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['roberta', ['RobertaModel', RobertaModel]],
     ['xlm', ['XLMModel', XLMModel]],
     ['xlm-roberta', ['XLMRobertaModel', XLMRobertaModel]],
+    ['clap', ['ClapModel', ClapModel]],
     ['clip', ['CLIPModel', CLIPModel]],
     ['mobilebert', ['MobileBertModel', MobileBertModel]],
     ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
