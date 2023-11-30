@@ -10,7 +10,7 @@
 import {
     getFile,
 } from './hub.js';
-import { FFT } from './maths.js';
+import { FFT, max } from './maths.js';
 import {
     calculateReflectOffset,
 } from './core.js';
@@ -298,6 +298,93 @@ function padReflect(array, left, right) {
 }
 
 /**
+ * Helper function to compute `amplitude_to_db` and `power_to_db`.
+ * @template {Float32Array|Float64Array} T
+ * @param {T} spectrogram 
+ * @param {number} factor 
+ * @param {number} reference 
+ * @param {number} min_value 
+ * @param {number} db_range 
+ * @returns {T}
+ */
+function _db_conversion_helper(spectrogram, factor, reference, min_value, db_range) {
+    if (reference <= 0) {
+        throw new Error('reference must be greater than zero');
+    }
+
+    if (min_value <= 0) {
+        throw new Error('min_value must be greater than zero');
+    }
+
+    reference = Math.max(min_value, reference);
+
+    const logReference = Math.log10(reference);
+    for (let i = 0; i < spectrogram.length; ++i) {
+        spectrogram[i] = factor * Math.log10(Math.max(min_value, spectrogram[i]) - logReference)
+    }
+
+    if (db_range !== null) {
+        if (db_range <= 0) {
+            throw new Error('db_range must be greater than zero');
+        }
+        const maxValue = max(spectrogram)[0] - db_range;
+        for (let i = 0; i < spectrogram.length; ++i) {
+            spectrogram[i] = Math.max(spectrogram[i], maxValue);
+        }
+    }
+
+    return spectrogram;
+}
+
+/**
+ * Converts an amplitude spectrogram to the decibel scale. This computes `20 * log10(spectrogram / reference)`,
+ * using basic logarithm properties for numerical stability. NOTE: Operates in-place.
+ * 
+ * The motivation behind applying the log function on the (mel) spectrogram is that humans do not hear loudness on a
+ * linear scale. Generally to double the perceived volume of a sound we need to put 8 times as much energy into it.
+ * This means that large variations in energy may not sound all that different if the sound is loud to begin with.
+ * This compression operation makes the (mel) spectrogram features match more closely what humans actually hear.
+ * 
+ * @template {Float32Array|Float64Array} T
+ * @param {T} spectrogram The input amplitude (mel) spectrogram.
+ * @param {number} [reference=1.0] Sets the input spectrogram value that corresponds to 0 dB.
+ * For example, use `np.max(spectrogram)` to set the loudest part to 0 dB. Must be greater than zero.
+ * @param {number} [min_value=1e-5] The spectrogram will be clipped to this minimum value before conversion to decibels,
+ * to avoid taking `log(0)`. The default of `1e-5` corresponds to a minimum of -100 dB. Must be greater than zero.
+ * @param {number} [db_range=null] Sets the maximum dynamic range in decibels. For example, if `db_range = 80`, the
+ * difference between the peak value and the smallest value will never be more than 80 dB. Must be greater than zero.
+ * @returns {T} The modified spectrogram in decibels.
+ */
+function amplitude_to_db(spectrogram, reference = 1.0, min_value = 1e-5, db_range = null) {
+    return _db_conversion_helper(spectrogram, 20.0, reference, min_value, db_range);
+}
+
+/**
+ * Converts a power spectrogram to the decibel scale. This computes `10 * log10(spectrogram / reference)`,
+ * using basic logarithm properties for numerical stability. NOTE: Operates in-place.
+ * 
+ * The motivation behind applying the log function on the (mel) spectrogram is that humans do not hear loudness on a
+ * linear scale. Generally to double the perceived volume of a sound we need to put 8 times as much energy into it.
+ * This means that large variations in energy may not sound all that different if the sound is loud to begin with.
+ * This compression operation makes the (mel) spectrogram features match more closely what humans actually hear.
+ * 
+ * Based on the implementation of `librosa.power_to_db`.
+ * 
+ * @template {Float32Array|Float64Array} T
+ * @param {T} spectrogram The input power (mel) spectrogram. Note that a power spectrogram has the amplitudes squared!
+ * @param {number} [reference=1.0] Sets the input spectrogram value that corresponds to 0 dB.
+ * For example, use `np.max(spectrogram)` to set the loudest part to 0 dB. Must be greater than zero.
+ * @param {number} [min_value=1e-10] The spectrogram will be clipped to this minimum value before conversion to decibels,
+ * to avoid taking `log(0)`. The default of `1e-10` corresponds to a minimum of -100 dB. Must be greater than zero.
+ * @param {number} [db_range=null] Sets the maximum dynamic range in decibels. For example, if `db_range = 80`, the
+ * difference between the peak value and the smallest value will never be more than 80 dB. Must be greater than zero.
+ * @returns {T} The modified spectrogram in decibels.
+ */
+function power_to_db(spectrogram, reference = 1.0, min_value = 1e-10, db_range = null) {
+    return _db_conversion_helper(spectrogram, 10.0, reference, min_value, db_range);
+}
+
+/**
  * Calculates a spectrogram over one waveform using the Short-Time Fourier Transform.
  * 
  * This function can create the following kinds of spectrograms:
@@ -344,6 +431,7 @@ function padReflect(array, left, right) {
  * @param {boolean} [options.remove_dc_offset=null] Subtract mean from waveform on each frame, applied before pre-emphasis. This should be set to `true` in
  * order to get the same results as `torchaudio.compliance.kaldi.fbank` when computing mel filters.
  * @param {number} [options.max_num_frames=null] If provided, limits the number of frames to compute to this value.
+ * @param {boolean} [options.do_pad=true] If `true`, pads the output spectrogram to have `max_num_frames` frames.
  * @param {boolean} [options.transpose=false] If `true`, the returned spectrogram will have shape `(num_frames, num_frequency_bins/num_mel_filters)`. If `false`, the returned spectrogram will have shape `(num_frequency_bins/num_mel_filters, num_frames)`.
  * @returns {{data: Float32Array, dims: number[]}} Spectrogram of shape `(num_frequency_bins, length)` (regular spectrogram) or shape `(num_mel_filters, length)` (mel spectrogram).
  */
@@ -369,6 +457,7 @@ export function spectrogram(
 
         // Custom parameters for efficiency reasons
         max_num_frames = null,
+        do_pad = true,
         transpose = false,
     } = {}
 ) {
@@ -454,7 +543,9 @@ export function spectrogram(
     // If maximum number of frames is provided, we must either pad or truncate
     if (max_num_frames !== null) {
         if (max_num_frames > num_frames) { // input is too short, so we pad
-            d1Max = max_num_frames;
+            if (do_pad) {
+                d1Max = max_num_frames;
+            }
         } else { // input is too long, so we truncate
             d1Max = d1 = max_num_frames;
         }
@@ -541,9 +632,17 @@ export function spectrogram(
                 }
                 break;
             case 'dB':
-                throw new Error('dB not implemented yet');
+                if (power === 1.0) {
+                    // NOTE: operates in-place
+                    amplitude_to_db(mel_spec, reference, min_value, db_range);
+                } else if (power === 2.0) {
+                    power_to_db(mel_spec, reference, min_value, db_range);
+                } else {
+                    throw new Error(`Cannot use log_mel option '${log_mel}' with power ${power}`)
+                }
+                break;
             default:
-                throw new Error(`log_mel must be one of null, 'log', 'log10' or 'dB'`);
+                throw new Error(`log_mel must be one of null, 'log', 'log10' or 'dB'. Got '${log_mel}'`);
         }
     }
 
