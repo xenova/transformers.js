@@ -134,8 +134,12 @@ SUPPORTED_MODELS = {
         'airesearch/wangchanberta-base-att-spm-uncased',
     ],
     'clap': [
+        # Zero-shot audio classification and feature extraction
+        # (with and without `--split_modalities`)
         'laion/clap-htsat-unfused',
         # TODO add 'laion/clap-htsat-fused',
+
+        'Xenova/tiny-random-ClapModel',
     ],
     'clip': [
         # Zero-shot image classification and feature extraction
