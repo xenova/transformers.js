@@ -61,8 +61,8 @@ export async function read_audio(url, sampling_rate) {
         // audio at all, this scaling factor may not be needed.
         const SCALING_FACTOR = Math.sqrt(2);
 
-        let left = decoded.getChannelData(0);
-        let right = decoded.getChannelData(1);
+        const left = decoded.getChannelData(0);
+        const right = decoded.getChannelData(1);
 
         audio = new Float32Array(left.length);
         for (let i = 0; i < decoded.length; ++i) {
@@ -559,9 +559,9 @@ export function spectrogram(
     // compute magnitudes
     for (let i = 0; i < d1; ++i) {
         for (let j = 0; j < num_frequency_bins; ++j) {
-            let outOffset = i * num_frequency_bins + j;
-            let inOffset = outOffset << 1; // * 2 since complex
-            let magnitude = spectrogram[inOffset] ** 2 + spectrogram[inOffset + 1] ** 2
+            const outOffset = i * num_frequency_bins + j;
+            const inOffset = outOffset << 1; // * 2 since complex
+            const magnitude = spectrogram[inOffset] ** 2 + spectrogram[inOffset + 1] ** 2
             magnitudes[outOffset] = magnitude;
         }
     }
@@ -584,7 +584,7 @@ export function spectrogram(
     /** @type {number[][]} */
     const transposedMelFilters = new Array(num_mel_filters);
     for (let i = 0; i < num_mel_filters; ++i) {
-        let bin = new Array(num_frequency_bins);
+        const bin = new Array(num_frequency_bins);
         for (let j = 0; j < num_frequency_bins; ++j) {
             bin[j] = mel_filters.data[j * num_mel_filters + i];
         }
@@ -599,7 +599,7 @@ export function spectrogram(
     //  - mel_filters.shape=(201, 80) => mel_filters.T.shape=(80, 201)
     //  - magnitudes.shape=(3000, 201) => - magnitudes.T.shape=(201, 3000)
     //  - mel_spec.shape=(80, 3000)
-    let dims = transpose ? [d1Max, num_mel_filters] : [num_mel_filters, d1Max];
+    const dims = transpose ? [d1Max, num_mel_filters] : [num_mel_filters, d1Max];
     for (let i = 0; i < num_mel_filters; ++i) { // num melfilters (e.g., 80)
         const filter = transposedMelFilters[i];
         for (let j = 0; j < d1; ++j) {  // num frames (e.g., 3000)
