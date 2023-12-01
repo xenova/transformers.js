@@ -1052,6 +1052,105 @@ export class AudioClassificationPipeline extends Pipeline {
     }
 }
 
+/**
+ * Zero shot audio classification pipeline using `ClapModel`. This pipeline predicts the class of an audio when you
+ * provide an audio and a set of `candidate_labels`.
+ * 
+ * **Example**: Perform zero-shot audio classification with `Xenova/clap-htsat-unfused`.
+ * ```javascript
+ * let classifier = await pipeline('zero-shot-audio-classification', 'Xenova/clap-htsat-unfused');
+ * let audio = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/dog_barking.wav';
+ * let candidate_labels = ['dog', 'vaccum cleaner'];
+ * let scores = await classifier(audio, candidate_labels);
+ * // [
+ * //   { score: 0.9993992447853088, label: 'dog' },
+ * //   { score: 0.0006007603369653225, label: 'vaccum cleaner' }
+ * // ]
+ * ```
+ */
+export class ZeroShotAudioClassificationPipeline extends Pipeline {
+
+    /**
+     * Create a new ZeroShotAudioClassificationPipeline.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
+     */
+    constructor(options) {
+        super(options);
+    }
+
+    /**
+     * Preprocesses the input audio for the ZeroShotAudioClassificationPipeline.
+     * @param {any} audio The audio to be preprocessed.
+     * @param {number} sampling_rate The sampling rate of the audio.
+     * @returns {Promise<Float32Array>} A promise that resolves to the preprocessed audio data.
+     * @private
+     */
+    async _preprocess(audio, sampling_rate) {
+        if (isString(audio)) {
+            audio = await read_audio(audio, sampling_rate);
+        }
+
+        return audio;
+    }
+
+    /**
+     * Assign labels to the audio(s) passed as inputs.
+     * @param {Array} audios The input audios.
+     * @param {string[]} candidate_labels The candidate labels for this audio
+     * @param {Object} options The options for the classification.
+     * @param {string} [options.hypothesis_template] The sentence used in cunjunction with *candidate_labels* to attempt
+     * the audio classification by replacing the placeholder with the candidate_labels.
+     * Then likelihood is estimated by using logits_per_audio.
+     * @returns {Promise<any>}
+     */
+    async _call(audios, candidate_labels, {
+        hypothesis_template = "This is a sound of {}."
+    } = {}) {
+        const single = !Array.isArray(audios);
+        if (single) {
+            // @ts-ignore
+            audios = [audios];
+        }
+
+        // Insert label into hypothesis template 
+        const texts = candidate_labels.map(
+            x => hypothesis_template.replace('{}', x)
+        );
+
+        // Run tokenization
+        const text_inputs = this.tokenizer(texts, {
+            padding: true,
+            truncation: true,
+        });
+
+        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+
+        const toReturn = [];
+        for (let audio of audios) {
+            audio = await this._preprocess(audio, sampling_rate)
+
+            const audio_inputs = await this.processor(audio);
+
+            // Run model with both text and audio inputs
+            const output = await this.model({ ...text_inputs, ...audio_inputs });
+
+            // Compute softmax per audio
+            const probs = softmax(output.logits_per_audio.data);
+
+            toReturn.push([...probs].map((x, i) => {
+                return {
+                    score: x,
+                    label: candidate_labels[i]
+                }
+            }));
+        }
+        return !single ? toReturn : toReturn[0];
+    }
+}
 
 /**
  * Pipeline that aims at extracting spoken text contained within some audio.
@@ -2284,6 +2383,18 @@ const SUPPORTED_TASKS = {
             "model": "Xenova/wav2vec2-base-superb-ks",
         },
         "type": "audio",
+    },
+    "zero-shot-audio-classification": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": ZeroShotAudioClassificationPipeline,
+        "model": AutoModel,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "laion/clap-htsat-fused",
+            "model": "Xenova/clap-htsat-unfused",
+        },
+        "type": "multimodal",
     },
     "automatic-speech-recognition": {
         "tokenizer": AutoTokenizer,
