@@ -2583,6 +2583,7 @@ const TASK_ALIASES = {
  *  - `"translation"`: will return a `TranslationPipeline`.
  *  - `"translation_xx_to_yy"`: will return a `TranslationPipeline`.
  *  - `"zero-shot-classification"`: will return a `ZeroShotClassificationPipeline`.
+ *  - `"zero-shot-audio-classification"`: will return a `ZeroShotAudioClassificationPipeline`.
  *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
  *  - `"zero-shot-object-detection"`: will return a `ZeroShotObjectDetectionPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
