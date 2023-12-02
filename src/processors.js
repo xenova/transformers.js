@@ -150,6 +150,21 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
  */
 
 /**
+ * Helper function to validate audio inputs.
+ * @param {any} audio The audio data.
+ * @param {string} feature_extractor The name of the feature extractor.
+ * @private
+ */
+function validate_audio_inputs(audio, feature_extractor) {
+    if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
+        throw new Error(
+            `${feature_extractor} expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
+            `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
+        )
+    }
+}
+
+/**
  * Base class for feature extractors.
  *
  * @extends Callable
@@ -1188,13 +1203,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
      * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
      */
     async _call(audio) {
-        if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
-            throw new Error(
-                // @ts-ignore
-                `WhisperFeatureExtractor expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
-                `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
-            )
-        }
+        validate_audio_inputs(audio, 'WhisperFeatureExtractor');
 
         let waveform;
         if (audio.length > this.config.n_samples) {
@@ -1241,14 +1250,8 @@ export class Wav2Vec2FeatureExtractor extends FeatureExtractor {
      * @returns {Promise<{ input_values: Tensor; attention_mask: Tensor }>} A Promise resolving to an object containing the extracted input features and attention mask as Tensors.
      */
     async _call(audio) {
-        // TODO: remove duplication
-        if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
-            throw new Error(
-                // @ts-ignore
-                `Wav2Vec2FeatureExtractor expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
-                `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
-            )
-        }
+        validate_audio_inputs(audio, 'Wav2Vec2FeatureExtractor');
+
         if (audio instanceof Float64Array) {
             audio = new Float32Array(audio);
         }
@@ -1341,14 +1344,7 @@ export class ASTFeatureExtractor extends FeatureExtractor {
      * @returns {Promise<{ input_values: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
      */
     async _call(audio) {
-        if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
-            throw new Error(
-                // @ts-ignore
-                `ASTFeatureExtractor expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
-                `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
-            )
-        }
-
+        validate_audio_inputs(audio, 'ASTFeatureExtractor');
 
         const features = this._extract_fbank_features(audio, this.config.max_length);
         if (this.config.do_normalize) {
@@ -1511,13 +1507,7 @@ export class ClapFeatureExtractor extends FeatureExtractor {
     async _call(audio, {
         max_length = null,
     } = {}) {
-        if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
-            throw new Error(
-                // @ts-ignore
-                `ClapFeatureExtractor expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
-                `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
-            )
-        }
+        validate_audio_inputs(audio, 'ClapFeatureExtractor');
 
         // convert to mel spectrogram, truncate and pad if needed.
         const padded_inputs = this._get_input_mel(
