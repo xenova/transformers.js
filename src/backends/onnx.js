@@ -24,8 +24,8 @@ import { env, RUNNING_LOCALLY } from '../env.js';
 import * as ONNX_NODE from 'onnxruntime-node';
 import * as ONNX_WEB from 'onnxruntime-web';
 
-/** @type {import('onnxruntime-web')} The ONNX runtime module. */
-export let ONNX;
+/** @type {import('onnxruntime-web')|import('onnxruntime-node')} The ONNX runtime module. */
+let ONNX;
 
 const WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
 const USE_ONNXRUNTIME_NODE = typeof process !== 'undefined' && process?.release?.name === 'node'
@@ -119,6 +119,15 @@ export function isONNXTensor(x) {
         }
     }
     return false;
+}
+
+/**
+ * Check if ONNX's WASM backend is being proxied.
+ * @returns {boolean} Whether ONNX's WASM backend is being proxied.
+ */
+export function isONNXProxy() {
+    // TODO: Update this when allowing non-WASM backends.
+    return ONNX.env.wasm.proxy;
 }
 
 // Set path to wasm files. This is needed when running in a web worker.

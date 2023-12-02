@@ -85,7 +85,7 @@ import {
     Tensor,
 } from './utils/tensor.js';
 
-import { createInferenceSession, isONNXTensor } from './backends/onnx.js';
+import { createInferenceSession, isONNXTensor, isONNXProxy } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
 
 //////////////////////////////////////////////////
@@ -127,9 +127,9 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 
 /**
  * Validate model inputs
- * @param {InferenceSession} session The InferenceSession object that will be run.
+ * @param {Object} session The InferenceSession object that will be run.
  * @param {Object} inputs The inputs to check.
- * @returns {Promise<Object>} A Promise that resolves to the checked inputs.
+ * @returns {Record<string, Tensor>} The checked inputs.
  * @throws {Error} If any inputs are missing.
  * @private
  */
@@ -152,7 +152,7 @@ function validateInputs(session, inputs) {
         // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
         // boundary, transferring ownership to the worker and invalidating the tensor.
         // So, in this case, we simply sacrifice a clone for it.
-        checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
+        checkedInputs[inputName] = isONNXProxy() ? tensor.clone() : tensor;
     }
     if (missingInputs.length > 0) {
         throw new Error(
