@@ -4313,7 +4313,7 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['beit', ['BeitForImageClassification', BeitForImageClassification]],
     ['deit', ['DeiTForImageClassification', DeiTForImageClassification]],
     ['convnext', ['ConvNextForImageClassification', ConvNextForImageClassification]],
-    ['convnextv2', ['ConvNextForImageClassification', ConvNextForImageClassification]],
+    ['convnextv2', ['ConvNextV2ForImageClassification', ConvNextV2ForImageClassification]],
     ['resnet', ['ResNetForImageClassification', ResNetForImageClassification]],
     ['swin', ['SwinForImageClassification', SwinForImageClassification]],
 ]);
