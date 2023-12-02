@@ -43,6 +43,10 @@ import {
 } from './configs.js';
 
 import {
+    add_token_types,
+} from './tokenizers.js';
+
+import {
     Callable,
     isIntegralNumber,
     isTypedArray,
@@ -64,6 +68,7 @@ import {
     WhisperTimeStampLogitsProcessor,
     NoRepeatNGramLogitsProcessor,
     RepetitionPenaltyLogitsProcessor,
+    NoBadWordsLogitsProcessor,
     MinLengthLogitsProcessor,
     MinNewTokensLengthLogitsProcessor,
 
@@ -122,22 +127,32 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 
 /**
  * Validate model inputs
- * @param {Object} session The InferenceSession object that will be run.
+ * @param {InferenceSession} session The InferenceSession object that will be run.
  * @param {Object} inputs The inputs to check.
  * @returns {Promise<Object>} A Promise that resolves to the checked inputs.
  * @throws {Error} If any inputs are missing.
  * @private
  */
-async function validateInputs(session, inputs) {
-    // NOTE: Only create a shallow copy
-    const checkedInputs = {};
+function validateInputs(session, inputs) {
+    /**
+     * NOTE: Create either a shallow or deep copy based on `onnx.wasm.proxy`
+     * @type {Record<string, Tensor>}
+     */
+    const checkedInputs = Object.create(null);
     const missingInputs = [];
-    for (let inputName of session.inputNames) {
-        if (inputs[inputName] === undefined) {
+    for (const inputName of session.inputNames) {
+        const tensor = inputs[inputName];
+        // Rare case where one of the model's input names corresponds to a built-in
+        // object name (e.g., toString), which would cause a simple (!tensor) check to fail,
+        // because it's not undefined but a function.
+        if (!(tensor instanceof Tensor)) {
             missingInputs.push(inputName);
-        } else {
-            checkedInputs[inputName] = inputs[inputName];
+            continue;
         }
+        // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
+        // boundary, transferring ownership to the worker and invalidating the tensor.
+        // So, in this case, we simply sacrifice a clone for it.
+        checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
     }
     if (missingInputs.length > 0) {
         throw new Error(
@@ -168,7 +183,7 @@ async function validateInputs(session, inputs) {
  * @private
  */
 async function sessionRun(session, inputs) {
-    const checkedInputs = await validateInputs(session, inputs);
+    const checkedInputs = validateInputs(session, inputs);
     try {
         let output = await session.run(checkedInputs);
         output = replaceTensors(output);
@@ -265,6 +280,41 @@ function prepareAttentionMask(self, tokens) {
 }
 
 /**
+ * Add position IDs to the feeds object.
+ * @param {Object} session The inference session.
+ * @param {Object} feeds The input to the model.
+ * @param {boolean} use_cache_branch Whether to use the cache branch of the model.
+ * @returns {void}
+ * @private
+ */
+function preparePositionIds(session, feeds, use_cache_branch) {
+    if (!session.inputNames.includes('position_ids')) return;
+
+    const data = new BigInt64Array(feeds.attention_mask.data.length);
+
+    // Compute cumulative sum of the attention mask along the sequence length dimension
+    for (let i = 0; i < feeds.attention_mask.dims[0]; ++i) {
+        let start = i * feeds.attention_mask.dims[1];
+        let sum = BigInt(0);
+        for (let j = 0; j < feeds.attention_mask.dims[1]; ++j) {
+            const index = start + j;
+            if (feeds.attention_mask.data[index] === 0n) {
+                data[index] = BigInt(1);
+            } else { // === 1n
+                data[index] = sum;
+                sum += feeds.attention_mask.data[index];
+            }
+        }
+    }
+
+    feeds.position_ids = new Tensor('int64', data, feeds.attention_mask.dims);
+
+    if (use_cache_branch) {
+        feeds.position_ids = feeds.position_ids.slice(null, -1).unsqueeze_(-1);
+    }
+}
+
+/**
  * Creates a boolean tensor with a single value.
  * @param {boolean} value The value of the tensor.
  * @returns {Tensor} The boolean tensor.
@@ -293,12 +343,18 @@ async function seq2seqForward(self, model_inputs) {
     let decoderFeeds = {
         input_ids: model_inputs.decoder_input_ids,
         encoder_hidden_states: encoder_outputs,
-        use_cache_branch: boolTensor(!!past_key_values)
     };
+    const use_cache_branch = !!past_key_values;
+
+    if (self.decoder_merged_session.inputNames.includes('use_cache_branch')) {
+        decoderFeeds.use_cache_branch = boolTensor(use_cache_branch);
+    }
 
     if (self.decoder_merged_session.inputNames.includes('encoder_attention_mask')) {
         decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
     }
+
+    preparePositionIds(self.decoder_merged_session, decoderFeeds, use_cache_branch);
     self.addPastKeyValues(decoderFeeds, past_key_values);
 
     const decoderResults = await sessionRun(self.decoder_merged_session, decoderFeeds);
@@ -428,9 +484,14 @@ function seq2seqUpdatebeam(beam, newTokenId) {
  * @private
  */
 async function encoderForward(self, model_inputs) {
-    let encoderFeeds = {};
-    for (let key of self.session.inputNames) {
+    const encoderFeeds = Object.create(null);
+    for (const key of self.session.inputNames) {
         encoderFeeds[key] = model_inputs[key];
+    }
+    if (self.session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
+        // Assign default `token_type_ids` to the `encoderFeeds` if the model expects it,
+        // but they weren't created by the tokenizer.
+        add_token_types(encoderFeeds);
     }
     return await sessionRun(self.session, encoderFeeds);
 }
@@ -448,8 +509,14 @@ async function decoderForward(self, model_inputs) {
     let decoderFeeds = {
         input_ids: input_ids,
         attention_mask: attention_mask ?? prepareAttentionMask(self, input_ids),
-        use_cache_branch: boolTensor(!!past_key_values)
     }
+    const use_cache_branch = !!past_key_values;
+
+    if (self.session.inputNames.includes('use_cache_branch')) {
+        decoderFeeds.use_cache_branch = boolTensor(use_cache_branch);
+    }
+
+    preparePositionIds(self.session, decoderFeeds, use_cache_branch);
 
     self.addPastKeyValues(decoderFeeds, past_key_values);
 
@@ -778,9 +845,9 @@ export class PreTrainedModel extends Callable {
         //     }
         // }
 
-        // if (generation_config.bad_words_ids !== null) {
-        //     processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
-        // }
+        if (generation_config.bad_words_ids !== null) {
+            processors.push(new NoBadWordsLogitsProcessor(generation_config.bad_words_ids, generation_config.eos_token_id));
+        }
 
         if (generation_config.min_length !== null && generation_config.eos_token_id !== null && generation_config.min_length > 0) {
             processors.push(new MinLengthLogitsProcessor(generation_config.min_length, generation_config.eos_token_id));
@@ -1205,12 +1272,14 @@ export class PreTrainedModel extends Callable {
             Object.assign(decoderFeeds, pastKeyValues)
         } else {
             // TODO support batches (i.e., batch_size > 1)
+            const batch_size = 1;
+
             // @ts-ignore
             if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
                 // @ts-ignore
-                let encoder_dims = [1, this.num_encoder_heads, 0, this.encoder_dim_kv];
+                let encoder_dims = [batch_size, this.num_encoder_heads, 0, this.encoder_dim_kv];
                 // @ts-ignore
-                let decoder_dims = [1, this.num_decoder_heads, 0, this.decoder_dim_kv];
+                let decoder_dims = [batch_size, this.num_decoder_heads, 0, this.decoder_dim_kv];
                 // @ts-ignore
                 for (let i = 0; i < this.num_decoder_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
@@ -1218,9 +1287,18 @@ export class PreTrainedModel extends Callable {
                     decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor('float32', [], decoder_dims)
                     decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor('float32', [], decoder_dims)
                 }
+            } else if (this.config.model_type === 'falcon') {
+                // NOTE: Custom implementation for Falcon
+                // @ts-ignore
+                let dims = [batch_size * this.num_heads, 0, this.dim_kv]
+                // @ts-ignore
+                for (let i = 0; i < this.num_layers; ++i) {
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                }
             } else if (this.config.multi_query) { // e.g., for `gpt_bigcode`
                 // @ts-ignore
-                let dims = [1, 0, 2 * this.dim_kv]
+                let dims = [batch_size * this.num_heads, 0, 2 * this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
@@ -1229,9 +1307,9 @@ export class PreTrainedModel extends Callable {
                 // NOTE: Custom implementation for Bloom
 
                 // @ts-ignore
-                let keyDims = [1 * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
+                let keyDims = [batch_size * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
                 // @ts-ignore
-                let valueDims = [1 * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
+                let valueDims = [batch_size * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
@@ -1239,7 +1317,7 @@ export class PreTrainedModel extends Callable {
                 }
             } else { // Decoder-only
                 // @ts-ignore
-                let dims = [1, this.num_heads, 0, this.dim_kv]
+                let dims = [batch_size, this.num_heads, 0, this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
@@ -2966,9 +3044,9 @@ export class LlamaPreTrainedModel extends PreTrainedModel {
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
         this.config.pad_token_id = this.config.eos_token_id
 
-        this.num_heads = this.config.num_attention_heads
+        this.num_heads = this.config.num_key_value_heads ?? this.config.num_attention_heads
         this.num_layers = this.config.num_hidden_layers
-        this.dim_kv = this.config.hidden_size / this.num_heads;
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads
     }
 }
 /**
@@ -3111,6 +3189,12 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class OwlViTPreTrainedModel extends PreTrainedModel { }
+export class OwlViTModel extends OwlViTPreTrainedModel { }
+export class OwlViTForObjectDetection extends OwlViTPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Beit Models
 export class BeitPreTrainedModel extends PreTrainedModel { }
 export class BeitModel extends BeitPreTrainedModel { }
@@ -3232,6 +3316,143 @@ export class SwinForImageClassification extends SwinPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class Swin2SRPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare Swin2SR Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class Swin2SRModel extends Swin2SRPreTrainedModel { }
+
+/**
+ * Swin2SR Model transformer with an upsampler head on top for image super resolution and restoration.
+ * 
+ * **Example:** Super-resolution w/ `Xenova/swin2SR-classical-sr-x2-64`.
+ * 
+ * ```javascript
+ * import { AutoProcessor, Swin2SRForImageSuperResolution, RawImage } from '@xenova/transformers';
+ * 
+ * // Load processor and model
+ * const model_id = 'Xenova/swin2SR-classical-sr-x2-64';
+ * const processor = await AutoProcessor.from_pretrained(model_id);
+ * const model = await Swin2SRForImageSuperResolution.from_pretrained(model_id);
+ * 
+ * // Prepare model inputs
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/butterfly.jpg';
+ * const image = await RawImage.fromURL(url);
+ * const inputs = await processor(image);
+ * 
+ * // Run model
+ * const outputs = await model(inputs);
+ * 
+ * // Convert Tensor to RawImage
+ * const output = outputs.reconstruction.squeeze().clamp_(0, 1).mul_(255).round_().to('uint8');
+ * const outputImage = RawImage.fromTensor(output);
+ * // RawImage {
+ * //   data: Uint8Array(786432) [ 41, 31, 24, ... ],
+ * //   width: 512,
+ * //   height: 512,
+ * //   channels: 3
+ * // }
+ * ```
+ */
+export class Swin2SRForImageSuperResolution extends Swin2SRPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class DPTPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DPT Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class DPTModel extends DPTPreTrainedModel { }
+
+/**
+ * DPT Model with a depth estimation head on top (consisting of 3 convolutional layers) e.g. for KITTI, NYUv2.
+ * 
+ * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`.
+ * ```javascript
+ * import { DPTForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * 
+ * // Load model and processor
+ * const model_id = 'Xenova/dpt-hybrid-midas';
+ * const model = await DPTForDepthEstimation.from_pretrained(model_id);
+ * const processor = await AutoProcessor.from_pretrained(model_id);
+ * 
+ * // Load image from URL
+ * const url = 'http://images.cocodataset.org/val2017/000000039769.jpg';
+ * const image = await RawImage.fromURL(url);
+ * 
+ * // Prepare image for the model
+ * const inputs = await processor(image);
+ * 
+ * // Run model
+ * const { predicted_depth } = await model(inputs);
+ * 
+ * // Interpolate to original size
+ * const prediction = interpolate(predicted_depth, image.size.reverse(), 'bilinear', false);
+ * 
+ * // Visualize the prediction
+ * const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
+ * const depth = RawImage.fromTensor(formatted);
+ * // RawImage {
+ * //   data: Uint8Array(307200) [ 85, 85, 84, ... ],
+ * //   width: 640,
+ * //   height: 480,
+ * //   channels: 1
+ * // }
+ * ```
+ */
+export class DPTForDepthEstimation extends DPTPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class GLPNPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare GLPN encoder (Mix-Transformer) outputting raw hidden-states without any specific head on top.
+ */
+export class GLPNModel extends GLPNPreTrainedModel { }
+
+/**
+ * GLPN Model transformer with a lightweight depth estimation head on top e.g. for KITTI, NYUv2.
+ * 
+ * **Example:** Depth estimation w/ `Xenova/glpn-kitti`.
+ * ```javascript
+ * import { GLPNForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * 
+ * // Load model and processor
+ * const model_id = 'Xenova/glpn-kitti';
+ * const model = await GLPNForDepthEstimation.from_pretrained(model_id);
+ * const processor = await AutoProcessor.from_pretrained(model_id);
+ * 
+ * // Load image from URL
+ * const url = 'http://images.cocodataset.org/val2017/000000039769.jpg';
+ * const image = await RawImage.fromURL(url);
+ * 
+ * // Prepare image for the model
+ * const inputs = await processor(image);
+ * 
+ * // Run model
+ * const { predicted_depth } = await model(inputs);
+ * 
+ * // Interpolate to original size
+ * const prediction = interpolate(predicted_depth, image.size.reverse(), 'bilinear', false);
+ * 
+ * // Visualize the prediction
+ * const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
+ * const depth = RawImage.fromTensor(formatted);
+ * // RawImage {
+ * //   data: Uint8Array(307200) [ 207, 169, 154, ... ],
+ * //   width: 640,
+ * //   height: 480,
+ * //   channels: 1
+ * // }
+ * ```
+ */
+export class GLPNForDepthEstimation extends GLPNPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class DonutSwinPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -3309,6 +3530,50 @@ export class DonutSwinPreTrainedModel extends PreTrainedModel { }
  * ```
  */
 export class DonutSwinModel extends DonutSwinPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+export class ConvNextPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare ConvNext model outputting raw features without any specific head on top.
+ */
+export class ConvNextModel extends ConvNextPreTrainedModel { }
+
+/**
+ * ConvNext Model with an image classification head on top (a linear layer on top of the pooled features), e.g. for ImageNet.
+ */
+export class ConvNextForImageClassification extends ConvNextPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+export class ConvNextV2PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare ConvNextV2 model outputting raw features without any specific head on top.
+ */
+export class ConvNextV2Model extends ConvNextV2PreTrainedModel { }
+
+/**
+ * ConvNextV2 Model with an image classification head on top (a linear layer on top of the pooled features), e.g. for ImageNet.
+ */
+export class ConvNextV2ForImageClassification extends ConvNextV2PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3793,6 +4058,98 @@ export class SpeechT5HifiGan extends PreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// TrOCR models
+export class TrOCRPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `TrOCRPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id;
+
+        this.num_encoder_layers = this.num_decoder_layers = this.config.decoder_layers;
+        this.num_encoder_heads = this.num_decoder_heads = this.config.decoder_attention_heads;
+        this.encoder_dim_kv = this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
+    }
+}
+
+/**
+ * The TrOCR Decoder with a language modeling head.
+ */
+export class TrOCRForCausalLM extends TrOCRPreTrainedModel { }
+
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// Mistral models
+/**
+ * The bare Mistral Model outputting raw hidden-states without any specific head on top.
+ */
+export class MistralPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `MistralPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_key_value_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
+    }
+}
+
+export class MistralModel extends MistralPreTrainedModel { }
+
+export class MistralForCausalLM extends MistralPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Falcon models
+/**
+ * The bare Falcon Model outputting raw hidden-states without any specific head on top.
+ */
+export class FalconPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `FalconPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
+    }
+}
+
+export class FalconModel extends FalconPreTrainedModel { }
+
+export class FalconForCausalLM extends FalconPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
@@ -3882,12 +4239,18 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['detr', ['DetrModel', DetrModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
+    ['owlvit', ['OwlViTModel', OwlViTModel]],
     ['beit', ['BeitModel', BeitModel]],
     ['deit', ['DeiTModel', DeiTModel]],
+    ['convnext', ['ConvNextModel', ConvNextModel]],
+    ['convnextv2', ['ConvNextV2Model', ConvNextV2Model]],
     ['resnet', ['ResNetModel', ResNetModel]],
     ['swin', ['SwinModel', SwinModel]],
+    ['swin2sr', ['Swin2SRModel', Swin2SRModel]],
     ['donut-swin', ['DonutSwinModel', DonutSwinModel]],
     ['yolos', ['YolosModel', YolosModel]],
+    ['dpt', ['DPTModel', DPTModel]],
+    ['glpn', ['GLPNModel', GLPNModel]],
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
 ]);
@@ -3917,6 +4280,8 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['llama', ['LlamaModel', LlamaModel]],
     ['mpt', ['MptModel', MptModel]],
     ['opt', ['OPTModel', OPTModel]],
+    ['mistral', ['MistralModel', MistralModel]],
+    ['falcon', ['FalconModel', FalconModel]],
 ]);
 
 const MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES = new Map([
@@ -3981,6 +4346,9 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['mpt', ['MptForCausalLM', MptForCausalLM]],
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
     ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
+    ['mistral', ['MistralForCausalLM', MistralForCausalLM]],
+    ['falcon', ['FalconForCausalLM', FalconForCausalLM]],
+    ['trocr', ['TrOCRForCausalLM', TrOCRForCausalLM]],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
@@ -4026,6 +4394,8 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['mobilevit', ['MobileViTForImageClassification', MobileViTForImageClassification]],
     ['beit', ['BeitForImageClassification', BeitForImageClassification]],
     ['deit', ['DeiTForImageClassification', DeiTForImageClassification]],
+    ['convnext', ['ConvNextForImageClassification', ConvNextForImageClassification]],
+    ['convnextv2', ['ConvNextV2ForImageClassification', ConvNextV2ForImageClassification]],
     ['resnet', ['ResNetForImageClassification', ResNetForImageClassification]],
     ['swin', ['SwinForImageClassification', SwinForImageClassification]],
 ]);
@@ -4033,6 +4403,10 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['detr', ['DetrForObjectDetection', DetrForObjectDetection]],
     ['yolos', ['YolosForObjectDetection', YolosForObjectDetection]],
+]);
+
+const MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES = new Map([
+    ['owlvit', ['OwlViTForObjectDetection', OwlViTForObjectDetection]],
 ]);
 
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
@@ -4053,6 +4427,15 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
 ]);
 
+const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
+    ['swin2sr', ['Swin2SRForImageSuperResolution', Swin2SRForImageSuperResolution]],
+])
+
+const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
+    ['dpt', ['DPTForDepthEstimation', DPTForDepthEstimation]],
+    ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
+])
+
 
 const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_TYPES.EncoderOnly],
@@ -4068,8 +4451,10 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES, MODEL_TYPES.Vision2Seq],
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.MaskGeneration],
+    [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
@@ -4241,6 +4626,11 @@ export class AutoModelForObjectDetection extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES];
 }
 
+export class AutoModelForZeroShotObjectDetection extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES];
+}
+
+
 /**
  * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
@@ -4262,6 +4652,14 @@ export class AutoModelForAudioClassification extends PretrainedMixin {
 
 export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES];
+}
+
+export class AutoModelForImageToImage extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES];
+}
+
+export class AutoModelForDepthEstimation extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES];
 }
 
 //////////////////////////////////////////////////

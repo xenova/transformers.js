@@ -9,8 +9,8 @@ describe('Generation parameters', () => {
 
     // List all models which will be tested
     const models = [
-        'Xenova/LaMini-Flan-T5-77M', // encoder-decoder
-        'Xenova/LaMini-GPT-124M', // decoder-only
+        'MBZUAI/LaMini-Flan-T5-77M', // encoder-decoder
+        'MBZUAI/LaMini-GPT-124M', // decoder-only
     ];
 
     // encoder-decoder model
@@ -24,7 +24,7 @@ describe('Generation parameters', () => {
         {
             const outputs = await generator(text);
 
-            const tokens = generator.tokenizer.encode(outputs[0])
+            const tokens = generator.tokenizer.encode(outputs[0].generated_text)
             expect(tokens.length).toEqual(20);
         }
 
@@ -37,7 +37,7 @@ describe('Generation parameters', () => {
                 max_new_tokens: MAX_NEW_TOKENS,
             });
 
-            const tokens = generator.tokenizer.encode(outputs[0])
+            const tokens = generator.tokenizer.encode(outputs[0].generated_text)
             expect(tokens.length).toEqual(MAX_NEW_TOKENS + 1); // + 1 due to forced BOS token
         }
 
@@ -52,7 +52,7 @@ describe('Generation parameters', () => {
                 min_length: MIN_LENGTH,
             });
 
-            const tokens = generator.tokenizer.encode(outputs[0])
+            const tokens = generator.tokenizer.encode(outputs[0].generated_text)
             expect(tokens.length).toBeGreaterThanOrEqual(MIN_LENGTH);
         }
 
@@ -67,7 +67,7 @@ describe('Generation parameters', () => {
                 min_new_tokens: MIN_NEW_TOKENS,
             });
 
-            const tokens = generator.tokenizer.encode(outputs[0])
+            const tokens = generator.tokenizer.encode(outputs[0].generated_text)
             expect(tokens.length).toBeGreaterThanOrEqual(MIN_NEW_TOKENS);
         }
 

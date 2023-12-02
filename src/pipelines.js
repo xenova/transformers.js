@@ -33,7 +33,10 @@ import {
     AutoModelForImageClassification,
     AutoModelForImageSegmentation,
     AutoModelForObjectDetection,
+    AutoModelForZeroShotObjectDetection,
     AutoModelForDocumentQuestionAnswering,
+    AutoModelForImageToImage,
+    AutoModelForDepthEstimation,
     // AutoModelForTextToWaveform,
     PreTrainedModel,
 } from './models.js';
@@ -49,6 +52,7 @@ import {
     dispatchCallback,
     pop,
     product,
+    get_bounding_box,
 } from './utils/core.js';
 import {
     softmax,
@@ -62,6 +66,7 @@ import {
 import {
     Tensor,
     mean_pooling,
+    interpolate,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
 
@@ -479,11 +484,11 @@ export class FillMaskPipeline extends Pipeline {
  * let output = await generator('how can I become more healthy?', {
  *   max_new_tokens: 100,
  * });
- * // [ 'To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues.' ]
+ * // [{ generated_text: "To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues." }]
  * ```
  */
 export class Text2TextGenerationPipeline extends Pipeline {
-    _key = null;
+    _key = 'generated_text';
 
     /**
      * Fill the masked token in the text(s) given as inputs.
@@ -631,16 +636,16 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
  * ```javascript
  * let text = 'I enjoy walking with my cute dog,';
- * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await classifier(text);
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text);
  * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
  * ```
  * 
  * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
  * ```javascript
  * let text = 'Once upon a time, there was';
- * let classifier = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await classifier(text, {
+ * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * let output = await generator(text, {
  *   temperature: 2,
  *   max_new_tokens: 10,
  *   repetition_penalty: 1.5,
@@ -658,8 +663,8 @@ export class TranslationPipeline extends Text2TextGenerationPipeline {
  * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
  * ```javascript
  * let text = 'def fib(n):';
- * let classifier = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
- * let output = await classifier(text, {
+ * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * let output = await generator(text, {
  *   max_new_tokens: 44,
  * });
  * // [{
@@ -686,8 +691,12 @@ export class TextGenerationPipeline extends Pipeline {
             texts = [texts];
         }
 
+        // By default, do not add special tokens
+        const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
+
         this.tokenizer.padding_side = 'left';
         let inputs = this.tokenizer(texts, {
+            add_special_tokens,
             padding: true,
             truncation: true,
         });
@@ -1332,6 +1341,14 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
  * let output = await captioner(url);
  * // [{ generated_text: 'a cat laying on a couch with another cat' }]
  * ```
+ * 
+ * **Example:** Optical Character Recognition (OCR) w/ `Xenova/trocr-small-handwritten`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/handwriting.jpg';
+ * let captioner = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten');
+ * let output = await captioner(url);
+ * // [{ generated_text: 'Mr. Brown commented icily.' }]
+ * ```
  */
 export class ImageToTextPipeline extends Pipeline {
     /**
@@ -1740,28 +1757,148 @@ export class ObjectDetectionPipeline extends Pipeline {
                 return {
                     score: batch.scores[i],
                     label: id2label[batch.classes[i]],
-                    box: this._get_bounding_box(box, !percentage),
+                    box: get_bounding_box(box, !percentage),
                 }
             })
         })
 
         return isBatched ? result : result[0];
     }
+}
+
+/**
+ * Zero-shot object detection pipeline. This pipeline predicts bounding boxes of
+ * objects when you provide an image and a set of `candidate_labels`.
+ * 
+ * **Example:** Zero-shot object detection w/ `Xenova/clip-vit-base-patch32`.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/astronaut.png';
+ * let candidate_labels = ['human face', 'rocket', 'helmet', 'american flag'];
+ * let detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
+ * let output = await detector(url, candidate_labels);
+ * // [
+ * //   {
+ * //     score: 0.24392342567443848,
+ * //     label: 'human face',
+ * //     box: { xmin: 180, ymin: 67, xmax: 274, ymax: 175 }
+ * //   },
+ * //   {
+ * //     score: 0.15129457414150238,
+ * //     label: 'american flag',
+ * //     box: { xmin: 0, ymin: 4, xmax: 106, ymax: 513 }
+ * //   },
+ * //   {
+ * //     score: 0.13649864494800568,
+ * //     label: 'helmet',
+ * //     box: { xmin: 277, ymin: 337, xmax: 511, ymax: 511 }
+ * //   },
+ * //   {
+ * //     score: 0.10262022167444229,
+ * //     label: 'rocket',
+ * //     box: { xmin: 352, ymin: -1, xmax: 463, ymax: 287 }
+ * //   }
+ * // ]
+ * ```
+ * 
+ * **Example:** Zero-shot object detection w/ `Xenova/clip-vit-base-patch32` (returning top 4 matches and setting a threshold).
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png';
+ * let candidate_labels = ['hat', 'book', 'sunglasses', 'camera'];
+ * let detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
+ * let output = await detector(url, candidate_labels, { topk: 4, threshold: 0.05 });
+ * // [
+ * //   {
+ * //     score: 0.1606510728597641,
+ * //     label: 'sunglasses',
+ * //     box: { xmin: 347, ymin: 229, xmax: 429, ymax: 264 }
+ * //   },
+ * //   {
+ * //     score: 0.08935828506946564,
+ * //     label: 'hat',
+ * //     box: { xmin: 38, ymin: 174, xmax: 258, ymax: 364 }
+ * //   },
+ * //   {
+ * //     score: 0.08530698716640472,
+ * //     label: 'camera',
+ * //     box: { xmin: 187, ymin: 350, xmax: 260, ymax: 411 }
+ * //   },
+ * //   {
+ * //     score: 0.08349756896495819,
+ * //     label: 'book',
+ * //     box: { xmin: 261, ymin: 280, xmax: 494, ymax: 425 }
+ * //   }
+ * // ]
+ * ```
+ */
+export class ZeroShotObjectDetectionPipeline extends Pipeline {
 
     /**
-     * Helper function to convert list [xmin, xmax, ymin, ymax] into object { "xmin": xmin, ... }
-     * @param {number[]} box The bounding box as a list.
-     * @param {boolean} asInteger Whether to cast to integers.
-     * @returns {Object} The bounding box as an object.
-     * @private
+     * Create a new ZeroShotObjectDetectionPipeline.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
      */
-    _get_bounding_box(box, asInteger) {
-        if (asInteger) {
-            box = box.map(x => x | 0);
-        }
-        const [xmin, ymin, xmax, ymax] = box;
+    constructor(options) {
+        super(options);
+    }
 
-        return { xmin, ymin, xmax, ymax };
+    /**
+     * Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
+     * @param {Array} images The input images.
+     * @param {string[]} candidate_labels What the model should recognize in the image.
+     * @param {Object} options The options for the classification.
+     * @param {number} [options.threshold] The probability necessary to make a prediction.
+     * @param {number} [options.topk] The number of top predictions that will be returned by the pipeline.
+     * If the provided number is `null` or higher than the number of predictions available, it will default
+     * to the number of predictions.
+     * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
+     * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
+     */
+    async _call(images, candidate_labels, {
+        threshold = 0.1,
+        topk = null,
+        percentage = false,
+    } = {}) {
+        const isBatched = Array.isArray(images);
+        images = await prepareImages(images);
+
+        // Run tokenization
+        const text_inputs = this.tokenizer(candidate_labels, {
+            padding: true,
+            truncation: true
+        });
+
+        // Run processor
+        const model_inputs = await this.processor(images);
+
+        // Since non-maximum suppression is performed for exporting, we need to
+        // process each image separately. For more information, see:
+        // https://github.com/huggingface/optimum/blob/e3b7efb1257c011db907ef40ab340e795cc5684c/optimum/exporters/onnx/model_configs.py#L1028-L1032
+        const toReturn = [];
+        for (let i = 0; i < images.length; ++i) {
+            const image = images[i];
+            const imageSize = [[image.height, image.width]];
+            const pixel_values = model_inputs.pixel_values[i].unsqueeze_(0);
+
+            // Run model with both text and pixel inputs
+            const output = await this.model({ ...text_inputs, pixel_values });
+
+            // @ts-ignore
+            const processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSize, true)[0];
+            let result = processed.boxes.map((box, i) => ({
+                score: processed.scores[i],
+                label: candidate_labels[processed.classes[i]],
+                box: get_bounding_box(box, !percentage),
+            })).sort((a, b) => b.score - a.score);
+            if (topk !== null) {
+                result = result.slice(0, topk);
+            }
+            toReturn.push(result)
+        }
+
+        return isBatched ? toReturn : toReturn[0];
     }
 }
 
@@ -1932,6 +2069,94 @@ export class TextToAudioPipeline extends Pipeline {
             audio: waveform.data,
             sampling_rate,
         }
+    }
+}
+
+/**
+ * Image to Image pipeline using any `AutoModelForImageToImage`. This pipeline generates an image based on a previous image input.
+ * 
+ * **Example:** Super-resolution w/ `Xenova/swin2SR-classical-sr-x2-64`
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/butterfly.jpg';
+ * let upscaler = await pipeline('image-to-image', 'Xenova/swin2SR-classical-sr-x2-64');
+ * let output = await upscaler(url);
+ * // RawImage {
+ * //   data: Uint8Array(786432) [ 41, 31, 24,  43, ... ],
+ * //   width: 512,
+ * //   height: 512,
+ * //   channels: 3
+ * // }
+ * ```
+ */
+export class ImageToImagePipeline extends Pipeline {
+    /**
+     * Transform the image(s) passed as inputs.
+     * @param {any} images The images to transform.
+     * @returns {Promise<any>} An image or a list of images containing result(s).
+     */
+    async _call(images) {
+        images = await prepareImages(images);
+
+        let inputs = await this.processor(images);
+        let outputs = await this.model(inputs);
+
+        let toReturn = [];
+        for (let batch of outputs.reconstruction) {
+            const output = batch.squeeze().clamp_(0, 1).mul_(255).round_().to('uint8');
+            toReturn.push(RawImage.fromTensor(output));
+        }
+
+        return toReturn.length > 1 ? toReturn : toReturn[0];
+    }
+}
+
+/**
+ * Depth estimation pipeline using any `AutoModelForDepthEstimation`. This pipeline predicts the depth of an image.
+ * 
+ * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * let depth_estimator = await pipeline('depth-estimation', 'Xenova/dpt-hybrid-midas');
+ * let out = await depth_estimator(url);
+ * // {
+ * //   predicted_depth: Tensor {
+ * //     dims: [ 384, 384 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(147456) [ 542.859130859375, 545.2833862304688, 546.1649169921875, ... ],
+ * //     size: 147456
+ * //   },
+ * //   depth: RawImage {
+ * //     data: Uint8Array(307200) [ 86, 86, 86, ... ],
+ * //     width: 640,
+ * //     height: 480,
+ * //     channels: 1
+ * //   }
+ * // }
+ * ```
+ */
+export class DepthEstimationPipeline extends Pipeline {
+    /**
+     * Predicts the depth for the image(s) passed as inputs.
+     * @param {any} images The images to compute depth for.
+     * @returns {Promise<any>} An image or a list of images containing result(s).
+     */
+    async _call(images) {
+        images = await prepareImages(images);
+
+        const inputs = await this.processor(images);
+        const { predicted_depth } = await this.model(inputs);
+
+        const toReturn = [];
+        for (let i = 0; i < images.length; ++i) {
+            const prediction = interpolate(predicted_depth[i], images[i].size.reverse(), 'bilinear', false);
+            const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
+            toReturn.push({
+                predicted_depth: predicted_depth[i],
+                depth: RawImage.fromTensor(formatted),
+            });
+        }
+
+        return toReturn.length > 1 ? toReturn : toReturn[0];
     }
 }
 
@@ -2136,6 +2361,18 @@ const SUPPORTED_TASKS = {
         },
         "type": "multimodal",
     },
+    "zero-shot-object-detection": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": ZeroShotObjectDetectionPipeline,
+        "model": AutoModelForZeroShotObjectDetection,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "google/owlvit-base-patch32",
+            "model": "Xenova/owlvit-base-patch32",
+        },
+        "type": "multimodal",
+    },
     "document-question-answering": {
         "tokenizer": AutoTokenizer,
         "pipeline": DocumentQuestionAnsweringPipeline,
@@ -2147,6 +2384,30 @@ const SUPPORTED_TASKS = {
             "model": "Xenova/donut-base-finetuned-docvqa",
         },
         "type": "multimodal",
+    },
+    "image-to-image": {
+        // no tokenizer
+        "pipeline": ImageToImagePipeline,
+        "model": AutoModelForImageToImage,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "caidas/swin2SR-classical-sr-x2-64",
+            "model": "Xenova/swin2SR-classical-sr-x2-64",
+        },
+        "type": "image",
+    },
+    "depth-estimation": {
+        // no tokenizer
+        "pipeline": DepthEstimationPipeline,
+        "model": AutoModelForDepthEstimation,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "Intel/dpt-large",
+            "model": "Xenova/dpt-large",
+        },
+        "type": "image",
     },
 
     // This task serves as a useful interface for dealing with sentence-transformers (https://huggingface.co/sentence-transformers).
@@ -2181,6 +2442,7 @@ const TASK_ALIASES = {
  * @param {string} task The task defining which pipeline will be returned. Currently accepted tasks are:
  *  - `"audio-classification"`: will return a `AudioClassificationPipeline`.
  *  - `"automatic-speech-recognition"`: will return a `AutomaticSpeechRecognitionPipeline`.
+ *  - `"depth-estimation"`: will return a `DepthEstimationPipeline`.
  *  - `"document-question-answering"`: will return a `DocumentQuestionAnsweringPipeline`.
  *  - `"feature-extraction"`: will return a `FeatureExtractionPipeline`.
  *  - `"fill-mask"`: will return a `FillMaskPipeline`.
@@ -2198,6 +2460,7 @@ const TASK_ALIASES = {
  *  - `"translation_xx_to_yy"`: will return a `TranslationPipeline`.
  *  - `"zero-shot-classification"`: will return a `ZeroShotClassificationPipeline`.
  *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
+ *  - `"zero-shot-object-detection"`: will return a `ZeroShotObjectDetectionPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
  * @param {import('./utils/hub.js').PretrainedOptions} [options] Optional parameters for the pipeline.
  * @returns {Promise<Pipeline>} A Pipeline object for the specified task.

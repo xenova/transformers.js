@@ -11,13 +11,13 @@
 /**
  * Helper function to dispatch progress callbacks.
  *
- * @param {function} progress_callback The progress callback function to dispatch.
+ * @param {Function} progress_callback The progress callback function to dispatch.
  * @param {any} data The data to pass to the progress callback function.
  * @returns {void}
  * @private
  */
 export function dispatchCallback(progress_callback, data) {
-    if (progress_callback !== null) progress_callback(data);
+    if (progress_callback) progress_callback(data);
 }
 
 /**
@@ -173,4 +173,29 @@ export function product(...a) {
     // Cartesian product of items
     // Adapted from https://stackoverflow.com/a/43053803
     return a.reduce((a, b) => a.flatMap(d => b.map(e => [d, e])));
+}
+
+/**
+ * Calculates the index offset for a given index and window size.
+ * @param {number} i The index.
+ * @param {number} w The window size.
+ * @returns {number} The index offset.
+ */
+export function calculateReflectOffset(i, w) {
+    return Math.abs((i + w) % (2 * w) - w);
+}
+
+/**
+ * Helper function to convert list [xmin, xmax, ymin, ymax] into object { "xmin": xmin, ... }
+ * @param {number[]} box The bounding box as a list.
+ * @param {boolean} asInteger Whether to cast to integers.
+ * @returns {Object} The bounding box as an object.
+ */
+export function get_bounding_box(box, asInteger) {
+    if (asInteger) {
+        box = box.map(x => x | 0);
+    }
+    const [xmin, ymin, xmax, ymax] = box;
+
+    return { xmin, ymin, xmax, ymax };
 }

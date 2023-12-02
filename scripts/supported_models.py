@@ -140,6 +140,45 @@ SUPPORTED_MODELS = {
         'Salesforce/codegen-350M-multi',
         'Salesforce/codegen-350M-nl',
     ],
+    'convnext':[
+        # Image classification
+        'facebook/convnext-tiny-224',
+        'facebook/convnext-small-224',
+        'facebook/convnext-base-224',
+        'facebook/convnext-base-224-22k',
+        'facebook/convnext-base-224-22k-1k',
+        'facebook/convnext-base-384',
+        'facebook/convnext-base-384-22k-1k',
+        'facebook/convnext-large-224',
+        'facebook/convnext-large-224-22k',
+        'facebook/convnext-large-224-22k-1k',
+        'facebook/convnext-large-384',
+        'facebook/convnext-large-384-22k-1k',
+        'facebook/convnext-xlarge-224-22k',
+        'facebook/convnext-xlarge-224-22k-1k',
+        'facebook/convnext-xlarge-384-22k-1k',
+    ],
+    'convnextv2':[
+        # Image classification
+        'facebook/convnextv2-atto-1k-224',
+        'facebook/convnextv2-femto-1k-224',
+        'facebook/convnextv2-pico-1k-224',
+        'facebook/convnextv2-tiny-1k-224',
+        'facebook/convnextv2-tiny-22k-384',
+        'facebook/convnextv2-tiny-22k-224',
+        'facebook/convnextv2-nano-1k-224',
+        'facebook/convnextv2-nano-22k-384',
+        'facebook/convnextv2-base-22k-224',
+        'facebook/convnextv2-base-1k-224',
+        'facebook/convnextv2-base-22k-384',
+        'facebook/convnextv2-large-22k-224',
+        'facebook/convnextv2-large-1k-224',
+        'facebook/convnextv2-large-22k-384',
+        # 'facebook/convnextv2-huge-22k-512',
+        # 'facebook/convnextv2-huge-1k-224',
+        # 'facebook/convnextv2-huge-22k-384',
+        # 'facebook/convnextv2-nano-22k-224',
+    ],
     'deberta': [
         # Zero-shot classification
         'cross-encoder/nli-deberta-base',
@@ -200,13 +239,28 @@ SUPPORTED_MODELS = {
         'distilbert-base-uncased',
         'distilbert-base-cased',
     ],
-    'donut': [
+    'donut': [  # NOTE: also a `vision-encoder-decoder`
         # Image-to-text
         'naver-clova-ix/donut-base-finetuned-cord-v2',
         'naver-clova-ix/donut-base-finetuned-zhtrainticket',
 
         # Document Question Answering
         'naver-clova-ix/donut-base-finetuned-docvqa',
+    ],
+    'dpt': [
+        # Depth estimation
+        'Intel/dpt-hybrid-midas',
+        'Intel/dpt-large',
+    ],
+    'falcon': [
+        # Text generation
+        'Rocketknight1/tiny-random-falcon-7b',
+        'fxmarty/really-tiny-falcon-testing',
+    ],
+    'glpn': [
+        # Depth estimation
+        'vinvino02/glpn-kitti',
+        'vinvino02/glpn-nyu',
     ],
     'gpt_neo': [
         # Text generation
@@ -303,6 +357,10 @@ SUPPORTED_MODELS = {
         'facebook/mbart-large-50-many-to-one-mmt',
         'facebook/mbart-large-50',
     ],
+    'mistral': [
+        # Text generation
+        'echarlaix/tiny-random-mistral',
+    ],
     'mobilebert': [
         # Zero-shot classification
         'typeform/mobilebert-uncased-mnli',
@@ -339,12 +397,24 @@ SUPPORTED_MODELS = {
         'google/mt5-small',
         'google/mt5-base',
     ],
+    'nougat': [
+        # Image-to-text
+        'facebook/nougat-small',
+        'facebook/nougat-base',
+    ],
     'opt': [
         # Text generation
         'facebook/opt-125m',
         'facebook/opt-350m',
         # (TODO conversational)
         'PygmalionAI/pygmalion-350m',
+    ],
+    'owlvit': [
+        # Object detection (Zero-shot object detection)
+        # NOTE: Exported with --batch_size 1
+        'google/owlvit-base-patch32',
+        'google/owlvit-base-patch16',
+        'google/owlvit-large-patch14',
     ],
     'resnet': [
         # Image classification
@@ -397,6 +467,17 @@ SUPPORTED_MODELS = {
         'microsoft/swin-large-patch4-window7-224-in22k',
         'microsoft/swin-large-patch4-window12-384',
     ],
+    'swin2sr': [
+        # Image-to-image (Super-resolution)
+        'caidas/swin2SR-classical-sr-x2-64',
+        'caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr',
+        'caidas/swin2SR-classical-sr-x4-64',
+        'caidas/swin2SR-compressed-sr-x4-48',
+        'caidas/swin2SR-lightweight-x2-64',
+
+        # Feature extraction
+        'hf-tiny-model-private/tiny-random-Swin2SRModel',
+    ],
     't5': [
         # Text-to-text (Translation/Summarization)
         't5-small',
@@ -416,6 +497,13 @@ SUPPORTED_MODELS = {
         'sentence-transformers/sentence-t5-large',
         'hkunlp/instructor-base',
         'hkunlp/instructor-large',
+    ],
+    'trocr': [  # NOTE: also a `vision-encoder-decoder`
+        # Text-to-image
+        'microsoft/trocr-small-printed',
+        'microsoft/trocr-base-printed',
+        'microsoft/trocr-small-handwritten',
+        'microsoft/trocr-base-handwritten',
     ],
     'vision-encoder-decoder': [
         # Text-to-image

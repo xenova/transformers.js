@@ -24,8 +24,8 @@ import { env, RUNNING_LOCALLY } from '../env.js';
 import * as ONNX_NODE from 'onnxruntime-node';
 import * as ONNX_WEB from 'onnxruntime-web';
 
-/** @type {module} The ONNX runtime module. */
-let ONNX;
+/** @type {import('onnxruntime-web')} The ONNX runtime module. */
+export let ONNX;
 
 const WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
 const USE_ONNXRUNTIME_NODE = typeof process !== 'undefined' && process?.release?.name === 'node'

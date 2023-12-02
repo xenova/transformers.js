@@ -22,6 +22,7 @@
 import {
     Callable,
     calculateDimensions,
+    calculateReflectOffset,
 } from './utils/core.js';
 
 import {
@@ -29,6 +30,7 @@ import {
 } from './utils/hub.js';
 
 import {
+    min,
     max,
     softmax,
     FFT,
@@ -63,9 +65,13 @@ function center_to_corners_format([centerX, centerY, width, height]) {
  * @param {Object} outputs The outputs of the model that must be post-processed
  * @param {Tensor} outputs.logits The logits
  * @param {Tensor} outputs.pred_boxes The predicted boxes.
+ * @param {number} [threshold=0.5] The threshold to use for the scores.
+ * @param {number[][]} [target_sizes=null] The sizes of the original images.
+ * @param {boolean} [is_zero_shot=false] Whether zero-shot object detection was performed.
  * @return {Object[]} An array of objects containing the post-processed outputs.
+ * @private
  */
-function post_process_object_detection(outputs, threshold = 0.5, target_sizes = null) {
+function post_process_object_detection(outputs, threshold = 0.5, target_sizes = null, is_zero_shot = false) {
     const out_logits = outputs.logits;
     const out_bbox = outputs.pred_boxes;
     const [batch_size, num_boxes, num_classes] = out_logits.dims;
@@ -87,19 +93,33 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
         for (let j = 0; j < num_boxes; ++j) {
             let logit = logits[j];
 
-            // Get most probable class
-            let maxIndex = max(logit.data)[1];
+            let indices = [];
+            let probs;
+            if (is_zero_shot) {
+                // Get indices of classes with high enough probability
+                probs = logit.sigmoid().data;
+                for (let k = 0; k < probs.length; ++k) {
+                    if (probs[k] > threshold) {
+                        indices.push(k);
+                    }
+                }
 
-            if (maxIndex === num_classes - 1) {
-                // This is the background class, skip it
-                continue;
+            } else {
+                // Get most probable class
+                let maxIndex = max(logit.data)[1];
+
+                if (maxIndex === num_classes - 1) {
+                    // This is the background class, skip it
+                    continue;
+                }
+                indices.push(maxIndex);
+
+                // Compute softmax over classes
+                probs = softmax(logit.data);
             }
 
-            // Compute softmax over classes
-            let probs = softmax(logit.data);
+            for (const index of indices) {
 
-            let score = probs[maxIndex];
-            if (score > threshold) {
                 // Some class has a high enough probability
                 /** @type {number[]} */
                 let box = bbox[j].data;
@@ -111,8 +131,8 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
                 }
 
                 info.boxes.push(box);
-                info.classes.push(maxIndex);
-                info.scores.push(score);
+                info.classes.push(index);
+                info.scores.push(probs[index]);
             }
         }
         toReturn.push(info);
@@ -184,10 +204,12 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.do_resize = this.config.do_resize;
         this.do_thumbnail = this.config.do_thumbnail;
         this.size = this.config.size;
+        this.size_divisor = this.config.size_divisor;
 
         this.do_center_crop = this.config.do_center_crop;
         this.crop_size = this.config.crop_size;
         this.do_convert_rgb = this.config.do_convert_rgb ?? true;
+        this.do_crop_margin = this.config.do_crop_margin;
 
         this.pad_size = this.config.pad_size;
         this.do_pad = this.config.do_pad;
@@ -229,6 +251,133 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         return await image.resize(width, height, { resample });
     }
 
+
+    /**
+     * Crops the margin of the image. Gray pixels are considered margin (i.e., pixels with a value below the threshold).
+     * @param {RawImage} image The image to be cropped.
+     * @param {number} gray_threshold Value below which pixels are considered to be gray.
+     * @returns {Promise<RawImage>} The cropped image.
+     */
+    async crop_margin(image, gray_threshold = 200) {
+
+        const gray_image = image.clone().grayscale();
+
+        const minValue = min(gray_image.data)[0];
+        const maxValue = max(gray_image.data)[0];
+        const diff = maxValue - minValue;
+
+        if (diff === 0) {
+            return image;
+        }
+
+        const threshold = gray_threshold / 255;
+
+        let x_min = gray_image.width, y_min = gray_image.height, x_max = 0, y_max = 0;
+        for (let j = 0; j < gray_image.height; ++j) {
+            const row = j * gray_image.width;
+            for (let i = 0; i < gray_image.width; ++i) {
+                if ((gray_image.data[row + i] - minValue) / diff < threshold) {
+                    // We have a non-zero pixel, so we update the min/max values accordingly
+                    x_min = Math.min(x_min, i);
+                    y_min = Math.min(y_min, j);
+                    x_max = Math.max(x_max, i);
+                    y_max = Math.max(y_max, j);
+                }
+            }
+        }
+
+        image = await image.crop([x_min, y_min, x_max, y_max]);
+        return image;
+    }
+
+    /**
+     * Pad the image by a certain amount.
+     * @param {Float32Array} pixelData The pixel data to pad.
+     * @param {number[]} imgDims The dimensions of the image.
+     * @param {{width:number; height:number}|number} padSize The dimensions of the padded image.
+     * @param {Object} options The options for padding.
+     * @param {'constant'|'symmetric'} [options.mode='constant'] The type of padding to add.
+     * @param {boolean} [options.center=false] Whether to center the image.
+     * @param {number} [options.constant_values=0] The constant value to use for padding.
+     * @returns {[Float32Array, number[]]} The padded pixel data and image dimensions.
+     */
+    pad_image(pixelData, imgDims, padSize, {
+        mode = 'constant',
+        center = false,
+        constant_values = 0,
+    } = {}) {
+        const [imageWidth, imageHeight, imageChannels] = imgDims;
+
+        let paddedImageWidth, paddedImageHeight;
+        if (typeof padSize === 'number') {
+            paddedImageWidth = padSize;
+            paddedImageHeight = padSize;
+        } else {
+            paddedImageWidth = padSize.width;
+            paddedImageHeight = padSize.height;
+        }
+
+        // Only add padding if there is a difference in size
+        if (paddedImageWidth !== imageWidth || paddedImageHeight !== imageHeight) {
+            const paddedPixelData = new Float32Array(paddedImageWidth * paddedImageHeight * imageChannels);
+            if (Array.isArray(constant_values)) {
+                // Fill with constant values, cycling through the array
+                for (let i = 0; i < paddedPixelData.length; ++i) {
+                    paddedPixelData[i] = constant_values[i % imageChannels];
+                }
+            } else if (constant_values !== 0) {
+                paddedPixelData.fill(constant_values);
+            }
+
+            const [left, top] = center
+                ? [Math.floor((paddedImageWidth - imageWidth) / 2), Math.floor((paddedImageHeight - imageHeight) / 2)]
+                : [0, 0];
+
+            // Copy the original image into the padded image
+            for (let i = 0; i < imageHeight; ++i) {
+                const a = (i + top) * paddedImageWidth;
+                const b = i * imageWidth;
+                for (let j = 0; j < imageWidth; ++j) {
+                    const c = (a + j + left) * imageChannels;
+                    const d = (b + j) * imageChannels;
+                    for (let k = 0; k < imageChannels; ++k) {
+                        paddedPixelData[c + k] = pixelData[d + k];
+                    }
+                }
+            }
+
+            if (mode === 'symmetric') {
+                if (center) {
+                    throw new Error('`center` padding is not supported when `mode` is set to `symmetric`.');
+                    // TODO: Implement this
+                }
+                const h1 = imageHeight - 1;
+                const w1 = imageWidth - 1;
+                for (let i = 0; i < paddedImageHeight; ++i) {
+                    const a = i * paddedImageWidth;
+                    const b = calculateReflectOffset(i, h1) * imageWidth;
+
+                    for (let j = 0; j < paddedImageWidth; ++j) {
+                        if (i < imageHeight && j < imageWidth) continue; // Do not overwrite original image
+                        const c = (a + j) * imageChannels;
+                        const d = (b + calculateReflectOffset(j, w1)) * imageChannels;
+
+                        // Copy channel-wise
+                        for (let k = 0; k < imageChannels; ++k) {
+                            paddedPixelData[c + k] = pixelData[d + k];
+                        }
+                    }
+                }
+            }
+
+
+            // Update pixel data and image dimensions
+            pixelData = paddedPixelData;
+            imgDims = [paddedImageHeight, paddedImageWidth, imageChannels]
+        }
+        return [pixelData, imgDims];
+    }
+
     /**
      * @typedef {object} PreprocessedImage
      * @property {HeightWidth} original_size The original size of the image.
@@ -244,15 +393,21 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      */
     async preprocess(image) {
 
-        // First, convert image to RGB if specified in config.
-        if (this.do_convert_rgb) {
-            image = image.rgb();
+        if (this.do_crop_margin) {
+            // NOTE: Specific to nougat processors. This is done before resizing,
+            // and can be interpreted as a pre-preprocessing step.
+            image = await this.crop_margin(image);
         }
 
         const srcWidth = image.width;   // original width
         const srcHeight = image.height; // original height
 
-        // Next, resize all images
+        // Convert image to RGB if specified in config.
+        if (this.do_convert_rgb) {
+            image = image.rgb();
+        }
+
+        // Resize all images
         if (this.do_resize) {
             // TODO:
             // For efficiency reasons, it might be best to merge the resize and center crop operations into one.
@@ -273,7 +428,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                 shortest_edge = this.size;
                 longest_edge = this.config.max_size ?? shortest_edge;
 
-            } else {
+            } else if (this.size !== undefined) {
                 // Extract known properties from `this.size`
                 shortest_edge = this.size.shortest_edge;
                 longest_edge = this.size.longest_edge;
@@ -306,11 +461,20 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                     resample: this.resample,
                 });
 
-            } else if (this.size.width !== undefined && this.size.height !== undefined) {
+            } else if (this.size !== undefined && this.size.width !== undefined && this.size.height !== undefined) {
                 // If `width` and `height` are set, resize to those dimensions
                 image = await image.resize(this.size.width, this.size.height, {
                     resample: this.resample,
                 });
+
+            } else if (this.size_divisor !== undefined) {
+                // Rounds the height and width down to the closest multiple of size_divisor
+                const newWidth = Math.floor(srcWidth / this.size_divisor) * this.size_divisor;
+                const newHeight = Math.floor(srcHeight / this.size_divisor) * this.size_divisor;
+                image = await image.resize(newWidth, newHeight, {
+                    resample: this.resample,
+                });
+
             } else {
                 throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(this.size)}`);
             }
@@ -441,12 +605,48 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class DPTFeatureExtractor extends ImageFeatureExtractor { }
+export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
+export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
+export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOTE extends ConvNextFeatureExtractor
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
+export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
+    /** @type {post_process_object_detection} */
+    post_process_object_detection(...args) {
+        return post_process_object_detection(...args);
+    }
+}
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
-export class DonutFeatureExtractor extends ImageFeatureExtractor { }
+export class DonutFeatureExtractor extends ImageFeatureExtractor {
+    pad_image(pixelData, imgDims, padSize, options = {}) {
+        const [imageWidth, imageHeight, imageChannels] = imgDims;
+
+        let image_mean = this.image_mean;
+        if (!Array.isArray(this.image_mean)) {
+            image_mean = new Array(imageChannels).fill(image_mean);
+        }
+
+        let image_std = this.image_std;
+        if (!Array.isArray(this.image_std)) {
+            image_std = new Array(imageChannels).fill(image_mean);
+        }
+
+        const constant_values = image_mean.map((x, i) => - x / this.image_std[i]);
+
+        return super.pad_image(pixelData, imgDims, padSize, {
+            center: true,
+
+            // Since normalization is done after padding, we need to use certain constant values to ensure the same behaviour is observed.
+            // For more information, see https://github.com/huggingface/transformers/blob/main/src/transformers/models/donut/image_processing_donut.py#L433-L451
+            constant_values: constant_values,
+            ...options,
+        });
+    }
+}
+export class NougatImageProcessor extends DonutFeatureExtractor { } // NOTE extends DonutFeatureExtractor
 
 /**
  * @typedef {object} DetrFeatureExtractorResultProps
@@ -958,6 +1158,26 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     }
 }
 
+export class Swin2SRImageProcessor extends ImageFeatureExtractor {
+    pad_image(pixelData, imgDims, padSize, options = {}) {
+        // NOTE: In this case, `padSize` represents the size of the sliding window for the local attention.
+        // In other words, the image is padded so that its width and height are multiples of `padSize`.
+        const [imageWidth, imageHeight, imageChannels] = imgDims;
+
+        return super.pad_image(pixelData, imgDims, {
+            // NOTE: For Swin2SR models, the original python implementation adds padding even when the image's width/height is already
+            // a multiple of `pad_size`. However, this is most likely a bug (PR: https://github.com/mv-lab/swin2sr/pull/19).
+            // For this reason, we only add padding when the image's width/height is not a multiple of `pad_size`.
+            width: imageWidth + (padSize - imageWidth % padSize) % padSize,
+            height: imageHeight + (padSize - imageHeight % padSize) % padSize,
+        }, {
+            mode: 'symmetric',
+            center: false,
+            constant_values: -1,
+            ...options,
+        })
+    }
+}
 
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
@@ -967,15 +1187,7 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
         // Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
         this.config.mel_filters ??= getMelFilters(this.config.sampling_rate, this.config.n_fft, this.config.feature_size);
     }
-    /**
-     * Calculates the index offset for a given index and window size.
-     * @param {number} i The index.
-     * @param {number} w The window size.
-     * @returns {number} The index offset.
-     */
-    calcOffset(i, w) {
-        return Math.abs((i + w) % (2 * w) - w);
-    }
+
 
     /**
      * Pads an array with a reflected version of itself on both ends.
@@ -993,11 +1205,11 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
         }
 
         for (let i = 1; i <= left; ++i) {
-            padded[left - i] = array[this.calcOffset(i, w)];
+            padded[left - i] = array[calculateReflectOffset(i, w)];
         }
 
         for (let i = 1; i <= right; ++i) {
-            padded[w + left + i] = array[this.calcOffset(w - i, w)];
+            padded[w + left + i] = array[calculateReflectOffset(w - i, w)];
         }
 
         return padded;
@@ -1444,6 +1656,8 @@ export class SpeechT5Processor extends Processor {
     }
 }
 
+export class OwlViTProcessor extends Processor { }
+
 
 //////////////////////////////////////////////////
 /**
@@ -1481,14 +1695,21 @@ export class AutoProcessor {
         WhisperFeatureExtractor,
         ViTFeatureExtractor,
         MobileViTFeatureExtractor,
+        OwlViTFeatureExtractor,
+        CLIPFeatureExtractor,
         ConvNextFeatureExtractor,
+        ConvNextImageProcessor,
+        DPTFeatureExtractor,
+        GLPNFeatureExtractor,
         BeitFeatureExtractor,
         DeiTFeatureExtractor,
         DetrFeatureExtractor,
         YolosFeatureExtractor,
         DonutFeatureExtractor,
+        NougatImageProcessor,
 
         SamImageProcessor,
+        Swin2SRImageProcessor,
         Wav2Vec2FeatureExtractor,
         SpeechT5FeatureExtractor,
     }
@@ -1498,6 +1719,7 @@ export class AutoProcessor {
         Wav2Vec2ProcessorWithLM,
         SamProcessor,
         SpeechT5Processor,
+        OwlViTProcessor,
     }
 
     /**

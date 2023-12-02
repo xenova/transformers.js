@@ -65,17 +65,17 @@ const RESAMPLING_MAPPING = {
     5: 'hamming',
 }
 
-export class RawImage {
+/**
+ * Mapping from file extensions to MIME types.
+ */
+const CONTENT_TYPE_MAP = new Map([
+    ['png', 'image/png'],
+    ['jpg', 'image/jpeg'],
+    ['jpeg', 'image/jpeg'],
+    ['gif', 'image/gif'],
+]);
 
-    /**
-     * Mapping from file extensions to MIME types.
-     */
-    _CONTENT_TYPE_MAP = {
-        'png': 'image/png',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'gif': 'image/gif',
-    }
+export class RawImage {
 
     /**
      * Create a new `RawImage` object.
@@ -89,6 +89,10 @@ export class RawImage {
         this.width = width;
         this.height = height;
         this.channels = channels;
+    }
+
+    get size() {
+        return [this.width, this.height];
     }
 
     /**
@@ -286,10 +290,10 @@ export class RawImage {
             // TODO use `resample` in browser environment
 
             // Store number of channels before resizing
-            const numChannels = this.channels;
+            let numChannels = this.channels;
 
             // Create canvas object for this image
-            const canvas = this.toCanvas();
+            let canvas = this.toCanvas();
 
             // Actually perform resizing using the canvas API
             const ctx = createCanvasFunction(width, height).getContext('2d');
@@ -297,11 +301,8 @@ export class RawImage {
             // Draw image to context, resizing in the process
             ctx.drawImage(canvas, 0, 0, width, height);
 
-            // Extract the resized data
-            const imageData = ctx.getImageData(0, 0, width, height).data;
-
             // Create image from the resized data
-            const resizedImage = new RawImage(imageData, width, height, 4);
+            let resizedImage = new RawImage(ctx.getImageData(0, 0, width, height).data, width, height, 4);
 
             // Convert back so that image has the same number of channels as before
             return resizedImage.convert(numChannels);
@@ -389,6 +390,58 @@ export class RawImage {
             let img = this.toSharp().extend({ left, right, top, bottom });
             return await loadImageFunction(img);
         }
+    }
+
+    async crop([x_min, y_min, x_max, y_max]) {
+        // Ensure crop bounds are within the image
+        x_min = Math.max(x_min, 0);
+        y_min = Math.max(y_min, 0);
+        x_max = Math.min(x_max, this.width - 1);
+        y_max = Math.min(y_max, this.height - 1);
+
+        // Do nothing if the crop is the entire image
+        if (x_min === 0 && y_min === 0 && x_max === this.width - 1 && y_max === this.height - 1) {
+            return this;
+        }
+
+        const crop_width = x_max - x_min + 1;
+        const crop_height = y_max - y_min + 1;
+
+        if (BROWSER_ENV) {
+            // Store number of channels before resizing
+            const numChannels = this.channels;
+
+            // Create canvas object for this image
+            const canvas = this.toCanvas();
+
+            // Create a new canvas of the desired size. This is needed since if the 
+            // image is too small, we need to pad it with black pixels.
+            const ctx = createCanvasFunction(crop_width, crop_height).getContext('2d');
+
+            // Draw image to context, cropping in the process
+            ctx.drawImage(canvas,
+                x_min, y_min, crop_width, crop_height,
+                0, 0, crop_width, crop_height
+            );
+
+            // Create image from the resized data
+            const resizedImage = new RawImage(ctx.getImageData(0, 0, crop_width, crop_height).data, crop_width, crop_height, 4);
+
+            // Convert back so that image has the same number of channels as before
+            return resizedImage.convert(numChannels);
+
+        } else {
+            // Create sharp image from raw data
+            const img = this.toSharp().extract({
+                left: x_min,
+                top: y_min,
+                width: crop_width,
+                height: crop_height,
+            });
+
+            return await loadImageFunction(img);
+        }
+
     }
 
     async center_crop(crop_width, crop_height) {
@@ -588,7 +641,7 @@ export class RawImage {
      * Save the image to the given path.
      * @param {string} path The path to save the image to.
      */
-    save(path) {
+    async save(path) {
 
         if (BROWSER_ENV) {
             if (WEBWORKER_ENV) {
@@ -596,10 +649,13 @@ export class RawImage {
             }
 
             const extension = path.split('.').pop().toLowerCase();
-            const mime = this._CONTENT_TYPE_MAP[extension] ?? 'image/png';
+            const mime = CONTENT_TYPE_MAP.get(extension) ?? 'image/png';
+
+            // Convert image to Blob
+            const blob = await this.toBlob(mime);
 
             // Convert the canvas content to a data URL
-            const dataURL = this.toDataURL(mime);
+            const dataURL = URL.createObjectURL(blob);
 
             // Create an anchor element with the data URL as the href attribute
             const downloadLink = document.createElement('a');
@@ -619,25 +675,10 @@ export class RawImage {
 
         } else {
             const img = this.toSharp();
-            img.toFile(path);
+            return await img.toFile(path);
         }
     }
 
-    /**
-     * Convert the image to a data URL.
-     * @param {string} mime The MIME type of the image.
-     * @returns {string} The data URL.
-     */
-    toDataURL(mime = 'image/png') {
-        if (!BROWSER_ENV || WEBWORKER_ENV) {
-            throw new Error('toDataURL() is only supported in browser environments.')
-        }
-        // Convert image to canvas
-        const canvas = this.toCanvas();
-
-        // Convert the canvas content to a data URL
-        return canvas.toDataURL(mime);
-    }
     toSharp() {
         if (BROWSER_ENV) {
             throw new Error('toSharp() is only supported in server-side environments.')

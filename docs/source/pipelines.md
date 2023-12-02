@@ -131,13 +131,10 @@ let result = await poet('Write me a love poem about cheese.', {
     temperature: 0.9,
     repetition_penalty: 2.0,
     no_repeat_ngram_size: 3,
-
-    // top_k: 20,
-    // do_sample: true,
 });
 ```
 
-which outputs:
+Logging `result[0].generated_text` to the console gives:
 
 ```
 Cheese, oh cheese! You're the perfect comfort food.
