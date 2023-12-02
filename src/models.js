@@ -3545,6 +3545,50 @@ export class DonutSwinPreTrainedModel extends PreTrainedModel { }
 export class DonutSwinModel extends DonutSwinPreTrainedModel { }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+export class ConvNextPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare ConvNext model outputting raw features without any specific head on top.
+ */
+export class ConvNextModel extends ConvNextPreTrainedModel { }
+
+/**
+ * ConvNext Model with an image classification head on top (a linear layer on top of the pooled features), e.g. for ImageNet.
+ */
+export class ConvNextForImageClassification extends ConvNextPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+export class ConvNextV2PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare ConvNextV2 model outputting raw features without any specific head on top.
+ */
+export class ConvNextV2Model extends ConvNextV2PreTrainedModel { }
+
+/**
+ * ConvNextV2 Model with an image classification head on top (a linear layer on top of the pooled features), e.g. for ImageNet.
+ */
+export class ConvNextV2ForImageClassification extends ConvNextV2PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
 //////////////////////////////////////////////////
 export class YolosPreTrainedModel extends PreTrainedModel { }
 export class YolosModel extends YolosPreTrainedModel { }
@@ -4114,6 +4158,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['owlvit', ['OwlViTModel', OwlViTModel]],
     ['beit', ['BeitModel', BeitModel]],
     ['deit', ['DeiTModel', DeiTModel]],
+    ['convnext', ['ConvNextModel', ConvNextModel]],
+    ['convnextv2', ['ConvNextV2Model', ConvNextV2Model]],
     ['resnet', ['ResNetModel', ResNetModel]],
     ['swin', ['SwinModel', SwinModel]],
     ['swin2sr', ['Swin2SRModel', Swin2SRModel]],
@@ -4266,6 +4312,8 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['mobilevit', ['MobileViTForImageClassification', MobileViTForImageClassification]],
     ['beit', ['BeitForImageClassification', BeitForImageClassification]],
     ['deit', ['DeiTForImageClassification', DeiTForImageClassification]],
+    ['convnext', ['ConvNextForImageClassification', ConvNextForImageClassification]],
+    ['convnextv2', ['ConvNextForImageClassification', ConvNextForImageClassification]],
     ['resnet', ['ResNetForImageClassification', ResNetForImageClassification]],
     ['swin', ['SwinForImageClassification', SwinForImageClassification]],
 ]);

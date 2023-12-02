@@ -592,6 +592,7 @@ export class DPTFeatureExtractor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
+export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOTE extends ConvNextFeatureExtractor
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
@@ -1645,6 +1646,7 @@ export class AutoProcessor {
         OwlViTFeatureExtractor,
         CLIPFeatureExtractor,
         ConvNextFeatureExtractor,
+        ConvNextImageProcessor,
         DPTFeatureExtractor,
         GLPNFeatureExtractor,
         BeitFeatureExtractor,
