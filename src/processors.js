@@ -1468,7 +1468,7 @@ export class ClapFeatureExtractor extends FeatureExtractor {
      *    implementation when the truncation mode is not `"fusion"`.
      * 
      * @param {Float32Array|Float64Array} waveform The audio waveform to process.
-     * @param {{ data: Float64Array; dims: number[]; }} mel_filters The mel filters to use.
+     * @param {number[][]} mel_filters The mel filters to use.
      * @param {number} [max_length=null] The maximum number of frames to return.
      * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
