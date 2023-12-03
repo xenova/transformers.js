@@ -19,27 +19,24 @@ describe('Utilities', () => {
 
             // Calculated MEL filters
             const calculated_mel_filters = mel_filter_bank(
-                1 + Math.floor(config.n_fft / 2), // num_frequency_bins
+                Math.floor(1 + config.n_fft / 2), // num_frequency_bins
                 config.feature_size, // num_mel_filters
-                0.0, // min_frequency,
-                22050.0, // max_frequency
+                0.0, // min_frequency
+                8000.0, // max_frequency
                 config.sampling_rate, // sampling_rate
                 "slaney", // norm
                 "slaney", // mel_scale
             );
 
-            let offset = 0;
-            let maxdiff = 0;
-            for (let i = 0; i < original_mel_filters.length; ++i) {
-                for (let j = 0; j < original_mel_filters[i].length; ++j) {
-                    const expected = original_mel_filters[i][j];
-                    const calculated = calculated_mel_filters.data[offset++];
+            const original = original_mel_filters.flat();
+            const calculated = calculated_mel_filters.flat();
 
-                    const diff = Math.abs(expected - calculated);
-                    maxdiff = Math.max(maxdiff, diff);
-                }
-            }
-
+            // Compute max difference
+            const maxdiff = original.reduce((maxdiff, _, i) => {
+                const diff = Math.abs(original[i] - calculated[i]);
+                return Math.max(maxdiff, diff);
+            }, -Infinity);
+            expect(maxdiff).toBeGreaterThanOrEqual(0);
             expect(maxdiff).toBeLessThan(1e-6);
 
         }, MAX_TEST_EXECUTION_TIME);
