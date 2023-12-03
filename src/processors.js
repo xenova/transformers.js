@@ -1149,20 +1149,17 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
 
     constructor(config) {
         super(config);
-        if (this.config.mel_filters) {
-            // convert arrays read from config into flat float32 array
-            this.config.mel_filters = Float64Array.from(this.config.mel_filters.flat());
-        } else {
-            this.config.mel_filters = mel_filter_bank(
-                Math.floor(1 + this.config.n_fft / 2), // num_frequency_bins
-                this.config.feature_size, // num_mel_filters
-                0.0, // min_frequency
-                8000.0, // max_frequency
-                this.config.sampling_rate, // sampling_rate
-                "slaney", // norm
-                "slaney", // mel_scale
-            );
-        }
+
+        // Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
+        this.config.mel_filters ??= mel_filter_bank(
+            Math.floor(1 + this.config.n_fft / 2), // num_frequency_bins
+            this.config.feature_size, // num_mel_filters
+            0.0, // min_frequency
+            8000.0, // max_frequency
+            this.config.sampling_rate, // sampling_rate
+            "slaney", // norm
+            "slaney", // mel_scale
+        );
 
         this.window = window_function(this.config.n_fft, 'hann');
     }
@@ -1290,14 +1287,11 @@ export class ASTFeatureExtractor extends FeatureExtractor {
             true, // triangularize_in_mel_space
         );
 
-        // Do padding
-        const padded = new Float64Array(mel_filters.data.length + mel_filters.dims[1]);
-        padded.set(mel_filters.data);
-
-        this.mel_filters = {
-            data: padded,
-            dims: [mel_filters.dims[0] + 1, mel_filters.dims[1]]
-        };
+        // Do padding:
+        for (let i = 0; i < mel_filters.length; ++i) {
+            mel_filters[i].push(0);
+        }
+        this.mel_filters = mel_filters;
 
         this.window = window_function(400, 'hann', {
             periodic: false,

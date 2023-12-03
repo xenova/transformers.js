@@ -153,7 +153,7 @@ function mel_to_hertz(mels, mel_scale = "htk") {
 *
 * @param {Float64Array} fft_freqs Discrete frequencies of the FFT bins in Hz, of shape `(num_frequency_bins,)`.
 * @param {Float64Array} filter_freqs Center frequencies of the triangular filters to create, in Hz, of shape `(num_mel_filters,)`.
-* @returns {Float64Array} of shape `(num_frequency_bins, num_mel_filters)`.
+* @returns {number[][]} of shape `(num_frequency_bins, num_mel_filters)`.
 */
 function _create_triangular_filter_bank(fft_freqs, filter_freqs) {
     const filter_diff = new Float64Array(filter_freqs.length - 1);
@@ -172,17 +172,16 @@ function _create_triangular_filter_bank(fft_freqs, filter_freqs) {
     }
 
     const numFreqs = filter_freqs.length - 2;
-    const ret = new Float64Array(fft_freqs.length * numFreqs);
+    const ret = Array.from({ length: numFreqs }, () => new Array(fft_freqs.length));
 
     for (let j = 0; j < fft_freqs.length; ++j) { // 201
         const a = j * filter_freqs.length;
-        const a2 = j * numFreqs
         for (let i = 0; i < numFreqs; ++i) { // 80
             const b = a + i;
             const down = -slopes[b] / filter_diff[i];
             const up = slopes[b + 2] / filter_diff[i + 1];
 
-            ret[a2 + i] = Math.max(0, Math.min(down, up));
+            ret[i][j] = Math.max(0, Math.min(down, up));
         }
     }
     return ret;
@@ -214,7 +213,7 @@ function linspace(start, end, num) {
  * @param {string} [mel_scale] The mel frequency scale to use, `"htk"` or `"slaney"`.
  * @param {boolean} [triangularize_in_mel_space] If this option is enabled, the triangular filter is applied in mel space rather than frequency space.
  * This should be set to `true` in order to get the same results as `torchaudio` when computing mel filters.
- * @returns {{data: Float64Array; dims:number[]}} Triangular filter bank matrix, which is a 2D array of shape (`num_frequency_bins`, `num_mel_filters`).
+ * @returns {number[][]} Triangular filter bank matrix, which is a 2D array of shape (`num_frequency_bins`, `num_mel_filters`).
  * This is a projection matrix to go from a spectrogram to a mel spectrogram.
  */
 export function mel_filter_bank(
@@ -250,22 +249,19 @@ export function mel_filter_bank(
 
     if (norm !== null && norm === "slaney") {
         // Slaney-style mel is scaled to be approx constant energy per channel
-
         for (let i = 0; i < num_mel_filters; ++i) {
+            const filter = mel_filters[i];
             const enorm = 2.0 / (filter_freqs[i + 2] - filter_freqs[i]);
             for (let j = 0; j < num_frequency_bins; ++j) {
                 // Apply this enorm to all frequency bins
-                mel_filters[j * num_mel_filters + i] *= enorm;
+                filter[j] *= enorm;
             }
         }
     }
 
     // TODO warn if there is a zero row
 
-    return {
-        data: mel_filters,
-        dims: [num_frequency_bins, num_mel_filters]
-    };
+    return mel_filters;
 
 }
 
@@ -415,7 +411,7 @@ function power_to_db(spectrogram, reference = 1.0, min_value = 1e-10, db_range =
  * @param {boolean} [options.onesided=true] If `true`, only computes the positive frequencies and returns a spectrogram containing `fft_length // 2 + 1`
  * frequency bins. If `false`, also computes the negative frequencies and returns `fft_length` frequency bins.
  * @param {number} [options.preemphasis=null] Coefficient for a low-pass filter that applies pre-emphasis before the DFT.
- * @param {{ data: Float64Array; dims: number[]; }} [options.mel_filters=null] The mel filter bank of shape `(num_freq_bins, num_mel_filters)`.
+ * @param {number[][]} [options.mel_filters=null] The mel filter bank of shape `(num_freq_bins, num_mel_filters)`.
  * If supplied, applies this filter bank to create a mel spectrogram.
  * @param {number} [options.mel_floor=1e-10] Minimum value of mel frequency banks.
  * @param {string} [options.log_mel=null] How to convert the spectrogram to log scale. Possible options are:
@@ -577,19 +573,7 @@ export function spectrogram(
     }
 
     // TODO: What if `mel_filters` is null?
-    const num_mel_filters = mel_filters.dims[1];
-
-    // Precompute transpose of mel filters, to speed up matrix multiplication.
-    // Speeds up computation by ~30%.
-    /** @type {number[][]} */
-    const transposedMelFilters = new Array(num_mel_filters);
-    for (let i = 0; i < num_mel_filters; ++i) {
-        const bin = new Array(num_frequency_bins);
-        for (let j = 0; j < num_frequency_bins; ++j) {
-            bin[j] = mel_filters.data[j * num_mel_filters + i];
-        }
-        transposedMelFilters[i] = bin;
-    }
+    const num_mel_filters = mel_filters.length;
 
     // Only here do we create Float32Array
     const mel_spec = new Float32Array(num_mel_filters * d1Max);
@@ -601,7 +585,7 @@ export function spectrogram(
     //  - mel_spec.shape=(80, 3000)
     const dims = transpose ? [d1Max, num_mel_filters] : [num_mel_filters, d1Max];
     for (let i = 0; i < num_mel_filters; ++i) { // num melfilters (e.g., 80)
-        const filter = transposedMelFilters[i];
+        const filter = mel_filters[i];
         for (let j = 0; j < d1; ++j) {  // num frames (e.g., 3000)
             let sum = 0;
 
