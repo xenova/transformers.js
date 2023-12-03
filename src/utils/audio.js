@@ -91,10 +91,11 @@ export function hanning(M) {
         return new Float64Array([1]);
     }
     const denom = M - 1;
+    const factor = Math.PI / denom;
     const cos_vals = new Float64Array(M);
-    for (let i = 0; i <= denom; ++i) {
-        const n = 2 * i - M + 1;
-        cos_vals[i] = 0.5 + 0.5 * Math.cos(Math.PI * n / denom);
+    for (let i = 0; i < M; ++i) {
+        const n = 2 * i - denom;
+        cos_vals[i] = 0.5 + 0.5 * Math.cos(factor * n);
     }
     return cos_vals;
 }
@@ -156,18 +157,19 @@ function mel_to_hertz(mels, mel_scale = "htk") {
 * @returns {number[][]} of shape `(num_frequency_bins, num_mel_filters)`.
 */
 function _create_triangular_filter_bank(fft_freqs, filter_freqs) {
-    const filter_diff = new Float64Array(filter_freqs.length - 1);
+    const filter_diff = Float64Array.from(
+        { length: filter_freqs.length - 1 },
+        (_, i) => filter_freqs[i + 1] - filter_freqs[i]
+    );
 
-    for (let i = 0; i < filter_diff.length; ++i) {
-        filter_diff[i] = filter_freqs[i + 1] - filter_freqs[i];
-    }
-
-    const slopes = new Float64Array(fft_freqs.length * filter_freqs.length);
+    const slopes = Array.from({
+        length: fft_freqs.length
+    }, () => new Array(filter_freqs.length));
 
     for (let j = 0; j < fft_freqs.length; ++j) {
-        const a = j * filter_freqs.length;
+        const slope = slopes[j];
         for (let i = 0; i < filter_freqs.length; ++i) {
-            slopes[a + i] = filter_freqs[i] - fft_freqs[j];
+            slope[i] = filter_freqs[i] - fft_freqs[j];
         }
     }
 
@@ -175,12 +177,10 @@ function _create_triangular_filter_bank(fft_freqs, filter_freqs) {
     const ret = Array.from({ length: numFreqs }, () => new Array(fft_freqs.length));
 
     for (let j = 0; j < fft_freqs.length; ++j) { // 201
-        const a = j * filter_freqs.length;
+        const slope = slopes[j];
         for (let i = 0; i < numFreqs; ++i) { // 80
-            const b = a + i;
-            const down = -slopes[b] / filter_diff[i];
-            const up = slopes[b + 2] / filter_diff[i + 1];
-
+            const down = -slope[i] / filter_diff[i];
+            const up = slope[i + 2] / filter_diff[i + 1];
             ret[i][j] = Math.max(0, Math.min(down, up));
         }
     }
@@ -554,10 +554,11 @@ export function spectrogram(
 
     // compute magnitudes
     for (let i = 0; i < d1; ++i) {
+        const a = i * num_frequency_bins;
         for (let j = 0; j < num_frequency_bins; ++j) {
-            const outOffset = i * num_frequency_bins + j;
+            const outOffset = a + j;
             const inOffset = outOffset << 1; // * 2 since complex
-            const magnitude = spectrogram[inOffset] ** 2 + spectrogram[inOffset + 1] ** 2
+            const magnitude = spectrogram[inOffset] ** 2 + spectrogram[inOffset + 1] ** 2;
             magnitudes[outOffset] = magnitude;
         }
     }
