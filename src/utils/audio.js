@@ -486,21 +486,34 @@ export function spectrogram(
 
     const num_frequency_bins = onesided ? Math.floor(fft_length / 2) + 1 : fft_length
 
-    /**
-     * @type {Float64Array} (2 * num_frames, num_frequency_bins)
-     * (2 * since complex)
-     */
-    const spectrogram = new Float64Array(2 * num_frames * num_frequency_bins);
+    let d1 = num_frames;
+    let d1Max = num_frames;
+
+    // If maximum number of frames is provided, we must either pad or truncate
+    if (max_num_frames !== null) {
+        if (max_num_frames > num_frames) { // input is too short, so we pad
+            if (do_pad) {
+                d1Max = max_num_frames;
+            }
+        } else { // input is too long, so we truncate
+            d1Max = d1 = max_num_frames;
+        }
+    }
+
 
     // Buffers for FFT computation
-    const fft = new FFT(fft_length, !onesided)
+    const fft = new FFT(fft_length, !onesided);
     const buffer = new Float64Array(fft_length);
     const outputBuffer = new Float64Array(2 * fft_length);
 
-    let timestep = 0;
-    for (let i = 0; i < num_frames; ++i) {
+    // NOTE: Unlike the original implementation, we do not
+    // transpose since we perform matrix multiplication later.
+    // Also, we only need to store real numbers now (402 -> 201)
+    const magnitudes = new Array(d1);
+
+    for (let i = 0; i < d1; ++i) {
         for (let j = 0; j < frame_length; ++j) {
-            buffer[j] = waveform[timestep + j];
+            buffer[j] = waveform[i * hop_length + j];
         }
 
         if (remove_dc_offset) {
@@ -528,39 +541,14 @@ export function spectrogram(
         }
 
         fft.transform(buffer, outputBuffer); // Most time is spent here
-        spectrogram.set(outputBuffer.subarray(0, 2 * num_frequency_bins), 2 * i * num_frequency_bins);
 
-        timestep += hop_length;
-    }
-
-    let d1 = num_frames;
-    let d1Max = num_frames;
-
-    // If maximum number of frames is provided, we must either pad or truncate
-    if (max_num_frames !== null) {
-        if (max_num_frames > num_frames) { // input is too short, so we pad
-            if (do_pad) {
-                d1Max = max_num_frames;
-            }
-        } else { // input is too long, so we truncate
-            d1Max = d1 = max_num_frames;
-        }
-    }
-
-    // NOTE: Unlike the original implementation, we do not
-    // transpose since we perform matrix multiplication later.
-    // Also, we only need to store real numbers now (402 -> 201)
-    const magnitudes = new Float64Array(d1Max * num_frequency_bins);
-
-    // compute magnitudes
-    for (let i = 0; i < d1; ++i) {
-        const a = i * num_frequency_bins;
+        // compute magnitudes
+        const row = new Array(num_frequency_bins);
         for (let j = 0; j < num_frequency_bins; ++j) {
-            const outOffset = a + j;
-            const inOffset = outOffset << 1; // * 2 since complex
-            const magnitude = spectrogram[inOffset] ** 2 + spectrogram[inOffset + 1] ** 2;
-            magnitudes[outOffset] = magnitude;
+            const inOffset = j << 1; // * 2 since complex
+            row[j] = outputBuffer[inOffset] ** 2 + outputBuffer[inOffset + 1] ** 2;
         }
+        magnitudes[i] = row;
     }
 
     // TODO what should happen if power is None?
@@ -569,7 +557,10 @@ export function spectrogram(
         // slight optimization to not sqrt
         const pow = 2 / power; // we use 2 since we already squared
         for (let i = 0; i < magnitudes.length; ++i) {
-            magnitudes[i] **= pow;
+            const magnitude = magnitudes[i];
+            for (let j = 0; j < magnitude.length; ++j) {
+                magnitude[j] **= pow;
+            }
         }
     }
 
@@ -587,12 +578,12 @@ export function spectrogram(
     const dims = transpose ? [d1Max, num_mel_filters] : [num_mel_filters, d1Max];
     for (let i = 0; i < num_mel_filters; ++i) { // num melfilters (e.g., 80)
         const filter = mel_filters[i];
-        for (let j = 0; j < d1; ++j) {  // num frames (e.g., 3000)
-            let sum = 0;
+        for (let j = 0; j < d1; ++j) { // num frames (e.g., 3000)
+            const magnitude = magnitudes[j];
 
-            const o = j * num_frequency_bins;
+            let sum = 0;
             for (let k = 0; k < num_frequency_bins; ++k) { // num frequency bins (e.g., 201)
-                sum += filter[k] * magnitudes[o + k];
+                sum += filter[k] * magnitude[k];
             }
 
             mel_spec[
