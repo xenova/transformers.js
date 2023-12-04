@@ -276,11 +276,12 @@ function isPowerOfTwo(number) {
 
 /**
  * Implementation of Radix-4 FFT.
- *
- * R4FFT class provides functionality for performing Fast Fourier Transform on arrays.
+ * 
+ * P2FFT class provides functionality for performing Fast Fourier Transform on arrays
+ * which are a power of two in length.
  * Code adapted from https://www.npmjs.com/package/fft.js
  */
-class R4FFT {
+class P2FFT {
     /**
      * @param {number} size The size of the input array. Must be a power of two larger than 1.
      * @throws {Error} FFT size must be a power of two larger than 1.
@@ -292,7 +293,7 @@ class R4FFT {
 
         this._csize = size << 1;
 
-        this.table = new Float32Array(this.size * 2);
+        this.table = new Float64Array(this.size * 2);
         for (let i = 0; i < this.table.length; i += 2) {
             const angle = Math.PI * i / this.size;
             this.table[i] = Math.cos(angle);
@@ -759,169 +760,143 @@ class R4FFT {
 }
 
 /**
- * Helper class to support FFT with non-power-of-two sizes.
+ * NP2FFT class provides functionality for performing Fast Fourier Transform on arrays
+ * which are not a power of two in length. In such cases, the chirp-z transform is used.
+ * 
+ * For more information, see: https://math.stackexchange.com/questions/77118/non-power-of-2-ffts/77156#77156
  */
-export class FFT {
+class NP2FFT {
 
     /**
-     * 
-     * @param {number} size The size of the input array.
-     * @param {boolean} complex Whether the input array is complex or real.
+     * Constructs a new NP2FFT object.
+     * @param {number} fft_length The length of the FFT
      */
-    constructor(size, complex = false) {
-        this.complex = complex;
-        const fftSize = complex ? size / 2 : size;
-        this._isPowerOfTwo = isPowerOfTwo(fftSize);
+    constructor(fft_length) {
+        // Helper variables
+        const a = 2 * (fft_length - 1);
+        const b = 2 * (2 * fft_length - 1);
+        const nextP2 = 2 ** (Math.ceil(Math.log2(b)))
+        this.bufferSize = nextP2;
+        this._a = a;
 
-        // If is power of two, use R4FFT. Otherwise, we must perform
-        // FFT with chirp-z transform. For more information, see
-        // https://math.stackexchange.com/questions/77118/non-power-of-2-ffts/77156#77156
+        // Define buffers
+        // Compute chirp for transform
+        const chirp = new Float64Array(b);
+        const ichirp = new Float64Array(nextP2);
+        this._chirpBuffer = new Float64Array(nextP2);
+        this._buffer1 = new Float64Array(nextP2);
+        this._buffer2 = new Float64Array(nextP2);
+        this._outBuffer1 = new Float64Array(nextP2);
+        this._outBuffer2 = new Float64Array(nextP2);
 
-        if (this._isPowerOfTwo) {
-            this.f = new R4FFT(fftSize);
-        } else {
-            // Helper variables
-            const a = 2 * (fftSize - 1);
-            const b = 2 * (2 * fftSize - 1);
-            const nextP2 = 2 ** (Math.ceil(Math.log2(b))); // Next power of two
+        // Compute complex exponentiation
+        const theta = -2 * Math.PI / fft_length;
+        const baseR = Math.cos(theta);
+        const baseI = Math.sin(theta);
 
-            // Define buffers
-            // Compute chirp for transform
-            const chirp = new Float64Array(b);
-            const ichirp = new Float64Array(nextP2);
-            this._chirpBuffer = new Float64Array(nextP2);
+        // Precompute helper for chirp-z transform
+        for (let i = 0; i < b >> 1; ++i) {
+            // Compute complex power:
+            const e = (i + 1 - fft_length) ** 2 / 2.0;
 
-            // Compute complex exponentiation
-            const theta = -2 * Math.PI / fftSize;
-            const baseR = Math.cos(theta);
-            const baseI = Math.sin(theta);
+            // Compute the modulus and argument of the result
+            const result_mod = Math.sqrt(baseR ** 2 + baseI ** 2) ** e;
+            const result_arg = e * Math.atan2(baseI, baseR);
 
-            // Precompute helper for chirp-z transform
-            for (let i = 0; i < chirp.length >> 1; ++i) {
-                // Compute complex power:
-                const e = (i + 1 - fftSize) ** 2 / 2.0;
+            // Convert the result back to rectangular form
+            // and assign to chirp and ichirp
+            const i2 = 2 * i;
+            chirp[i2] = result_mod * Math.cos(result_arg);
+            chirp[i2 + 1] = result_mod * Math.sin(result_arg);
 
-                // Compute the modulus and argument of the result
-                const result_mod = Math.sqrt(baseR ** 2 + baseI ** 2) ** e;
-                const result_arg = e * Math.atan2(baseI, baseR);
+            // conjugate
+            ichirp[i2] = chirp[i2];
+            ichirp[i2 + 1] = - chirp[i2 + 1];
+        }
+        this._slicedChirpBuffer = chirp.subarray(a, b);
 
-                // Convert the result back to rectangular form
-                // and assign to chirp and ichirp
-                const i2 = 2 * i;
-                chirp[i2] = result_mod * Math.cos(result_arg);
-                chirp[i2 + 1] = result_mod * Math.sin(result_arg);
+        // create object to perform Fast Fourier Transforms
+        // with `nextP2` complex numbers
+        this._f = new P2FFT(nextP2 >> 1);
+        this._f.transform(this._chirpBuffer, ichirp);
+    }
 
-                // conjugate
-                ichirp[i2] = chirp[i2];
-                ichirp[i2 + 1] = - chirp[i2 + 1];
+    _transform(output, input, real) {
+        const ib1 = this._buffer1;
+        const ib2 = this._buffer2;
+        const ob2 = this._outBuffer1;
+        const ob3 = this._outBuffer2;
+        const cb = this._chirpBuffer;
+        const sb = this._slicedChirpBuffer;
+        const a = this._a;
+
+        if (real) {
+            // Real multiplication
+            for (let j = 0; j < sb.length; j += 2) {
+                const j2 = j + 1
+                const j3 = j >> 1;
+
+                const a_real = input[j3];
+                ib1[j] = a_real * sb[j];
+                ib1[j2] = a_real * sb[j2];
             }
+        } else {
+            // Complex multiplication
+            for (let j = 0; j < sb.length; j += 2) {
+                const j2 = j + 1
+                ib1[j] = input[j] * sb[j] - input[j2] * sb[j2];
+                ib1[j2] = input[j] * sb[j2] + input[j2] * sb[j];
+            }
+        }
+        this._f.transform(ob2, ib1);
 
-            // create object to perform Fast Fourier Transforms
-            // with `nextP2` complex numbers
-            this.f = new R4FFT(nextP2 >> 1);
-            this.f.transform(this._chirpBuffer, ichirp);
+        for (let j = 0; j < cb.length; j += 2) {
+            const j2 = j + 1;
 
-            this._slicedChirpBuffer = chirp.subarray(a, b);
+            ib2[j] = ob2[j] * cb[j] - ob2[j2] * cb[j2];
+            ib2[j2] = ob2[j] * cb[j2] + ob2[j2] * cb[j];
+        }
+        this._f.inverseTransform(ob3, ib2);
 
-            // Allocate two buffers
-            this._inBuffer = new Float64Array(nextP2);
-            this._outBuffer = new Float64Array(nextP2);
+        for (let j = 0; j < ob3.length; j += 2) {
+            const a_real = ob3[j + a];
+            const a_imag = ob3[j + a + 1];
+            const b_real = sb[j];
+            const b_imag = sb[j + 1];
+
+            output[j] = a_real * b_real - a_imag * b_imag;
+            output[j + 1] = a_real * b_imag + a_imag * b_real;
         }
     }
 
-    /**
-     * Compute the one-dimensional discrete Fourier Transform.
-     * @param {Float64Array} arr Input array, can be complex.
-     * @param {Float64Array} [output] The output array. If specified, this array will be overwritten with the result.
-     * @returns {Float64Array} The output array.
-     */
-    transform(arr, output = undefined) {
-        if (output) {
-            // User provided an output array. Ensure that the size is correct
-            if (this.complex) {
-                if (output.length !== arr.length) {
-                    throw new Error(`Output array must be the same size as the (complex) input array: ${output.length} !== ${arr.length}`);
-                }
-            } else {
-                if (output.length !== 2 * arr.length) {
-                    throw new Error(`Output array must be double the size of the (real) input array: ${output.length} !== 2 * ${arr.length}`);
-                }
-            }
-        }
+    transform(output, input) {
+        this._transform(output, input, false);
+    }
 
-        if (this._isPowerOfTwo) {
-            // Create output buffer if user did not provide one
-            output ??= this.f.createComplexArray();
-            if (this.complex) {
-                this.f.transform(output, arr);
-            } else {
-                this.f.realTransform(output, arr);
-            }
+    realTransform(output, input) {
+        this._transform(output, input, true);
+    }
+}
+
+export class FFT {
+    constructor(fft_length) {
+        this.fft_length = fft_length;
+        this.isPowerOfTwo = isPowerOfTwo(fft_length);
+        if (this.isPowerOfTwo) {
+            this.fft = new P2FFT(fft_length);
+            this.outputBufferSize = 2 * fft_length;
         } else {
-            // Reuse buffers
-            const ib = this._inBuffer.fill(0); // Reset input buffer
-            const cb = this._chirpBuffer;
-            const ob = this._outBuffer;
-            const sb = this._slicedChirpBuffer;
-
-            if (this.complex) {
-                for (let j = 0; j < sb.length; j += 2) {
-                    const j2 = j + 1;
-
-                    // Complex multiplication
-                    ib[j] = arr[j] * sb[j] - arr[j2] * sb[j2];
-                    ib[j2] = arr[j] * sb[j2] + arr[j2] * sb[j];
-                }
-            } else {
-                for (let j = 0; j < sb.length; j += 2) {
-                    const j2 = j + 1;
-
-                    const a_real = arr[j >> 1];
-                    ib[j] = a_real * sb[j];
-                    ib[j2] = a_real * sb[j2];
-                }
-            }
-            this.f.transform(ob, ib);
-
-            for (let j = 0; j < cb.length; j += 2) {
-                const j2 = j + 1;
-
-                // Complex multiplication
-                ib[j] = ob[j] * cb[j] - ob[j2] * cb[j2];
-                ib[j2] = ob[j] * cb[j2] + ob[j2] * cb[j];
-            }
-            this.f.inverseTransform(ob, ib);
-
-            if (this.complex) {
-                output ??= new Float64Array(arr.length);
-
-                const offset = arr.length - 2;
-                for (let j = 0; j < output.length; j += 2) {
-                    const o = j + offset;
-                    const a_real = ob[o];
-                    const a_imag = ob[o + 1];
-                    const b_real = sb[j];
-                    const b_imag = sb[j + 1];
-
-                    output[j] = a_real * b_real - a_imag * b_imag;
-                    output[j + 1] = a_real * b_imag + a_imag * b_real;
-                }
-            } else {
-                output ??= new Float64Array(arr.length * 2);
-
-                const offset = 2 * (arr.length - 1);
-                for (let j = 0; j < output.length; j += 2) {
-                    const a_real = ob[j + offset];
-                    const a_imag = ob[j + offset + 1];
-                    const b_real = sb[j];
-                    const b_imag = sb[j + 1];
-
-                    output[j] = a_real * b_real - a_imag * b_imag;
-                    output[j + 1] = a_real * b_imag + a_imag * b_real;
-                }
-            }
+            this.fft = new NP2FFT(fft_length);
+            this.outputBufferSize = this.fft.bufferSize;
         }
-        return output;
+    }
+
+    realTransform(out, input) {
+        this.fft.realTransform(out, input);
+    }
+
+    transform(out, input) {
+        this.fft.transform(out, input);
     }
 }
 

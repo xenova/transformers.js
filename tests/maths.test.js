@@ -6,9 +6,21 @@ import { FFT, medianFilter } from '../src/utils/maths.js';
 
 
 const fft = (arr, complex = false) => {
-    const fft = new FFT(arr.length, complex);
-    const out = fft.transform(arr);
-    return out;
+    let output;
+    let fft;
+    if (complex) {
+        fft = new FFT(arr.length / 2);
+        output = new Float64Array(fft.outputBufferSize);
+        fft.transform(output, arr);
+    } else {
+        fft = new FFT(arr.length);
+        output = new Float64Array(fft.outputBufferSize);
+        fft.realTransform(output, arr);
+    }
+    if (!fft.isPowerOfTwo) {
+        output = output.slice(0, complex ? arr.length : 2 * arr.length);
+    }
+    return output;
 }
 
 const fftTestsData = await (await getFile('./tests/data/fft_tests.json')).json()

@@ -500,53 +500,49 @@ export function spectrogram(
         }
     }
 
-
-    // Buffers for FFT computation
-    const fft = new FFT(fft_length, !onesided);
-    const buffer = new Float64Array(fft_length);
-    const outputBuffer = new Float64Array(2 * fft_length);
-
-    // NOTE: Unlike the original implementation, we do not
-    // transpose since we perform matrix multiplication later.
-    // Also, we only need to store real numbers now (402 -> 201)
+    // Preallocate arrays to store output.
+    const fft = new FFT(fft_length);
+    const inputBuffer = new Float64Array(fft_length);
+    const outputBuffer = new Float64Array(fft.outputBufferSize);
     const magnitudes = new Array(d1);
 
     for (let i = 0; i < d1; ++i) {
+        // Populate buffer with waveform data
+        const offset = i * hop_length;
         for (let j = 0; j < frame_length; ++j) {
-            buffer[j] = waveform[i * hop_length + j];
+            inputBuffer[j] = waveform[offset + j];
         }
 
         if (remove_dc_offset) {
             let sum = 0;
             for (let j = 0; j < frame_length; ++j) {
-                sum += buffer[j];
+                sum += inputBuffer[j];
             }
             const mean = sum / frame_length;
             for (let j = 0; j < frame_length; ++j) {
-                buffer[j] -= mean;
+                inputBuffer[j] -= mean;
             }
         }
 
         if (preemphasis !== null) {
             // Done in reverse to avoid copies and distructive modification
             for (let j = frame_length - 1; j >= 1; --j) {
-                buffer[j] -= preemphasis * buffer[j - 1];
+                inputBuffer[j] -= preemphasis * inputBuffer[j - 1];
             }
-
-            buffer[0] *= 1 - preemphasis;
+            inputBuffer[0] *= 1 - preemphasis;
         }
 
-        for (let j = 0; j < frame_length; ++j) {
-            buffer[j] *= window[j];
+        for (let j = 0; j < window.length; ++j) {
+            inputBuffer[j] *= window[j];
         }
 
-        fft.transform(buffer, outputBuffer); // Most time is spent here
+        fft.realTransform(outputBuffer, inputBuffer);
 
         // compute magnitudes
         const row = new Array(num_frequency_bins);
-        for (let j = 0; j < num_frequency_bins; ++j) {
-            const inOffset = j << 1; // * 2 since complex
-            row[j] = outputBuffer[inOffset] ** 2 + outputBuffer[inOffset + 1] ** 2;
+        for (let j = 0; j < row.length; ++j) {
+            const j2 = j << 1;
+            row[j] = outputBuffer[j2] ** 2 + outputBuffer[j2 + 1] ** 2;
         }
         magnitudes[i] = row;
     }
@@ -571,8 +567,8 @@ export function spectrogram(
     const mel_spec = new Float32Array(num_mel_filters * d1Max);
 
     // Perform matrix muliplication:
-    // mel_spec = mel_filters.T @ magnitudes.T
-    //  - mel_filters.shape=(201, 80) => mel_filters.T.shape=(80, 201)
+    // mel_spec = mel_filters @ magnitudes.T
+    //  - mel_filters.shape=(80, 201)
     //  - magnitudes.shape=(3000, 201) => - magnitudes.T.shape=(201, 3000)
     //  - mel_spec.shape=(80, 3000)
     const dims = transpose ? [d1Max, num_mel_filters] : [num_mel_filters, d1Max];
