@@ -286,7 +286,7 @@ describe('Processors', () => {
                 compare(original_sizes, [[408, 612]]);
                 compare(reshaped_input_sizes, [[384, 608]]);
             }
-        });
+        }, MAX_TEST_EXECUTION_TIME);
 
         // NougatImageProcessor
         //  - tests padding after normalization (image_mean != 0.5, image_std != 0.5)
