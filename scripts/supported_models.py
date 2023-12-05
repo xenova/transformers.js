@@ -3,6 +3,13 @@ from .extra.marian import SUPPORTED_HELSINKI_NLP_MODELS
 
 SUPPORTED_MODELS = {
     # NOTE: keys of `SUPPORTED_MODELS` are subsets of https://github.com/huggingface/optimum/blob/7f8e606689365931300ef5e6d3b20cb88771cb08/optimum/exporters/tasks.py#L281-L965
+    'audio-spectrogram-transformer': [
+        'MIT/ast-finetuned-audioset-10-10-0.4593',
+        'MIT/ast-finetuned-audioset-16-16-0.442',
+        'MIT/ast-finetuned-speech-commands-v2',
+        'mtg-upf/discogs-maest-30s-pw-73e-ts',
+    ],
+    
     'albert': [
         # Masked language modelling
         'albert-base-v2',
@@ -125,6 +132,14 @@ SUPPORTED_MODELS = {
         # Masked language modelling
         'camembert-base',
         'airesearch/wangchanberta-base-att-spm-uncased',
+    ],
+    'clap': [
+        # Zero-shot audio classification and feature extraction
+        # (with and without `--split_modalities`)
+        'laion/clap-htsat-unfused',
+        # TODO add 'laion/clap-htsat-fused',
+
+        'Xenova/tiny-random-ClapModel',
     ],
     'clip': [
         # Zero-shot image classification and feature extraction

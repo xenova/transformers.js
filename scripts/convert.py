@@ -353,6 +353,25 @@ def main():
             device=conv_args.device,
         )
 
+    # TODO: Enable once https://github.com/huggingface/optimum/pull/1552 is merged
+    # elif config.model_type == 'clap' and conv_args.split_modalities:
+    #     # Handle special case for exporting text and audio models separately
+    #     from .extra.clap import ClapTextModelWithProjectionOnnxConfig, ClapAudioModelWithProjectionOnnxConfig
+    #     from transformers.models.clap import ClapTextModelWithProjection, ClapAudioModelWithProjection
+
+    #     text_model = ClapTextModelWithProjection.from_pretrained(model_id)
+    #     audio_model = ClapAudioModelWithProjection.from_pretrained(model_id)
+
+    #     export_models(
+    #         models_and_onnx_configs={
+    #             "text_model": (text_model, ClapTextModelWithProjectionOnnxConfig(text_model.config)),
+    #             "audio_model": (audio_model, ClapAudioModelWithProjectionOnnxConfig(audio_model.config)),
+    #         },
+    #         output_dir=output_model_folder,
+    #         opset=conv_args.opset,
+    #         device=conv_args.device,
+    #     )
+
     else:
         main_export(**export_kwargs)
 

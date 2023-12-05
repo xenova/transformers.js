@@ -337,4 +337,103 @@ describe('Processors', () => {
             }
         }, MAX_TEST_EXECUTION_TIME);
     });
+
+    describe('Audio processors', () => {
+        const audioPromise = new Promise(async (resolve) => {
+            const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/mlk.npy';
+            const buffer = await (await fetch(url)).arrayBuffer();
+            const audio = Float32Array.from(new Float64Array(buffer));
+            resolve(audio);
+        });
+
+        it('WhisperFeatureExtractor', async () => {
+            const audio = await audioPromise;
+            const processor = await AutoProcessor.from_pretrained('Xenova/whisper-tiny.en');
+            const { input_features } = await processor(audio);
+            compare(input_features.dims, [1, 80, 3000]);
+            expect(avg(input_features.data)).toBeCloseTo(-0.2813588131551941);
+            expect(input_features.data[0]).toBeCloseTo(0.33168578147888184);
+            expect(input_features.data[1]).toBeCloseTo(0.30986475944519043);
+            expect(input_features.data[81]).toBeCloseTo(0.10727232694625854);
+            expect(input_features.data[3001]).toBeCloseTo(0.2555035352706909);
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it('ASTFeatureExtractor', async () => {
+            const audio = await audioPromise;
+            const processor = await AutoProcessor.from_pretrained('Xenova/ast-finetuned-audioset-10-10-0.4593');
+            { // truncation
+                const { input_values } = await processor(audio);
+                compare(input_values.dims, [1, 1024, 128]);
+
+                expect(avg(input_values.data)).toBeCloseTo(-0.04054912979309085);
+                expect(input_values.data[0]).toBeCloseTo(-0.5662586092948914);
+                expect(input_values.data[1]).toBeCloseTo(-1.0300861597061157);
+                expect(input_values.data[129]).toBeCloseTo(-1.084834098815918);
+                expect(input_values.data[1025]).toBeCloseTo(-1.1204065084457397);
+            }
+            { // padding
+                const { input_values } = await processor(audio.slice(0, 1000));
+                compare(input_values.dims, [1, 1024, 128]); // [1, 4, 128] -> (padded to) -> [1, 1024, 128]
+
+                expect(avg(input_values.data)).toBeCloseTo(0.4647964835166931);
+                expect(input_values.data[0]).toBeCloseTo(-0.5662586092948914);
+                expect(input_values.data[1]).toBeCloseTo(-1.0300861597061157);
+                expect(input_values.data[129]).toBeCloseTo(-1.084834098815918);
+
+                // padded values
+                expect(input_values.data[1025]).toBeCloseTo(0.46703237295150757);
+                expect(input_values.data[2049]).toBeCloseTo(0.46703237295150757);
+                expect(input_values.data[10000]).toBeCloseTo(0.46703237295150757);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it('ClapFeatureExtractor', async () => {
+            const audio = await audioPromise;
+            const processor = await AutoProcessor.from_pretrained('Xenova/clap-htsat-unfused');
+            { // truncation
+                // Since truncation uses a random strategy, we override
+                // Math.random to ensure that the test is deterministic
+                const originalRandom = Math.random;
+                Math.random = () => 0.5;
+
+                let long_audio = new Float32Array(500000);
+                long_audio.set(audio);
+                long_audio.set(audio, long_audio.length - audio.length);
+
+                const { input_features } = await processor(long_audio);
+                compare(input_features.dims, [1, 1, 1001, 64]);
+
+                expect(avg(input_features.data)).toBeCloseTo(-37.94569396972656);
+                expect(input_features.data[0]).toBeCloseTo(-53.32647705078125);
+                expect(input_features.data[1]).toBeCloseTo(-47.76755142211914);
+                expect(input_features.data[65]).toBeCloseTo(-36.32261276245117);
+                expect(input_features.data[1002]).toBeCloseTo(-28.0314884185791);
+                expect(input_features.data[10000]).toBeCloseTo(-21.905902862548828);
+                expect(input_features.data[60000]).toBeCloseTo(-14.877863883972168);
+                expect(input_features.data[64062]).toBeCloseTo(-37.9784049987793);
+                expect(input_features.data[64063]).toBeCloseTo(-37.73963928222656);
+
+                // Reset Math.random
+                Math.random = originalRandom;
+            }
+            { // padding
+                const { input_features } = await processor(audio);
+                compare(input_features.dims, [1, 1, 1001, 64]);
+
+                expect(avg(input_features.data)).toBeCloseTo(-34.99049377441406);
+                expect(input_features.data[0]).toBeCloseTo(-21.32573890686035);
+                expect(input_features.data[1]).toBeCloseTo(-26.168411254882812);
+                expect(input_features.data[65]).toBeCloseTo(-29.716018676757812);
+                expect(input_features.data[1002]).toBeCloseTo(-32.16273498535156);
+                expect(input_features.data[10000]).toBeCloseTo(-19.9283390045166);
+
+                // padded values
+                expect(input_features.data[60000]).toBeCloseTo(-100.0);
+                expect(input_features.data[64062]).toBeCloseTo(-100.0);
+                expect(input_features.data[64063]).toBeCloseTo(-100.0);
+            }
+
+
+        }, MAX_TEST_EXECUTION_TIME);
+    });
 });
