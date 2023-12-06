@@ -173,17 +173,6 @@ SUPPORTED_MODELS = {
             'airesearch/wangchanberta-base-att-spm-uncased',
         ],
     },
-
-    'clip': {
-        # Zero-shot image classification (and feature extraction)
-        # (with and without `--split_modalities`)
-        'zero-shot-image-classification': [
-            'openai/clip-vit-base-patch16',
-            'openai/clip-vit-base-patch32',
-            'openai/clip-vit-large-patch14',
-            'openai/clip-vit-large-patch14-336',
-        ]
-    },
     'clap': {
         # Zero-shot audio classification and feature extraction
         # (with and without `--split_modalities`)
@@ -194,6 +183,16 @@ SUPPORTED_MODELS = {
             'laion/larger_clap_music_and_speech',
             # 'Xenova/tiny-random-ClapModel',
         }
+    },
+    'clip': {
+        # Zero-shot image classification (and feature extraction)
+        # (with and without `--split_modalities`)
+        'zero-shot-image-classification': [
+            'openai/clip-vit-base-patch16',
+            'openai/clip-vit-base-patch32',
+            'openai/clip-vit-large-patch14',
+            'openai/clip-vit-large-patch14-336',
+        ]
     },
     'codegen': {
         # Text generation
