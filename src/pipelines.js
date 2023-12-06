@@ -1989,7 +1989,7 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
         const toReturn = [];
         for (let i = 0; i < images.length; ++i) {
             const image = images[i];
-            const imageSize = [[image.height, image.width]];
+            const imageSize = percentage ? null : [[image.height, image.width]];
             const pixel_values = model_inputs.pixel_values[i].unsqueeze_(0);
 
             // Run model with both text and pixel inputs
