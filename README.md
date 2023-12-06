@@ -101,7 +101,7 @@ npm i @xenova/transformers
 Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN or static hosting. For example, using [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules), you can import the library with:
 ```html
 <script type="module">
-    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.10.0';
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.10.1';
 </script>
 ```
 
@@ -133,7 +133,7 @@ Want to jump straight in? Get started with one of our sample applications/templa
 
 
 
-By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models?library=transformers.js) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@2.10.0/dist/), which should work out-of-the-box. You can customize this as follows:
+By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models?library=transformers.js) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@2.10.1/dist/), which should work out-of-the-box. You can customize this as follows:
 
 
 ### Settings
