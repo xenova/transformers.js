@@ -1,6 +1,6 @@
 name: "🚀 Feature request"
 description: Submit a proposal/request for a new transformers.js feature
-labels: [ "feature" ]
+labels: [ "enhancement" ]
 body:
   - type: textarea
     id: feature-request
@@ -9,8 +9,7 @@ body:
     attributes:
       label: Feature request
       description: |
-        A clear and concise description of the feature proposal.
-        If the feature is already part of the python [Transformers](https://github.com/huggingface/transformers) library, please provide relevant links or example usage.
+        A clear and concise description of the feature proposal. If the feature is already part of the [Transformers](https://github.com/huggingface/transformers) library, please provide relevant links or example usage.
 
   - type: textarea
     id: motivation

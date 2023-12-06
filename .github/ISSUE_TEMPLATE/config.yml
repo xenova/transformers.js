@@ -6,4 +6,4 @@ contact_links:
     about: Open a Pull request / Discussion related to a specific model checkpoint directly on the Hugging Face Hub
   - name: Documentation
     url: https://huggingface.co/docs/transformers.js
-    about: View the Transformers.js documentation
+    about: View the transformers.js documentation

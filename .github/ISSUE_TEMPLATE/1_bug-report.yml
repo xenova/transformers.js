@@ -12,10 +12,10 @@ body:
       required: true
 
   - type: checkboxes
-    id: environment
+    id: environment-or-platform
     attributes:
-      label: Environment
-      description: "The environment I am running in:"
+      label: Environment/Platform
+      description: "The environment I am running in, or platform I am developing for:"
       options:
         - label: "Website/web-app"
         - label: "Browser extension"
@@ -38,9 +38,8 @@ body:
     attributes:
       label: Reproduction
       description: |
-        Please provide a code sample that reproduces the problem you ran into.
-        If you have code snippets, error messages, stack traces please provide them here as well.
-        Important! Use [code tags](https://help.github.com/en/github/writing-on-github/creating-and-highlighting-code-blocks#syntax-highlighting) to correctly format your code.
+        Please provide a code sample that reproduces the problem you ran into. If you have code snippets, error messages, or stack traces, please provide them here as well.
+        Important! Use [code tags](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-and-highlighting-code-blocks#syntax-highlighting) to correctly format your code.
 
       placeholder: |
         Steps to reproduce the behavior:
