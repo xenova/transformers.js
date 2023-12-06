@@ -1,0 +1,13 @@
+name: "🙋 Question"
+description: Ask a question about the library
+labels: [ "question" ]
+
+body:
+  - type: textarea
+    id: question
+    validations:
+      required: true
+    attributes:
+      label: Question
+      description: |
+        Please enter your question here...
