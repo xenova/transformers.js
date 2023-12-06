@@ -84,7 +84,7 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
     'vision-encoder-decoder': {
         'per_channel': False,
         'reduce_range': False,
-    }
+    },
 }
 
 MODELS_WITHOUT_TOKENIZERS = [
@@ -326,6 +326,11 @@ def main():
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
                 json.dump(tokenizer_json, fp, indent=4)
 
+    elif config.model_type == 'owlvit':
+        # Override default batch size to 1, needed because non-maximum suppression is performed for exporting.
+        # For more information, see https://github.com/huggingface/optimum/blob/e3b7efb1257c011db907ef40ab340e795cc5684c/optimum/exporters/onnx/model_configs.py#L1028-L1032
+        export_kwargs['batch_size'] = 1
+
     else:
         pass  # TODO
 
@@ -347,6 +352,25 @@ def main():
             opset=conv_args.opset,
             device=conv_args.device,
         )
+
+    # TODO: Enable once https://github.com/huggingface/optimum/pull/1552 is merged
+    # elif config.model_type == 'clap' and conv_args.split_modalities:
+    #     # Handle special case for exporting text and audio models separately
+    #     from .extra.clap import ClapTextModelWithProjectionOnnxConfig, ClapAudioModelWithProjectionOnnxConfig
+    #     from transformers.models.clap import ClapTextModelWithProjection, ClapAudioModelWithProjection
+
+    #     text_model = ClapTextModelWithProjection.from_pretrained(model_id)
+    #     audio_model = ClapAudioModelWithProjection.from_pretrained(model_id)
+
+    #     export_models(
+    #         models_and_onnx_configs={
+    #             "text_model": (text_model, ClapTextModelWithProjectionOnnxConfig(text_model.config)),
+    #             "audio_model": (audio_model, ClapAudioModelWithProjectionOnnxConfig(audio_model.config)),
+    #         },
+    #         output_dir=output_model_folder,
+    #         opset=conv_args.opset,
+    #         device=conv_args.device,
+    #     )
 
     else:
         main_export(**export_kwargs)

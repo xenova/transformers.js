@@ -16,6 +16,15 @@ SUPPORTED_MODELS = {
             'sentence-transformers/paraphrase-albert-base-v2',
         ],
     },
+    'audio-spectrogram-transformer': {
+        # Audio classification
+        'audio-classification': {
+            'MIT/ast-finetuned-audioset-10-10-0.4593',
+            'MIT/ast-finetuned-audioset-16-16-0.442',
+            'MIT/ast-finetuned-speech-commands-v2',
+            'mtg-upf/discogs-maest-30s-pw-73e-ts',
+        }
+    },
     'bart': {
         # Summarization
         'summarization': [
@@ -175,12 +184,66 @@ SUPPORTED_MODELS = {
             'openai/clip-vit-large-patch14-336',
         ]
     },
+    'clap': {
+        # Zero-shot audio classification and feature extraction
+        # (with and without `--split_modalities`)
+        'zero-shot-audio-classification': {
+            'laion/clap-htsat-unfused',
+            # TODO add 'laion/clap-htsat-fused',
+            'laion/larger_clap_general',
+            'laion/larger_clap_music_and_speech',
+            # 'Xenova/tiny-random-ClapModel',
+        }
+    },
     'codegen': {
         # Text generation
         'text-generation': [
             'Salesforce/codegen-350M-mono',
             'Salesforce/codegen-350M-multi',
             'Salesforce/codegen-350M-nl',
+        ],
+    },
+    'convnext': {
+        # Image classification
+        'image-classification': [
+            'facebook/convnext-tiny-224',
+            'facebook/convnext-small-224',
+            'facebook/convnext-base-224',
+            'facebook/convnext-base-224-22k',
+            'facebook/convnext-base-224-22k-1k',
+            'facebook/convnext-base-384',
+            'facebook/convnext-base-384-22k-1k',
+            'facebook/convnext-large-224',
+            'facebook/convnext-large-224-22k',
+            'facebook/convnext-large-224-22k-1k',
+            'facebook/convnext-large-384',
+            'facebook/convnext-large-384-22k-1k',
+            'facebook/convnext-xlarge-224-22k',
+            'facebook/convnext-xlarge-224-22k-1k',
+            'facebook/convnext-xlarge-384-22k-1k',
+        ],
+    },
+    'convnextv2': {
+        # Image classification
+        'image-classification': [
+            'facebook/convnextv2-atto-1k-224',
+            'facebook/convnextv2-femto-1k-224',
+            'facebook/convnextv2-pico-1k-224',
+            'facebook/convnextv2-tiny-1k-224',
+            'facebook/convnextv2-tiny-22k-384',
+            'facebook/convnextv2-tiny-22k-224',
+            'facebook/convnextv2-nano-1k-224',
+            'facebook/convnextv2-nano-22k-384',
+            'facebook/convnextv2-base-22k-224',
+            'facebook/convnextv2-base-1k-224',
+            'facebook/convnextv2-base-22k-384',
+            'facebook/convnextv2-large-22k-224',
+            'facebook/convnextv2-large-1k-224',
+            'facebook/convnextv2-large-22k-384',
+            # 'facebook/convnextv2-huge-22k-512',
+            # 'facebook/convnextv2-huge-1k-224',
+            # 'facebook/convnextv2-huge-22k-384',
+            # 'facebook/convnextv2-nano-22k-224',
         ],
     },
     'deberta': {
@@ -265,7 +328,7 @@ SUPPORTED_MODELS = {
             'distilbert-base-cased',
         ],
     },
-    'donut': { # NOTE: also a `vision-encoder-decoder`
+    'donut': {  # NOTE: also a `vision-encoder-decoder`
         # Image-to-text
         'image-to-text': [
             'naver-clova-ix/donut-base-finetuned-cord-v2',
@@ -277,12 +340,26 @@ SUPPORTED_MODELS = {
             'naver-clova-ix/donut-base-finetuned-docvqa',
         ],
     },
+    'dpt': {
+        # Depth estimation
+        'depth-estimation': [
+            'Intel/dpt-hybrid-midas',
+            'Intel/dpt-large',
+        ],
+    },
     'falcon': {
         # Text generation
         'text-generation': [
             'Rocketknight1/tiny-random-falcon-7b',
             'fxmarty/really-tiny-falcon-testing',
         ]
+    },
+    'glpn': {
+        # Depth estimation
+        'depth-estimation': [
+            'vinvino02/glpn-kitti',
+            'vinvino02/glpn-nyu',
+        ],
     },
     'gpt_neo': {
         # Text generation
@@ -454,6 +531,13 @@ SUPPORTED_MODELS = {
             'google/mt5-base',
         ],
     },
+    'nougat': {
+        # Image-to-text
+        'image-to-text': [
+            'facebook/nougat-small',
+            'facebook/nougat-base',
+        ],
+    },
     'opt': {
         # Text generation
         'text-generation': [
@@ -463,6 +547,15 @@ SUPPORTED_MODELS = {
             # (TODO conversational)
             'PygmalionAI/pygmalion-350m',
         ]
+    },
+    'owlvit': {
+        # Object detection (Zero-shot object detection)
+        # NOTE: Exported with --batch_size 1
+        'zero-shot-object-detection': [
+            'google/owlvit-base-patch32',
+            'google/owlvit-base-patch16',
+            'google/owlvit-large-patch14',
+        ],
     },
     'resnet': {
         # Image classification
@@ -503,7 +596,7 @@ SUPPORTED_MODELS = {
     #     'facebook/sam-vit-large',
     #     'facebook/sam-vit-huge',
     # ],
-    
+
     'speecht5': {
         # Text-to-audio/Text-to-speech
         'text-to-audio': [
