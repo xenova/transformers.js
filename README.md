@@ -86,7 +86,7 @@ let out = await pipe('I love transformers!');
 You can also use a different model by specifying the model id or path as the second argument to the `pipeline` function. For example:
 ```javascript
 // Use a different model for sentiment-analysis
-let pipe = await pipeline('sentiment-analysis', 'nlptown/bert-base-multilingual-uncased-sentiment');
+let pipe = await pipeline('sentiment-analysis', 'Xenova/bert-base-multilingual-uncased-sentiment');
 ```
 
 
@@ -125,6 +125,8 @@ Want to jump straight in? Get started with one of our sample applications/templa
 | Next.js (client-side) | Sentiment analysis (in-browser inference) | [code](./examples/next-client/), [demo](https://huggingface.co/spaces/Xenova/next-example-app) |
 | Next.js (server-side) | Sentiment analysis (Node.js inference) | [code](./examples/next-server/), [demo](https://huggingface.co/spaces/Xenova/next-server-example-app) |
 | Node.js           | Sentiment analysis API           | [code](./examples/node/)      |
+| Demo site         | A collection of demos | [code](./examples/demo-site/), [demo](https://xenova.github.io/transformers.js/) |
+
 
 
 ## Custom usage
@@ -175,6 +177,8 @@ bert-base-uncased/
     ├── model.onnx
     └── model_quantized.onnx
 ```
+
+For the full list of supported architectures, see the [Optimum documentation](https://huggingface.co/docs/optimum/main/en/exporters/onnx/overview).
 
 
 ## Supported tasks/models
