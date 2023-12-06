@@ -129,21 +129,21 @@ SUPPORTED_MODELS = {
             'bert-base-multilingual-cased',
             'bert-base-chinese',
             'emilyalsentzer/Bio_ClinicalBERT',
-        ]
+        ],
     },
     'blenderbot': {
         # Text-to-text (TODO add conversational)
         'text2text-generation': [
             'facebook/blenderbot-400M-distill',
             # 'facebook/blenderbot-1B-distill',
-        ]
+        ],
     },
     'blenderbot-small': {
         # Text-to-text (TODO add conversational)
         'text2text-generation': [
             # 'facebook/blenderbot-90M',  # DEPRECATED
             'facebook/blenderbot_small-90M',
-        ]
+        ],
     },
     'bloom': {
         # Text generation
@@ -192,7 +192,7 @@ SUPPORTED_MODELS = {
             'openai/clip-vit-base-patch32',
             'openai/clip-vit-large-patch14',
             'openai/clip-vit-large-patch14-336',
-        ]
+        ],
     },
     'codegen': {
         # Text generation
@@ -351,7 +351,7 @@ SUPPORTED_MODELS = {
         'text-generation': [
             'Rocketknight1/tiny-random-falcon-7b',
             'fxmarty/really-tiny-falcon-testing',
-        ]
+        ],
     },
     'glpn': {
         # Depth estimation
@@ -430,7 +430,7 @@ SUPPORTED_MODELS = {
             'RajuKandasamy/tamillama_tiny_30m',
             'JackFram/llama-68m',
             'JackFram/llama-160m',
-        ]
+        ],
     },
     'longt5': {
         # Text-to-text
@@ -510,7 +510,7 @@ SUPPORTED_MODELS = {
         # Text generation
         'text-generation': [
             'efederici/ipt-350m',
-        ]
+        ],
     },
     'mpnet': {
         # Feature extraction
@@ -545,7 +545,7 @@ SUPPORTED_MODELS = {
             'facebook/opt-350m',
             # (TODO conversational)
             'PygmalionAI/pygmalion-350m',
-        ]
+        ],
     },
     'owlvit': {
         # Object detection (Zero-shot object detection)
@@ -674,7 +674,7 @@ SUPPORTED_MODELS = {
             'microsoft/trocr-base-printed',
             'microsoft/trocr-small-handwritten',
             'microsoft/trocr-base-handwritten',
-        ]
+        ],
     },
     'vision-encoder-decoder': {
         # Image-to-text
@@ -750,7 +750,7 @@ SUPPORTED_MODELS = {
             'NbAiLab/nb-whisper-small-beta',
             'NbAiLab/nb-whisper-medium-beta',
             'NbAiLab/nb-whisper-large-beta',
-        ]
+        ],
     },
     'xlm': {
         # Masked language modelling
