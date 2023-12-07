@@ -36,6 +36,7 @@ const DataTypeMap = new Map([
 
 const ONNXTensor = ONNX.Tensor;
 
+/** @ts-ignore Base constructors must all have the same return type. ts(2510) */
 export class Tensor extends ONNXTensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
