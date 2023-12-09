@@ -567,6 +567,12 @@ SUPPORTED_MODELS = {
             'microsoft/resnet-152',
         ],
     },
+    'phi': {
+        # Text generation
+        'text-generation': [
+            'hf-internal-testing/tiny-random-PhiForCausalLM',
+        ],
+    },
     'roberta': {
         # Feature extraction
         'feature-extraction': [
