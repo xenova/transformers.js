@@ -289,6 +289,23 @@ SUPPORTED_MODELS = {
             'facebook/detr-resnet-50-panoptic',
         ],
     },
+    'dinov2': {
+        # Feature extraction
+        'feature-extraction': [
+            'facebook/dinov2-small',
+            'facebook/dinov2-base',
+            'facebook/dinov2-large',
+            # 'facebook/dinov2-giant',  # TODO add
+        ],
+
+        # Image classification
+        'image-classification': [
+            'facebook/dinov2-small-imagenet1k-1-layer',
+            'facebook/dinov2-base-imagenet1k-1-layer',
+            'facebook/dinov2-large-imagenet1k-1-layer',
+            # 'facebook/dinov2-giant-imagenet1k-1-layer',  # TODO add
+        ],
+    },
     'distilbert': {
         # Feature extraction
         'feature-extraction': [
