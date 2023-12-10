@@ -1,5 +1,5 @@
 from transformers.convert_slow_tokenizer import Converter
-from tokenizers import Tokenizer, AddedToken, pre_tokenizers, processors
+from tokenizers import Tokenizer, pre_tokenizers, processors
 from tokenizers.models import WordPiece
 
 class EsmConverter(Converter):
@@ -7,7 +7,7 @@ class EsmConverter(Converter):
         vocab = self.original_tokenizer.vocab
         tokenizer = Tokenizer(WordPiece(vocab, continuing_subword_prefix='', max_input_chars_per_word=int(1e10), unk_token=str(self.original_tokenizer.unk_token)))
 
-        tokenizer.pre_tokenizer = pre_tokenizers.BertPreTokenizer()
+        tokenizer.pre_tokenizer = pre_tokenizers.WhitespaceSplit()
         
         cls = str(self.original_tokenizer.cls_token)
         cls_token_id = self.original_tokenizer.cls_token_id
