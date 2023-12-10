@@ -30,17 +30,18 @@ class EsmConverter(Converter):
               ],
           )
 
-        tokenizer.add_special_tokens([
-           x for x in vocab.keys()
-           if x[0] == '<' and x[-1] == '>'
-        ])
-
         # For some reason, all tokens are added: none of them are special, but they all need special splitting.
         # See https://github.com/huggingface/transformers/blob/df5c5c62ae253055336f5bb0828ca8e3e15ab6bd/src/transformers/models/esm/tokenization_esm.py#L79-L80
-        tokenizer.add_tokens([
-            x for x in vocab.keys()
-            if x[0] != '<' or x[-1] != '>'
-        ])
+        special_tokens = []
+        other_tokens = []
+        for token, token_id in vocab.items():
+            if token[0] == '<' and token[-1] == '>' and token_id <= 3:
+                special_tokens.append(token)
+            else:
+                other_tokens.append(token)
+
+        tokenizer.add_special_tokens(special_tokens)
+        tokenizer.add_tokens(other_tokens)
         return tokenizer
 
 def generate_fast_tokenizer(tokenizer):

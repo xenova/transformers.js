@@ -113,7 +113,7 @@ TOKENIZER_TEST_DATA = {
             "ATTTCTCTCTCTCTCTGAGATCGATCGATCGAT",
 
             # Special tokens
-            "<cls><unk><unk><eos>",
+            "<unk><pad><mask><cls><eos><bos>",
         ],
     },
 }
