@@ -2749,6 +2749,12 @@ export class XLMTokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
+export class ElectraTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
 export class GPT2Tokenizer extends PreTrainedTokenizer { }
@@ -3861,6 +3867,7 @@ export class AutoTokenizer {
         BertTokenizer,
         HerbertTokenizer,
         XLMTokenizer,
+        ElectraTokenizer,
         MobileBertTokenizer,
         SqueezeBertTokenizer,
         AlbertTokenizer,

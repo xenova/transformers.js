@@ -1462,6 +1462,80 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// Electra models
+export class ElectraPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare Electra Model transformer outputting raw hidden-states without any specific head on top.
+ * Identical to the BERT model except that it uses an additional linear layer between the embedding
+ * layer and the encoder if the hidden size and embedding size are different.
+ */
+export class ElectraModel extends ElectraPreTrainedModel { }
+// TODO add ElectraForPreTraining
+/**
+ * Electra model with a language modeling head on top.
+ */
+export class ElectraForMaskedLM extends ElectraPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ELECTRA Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class ElectraForSequenceClassification extends ElectraPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Electra model with a token classification head on top.
+ */
+export class ElectraForTokenClassification extends ElectraPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * LECTRA Model with a span classification head on top for extractive question-answering tasks like SQuAD
+ * (a linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class ElectraForQuestionAnswering extends ElectraPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // CamemBERT models
 export class CamembertPreTrainedModel extends PreTrainedModel { }
 
@@ -4271,6 +4345,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['electra', ['ElectraModel', ElectraModel]],
     ['camembert', ['CamembertModel', CamembertModel]],
     ['deberta', ['DebertaModel', DebertaModel]],
     ['deberta-v2', ['DebertaV2Model', DebertaV2Model]],
@@ -4349,6 +4424,7 @@ const MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
+    ['electra', ['ElectraForSequenceClassification', ElectraForSequenceClassification]],
     ['camembert', ['CamembertForSequenceClassification', CamembertForSequenceClassification]],
     ['deberta', ['DebertaForSequenceClassification', DebertaForSequenceClassification]],
     ['deberta-v2', ['DebertaV2ForSequenceClassification', DebertaV2ForSequenceClassification]],
@@ -4366,6 +4442,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForTokenClassification', BertForTokenClassification]],
+    ['electra', ['ElectraForTokenClassification', ElectraForTokenClassification]],
     ['camembert', ['CamembertForTokenClassification', CamembertForTokenClassification]],
     ['deberta', ['DebertaForTokenClassification', DebertaForTokenClassification]],
     ['deberta-v2', ['DebertaV2ForTokenClassification', DebertaV2ForTokenClassification]],
@@ -4407,6 +4484,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', ['BertForMaskedLM', BertForMaskedLM]],
+    ['electra', ['ElectraForMaskedLM', ElectraForMaskedLM]],
     ['camembert', ['CamembertForMaskedLM', CamembertForMaskedLM]],
     ['deberta', ['DebertaForMaskedLM', DebertaForMaskedLM]],
     ['deberta-v2', ['DebertaV2ForMaskedLM', DebertaV2ForMaskedLM]],
@@ -4422,6 +4500,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', ['BertForQuestionAnswering', BertForQuestionAnswering]],
+    ['electra', ['ElectraForQuestionAnswering', ElectraForQuestionAnswering]],
     ['camembert', ['CamembertForQuestionAnswering', CamembertForQuestionAnswering]],
     ['deberta', ['DebertaForQuestionAnswering', DebertaForQuestionAnswering]],
     ['deberta-v2', ['DebertaV2ForQuestionAnswering', DebertaV2ForQuestionAnswering]],

@@ -346,6 +346,14 @@ SUPPORTED_MODELS = {
             'Intel/dpt-large',
         ],
     },
+    'electra': {
+        # Feature extraction
+        'feature-extraction': [
+            # NOTE: requires --task feature-extraction
+            'google/electra-small-discriminator',
+            'google/electra-base-discriminator',
+        ],
+    },
     'falcon': {
         # Text generation
         'text-generation': [
