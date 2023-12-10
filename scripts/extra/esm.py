@@ -29,7 +29,6 @@ class EsmConverter(Converter):
                   (sep, sep_token_id),
               ],
           )
-        tokenizer.decoder = decoders.WordPiece(prefix="")
 
         tokenizer.add_special_tokens([
            x for x in vocab.keys()
