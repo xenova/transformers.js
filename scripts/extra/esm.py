@@ -1,5 +1,5 @@
 from transformers.convert_slow_tokenizer import Converter
-from tokenizers import Tokenizer, decoders, pre_tokenizers, processors
+from tokenizers import Tokenizer, AddedToken, pre_tokenizers, processors
 from tokenizers.models import WordPiece
 
 class EsmConverter(Converter):
@@ -35,6 +35,12 @@ class EsmConverter(Converter):
            if x[0] == '<' and x[-1] == '>'
         ])
 
+        # For some reason, all tokens are added: none of them are special, but they all need special splitting.
+        # See https://github.com/huggingface/transformers/blob/df5c5c62ae253055336f5bb0828ca8e3e15ab6bd/src/transformers/models/esm/tokenization_esm.py#L79-L80
+        tokenizer.add_tokens([
+            x for x in vocab.keys()
+            if x[0] != '<' or x[-1] != '>'
+        ])
         return tokenizer
 
 def generate_fast_tokenizer(tokenizer):
