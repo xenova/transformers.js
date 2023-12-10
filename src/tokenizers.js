@@ -2736,7 +2736,12 @@ export class HerbertTokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
-export class ConvBertTokenizer extends PreTrainedTokenizer { }
+export class ConvBertTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
 export class CamembertTokenizer extends PreTrainedTokenizer { }
 export class XLMTokenizer extends PreTrainedTokenizer {
@@ -3861,6 +3866,7 @@ export class AutoTokenizer {
         DebertaV2Tokenizer,
         BertTokenizer,
         HerbertTokenizer,
+        ConvBertTokenizer,
         XLMTokenizer,
         MobileBertTokenizer,
         SqueezeBertTokenizer,
