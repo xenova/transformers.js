@@ -299,6 +299,11 @@ def main():
         with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
             json.dump(tokenizer_json, fp, indent=4)
 
+    elif config.model_type == 'esm':
+        from .extra.esm import generate_fast_tokenizer
+        fast_tokenizer = generate_fast_tokenizer(tokenizer)
+        fast_tokenizer.save(os.path.join(output_model_folder, 'tokenizer.json'))
+
     elif config.model_type == 'whisper':
         if conv_args.output_attentions:
             from .extra.whisper import get_main_export_kwargs
