@@ -111,6 +111,9 @@ TOKENIZER_TEST_DATA = {
             # Actual protein sequences
             "ATTCCGATTCCGATTCCG",
             "ATTTCTCTCTCTCTCTGAGATCGATCGATCGAT",
+
+            # Special tokens
+            "<cls><unk><unk><eos>",
         ],
     },
 }
