@@ -31,6 +31,11 @@ class EsmConverter(Converter):
           )
         tokenizer.decoder = decoders.WordPiece(prefix="")
 
+        tokenizer.add_special_tokens([
+           x for x in vocab.keys()
+           if x[0] == '<' and x[-1] == '>'
+        ])
+
         return tokenizer
 
 def generate_fast_tokenizer(tokenizer):
