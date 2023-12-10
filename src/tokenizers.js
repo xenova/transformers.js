@@ -1617,6 +1617,7 @@ class Decoder extends Callable {
    * @throws {Error} If an unknown decoder type is provided.
    */
     static fromConfig(config) {
+        if (config === null) return null;
         switch (config.type) {
             case 'WordPiece':
                 return new WordPieceDecoder(config);
@@ -2216,13 +2217,6 @@ export class PreTrainedTokenizer extends Callable {
         // TODO: maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
-
-        // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
-        // This is needed for cases where BPE model and ByteLevel decoder are used
-        // For more information, see https://github.com/xenova/transformers.js/issues/74
-        // TODO: save this to the decoder when exporting?
-        this.decoder.end_of_word_suffix = this.model.end_of_word_suffix;
-
         // Add added_tokens to model
         this.special_tokens = [];
         this.all_special_ids = [];
@@ -2246,8 +2240,17 @@ export class PreTrainedTokenizer extends Callable {
         this.special_tokens.push(...(tokenizerConfig.additional_special_tokens ?? []));
         this.special_tokens = [...new Set(this.special_tokens)]; // Remove duplicates
 
-        // Slight hack, but it prevents code duplication:
-        this.decoder.added_tokens = this.added_tokens;
+        if (this.decoder) {
+            // Slight hack, but it prevents code duplication:
+            this.decoder.added_tokens = this.added_tokens;
+
+            // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
+            // This is needed for cases where BPE model and ByteLevel decoder are used
+            // For more information, see https://github.com/xenova/transformers.js/issues/74
+            // TODO: save this to the decoder when exporting?
+            this.decoder.end_of_word_suffix = this.model.end_of_word_suffix;
+        }
+
 
         this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
             '(' + this.added_tokens.map(escapeRegExp).join('|') + ')'
@@ -2634,13 +2637,14 @@ export class PreTrainedTokenizer extends Callable {
             tokens = tokens.filter(x => !this.special_tokens.includes(x));
         }
 
+        // If `this.decoder` is null, we just join tokens with a space:
+        // https://github.com/huggingface/tokenizers/blob/8edec536a737cb04494b454805be16c020abb14f/tokenizers/src/tokenizer/mod.rs#L835
         /** @type {string} */
-        let decoded = this.decoder(tokens);
-
+        let decoded = this.decoder ? this.decoder(tokens) : tokens.join(' ');
 
         // Slight hack, but prevents having to pass `skip_special_tokens` to
         // each call to `decode`, which would lead to code duplication.
-        if (this.decoder.end_of_word_suffix) {
+        if (this.decoder && this.decoder.end_of_word_suffix) {
             decoded = decoded.replaceAll(this.decoder.end_of_word_suffix, ' ');
             if (skip_special_tokens) {
                 decoded = decoded.trim();
