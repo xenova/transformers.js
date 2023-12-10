@@ -1742,6 +1742,63 @@ export class DistilBertForMaskedLM extends DistilBertPreTrainedModel {
 
 
 //////////////////////////////////////////////////
+// ESM models
+export class EsmPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare ESM Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class EsmModel extends EsmPreTrainedModel { }
+
+/**
+ * ESM Model with a `language modeling` head on top.
+ */
+export class EsmForMaskedLM extends EsmPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ESM Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class EsmForSequenceClassification extends EsmPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ESM Model with a token classification head on top (a linear layer on top of the hidden-states output)
+ * e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class EsmForTokenClassification extends EsmPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // MobileBert models
 export class MobileBertPreTrainedModel extends PreTrainedModel { }
 export class MobileBertModel extends MobileBertPreTrainedModel { }
@@ -4271,6 +4328,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['esm', ['EsmModel', EsmModel]],
     ['camembert', ['CamembertModel', CamembertModel]],
     ['deberta', ['DebertaModel', DebertaModel]],
     ['deberta-v2', ['DebertaV2Model', DebertaV2Model]],
@@ -4349,6 +4407,7 @@ const MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
+    ['esm', ['EsmForSequenceClassification', EsmForSequenceClassification]],
     ['camembert', ['CamembertForSequenceClassification', CamembertForSequenceClassification]],
     ['deberta', ['DebertaForSequenceClassification', DebertaForSequenceClassification]],
     ['deberta-v2', ['DebertaV2ForSequenceClassification', DebertaV2ForSequenceClassification]],
@@ -4366,6 +4425,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForTokenClassification', BertForTokenClassification]],
+    ['esm', ['EsmForTokenClassification', EsmForTokenClassification]],
     ['camembert', ['CamembertForTokenClassification', CamembertForTokenClassification]],
     ['deberta', ['DebertaForTokenClassification', DebertaForTokenClassification]],
     ['deberta-v2', ['DebertaV2ForTokenClassification', DebertaV2ForTokenClassification]],
@@ -4407,6 +4467,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', ['BertForMaskedLM', BertForMaskedLM]],
+    ['esm', ['EsmForMaskedLM', EsmForMaskedLM]],
     ['camembert', ['CamembertForMaskedLM', CamembertForMaskedLM]],
     ['deberta', ['DebertaForMaskedLM', DebertaForMaskedLM]],
     ['deberta-v2', ['DebertaV2ForMaskedLM', DebertaV2ForMaskedLM]],

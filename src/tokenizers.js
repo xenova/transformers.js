@@ -2799,6 +2799,7 @@ export class FalconTokenizer extends PreTrainedTokenizer { }
 
 export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
 
+export class EsmTokenizer extends PreTrainedTokenizer { }
 
 /**
  * Helper function to build translation inputs for an `NllbTokenizer` or `M2M100Tokenizer`.
@@ -3882,6 +3883,7 @@ export class AutoTokenizer {
         MPNetTokenizer,
         FalconTokenizer,
         GPTNeoXTokenizer,
+        EsmTokenizer,
         Wav2Vec2CTCTokenizer,
         BlenderbotTokenizer,
         BlenderbotSmallTokenizer,

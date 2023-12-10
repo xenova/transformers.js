@@ -346,6 +346,19 @@ SUPPORTED_MODELS = {
             'Intel/dpt-large',
         ],
     },
+    'esm': {
+        # Masked language modelling
+        'fill-mask': [
+            'InstaDeepAI/nucleotide-transformer-500m-human-ref',
+            'InstaDeepAI/nucleotide-transformer-500m-1000g',
+
+            # NOTE: requires --opset 12
+            'facebook/esm2_t6_8M_UR50D',
+            'facebook/esm2_t12_35M_UR50D',
+            'facebook/esm2_t30_150M_UR50D',
+            'facebook/esm2_t33_650M_UR50D',
+        ],
+    },
     'falcon': {
         # Text generation
         'text-generation': [
