@@ -3207,7 +3207,7 @@ export class VitMattePreTrainedModel extends PreTrainedModel { }
 
 /**
  * ViTMatte framework leveraging any vision backbone e.g. for ADE20k, CityScapes.
-
+ * 
  * **Example:** Perform image matting with a `VitMatteForImageMatting` model.
  * ```javascript
  * import { AutoProcessor, VitMatteForImageMatting, RawImage } from '@xenova/transformers';
