@@ -15,18 +15,22 @@ import {
 } from './maths.js';
 
 
-const DataTypeMap = Object.freeze({
-    float32: Float32Array,
-    float64: Float64Array,
-    string: Array, // string[]
-    int8: Int8Array,
-    uint8: Uint8Array,
-    int16: Int16Array,
-    uint16: Uint16Array,
-    int32: Int32Array,
-    uint32: Uint32Array,
-    int64: BigInt64Array,
-});
+/**
+ * @typedef {'bool'|'float32'|'float64'|'string'|'int8'|'uint8'|'int16'|'uint16'|'int32'|'uint32'|'int64'} DataType 
+ */
+const DataTypeMap = new Map( /** @type {[DataType, any][]} */([
+    ['bool', Uint8Array],
+    ['float32', Float32Array],
+    ['float64', Float64Array],
+    ['string', Array], // string[]
+    ['int8', Int8Array],
+    ['uint8', Uint8Array],
+    ['int16', Int16Array],
+    ['uint16', Uint16Array],
+    ['int32', Int32Array],
+    ['uint32', Uint32Array],
+    ['int64', BigInt64Array],
+]))
 
 /**
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
@@ -35,9 +39,18 @@ const DataTypeMap = Object.freeze({
 const ONNXTensor = ONNX.Tensor;
 
 export class Tensor {
+    /** @type {DataType} Type of the tensor. */
+    type;
+
+    /** @type {DataArray} The data stored in the tensor. */
+    data;
+
+    /** @type {number[]} Dimensions of the tensor. */
+    dims;
+
     /**
      * Create a new Tensor or copy an existing Tensor.
-     * @param {[string, DataArray, number[]]|[ONNXTensor]} args
+     * @param {[DataType, DataArray, number[]]|[ONNXTensor]} args
      */
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
@@ -46,9 +59,11 @@ export class Tensor {
 
         } else {
             // Create new tensor
-            this.type = /** @type {string} */ (args[0]);
-            this.data = /** @type {DataArray} */ (args[1]);
-            this.dims = /** @type {number[]} */ (args[2]);
+            Object.assign(this, new ONNX.Tensor(
+                /** @type {DataType} */(args[0]),
+                /** @type {Exclude<import('./maths.js').AnyTypedArray, Uint8ClampedArray>} */(args[1]),
+                args[2]
+            ));
         }
 
         return new Proxy(this, {
@@ -588,7 +603,7 @@ export class Tensor {
 
     /**
      * Performs Tensor dtype conversion.
-     * @param {'bool'|'float32'|'float64'|'string'|'int8'|'uint8'|'int16'|'uint16'|'int32'|'uint32'|'int64'} type 
+     * @param {DataType} type The desired data type.
      * @returns {Tensor} The converted tensor.
      */
     to(type) {
@@ -596,7 +611,7 @@ export class Tensor {
         if (this.type === type) return this;
 
         // Otherwise, the returned tensor is a copy of self with the desired dtype.
-        const ArrayConstructor = DataTypeMap[type];
+        const ArrayConstructor = DataTypeMap.get(type);
         if (!ArrayConstructor) {
             throw new Error(`Unsupported type: ${type}`);
         }

@@ -130,9 +130,9 @@ export function transpose_data(array, dims, axes) {
 
 /**
  * Compute the softmax of an array of numbers.
- *
- * @param {number[]} arr The array of numbers to compute the softmax of.
- * @returns {number[]} The softmax array.
+ * @template {TypedArray|number[]} T
+ * @param {T} arr The array of numbers to compute the softmax of.
+ * @returns {T} The softmax array.
  */
 export function softmax(arr) {
     // Compute the maximum value in the array
@@ -142,18 +142,20 @@ export function softmax(arr) {
     const exps = arr.map(x => Math.exp(x - maxVal));
 
     // Compute the sum of the exponentials
+    // @ts-ignore
     const sumExps = exps.reduce((acc, val) => acc + val, 0);
 
     // Compute the softmax values
     const softmaxArr = exps.map(x => x / sumExps);
 
-    return softmaxArr;
+    return /** @type {T} */(softmaxArr);
 }
 
 /**
  * Calculates the logarithm of the softmax function for the input array.
- * @param {number[]} arr The input array to calculate the log_softmax function for.
- * @returns {any} The resulting log_softmax array.
+ * @template {TypedArray|number[]} T
+ * @param {T} arr The input array to calculate the log_softmax function for.
+ * @returns {T} The resulting log_softmax array.
  */
 export function log_softmax(arr) {
     // Compute the softmax values
@@ -162,7 +164,7 @@ export function log_softmax(arr) {
     // Apply log formula to each element
     const logSoftmaxArr = softmaxArr.map(x => Math.log(x));
 
-    return logSoftmaxArr;
+    return /** @type {T} */(logSoftmaxArr);
 }
 
 /**
@@ -178,8 +180,7 @@ export function dot(arr1, arr2) {
 
 /**
  * Get the top k items from an iterable, sorted by descending order
- *
- * @param {Array} items The items to be sorted
+ * @param {any[]|TypedArray} items The items to be sorted
  * @param {number} [top_k=0] The number of top items to return (default: 0 = return all)
  * @returns {Array} The top k items, sorted by descending order
  */
