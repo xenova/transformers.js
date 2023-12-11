@@ -421,6 +421,22 @@ SUPPORTED_MODELS = {
             'allegro/herbert-large-cased',
         ],
     },
+    'hubert': {
+        # Feature extraction
+        'feature-extraction': [
+            'facebook/hubert-base-ls960',
+        ],
+
+        # Audio classification
+        'audio-classification': [
+            'superb/hubert-base-superb-ks',
+        ],
+
+        # Automatic speech recognition
+        'automatic-speech-recognition': [
+            'facebook/hubert-large-ls960-ft',
+        ],
+    },
     'llama': {
         # Text generation
         'text-generation': [

@@ -1276,6 +1276,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             case 'whisper':
                 return this._call_whisper(audio, kwargs)
             case 'wav2vec2':
+            case 'hubert':
                 return this._call_wav2vec2(audio, kwargs)
             default:
                 throw new Error(`AutomaticSpeechRecognitionPipeline does not support model type '${this.model.config.model_type}'.`)
