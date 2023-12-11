@@ -426,7 +426,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         const srcHeight = image.height; // original height
 
         // Convert image to RGB if specified in config.
-        if (do_convert_rgb && this.do_convert_rgb) {
+        if (do_convert_rgb ?? this.do_convert_rgb) {
             image = image.rgb();
         } else if (do_convert_grayscale) {
             image = image.grayscale();
