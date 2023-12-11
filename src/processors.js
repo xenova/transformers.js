@@ -36,7 +36,7 @@ import {
 } from './utils/maths.js';
 
 
-import { Tensor, transpose, cat, interpolate } from './utils/tensor.js';
+import { Tensor, transpose, cat, interpolate, stack } from './utils/tensor.js';
 
 import { RawImage } from './utils/image.js';
 import {
@@ -222,7 +222,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.do_resize = this.config.do_resize;
         this.do_thumbnail = this.config.do_thumbnail;
         this.size = this.config.size;
-        this.size_divisor = this.config.size_divisor;
+        this.size_divisibility = this.config.size_divisibility ?? this.config.size_divisor;
 
         this.do_center_crop = this.config.do_center_crop;
         this.crop_size = this.config.crop_size;
@@ -232,7 +232,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.pad_size = this.config.pad_size;
         this.do_pad = this.config.do_pad;
 
-        if (this.do_pad && !this.pad_size && this.size.width !== undefined && this.size.height !== undefined) {
+        if (this.do_pad && !this.pad_size && this.size && this.size.width !== undefined && this.size.height !== undefined) {
             // Should pad, but no pad size specified
             // We infer the pad size from the resize size
             this.pad_size = this.size
@@ -407,10 +407,15 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * Preprocesses the given image.
      *
      * @param {RawImage} image The image to preprocess.
+     * @param {Object} overrides The overrides for the preprocessing options.
      * @returns {Promise<PreprocessedImage>} The preprocessed image.
      */
-    async preprocess(image) {
-
+    async preprocess(image, {
+        do_normalize = null,
+        do_pad = null,
+        do_convert_rgb = null,
+        do_convert_grayscale = null,
+    } = {}) {
         if (this.do_crop_margin) {
             // NOTE: Specific to nougat processors. This is done before resizing,
             // and can be interpreted as a pre-preprocessing step.
@@ -421,8 +426,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         const srcHeight = image.height; // original height
 
         // Convert image to RGB if specified in config.
-        if (this.do_convert_rgb) {
+        if (do_convert_rgb && this.do_convert_rgb) {
             image = image.rgb();
+        } else if (do_convert_grayscale) {
+            image = image.grayscale();
         }
 
         // Resize all images
@@ -485,10 +492,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                     resample: this.resample,
                 });
 
-            } else if (this.size_divisor !== undefined) {
-                // Rounds the height and width down to the closest multiple of size_divisor
-                const newWidth = Math.floor(srcWidth / this.size_divisor) * this.size_divisor;
-                const newHeight = Math.floor(srcHeight / this.size_divisor) * this.size_divisor;
+            } else if (this.size_divisibility !== undefined) {
+                // Rounds the height and width down to the closest multiple of size_divisibility
+                const newWidth = Math.floor(srcWidth / this.size_divisibility) * this.size_divisibility;
+                const newHeight = Math.floor(srcHeight / this.size_divisibility) * this.size_divisibility;
                 image = await image.resize(newWidth, newHeight, {
                     resample: this.resample,
                 });
@@ -530,7 +537,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        if (this.do_normalize) {
+        if (do_normalize ?? this.do_normalize) {
             let image_mean = this.image_mean;
             if (!Array.isArray(this.image_mean)) {
                 image_mean = new Array(image.channels).fill(image_mean);
@@ -553,7 +560,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         }
 
         // do padding after rescaling/normalizing
-        if (this.do_pad && this.pad_size) {
+        if (do_pad ?? (this.do_pad && this.pad_size)) {
             const padded = this.pad_image(pixelData, [image.width, image.height, image.channels], this.pad_size);
             [pixelData, imgDims] = padded; // Update pixel data and image dimensions
         }
@@ -572,10 +579,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
-     * Calls the feature extraction process on an array of image
-     * URLs, preprocesses each image, and concatenates the resulting
+     * Calls the feature extraction process on an array of images,
+     * preprocesses each image, and concatenates the resulting
      * features into a single Tensor.
-     * @param {any[]} images The URL(s) of the image(s) to extract features from.
+     * @param {RawImage[]} images The image(s) to extract features from.
      * @param {...any} args Additional arguments.
      * @returns {Promise<ImageFeatureExtractorResult>} An object containing the concatenated pixel values (and other metadata) of the preprocessed images.
      */
@@ -586,12 +593,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         /** @type {PreprocessedImage[]} */
         const imageData = await Promise.all(images.map(x => this.preprocess(x)));
 
-        // TODO:
-
-        // Concatenate pixel values
-        // TEMP: Add batch dimension so that concat works
-        imageData.forEach(x => x.pixel_values.dims = [1, ...x.pixel_values.dims]);
-        const pixel_values = cat(imageData.map(x => x.pixel_values));
+        // Stack pixel values
+        const pixel_values = stack(imageData.map(x => x.pixel_values), 0);
 
         return {
             pixel_values: pixel_values,
@@ -631,7 +634,7 @@ export class DonutFeatureExtractor extends ImageFeatureExtractor {
         }
 
         let image_std = this.image_std;
-        if (!Array.isArray(this.image_std)) {
+        if (!Array.isArray(image_std)) {
             image_std = new Array(imageChannels).fill(image_mean);
         }
 
@@ -662,13 +665,13 @@ export class NougatImageProcessor extends DonutFeatureExtractor { } // NOTE exte
  */
 export class DetrFeatureExtractor extends ImageFeatureExtractor {
     /**
-     * Calls the feature extraction process on an array of image URLs, preprocesses
+     * Calls the feature extraction process on an array of images, preprocesses
      * each image, and concatenates the resulting features into a single Tensor.
-     * @param {any[]} urls The URL(s) of the image(s) to extract features from.
+     * @param {RawImage[]} images The image(s) to extract features from.
      * @returns {Promise<DetrFeatureExtractorResult>} An object containing the concatenated pixel values of the preprocessed images.
      */
-    async _call(urls) {
-        const result = await super._call(urls);
+    async _call(images) {
+        const result = await super._call(images);
 
         // TODO support differently-sized images, for now assume all images are the same size.
         // TODO support different mask sizes (not just 64x64)
@@ -990,7 +993,7 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
 
 export class SamImageProcessor extends ImageFeatureExtractor {
     /**
-     * @param {any[]} images The URL(s) of the image(s) to extract features from.
+     * @param {RawImage[]} images The image(s) to extract features from.
      * @param {*} input_points A 3D or 4D array, representing the input points provided by the user.
      * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
      * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
@@ -1145,6 +1148,47 @@ export class Swin2SRImageProcessor extends ImageFeatureExtractor {
     }
 }
 
+export class VitMatteImageProcessor extends ImageFeatureExtractor {
+    /**
+     * Calls the feature extraction process on an array of images, preprocesses
+     * each image, and concatenates the resulting features into a single Tensor.
+     * @param {RawImage[]} images The image(s) to extract features from.
+     * @param {RawImage[]} trimaps The trimaps(s) to extract features from.
+     * @returns {Promise<ImageFeatureExtractorResult>} An object containing the concatenated pixel values of the preprocessed images.
+     */
+    async _call(images, trimaps) {
+        if (!Array.isArray(images)) {
+            images = [images];
+        }
+        if (!Array.isArray(trimaps)) {
+            trimaps = [trimaps];
+        }
+
+        const imageData = await Promise.all(images.map(x => this.preprocess(x)));
+        const trimapData = await Promise.all(trimaps.map(x => this.preprocess(x, {
+            do_normalize: false,
+            do_convert_rgb: false,
+            do_convert_grayscale: true,
+        })));
+
+
+        // Stack pixel values
+        const pixel_values = stack(imageData.map(
+            // Concatenate images and trimaps
+            (x, i) => cat([x.pixel_values, trimapData[i].pixel_values], 0)
+        ), 0);
+
+        return {
+            pixel_values: pixel_values,
+
+            // Original sizes of images
+            original_sizes: imageData.map(x => x.original_size),
+
+            // Reshaped sizes of images, before padding or cropping
+            reshaped_input_sizes: imageData.map(x => x.reshaped_input_size),
+        }
+    }
+}
 
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
@@ -1548,7 +1592,7 @@ export class Processor extends Callable {
      * @returns {Promise<any>} A Promise that resolves with the extracted features.
      */
     async _call(input, ...args) {
-        return await this.feature_extractor(input);
+        return await this.feature_extractor(input, ...args);
     }
 }
 
@@ -1661,6 +1705,7 @@ export class AutoProcessor {
         DonutFeatureExtractor,
         NougatImageProcessor,
 
+        VitMatteImageProcessor,
         SamImageProcessor,
         Swin2SRImageProcessor,
         Wav2Vec2FeatureExtractor,
