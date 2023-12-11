@@ -252,8 +252,8 @@ export function min(arr) {
 
 /**
  * Returns the value and index of the maximum element in an array.
- * @param {number[]|TypedArray} arr array of numbers.
- * @returns {number[]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
+ * @param {number[]|AnyTypedArray} arr array of numbers.
+ * @returns {[number, number]} the value and index of the maximum element, of the form: [valueOfMax, indexOfMax]
  * @throws {Error} If array is empty.
  */
 export function max(arr) {
@@ -266,7 +266,7 @@ export function max(arr) {
             indexOfMax = i;
         }
     }
-    return [max, indexOfMax];
+    return [Number(max), indexOfMax];
 }
 
 function isPowerOfTwo(number) {
