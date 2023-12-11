@@ -36,7 +36,7 @@ const DataTypeMap = new Map([
 
 const ONNXTensor = ONNX.Tensor;
 
-export class Tensor extends ONNXTensor {
+export class Tensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
      * @param {[string, DataArray, number[]]|[ONNXTensor]} args
@@ -44,11 +44,13 @@ export class Tensor extends ONNXTensor {
     constructor(...args) {
         if (args[0] instanceof ONNX.Tensor) {
             // Create shallow copy
-            super(args[0].type, args[0].data, args[0].dims);
+            Object.assign(this, args[0]);
 
         } else {
-            // Create new
-            super(...args);
+            // Create new tensor
+            this.type = /** @type {string} */ (args[0]);
+            this.data = /** @type {DataArray} */ (args[1]);
+            this.dims = /** @type {number[]} */ (args[2]);
         }
 
         return new Proxy(this, {
