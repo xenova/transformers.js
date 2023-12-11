@@ -4733,7 +4733,7 @@ export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
 }
 
 export class AutoModelForImageMatting extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES];
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES];
 }
 
 export class AutoModelForImageToImage extends PretrainedMixin {
