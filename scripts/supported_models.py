@@ -696,6 +696,15 @@ SUPPORTED_MODELS = {
             'google/vit-base-patch16-224',
         ],
     },
+    'vitmatte': {
+        # Image matting
+        'image-matting': [
+            'hustvl/vitmatte-small-distinctions-646',
+            'hustvl/vitmatte-base-distinctions-646',
+            'hustvl/vitmatte-small-composition-1k',
+            'hustvl/vitmatte-base-composition-1k',
+        ],
+    },
     'wav2vec2': {
         # Feature extraction # NOTE: requires --task feature-extraction
         'feature-extraction': [

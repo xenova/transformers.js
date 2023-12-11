@@ -2477,7 +2477,7 @@ export class ASTModel extends ASTPreTrainedModel { }
  * Audio Spectrogram Transformer model with an audio classification head on top
  * (a linear layer on top of the pooled output) e.g. for datasets like AudioSet, Speech Commands v2.
  */
-export class ASTForAudioClassification extends ASTPreTrainedModel {}
+export class ASTForAudioClassification extends ASTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3198,6 +3198,22 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
      */
     async _call(model_inputs) {
         return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class VitMattePreTrainedModel extends PreTrainedModel { }
+
+/**
+ * ViTMatte framework leveraging any vision backbone e.g. for ADE20k, CityScapes.
+ */
+export class VitMatteForImageMatting extends VitMattePreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new ImageMattingOutput(await super._call(model_inputs));
     }
 }
 //////////////////////////////////////////////////
@@ -4480,9 +4496,11 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForSequenceClassification', Wav2Vec2ForSequenceClassification]],
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
-]);    
+]);
 
-
+const MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES = new Map([
+    ['vitmatte', ['VitMatteForImageMatting', VitMatteForImageMatting]],
+]);
 
 const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
     ['swin2sr', ['Swin2SRForImageSuperResolution', Swin2SRForImageSuperResolution]],
@@ -4508,6 +4526,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES, MODEL_TYPES.Vision2Seq],
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -4530,7 +4549,7 @@ for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
 const CUSTOM_MAPPING = [
     ['CLIPTextModelWithProjection', CLIPTextModelWithProjection, MODEL_TYPES.EncoderOnly],
     ['CLIPVisionModelWithProjection', CLIPVisionModelWithProjection, MODEL_TYPES.EncoderOnly],
-    
+
     ['ClapTextModelWithProjection', ClapTextModelWithProjection, MODEL_TYPES.EncoderOnly],
     ['ClapAudioModelWithProjection', ClapAudioModelWithProjection, MODEL_TYPES.EncoderOnly],
 ]
@@ -4713,6 +4732,10 @@ export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES];
 }
 
+export class AutoModelForImageMatting extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES];
+}
+
 export class AutoModelForImageToImage extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES];
 }
@@ -4830,5 +4853,16 @@ export class CausalLMOutputWithPast extends ModelOutput {
         super();
         this.logits = logits;
         this.past_key_values = past_key_values;
+    }
+}
+
+export class ImageMattingOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.alphas Estimated alpha values, of shape `(batch_size, num_channels, height, width)`.
+     */
+    constructor({ alphas }) {
+        super();
+        this.alphas = alphas;
     }
 }
