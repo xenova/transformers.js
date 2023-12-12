@@ -206,6 +206,7 @@ function validateInputs(session, inputs) {
 async function sessionRun(session, inputs) {
     const checkedInputs = validateInputs(session, inputs);
     try {
+        // @ts-ignore
         let output = await session.run(checkedInputs);
         output = replaceTensors(output);
         return output;
@@ -292,6 +293,7 @@ function prepareAttentionMask(self, tokens) {
     if (is_pad_token_in_inputs && is_pad_token_not_equal_to_eos_token_id) {
         let data = BigInt64Array.from(
             // Note: != so that int matches bigint
+            // @ts-ignore
             tokens.data.map(x => x != pad_token_id)
         )
         return new Tensor('int64', data, tokens.dims)
@@ -704,9 +706,10 @@ export class PreTrainedModel extends Callable {
     * @todo Use https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
     */
     async dispose() {
-        let promises = [];
+        const promises = [];
         for (let key of Object.keys(this)) {
-            let item = this[key];
+            const item = this[key];
+            // @ts-ignore
             if (item instanceof InferenceSession) {
                 promises.push(item.handler.dispose())
             }
@@ -1460,6 +1463,80 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
     }
 }
 //////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// ConvBert models
+export class ConvBertPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare ConvBERT Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class ConvBertModel extends ConvBertPreTrainedModel { }
+
+/**
+ * ConvBERT Model with a language modeling head on top.
+ */
+export class ConvBertForMaskedLM extends ConvBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ConvBERT Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class ConvBertForSequenceClassification extends ConvBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ConvBERT Model with a token classification head on top (a linear layer on top of the hidden-states output)
+ * e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class ConvBertForTokenClassification extends ConvBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ConvBERT Model with a span classification head on top for extractive question-answering tasks like SQuAD
+ * (a linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`)
+ */
+export class ConvBertForQuestionAnswering extends ConvBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // CamemBERT models
@@ -2534,7 +2611,7 @@ export class ASTModel extends ASTPreTrainedModel { }
  * Audio Spectrogram Transformer model with an audio classification head on top
  * (a linear layer on top of the pooled output) e.g. for datasets like AudioSet, Speech Commands v2.
  */
-export class ASTForAudioClassification extends ASTPreTrainedModel {}
+export class ASTForAudioClassification extends ASTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3144,6 +3221,37 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// Phi models
+
+export class PhiPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `PhiPreTrainedModel` class.
+     * @param {Object} config The model configuration object.
+     * @param {Object} session The ONNX session object.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id;
+
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+/**
+ * The bare Phi Model outputting raw hidden-states without any specific head on top.
+ */
+export class PhiModel extends PhiPreTrainedModel { }
+
+export class PhiForCausalLM extends PhiPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // Bloom models
 /**
  * The Bloom Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
@@ -3661,6 +3769,28 @@ export class ConvNextV2ForImageClassification extends ConvNextV2PreTrainedModel 
     }
 }
 //////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class Dinov2PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DINOv2 Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class Dinov2Model extends Dinov2PreTrainedModel { }
+
+/**
+ * Dinov2 Model transformer with an image classification head on top (a linear layer on top of the final hidden state of the [CLS] token) e.g. for ImageNet.
+ */
+export class Dinov2ForImageClassification extends Dinov2PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 export class YolosPreTrainedModel extends PreTrainedModel { }
@@ -4329,6 +4459,7 @@ export class PretrainedMixin {
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
     ['esm', ['EsmModel', EsmModel]],
+    ['convbert', ['ConvBertModel', ConvBertModel]],
     ['camembert', ['CamembertModel', CamembertModel]],
     ['deberta', ['DebertaModel', DebertaModel]],
     ['deberta-v2', ['DebertaV2Model', DebertaV2Model]],
@@ -4354,6 +4485,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['deit', ['DeiTModel', DeiTModel]],
     ['convnext', ['ConvNextModel', ConvNextModel]],
     ['convnextv2', ['ConvNextV2Model', ConvNextV2Model]],
+    ['dinov2', ['Dinov2Model', Dinov2Model]],
     ['resnet', ['ResNetModel', ResNetModel]],
     ['swin', ['SwinModel', SwinModel]],
     ['swin2sr', ['Swin2SRModel', Swin2SRModel]],
@@ -4390,6 +4522,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['gpt_neox', ['GPTNeoXModel', GPTNeoXModel]],
     ['codegen', ['CodeGenModel', CodeGenModel]],
     ['llama', ['LlamaModel', LlamaModel]],
+    ['phi', ['PhiModel', PhiModel]],
     ['mpt', ['MptModel', MptModel]],
     ['opt', ['OPTModel', OPTModel]],
     ['mistral', ['MistralModel', MistralModel]],
@@ -4408,6 +4541,7 @@ const MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES = new Map([
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
     ['esm', ['EsmForSequenceClassification', EsmForSequenceClassification]],
+    ['convbert', ['ConvBertForSequenceClassification', ConvBertForSequenceClassification]],
     ['camembert', ['CamembertForSequenceClassification', CamembertForSequenceClassification]],
     ['deberta', ['DebertaForSequenceClassification', DebertaForSequenceClassification]],
     ['deberta-v2', ['DebertaV2ForSequenceClassification', DebertaV2ForSequenceClassification]],
@@ -4426,6 +4560,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForTokenClassification', BertForTokenClassification]],
     ['esm', ['EsmForTokenClassification', EsmForTokenClassification]],
+    ['convbert', ['ConvBertForTokenClassification', ConvBertForTokenClassification]],
     ['camembert', ['CamembertForTokenClassification', CamembertForTokenClassification]],
     ['deberta', ['DebertaForTokenClassification', DebertaForTokenClassification]],
     ['deberta-v2', ['DebertaV2ForTokenClassification', DebertaV2ForTokenClassification]],
@@ -4457,6 +4592,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['gpt_neox', ['GPTNeoXForCausalLM', GPTNeoXForCausalLM]],
     ['codegen', ['CodeGenForCausalLM', CodeGenForCausalLM]],
     ['llama', ['LlamaForCausalLM', LlamaForCausalLM]],
+    ['phi', ['PhiForCausalLM', PhiForCausalLM]],
     ['mpt', ['MptForCausalLM', MptForCausalLM]],
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
     ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
@@ -4468,6 +4604,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', ['BertForMaskedLM', BertForMaskedLM]],
     ['esm', ['EsmForMaskedLM', EsmForMaskedLM]],
+    ['convbert', ['ConvBertForMaskedLM', ConvBertForMaskedLM]],
     ['camembert', ['CamembertForMaskedLM', CamembertForMaskedLM]],
     ['deberta', ['DebertaForMaskedLM', DebertaForMaskedLM]],
     ['deberta-v2', ['DebertaV2ForMaskedLM', DebertaV2ForMaskedLM]],
@@ -4483,6 +4620,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', ['BertForQuestionAnswering', BertForQuestionAnswering]],
+    ['convbert', ['ConvBertForQuestionAnswering', ConvBertForQuestionAnswering]],
     ['camembert', ['CamembertForQuestionAnswering', CamembertForQuestionAnswering]],
     ['deberta', ['DebertaForQuestionAnswering', DebertaForQuestionAnswering]],
     ['deberta-v2', ['DebertaV2ForQuestionAnswering', DebertaV2ForQuestionAnswering]],
@@ -4511,6 +4649,7 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['deit', ['DeiTForImageClassification', DeiTForImageClassification]],
     ['convnext', ['ConvNextForImageClassification', ConvNextForImageClassification]],
     ['convnextv2', ['ConvNextV2ForImageClassification', ConvNextV2ForImageClassification]],
+    ['dinov2', ['Dinov2ForImageClassification', Dinov2ForImageClassification]],
     ['resnet', ['ResNetForImageClassification', ResNetForImageClassification]],
     ['swin', ['SwinForImageClassification', SwinForImageClassification]],
 ]);
@@ -4541,7 +4680,7 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForSequenceClassification', Wav2Vec2ForSequenceClassification]],
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
-]);    
+]);
 
 
 
@@ -4591,7 +4730,7 @@ for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
 const CUSTOM_MAPPING = [
     ['CLIPTextModelWithProjection', CLIPTextModelWithProjection, MODEL_TYPES.EncoderOnly],
     ['CLIPVisionModelWithProjection', CLIPVisionModelWithProjection, MODEL_TYPES.EncoderOnly],
-    
+
     ['ClapTextModelWithProjection', ClapTextModelWithProjection, MODEL_TYPES.EncoderOnly],
     ['ClapAudioModelWithProjection', ClapAudioModelWithProjection, MODEL_TYPES.EncoderOnly],
 ]
