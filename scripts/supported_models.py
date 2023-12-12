@@ -371,6 +371,14 @@ SUPPORTED_MODELS = {
             'Intel/dpt-large',
         ],
     },
+    'electra': {
+        # Feature extraction
+        'feature-extraction': [
+            # NOTE: requires --task feature-extraction
+            'google/electra-small-discriminator',
+            'google/electra-base-discriminator',
+        ],
+    },
     'esm': {
         # Masked language modelling
         'fill-mask': [
@@ -467,6 +475,22 @@ SUPPORTED_MODELS = {
         'feature-extraction': [
             'allegro/herbert-base-cased',
             'allegro/herbert-large-cased',
+        ],
+    },
+    'hubert': {
+        # Feature extraction
+        'feature-extraction': [
+            'facebook/hubert-base-ls960',
+        ],
+
+        # Audio classification
+        'audio-classification': [
+            'superb/hubert-base-superb-ks',
+        ],
+
+        # Automatic speech recognition
+        'automatic-speech-recognition': [
+            'facebook/hubert-large-ls960-ft',
         ],
     },
     'llama': {

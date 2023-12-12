@@ -22,7 +22,7 @@
  * 
  * We also provide other `AutoModel`s (listed below), which you can use in the same way as the Python library. For example:
  * 
- * **Example:** Load and run a `AutoModelForSeq2SeqLM`.
+ * **Example:** Load and run an `AutoModelForSeq2SeqLM`.
  * ```javascript
  * import { AutoModelForSeq2SeqLM, AutoTokenizer } from '@xenova/transformers';
  * 
@@ -1525,6 +1525,80 @@ export class ConvBertForTokenClassification extends ConvBertPreTrainedModel {
  * (a linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`)
  */
 export class ConvBertForQuestionAnswering extends ConvBertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// Electra models
+export class ElectraPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare Electra Model transformer outputting raw hidden-states without any specific head on top.
+ * Identical to the BERT model except that it uses an additional linear layer between the embedding
+ * layer and the encoder if the hidden size and embedding size are different.
+ */
+export class ElectraModel extends ElectraPreTrainedModel { }
+// TODO add ElectraForPreTraining
+/**
+ * Electra model with a language modeling head on top.
+ */
+export class ElectraForMaskedLM extends ElectraPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ELECTRA Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class ElectraForSequenceClassification extends ElectraPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Electra model with a token classification head on top.
+ */
+export class ElectraForTokenClassification extends ElectraPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * LECTRA Model with a span classification head on top for extractive question-answering tasks like SQuAD
+ * (a linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class ElectraForQuestionAnswering extends ElectraPreTrainedModel {
     /**
      * Calls the model on new inputs.
      *
@@ -3923,7 +3997,7 @@ export class Wav2Vec2PreTrainedModel extends PreTrainedModel { };
 /**
  * The bare Wav2Vec2 Model transformer outputting raw hidden-states without any specific head on top.
  * 
- * **Example:** Load and run an `Wav2Vec2Model` for feature extraction.
+ * **Example:** Load and run a `Wav2Vec2Model` for feature extraction.
  * 
  * ```javascript
  * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
@@ -3970,6 +4044,69 @@ export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
     }
 }
 //////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Hubert models
+export class HubertPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare Hubert Model transformer outputting raw hidden-states without any specific head on top.
+ * 
+ * **Example:** Load and run a `HubertModel` for feature extraction.
+ * 
+ * ```javascript
+ * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
+ * 
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/hubert-base-ls960');
+ * const audio = await read_audio('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav', 16000);
+ * const inputs = await processor(audio);
+ * 
+ * // Load and run model with inputs
+ * const model = await AutoModel.from_pretrained('Xenova/hubert-base-ls960');
+ * const output = await model(inputs);
+ * // {
+ * //   last_hidden_state: Tensor {
+ * //     dims: [ 1, 549, 768 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(421632) [0.0682469978928566, 0.08104046434164047, -0.4975186586380005, ...],
+ * //     size: 421632
+ * //   }
+ * // }
+ * ```
+ */
+export class HubertModel extends Wav2Vec2PreTrainedModel { }
+
+/**
+ * Hubert Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class HubertForCTC extends Wav2Vec2PreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_values Float values of input raw speech waveform.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Hubert Model with a sequence classification head on top (a linear layer over the pooled output) for tasks like SUPERB Keyword Spotting.
+ */
+export class HubertForSequenceClassification extends Wav2Vec2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // WavLM models
 /**
  * An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained models.
@@ -3979,7 +4116,7 @@ export class WavLMPreTrainedModel extends PreTrainedModel { };
 /**
  * The bare WavLM Model transformer outputting raw hidden-states without any specific head on top.
  * 
- * **Example:** Load and run an `WavLMModel` for feature extraction.
+ * **Example:** Load and run a `WavLMModel` for feature extraction.
  * 
  * ```javascript
  * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
@@ -4458,6 +4595,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['electra', ['ElectraModel', ElectraModel]],
     ['esm', ['EsmModel', EsmModel]],
     ['convbert', ['ConvBertModel', ConvBertModel]],
     ['camembert', ['CamembertModel', CamembertModel]],
@@ -4474,6 +4612,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['mobilebert', ['MobileBertModel', MobileBertModel]],
     ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
     ['wav2vec2', ['Wav2Vec2Model', Wav2Vec2Model]],
+    ['hubert', ['HubertModel', HubertModel]],
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
 
@@ -4540,6 +4679,7 @@ const MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
+    ['electra', ['ElectraForSequenceClassification', ElectraForSequenceClassification]],
     ['esm', ['EsmForSequenceClassification', EsmForSequenceClassification]],
     ['convbert', ['ConvBertForSequenceClassification', ConvBertForSequenceClassification]],
     ['camembert', ['CamembertForSequenceClassification', CamembertForSequenceClassification]],
@@ -4559,6 +4699,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForTokenClassification', BertForTokenClassification]],
+    ['electra', ['ElectraForTokenClassification', ElectraForTokenClassification]],
     ['esm', ['EsmForTokenClassification', EsmForTokenClassification]],
     ['convbert', ['ConvBertForTokenClassification', ConvBertForTokenClassification]],
     ['camembert', ['CamembertForTokenClassification', CamembertForTokenClassification]],
@@ -4603,6 +4744,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', ['BertForMaskedLM', BertForMaskedLM]],
+    ['electra', ['ElectraForMaskedLM', ElectraForMaskedLM]],
     ['esm', ['EsmForMaskedLM', EsmForMaskedLM]],
     ['convbert', ['ConvBertForMaskedLM', ConvBertForMaskedLM]],
     ['camembert', ['CamembertForMaskedLM', CamembertForMaskedLM]],
@@ -4620,6 +4762,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', ['BertForQuestionAnswering', BertForQuestionAnswering]],
+    ['electra', ['ElectraForQuestionAnswering', ElectraForQuestionAnswering]],
     ['convbert', ['ConvBertForQuestionAnswering', ConvBertForQuestionAnswering]],
     ['camembert', ['CamembertForQuestionAnswering', CamembertForQuestionAnswering]],
     ['deberta', ['DebertaForQuestionAnswering', DebertaForQuestionAnswering]],
@@ -4674,11 +4817,13 @@ const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
 const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForCTC', Wav2Vec2ForCTC]],
     ['wavlm', ['WavLMForCTC', WavLMForCTC]],
+    ['hubert', ['HubertForCTC', HubertForCTC]],
 ]);
 
 const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForSequenceClassification', Wav2Vec2ForSequenceClassification]],
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
+    ['hubert', ['HubertForSequenceClassification', HubertForSequenceClassification]],
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
 ]);
 

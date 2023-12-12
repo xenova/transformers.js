@@ -90,6 +90,7 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
 MODELS_WITHOUT_TOKENIZERS = [
     'wav2vec2',
     'wavlm',
+    'hubert',
 ]
 
 
@@ -312,7 +313,7 @@ def main():
                 **get_main_export_kwargs(config, "automatic-speech-recognition")
             )
 
-    elif config.model_type == 'wav2vec2':
+    elif config.model_type in ('wav2vec2', 'hubert'):
         if tokenizer is not None:
             from .extra.wav2vec2 import generate_tokenizer_json
             tokenizer_json = generate_tokenizer_json(tokenizer)
