@@ -52,7 +52,7 @@ export class Tensor {
 
     /**
      * Create a new Tensor or copy an existing Tensor.
-     * @param {[DataType, DataArray, number[]]|[ONNXTensor]} args
+     * @param {[DataType, DataArray, number[]]|[import('onnxruntime-common').Tensor]} args
      */
     constructor(...args) {
         if (args[0] instanceof ONNXTensor) {
