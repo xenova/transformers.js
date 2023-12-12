@@ -38,6 +38,7 @@
   },
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
+    "openvinojs-node": "2023.3-preview",
     "onnxruntime-web": "1.14.0",
     "sharp": "^0.32.0"
   },

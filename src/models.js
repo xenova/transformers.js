@@ -54,7 +54,6 @@ import {
 } from './utils/core.js';
 
 import {
-    getModelFile,
     getModelJSON,
 } from './utils/hub.js';
 
@@ -85,9 +84,9 @@ import {
     Tensor,
 } from './utils/tensor.js';
 
-import { executionProviders, ONNX } from './backends/onnx.js';
+import backends from './backends/index.js';
 import { medianFilter } from './transformers.js';
-const { InferenceSession, Tensor: ONNXTensor, env } = ONNX;
+const { InferenceSession, Tensor: ONNXTensor, env } = backends.ONNX.ONNX;
 
 /** @typedef {import('onnxruntime-web').InferenceSession} InferenceSession */
 
@@ -122,28 +121,15 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
     // TODO add option for user to force specify their desired execution provider
-    let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
-    let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
+    let InferenceLib = null;
 
-    try {
-        return await InferenceSession.create(buffer, {
-            executionProviders,
-        });
-    } catch (err) {
-        // If the execution provided was only wasm, throw the error
-        if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
-            throw err;
-        }
+    if (Array.isArray(fileName) || /\.xml$/.test(fileName)) {
+        console.log('OVModel model passed, openvinojs-node is using');
+        InferenceLib = backends.OpenVINO;
+    } else InferenceLib = backends.ONNX;
 
-        console.warn(err);
-        console.warn(
-            'Something went wrong during model construction (most likely a missing operation). ' +
-            'Using `wasm` as a fallback. '
-        )
-        return await InferenceSession.create(buffer, {
-            executionProviders: ['wasm']
-        });
-    }
+    return await InferenceLib.create(
+        pretrained_model_name_or_path, fileName, options);
 }
 
 /**
