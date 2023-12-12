@@ -202,6 +202,14 @@ SUPPORTED_MODELS = {
             'Salesforce/codegen-350M-nl',
         ],
     },
+    'convbert': {
+        # Feature extraction
+        'feature-extraction': [
+            'YituTech/conv-bert-small',
+            'YituTech/conv-bert-medium-small',
+            'YituTech/conv-bert-base',
+        ],
+    },
     'convnext': {
         # Image classification
         'image-classification': [
