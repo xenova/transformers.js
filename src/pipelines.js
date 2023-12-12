@@ -933,6 +933,8 @@ export class FeatureExtractionPipeline extends Pipeline {
             // Skip pooling
         } else if (pooling === 'mean') {
             result = mean_pooling(result, inputs.attention_mask);
+        } else if (pooling === 'cls') {
+            result = result.slice(null, 0);
         } else {
             throw Error(`Pooling method '${pooling}' not supported.`);
         }
@@ -1276,6 +1278,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             case 'whisper':
                 return this._call_whisper(audio, kwargs)
             case 'wav2vec2':
+            case 'hubert':
                 return this._call_wav2vec2(audio, kwargs)
             default:
                 throw new Error(`AutomaticSpeechRecognitionPipeline does not support model type '${this.model.config.model_type}'.`)

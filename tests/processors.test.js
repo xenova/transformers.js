@@ -44,6 +44,7 @@ describe('Processors', () => {
             owlvit: 'google/owlvit-base-patch32',
             clip: 'openai/clip-vit-base-patch16',
             vitmatte: 'hustvl/vitmatte-small-distinctions-646',
+            dinov2: 'facebook/dinov2-small-imagenet1k-1-layer',
         }
 
         const TEST_IMAGES = {
@@ -365,6 +366,22 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[640, 960]]);
                 compare(reshaped_input_sizes, [[640, 960]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        // BitImageProcessor
+        it(MODELS.dinov2, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.dinov2))
+
+            {
+                const image = await load_image(TEST_IMAGES.tiger);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 224, 224]);
+                compare(avg(pixel_values.data), 0.06262318789958954);
+
+                compare(original_sizes, [[408, 612]]);
+                compare(reshaped_input_sizes, [[224, 224]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
     });

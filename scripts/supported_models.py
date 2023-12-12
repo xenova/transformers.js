@@ -202,6 +202,14 @@ SUPPORTED_MODELS = {
             'Salesforce/codegen-350M-nl',
         ],
     },
+    'convbert': {
+        # Feature extraction
+        'feature-extraction': [
+            'YituTech/conv-bert-small',
+            'YituTech/conv-bert-medium-small',
+            'YituTech/conv-bert-base',
+        ],
+    },
     'convnext': {
         # Image classification
         'image-classification': [
@@ -287,6 +295,23 @@ SUPPORTED_MODELS = {
         # Image segmentation
         'image-segmentation': [
             'facebook/detr-resnet-50-panoptic',
+        ],
+    },
+    'dinov2': {
+        # Feature extraction
+        'feature-extraction': [
+            'facebook/dinov2-small',
+            'facebook/dinov2-base',
+            'facebook/dinov2-large',
+            # 'facebook/dinov2-giant',  # TODO add
+        ],
+
+        # Image classification
+        'image-classification': [
+            'facebook/dinov2-small-imagenet1k-1-layer',
+            'facebook/dinov2-base-imagenet1k-1-layer',
+            'facebook/dinov2-large-imagenet1k-1-layer',
+            # 'facebook/dinov2-giant-imagenet1k-1-layer',  # TODO add
         ],
     },
     'distilbert': {
@@ -419,6 +444,22 @@ SUPPORTED_MODELS = {
         'feature-extraction': [
             'allegro/herbert-base-cased',
             'allegro/herbert-large-cased',
+        ],
+    },
+    'hubert': {
+        # Feature extraction
+        'feature-extraction': [
+            'facebook/hubert-base-ls960',
+        ],
+
+        # Audio classification
+        'audio-classification': [
+            'superb/hubert-base-superb-ks',
+        ],
+
+        # Automatic speech recognition
+        'automatic-speech-recognition': [
+            'facebook/hubert-large-ls960-ft',
         ],
     },
     'llama': {
@@ -565,6 +606,12 @@ SUPPORTED_MODELS = {
             'microsoft/resnet-50',
             'microsoft/resnet-101',
             'microsoft/resnet-152',
+        ],
+    },
+    'phi': {
+        # Text generation
+        'text-generation': [
+            'hf-internal-testing/tiny-random-PhiForCausalLM',
         ],
     },
     'roberta': {

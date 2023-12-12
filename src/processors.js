@@ -609,6 +609,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class BitImageProcessor extends ImageFeatureExtractor { }
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
@@ -1696,6 +1697,7 @@ export class AutoProcessor {
         CLIPFeatureExtractor,
         ConvNextFeatureExtractor,
         ConvNextImageProcessor,
+        BitImageProcessor,
         DPTFeatureExtractor,
         GLPNFeatureExtractor,
         BeitFeatureExtractor,
