@@ -105,6 +105,12 @@ class ConversionArguments:
             "help": "Model identifier"
         }
     )
+    tokenizer_id: str = field(
+        default=None,
+        metadata={
+            "help": "Tokenizer identifier (if different to `model_id`)"
+        }
+    )
     quantize: bool = field(
         default=False,
         metadata={
@@ -262,6 +268,7 @@ def main():
     conv_args, = parser.parse_args_into_dataclasses()
 
     model_id = conv_args.model_id
+    tokenizer_id = conv_args.tokenizer_id or model_id
 
     output_model_folder = os.path.join(conv_args.output_parent_dir, model_id)
 
@@ -274,7 +281,7 @@ def main():
     tokenizer = None
     try:
         # Load tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
 
     except KeyError:
         pass  # No Tokenizer
