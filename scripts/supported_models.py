@@ -382,6 +382,7 @@ SUPPORTED_MODELS = {
     'esm': {
         # Masked language modelling
         'fill-mask': [
+            # with and without --task feature-extraction
             'InstaDeepAI/nucleotide-transformer-500m-human-ref',
             'InstaDeepAI/nucleotide-transformer-500m-1000g',
 
