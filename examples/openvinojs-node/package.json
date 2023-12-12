@@ -1,0 +1,14 @@
+{
+  "name": "openvinojs-node-transformers.js-demo",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18.16.0"
+  },
+  "dependencies": {
+    "@xenova/transformers": "file:../../"
+  }
+}
