@@ -3640,6 +3640,28 @@ export class ConvNextV2ForImageClassification extends ConvNextV2PreTrainedModel 
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class Dinov2PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare DINOv2 Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class Dinov2Model extends Dinov2PreTrainedModel { }
+
+/**
+ * Dinov2 Model transformer with an image classification head on top (a linear layer on top of the final hidden state of the [CLS] token) e.g. for ImageNet.
+ */
+export class Dinov2ForImageClassification extends Dinov2PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 export class YolosPreTrainedModel extends PreTrainedModel { }
 export class YolosModel extends YolosPreTrainedModel { }
 export class YolosForObjectDetection extends YolosPreTrainedModel {
@@ -4330,6 +4352,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['deit', ['DeiTModel', DeiTModel]],
     ['convnext', ['ConvNextModel', ConvNextModel]],
     ['convnextv2', ['ConvNextV2Model', ConvNextV2Model]],
+    ['dinov2', ['Dinov2Model', Dinov2Model]],
     ['resnet', ['ResNetModel', ResNetModel]],
     ['swin', ['SwinModel', SwinModel]],
     ['swin2sr', ['Swin2SRModel', Swin2SRModel]],
@@ -4486,6 +4509,7 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['deit', ['DeiTForImageClassification', DeiTForImageClassification]],
     ['convnext', ['ConvNextForImageClassification', ConvNextForImageClassification]],
     ['convnextv2', ['ConvNextV2ForImageClassification', ConvNextV2ForImageClassification]],
+    ['dinov2', ['Dinov2ForImageClassification', Dinov2ForImageClassification]],
     ['resnet', ['ResNetForImageClassification', ResNetForImageClassification]],
     ['swin', ['SwinForImageClassification', SwinForImageClassification]],
 ]);
