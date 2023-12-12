@@ -206,6 +206,7 @@ function validateInputs(session, inputs) {
 async function sessionRun(session, inputs) {
     const checkedInputs = validateInputs(session, inputs);
     try {
+        // @ts-ignore
         let output = await session.run(checkedInputs);
         output = replaceTensors(output);
         return output;
@@ -292,6 +293,7 @@ function prepareAttentionMask(self, tokens) {
     if (is_pad_token_in_inputs && is_pad_token_not_equal_to_eos_token_id) {
         let data = BigInt64Array.from(
             // Note: != so that int matches bigint
+            // @ts-ignore
             tokens.data.map(x => x != pad_token_id)
         )
         return new Tensor('int64', data, tokens.dims)
@@ -704,9 +706,10 @@ export class PreTrainedModel extends Callable {
     * @todo Use https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
     */
     async dispose() {
-        let promises = [];
+        const promises = [];
         for (let key of Object.keys(this)) {
-            let item = this[key];
+            const item = this[key];
+            // @ts-ignore
             if (item instanceof InferenceSession) {
                 promises.push(item.handler.dispose())
             }
