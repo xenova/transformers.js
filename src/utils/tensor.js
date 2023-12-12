@@ -15,51 +15,53 @@ import {
 } from './maths.js';
 
 
-/**
- * @typedef {'bool'|'float32'|'float64'|'string'|'int8'|'uint8'|'int16'|'uint16'|'int32'|'uint32'|'int64'} DataType 
- */
-const DataTypeMap = new Map( /** @type {[DataType, any][]} */([
-    ['bool', Uint8Array],
-    ['float32', Float32Array],
-    ['float64', Float64Array],
-    ['string', Array], // string[]
-    ['int8', Int8Array],
-    ['uint8', Uint8Array],
-    ['int16', Int16Array],
-    ['uint16', Uint16Array],
-    ['int32', Int32Array],
-    ['uint32', Uint32Array],
-    ['int64', BigInt64Array],
-]))
+const DataTypeMap = Object.freeze({
+    float32: Float32Array,
+    float64: Float64Array,
+    string: Array, // string[]
+    int8: Int8Array,
+    uint8: Uint8Array,
+    int16: Int16Array,
+    uint16: Uint16Array,
+    int32: Int32Array,
+    uint32: Uint32Array,
+    int64: BigInt64Array,
+    uint64: BigUint64Array,
+    bool: Uint8Array,
+});
 
 /**
+ * @typedef {keyof typeof DataTypeMap} DataType
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
  */
 
 const ONNXTensor = ONNX.Tensor;
 
 export class Tensor {
+    /** @type {number[]} Dimensions of the tensor. */
+    dims;
+
     /** @type {DataType} Type of the tensor. */
     type;
 
     /** @type {DataArray} The data stored in the tensor. */
     data;
 
-    /** @type {number[]} Dimensions of the tensor. */
-    dims;
+    /** @type {number} The number of elements in the tensor. */
+    size;
 
     /**
      * Create a new Tensor or copy an existing Tensor.
      * @param {[DataType, DataArray, number[]]|[ONNXTensor]} args
      */
     constructor(...args) {
-        if (args[0] instanceof ONNX.Tensor) {
+        if (args[0] instanceof ONNXTensor) {
             // Create shallow copy
             Object.assign(this, args[0]);
 
         } else {
             // Create new tensor
-            Object.assign(this, new ONNX.Tensor(
+            Object.assign(this, new ONNXTensor(
                 /** @type {DataType} */(args[0]),
                 /** @type {Exclude<import('./maths.js').AnyTypedArray, Uint8ClampedArray>} */(args[1]),
                 args[2]
@@ -611,11 +613,11 @@ export class Tensor {
         if (this.type === type) return this;
 
         // Otherwise, the returned tensor is a copy of self with the desired dtype.
-        const ArrayConstructor = DataTypeMap.get(type);
-        if (!ArrayConstructor) {
+        if (!DataTypeMap.hasOwnProperty(type)) {
             throw new Error(`Unsupported type: ${type}`);
         }
-        return new Tensor(type, ArrayConstructor.from(this.data), this.dims);
+        // @ts-ignore
+        return new Tensor(type, DataTypeMap[type].from(this.data), this.dims);
     }
 }
 
