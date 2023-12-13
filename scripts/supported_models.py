@@ -379,6 +379,30 @@ SUPPORTED_MODELS = {
             'google/electra-base-discriminator',
         ],
     },
+    'esm': {
+        # Masked language modelling
+        'fill-mask': [
+            # with and without --task feature-extraction
+            'InstaDeepAI/nucleotide-transformer-500m-human-ref',
+            'InstaDeepAI/nucleotide-transformer-500m-1000g',
+
+            # NOTE: requires --opset 12
+            'facebook/esm2_t6_8M_UR50D',
+            'facebook/esm2_t12_35M_UR50D',
+            'facebook/esm2_t30_150M_UR50D',
+            'facebook/esm2_t33_650M_UR50D',
+        ],
+
+        # Token classification
+        'token-classification': [
+            'AmelieSchreiber/esm2_t6_8M_UR50D_rna_binding_site_predictor',
+        ],
+
+        # Zero-shot classification
+        'zero-shot-classification': [
+            'AmelieSchreiber/esm2_t6_8M_UR50D_sequence_classifier_v1',
+        ],
+    },
     'falcon': {
         # Text generation
         'text-generation': [

@@ -106,7 +106,15 @@ TOKENIZER_TEST_DATA = {
             "The Heavenly Llama is said to drink water from the ocean and urinates as it rains.[6] According to " \
             "Aymara eschatology, llamas will return to the water springs and lagoons where they come from at the " \
             "end of time.[6]"
-        ]
+        ],
+        "InstaDeepAI/nucleotide-transformer-500m-human-ref": [
+            # Actual protein sequences
+            "ATTCCGATTCCGATTCCG",
+            "ATTTCTCTCTCTCTCTGAGATCGATCGATCGAT",
+
+            # Special tokens
+            "<unk><pad><mask><cls><eos><bos>",
+        ],
     },
 }
 
