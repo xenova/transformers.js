@@ -1180,8 +1180,8 @@ describe('Pipelines', () => {
 
                 let expected = [
                     { "score": 0.992206871509552, "label": "football" },
+                    { "score": 0.006468251813203096, "label": "animals" },
                     { "score": 0.0013248942559584975, "label": "airport" },
-                    { "score": 0.006468251813203096, "label": "animals" }
                 ]
                 compare(output, expected, 0.1);
 
@@ -1195,16 +1195,16 @@ describe('Pipelines', () => {
                 let expected = [
                     [
                         { "score": 0.9919875860214233, "label": "football" },
+                        { "score": 0.006789708975702524, "label": "animals" },
                         { "score": 0.0012227334082126617, "label": "airport" },
-                        { "score": 0.006789708975702524, "label": "animals" }
                     ], [
-                        { "score": 0.0003043194592464715, "label": "football" },
                         { "score": 0.998708188533783, "label": "airport" },
-                        { "score": 0.0009874969255179167, "label": "animals" }
+                        { "score": 0.0009874969255179167, "label": "animals" },
+                        { "score": 0.0003043194592464715, "label": "football" },
                     ], [
-                        { "score": 0.015163016505539417, "label": "football" },
+                        { "score": 0.9687991142272949, "label": "animals" },
                         { "score": 0.016037866473197937, "label": "airport" },
-                        { "score": 0.9687991142272949, "label": "animals" }
+                        { "score": 0.015163016505539417, "label": "football" },
                     ]
                 ];
                 compare(output, expected, 0.1);
