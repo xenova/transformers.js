@@ -3442,6 +3442,74 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class VitMattePreTrainedModel extends PreTrainedModel { }
+
+/**
+ * ViTMatte framework leveraging any vision backbone e.g. for ADE20k, CityScapes.
+ * 
+ * **Example:** Perform image matting with a `VitMatteForImageMatting` model.
+ * ```javascript
+ * import { AutoProcessor, VitMatteForImageMatting, RawImage } from '@xenova/transformers';
+ * 
+ * // Load processor and model
+ * const processor = await AutoProcessor.from_pretrained('Xenova/vitmatte-small-distinctions-646');
+ * const model = await VitMatteForImageMatting.from_pretrained('Xenova/vitmatte-small-distinctions-646');
+ * 
+ * // Load image and trimap
+ * const image = await RawImage.fromURL('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/vitmatte_image.png');
+ * const trimap = await RawImage.fromURL('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/vitmatte_trimap.png');
+ * 
+ * // Prepare image + trimap for the model
+ * const inputs = await processor(image, trimap);
+ * 
+ * // Predict alpha matte
+ * const { alphas } = await model(inputs);
+ * // Tensor {
+ * //   dims: [ 1, 1, 640, 960 ],
+ * //   type: 'float32',
+ * //   size: 614400,
+ * //   data: Float32Array(614400) [ 0.9894027709960938, 0.9970508813858032, ... ]
+ * // }
+ * ```
+ * 
+ * You can visualize the alpha matte as follows:
+ * ```javascript
+ * import { Tensor, cat } from '@xenova/transformers';
+ * 
+ * // Visualize predicted alpha matte
+ * const imageTensor = new Tensor(
+ *   'uint8',
+ *   new Uint8Array(image.data),
+ *   [image.height, image.width, image.channels]
+ * ).transpose(2, 0, 1);
+ * 
+ * // Convert float (0-1) alpha matte to uint8 (0-255)
+ * const alphaChannel = alphas
+ *   .squeeze(0)
+ *   .mul_(255)
+ *   .clamp_(0, 255)
+ *   .round_()
+ *   .to('uint8');
+ * 
+ * // Concatenate original image with predicted alpha
+ * const imageData = cat([imageTensor, alphaChannel], 0);
+ * 
+ * // Save output image
+ * const outputImage = RawImage.fromTensor(imageData);
+ * outputImage.save('output.png');
+ * ```
+ */
+export class VitMatteForImageMatting extends VitMattePreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new ImageMattingOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class MobileViTPreTrainedModel extends PreTrainedModel { }
 export class MobileViTModel extends MobileViTPreTrainedModel { }
 export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
@@ -4827,7 +4895,9 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
 ]);
 
-
+const MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES = new Map([
+    ['vitmatte', ['VitMatteForImageMatting', VitMatteForImageMatting]],
+]);
 
 const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
     ['swin2sr', ['Swin2SRForImageSuperResolution', Swin2SRForImageSuperResolution]],
@@ -4853,6 +4923,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES, MODEL_TYPES.Vision2Seq],
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -5058,6 +5129,10 @@ export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES];
 }
 
+export class AutoModelForImageMatting extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES];
+}
+
 export class AutoModelForImageToImage extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES];
 }
@@ -5175,5 +5250,16 @@ export class CausalLMOutputWithPast extends ModelOutput {
         super();
         this.logits = logits;
         this.past_key_values = past_key_values;
+    }
+}
+
+export class ImageMattingOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.alphas Estimated alpha values, of shape `(batch_size, num_channels, height, width)`.
+     */
+    constructor({ alphas }) {
+        super();
+        this.alphas = alphas;
     }
 }

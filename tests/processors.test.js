@@ -43,6 +43,7 @@ describe('Processors', () => {
             nougat: 'facebook/nougat-small',
             owlvit: 'google/owlvit-base-patch32',
             clip: 'openai/clip-vit-base-patch16',
+            vitmatte: 'hustvl/vitmatte-small-distinctions-646',
             dinov2: 'facebook/dinov2-small-imagenet1k-1-layer',
         }
 
@@ -56,6 +57,9 @@ describe('Processors', () => {
 
             // grayscale image
             skateboard: 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/blog/ml-web-games/skateboard.png',
+
+            vitmatte_image: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/vitmatte_image.png',
+            vitmatte_trimap: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/vitmatte_trimap.png',
         }
 
         // Swin2SRImageProcessor
@@ -335,6 +339,33 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[408, 612]]);
                 compare(reshaped_input_sizes, [[224, 224]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        // VitMatteImageProcessor
+        //  - tests custom overrides
+        //  - tests multiple inputs
+        it(MODELS.vitmatte, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.vitmatte))
+
+            {
+                const image = await load_image(TEST_IMAGES.vitmatte_image);
+                const image2 = await load_image(TEST_IMAGES.vitmatte_trimap);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image, image2);
+
+                compare(pixel_values.dims, [1, 4, 640, 960]);
+                expect(avg(pixel_values.data)).toBeCloseTo(-0.4028555154800415);
+                expect(pixel_values.data[0]).toBeCloseTo(-0.9921568632125854);
+                expect(pixel_values.data[1]).toBeCloseTo(-0.9921568632125854);
+                expect(pixel_values.data[5]).toBeCloseTo(-1.0);
+                expect(pixel_values.data[640]).toBeCloseTo(-0.6784313917160034);
+                expect(pixel_values.data[641]).toBeCloseTo(-0.6705882549285889);
+                expect(pixel_values.data[640 * 960]).toBeCloseTo(-1.0);
+                expect(pixel_values.data[640 * 960 + 1]).toBeCloseTo(-1.0);
+                expect(pixel_values.data.at(-1)).toBeCloseTo(0.0);
+
+                compare(original_sizes, [[640, 960]]);
+                compare(reshaped_input_sizes, [[640, 960]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
 
