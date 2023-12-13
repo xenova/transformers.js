@@ -1179,9 +1179,9 @@ describe('Pipelines', () => {
                 let output = await classifier(url, classes);
 
                 let expected = [
-                    { "score": 0.992206871509552, "label": "football" },
-                    { "score": 0.0013248942559584975, "label": "airport" },
-                    { "score": 0.006468251813203096, "label": "animals" }
+                    { score: 0.9719080924987793, label: 'football' },
+                    { score: 0.022564826533198357, label: 'animals' },
+                    { score: 0.005527070723474026, label: 'airport' }
                 ]
                 compare(output, expected, 0.1);
 
@@ -1194,17 +1194,17 @@ describe('Pipelines', () => {
 
                 let expected = [
                     [
-                        { "score": 0.9919875860214233, "label": "football" },
-                        { "score": 0.0012227334082126617, "label": "airport" },
-                        { "score": 0.006789708975702524, "label": "animals" }
+                        { score: 0.9712504148483276, label: 'football' },
+                        { score: 0.022469401359558105, label: 'animals' },
+                        { score: 0.006280169822275639, label: 'airport' }
                     ], [
-                        { "score": 0.0003043194592464715, "label": "football" },
-                        { "score": 0.998708188533783, "label": "airport" },
-                        { "score": 0.0009874969255179167, "label": "animals" }
+                        { score: 0.997433602809906, label: 'airport' },
+                        { score: 0.0016500800848007202, label: 'animals' },
+                        { score: 0.0009163151844404638, label: 'football' }
                     ], [
-                        { "score": 0.015163016505539417, "label": "football" },
-                        { "score": 0.016037866473197937, "label": "airport" },
-                        { "score": 0.9687991142272949, "label": "animals" }
+                        { score: 0.9851226806640625, label: 'animals' },
+                        { score: 0.007516484707593918, label: 'football' },
+                        { score: 0.007360846735537052, label: 'airport' }
                     ]
                 ];
                 compare(output, expected, 0.1);
@@ -1326,6 +1326,105 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
     });
 
+    describe('Zero-shot object detection', () => {
+
+        // List all models which will be tested
+        const models = [
+            'google/owlvit-base-patch32',
+        ];
+
+        it(models[0], async () => {
+            let detector = await pipeline('zero-shot-object-detection', m(models[0]));
+
+
+            // single (default)
+            {
+                let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/astronaut.png';
+                let candidate_labels = ['human face', 'rocket', 'helmet', 'american flag'];
+
+                let output = await detector(url, candidate_labels);
+
+                // let expected = [
+                //     {
+                //         score: 0.24392342567443848,
+                //         label: 'human face',
+                //         box: { xmin: 180, ymin: 67, xmax: 274, ymax: 175 }
+                //     },
+                //     {
+                //         score: 0.15129457414150238,
+                //         label: 'american flag',
+                //         box: { xmin: 0, ymin: 4, xmax: 106, ymax: 513 }
+                //     },
+                //     {
+                //         score: 0.13649864494800568,
+                //         label: 'helmet',
+                //         box: { xmin: 277, ymin: 337, xmax: 511, ymax: 511 }
+                //     },
+                //     {
+                //         score: 0.10262022167444229,
+                //         label: 'rocket',
+                //         box: { xmin: 352, ymin: -1, xmax: 463, ymax: 287 }
+                //     }
+                // ]
+
+                expect(output.length).toBeGreaterThan(0);
+                for (let cls of output) {
+                    expect(typeof cls.score).toBe('number');
+                    expect(typeof cls.label).toBe('string');
+                    for (let key of ['xmin', 'ymin', 'xmax', 'ymax']) {
+                        expect(typeof cls.box[key]).toBe('number');
+                    }
+                }
+            }
+
+            // topk + threshold + percentage
+            {
+                let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png';
+                let candidate_labels = ['hat', 'book', 'sunglasses', 'camera'];
+
+                let output = await detector(url, candidate_labels, {
+                    topk: 4,
+                    threshold: 0.05,
+                    percentage: true,
+                });
+
+                // let expected = [
+                //     {
+                //         score: 0.1606510728597641,
+                //         label: 'sunglasses',
+                //         box: { xmin: 347, ymin: 229, xmax: 429, ymax: 264 }
+                //     },
+                //     {
+                //         score: 0.08935828506946564,
+                //         label: 'hat',
+                //         box: { xmin: 38, ymin: 174, xmax: 258, ymax: 364 }
+                //     },
+                //     {
+                //         score: 0.08530698716640472,
+                //         label: 'camera',
+                //         box: { xmin: 187, ymin: 350, xmax: 260, ymax: 411 }
+                //     },
+                //     {
+                //         score: 0.08349756896495819,
+                //         label: 'book',
+                //         box: { xmin: 261, ymin: 280, xmax: 494, ymax: 425 }
+                //     }
+                // ]
+
+                expect(output.length).toBeGreaterThan(0);
+                for (let cls of output) {
+                    expect(typeof cls.score).toBe('number');
+                    expect(typeof cls.label).toBe('string');
+                    for (let key of ['xmin', 'ymin', 'xmax', 'ymax']) {
+                        expect(typeof cls.box[key]).toBe('number');
+                    }
+                }
+            }
+
+            await detector.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
     describe('Image-to-image', () => {
 
         // List all models which will be tested
@@ -1361,6 +1460,47 @@ describe('Pipelines', () => {
             }
 
             await upscaler.dispose();
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
+
+    describe('Depth estimation', () => {
+
+        // List all models which will be tested
+        const models = [
+            'Intel/dpt-hybrid-midas',
+        ];
+
+        it(models[0], async () => {
+            let depth_estimator = await pipeline('depth-estimation', m(models[0]));
+
+            let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+
+            // single
+            {
+                let { predicted_depth, depth } = await depth_estimator(url);
+                compare(predicted_depth.dims, [384, 384]);
+                expect(depth.width).toEqual(640);
+                expect(depth.height).toEqual(480);
+                expect(depth.channels).toEqual(1);
+                expect(depth.data).toHaveLength(307200);
+            }
+
+            // batched
+            {
+                let outputs = await depth_estimator([url, url]);
+                expect(outputs).toHaveLength(2);
+                for (let output of outputs) {
+                    let { predicted_depth, depth } = output;
+                    compare(predicted_depth.dims, [384, 384]);
+                    expect(depth.width).toEqual(640);
+                    expect(depth.height).toEqual(480);
+                    expect(depth.channels).toEqual(1);
+                    expect(depth.data).toHaveLength(307200);
+                }
+            }
+
+            await depth_estimator.dispose();
         }, MAX_TEST_EXECUTION_TIME);
     });
 

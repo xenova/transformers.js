@@ -261,6 +261,8 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
             return logits;
         }
 
+        const logitsData = /** @type {Float32Array} */(logits.data);
+
         // timestamps have to appear in pairs, except directly before eos_token; mask logits accordingly
         const seq = input_ids.slice(this.begin_index);
         const last_was_timestamp = seq.length >= 1 && seq[seq.length - 1] >= this.timestamp_begin;
@@ -268,25 +270,25 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 
         if (last_was_timestamp) {
             if (penultimate_was_timestamp) { // has to be non-timestamp
-                logits.data.subarray(this.timestamp_begin).fill(-Infinity);
+                logitsData.subarray(this.timestamp_begin).fill(-Infinity);
             } else { // cannot be normal text tokens
-                logits.data.subarray(0, this.eos_token_id).fill(-Infinity);
+                logitsData.subarray(0, this.eos_token_id).fill(-Infinity);
             }
         }
 
         // apply the `max_initial_timestamp` option
         if (input_ids.length === this.begin_index && this.max_initial_timestamp_index !== null) {
             const last_allowed = this.timestamp_begin + this.max_initial_timestamp_index;
-            logits.data.subarray(last_allowed + 1).fill(-Infinity);
+            logitsData.subarray(last_allowed + 1).fill(-Infinity);
         }
 
         // if sum of probability over timestamps is above any other token, sample timestamp
-        const logprobs = log_softmax(logits.data);
+        const logprobs = log_softmax(logitsData);
         const timestamp_logprob = Math.log(logprobs.subarray(this.timestamp_begin).map(Math.exp).reduce((a, b) => a + b));
         const max_text_token_logprob = max(logprobs.subarray(0, this.timestamp_begin))[0];
 
         if (timestamp_logprob > max_text_token_logprob) {
-            logits.data.subarray(0, this.timestamp_begin).fill(-Infinity);
+            logitsData.subarray(0, this.timestamp_begin).fill(-Infinity);
         }
 
         return logits;
@@ -491,6 +493,49 @@ export class MinNewTokensLengthLogitsProcessor extends LogitsProcessor {
     }
 }
 
+export class NoBadWordsLogitsProcessor extends LogitsProcessor {
+    /**
+     * Create a `NoBadWordsLogitsProcessor`.
+     * @param {number[][]} bad_words_ids List of list of token ids that are not allowed to be generated.
+     * @param {number|number[]} eos_token_id The id of the *end-of-sequence* token. Optionally, use a list to set multiple *end-of-sequence* tokens.
+     */
+    constructor(bad_words_ids, eos_token_id) {
+        super();
+        this.bad_words_ids = bad_words_ids;
+        this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
+    }
+
+    /**
+     * Apply logit processor.
+     * @param {Array} input_ids The input IDs.
+     * @param {Object} logits The logits.
+     * @returns {Object} The processed logits.
+     */
+    _call(input_ids, logits) {
+
+        for (const bad_word_ids of this.bad_words_ids) {
+            // Whether to modify the logits of the last token in the bad word id sequence
+            let mark = true;
+
+            // For each bad word in the list, if the current sequence of input ids ends with this sequence (excluding the last),
+            // then we set the logits of the last bad word id to -Infinity.
+            for (let i = 1; i <= bad_word_ids.length - 1 && bad_word_ids.length < input_ids.length; ++i) {
+
+                if (bad_word_ids.at(-i - 1) !== input_ids.at(-i)) {
+                    // We have found a mismatch
+                    mark = false;
+                    break;
+                }
+            }
+            if (mark) {
+                logits.data[bad_word_ids.at(-1)] = -Infinity;
+            }
+        }
+
+        return logits
+    }
+}
+
 /**
  * Class that holds a configuration for a generation task.
  */
@@ -654,12 +699,12 @@ export class Sampler extends Callable {
      * Returns the specified logits as an array, with temperature applied.
      * @param {Tensor} logits
      * @param {number} index
-     * @returns {Array}
+     * @returns {Float32Array}
      */
     getLogits(logits, index) {
         let vocabSize = logits.dims.at(-1);
 
-        let logs = logits.data;
+        let logs = /** @type {Float32Array} */(logits.data);
 
         if (index === -1) {
             logs = logs.slice(-vocabSize);

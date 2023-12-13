@@ -60,20 +60,56 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
     return info;
 }
 
+
+/**
+ * Helper function to split a string on a regex, but keep the delimiters.
+ * This is required, because the JavaScript `.split()` method does not keep the delimiters,
+ * and wrapping in a capturing group causes issues with existing capturing groups (due to nesting).
+ * @param {string} text The text to split.
+ * @param {RegExp} regex The regex to split on.
+ * @returns {string[]} The split string.
+ */
+function regexSplit(text, regex) {
+    const result = [];
+    let prev = 0;
+    for (const match of text.matchAll(regex)) {
+        const fullMatch = match[0];
+        if (prev < match.index) {
+            result.push(text.slice(prev, match.index));
+        }
+        if (fullMatch.length > 0) {
+            result.push(fullMatch);
+        }
+        prev = match.index + fullMatch.length;
+    }
+    if (prev < text.length) {
+        result.push(text.slice(prev));
+    }
+    return result;
+}
+
+
 /**
  * Helper method to construct a pattern from a config object.
  * @param {Object} pattern The pattern object.
- * @param {boolean} invert Whether to invert the pattern (only applicable for Regex patterns).
- * @returns {RegExp|string|null} The compiled pattern.
+ * @param {boolean} invert Whether to invert the pattern.
+ * @returns {RegExp|null} The compiled pattern.
  */
 function createPattern(pattern, invert = true) {
 
     if (pattern.Regex !== undefined) {
-        // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
-        return new RegExp(invert ? pattern.Regex : `(${pattern.Regex})`, 'gu');
+        // In certain cases, the pattern may contain unnecessary escape sequences (e.g., \# or \& or \~).
+        // i.e., valid in Python (where the patterns are exported from) but invalid in JavaScript (where the patterns are parsed).
+        // This isn't an issue when creating the regex w/o the 'u' flag, but it is when the 'u' flag is used.
+        // For this reason, it is necessary to remove these backslashes before creating the regex.
+        // See https://stackoverflow.com/a/63007777/13989043 for more information
+        const regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+        return new RegExp(regex, 'gu');
 
     } else if (pattern.String !== undefined) {
-        return pattern.String;
+        const escaped = escapeRegExp(pattern.String);
+        // NOTE: if invert is true, we wrap the pattern in a group so that it is kept when performing .split()
+        return new RegExp(invert ? escaped : `(${escaped})`, 'gu');
 
     } else {
         console.warn('Unknown pattern type:', pattern)
@@ -88,6 +124,26 @@ function createPattern(pattern, invert = true) {
  */
 function objectToMap(obj) {
     return new Map(Object.entries(obj));
+}
+
+/**
+ * Helper function to convert a tensor to a list before decoding.
+ * @param {Tensor} tensor The tensor to convert.
+ * @returns {number[]} The tensor as a list.
+ */
+function prepareTensorForDecode(tensor) {
+    const dims = tensor.dims;
+    switch (dims.length) {
+        case 1:
+            return tensor.tolist();
+        case 2:
+            if (dims[0] !== 1) {
+                throw new Error('Unable to decode tensor with `batch size !== 1`. Use `tokenizer.batch_decode(...)` for batched inputs.');
+            }
+            return tensor.tolist()[0];
+        default:
+            throw new Error(`Expected tensor to have 1-2 dimensions, got ${dims.length}.`)
+    }
 }
 
 /**
@@ -274,6 +330,7 @@ class WordPieceTokenizer extends TokenizerModel {
      * @param {Object} config.vocab A mapping of tokens to ids.
      * @param {string} config.unk_token The unknown token string.
      * @param {string} config.continuing_subword_prefix The prefix to use for continuing subwords.
+     * @param {number} [config.max_input_chars_per_word=100] The maximum number of characters per word.
      */
     constructor(config) {
         super(config);
@@ -296,6 +353,12 @@ class WordPieceTokenizer extends TokenizerModel {
         this.unk_token = config.unk_token;
 
         /**
+         * The maximum number of characters allowed per word.
+         * @type {number}
+         */
+        this.max_input_chars_per_word = config.max_input_chars_per_word ?? 100;
+
+        /**
          * An array of tokens.
          * @type {string[]}
          */
@@ -314,10 +377,10 @@ class WordPieceTokenizer extends TokenizerModel {
         let outputTokens = [];
         for (let token of tokens) {
             let chars = [...token];
-            // TODO add
-            // if len(chars) > self.max_input_chars_per_word:
-            //     output_tokens.append(self.unk_token)
-            //     continue
+            if (chars.length > this.max_input_chars_per_word) {
+                outputTokens.push(this.unk_token);
+                continue;
+            }
 
             let isUnknown = false;
             let start = 0;
@@ -810,6 +873,8 @@ class Normalizer extends Callable {
                 return new Replace(config);
             case 'NFC':
                 return new NFC(config);
+            case 'NFKC':
+                return new NFKC(config);
             case 'NFKD':
                 return new NFKD(config);
             case 'Strip':
@@ -885,6 +950,21 @@ class NFC extends Normalizer {
     }
 }
 
+/**
+ * NFKC Normalizer.
+ * @extends Normalizer
+ */
+class NFKC extends Normalizer {
+    /**
+     * Normalize text using NFKC normalization.
+     * @param {string} text The text to be normalized.
+     * @returns {string} The normalized text.
+     */
+    normalize(text) {
+        text = text.normalize('NFKC')
+        return text;
+    }
+}
 /**
  * NFKD Normalizer.
  * @extends Normalizer
@@ -1296,7 +1376,7 @@ class SplitPreTokenizer extends PreTokenizer {
         if (this.config.invert) {
             return text.match(this.pattern) || [];
         } else {
-            return text.split(this.pattern).filter(x => x);
+            return regexSplit(text, this.pattern);
         }
     }
 }
@@ -1541,6 +1621,7 @@ class Decoder extends Callable {
    * @throws {Error} If an unknown decoder type is provided.
    */
     static fromConfig(config) {
+        if (config === null) return null;
         switch (config.type) {
             case 'WordPiece':
                 return new WordPieceDecoder(config);
@@ -2140,13 +2221,6 @@ export class PreTrainedTokenizer extends Callable {
         // TODO: maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
-
-        // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
-        // This is needed for cases where BPE model and ByteLevel decoder are used
-        // For more information, see https://github.com/xenova/transformers.js/issues/74
-        // TODO: save this to the decoder when exporting?
-        this.decoder.end_of_word_suffix = this.model.end_of_word_suffix;
-
         // Add added_tokens to model
         this.special_tokens = [];
         this.all_special_ids = [];
@@ -2170,8 +2244,17 @@ export class PreTrainedTokenizer extends Callable {
         this.special_tokens.push(...(tokenizerConfig.additional_special_tokens ?? []));
         this.special_tokens = [...new Set(this.special_tokens)]; // Remove duplicates
 
-        // Slight hack, but it prevents code duplication:
-        this.decoder.added_tokens = this.added_tokens;
+        if (this.decoder) {
+            // Slight hack, but it prevents code duplication:
+            this.decoder.added_tokens = this.added_tokens;
+
+            // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
+            // This is needed for cases where BPE model and ByteLevel decoder are used
+            // For more information, see https://github.com/xenova/transformers.js/issues/74
+            // TODO: save this to the decoder when exporting?
+            this.decoder.end_of_word_suffix = this.model.end_of_word_suffix;
+        }
+
 
         this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
             '(' + this.added_tokens.map(escapeRegExp).join('|') + ')'
@@ -2186,6 +2269,9 @@ export class PreTrainedTokenizer extends Callable {
 
         this.sep_token = this.getToken(tokenizerConfig, 'sep_token');
         this.sep_token_id = this.model.tokens_to_ids.get(this.sep_token);
+
+        this.unk_token = this.getToken(tokenizerConfig, 'unk_token');
+        this.unk_token_id = this.model.tokens_to_ids.get(this.unk_token);
 
         this.model_max_length = tokenizerConfig.model_max_length;
 
@@ -2497,18 +2583,21 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Decode a batch of tokenized sequences.
-     * @param {number[][]} batch List of tokenized input sequences.
+     * @param {number[][]|Tensor} batch List/Tensor of tokenized input sequences.
      * @param {Object} decode_args (Optional) Object with decoding arguments.
      * @returns {string[]} List of decoded sequences.
      */
     batch_decode(batch, decode_args = {}) {
+        if (batch instanceof Tensor) {
+            batch = batch.tolist();
+        }
         return batch.map(x => this.decode(x, decode_args));
     }
 
     /**
      * Decodes a sequence of token IDs back to a string.
      *
-     * @param {number[]} token_ids List of token IDs to decode.
+     * @param {number[]|Tensor} token_ids List/Tensor of token IDs to decode.
      * @param {Object} [decode_args={}]
      * @param {boolean} [decode_args.skip_special_tokens=false] If true, special tokens are removed from the output string.
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] If true, spaces before punctuations and abbreviated forms are removed.
@@ -2520,6 +2609,10 @@ export class PreTrainedTokenizer extends Callable {
         token_ids,
         decode_args = {},
     ) {
+        if (token_ids instanceof Tensor) {
+            token_ids = prepareTensorForDecode(token_ids);
+        }
+
         if (!Array.isArray(token_ids) || token_ids.length === 0 || !isIntegralNumber(token_ids[0])) {
             throw Error("token_ids must be a non-empty array of integers.");
         }
@@ -2548,13 +2641,14 @@ export class PreTrainedTokenizer extends Callable {
             tokens = tokens.filter(x => !this.special_tokens.includes(x));
         }
 
+        // If `this.decoder` is null, we just join tokens with a space:
+        // https://github.com/huggingface/tokenizers/blob/8edec536a737cb04494b454805be16c020abb14f/tokenizers/src/tokenizer/mod.rs#L835
         /** @type {string} */
-        let decoded = this.decoder(tokens);
-
+        let decoded = this.decoder ? this.decoder(tokens) : tokens.join(' ');
 
         // Slight hack, but prevents having to pass `skip_special_tokens` to
         // each call to `decode`, which would lead to code duplication.
-        if (this.decoder.end_of_word_suffix) {
+        if (this.decoder && this.decoder.end_of_word_suffix) {
             decoded = decoded.replaceAll(this.decoder.end_of_word_suffix, ' ');
             if (skip_special_tokens) {
                 decoded = decoded.trim();
@@ -2575,7 +2669,7 @@ export class PreTrainedTokenizer extends Callable {
 * @param {Object} inputs An object containing the input ids and attention mask.
 * @returns {Object} The prepared inputs object.
 */
-function add_token_types(inputs) {
+export function add_token_types(inputs) {
     // TODO ensure correctness when token pair is present
     if (inputs.input_ids instanceof Tensor) {
         inputs.token_type_ids = new Tensor(
@@ -2650,6 +2744,12 @@ export class HerbertTokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
+export class ConvBertTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
 export class CamembertTokenizer extends PreTrainedTokenizer { }
 export class XLMTokenizer extends PreTrainedTokenizer {
@@ -2658,6 +2758,12 @@ export class XLMTokenizer extends PreTrainedTokenizer {
         console.warn('WARNING: `XLMTokenizer` is not yet supported by Hugging Face\'s "fast" tokenizers library. Therefore, you may experience slightly inaccurate results.')
     }
 
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
+export class ElectraTokenizer extends PreTrainedTokenizer {
     /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
@@ -2713,6 +2819,7 @@ export class FalconTokenizer extends PreTrainedTokenizer { }
 
 export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
 
+export class EsmTokenizer extends PreTrainedTokenizer { }
 
 /**
  * Helper function to build translation inputs for an `NllbTokenizer` or `M2M100Tokenizer`.
@@ -3399,6 +3506,9 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         let text;
         // @ts-ignore
         if (decode_args && decode_args.decode_with_timestamps) {
+            if (token_ids instanceof Tensor) {
+                token_ids = prepareTensorForDecode(token_ids);
+            }
             text = this.decodeWithTimestamps(token_ids, decode_args);
         } else {
             text = super.decode(token_ids, decode_args);
@@ -3753,6 +3863,8 @@ export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
 
 export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
 
+export class NougatTokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -3769,7 +3881,9 @@ export class AutoTokenizer {
         DebertaV2Tokenizer,
         BertTokenizer,
         HerbertTokenizer,
+        ConvBertTokenizer,
         XLMTokenizer,
+        ElectraTokenizer,
         MobileBertTokenizer,
         SqueezeBertTokenizer,
         AlbertTokenizer,
@@ -3791,10 +3905,12 @@ export class AutoTokenizer {
         MPNetTokenizer,
         FalconTokenizer,
         GPTNeoXTokenizer,
+        EsmTokenizer,
         Wav2Vec2CTCTokenizer,
         BlenderbotTokenizer,
         BlenderbotSmallTokenizer,
         SpeechT5Tokenizer,
+        NougatTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
