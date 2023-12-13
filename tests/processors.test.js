@@ -345,6 +345,7 @@ describe('Processors', () => {
         // VitMatteImageProcessor
         //  - tests custom overrides
         //  - tests multiple inputs
+        //  - tests `size_divisibility` and no size (size_divisibility=32)
         it(MODELS.vitmatte, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.vitmatte))
 
