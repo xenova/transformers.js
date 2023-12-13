@@ -1762,38 +1762,38 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
-        let isBatched = Array.isArray(images);
+        const isBatched = Array.isArray(images);
         images = await prepareImages(images);
 
         // Insert label into hypothesis template 
-        let texts = candidate_labels.map(
+        const texts = candidate_labels.map(
             x => hypothesis_template.replace('{}', x)
         );
 
         // Run tokenization
-        let text_inputs = this.tokenizer(texts, {
+        const text_inputs = this.tokenizer(texts, {
             padding: true,
             truncation: true
         });
 
         // Run processor
-        let { pixel_values } = await this.processor(images);
+        const { pixel_values } = await this.processor(images);
 
         // Run model with both text and pixel inputs
-        let output = await this.model({ ...text_inputs, pixel_values });
+        const output = await this.model({ ...text_inputs, pixel_values });
 
         // Compare each image with each candidate label
-        let toReturn = [];
-        for (let batch of output.logits_per_image) {
+        const toReturn = [];
+        for (const batch of output.logits_per_image) {
             // Compute softmax per image
-            let probs = softmax(batch.data);
+            const probs = softmax(batch.data);
 
-            toReturn.push([...probs].map((x, i) => {
-                return {
-                    score: x,
-                    label: candidate_labels[i]
-                }
+            const result = [...probs].map((x, i) => ({
+                score: x,
+                label: candidate_labels[i]
             }));
+            result.sort((a, b) => b.score - a.score); // sort by score in descending order
+            toReturn.push(result);
         }
 
         return isBatched ? toReturn : toReturn[0];

@@ -3084,8 +3084,16 @@ export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
         return super.from_pretrained(pretrained_model_name_or_path, options);
     }
 }
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
+// ChineseCLIP models
+export class ChineseCLIPPreTrainedModel extends PreTrainedModel { }
+
+export class ChineseCLIPModel extends ChineseCLIPPreTrainedModel { }
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // GPT2 models
@@ -4677,6 +4685,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['xlm-roberta', ['XLMRobertaModel', XLMRobertaModel]],
     ['clap', ['ClapModel', ClapModel]],
     ['clip', ['CLIPModel', CLIPModel]],
+    ['chinese_clip', ['ChineseCLIPModel', ChineseCLIPModel]],
     ['mobilebert', ['MobileBertModel', MobileBertModel]],
     ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
     ['wav2vec2', ['Wav2Vec2Model', Wav2Vec2Model]],
