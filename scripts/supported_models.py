@@ -184,6 +184,16 @@ SUPPORTED_MODELS = {
             # 'Xenova/tiny-random-ClapModel',
         }
     },
+    'chinese_clip': {
+        # Zero-shot image classification
+        # TODO: Add `--split_modalities` option
+        'zero-shot-image-classification': [
+            'OFA-Sys/chinese-clip-vit-base-patch16',
+            'OFA-Sys/chinese-clip-vit-large-patch14',
+            'OFA-Sys/chinese-clip-vit-large-patch14-336px',
+            # 'OFA-Sys/chinese-clip-vit-huge-patch14', # TODO add
+        ],
+    },
     'clip': {
         # Zero-shot image classification (and feature extraction)
         # (with and without `--split_modalities`)
