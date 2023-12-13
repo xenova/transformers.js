@@ -1179,9 +1179,9 @@ describe('Pipelines', () => {
                 let output = await classifier(url, classes);
 
                 let expected = [
-                    { "score": 0.992206871509552, "label": "football" },
-                    { "score": 0.006468251813203096, "label": "animals" },
-                    { "score": 0.0013248942559584975, "label": "airport" },
+                    { score: 0.9719080924987793, label: 'football' },
+                    { score: 0.022564826533198357, label: 'animals' },
+                    { score: 0.005527070723474026, label: 'airport' }
                 ]
                 compare(output, expected, 0.1);
 
@@ -1194,17 +1194,17 @@ describe('Pipelines', () => {
 
                 let expected = [
                     [
-                        { "score": 0.9919875860214233, "label": "football" },
-                        { "score": 0.006789708975702524, "label": "animals" },
-                        { "score": 0.0012227334082126617, "label": "airport" },
+                        { score: 0.9712504148483276, label: 'football' },
+                        { score: 0.022469401359558105, label: 'animals' },
+                        { score: 0.006280169822275639, label: 'airport' }
                     ], [
-                        { "score": 0.998708188533783, "label": "airport" },
-                        { "score": 0.0009874969255179167, "label": "animals" },
-                        { "score": 0.0003043194592464715, "label": "football" },
+                        { score: 0.997433602809906, label: 'airport' },
+                        { score: 0.0016500800848007202, label: 'animals' },
+                        { score: 0.0009163151844404638, label: 'football' }
                     ], [
-                        { "score": 0.9687991142272949, "label": "animals" },
-                        { "score": 0.016037866473197937, "label": "airport" },
-                        { "score": 0.015163016505539417, "label": "football" },
+                        { score: 0.9851226806640625, label: 'animals' },
+                        { score: 0.007516484707593918, label: 'football' },
+                        { score: 0.007360846735537052, label: 'airport' }
                     ]
                 ];
                 compare(output, expected, 0.1);
