@@ -2272,7 +2272,6 @@ export class PreTrainedTokenizer extends Callable {
         this.padding_side = 'right';
 
         this.chat_template = tokenizerConfig.chat_template ?? null;
-        /** @type {Map<string, Template>} */
         this._compiled_template_cache = new Map();
     }
 
