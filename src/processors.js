@@ -407,7 +407,11 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * Preprocesses the given image.
      *
      * @param {RawImage} image The image to preprocess.
-     * @param {Object} overrides The overrides for the preprocessing options.
+     * @param {Object} [overrides] The overrides for the preprocessing options.
+     * @param {boolean|null} [overrides.do_normalize] Do normalize?
+     * @param {boolean|null} [overrides.do_pad] Do pad?
+     * @param {boolean|null} [overrides.do_convert_rgb] Do convert RGB?
+     * @param {boolean|null} [overrides.do_convert_grayscale] Do convert grayscale?
      * @returns {Promise<PreprocessedImage>} The preprocessed image.
      */
     async preprocess(image, {
