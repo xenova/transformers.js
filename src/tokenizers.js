@@ -123,6 +123,26 @@ function objectToMap(obj) {
 }
 
 /**
+ * Helper function to convert a tensor to a list before decoding.
+ * @param {Tensor} tensor The tensor to convert.
+ * @returns {number[]} The tensor as a list.
+ */
+function prepareTensorForDecode(tensor) {
+    const dims = tensor.dims;
+    switch (dims.length) {
+        case 1:
+            return tensor.tolist();
+        case 2:
+            if (dims[0] !== 1) {
+                throw new Error('Unable to decode tensor with `batch size !== 1`. Use `tokenizer.batch_decode(...)` for batched inputs.');
+            }
+            return tensor.tolist()[0];
+        default:
+            throw new Error(`Expected tensor to have 1-2 dimensions, got ${dims.length}.`)
+    }
+}
+
+/**
  * Clean up a list of simple English tokenization artifacts like spaces before punctuations and abbreviated forms
  * @param {string} text The text to clean up.
  * @returns {string} The cleaned up text.
@@ -1597,6 +1617,7 @@ class Decoder extends Callable {
    * @throws {Error} If an unknown decoder type is provided.
    */
     static fromConfig(config) {
+        if (config === null) return null;
         switch (config.type) {
             case 'WordPiece':
                 return new WordPieceDecoder(config);
@@ -2196,13 +2217,6 @@ export class PreTrainedTokenizer extends Callable {
         // TODO: maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
-
-        // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
-        // This is needed for cases where BPE model and ByteLevel decoder are used
-        // For more information, see https://github.com/xenova/transformers.js/issues/74
-        // TODO: save this to the decoder when exporting?
-        this.decoder.end_of_word_suffix = this.model.end_of_word_suffix;
-
         // Add added_tokens to model
         this.special_tokens = [];
         this.all_special_ids = [];
@@ -2226,8 +2240,17 @@ export class PreTrainedTokenizer extends Callable {
         this.special_tokens.push(...(tokenizerConfig.additional_special_tokens ?? []));
         this.special_tokens = [...new Set(this.special_tokens)]; // Remove duplicates
 
-        // Slight hack, but it prevents code duplication:
-        this.decoder.added_tokens = this.added_tokens;
+        if (this.decoder) {
+            // Slight hack, but it prevents code duplication:
+            this.decoder.added_tokens = this.added_tokens;
+
+            // Another slight hack to add `end_of_word_suffix` (if present) to the decoder
+            // This is needed for cases where BPE model and ByteLevel decoder are used
+            // For more information, see https://github.com/xenova/transformers.js/issues/74
+            // TODO: save this to the decoder when exporting?
+            this.decoder.end_of_word_suffix = this.model.end_of_word_suffix;
+        }
+
 
         this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
             '(' + this.added_tokens.map(escapeRegExp).join('|') + ')'
@@ -2556,18 +2579,21 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Decode a batch of tokenized sequences.
-     * @param {number[][]} batch List of tokenized input sequences.
+     * @param {number[][]|Tensor} batch List/Tensor of tokenized input sequences.
      * @param {Object} decode_args (Optional) Object with decoding arguments.
      * @returns {string[]} List of decoded sequences.
      */
     batch_decode(batch, decode_args = {}) {
+        if (batch instanceof Tensor) {
+            batch = batch.tolist();
+        }
         return batch.map(x => this.decode(x, decode_args));
     }
 
     /**
      * Decodes a sequence of token IDs back to a string.
      *
-     * @param {number[]} token_ids List of token IDs to decode.
+     * @param {number[]|Tensor} token_ids List/Tensor of token IDs to decode.
      * @param {Object} [decode_args={}]
      * @param {boolean} [decode_args.skip_special_tokens=false] If true, special tokens are removed from the output string.
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] If true, spaces before punctuations and abbreviated forms are removed.
@@ -2579,6 +2605,10 @@ export class PreTrainedTokenizer extends Callable {
         token_ids,
         decode_args = {},
     ) {
+        if (token_ids instanceof Tensor) {
+            token_ids = prepareTensorForDecode(token_ids);
+        }
+
         if (!Array.isArray(token_ids) || token_ids.length === 0 || !isIntegralNumber(token_ids[0])) {
             throw Error("token_ids must be a non-empty array of integers.");
         }
@@ -2607,13 +2637,14 @@ export class PreTrainedTokenizer extends Callable {
             tokens = tokens.filter(x => !this.special_tokens.includes(x));
         }
 
+        // If `this.decoder` is null, we just join tokens with a space:
+        // https://github.com/huggingface/tokenizers/blob/8edec536a737cb04494b454805be16c020abb14f/tokenizers/src/tokenizer/mod.rs#L835
         /** @type {string} */
-        let decoded = this.decoder(tokens);
-
+        let decoded = this.decoder ? this.decoder(tokens) : tokens.join(' ');
 
         // Slight hack, but prevents having to pass `skip_special_tokens` to
         // each call to `decode`, which would lead to code duplication.
-        if (this.decoder.end_of_word_suffix) {
+        if (this.decoder && this.decoder.end_of_word_suffix) {
             decoded = decoded.replaceAll(this.decoder.end_of_word_suffix, ' ');
             if (skip_special_tokens) {
                 decoded = decoded.trim();
@@ -2709,6 +2740,12 @@ export class HerbertTokenizer extends PreTrainedTokenizer {
         return add_token_types(inputs);
     }
 }
+export class ConvBertTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
 export class CamembertTokenizer extends PreTrainedTokenizer { }
 export class XLMTokenizer extends PreTrainedTokenizer {
@@ -2717,6 +2754,12 @@ export class XLMTokenizer extends PreTrainedTokenizer {
         console.warn('WARNING: `XLMTokenizer` is not yet supported by Hugging Face\'s "fast" tokenizers library. Therefore, you may experience slightly inaccurate results.')
     }
 
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
+export class ElectraTokenizer extends PreTrainedTokenizer {
     /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
@@ -2772,6 +2815,7 @@ export class FalconTokenizer extends PreTrainedTokenizer { }
 
 export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
 
+export class EsmTokenizer extends PreTrainedTokenizer { }
 
 /**
  * Helper function to build translation inputs for an `NllbTokenizer` or `M2M100Tokenizer`.
@@ -3458,6 +3502,9 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         let text;
         // @ts-ignore
         if (decode_args && decode_args.decode_with_timestamps) {
+            if (token_ids instanceof Tensor) {
+                token_ids = prepareTensorForDecode(token_ids);
+            }
             text = this.decodeWithTimestamps(token_ids, decode_args);
         } else {
             text = super.decode(token_ids, decode_args);
@@ -3830,7 +3877,9 @@ export class AutoTokenizer {
         DebertaV2Tokenizer,
         BertTokenizer,
         HerbertTokenizer,
+        ConvBertTokenizer,
         XLMTokenizer,
+        ElectraTokenizer,
         MobileBertTokenizer,
         SqueezeBertTokenizer,
         AlbertTokenizer,
@@ -3852,6 +3901,7 @@ export class AutoTokenizer {
         MPNetTokenizer,
         FalconTokenizer,
         GPTNeoXTokenizer,
+        EsmTokenizer,
         Wav2Vec2CTCTokenizer,
         BlenderbotTokenizer,
         BlenderbotSmallTokenizer,
