@@ -68,11 +68,11 @@ describe('Chat templates', () => {
             { "role": "user", "content": "I'd like to show off how chat templating works!" },
         ]
 
-        const text = tokenizer.apply_chat_template(chat, { tokenize: false });
+        const text = await tokenizer.apply_chat_template(chat, { tokenize: false });
 
         expect(text).toEqual("<s>[INST] Hello, how are you? [/INST]I'm doing great. How can I help you today?</s> [INST] I'd like to show off how chat templating works! [/INST]");
 
-        const input_ids = tokenizer.apply_chat_template(chat, { tokenize: true, return_tensor: false });
+        const input_ids = await tokenizer.apply_chat_template(chat, { tokenize: true, return_tensor: false });
         compare(input_ids, [1, 733, 16289, 28793, 22557, 28725, 910, 460, 368, 28804, 733, 28748, 16289, 28793, 28737, 28742, 28719, 2548, 1598, 28723, 1602, 541, 315, 1316, 368, 3154, 28804, 2, 28705, 733, 16289, 28793, 315, 28742, 28715, 737, 298, 1347, 805, 910, 10706, 5752, 1077, 3791, 28808, 733, 28748, 16289, 28793])
     });
 
@@ -84,9 +84,9 @@ describe('Chat templates', () => {
             // TODO: update this?
             let tokenizer = await AutoTokenizer.from_pretrained(tokenizerName);
 
-            for (let {messages, prompt} of tests) {
+            for (let { messages, prompt } of tests) {
 
-                const generated = tokenizer.apply_chat_template(messages, { tokenize: false });
+                const generated = await tokenizer.apply_chat_template(messages, { tokenize: false });
 
                 expect(generated).toEqual(prompt)
             }

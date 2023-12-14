@@ -41,10 +41,6 @@ import {
     CharTrie,
 } from './utils/data-structures.js';
 
-import {
-    Template,
-} from './utils/chat-templates.js';
-
 /**
  * Loads a tokenizer from the specified path.
  * @param {string} pretrained_model_name_or_path The path to the tokenizer directory.
@@ -2688,9 +2684,9 @@ export class PreTrainedTokenizer extends Callable {
      * @param {number} [options.max_length=null] Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize is false.
      * If not specified, the tokenizer's `max_length` attribute will be used as a default.
      * @param {boolean} [options.return_tensor=true] Whether to return the output as a Tensor or an Array. Has no effect if tokenize is false.
-     * @returns {string | Tensor | number[]| number[][]} The tokenized output.
+     * @returns {Promise<string | Tensor | number[]| number[][]>} A promise that resolves to the tokenized output.
      */
-    apply_chat_template(conversation, {
+    async apply_chat_template(conversation, {
         chat_template = null,
         add_generation_prompt = false,
         tokenize = true,
@@ -2705,6 +2701,17 @@ export class PreTrainedTokenizer extends Callable {
         // Compilation function uses a cache to avoid recompiling the same template
         let compiledTemplate = this._compiled_template_cache.get(chat_template);
         if (compiledTemplate === undefined) {
+            // Dynamically load the `@huggingface/jinja` library. Since this is a peer dependency
+            // (i.e., must be installed separately), an error is thrown if it is not installed.
+            let Template;
+            try {
+                Template = (await import('@huggingface/jinja')).Template;
+            } catch (e) {
+                throw new Error(
+                    `apply_chat_template requires '@huggingface/jinja' to be installed. ` +
+                    `You can install it with \`npm install @huggingface/jinja\`.`
+                )
+            }
             compiledTemplate = new Template(chat_template);
             this._compiled_template_cache.set(chat_template, compiledTemplate);
         }

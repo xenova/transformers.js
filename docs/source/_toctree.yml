@@ -63,8 +63,6 @@
       title: Maths
     - local: api/utils/generation
       title: Generation
-    - local: api/utils/chat-templates
-      title: Chat Templates
     - local: api/utils/data-structures
       title: Data Structures
     title: Utilities

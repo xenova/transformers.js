@@ -44,6 +44,9 @@
   "optionalDependencies": {
     "onnxruntime-node": "1.14.0"
   },
+  "peerDependencies": {
+    "@huggingface/jinja": "^0.0.2"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.1",
     "catharsis": "github:xenova/catharsis",
