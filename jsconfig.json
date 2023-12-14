@@ -6,6 +6,7 @@
     "compilerOptions": {
         // Tells the compiler to check JS files
         "checkJs": true,
+        "strict": true,
         "target": "esnext",
         "module": "esnext",
         "moduleResolution": "nodenext",
