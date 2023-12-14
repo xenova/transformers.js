@@ -45,7 +45,7 @@
     "onnxruntime-node": "1.14.0"
   },
   "devDependencies": {
-    "@runtime-type-inspector/plugin-webpack5": "^1.1.4",
+    "@runtime-type-inspector/plugin-webpack5": "^1.2.1",
     "@types/jest": "^29.5.1",
     "catharsis": "github:xenova/catharsis",
     "copy-webpack-plugin": "^11.0.0",
