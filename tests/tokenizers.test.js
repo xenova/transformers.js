@@ -77,18 +77,21 @@ describe('Chat templates', () => {
     });
 
     // Dynamically-generated tests
-    for (let [tokenizerName, tests] of Object.entries(templates)) {
+    for (const [tokenizerName, tests] of Object.entries(templates)) {
 
         it(tokenizerName, async () => {
             // NOTE: not m(...) here
             // TODO: update this?
-            let tokenizer = await AutoTokenizer.from_pretrained(tokenizerName);
+            const tokenizer = await AutoTokenizer.from_pretrained(tokenizerName);
 
-            for (let { messages, prompt } of tests) {
+            for (let { messages, add_generation_prompt, tokenize, target } of tests) {
 
-                const generated = await tokenizer.apply_chat_template(messages, { tokenize: false });
-
-                expect(generated).toEqual(prompt)
+                const generated = await tokenizer.apply_chat_template(messages, {
+                    tokenize,
+                    add_generation_prompt,
+                    return_tensor: false,
+                });
+                expect(generated).toEqual(target)
             }
         });
     }

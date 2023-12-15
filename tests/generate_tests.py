@@ -3,6 +3,7 @@
 
 import json
 import os
+from itertools import product
 
 from transformers import AutoTokenizer, AutoConfig
 
@@ -14,7 +15,8 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         'tiiuae/falcon-7b',
     ],
     "llama": [
-        'hf-internal-testing/llama-tokenizer',
+        'hf-internal-testing/llama-tokenizer',  # Special tokens: normalized=true
+        'Xenova/llama2-tokenizer',  # Special tokens: normalized=false
         'hf-internal-testing/llama-code-tokenizer',
     ],
     'mpt': [
@@ -64,14 +66,18 @@ TOKENIZER_TEST_DATA = {
         "\u0079\u006F\u0075\u2026\u00A0\u00A0\u0079\u006F\u0075\u2026\u00A0\u00A0",
         "▁This ▁is ▁a ▁test ▁.",
         "weird \uFF5E edge \uFF5E case",
+
+        # SentencePiece-specific test cases
+        # TODO: re-enable once https://github.com/huggingface/transformers/issues/25881 is fixed in transformers
+        # "<s>\n",
     ],
     "custom": {
         "facebook/blenderbot_small-90M": [
             # Test special tokens
             "__start__hello world__end__",
             # The original (python) tokenizer simply joins by spaces (regardless of special tokens or not)
-            "__start__ hey __end__" # --> ... --> "__start__ hey __end__"
-            "__start__hey __end__" # --> ... --> "__start__ hey __end__"
+            "__start__ hey __end__"  # --> ... --> "__start__ hey __end__"
+            "__start__hey __end__"  # --> ... --> "__start__ hey __end__"
         ],
         "tiiuae/falcon-7b": [
             "12 and 123 and 1234",  # Special case for splitting on 3 numbers
@@ -109,7 +115,6 @@ TOKENIZER_TEST_DATA = {
     },
 }
 
-
 CHAT_MESSAGES_EXAMPLES = {
     'basic': [
         {"role": "user", "content": "Hello, how are you?"},
@@ -118,10 +123,16 @@ CHAT_MESSAGES_EXAMPLES = {
     ],
 
     'system': [
-        { "role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate" },
-        { "role": "user", "content": "How many helicopters can a human eat in one sitting?" },
+        {"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"},
+        {"role": "user", "content": "How many helicopters can a human eat in one sitting?"},
     ],
-    
+
+    'system + assistant': [
+        {"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"},
+        {"role": "user", "content": "Hello, how are you?"},
+        {"role": "assistant", "content": "I'm doing great. How can I help you today?"},
+        {"role": "user", "content": "I'd like to show off how chat templating works!"},
+    ],
 }
 
 TOKENIZERS_WITH_CHAT_TEMPLATES = {
@@ -134,10 +145,18 @@ TOKENIZERS_WITH_CHAT_TEMPLATES = {
         'basic',
     ],
 
-    # TODO: Add support for this model
-    # 'HuggingFaceH4/zephyr-7b-beta': [
-    #     'system',
-    # ],
+    'HuggingFaceH4/zephyr-7b-beta': [
+        'system',
+    ],
+
+    'Xenova/llama2-tokenizer': [
+        'basic',
+        'system',
+        'system + assistant',
+    ],
+
+    # TODO: add llama (v1) tokenizer once bug in transformers is fixed
+    # https://github.com/huggingface/transformers/pull/26678
 }
 
 
@@ -213,12 +232,21 @@ def generate_tokenizer_tests():
         tokenizer_results = []
         for key in TOKENIZERS_WITH_CHAT_TEMPLATES[tokenizer_id]:
             messages = CHAT_MESSAGES_EXAMPLES[key]
-            tokenizer_results.append(dict(
-                messages=messages,
-                prompt=tokenizer.apply_chat_template(messages, tokenize=False),
-            ))
+
+            for add_generation_prompt, tokenize in product([True, False], [True, False]):
+                tokenizer_results.append(dict(
+                    messages=messages,
+                    add_generation_prompt=add_generation_prompt,
+                    tokenize=tokenize,
+                    target=tokenizer.apply_chat_template(
+                        messages,
+                        add_generation_prompt=add_generation_prompt,
+                        tokenize=tokenize,
+                    ),
+                ))
+
         template_results[tokenizer_id] = tokenizer_results
-        
+
     return dict(
         tokenization=tokenization_results,
         templates=template_results,
