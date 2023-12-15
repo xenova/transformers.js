@@ -1,0 +1,9 @@
+blank_issues_enabled: true
+version: 2.1
+contact_links:
+  - name: Models on the Hugging Face Hub
+    url: https://huggingface.co/models?library=transformers.js
+    about: Open a Pull request / Discussion related to a specific model checkpoint directly on the Hugging Face Hub
+  - name: Documentation
+    url: https://huggingface.co/docs/transformers.js
+    about: View the transformers.js documentation

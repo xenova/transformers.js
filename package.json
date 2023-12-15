@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "2.8.0",
+  "version": "2.11.0",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",

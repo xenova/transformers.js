@@ -261,6 +261,8 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
             return logits;
         }
 
+        const logitsData = /** @type {Float32Array} */(logits.data);
+
         // timestamps have to appear in pairs, except directly before eos_token; mask logits accordingly
         const seq = input_ids.slice(this.begin_index);
         const last_was_timestamp = seq.length >= 1 && seq[seq.length - 1] >= this.timestamp_begin;
@@ -268,25 +270,25 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 
         if (last_was_timestamp) {
             if (penultimate_was_timestamp) { // has to be non-timestamp
-                logits.data.subarray(this.timestamp_begin).fill(-Infinity);
+                logitsData.subarray(this.timestamp_begin).fill(-Infinity);
             } else { // cannot be normal text tokens
-                logits.data.subarray(0, this.eos_token_id).fill(-Infinity);
+                logitsData.subarray(0, this.eos_token_id).fill(-Infinity);
             }
         }
 
         // apply the `max_initial_timestamp` option
         if (input_ids.length === this.begin_index && this.max_initial_timestamp_index !== null) {
             const last_allowed = this.timestamp_begin + this.max_initial_timestamp_index;
-            logits.data.subarray(last_allowed + 1).fill(-Infinity);
+            logitsData.subarray(last_allowed + 1).fill(-Infinity);
         }
 
         // if sum of probability over timestamps is above any other token, sample timestamp
-        const logprobs = log_softmax(logits.data);
+        const logprobs = log_softmax(logitsData);
         const timestamp_logprob = Math.log(logprobs.subarray(this.timestamp_begin).map(Math.exp).reduce((a, b) => a + b));
         const max_text_token_logprob = max(logprobs.subarray(0, this.timestamp_begin))[0];
 
         if (timestamp_logprob > max_text_token_logprob) {
-            logits.data.subarray(0, this.timestamp_begin).fill(-Infinity);
+            logitsData.subarray(0, this.timestamp_begin).fill(-Infinity);
         }
 
         return logits;
@@ -697,12 +699,12 @@ export class Sampler extends Callable {
      * Returns the specified logits as an array, with temperature applied.
      * @param {Tensor} logits
      * @param {number} index
-     * @returns {Array}
+     * @returns {Float32Array}
      */
     getLogits(logits, index) {
         let vocabSize = logits.dims.at(-1);
 
-        let logs = logits.data;
+        let logs = /** @type {Float32Array} */(logits.data);
 
         if (index === -1) {
             logs = logs.slice(-vocabSize);

@@ -90,6 +90,7 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
 MODELS_WITHOUT_TOKENIZERS = [
     'wav2vec2',
     'wavlm',
+    'hubert',
 ]
 
 
@@ -102,6 +103,12 @@ class ConversionArguments:
     model_id: str = field(
         metadata={
             "help": "Model identifier"
+        }
+    )
+    tokenizer_id: str = field(
+        default=None,
+        metadata={
+            "help": "Tokenizer identifier (if different to `model_id`)"
         }
     )
     quantize: bool = field(
@@ -261,6 +268,7 @@ def main():
     conv_args, = parser.parse_args_into_dataclasses()
 
     model_id = conv_args.model_id
+    tokenizer_id = conv_args.tokenizer_id or model_id
 
     output_model_folder = os.path.join(conv_args.output_parent_dir, model_id)
 
@@ -273,7 +281,7 @@ def main():
     tokenizer = None
     try:
         # Load tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
 
         # To avoid inserting all chat templates into tokenizers.js, we save the chat template
         # to the tokenizer_config.json file, and load it when the tokenizer is loaded.
@@ -306,6 +314,11 @@ def main():
         with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
             json.dump(tokenizer_json, fp, indent=4)
 
+    elif config.model_type == 'esm':
+        from .extra.esm import generate_fast_tokenizer
+        fast_tokenizer = generate_fast_tokenizer(tokenizer)
+        fast_tokenizer.save(os.path.join(output_model_folder, 'tokenizer.json'))
+
     elif config.model_type == 'whisper':
         if conv_args.output_attentions:
             from .extra.whisper import get_main_export_kwargs
@@ -314,7 +327,7 @@ def main():
                 **get_main_export_kwargs(config, "automatic-speech-recognition")
             )
 
-    elif config.model_type == 'wav2vec2':
+    elif config.model_type in ('wav2vec2', 'hubert'):
         if tokenizer is not None:
             from .extra.wav2vec2 import generate_tokenizer_json
             tokenizer_json = generate_tokenizer_json(tokenizer)
@@ -359,6 +372,25 @@ def main():
             opset=conv_args.opset,
             device=conv_args.device,
         )
+
+    # TODO: Enable once https://github.com/huggingface/optimum/pull/1552 is merged
+    # elif config.model_type == 'clap' and conv_args.split_modalities:
+    #     # Handle special case for exporting text and audio models separately
+    #     from .extra.clap import ClapTextModelWithProjectionOnnxConfig, ClapAudioModelWithProjectionOnnxConfig
+    #     from transformers.models.clap import ClapTextModelWithProjection, ClapAudioModelWithProjection
+
+    #     text_model = ClapTextModelWithProjection.from_pretrained(model_id)
+    #     audio_model = ClapAudioModelWithProjection.from_pretrained(model_id)
+
+    #     export_models(
+    #         models_and_onnx_configs={
+    #             "text_model": (text_model, ClapTextModelWithProjectionOnnxConfig(text_model.config)),
+    #             "audio_model": (audio_model, ClapAudioModelWithProjectionOnnxConfig(audio_model.config)),
+    #         },
+    #         output_dir=output_model_folder,
+    #         opset=conv_args.opset,
+    #         device=conv_args.device,
+    #     )
 
     else:
         main_export(**export_kwargs)
