@@ -45,7 +45,7 @@
     "onnxruntime-node": "1.14.0"
   },
   "peerDependencies": {
-    "@huggingface/jinja": "^0.0.2"
+    "@huggingface/jinja": "^0.0.4"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
