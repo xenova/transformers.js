@@ -24,6 +24,9 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     'mpt': [
         'mosaicml/mpt-7b',
     ],
+    't5': [
+        'Xenova/t5-tokenizer-new',
+    ]
 }
 
 MODELS_TO_IGNORE = [
@@ -72,6 +75,8 @@ TOKENIZER_TEST_DATA = {
         # SentencePiece-specific test cases
         # TODO: re-enable once https://github.com/huggingface/transformers/issues/25881 is fixed in transformers
         # "<s>\n",
+        # " </s> test </s> ",
+        # "</s>test</s>",
     ],
     "custom": {
         "facebook/blenderbot_small-90M": [
@@ -125,6 +130,15 @@ TOKENIZER_TEST_DATA = {
 
         "distil-whisper/distil-small.en": [
             "   <|startoftranscript|> <|en|>   ",  # Tests lstrip+rstrip
+        ],
+
+        "Xenova/t5-tokenizer-new": [
+            # Tests the new T5 tokenizer, which uses a different prepend_scheme for its pre_tokenizer:
+            # tokenizer._tokenizer.pre_tokenizer = Metaspace(add_prefix_space = True, replacement = "▁", prepend_scheme = "first")
+            # See https://github.com/huggingface/transformers/pull/26678 for more information.
+            #  - Old (incorrect): ['▁Hey', '▁', '</s>', '▁', '.', '▁how', '▁are', '▁you']
+            #  - New (correct):   ['▁Hey', '▁', '</s>', '.', '▁how', '▁are', '▁you']
+            "Hey </s>. how are you",
         ],
     },
 }

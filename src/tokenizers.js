@@ -1241,28 +1241,30 @@ class PreTokenizer extends Callable {
     }
 
     /**
-   * Method that should be implemented by subclasses to define the specific pre-tokenization logic.
-   *
-   * @abstract
-   * @param {string} text The text to pre-tokenize.
-   * @returns {string[]} The pre-tokenized text.
-   * @throws {Error} If the method is not implemented in the subclass.
-   */
-    pre_tokenize_text(text) {
+     * Method that should be implemented by subclasses to define the specific pre-tokenization logic.
+     *
+     * @abstract
+     * @param {string} text The text to pre-tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
+     * @returns {string[]} The pre-tokenized text.
+     * @throws {Error} If the method is not implemented in the subclass.
+     */
+    pre_tokenize_text(text, options) {
         throw Error("pre_tokenize_text should be implemented in subclass.")
     }
 
     /**
      * Tokenizes the given text into pre-tokens.
      * @param {string|string[]} text The text or array of texts to pre-tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of pre-tokens.
      */
-    pre_tokenize(text) {
+    pre_tokenize(text, options) {
         let result = [];
         if (Array.isArray(text)) {
-            result = text.map(x => this.pre_tokenize_text(x))
+            result = text.map(x => this.pre_tokenize_text(x, options))
         } else {
-            result = this.pre_tokenize_text(text);
+            result = this.pre_tokenize_text(text, options);
         }
         return result.flat();
     }
@@ -1270,10 +1272,11 @@ class PreTokenizer extends Callable {
     /**
      * Alias for {@link PreTokenizer#pre_tokenize}.
      * @param {string|string[]} text The text or array of texts to pre-tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of pre-tokens.
      */
-    _call(text) {
-        return this.pre_tokenize(text);
+    _call(text, options) {
+        return this.pre_tokenize(text, options);
     }
 }
 
@@ -1298,9 +1301,10 @@ class BertPreTokenizer extends PreTokenizer {
      * Tokenizes a single text using the BERT pre-tokenization scheme.
      * 
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         return text.trim().match(this.pattern) || [];
     }
 }
@@ -1345,9 +1349,10 @@ class ByteLevelPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes a single piece of text using byte-level tokenization.
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         // Add a leading space if the option is enabled
         if (this.add_prefix_space && !text.startsWith(' ')) {
             text = ' ' + text;
@@ -1391,9 +1396,10 @@ class SplitPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes text by splitting it using the given pattern.
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         if (this.pattern === null) {
             return [];
         }
@@ -1424,9 +1430,10 @@ class PunctuationPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes text by splitting it using the given pattern.
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         return text.match(this.pattern) || [];
     }
 }
@@ -1453,9 +1460,10 @@ class DigitsPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes text by splitting it using the given pattern.
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         return text.match(this.pattern) || [];
     }
 }
@@ -2026,6 +2034,7 @@ class MetaspacePreTokenizer extends PreTokenizer {
      * @param {boolean} config.add_prefix_space Whether to add a prefix space to the first token.
      * @param {string} config.replacement The character to replace spaces with.
      * @param {string} [config.str_rep=config.replacement] An optional string representation of the replacement character.
+     * @param {'first'|'never'|'always'} [config.prepend_scheme='always'] The metaspace prepending scheme.
      */
     constructor(config) {
         super();
@@ -2033,15 +2042,20 @@ class MetaspacePreTokenizer extends PreTokenizer {
         this.addPrefixSpace = config.add_prefix_space;
         this.replacement = config.replacement;
         this.strRep = config.str_rep || this.replacement;
+        this.prepend_scheme = config.prepend_scheme ?? 'always';
     }
 
     /**
      * This method takes a list of normalized tokens, replaces spaces with the replacement character,
      * adds a prefix space if requested, and returns a new list of tokens.
      * @param {string[]|string} normalizedTokens The list of normalized tokens to pre-tokenize.
+     * @param {Object} [options] The options for the pre-tokenization.
+     * @param {number} [options.section_index] The index of the section to pre-tokenize.
      * @returns {string[]} A new list of pre-tokenized tokens.
      */
-    pre_tokenize(normalizedTokens) {
+    pre_tokenize_text(normalizedTokens, {
+        section_index = undefined,
+    } = {}) {
         if (typeof normalizedTokens === 'string') {
             // Metaspace acts on a list of tokens. If passing in a string, first split on whitespace
             // NOTE: For some reason, metaspace includes trailing whitespace, so we only trim leading whitespace.
@@ -2050,9 +2064,26 @@ class MetaspacePreTokenizer extends PreTokenizer {
         }
 
         const result = [];
-        for (let token of normalizedTokens) {
+        for (let i = 0; i < normalizedTokens.length; ++i) {
+            const token = normalizedTokens[i];
             let normalized = token.replaceAll(' ', this.strRep);
-            if (this.addPrefixSpace && !normalized.startsWith(this.replacement)) {
+            if (
+                // We add a prefix space if:
+                //  (1) The addPrefixSpace option is enabled and the normalized
+                //      token does not already start with the replacement character.
+                (this.addPrefixSpace && !normalized.startsWith(this.replacement))
+
+                // and (2) either:
+                //  (a) prepend_scheme is 'always'
+                //  (b) prepend_scheme is 'first' and (this is the first section or it is not the first token)
+                && (
+                    this.prepend_scheme === 'always' ||
+                    (
+                        (this.prepend_scheme === 'first') &&
+                        (section_index === 0 || i > 0)
+                    )
+                )
+            ) {
                 normalized = this.strRep + normalized;
             }
             result.push(normalized);
@@ -2165,15 +2196,16 @@ class PreTokenizerSequence extends PreTokenizer {
     /**
      * Applies each pre-tokenizer in the sequence to the input text in turn.
      * @param {string|string[]} text The text(s) to pre-tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} The pre-tokenized text.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         if (typeof text === 'string') {
             text = [text];
         }
         // Use reduce to apply each tokenizer to the text
         return this.tokenizers.reduce((preTokenizedText, tokenizer) => {
-            return tokenizer.pre_tokenize(preTokenizedText);
+            return tokenizer.pre_tokenize(preTokenizedText, options);
         }, text);
     }
 }
@@ -2193,9 +2225,10 @@ class WhitespaceSplit extends PreTokenizer {
     /**
      * Pre-tokenizes the input text by splitting it on whitespace characters.
      * @param {string} text The text to be pre-tokenized.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens produced by splitting the input text on whitespace.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         return whitespace_split(text);
     }
 }
@@ -2217,9 +2250,10 @@ class ReplacePreTokenizer extends PreTokenizer {
     /**
      * Pre-tokenizes the input text by replacing certain characters.
      * @param {string} text The text to be pre-tokenized.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens produced by replacing certain characters.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         if (this.pattern === null) {
             return [text];
         }
@@ -2574,7 +2608,7 @@ export class PreTrainedTokenizer extends Callable {
         // normalization and/or pretokenization (which may not preserve special tokens)
         const sections = this.added_tokens_regex ? text.split(this.added_tokens_regex).filter(x => x) : [text];
 
-        const tokens = sections.map((x, i) => {
+        const tokens = sections.map((x, section_index) => {
             const addedToken = this.added_tokens.find(t => t.content === x);
             if (addedToken !== undefined) {
                 // Ignore added tokens
@@ -2591,7 +2625,9 @@ export class PreTrainedTokenizer extends Callable {
                     x = this.normalizer(x);
                 }
 
-                const sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x) : [x];
+                const sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x, {
+                    section_index,
+                }) : [x];
 
                 const tokens = this.model(sectionTokens);
 
