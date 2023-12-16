@@ -2733,6 +2733,29 @@ export class PreTrainedTokenizer extends Callable {
      * ids. This method is intended for use with chat models, and will read the tokenizer's chat_template attribute to
      * determine the format and control tokens to use when converting. When chat_template is None, it will fall back
      * to the default_chat_template specified at the class level.
+     * 
+     * See [here](https://huggingface.co/docs/transformers/chat_templating) for more information.
+     * 
+     * **Example:** Applying a chat template to a conversation.
+     * 
+     * ```javascript
+     * import { AutoTokenizer } from "@xenova/transformers";
+     * 
+     * const tokenizer = await AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.1");
+     * 
+     * const chat = [
+     *   { "role": "user", "content": "Hello, how are you?" },
+     *   { "role": "assistant", "content": "I'm doing great. How can I help you today?" },
+     *   { "role": "user", "content": "I'd like to show off how chat templating works!" },
+     * ]
+     * 
+     * const text = await tokenizer.apply_chat_template(chat, { tokenize: false });
+     * // "<s>[INST] Hello, how are you? [/INST]I'm doing great. How can I help you today?</s> [INST] I'd like to show off how chat templating works! [/INST]"
+     * 
+     * const input_ids = await tokenizer.apply_chat_template(chat, { tokenize: true, return_tensor: false });
+     * // [1, 733, 16289, 28793, 22557, 28725, 910, 460, 368, 28804, 733, 28748, 16289, 28793, 28737, 28742, 28719, 2548, 1598, 28723, 1602, 541, 315, 1316, 368, 3154, 28804, 2, 28705, 733, 16289, 28793, 315, 28742, 28715, 737, 298, 1347, 805, 910, 10706, 5752, 1077, 3791, 28808, 733, 28748, 16289, 28793]
+     * ```
+     * 
      * @param {Message[]} conversation A list of message objects with `"role"` and `"content"` keys.
      * @param {Object} options An optional object containing the following properties:
      * @param {string} [options.chat_template=null] A Jinja template to use for this conversion. If
