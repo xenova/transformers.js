@@ -18,6 +18,7 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     "llama": [
         'hf-internal-testing/llama-tokenizer',  # Special tokens: normalized=true
         'Xenova/llama2-tokenizer',  # Special tokens: normalized=false
+        'Xenova/llama2-chat-tokenizer', # Special tokens: normalized=false
         'hf-internal-testing/llama-code-tokenizer',
     ],
     'mpt': [
@@ -159,6 +160,11 @@ TOKENIZERS_WITH_CHAT_TEMPLATES = {
     ],
 
     'Xenova/llama2-tokenizer': [
+        'basic',
+        'system',
+        'system + assistant',
+    ],
+    'Xenova/llama2-chat-tokenizer': [
         'basic',
         'system',
         'system + assistant',
