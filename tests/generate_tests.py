@@ -18,7 +18,7 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     "llama": [
         'hf-internal-testing/llama-tokenizer',  # Special tokens: normalized=true
         'Xenova/llama2-tokenizer',  # Special tokens: normalized=false
-        'Xenova/llama2-chat-tokenizer', # Special tokens: normalized=false
+        'Xenova/llama2-chat-tokenizer',  # Special tokens: normalized=false
         'hf-internal-testing/llama-code-tokenizer',
     ],
     'mpt': [
@@ -26,7 +26,7 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     ],
     't5': [
         'Xenova/t5-tokenizer-new',
-    ]
+    ],
 }
 
 MODELS_TO_IGNORE = [
@@ -314,10 +314,10 @@ def generate_config_tests():
     return results
 
 
-ARRAY_SIZES = sorted(set([2 ** i for i in range(1, 10)]) \
-    | set([3 ** i for i in range(1, 8)]) \
-    | set([5 ** i for i in range(1, 6)]) \
-    | set([7 ** i for i in range(1, 4)]))
+ARRAY_SIZES = sorted(set([2 ** i for i in range(1, 10)])
+                     | set([3 ** i for i in range(1, 8)])
+                     | set([5 ** i for i in range(1, 6)])
+                     | set([7 ** i for i in range(1, 4)]))
 
 
 def serialize_complex_array(arr):
@@ -334,7 +334,8 @@ def generate_fft_tests():
     for complex in [False, True]:
         serialize_fn = serialize_complex_array if complex else serialize_real_array
         for size in ARRAY_SIZES:
-            arr = np.random.randn(size).astype(np.complex64 if complex else np.float64)
+            arr = np.random.randn(size).astype(
+                np.complex64 if complex else np.float64)
             if complex:
                 arr += np.random.randn(size) * 1j
             tests[f"fft_{size}_{'complex' if complex else 'real'}"] = {
@@ -363,6 +364,7 @@ def main():
     fft_tests = generate_fft_tests()
     with open(os.path.join(data_dir, "fft_tests.json"), "w", encoding="utf-8") as fp:
         json.dump(fft_tests, fp)
-    
+
+
 if __name__ == "__main__":
     main()
