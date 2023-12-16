@@ -122,6 +122,10 @@ TOKENIZER_TEST_DATA = {
             # Special tokens
             "<unk><pad><mask><cls><eos><bos>",
         ],
+
+        "distil-whisper/distil-small.en": [
+            "   <|startoftranscript|> <|en|>   ",  # Tests lstrip+rstrip
+        ],
     },
 }
 

@@ -215,6 +215,35 @@ function whitespace_split(text) {
 const PUNCTUATION_REGEX = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E';
 
 /**
+ * Represent a token added by the user on top of the existing Model vocabulary.
+ * AddedToken can be configured to specify the behavior they should have in various situations like:
+ *   - Whether they should only match single words
+ *   - Whether to include any whitespace on its left or right
+ */
+class AddedToken {
+    /**
+     * Creates a new instance of AddedToken.
+     * @param {Object} config Added token configuration object.
+     * @param {string} config.content The content of the added token.
+     * @param {number} config.id The id of the added token.
+     * @param {boolean} [config.single_word=false] Whether this token must be a single word or can break words.
+     * @param {boolean} [config.lstrip=false] Whether this token should strip whitespaces on its left.
+     * @param {boolean} [config.rstrip=false] Whether this token should strip whitespaces on its right.
+     * @param {boolean} [config.normalized=false] Whether this token should be normalized.
+     * @param {boolean} [config.special=false] Whether this token is special.
+     */
+    constructor(config) {
+        this.content = config.content;
+        this.id = config.id;
+        this.single_word = config.single_word ?? false;
+        this.lstrip = config.lstrip ?? false;
+        this.rstrip = config.rstrip ?? false;
+        this.special = config.special ?? false;
+        this.normalized = config.normalized ?? null;
+    }
+}
+
+/**
  * Abstract base class for tokenizer models.
  *
  * @extends Callable
@@ -1604,6 +1633,7 @@ class Decoder extends Callable {
         super();
         this.config = config;
 
+        /** @type {AddedToken[]} */
         this.added_tokens = [];
         this.end_of_word_suffix = null;
         this.trim_offsets = config.trim_offsets;
@@ -1875,7 +1905,7 @@ class ByteLevelDecoder extends Decoder {
             //     continue;
             // }
 
-            if (this.added_tokens.includes(token)) {
+            if (this.added_tokens.find(x => x.content === token) !== undefined) {
                 if (current_sub_text.length > 0) {
                     sub_texts.push(this.convert_tokens_to_string(current_sub_text));
                     current_sub_text = [];
@@ -2234,19 +2264,19 @@ export class PreTrainedTokenizer extends Callable {
         // Add added_tokens to model
         this.special_tokens = [];
         this.all_special_ids = [];
+
+        /** @type {AddedToken[]} */
         this.added_tokens = [];
         for (let addedToken of tokenizerJSON.added_tokens) {
-            let id = addedToken.id;
-            let content = addedToken.content;
+            const token = new AddedToken(addedToken);
+            this.added_tokens.push(token);
 
-            this.added_tokens.push(content);
+            this.model.tokens_to_ids.set(token.content, token.id);
+            this.model.vocab[token.id] = token.content;
 
-            this.model.tokens_to_ids.set(content, id);
-            this.model.vocab[id] = content;
-
-            if (addedToken.special) {
-                this.special_tokens.push(content);
-                this.all_special_ids.push(id);
+            if (token.special) {
+                this.special_tokens.push(token.content);
+                this.all_special_ids.push(token.id);
             }
         }
 
@@ -2268,7 +2298,7 @@ export class PreTrainedTokenizer extends Callable {
 
 
         this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
-            '(' + this.added_tokens.map(escapeRegExp).join('|') + ')'
+            this.added_tokens.map(x => `${x.lstrip ? '\\s*' : ''}(${escapeRegExp(x.content)})${x.rstrip ? '\\s*' : ''}`).join('|')
         ) : null;
 
         // Set mask token if present (otherwise will be undefined, which is fine)
@@ -2543,8 +2573,10 @@ export class PreTrainedTokenizer extends Callable {
         // First, we take care of special tokens. Needed to avoid issues arising from
         // normalization and/or pretokenization (which may not preserve special tokens)
         const sections = this.added_tokens_regex ? text.split(this.added_tokens_regex).filter(x => x) : [text];
-        let tokens = sections.map(x => {
-            if (this.added_tokens.includes(x)) {
+
+        const tokens = sections.map((x, i) => {
+            const addedToken = this.added_tokens.find(t => t.content === x);
+            if (addedToken !== undefined) {
                 // Ignore added tokens
                 return x
             } else {
@@ -2559,9 +2591,9 @@ export class PreTrainedTokenizer extends Callable {
                     x = this.normalizer(x);
                 }
 
-                let sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x) : [x];
+                const sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x) : [x];
 
-                let tokens = this.model(sectionTokens);
+                const tokens = this.model(sectionTokens);
 
                 return tokens;
             }
