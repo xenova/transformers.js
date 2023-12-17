@@ -24,8 +24,7 @@ describe('Tokenizers', () => {
                 });
 
                 // Add the input text to the encoded object for easier debugging
-                encoded.input = test.input;
-                test.encoded.input = test.input;
+                test.encoded.input = encoded.input = test.input;
 
                 expect(encoded).toEqual(test.encoded);
 

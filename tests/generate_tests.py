@@ -25,7 +25,8 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         'mosaicml/mpt-7b',
     ],
     't5': [
-        'Xenova/t5-tokenizer-new',
+        # TODO: Add back when https://github.com/huggingface/transformers/issues/26318 is fixed
+        # 'Xenova/t5-tokenizer-new',
     ],
 }
 
@@ -76,10 +77,9 @@ TOKENIZER_TEST_DATA = {
         "weird \uFF5E edge \uFF5E case",
 
         # SentencePiece-specific test cases
-        # TODO: re-enable once https://github.com/huggingface/transformers/issues/25881 is fixed in transformers
-        # "<s>\n",
-        # " </s> test </s> ",
-        # "</s>test</s>",
+        "<s>\n",
+        " </s> test </s> ",
+        "</s>test</s>",
     ],
     "custom_by_model_type": {
         "llama": [
@@ -183,6 +183,11 @@ TOKENIZERS_WITH_CHAT_TEMPLATES = {
         'system',
     ],
 
+    'Xenova/llama-tokenizer': [
+        'basic',
+        'system',
+        'system + assistant',
+    ],
     'Xenova/llama2-tokenizer': [
         'basic',
         'system',
@@ -193,9 +198,6 @@ TOKENIZERS_WITH_CHAT_TEMPLATES = {
         'system',
         'system + assistant',
     ],
-
-    # TODO: add llama (v1) tokenizer once bug in transformers is fixed
-    # https://github.com/huggingface/transformers/pull/26678
 }
 
 
@@ -237,6 +239,7 @@ def generate_tokenizer_tests():
                     #   - https://github.com/huggingface/transformers/issues/25881
                     #   - https://github.com/huggingface/transformers/issues/26318
                     #   - https://github.com/huggingface/transformers/issues/26455
+                    #   - https://github.com/huggingface/transformers/issues/27544
                     # (2) Decoding with slow tokenizer adds whitespace after special tokens:
                     #   - https://github.com/huggingface/transformers/issues/25073
                     #
@@ -301,7 +304,12 @@ def generate_tokenizer_tests():
 
     for tokenizer_id in TOKENIZERS_WITH_CHAT_TEMPLATES:
         print(f'Generating chat templates for {tokenizer_id}')
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
+        tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer_id,
+
+            # TODO: Remove once https://github.com/huggingface/transformers/pull/26678 is fixed
+            use_fast='llama' not in tokenizer_id,
+        )
         tokenizer_results = []
         for key in TOKENIZERS_WITH_CHAT_TEMPLATES[tokenizer_id]:
             messages = CHAT_MESSAGES_EXAMPLES[key]
