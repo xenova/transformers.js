@@ -2057,37 +2057,25 @@ class MetaspacePreTokenizer extends PreTokenizer {
         section_index = undefined,
     } = {}) {
 
-        // NOTE: First, we split on whitespace, but being careful when there is trailing whitespace:
-        // ' a b c'      -> [ 'a', 'b', 'c' ]                  // strips leading whitespace
-        // ' a b c '     -> [ 'a', 'b', 'c', '' ]              // includes match for trailing whitespace
-        // ' a b c \n '  -> [ 'a', 'b', 'c', '' ]              // includes match for trailing whitespace
-        const matches = text.replaceAll(' ', this.strRep).match(/\S+|\s+$/gm);
+        let normalized = text.replaceAll(' ', this.strRep);
 
-        const result = [];
-        for (const match of matches) {
-            let normalized = match;
-            if (
-                // We add a prefix space if:
-                //  (1) The addPrefixSpace option is enabled and the normalized
-                //      token does not already start with the replacement character.
-                (this.addPrefixSpace && !normalized.startsWith(this.replacement))
+        if (
+            // We add a prefix space if:
+            //  (1) The addPrefixSpace option is enabled and the normalized
+            //      token does not already start with the replacement character.
+            (this.addPrefixSpace && !normalized.startsWith(this.replacement))
 
-                // and (2) either:
-                //  (a) prepend_scheme is 'always'
-                //  (b) prepend_scheme is 'first' and (this is the first section or it is not the first token)
-                && (
-                    this.prepend_scheme === 'always' ||
-                    (
-                        (this.prepend_scheme === 'first') &&
-                        (section_index === 0 || result.length > 0)
-                    )
-                )
-            ) {
-                normalized = this.strRep + normalized;
-            }
-            result.push(normalized);
+            // and (2) either:
+            //  (a) prepend_scheme is 'always'
+            //  (b) prepend_scheme is 'first' and this is the first section
+            && (
+                this.prepend_scheme === 'always' ||
+                (this.prepend_scheme === 'first' && section_index === 0)
+            )
+        ) {
+            normalized = this.strRep + normalized;
         }
-        return result;
+        return [normalized];
     }
 }
 
@@ -2354,6 +2342,8 @@ export class PreTrainedTokenizer extends Callable {
 
         // TODO allow user to change this
         this.padding_side = 'right';
+
+        this.legacy = tokenizerConfig.legacy ?? true;
 
         this.chat_template = tokenizerConfig.chat_template ?? null;
         this._compiled_template_cache = new Map();
@@ -3011,6 +3001,9 @@ export class BloomTokenizer extends GPT2Tokenizer { // NOTE: `GPT2Tokenizer` to 
         super(tokenizerJSON, tokenizerConfig);
     }
 }
+
+const SPIECE_UNDERLINE = "▁";
+
 export class LlamaTokenizer extends PreTrainedTokenizer {
     _default_chat_template = `{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% elif USE_DEFAULT_PROMPT == true and not '<<SYS>>' in messages[0]['content'] %}{% set loop_messages = messages %}{% set system_message = 'DEFAULT_SYSTEM_MESSAGE' %}{% else %}{% set loop_messages = messages %}{% set system_message = false %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 and system_message != false %}{% set content = '<<SYS>>\n' + system_message + '\n<</SYS>>\n\n' + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ bos_token + '[INST] ' + content.strip() + ' [/INST]' }}{% elif message['role'] == 'system' %}{{ '<<SYS>>\n' + content.strip() + '\n<</SYS>>\n\n' }}{% elif message['role'] == 'assistant' %}{{ ' '  + content.strip() + ' ' + eos_token }}{% endif %}{% endfor %}`
 
@@ -3024,6 +3017,36 @@ export class LlamaTokenizer extends PreTrainedTokenizer {
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);
         this.use_default_system_prompt = tokenizerConfig.use_default_system_prompt ?? false;
+
+        if (!this.legacy) {
+            // See https://github.com/huggingface/transformers/pull/24565 for more information
+            this.normalizer = null;
+            this.pre_tokenizer = new MetaspacePreTokenizer({
+                replacement: SPIECE_UNDERLINE,
+                add_prefix_space: true,
+                prepend_scheme: "first",
+            });
+        }
+    }
+
+    /**
+     * Helper function to handle legacy encoding of SPM tokenizers.
+     * Adapted from https://github.com/huggingface/transformers/blob/e6dcf8abd6f65bb4b6dfc1831b20d9ba49ce00e2/src/transformers/models/t5/tokenization_t5.py#L374-L387
+     * @param {string} text The text to encode.
+     * @returns {string[]} The encoded tokens.
+     */
+    _encode_text(text) {
+        if (text === null) return null;
+
+        if (this.legacy || text.length === 0) {
+            return super._encode_text(text);
+        }
+
+        let tokens = super._encode_text(SPIECE_UNDERLINE + text.replaceAll(SPIECE_UNDERLINE, " "));
+        if (tokens.length > 1 && tokens[0] === SPIECE_UNDERLINE && this.special_tokens.includes(tokens[1])) {
+            tokens = tokens.slice(1);
+        }
+        return tokens;
     }
 
     get default_chat_template() {
