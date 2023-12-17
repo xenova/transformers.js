@@ -9,7 +9,8 @@ import { compare } from './test_utils.js';
 // TODO do this dynamically?
 const { tokenization, templates } = await (await getFile('./tests/data/tokenizer_tests.json')).json()
 
-describe('Tokenizers', () => {
+// Dynamic tests to ensure transformers.js (JavaScript) matches transformers (Python)
+describe('Tokenizers (dynamic)', () => {
 
     for (let [tokenizerName, tests] of Object.entries(tokenization)) {
 
@@ -34,6 +35,64 @@ describe('Tokenizers', () => {
 
                 let decoded_without_special = tokenizer.decode(encoded.input_ids, { skip_special_tokens: true });
                 expect(decoded_without_special).toEqual(test.decoded_without_special);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+    }
+});
+
+// Tests to ensure that no matter what, the correct tokenization is returned.
+// This is necessary since there are sometimes bugs in the transformers library.
+describe('Tokenizers (hard-coded)', () => {
+    const TESTS = {
+        'Xenova/llama-tokenizer_new': [
+            {
+                data: {
+                    " </s> 1  2   3    4   ": [259, 2, 29871, 29896, 259, 29906, 1678, 29941, 268, 29946, 1678],
+                    "<s>\n": [1, 13],
+                    "</s>test</s>": [2, 1688, 2],
+                    " </s> test </s> ": [259, 2, 1243, 29871, 2, 29871],
+                    "A\n'll": [319, 13, 29915, 645],
+                    "Hey </s>. how are you": [18637, 29871, 2, 29889, 920, 526, 366],
+                    "  Hi  Hello  ": [259, 6324, 29871, 15043, 259],
+                },
+                reversible: true,
+            }
+        ],
+        'Xenova/t5-tokenizer-new': [
+            {
+                data: {
+                    // https://github.com/huggingface/transformers/pull/26678
+                    // ['▁Hey', '▁', '</s>', '.', '▁how', '▁are', '▁you']
+                    "Hey </s>. how are you": [9459, 3, 1, 5, 149, 33, 25],
+                },
+                reversible: true,
+            },
+            {
+                data: {
+                    "</s>\n": [1, 3],
+                    "A\n'll": [71, 3, 31, 195],
+                },
+                reversible: false,
+            }
+        ],
+    }
+
+    for (const [tokenizerName, test_data] of Object.entries(TESTS)) {
+
+        it(tokenizerName, async () => {
+            const tokenizer = await AutoTokenizer.from_pretrained(m(tokenizerName));
+
+            for (const { data, reversible } of test_data) {
+                for (const [text, expected] of Object.entries(data)) {
+                    const token_ids = tokenizer.encode(text, null, { add_special_tokens: false });
+                    expect(token_ids).toEqual(expected);
+
+                    // If reversible, test that decoding produces the original text
+                    if (reversible) {
+                        const decoded = tokenizer.decode(token_ids);
+                        expect(decoded).toEqual(text);
+                    }
+                }
             }
         }, MAX_TEST_EXECUTION_TIME);
     }
