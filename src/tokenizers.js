@@ -2046,27 +2046,26 @@ class MetaspacePreTokenizer extends PreTokenizer {
     }
 
     /**
-     * This method takes a list of normalized tokens, replaces spaces with the replacement character,
+     * This method takes a string, replaces spaces with the replacement character,
      * adds a prefix space if requested, and returns a new list of tokens.
-     * @param {string[]|string} normalizedTokens The list of normalized tokens to pre-tokenize.
+     * @param {string} text The text to pre-tokenize.
      * @param {Object} [options] The options for the pre-tokenization.
      * @param {number} [options.section_index] The index of the section to pre-tokenize.
      * @returns {string[]} A new list of pre-tokenized tokens.
      */
-    pre_tokenize_text(normalizedTokens, {
+    pre_tokenize_text(text, {
         section_index = undefined,
     } = {}) {
-        if (typeof normalizedTokens === 'string') {
-            // Metaspace acts on a list of tokens. If passing in a string, first split on whitespace
-            // NOTE: For some reason, metaspace includes trailing whitespace, so we only trim leading whitespace.
-            // See: https://github.com/huggingface/tokenizers/issues/1250
-            normalizedTokens = normalizedTokens.trimStart().split(/\s+/);
-        }
+
+        // NOTE: First, we split on whitespace, but being careful when there is trailing whitespace:
+        // ' a b c'      -> [ 'a', 'b', 'c' ]                  // strips leading whitespace
+        // ' a b c '     -> [ 'a', 'b', 'c', '' ]              // includes match for trailing whitespace
+        // ' a b c \n '  -> [ 'a', 'b', 'c', '' ]              // includes match for trailing whitespace
+        const matches = text.match(/\S+|\s+$/gm);
 
         const result = [];
-        for (let i = 0; i < normalizedTokens.length; ++i) {
-            const token = normalizedTokens[i];
-            let normalized = token.replaceAll(' ', this.strRep);
+        for (const match of matches) {
+            let normalized = match.replaceAll(' ', this.strRep);
             if (
                 // We add a prefix space if:
                 //  (1) The addPrefixSpace option is enabled and the normalized
@@ -2080,7 +2079,7 @@ class MetaspacePreTokenizer extends PreTokenizer {
                     this.prepend_scheme === 'always' ||
                     (
                         (this.prepend_scheme === 'first') &&
-                        (section_index === 0 || i > 0)
+                        (section_index === 0 || result.length > 0)
                     )
                 )
             ) {
