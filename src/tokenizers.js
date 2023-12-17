@@ -2061,11 +2061,11 @@ class MetaspacePreTokenizer extends PreTokenizer {
         // ' a b c'      -> [ 'a', 'b', 'c' ]                  // strips leading whitespace
         // ' a b c '     -> [ 'a', 'b', 'c', '' ]              // includes match for trailing whitespace
         // ' a b c \n '  -> [ 'a', 'b', 'c', '' ]              // includes match for trailing whitespace
-        const matches = text.match(/\S+|\s+$/gm);
+        const matches = text.replaceAll(' ', this.strRep).match(/\S+|\s+$/gm);
 
         const result = [];
         for (const match of matches) {
-            let normalized = match.replaceAll(' ', this.strRep);
+            let normalized = match;
             if (
                 // We add a prefix space if:
                 //  (1) The addPrefixSpace option is enabled and the normalized
