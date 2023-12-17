@@ -2194,18 +2194,15 @@ class PreTokenizerSequence extends PreTokenizer {
 
     /**
      * Applies each pre-tokenizer in the sequence to the input text in turn.
-     * @param {string|string[]} text The text(s) to pre-tokenize.
+     * @param {string} text The text to pre-tokenize.
      * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} The pre-tokenized text.
      */
     pre_tokenize_text(text, options) {
-        if (typeof text === 'string') {
-            text = [text];
-        }
         // Use reduce to apply each tokenizer to the text
         return this.tokenizers.reduce((preTokenizedText, tokenizer) => {
             return tokenizer.pre_tokenize(preTokenizedText, options);
-        }, text);
+        }, [text]);
     }
 }
 
