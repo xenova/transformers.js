@@ -77,6 +77,9 @@ describe('Tokenizers (hard-coded)', () => {
         ],
     }
 
+    // Re-use the same tests for the llama2 tokenizer
+    TESTS['Xenova/llama2-tokenizer'] = TESTS['Xenova/llama-tokenizer_new'];
+
     for (const [tokenizerName, test_data] of Object.entries(TESTS)) {
 
         it(tokenizerName, async () => {
