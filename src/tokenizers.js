@@ -41,10 +41,17 @@ import {
     CharTrie,
 } from './utils/data-structures.js';
 
+
+/**
+ * @typedef {Object} TokenizerProperties Additional tokenizer-specific properties.
+ * @property {boolean} [legacy=false] Whether or not the `legacy` behavior of the tokenizer should be used.
+ * @typedef {import('./utils/hub.js').PretrainedOptions & TokenizerProperties} PretrainedTokenizerOptions
+ */
+
 /**
  * Loads a tokenizer from the specified path.
  * @param {string} pretrained_model_name_or_path The path to the tokenizer directory.
- * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
+ * @param {PretrainedTokenizerOptions} options Additional options for loading the tokenizer.
  * @returns {Promise<any[]>} A promise that resolves with information about the loaded tokenizer.
  */
 async function loadTokenizer(pretrained_model_name_or_path, options) {
@@ -53,6 +60,11 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
         getModelJSON(pretrained_model_name_or_path, 'tokenizer.json', true, options),
         getModelJSON(pretrained_model_name_or_path, 'tokenizer_config.json', true, options),
     ])
+
+    // Override legacy option if `options.legacy` is not null
+    if (options.legacy !== null) {
+        info[1].legacy = options.legacy;
+    }
     return info;
 }
 
@@ -2343,7 +2355,7 @@ export class PreTrainedTokenizer extends Callable {
         // TODO allow user to change this
         this.padding_side = 'right';
 
-        this.legacy = tokenizerConfig.legacy ?? true;
+        this.legacy = false;
 
         this.chat_template = tokenizerConfig.chat_template ?? null;
         this._compiled_template_cache = new Map();
@@ -2378,7 +2390,7 @@ export class PreTrainedTokenizer extends Callable {
      * Loads a pre-trained tokenizer from the given `pretrained_model_name_or_path`. 
      * 
      * @param {string} pretrained_model_name_or_path The path to the pre-trained tokenizer.
-     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
+     * @param {PretrainedTokenizerOptions} options Additional options for loading the tokenizer.
      * 
      * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the `pretrained_model_name_or_path`.
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the `PreTrainedTokenizer` class.
@@ -2389,6 +2401,7 @@ export class PreTrainedTokenizer extends Callable {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        legacy = null,
     } = {}) {
 
         let info = await loadTokenizer(pretrained_model_name_or_path, {
@@ -2397,6 +2410,7 @@ export class PreTrainedTokenizer extends Callable {
             cache_dir,
             local_files_only,
             revision,
+            legacy,
         })
 
         // @ts-ignore
@@ -3018,6 +3032,7 @@ export class LlamaTokenizer extends PreTrainedTokenizer {
         super(tokenizerJSON, tokenizerConfig);
         this.use_default_system_prompt = tokenizerConfig.use_default_system_prompt ?? false;
 
+        this.legacy = tokenizerConfig.legacy ?? true;
         if (!this.legacy) {
             // See https://github.com/huggingface/transformers/pull/24565 for more information
             this.normalizer = null;
@@ -4176,7 +4191,7 @@ export class AutoTokenizer {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing tokenizer files, e.g., `./my_model_directory/`.
-     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
+     * @param {PretrainedTokenizerOptions} options Additional options for loading the tokenizer.
      * 
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */
@@ -4187,6 +4202,7 @@ export class AutoTokenizer {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        legacy = null,
     } = {}) {
 
         let [tokenizerJSON, tokenizerConfig] = await loadTokenizer(pretrained_model_name_or_path, {
@@ -4196,6 +4212,7 @@ export class AutoTokenizer {
             cache_dir,
             local_files_only,
             revision,
+            legacy,
         })
 
         // Some tokenizers are saved with the "Fast" suffix, so we remove that if present.
