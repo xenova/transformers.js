@@ -44,7 +44,32 @@ describe('Tokenizers (dynamic)', () => {
 // This is necessary since there are sometimes bugs in the transformers library.
 describe('Tokenizers (hard-coded)', () => {
     const TESTS = {
-        'Xenova/llama-tokenizer_new': [
+        'Xenova/llama-tokenizer': [ // Test legacy compatibility
+            {
+                // legacy unset => legacy=true
+                // NOTE: While incorrect, it is necessary to match legacy behaviour
+                data: {
+                    "<s>\n": [1, 29871, 13],
+                },
+                legacy: null,
+            },
+            {
+                // override legacy=true (same results as above)
+                data: {
+                    "<s>\n": [1, 29871, 13],
+                },
+                legacy: true,
+            },
+            {
+                // override legacy=false (fixed results)
+                data: {
+                    "<s>\n": [1, 13],
+                },
+                legacy: false,
+            }
+        ],
+
+        'Xenova/llama-tokenizer_new': [ // legacy=false
             {
                 data: {
                     " </s> 1  2   3    4   ": [259, 2, 29871, 29896, 259, 29906, 1678, 29941, 268, 29946, 1678],
@@ -56,8 +81,17 @@ describe('Tokenizers (hard-coded)', () => {
                     "  Hi  Hello  ": [259, 6324, 29871, 15043, 259],
                 },
                 reversible: true,
-            }
+                legacy: null,
+            },
+            { // override legacy=true (incorrect results, but necessary to match legacy behaviour)
+                data: {
+                    "<s>\n": [1, 29871, 13],
+                },
+                legacy: true,
+            },
         ],
+
+        // legacy=false
         'Xenova/t5-tokenizer-new': [
             {
                 data: {
@@ -66,6 +100,7 @@ describe('Tokenizers (hard-coded)', () => {
                     "Hey </s>. how are you": [9459, 3, 1, 5, 149, 33, 25],
                 },
                 reversible: true,
+                legacy: null,
             },
             {
                 data: {
@@ -73,6 +108,7 @@ describe('Tokenizers (hard-coded)', () => {
                     "A\n'll": [71, 3, 31, 195],
                 },
                 reversible: false,
+                legacy: null,
             }
         ],
     }
@@ -83,9 +119,9 @@ describe('Tokenizers (hard-coded)', () => {
     for (const [tokenizerName, test_data] of Object.entries(TESTS)) {
 
         it(tokenizerName, async () => {
-            const tokenizer = await AutoTokenizer.from_pretrained(m(tokenizerName));
+            for (const { data, reversible, legacy } of test_data) {
+                const tokenizer = await AutoTokenizer.from_pretrained(m(tokenizerName), { legacy });
 
-            for (const { data, reversible } of test_data) {
                 for (const [text, expected] of Object.entries(data)) {
                     const token_ids = tokenizer.encode(text, null, { add_special_tokens: false });
                     expect(token_ids).toEqual(expected);
