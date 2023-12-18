@@ -41,6 +41,8 @@ import {
     CharTrie,
 } from './utils/data-structures.js';
 
+import { Template } from '@huggingface/jinja';
+
 
 /**
  * @typedef {Object} TokenizerProperties Additional tokenizer-specific properties.
@@ -2785,10 +2787,10 @@ export class PreTrainedTokenizer extends Callable {
      *   { "role": "user", "content": "I'd like to show off how chat templating works!" },
      * ]
      * 
-     * const text = await tokenizer.apply_chat_template(chat, { tokenize: false });
+     * const text = tokenizer.apply_chat_template(chat, { tokenize: false });
      * // "<s>[INST] Hello, how are you? [/INST]I'm doing great. How can I help you today?</s> [INST] I'd like to show off how chat templating works! [/INST]"
      * 
-     * const input_ids = await tokenizer.apply_chat_template(chat, { tokenize: true, return_tensor: false });
+     * const input_ids = tokenizer.apply_chat_template(chat, { tokenize: true, return_tensor: false });
      * // [1, 733, 16289, 28793, 22557, 28725, 910, 460, 368, 28804, 733, 28748, 16289, 28793, 28737, 28742, 28719, 2548, 1598, 28723, 1602, 541, 315, 1316, 368, 3154, 28804, 2, 28705, 733, 16289, 28793, 315, 28742, 28715, 737, 298, 1347, 805, 910, 10706, 5752, 1077, 3791, 28808, 733, 28748, 16289, 28793]
      * ```
      * 
@@ -2806,9 +2808,9 @@ export class PreTrainedTokenizer extends Callable {
      * @param {number} [options.max_length=null] Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize is false.
      * If not specified, the tokenizer's `max_length` attribute will be used as a default.
      * @param {boolean} [options.return_tensor=true] Whether to return the output as a Tensor or an Array. Has no effect if tokenize is false.
-     * @returns {Promise<string | Tensor | number[]| number[][]>} A promise that resolves to the tokenized output.
+     * @returns {string | Tensor | number[]| number[][]} A promise that resolves to the tokenized output.
      */
-    async apply_chat_template(conversation, {
+    apply_chat_template(conversation, {
         chat_template = null,
         add_generation_prompt = false,
         tokenize = true,
@@ -2823,17 +2825,6 @@ export class PreTrainedTokenizer extends Callable {
         // Compilation function uses a cache to avoid recompiling the same template
         let compiledTemplate = this._compiled_template_cache.get(chat_template);
         if (compiledTemplate === undefined) {
-            // Dynamically load the `@huggingface/jinja` library. Since this is a peer dependency
-            // (i.e., must be installed separately), an error is thrown if it is not installed.
-            let Template;
-            try {
-                Template = (await import( /* webpackMode: "eager" */ '@huggingface/jinja')).Template;
-            } catch (e) {
-                throw new Error(
-                    `apply_chat_template requires '@huggingface/jinja' to be installed. ` +
-                    `You can install it with \`npm install @huggingface/jinja\`.`
-                )
-            }
             compiledTemplate = new Template(chat_template);
             this._compiled_template_cache.set(chat_template, compiledTemplate);
         }
