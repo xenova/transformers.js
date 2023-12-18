@@ -2827,7 +2827,7 @@ export class PreTrainedTokenizer extends Callable {
             // (i.e., must be installed separately), an error is thrown if it is not installed.
             let Template;
             try {
-                Template = (await import('@huggingface/jinja')).Template;
+                Template = (await import( /* webpackMode: "eager" */ '@huggingface/jinja')).Template;
             } catch (e) {
                 throw new Error(
                     `apply_chat_template requires '@huggingface/jinja' to be installed. ` +
