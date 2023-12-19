@@ -1,42 +1,35 @@
-// background.js - Handles requests from the UI, runs the model, then sends back a response
+// background.js - Handles requests from the UI, and forwards to the offscreen document, creating it if necessary
 
-import { pipeline, env } from '@xenova/transformers';
+const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
-// Skip initial check for local models, since we are not loading any local models.
-env.allowLocalModels = false;
-
-// Due to a bug in onnxruntime-web, we must disable multithreading for now.
-// See https://github.com/microsoft/onnxruntime/issues/14445 for more information.
-env.backends.onnx.wasm.numThreads = 1;
-
-
-class PipelineSingleton {
-    static task = 'text-classification';
-    static model = 'Xenova/distilbert-base-uncased-finetuned-sst-2-english';
-    static instance = null;
-
-    static async getInstance(progress_callback = null) {
-        if (this.instance === null) {
-            this.instance = pipeline(this.task, this.model, { progress_callback });
+const hasDocument = async () => {
+    const matchedClients = await clients.matchAll();
+    for (const client of matchedClients) {
+        if (client.url.endsWith(OFFSCREEN_DOCUMENT_PATH)) {
+            return true;
         }
+    }
+    return false;
+}
 
-        return this.instance;
+const ensureOffscreenDocument = async () => {
+    if (!(await hasDocument())) {
+        await chrome.offscreen.createDocument({
+            url: OFFSCREEN_DOCUMENT_PATH,
+            reasons: [chrome.offscreen.Reason.BLOBS, chrome.offscreen.Reason.WORKERS],
+            justification: 'Blobs are needed to initialize ONNX WASM, Workers are needed to run ONNX multithreaded.'
+        });
     }
 }
 
-// Create generic classify function, which will be reused for the different types of events.
-const classify = async (text) => {
-    // Get the pipeline instance. This will load and build the model when run for the first time.
-    let model = await PipelineSingleton.getInstance((data) => {
-        // You can track the progress of the pipeline creation here.
-        // e.g., you can send `data` back to the UI to indicate a progress bar
-        // console.log('progress', data)
+const sendMessageToOffscreenDocument = async (type, data) => {
+    await ensureOffscreenDocument()
+    return chrome.runtime.sendMessage({
+        type,
+        target: 'offscreen',
+        data
     });
-
-    // Actually run the model on the input text
-    let result = await model(text);
-    return result;
-};
+}
 
 ////////////////////// 1. Context Menus //////////////////////
 //
@@ -56,8 +49,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // Ignore context menu clicks that are not for classifications (or when there is no input)
     if (info.menuItemId !== 'classify-selection' || !info.selectionText) return;
 
-    // Perform classification on the selected text
-    let result = await classify(info.selectionText);
+    // Forward selected text to offscreen document for processing
+    const result = await sendMessageToOffscreenDocument('classify', info.selectionText);
+    console.log('result', result, Boolean(result))
+    if (!result) console.log('hi')
 
     // Do something with the result
     chrome.scripting.executeScript({
@@ -74,7 +69,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 ////////////////////// 2. Message Events /////////////////////
 // 
-// Listen for messages from the UI, process it, and send the result back.
+// Listen for messages from the UI, forward to the offscreen document for processing and send the result back.
+// We can't pass messages to offscreen directly from the UI because it lacks the `client` API needed to start/ensure existence of the offscreen page.
+// BUG: It appears that the popup UI won't open when the offscreen page is open...
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('sender', sender)
     if (message.action !== 'classify') return; // Ignore messages that are not meant for classification.

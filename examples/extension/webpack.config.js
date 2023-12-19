@@ -14,6 +14,7 @@ const config = {
         background: './src/background.js',
         popup: './src/popup.js',
         content: './src/content.js',
+        offscreen: './src/offscreen.js'
     },
     output: {
         path: path.resolve(__dirname, 'build'),
