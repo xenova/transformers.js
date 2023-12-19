@@ -38,6 +38,11 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'"
   },
+  "sandbox": {
+    "pages": [
+      "sandbox.html"
+    ]
+  },
   "icons": {
     "16": "icons/icon.png",
     "48": "icons/icon.png",

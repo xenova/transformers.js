@@ -11,7 +11,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     switch (message.type) {
         case 'classify':
-            classify(message.data).then(result => {
+            sendToSandboxForInference(message.data).then(result => {
                 sendResponse({ type: 'result', result });
             });
             return true;
@@ -21,37 +21,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
-import { pipeline, env } from '@xenova/transformers';
-
-// Skip initial check for local models, since we are not loading any local models.
-env.allowLocalModels = false;
-
-class PipelineSingleton {
-    static task = 'text-classification';
-    static model = 'Xenova/distilbert-base-uncased-finetuned-sst-2-english';
-    static instance = null;
-
-    static async getInstance(progress_callback = null) {
-        if (this.instance === null) {
-            this.instance = pipeline(this.task, this.model, { progress_callback });
+// The sandbox is neccesary because the ONNX Runtime loads in a way that violates the typical Chrome extension Content Security Policy
+// Using a MessageChannel allows us to use an async request/response pattern: https://advancedweb.hu/how-to-use-async-await-with-postmessage/
+const sendToSandboxForInference = input => new Promise((res, rej) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = ({ data }) => {
+        channel.port1.close();
+        if (data.error) {
+            rej(data.error);
+        } else {
+            res(data.result);
         }
-
-        return this.instance;
-    }
-}
-
-// Create generic classify function, which will be reused for the different types of events.
-const classify = async (text) => {
-    // Get the pipeline instance. This will load and build the model when run for the first time.
-    let model = await PipelineSingleton.getInstance((data) => {
-        // You can track the progress of the pipeline creation here.
-        // e.g., you can send `data` back to the UI to indicate a progress bar
-        // console.log('progress', data)
-    });
-
-    // Actually run the model on the input text
-    let result = await model(text);
-    return result;
-};
-
-
+    };
+    document.getElementById('sandbox').contentWindow.postMessage(input, '*', [channel.port2]);
+});
