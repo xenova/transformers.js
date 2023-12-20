@@ -1182,17 +1182,61 @@ class BertNormalizer extends Normalizer {
         return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
 
+
+    /**
+     * Checks whether `char` is a control character.
+     * @param {string} char The character to check.
+     * @returns {boolean} Whether `char` is a control character.
+     * @private
+     */
+    _is_control(char) {
+        switch (char) {
+            case '\t':
+            case '\n':
+            case '\r':
+                // These are technically control characters but we count them as whitespace characters.
+                return false;
+
+            default:
+                // Check if unicode category starts with C:
+                // Cc - Control
+                // Cf - Format
+                // Co - Private Use
+                // Cs - Surrogate
+                return /^\p{Cc}|\p{Cf}|\p{Co}|\p{Cs}$/u.test(char);
+        }
+    }
+
+    /**
+     * Performs invalid character removal and whitespace cleanup on text.
+     * @param {string} text The text to clean.
+     * @returns {string} The cleaned text.
+     * @private
+     */
+    _clean_text(text) {
+        const output = [];
+        for (const char of text) {
+            const cp = char.charCodeAt(0);
+            if (cp === 0 || cp === 0xFFFD || this._is_control(char)) {
+                continue;
+            }
+            if (/^\s$/.test(char)) { // is whitespace
+                output.push(" ");
+            } else {
+                output.push(char);
+            }
+        }
+        return output.join("");
+    }
     /**
      * Normalizes the given text based on the configuration.
      * @param {string} text The text to normalize.
      * @returns {string} The normalized text.
      */
     normalize(text) {
-        // TODO use rest of config
-        // config.clean_text,
-        // config.handle_chinese_chars,
-        // config.strip_accents,
-        // config.lowercase,
+        if (this.config.clean_text) {
+            text = this._clean_text(text);
+        }
 
         if (this.config.handle_chinese_chars) {
             text = this._tokenize_chinese_chars(text);
