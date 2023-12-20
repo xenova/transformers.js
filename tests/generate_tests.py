@@ -80,6 +80,9 @@ TOKENIZER_TEST_DATA = {
         "<s>\n",
         " </s> test </s> ",
         "</s>test</s>",
+
+        # Control characters
+        "1\u00002\uFFFD3",
     ],
     "custom_by_model_type": {
         "llama": [
