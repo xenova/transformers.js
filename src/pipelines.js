@@ -280,7 +280,7 @@ export class TokenClassificationPipeline extends Pipeline {
                 let tokenData = batch[j];
                 let topScoreIndex = max(tokenData.data)[1];
 
-                let entity = id2label[topScoreIndex];
+                let entity = id2label ? id2label[topScoreIndex] : `LABEL_${topScoreIndex}`;
                 if (ignore_labels.includes(entity)) {
                     // We predicted a token that should be ignored. So, we skip it.
                     continue;
