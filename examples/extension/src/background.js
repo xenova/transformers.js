@@ -1,5 +1,9 @@
 // background.js - Handles requests from the UI, runs the model, then sends back a response
 
+chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch((error) => console.error(error));
+
 import { pipeline, env } from '@xenova/transformers';
 
 // Skip initial check for local models, since we are not loading any local models.
