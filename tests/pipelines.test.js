@@ -918,7 +918,11 @@ describe('Pipelines', () => {
         ];
 
         it(models[0], async () => {
-            let synthesizer = await pipeline('text-to-speech', m(models[0]));
+            let synthesizer = await pipeline('text-to-speech', m(models[0]), {
+                // NOTE: Although the quantized version produces incoherent results,
+                // it it is okay to use for testing.
+                // quantized: false,
+            });
 
             let speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
 
