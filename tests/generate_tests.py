@@ -39,6 +39,11 @@ MODELS_TO_IGNORE = [
 
     # TODO: remove when https://github.com/huggingface/transformers/issues/26547 is fixed
     'speecht5',
+
+    # TODO: remove when https://github.com/huggingface/transformers/issues/28173 is fixed. Issues include:
+    # - decoding with `skip_special_tokens=True`.
+    # - interspersing the pad token is broken.
+    'vits',
 ]
 
 TOKENIZERS_TO_IGNORE = [
@@ -112,7 +117,13 @@ TOKENIZER_TEST_DATA = {
             "The Heavenly Llama is said to drink water from the ocean and urinates as it rains.[6] According to " \
             "Aymara eschatology, llamas will return to the water springs and lagoons where they come from at the " \
             "end of time.[6]",
-        ]
+        ],
+
+        "vits": [
+            "abcdefghijklmnopqrstuvwxyz01234567890",
+            # Special treatment of characters in certain language
+            "ț ţ",
+        ],
     },
     "custom": {
         "facebook/blenderbot_small-90M": [
