@@ -941,7 +941,7 @@ describe('Pipelines', () => {
                 expect(output.sampling_rate).toEqual(16000);
             }
 
-            await transcriber.dispose();
+            await synthesizer.dispose();
 
         }, MAX_TEST_EXECUTION_TIME);
 
