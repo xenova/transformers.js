@@ -2036,6 +2036,18 @@ class BPEDecoder extends Decoder {
     }
 }
 
+// Custom decoder for VITS
+class VitsDecoder extends Decoder {
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        let decoded = '';
+        for (let i = 1; i < tokens.length; i += 2) {
+            decoded += tokens[i];
+        }
+        return [decoded];
+    }
+}
+
 
 /**
  * This PreTokenizer replaces spaces with the given replacement character, adds a prefix space if requested,
@@ -4119,6 +4131,15 @@ export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
 
 export class NougatTokenizer extends PreTrainedTokenizer { }
 
+export class VitsTokenizer extends PreTrainedTokenizer {
+
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+
+        // Custom decoder function
+        this.decoder = new VitsDecoder({});
+    }
+}
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -4165,6 +4186,7 @@ export class AutoTokenizer {
         BlenderbotSmallTokenizer,
         SpeechT5Tokenizer,
         NougatTokenizer,
+        VitsTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
