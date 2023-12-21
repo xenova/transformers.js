@@ -4612,7 +4612,7 @@ export class VitsPreTrainedModel extends PreTrainedModel { }
  * import { AutoTokenizer, VitsModel } from '@xenova/transformers';
  * 
  * // Load the tokenizer and model
- * const tokenizer = await AutoTokenizer.from_pretrained('facebook/mms-tts-eng');
+ * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/mms-tts-eng');
  * const model = await VitsModel.from_pretrained('Xenova/mms-tts-eng');
  * 
  * // Run tokenization
