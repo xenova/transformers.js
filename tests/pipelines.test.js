@@ -909,6 +909,29 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
     });
 
+    describe('Text-to-speech generation', () => {
+
+        // List all models which will be tested
+        // TODO: add speecht5 test
+        const models = [
+            'facebook/mms-tts-fra',
+        ];
+
+        it(models[0], async () => {
+            let synthesizer = await pipeline('text-to-speech', m(models[0]));
+
+            { // Generate French speech
+                let output = await synthesizer('Bonjour');
+                expect(output.audio.length).toBeGreaterThan(0);
+                expect(output.sampling_rate).toEqual(16000);
+            }
+
+            await transcriber.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+    });
+
     describe('Audio classification', () => {
 
         // List all models which will be tested
