@@ -913,7 +913,7 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'Xenova/speecht5_tts',
+            'microsoft/speecht5_tts',
             'facebook/mms-tts-fra',
         ];
 
