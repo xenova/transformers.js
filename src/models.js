@@ -89,7 +89,7 @@ import { env } from './env.js';
 
 import { isReady, executionProviders, ONNX } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
-const { InferenceSession, Tensor: ONNXTensor, env } = ONNX;
+const { InferenceSession, Tensor: ONNXTensor, env: onnx_env } = ONNX;
 
 /** @typedef {import('onnxruntime-web').InferenceSession} InferenceSession */
 
@@ -175,10 +175,10 @@ function validateInputs(session, inputs) {
             missingInputs.push(inputName);
             continue;
         }
-        // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
+        // NOTE: When `onnx_env.wasm.proxy is true` the tensor is moved across the Worker
         // boundary, transferring ownership to the worker and invalidating the tensor.
         // So, in this case, we simply sacrifice a clone for it.
-        checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
+        checkedInputs[inputName] = onnx_env.wasm.proxy ? tensor.clone() : tensor;
     }
     if (missingInputs.length > 0) {
         throw new Error(
