@@ -193,8 +193,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     constructor(config) {
         super(config);
 
-        this.image_mean = this.config.image_mean;
-        this.image_std = this.config.image_std;
+        this.image_mean = this.config.image_mean ?? this.config.mean;
+        this.image_std = this.config.image_std ?? this.config.std;
 
         this.resample = this.config.resample ?? 2; // 2 => bilinear
         this.do_rescale = this.config.do_rescale ?? true;
@@ -379,6 +379,17 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
+     * Rescale the image' pixel values by `this.rescale_factor`.
+     * @param {Float32Array} pixelData The pixel data to rescale.
+     * @returns {void}
+     */
+    rescale(pixelData) {
+        for (let i = 0; i < pixelData.length; ++i) {
+            pixelData[i] = this.rescale_factor * pixelData[i];
+        }
+    }
+
+    /**
      * @typedef {object} PreprocessedImage
      * @property {HeightWidth} original_size The original size of the image.
      * @property {HeightWidth} reshaped_input_size The reshaped input size of the image.
@@ -507,9 +518,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         let imgDims = [image.height, image.width, image.channels];
 
         if (this.do_rescale) {
-            for (let i = 0; i < pixelData.length; ++i) {
-                pixelData[i] = this.rescale_factor * pixelData[i];
-            }
+            this.rescale(pixelData);
         }
 
         if (this.do_normalize) {
@@ -591,6 +600,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
+export class SiglipImageProcessor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOTE extends ConvNextFeatureExtractor
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
@@ -1645,6 +1655,7 @@ export class AutoProcessor {
         MobileViTFeatureExtractor,
         OwlViTFeatureExtractor,
         CLIPFeatureExtractor,
+        SiglipImageProcessor,
         ConvNextFeatureExtractor,
         ConvNextImageProcessor,
         DPTFeatureExtractor,

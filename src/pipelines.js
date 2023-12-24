@@ -1659,7 +1659,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 
         // Run tokenization
         let text_inputs = this.tokenizer(texts, {
-            padding: true,
+            padding: this.tokenizer.padding ?? true,
             truncation: true
         });
 

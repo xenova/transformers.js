@@ -445,6 +445,12 @@ SUPPORTED_MODELS = {
     #     'facebook/sam-vit-large',
     #     'facebook/sam-vit-huge',
     # ],
+    'siglip': [
+        # Zero-shot image classification and feature extraction
+        # (with and without `--split_modalities`)
+        # NOTE: requires --opset 13
+        'nielsr/siglip-base-patch16-224',
+    ],
     'speecht5': [
         # Text-to-speech
         'microsoft/speecht5_tts',

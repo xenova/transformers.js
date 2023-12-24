@@ -353,6 +353,23 @@ def main():
             device=conv_args.device,
         )
 
+    elif config.model_type == 'siglip' and conv_args.split_modalities:
+        # Handle special case for exporting text and vision models separately
+        from .extra.siglip import SiglipTextModelOnnxConfig, SiglipVisionModelOnnxConfig
+        from transformers.models.siglip import SiglipTextModel, SiglipVisionModel
+
+        text_model = SiglipTextModel.from_pretrained(model_id)
+        vision_model = SiglipVisionModel.from_pretrained(model_id)
+
+        export_models(
+            models_and_onnx_configs={
+                "text_model": (text_model, SiglipTextModelOnnxConfig(text_model.config)),
+                "vision_model": (vision_model, SiglipVisionModelOnnxConfig(vision_model.config)),
+            },
+            output_dir=output_model_folder,
+            opset=conv_args.opset,
+            device=conv_args.device,
+        )
     else:
         main_export(**export_kwargs)
 

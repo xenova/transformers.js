@@ -2275,6 +2275,7 @@ export class PreTrainedTokenizer extends Callable {
         this.do_lowercase_and_remove_accent = tokenizerConfig.do_lowercase_and_remove_accent ?? false;
 
         // TODO allow user to change this
+        this.padding = null;
         this.padding_side = 'right';
     }
 
@@ -2347,7 +2348,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {string|string[]} text The text to tokenize.
      * @param {Object} options An optional object containing the following properties:
      * @param {string|string[]} [options.text_pair=null] Optional second sequence to be encoded. If set, must be the same type as text.
-     * @param {boolean} [options.padding=false] Whether to pad the input sequences.
+     * @param {boolean|'max_length'} [options.padding=false] Whether to pad the input sequences.
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
@@ -2408,11 +2409,13 @@ export class PreTrainedTokenizer extends Callable {
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
 
-        let maxLengthOfBatch = max(tokens.map(x => x.length))[0];
-
-        // If null, we calculate max length from sequences
         if (max_length === null) {
-            max_length = maxLengthOfBatch;
+            if (padding === 'max_length') {
+                max_length = this.model_max_length;
+            } else {
+                // Calculate max length from sequences
+                max_length = max(tokens.map(x => x.length))[0];
+            }
         }
 
         // Ensure it is less than model max length
@@ -3780,7 +3783,12 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 }
 export class CodeGenTokenizer extends PreTrainedTokenizer { }
 export class CLIPTokenizer extends PreTrainedTokenizer { }
-
+export class SiglipTokenizer extends PreTrainedTokenizer {
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+        this.padding = 'max_length';
+    }
+}
 
 /**
  * @todo This model is not yet supported by Hugging Face's "fast" tokenizers library (https://github.com/huggingface/tokenizers).
@@ -3872,6 +3880,7 @@ export class AutoTokenizer {
         WhisperTokenizer,
         CodeGenTokenizer,
         CLIPTokenizer,
+        SiglipTokenizer,
         MarianTokenizer,
         BloomTokenizer,
         NllbTokenizer,
