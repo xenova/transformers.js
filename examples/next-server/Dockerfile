@@ -59,7 +59,7 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT 3000
-ENV HOSTNAME localhost
+ENV HOSTNAME 0.0.0.0
 
 # Allow the running process to write model files to the cache folder.
 # NOTE: In practice, you would probably want to pre-download the model files to avoid having to download them on-the-fly.

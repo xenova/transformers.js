@@ -3,6 +3,7 @@
 
 import json
 import os
+from itertools import product
 
 from transformers import AutoTokenizer, AutoConfig
 import numpy as np
@@ -15,11 +16,17 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         'tiiuae/falcon-7b',
     ],
     "llama": [
-        'hf-internal-testing/llama-tokenizer',
+        'hf-internal-testing/llama-tokenizer',  # Special tokens: normalized=true
+        'Xenova/llama2-tokenizer',  # Special tokens: normalized=false
+        'Xenova/llama2-chat-tokenizer',  # Special tokens: normalized=false
         'hf-internal-testing/llama-code-tokenizer',
     ],
     'mpt': [
         'mosaicml/mpt-7b',
+    ],
+    't5': [
+        # TODO: Add back when https://github.com/huggingface/transformers/issues/26318 is fixed
+        # 'Xenova/t5-tokenizer-new',
     ],
 }
 
@@ -37,6 +44,9 @@ MODELS_TO_IGNORE = [
 TOKENIZERS_TO_IGNORE = [
     # TODO: remove when https://github.com/huggingface/transformers/pull/25478 is merged
     'facebook/m2m100_418M',
+
+    # TODO: remove when https://github.com/huggingface/transformers/issues/28096 is addressed
+    'RajuKandasamy/tamillama_tiny_30m',
 ]
 
 MAX_TESTS = {
@@ -65,19 +75,14 @@ TOKENIZER_TEST_DATA = {
         "\u0079\u006F\u0075\u2026\u00A0\u00A0\u0079\u006F\u0075\u2026\u00A0\u00A0",
         "▁This ▁is ▁a ▁test ▁.",
         "weird \uFF5E edge \uFF5E case",
+
+        # SentencePiece-specific test cases
+        "<s>\n",
+        " </s> test </s> ",
+        "</s>test</s>",
     ],
-    "custom": {
-        "facebook/blenderbot_small-90M": [
-            # Test special tokens
-            "__start__hello world__end__",
-            # The original (python) tokenizer simply joins by spaces (regardless of special tokens or not)
-            "__start__ hey __end__" # --> ... --> "__start__ hey __end__"
-            "__start__hey __end__" # --> ... --> "__start__ hey __end__"
-        ],
-        "tiiuae/falcon-7b": [
-            "12 and 123 and 1234",  # Special case for splitting on 3 numbers
-        ],
-        "hf-internal-testing/llama-tokenizer": [
+    "custom_by_model_type": {
+        "llama": [
             # Additional test-cases for the Llama tokenizer, adapted from
             # https://github.com/belladoreai/llama-tokenizer-js/blob/master/llama-tokenizer.js#L381-L452
             "grabbed",
@@ -86,6 +91,7 @@ TOKENIZER_TEST_DATA = {
             "\n",
             " \n",
             "	tabs				out here",
+            "\n\t\n",
             "ax\n####\nboo",
             "镇",
             "🦙",
@@ -105,7 +111,19 @@ TOKENIZER_TEST_DATA = {
             "the 20th century, in the United States and Canada.[5] In Aymara mythology, llamas are important beings. " \
             "The Heavenly Llama is said to drink water from the ocean and urinates as it rains.[6] According to " \
             "Aymara eschatology, llamas will return to the water springs and lagoons where they come from at the " \
-            "end of time.[6]"
+            "end of time.[6]",
+        ]
+    },
+    "custom": {
+        "facebook/blenderbot_small-90M": [
+            # Test special tokens
+            "__start__hello world__end__",
+            # The original (python) tokenizer simply joins by spaces (regardless of special tokens or not)
+            "__start__ hey __end__"  # --> ... --> "__start__ hey __end__"
+            "__start__hey __end__"  # --> ... --> "__start__ hey __end__"
+        ],
+        "tiiuae/falcon-7b": [
+            "12 and 123 and 1234",  # Special case for splitting on 3 numbers
         ],
         "InstaDeepAI/nucleotide-transformer-500m-human-ref": [
             # Actual protein sequences
@@ -115,7 +133,71 @@ TOKENIZER_TEST_DATA = {
             # Special tokens
             "<unk><pad><mask><cls><eos><bos>",
         ],
+
+        "distil-whisper/distil-small.en": [
+            "   <|startoftranscript|> <|en|>   ",  # Tests lstrip+rstrip
+        ],
+
+        "Xenova/t5-tokenizer-new": [
+            # Tests the new T5 tokenizer, which uses a different prepend_scheme for its pre_tokenizer:
+            # tokenizer._tokenizer.pre_tokenizer = Metaspace(add_prefix_space = True, replacement = "▁", prepend_scheme = "first")
+            # See https://github.com/huggingface/transformers/pull/26678 for more information.
+            #  - Old (incorrect): ['▁Hey', '▁', '</s>', '▁', '.', '▁how', '▁are', '▁you']
+            #  - New (correct):   ['▁Hey', '▁', '</s>', '.', '▁how', '▁are', '▁you']
+            "Hey </s>. how are you",
+        ],
     },
+}
+
+CHAT_MESSAGES_EXAMPLES = {
+    'basic': [
+        {"role": "user", "content": "Hello, how are you?"},
+        {"role": "assistant", "content": "I'm doing great. How can I help you today?"},
+        {"role": "user", "content": "I'd like to show off how chat templating works!"},
+    ],
+
+    'system': [
+        {"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"},
+        {"role": "user", "content": "How many helicopters can a human eat in one sitting?"},
+    ],
+
+    'system + assistant': [
+        {"role": "system", "content": "You are a friendly chatbot who always responds in the style of a pirate"},
+        {"role": "user", "content": "Hello, how are you?"},
+        {"role": "assistant", "content": "I'm doing great. How can I help you today?"},
+        {"role": "user", "content": "I'd like to show off how chat templating works!"},
+    ],
+}
+
+TOKENIZERS_WITH_CHAT_TEMPLATES = {
+    # https://huggingface.co/docs/transformers/main/en/chat_templating
+    'Xenova/blenderbot-400M-distill': [
+        'basic',
+    ],
+
+    'mistralai/Mistral-7B-Instruct-v0.1': [
+        'basic',
+    ],
+
+    'HuggingFaceH4/zephyr-7b-beta': [
+        'system',
+    ],
+
+    'Xenova/llama-tokenizer': [
+        'basic',
+        'system',
+        'system + assistant',
+    ],
+    'Xenova/llama2-tokenizer': [
+        'basic',
+        'system',
+        'system + assistant',
+    ],
+    'Xenova/llama2-chat-tokenizer': [
+        'basic',
+        'system',
+        'system + assistant',
+    ],
 }
 
 
@@ -128,7 +210,7 @@ FLATTENED_SUPPORTED_MODELS = [
 
 def generate_tokenizer_tests():
 
-    results = {}
+    tokenization_results = {}
 
     tokenizers_to_test = FLATTENED_SUPPORTED_MODELS + \
         list(ADDITIONAL_TOKENIZERS_TO_TEST.items())
@@ -139,6 +221,9 @@ def generate_tokenizer_tests():
         if model_type in MAX_TESTS:
             tokenizer_names = tokenizer_names[:MAX_TESTS[model_type]]
 
+        custom_by_model_type_texts = TOKENIZER_TEST_DATA["custom_by_model_type"].get(
+            model_type, [])
+
         print(f'Generating tests for {model_type}')
         for tokenizer_name in tokenizer_names:
             if tokenizer_name in TOKENIZERS_TO_IGNORE:
@@ -148,7 +233,32 @@ def generate_tokenizer_tests():
 
             try:
                 # Load tokenizer
-                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+                if model_type == 'llama':
+                    # As of 17/12/2023, there are a few issues with the Llama tokenizers in transformers.
+                    # (1) Encoding with fast tokenizer adds whitespace after speical tokens:
+                    #   - https://github.com/huggingface/transformers/issues/25881
+                    #   - https://github.com/huggingface/transformers/issues/26318
+                    #   - https://github.com/huggingface/transformers/issues/26455
+                    #   - https://github.com/huggingface/transformers/issues/27544
+                    # (2) Decoding with slow tokenizer adds whitespace after special tokens:
+                    #   - https://github.com/huggingface/transformers/issues/25073
+                    #
+                    # So for now, we mix and match the tokenizers:
+                    # i.e., use the fast tokenizer for encoding, and the slow tokenizer for decoding.
+                    # TODO: remove when the above issues are fixed:
+                    tokenizer = AutoTokenizer.from_pretrained(
+                        tokenizer_name,
+                        use_fast=False,
+                    )
+                    decoder_tokenizer = AutoTokenizer.from_pretrained(
+                        tokenizer_name,
+                        use_fast=True,
+                    )
+
+                else:
+                    decoder_tokenizer = tokenizer = AutoTokenizer.from_pretrained(
+                        tokenizer_name)
+
             except (KeyError, EnvironmentError):
                 # If a KeyError/EnvironmentError is raised from the AutoTokenizer, it
                 # means the model does not use a tokenizer (e.g., vision models)
@@ -167,7 +277,7 @@ def generate_tokenizer_tests():
                 tokenizer_name, [])
 
             # Run tokenizer on test cases
-            for text in shared_texts + custom_texts:
+            for text in shared_texts + custom_texts + custom_by_model_type_texts:
                 # TODO: add with_pair option
                 try:
                     encoded = tokenizer(text).data
@@ -175,9 +285,9 @@ def generate_tokenizer_tests():
                     # Ignore testing tokenizers which fail in the python library
                     continue
 
-                decoded_with_special = tokenizer.decode(
+                decoded_with_special = decoder_tokenizer.decode(
                     encoded["input_ids"], skip_special_tokens=False)
-                decoded_without_special = tokenizer.decode(
+                decoded_without_special = decoder_tokenizer.decode(
                     encoded["input_ids"], skip_special_tokens=True)
 
                 tokenizer_results.append(dict(
@@ -188,9 +298,40 @@ def generate_tokenizer_tests():
                 ))
 
             if tokenizer_results:
-                results[tokenizer_name] = tokenizer_results
+                tokenization_results[tokenizer_name] = tokenizer_results
 
-    return results
+    template_results = {}
+
+    for tokenizer_id in TOKENIZERS_WITH_CHAT_TEMPLATES:
+        print(f'Generating chat templates for {tokenizer_id}')
+        tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer_id,
+
+            # TODO: Remove once https://github.com/huggingface/transformers/pull/26678 is fixed
+            use_fast='llama' not in tokenizer_id,
+        )
+        tokenizer_results = []
+        for key in TOKENIZERS_WITH_CHAT_TEMPLATES[tokenizer_id]:
+            messages = CHAT_MESSAGES_EXAMPLES[key]
+
+            for add_generation_prompt, tokenize in product([True, False], [True, False]):
+                tokenizer_results.append(dict(
+                    messages=messages,
+                    add_generation_prompt=add_generation_prompt,
+                    tokenize=tokenize,
+                    target=tokenizer.apply_chat_template(
+                        messages,
+                        add_generation_prompt=add_generation_prompt,
+                        tokenize=tokenize,
+                    ),
+                ))
+
+        template_results[tokenizer_id] = tokenizer_results
+
+    return dict(
+        tokenization=tokenization_results,
+        templates=template_results,
+    )
 
 
 def generate_config_tests():
@@ -214,10 +355,10 @@ def generate_config_tests():
     return results
 
 
-ARRAY_SIZES = sorted(set([2 ** i for i in range(1, 10)]) \
-    | set([3 ** i for i in range(1, 8)]) \
-    | set([5 ** i for i in range(1, 6)]) \
-    | set([7 ** i for i in range(1, 4)]))
+ARRAY_SIZES = sorted(set([2 ** i for i in range(1, 10)])
+                     | set([3 ** i for i in range(1, 8)])
+                     | set([5 ** i for i in range(1, 6)])
+                     | set([7 ** i for i in range(1, 4)]))
 
 
 def serialize_complex_array(arr):
@@ -234,7 +375,8 @@ def generate_fft_tests():
     for complex in [False, True]:
         serialize_fn = serialize_complex_array if complex else serialize_real_array
         for size in ARRAY_SIZES:
-            arr = np.random.randn(size).astype(np.complex64 if complex else np.float64)
+            arr = np.random.randn(size).astype(
+                np.complex64 if complex else np.float64)
             if complex:
                 arr += np.random.randn(size) * 1j
             tests[f"fft_{size}_{'complex' if complex else 'real'}"] = {
@@ -263,6 +405,7 @@ def main():
     fft_tests = generate_fft_tests()
     with open(os.path.join(data_dir, "fft_tests.json"), "w", encoding="utf-8") as fp:
         json.dump(fft_tests, fp)
-    
+
+
 if __name__ == "__main__":
     main()

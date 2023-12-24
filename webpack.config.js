@@ -5,6 +5,9 @@ import path from 'path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * @type {import('webpack').Configuration}
+ */
 export default {
     mode: 'development',
     devtool: 'source-map',

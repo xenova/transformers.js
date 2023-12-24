@@ -20,8 +20,8 @@ def generate_tokenizer_json(tokenizer):
                 "id": v,
                 "content": k,
                 "single_word": False,
-                "lstrip": False,
-                "rstrip": False,
+                "lstrip": True,
+                "rstrip": True,
                 "normalized": False,
                 "special": True
             }

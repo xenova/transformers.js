@@ -43,12 +43,21 @@ import {
     CharTrie,
 } from './utils/data-structures.js';
 
+import { Template } from '@huggingface/jinja';
+
 const { backends: { Uint8Array } } = env;
+
+
+/**
+ * @typedef {Object} TokenizerProperties Additional tokenizer-specific properties.
+ * @property {boolean} [legacy=false] Whether or not the `legacy` behavior of the tokenizer should be used.
+ * @typedef {import('./utils/hub.js').PretrainedOptions & TokenizerProperties} PretrainedTokenizerOptions
+ */
 
 /**
  * Loads a tokenizer from the specified path.
  * @param {string} pretrained_model_name_or_path The path to the tokenizer directory.
- * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
+ * @param {PretrainedTokenizerOptions} options Additional options for loading the tokenizer.
  * @returns {Promise<any[]>} A promise that resolves with information about the loaded tokenizer.
  */
 async function loadTokenizer(pretrained_model_name_or_path, options) {
@@ -57,6 +66,11 @@ async function loadTokenizer(pretrained_model_name_or_path, options) {
         getModelJSON(pretrained_model_name_or_path, 'tokenizer.json', true, options),
         getModelJSON(pretrained_model_name_or_path, 'tokenizer_config.json', true, options),
     ])
+
+    // Override legacy option if `options.legacy` is not null
+    if (options.legacy !== null) {
+        info[1].legacy = options.legacy;
+    }
     return info;
 }
 
@@ -217,6 +231,35 @@ function whitespace_split(text) {
 }
 
 const PUNCTUATION_REGEX = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E';
+
+/**
+ * Represent a token added by the user on top of the existing Model vocabulary.
+ * AddedToken can be configured to specify the behavior they should have in various situations like:
+ *   - Whether they should only match single words
+ *   - Whether to include any whitespace on its left or right
+ */
+class AddedToken {
+    /**
+     * Creates a new instance of AddedToken.
+     * @param {Object} config Added token configuration object.
+     * @param {string} config.content The content of the added token.
+     * @param {number} config.id The id of the added token.
+     * @param {boolean} [config.single_word=false] Whether this token must be a single word or can break words.
+     * @param {boolean} [config.lstrip=false] Whether this token should strip whitespaces on its left.
+     * @param {boolean} [config.rstrip=false] Whether this token should strip whitespaces on its right.
+     * @param {boolean} [config.normalized=false] Whether this token should be normalized.
+     * @param {boolean} [config.special=false] Whether this token is special.
+     */
+    constructor(config) {
+        this.content = config.content;
+        this.id = config.id;
+        this.single_word = config.single_word ?? false;
+        this.lstrip = config.lstrip ?? false;
+        this.rstrip = config.rstrip ?? false;
+        this.special = config.special ?? false;
+        this.normalized = config.normalized ?? null;
+    }
+}
 
 /**
  * Abstract base class for tokenizer models.
@@ -1216,28 +1259,30 @@ class PreTokenizer extends Callable {
     }
 
     /**
-   * Method that should be implemented by subclasses to define the specific pre-tokenization logic.
-   *
-   * @abstract
-   * @param {string} text The text to pre-tokenize.
-   * @returns {string[]} The pre-tokenized text.
-   * @throws {Error} If the method is not implemented in the subclass.
-   */
-    pre_tokenize_text(text) {
+     * Method that should be implemented by subclasses to define the specific pre-tokenization logic.
+     *
+     * @abstract
+     * @param {string} text The text to pre-tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
+     * @returns {string[]} The pre-tokenized text.
+     * @throws {Error} If the method is not implemented in the subclass.
+     */
+    pre_tokenize_text(text, options) {
         throw Error("pre_tokenize_text should be implemented in subclass.")
     }
 
     /**
      * Tokenizes the given text into pre-tokens.
      * @param {string|string[]} text The text or array of texts to pre-tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of pre-tokens.
      */
-    pre_tokenize(text) {
+    pre_tokenize(text, options) {
         let result = [];
         if (Array.isArray(text)) {
-            result = text.map(x => this.pre_tokenize_text(x))
+            result = text.map(x => this.pre_tokenize_text(x, options))
         } else {
-            result = this.pre_tokenize_text(text);
+            result = this.pre_tokenize_text(text, options);
         }
         return result.flat();
     }
@@ -1245,10 +1290,11 @@ class PreTokenizer extends Callable {
     /**
      * Alias for {@link PreTokenizer#pre_tokenize}.
      * @param {string|string[]} text The text or array of texts to pre-tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of pre-tokens.
      */
-    _call(text) {
-        return this.pre_tokenize(text);
+    _call(text, options) {
+        return this.pre_tokenize(text, options);
     }
 }
 
@@ -1273,9 +1319,10 @@ class BertPreTokenizer extends PreTokenizer {
      * Tokenizes a single text using the BERT pre-tokenization scheme.
      * 
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         return text.trim().match(this.pattern) || [];
     }
 }
@@ -1320,9 +1367,10 @@ class ByteLevelPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes a single piece of text using byte-level tokenization.
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         // Add a leading space if the option is enabled
         if (this.add_prefix_space && !text.startsWith(' ')) {
             text = ' ' + text;
@@ -1366,9 +1414,10 @@ class SplitPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes text by splitting it using the given pattern.
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         if (this.pattern === null) {
             return [];
         }
@@ -1399,9 +1448,10 @@ class PunctuationPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes text by splitting it using the given pattern.
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         return text.match(this.pattern) || [];
     }
 }
@@ -1428,9 +1478,10 @@ class DigitsPreTokenizer extends PreTokenizer {
     /**
      * Tokenizes text by splitting it using the given pattern.
      * @param {string} text The text to tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         return text.match(this.pattern) || [];
     }
 }
@@ -1608,6 +1659,7 @@ class Decoder extends Callable {
         super();
         this.config = config;
 
+        /** @type {AddedToken[]} */
         this.added_tokens = [];
         this.end_of_word_suffix = null;
         this.trim_offsets = config.trim_offsets;
@@ -1879,7 +1931,7 @@ class ByteLevelDecoder extends Decoder {
             //     continue;
             // }
 
-            if (this.added_tokens.includes(token)) {
+            if (this.added_tokens.find(x => x.content === token) !== undefined) {
                 if (current_sub_text.length > 0) {
                     sub_texts.push(this.convert_tokens_to_string(current_sub_text));
                     current_sub_text = [];
@@ -2000,6 +2052,7 @@ class MetaspacePreTokenizer extends PreTokenizer {
      * @param {boolean} config.add_prefix_space Whether to add a prefix space to the first token.
      * @param {string} config.replacement The character to replace spaces with.
      * @param {string} [config.str_rep=config.replacement] An optional string representation of the replacement character.
+     * @param {'first'|'never'|'always'} [config.prepend_scheme='always'] The metaspace prepending scheme.
      */
     constructor(config) {
         super();
@@ -2007,31 +2060,40 @@ class MetaspacePreTokenizer extends PreTokenizer {
         this.addPrefixSpace = config.add_prefix_space;
         this.replacement = config.replacement;
         this.strRep = config.str_rep || this.replacement;
+        this.prepend_scheme = config.prepend_scheme ?? 'always';
     }
 
     /**
-     * This method takes a list of normalized tokens, replaces spaces with the replacement character,
+     * This method takes a string, replaces spaces with the replacement character,
      * adds a prefix space if requested, and returns a new list of tokens.
-     * @param {string[]|string} normalizedTokens The list of normalized tokens to pre-tokenize.
+     * @param {string} text The text to pre-tokenize.
+     * @param {Object} [options] The options for the pre-tokenization.
+     * @param {number} [options.section_index] The index of the section to pre-tokenize.
      * @returns {string[]} A new list of pre-tokenized tokens.
      */
-    pre_tokenize(normalizedTokens) {
-        if (typeof normalizedTokens === 'string') {
-            // Metaspace acts on a list of tokens. If passing in a string, first split on whitespace
-            // NOTE: For some reason, metaspace includes trailing whitespace, so we only trim leading whitespace.
-            // See: https://github.com/huggingface/tokenizers/issues/1250
-            normalizedTokens = normalizedTokens.trimStart().split(/\s+/);
-        }
+    pre_tokenize_text(text, {
+        section_index = undefined,
+    } = {}) {
 
-        const result = [];
-        for (let token of normalizedTokens) {
-            let normalized = token.replaceAll(' ', this.strRep);
-            if (this.addPrefixSpace && !normalized.startsWith(this.replacement)) {
-                normalized = this.strRep + normalized;
-            }
-            result.push(normalized);
+        let normalized = text.replaceAll(' ', this.strRep);
+
+        if (
+            // We add a prefix space if:
+            //  (1) The addPrefixSpace option is enabled and the normalized
+            //      token does not already start with the replacement character.
+            (this.addPrefixSpace && !normalized.startsWith(this.replacement))
+
+            // and (2) either:
+            //  (a) prepend_scheme is 'always'
+            //  (b) prepend_scheme is 'first' and this is the first section
+            && (
+                this.prepend_scheme === 'always' ||
+                (this.prepend_scheme === 'first' && section_index === 0)
+            )
+        ) {
+            normalized = this.strRep + normalized;
         }
-        return result;
+        return [normalized];
     }
 }
 
@@ -2138,17 +2200,15 @@ class PreTokenizerSequence extends PreTokenizer {
 
     /**
      * Applies each pre-tokenizer in the sequence to the input text in turn.
-     * @param {string|string[]} text The text(s) to pre-tokenize.
+     * @param {string} text The text to pre-tokenize.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} The pre-tokenized text.
      */
-    pre_tokenize_text(text) {
-        if (typeof text === 'string') {
-            text = [text];
-        }
+    pre_tokenize_text(text, options) {
         // Use reduce to apply each tokenizer to the text
         return this.tokenizers.reduce((preTokenizedText, tokenizer) => {
-            return tokenizer.pre_tokenize(preTokenizedText);
-        }, text);
+            return tokenizer.pre_tokenize(preTokenizedText, options);
+        }, [text]);
     }
 }
 
@@ -2167,9 +2227,10 @@ class WhitespaceSplit extends PreTokenizer {
     /**
      * Pre-tokenizes the input text by splitting it on whitespace characters.
      * @param {string} text The text to be pre-tokenized.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens produced by splitting the input text on whitespace.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         return whitespace_split(text);
     }
 }
@@ -2191,9 +2252,10 @@ class ReplacePreTokenizer extends PreTokenizer {
     /**
      * Pre-tokenizes the input text by replacing certain characters.
      * @param {string} text The text to be pre-tokenized.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
      * @returns {string[]} An array of tokens produced by replacing certain characters.
      */
-    pre_tokenize_text(text) {
+    pre_tokenize_text(text, options) {
         if (this.pattern === null) {
             return [text];
         }
@@ -2201,8 +2263,20 @@ class ReplacePreTokenizer extends PreTokenizer {
     }
 }
 
+const SPECIAL_TOKEN_ATTRIBUTES = [
+    'bos_token',
+    'eos_token',
+    'unk_token',
+    'sep_token',
+    'pad_token',
+    'cls_token',
+    'mask_token',
+    // additional_special_tokens (TODO)
+]
 
 export class PreTrainedTokenizer extends Callable {
+    _default_chat_template = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`;
+
     /**
      * Create a new PreTrainedTokenizer instance.
      * @param {Object} tokenizerJSON The JSON of the tokenizer.
@@ -2210,6 +2284,8 @@ export class PreTrainedTokenizer extends Callable {
      */
     constructor(tokenizerJSON, tokenizerConfig) {
         super();
+
+        this._tokenizer_config = tokenizerConfig;
 
         // Construct parts of the tokenizer from the JSON
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
@@ -2224,24 +2300,25 @@ export class PreTrainedTokenizer extends Callable {
         // Add added_tokens to model
         this.special_tokens = [];
         this.all_special_ids = [];
+
+        /** @type {AddedToken[]} */
         this.added_tokens = [];
         for (let addedToken of tokenizerJSON.added_tokens) {
-            let id = addedToken.id;
-            let content = addedToken.content;
+            const token = new AddedToken(addedToken);
+            this.added_tokens.push(token);
 
-            this.added_tokens.push(content);
+            this.model.tokens_to_ids.set(token.content, token.id);
+            this.model.vocab[token.id] = token.content;
 
-            this.model.tokens_to_ids.set(content, id);
-            this.model.vocab[id] = content;
-
-            if (addedToken.special) {
-                this.special_tokens.push(content);
-                this.all_special_ids.push(id);
+            if (token.special) {
+                this.special_tokens.push(token.content);
+                this.all_special_ids.push(token.id);
             }
         }
 
         // Update additional_special_tokens
-        this.special_tokens.push(...(tokenizerConfig.additional_special_tokens ?? []));
+        this.additional_special_tokens = tokenizerConfig.additional_special_tokens ?? [];
+        this.special_tokens.push(...this.additional_special_tokens);
         this.special_tokens = [...new Set(this.special_tokens)]; // Remove duplicates
 
         if (this.decoder) {
@@ -2257,17 +2334,17 @@ export class PreTrainedTokenizer extends Callable {
 
 
         this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
-            '(' + this.added_tokens.map(escapeRegExp).join('|') + ')'
+            this.added_tokens.map(x => `${x.lstrip ? '\\s*' : ''}(${escapeRegExp(x.content)})${x.rstrip ? '\\s*' : ''}`).join('|')
         ) : null;
 
         // Set mask token if present (otherwise will be undefined, which is fine)
-        this.mask_token = this.getToken(tokenizerConfig, 'mask_token');
+        this.mask_token = this.getToken('mask_token');
         this.mask_token_id = this.model.tokens_to_ids.get(this.mask_token);
 
-        this.pad_token = this.getToken(tokenizerConfig, 'pad_token', 'eos_token');
+        this.pad_token = this.getToken('pad_token', 'eos_token');
         this.pad_token_id = this.model.tokens_to_ids.get(this.pad_token);
 
-        this.sep_token = this.getToken(tokenizerConfig, 'sep_token');
+        this.sep_token = this.getToken('sep_token');
         this.sep_token_id = this.model.tokens_to_ids.get(this.sep_token);
 
         this.unk_token = this.getToken(tokenizerConfig, 'unk_token');
@@ -2283,6 +2360,11 @@ export class PreTrainedTokenizer extends Callable {
 
         // TODO allow user to change this
         this.padding_side = 'right';
+
+        this.legacy = false;
+
+        this.chat_template = tokenizerConfig.chat_template ?? null;
+        this._compiled_template_cache = new Map();
     }
 
     /**
@@ -2291,9 +2373,9 @@ export class PreTrainedTokenizer extends Callable {
      * @returns {string|null} The value associated with the first matching key, or null if no match is found.
      * @throws {Error} If an object is found for a matching key and its __type property is not "AddedToken".
      */
-    getToken(tokenizerConfig, ...keys) {
+    getToken(...keys) {
         for (let key of keys) {
-            let item = tokenizerConfig[key];
+            let item = this._tokenizer_config[key];
 
             if (!item) continue;
 
@@ -2314,7 +2396,7 @@ export class PreTrainedTokenizer extends Callable {
      * Loads a pre-trained tokenizer from the given `pretrained_model_name_or_path`. 
      * 
      * @param {string} pretrained_model_name_or_path The path to the pre-trained tokenizer.
-     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
+     * @param {PretrainedTokenizerOptions} options Additional options for loading the tokenizer.
      * 
      * @throws {Error} Throws an error if the tokenizer.json or tokenizer_config.json files are not found in the `pretrained_model_name_or_path`.
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the `PreTrainedTokenizer` class.
@@ -2325,6 +2407,7 @@ export class PreTrainedTokenizer extends Callable {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        legacy = null,
     } = {}) {
 
         let info = await loadTokenizer(pretrained_model_name_or_path, {
@@ -2333,6 +2416,7 @@ export class PreTrainedTokenizer extends Callable {
             cache_dir,
             local_files_only,
             revision,
+            legacy,
         })
 
         // @ts-ignore
@@ -2529,8 +2613,10 @@ export class PreTrainedTokenizer extends Callable {
         // First, we take care of special tokens. Needed to avoid issues arising from
         // normalization and/or pretokenization (which may not preserve special tokens)
         const sections = this.added_tokens_regex ? text.split(this.added_tokens_regex).filter(x => x) : [text];
-        let tokens = sections.map(x => {
-            if (this.added_tokens.includes(x)) {
+
+        const tokens = sections.map((x, section_index) => {
+            const addedToken = this.added_tokens.find(t => t.content === x);
+            if (addedToken !== undefined) {
                 // Ignore added tokens
                 return x
             } else {
@@ -2545,9 +2631,11 @@ export class PreTrainedTokenizer extends Callable {
                     x = this.normalizer(x);
                 }
 
-                let sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x) : [x];
+                const sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x, {
+                    section_index,
+                }) : [x];
 
-                let tokens = this.model(sectionTokens);
+                const tokens = this.model(sectionTokens);
 
                 return tokens;
             }
@@ -2662,6 +2750,116 @@ export class PreTrainedTokenizer extends Callable {
         return decoded;
     }
 
+    get default_chat_template() {
+        if (!this._warned_about_chat_template) {
+            console.warn(
+                "No chat template is defined for this tokenizer - using a default chat template " +
+                "that implements the ChatML format. If the default is not appropriate for " +
+                "your model, please set `tokenizer.chat_template` to an appropriate template. " +
+                "See https://huggingface.co/docs/transformers/main/chat_templating for more information."
+            )
+            this._warned_about_chat_template = true; // TODO move to logger.warning_once()
+        }
+
+        return this._default_chat_template;
+    }
+
+    /**
+     * @typedef {Object} Message
+     * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
+     * @property {string} content The content of the message.
+     */
+
+    /**
+     * Converts a list of message objects with `"role"` and `"content"` keys to a list of token
+     * ids. This method is intended for use with chat models, and will read the tokenizer's chat_template attribute to
+     * determine the format and control tokens to use when converting. When chat_template is None, it will fall back
+     * to the default_chat_template specified at the class level.
+     * 
+     * See [here](https://huggingface.co/docs/transformers/chat_templating) for more information.
+     * 
+     * **Example:** Applying a chat template to a conversation.
+     * 
+     * ```javascript
+     * import { AutoTokenizer } from "@xenova/transformers";
+     * 
+     * const tokenizer = await AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.1");
+     * 
+     * const chat = [
+     *   { "role": "user", "content": "Hello, how are you?" },
+     *   { "role": "assistant", "content": "I'm doing great. How can I help you today?" },
+     *   { "role": "user", "content": "I'd like to show off how chat templating works!" },
+     * ]
+     * 
+     * const text = tokenizer.apply_chat_template(chat, { tokenize: false });
+     * // "<s>[INST] Hello, how are you? [/INST]I'm doing great. How can I help you today?</s> [INST] I'd like to show off how chat templating works! [/INST]"
+     * 
+     * const input_ids = tokenizer.apply_chat_template(chat, { tokenize: true, return_tensor: false });
+     * // [1, 733, 16289, 28793, 22557, 28725, 910, 460, 368, 28804, 733, 28748, 16289, 28793, 28737, 28742, 28719, 2548, 1598, 28723, 1602, 541, 315, 1316, 368, 3154, 28804, 2, 28705, 733, 16289, 28793, 315, 28742, 28715, 737, 298, 1347, 805, 910, 10706, 5752, 1077, 3791, 28808, 733, 28748, 16289, 28793]
+     * ```
+     * 
+     * @param {Message[]} conversation A list of message objects with `"role"` and `"content"` keys.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.chat_template=null] A Jinja template to use for this conversion. If
+     * this is not passed, the model's default chat template will be used instead.
+     * @param {boolean} [options.add_generation_prompt=false] Whether to end the prompt with the token(s) that indicate
+     * the start of an assistant message. This is useful when you want to generate a response from the model.
+     * Note that this argument will be passed to the chat template, and so it must be supported in the
+     * template for this argument to have any effect.
+     * @param {boolean} [options.tokenize=true] Whether to tokenize the output. If false, the output will be a string.
+     * @param {boolean} [options.padding=false] Whether to pad sequences to the maximum length. Has no effect if tokenize is false.
+     * @param {boolean} [options.truncation=false] Whether to truncate sequences to the maximum length. Has no effect if tokenize is false.
+     * @param {number} [options.max_length=null] Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize is false.
+     * If not specified, the tokenizer's `max_length` attribute will be used as a default.
+     * @param {boolean} [options.return_tensor=true] Whether to return the output as a Tensor or an Array. Has no effect if tokenize is false.
+     * @returns {string | Tensor | number[]| number[][]} The tokenized output.
+     */
+    apply_chat_template(conversation, {
+        chat_template = null,
+        add_generation_prompt = false,
+        tokenize = true,
+        padding = false,
+        truncation = false,
+        max_length = null,
+        return_tensor = true,
+    } = {}) {
+
+        chat_template ??= this.chat_template ?? this.default_chat_template;
+
+        // Compilation function uses a cache to avoid recompiling the same template
+        let compiledTemplate = this._compiled_template_cache.get(chat_template);
+        if (compiledTemplate === undefined) {
+            compiledTemplate = new Template(chat_template);
+            this._compiled_template_cache.set(chat_template, compiledTemplate);
+        }
+
+        const special_tokens_map = Object.create(null);
+        for (const key of SPECIAL_TOKEN_ATTRIBUTES) {
+            const value = this.getToken(key);
+            if (value) {
+                special_tokens_map[key] = value;
+            }
+        }
+
+        const rendered = compiledTemplate.render({
+            messages: conversation,
+            add_generation_prompt: add_generation_prompt,
+
+            ...special_tokens_map,
+        });
+
+        if (tokenize) {
+            return this._call(rendered, {
+                add_special_tokens: false,
+                padding,
+                truncation,
+                max_length,
+                return_tensor,
+            }).input_ids;
+        }
+
+        return rendered;
+    }
 }
 
 /**
@@ -2771,7 +2969,9 @@ export class ElectraTokenizer extends PreTrainedTokenizer {
 }
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
-export class GPT2Tokenizer extends PreTrainedTokenizer { }
+export class GPT2Tokenizer extends PreTrainedTokenizer {
+    _default_chat_template = `{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}`
+}
 export class BartTokenizer extends PreTrainedTokenizer { }
 export class MBartTokenizer extends PreTrainedTokenizer {
     constructor(tokenizerJSON, tokenizerConfig) {
@@ -2797,7 +2997,8 @@ export class MBart50Tokenizer extends MBartTokenizer { } // NOTE: extends MBartT
 
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
-export class BloomTokenizer extends PreTrainedTokenizer {
+export class BloomTokenizer extends GPT2Tokenizer { // NOTE: `GPT2Tokenizer` to get the correct chat template
+
     constructor(tokenizerJSON, tokenizerConfig) {
         // Override the default (invalid) regex of the pretokenizer.
         // For more information, see https://github.com/xenova/transformers.js/issues/94
@@ -2809,8 +3010,62 @@ export class BloomTokenizer extends PreTrainedTokenizer {
         super(tokenizerJSON, tokenizerConfig);
     }
 }
-export class LlamaTokenizer extends PreTrainedTokenizer { }
-export class CodeLlamaTokenizer extends PreTrainedTokenizer { }
+
+const SPIECE_UNDERLINE = "▁";
+
+export class LlamaTokenizer extends PreTrainedTokenizer {
+    _default_chat_template = `{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% elif USE_DEFAULT_PROMPT == true and not '<<SYS>>' in messages[0]['content'] %}{% set loop_messages = messages %}{% set system_message = 'DEFAULT_SYSTEM_MESSAGE' %}{% else %}{% set loop_messages = messages %}{% set system_message = false %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 and system_message != false %}{% set content = '<<SYS>>\n' + system_message + '\n<</SYS>>\n\n' + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ bos_token + '[INST] ' + content.strip() + ' [/INST]' }}{% elif message['role'] == 'system' %}{{ '<<SYS>>\n' + content.strip() + '\n<</SYS>>\n\n' }}{% elif message['role'] == 'assistant' %}{{ ' '  + content.strip() + ' ' + eos_token }}{% endif %}{% endfor %}`
+
+    DEFAULT_SYSTEM_PROMPT =
+        "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your " +
+        "answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure " +
+        "that your responses are socially unbiased and positive in nature.\n\n" +
+        "If a question does not make any sense, or is not factually coherent, explain why instead of answering something not " +
+        "correct. If you don't know the answer to a question, please don't share false information."
+
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+        this.use_default_system_prompt = tokenizerConfig.use_default_system_prompt ?? false;
+
+        this.legacy = tokenizerConfig.legacy ?? true;
+        if (!this.legacy) {
+            // See https://github.com/huggingface/transformers/pull/24565 for more information
+            this.normalizer = null;
+            this.pre_tokenizer = new MetaspacePreTokenizer({
+                replacement: SPIECE_UNDERLINE,
+                add_prefix_space: true,
+                prepend_scheme: "first",
+            });
+        }
+    }
+
+    /**
+     * Helper function to handle legacy encoding of SPM tokenizers.
+     * Adapted from https://github.com/huggingface/transformers/blob/e6dcf8abd6f65bb4b6dfc1831b20d9ba49ce00e2/src/transformers/models/t5/tokenization_t5.py#L374-L387
+     * @param {string} text The text to encode.
+     * @returns {string[]} The encoded tokens.
+     */
+    _encode_text(text) {
+        if (text === null) return null;
+
+        if (this.legacy || text.length === 0) {
+            return super._encode_text(text);
+        }
+
+        let tokens = super._encode_text(SPIECE_UNDERLINE + text.replaceAll(SPIECE_UNDERLINE, " "));
+        if (tokens.length > 1 && tokens[0] === SPIECE_UNDERLINE && this.special_tokens.includes(tokens[1])) {
+            tokens = tokens.slice(1);
+        }
+        return tokens;
+    }
+
+    get default_chat_template() {
+        return super.default_chat_template
+            .replaceAll('USE_DEFAULT_PROMPT', this.use_default_system_prompt ? 'true' : 'false')
+            .replaceAll('DEFAULT_SYSTEM_MESSAGE', this.DEFAULT_SYSTEM_PROMPT.replaceAll("\n", "\\n").replaceAll("'", "\\'"));
+    }
+}
+export class CodeLlamaTokenizer extends LlamaTokenizer { } // NOTE: `LlamaTokenizer` to get the correct chat template
 
 export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
 export class MPNetTokenizer extends PreTrainedTokenizer { }
@@ -3068,6 +3323,7 @@ const WHISPER_TO_LANGUAGE_CODE_MAPPING = new Map([
  * @extends PreTrainedTokenizer
  */
 export class WhisperTokenizer extends PreTrainedTokenizer {
+    _default_chat_template = `{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}`;
 
     /**
      * Decodes automatic speech recognition (ASR) sequences.
@@ -3858,8 +4114,10 @@ export class MarianTokenizer extends PreTrainedTokenizer {
 
 export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
 
-export class BlenderbotTokenizer extends PreTrainedTokenizer { }
-export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
+export class BlenderbotTokenizer extends PreTrainedTokenizer {
+    _default_chat_template = `{% for message in messages %}{% if message['role'] == 'user' %}{{ ' ' }}{% endif %}{{ message['content'] }}{% if not loop.last %}{{ '  ' }}{% endif %}{% endfor %}{{ eos_token }}`;
+}
+export class BlenderbotSmallTokenizer extends BlenderbotTokenizer { } // NOTE `BlenderbotTokenizer` to get the correct chat template
 
 export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
 
@@ -3928,7 +4186,7 @@ export class AutoTokenizer {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing tokenizer files, e.g., `./my_model_directory/`.
-     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the tokenizer.
+     * @param {PretrainedTokenizerOptions} options Additional options for loading the tokenizer.
      * 
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */
@@ -3939,6 +4197,7 @@ export class AutoTokenizer {
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        legacy = null,
     } = {}) {
 
         let [tokenizerJSON, tokenizerConfig] = await loadTokenizer(pretrained_model_name_or_path, {
@@ -3948,10 +4207,11 @@ export class AutoTokenizer {
             cache_dir,
             local_files_only,
             revision,
+            legacy,
         })
 
         // Some tokenizers are saved with the "Fast" suffix, so we remove that if present.
-        let tokenizerName = tokenizerConfig.tokenizer_class.replace(/Fast$/, '');
+        let tokenizerName = tokenizerConfig.tokenizer_class?.replace(/Fast$/, '') ?? 'PreTrainedTokenizer';
 
         let cls = this.TOKENIZER_CLASS_MAPPING[tokenizerName];
         if (!cls) {
