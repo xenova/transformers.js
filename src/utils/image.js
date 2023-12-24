@@ -79,7 +79,7 @@ export class RawImage {
 
     /**
      * Create a new `RawImage` object.
-     * @param {Uint8ClampedArray} data The pixel data.
+     * @param {Uint8ClampedArray|Uint8Array} data The pixel data.
      * @param {number} width The width of the image.
      * @param {number} height The height of the image.
      * @param {1|2|3|4} channels The number of channels.
@@ -173,7 +173,18 @@ export class RawImage {
         } else {
             throw new Error(`Unsupported channel format: ${channel_format}`);
         }
-        return new RawImage(tensor.data, tensor.dims[1], tensor.dims[0], tensor.dims[2]);
+        if (!(tensor.data instanceof Uint8ClampedArray || tensor.data instanceof Uint8Array)) {
+            throw new Error(`Unsupported tensor type: ${tensor.type}`);
+        }
+        switch (tensor.dims[2]) {
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+                return new RawImage(tensor.data, tensor.dims[1], tensor.dims[0], tensor.dims[2]);
+            default:
+                throw new Error(`Unsupported number of channels: ${tensor.dims[2]}`);
+        }
     }
 
     /**

@@ -1,0 +1,50 @@
+name: "🐛 Bug Report"
+description: Submit a bug report to help us improve transformers.js
+labels: [ "bug" ]
+body:
+  - type: textarea
+    id: system-info
+    attributes:
+      label: System Info
+      description: Please share your system info with us. If you are using other JS libraries/frameworks (e.g., React or Next.js), please include their versions too.
+      placeholder: transformers.js version, browser (if applicable), operating system, Node.js version, bundlers, ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: environment-or-platform
+    attributes:
+      label: Environment/Platform
+      description: "The environment I am running in, or platform I am developing for:"
+      options:
+        - label: "Website/web-app"
+        - label: "Browser extension"
+        - label: "Server-side (e.g., Node.js, Deno, Bun)"
+        - label: "Desktop app (e.g., Electron)"
+        - label: "Other (e.g., VSCode extension)"
+
+  - type: textarea
+    id: description
+    validations:
+      required: true
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug, as well as what you expected to happen.
+
+  - type: textarea
+    id: reproduction
+    validations:
+      required: true
+    attributes:
+      label: Reproduction
+      description: |
+        Please provide a code sample that reproduces the problem you ran into. If you have code snippets, error messages, or stack traces, please provide them here as well.
+        Important! Use [code tags](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-and-highlighting-code-blocks#syntax-highlighting) to correctly format your code.
+
+      placeholder: |
+        Steps to reproduce the behavior:
+          
+          1.
+          2.
+          3.
+          

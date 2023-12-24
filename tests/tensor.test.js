@@ -107,7 +107,7 @@ describe('Tensor operations', () => {
     describe('mean', () => {
         it('should calculate mean', async () => {
             const t1 = new Tensor('float32', [1, 2, 3, 4, 5, 6], [2, 3, 1]);
-            
+
             const target = new Tensor('float32', [3.5], []);
 
             const target0 = new Tensor('float32', [2.5, 3.5, 4.5], [3, 1]);
@@ -122,7 +122,7 @@ describe('Tensor operations', () => {
 
             let avg1 = mean(t1, 1);
             compare(avg1, target1, 1e-3);
-            
+
             let avg2 = mean(t1, 2);
             compare(avg2, target2, 1e-3);
 
