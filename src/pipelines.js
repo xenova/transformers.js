@@ -69,6 +69,9 @@ import {
     interpolate,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
+import {
+    fetchBinary
+} from './utils/hub.js';
 
 /**
  * Prepare images for further tasks.
@@ -2153,7 +2156,7 @@ export class TextToAudioPipeline extends Pipeline {
         if (typeof speaker_embeddings === 'string' || speaker_embeddings instanceof URL) {
             // Load from URL with fetch
             speaker_embeddings = new Float32Array(
-                await (await fetch(speaker_embeddings)).arrayBuffer()
+                await (await fetchBinary(speaker_embeddings)).arrayBuffer()
             );
         }
 

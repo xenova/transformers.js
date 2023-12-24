@@ -193,7 +193,7 @@ function parseHeaders(rawHeaders) {
  * @param {string|URL} url
  * @returns {Promise<Response>}
  */
-function fetchBinary(url) {
+export function fetchBinary(url) {
     return new Promise((resolve, reject) => {
         const request = new Request(url);
         const xhr = new XMLHttpRequest();
@@ -209,9 +209,7 @@ function fetchBinary(url) {
                 xhr.responseURL :
                 reqOptions.headers.get('x-request-url');
 
-            const body = Buffer.from(xhr.response);
-
-            resolve(new Response(body.buffer, reqOptions));
+            resolve(new Response(xhr.response, reqOptions));
         };
 
         xhr.onerror = () => reject(new TypeError('Network request failed'));
