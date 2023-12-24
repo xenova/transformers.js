@@ -933,6 +933,8 @@ export class FeatureExtractionPipeline extends Pipeline {
             // Skip pooling
         } else if (pooling === 'mean') {
             result = mean_pooling(result, inputs.attention_mask);
+        } else if (pooling === 'cls') {
+            result = result.slice(null, 0);
         } else {
             throw Error(`Pooling method '${pooling}' not supported.`);
         }
@@ -954,7 +956,7 @@ export class FeatureExtractionPipeline extends Pipeline {
  * Audio classification pipeline using any `AutoModelForAudioClassification`.
  * This pipeline predicts the class of a raw waveform or an audio file.
  * 
- * **Example:** Perform audio classification.
+ * **Example:** Perform audio classification with `Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech`.
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
  * let classifier = await pipeline('audio-classification', 'Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech');
@@ -962,6 +964,19 @@ export class FeatureExtractionPipeline extends Pipeline {
  * // [
  * //   { label: 'male', score: 0.9981542229652405 },
  * //   { label: 'female', score: 0.001845747814513743 }
+ * // ]
+ * ```
+ * 
+ * **Example:** Perform audio classification with `Xenova/ast-finetuned-audioset-10-10-0.4593` and return top 4 results.
+ * ```javascript
+ * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cat_meow.wav';
+ * let classifier = await pipeline('audio-classification', 'Xenova/ast-finetuned-audioset-10-10-0.4593');
+ * let output = await classifier(url, { topk: 4 });
+ * // [
+ * //   { label: 'Meow', score: 0.5617874264717102 },
+ * //   { label: 'Cat', score: 0.22365376353263855 },
+ * //   { label: 'Domestic animals, pets', score: 0.1141069084405899 },
+ * //   { label: 'Animal', score: 0.08985692262649536 },
  * // ]
  * ```
  */
@@ -1039,6 +1054,105 @@ export class AudioClassificationPipeline extends Pipeline {
     }
 }
 
+/**
+ * Zero shot audio classification pipeline using `ClapModel`. This pipeline predicts the class of an audio when you
+ * provide an audio and a set of `candidate_labels`.
+ * 
+ * **Example**: Perform zero-shot audio classification with `Xenova/clap-htsat-unfused`.
+ * ```javascript
+ * let classifier = await pipeline('zero-shot-audio-classification', 'Xenova/clap-htsat-unfused');
+ * let audio = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/dog_barking.wav';
+ * let candidate_labels = ['dog', 'vaccum cleaner'];
+ * let scores = await classifier(audio, candidate_labels);
+ * // [
+ * //   { score: 0.9993992447853088, label: 'dog' },
+ * //   { score: 0.0006007603369653225, label: 'vaccum cleaner' }
+ * // ]
+ * ```
+ */
+export class ZeroShotAudioClassificationPipeline extends Pipeline {
+
+    /**
+     * Create a new ZeroShotAudioClassificationPipeline.
+     * @param {Object} options An object containing the following properties:
+     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
+     * @param {PreTrainedModel} [options.model] The model to use.
+     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {Processor} [options.processor] The processor to use.
+     */
+    constructor(options) {
+        super(options);
+    }
+
+    /**
+     * Preprocesses the input audio for the ZeroShotAudioClassificationPipeline.
+     * @param {any} audio The audio to be preprocessed.
+     * @param {number} sampling_rate The sampling rate of the audio.
+     * @returns {Promise<Float32Array>} A promise that resolves to the preprocessed audio data.
+     * @private
+     */
+    async _preprocess(audio, sampling_rate) {
+        if (isString(audio)) {
+            audio = await read_audio(audio, sampling_rate);
+        }
+
+        return audio;
+    }
+
+    /**
+     * Assign labels to the audio(s) passed as inputs.
+     * @param {Array} audios The input audios.
+     * @param {string[]} candidate_labels The candidate labels for this audio
+     * @param {Object} options The options for the classification.
+     * @param {string} [options.hypothesis_template] The sentence used in cunjunction with *candidate_labels* to attempt
+     * the audio classification by replacing the placeholder with the candidate_labels.
+     * Then likelihood is estimated by using logits_per_audio.
+     * @returns {Promise<any>}
+     */
+    async _call(audios, candidate_labels, {
+        hypothesis_template = "This is a sound of {}."
+    } = {}) {
+        const single = !Array.isArray(audios);
+        if (single) {
+            // @ts-ignore
+            audios = [audios];
+        }
+
+        // Insert label into hypothesis template 
+        const texts = candidate_labels.map(
+            x => hypothesis_template.replace('{}', x)
+        );
+
+        // Run tokenization
+        const text_inputs = this.tokenizer(texts, {
+            padding: true,
+            truncation: true,
+        });
+
+        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+
+        const toReturn = [];
+        for (let audio of audios) {
+            audio = await this._preprocess(audio, sampling_rate)
+
+            const audio_inputs = await this.processor(audio);
+
+            // Run model with both text and audio inputs
+            const output = await this.model({ ...text_inputs, ...audio_inputs });
+
+            // Compute softmax per audio
+            const probs = softmax(output.logits_per_audio.data);
+
+            toReturn.push([...probs].map((x, i) => {
+                return {
+                    score: x,
+                    label: candidate_labels[i]
+                }
+            }));
+        }
+        return !single ? toReturn : toReturn[0];
+    }
+}
 
 /**
  * Pipeline that aims at extracting spoken text contained within some audio.
@@ -1068,9 +1182,7 @@ export class AudioClassificationPipeline extends Pipeline {
  * **Example:** Transcribe English w/ word-level timestamps.
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
- * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
- *     revision: 'output_attentions',
- * });
+ * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
  * let output = await transcriber(url, { return_timestamps: 'word' });
  * // {
  * //   "text": " And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
@@ -1166,6 +1278,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             case 'whisper':
                 return this._call_whisper(audio, kwargs)
             case 'wav2vec2':
+            case 'hubert':
                 return this._call_wav2vec2(audio, kwargs)
             default:
                 throw new Error(`AutomaticSpeechRecognitionPipeline does not support model type '${this.model.config.model_type}'.`)
@@ -1649,38 +1762,38 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
-        let isBatched = Array.isArray(images);
+        const isBatched = Array.isArray(images);
         images = await prepareImages(images);
 
         // Insert label into hypothesis template 
-        let texts = candidate_labels.map(
+        const texts = candidate_labels.map(
             x => hypothesis_template.replace('{}', x)
         );
 
         // Run tokenization
-        let text_inputs = this.tokenizer(texts, {
+        const text_inputs = this.tokenizer(texts, {
             padding: this.tokenizer.padding ?? true,
             truncation: true
         });
 
         // Run processor
-        let { pixel_values } = await this.processor(images);
+        const { pixel_values } = await this.processor(images);
 
         // Run model with both text and pixel inputs
-        let output = await this.model({ ...text_inputs, pixel_values });
+        const output = await this.model({ ...text_inputs, pixel_values });
 
         // Compare each image with each candidate label
-        let toReturn = [];
-        for (let batch of output.logits_per_image) {
+        const toReturn = [];
+        for (const batch of output.logits_per_image) {
             // Compute softmax per image
-            let probs = softmax(batch.data);
+            const probs = softmax(batch.data);
 
-            toReturn.push([...probs].map((x, i) => {
-                return {
-                    score: x,
-                    label: candidate_labels[i]
-                }
+            const result = [...probs].map((x, i) => ({
+                score: x,
+                label: candidate_labels[i]
             }));
+            result.sort((a, b) => b.score - a.score); // sort by score in descending order
+            toReturn.push(result);
         }
 
         return isBatched ? toReturn : toReturn[0];
@@ -1879,7 +1992,7 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
         const toReturn = [];
         for (let i = 0; i < images.length; ++i) {
             const image = images[i];
-            const imageSize = [[image.height, image.width]];
+            const imageSize = percentage ? null : [[image.height, image.width]];
             const pixel_values = model_inputs.pixel_values[i].unsqueeze_(0);
 
             // Run model with both text and pixel inputs
@@ -2272,6 +2385,18 @@ const SUPPORTED_TASKS = {
         },
         "type": "audio",
     },
+    "zero-shot-audio-classification": {
+        "tokenizer": AutoTokenizer,
+        "pipeline": ZeroShotAudioClassificationPipeline,
+        "model": AutoModel,
+        "processor": AutoProcessor,
+        "default": {
+            // TODO: replace with original
+            // "model": "laion/clap-htsat-fused",
+            "model": "Xenova/clap-htsat-unfused",
+        },
+        "type": "multimodal",
+    },
     "automatic-speech-recognition": {
         "tokenizer": AutoTokenizer,
         "pipeline": AutomaticSpeechRecognitionPipeline,
@@ -2459,6 +2584,7 @@ const TASK_ALIASES = {
  *  - `"translation"`: will return a `TranslationPipeline`.
  *  - `"translation_xx_to_yy"`: will return a `TranslationPipeline`.
  *  - `"zero-shot-classification"`: will return a `ZeroShotClassificationPipeline`.
+ *  - `"zero-shot-audio-classification"`: will return a `ZeroShotAudioClassificationPipeline`.
  *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
  *  - `"zero-shot-object-detection"`: will return a `ZeroShotObjectDetectionPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.

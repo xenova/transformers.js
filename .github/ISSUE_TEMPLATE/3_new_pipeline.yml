@@ -1,0 +1,39 @@
+name: "🔧 New pipeline addition"
+description: Submit a proposal/request to implement a new pipeline
+labels: [ "new pipeline" ]
+
+body:
+  - type: textarea
+    id: description-request
+    validations:
+      required: true
+    attributes:
+      label: Pipeline description
+      description: |
+        Include important information about the pipeline.
+
+  - type: checkboxes
+    id: information-tasks
+    attributes:
+      label: Prerequisites
+      description: |
+          Please note that Transformers.js relies on the pipeline first being supported in [🤗 Transformers](https://github.com/huggingface/transformers). If the pipeline you are requesting is not yet supported by Transformers, feel free to open up a feature request for it there too.
+      options:
+        - label: "The pipeline is supported in Transformers (i.e., listed [here](https://huggingface.co/docs/transformers/main_classes/pipelines))"
+        - label: "The task is listed [here](https://huggingface.co/tasks)"
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional information
+      description: |
+        Please provide additional information about the pipeline here. If the pipeline is already supported in Transformers, you can provide example Python code to help ensure the JavaScript implementation (and output) matches the original version.
+
+  - type: textarea
+    id: contribution
+    validations:
+      required: true
+    attributes:
+      label: Your contribution
+      description: |
+        Is there any way that you could help, e.g. by submitting a PR?
