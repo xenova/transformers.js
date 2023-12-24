@@ -686,7 +686,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     } else if (!options.progress_callback) {
         // If no progress callback is specified, we can use the `.arrayBuffer()`
         // method to read the response.
-        buffer = new Uint8Array(await response.arrayBuffer());
+        if (
+            !IS_REACT_NATIVE ||
+            response.headers.get('content-type') !== 'application/octet-stream' ||
+            !response.isLocal
+        )
+            buffer = new Uint8Array(await response.arrayBuffer());
 
     } else if (
         cacheHit // The item is being read from the cache
