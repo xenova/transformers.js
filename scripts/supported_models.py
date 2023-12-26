@@ -810,6 +810,16 @@ SUPPORTED_MODELS = {
             'hkunlp/instructor-large',
         ],
     },
+    'table-transformer': {
+        # Object detection
+        'object-detection': [
+            'microsoft/table-transformer-detection',
+            'microsoft/table-transformer-structure-recognition',
+            'microsoft/table-transformer-structure-recognition-v1.1-all',
+            'microsoft/table-transformer-structure-recognition-v1.1-fin',
+            'microsoft/table-transformer-structure-recognition-v1.1-pub',
+        ],
+    },
     'trocr': {  # NOTE: also a `vision-encoder-decoder`
         # Text-to-image
         'text-to-image': [

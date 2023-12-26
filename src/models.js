@@ -3678,6 +3678,30 @@ export class DetrSegmentationOutput extends ModelOutput {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+export class TableTransformerPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare Table Transformer Model (consisting of a backbone and encoder-decoder Transformer)
+ * outputting raw hidden-states without any specific head on top.
+ */
+export class TableTransformerModel extends TableTransformerPreTrainedModel { }
+
+/**
+ * Table Transformer Model (consisting of a backbone and encoder-decoder Transformer)
+ * with object detection heads on top, for tasks such as COCO detection.
+ */
+export class TableTransformerForObjectDetection extends TableTransformerPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new TableTransformerObjectDetectionOutput(await super._call(model_inputs));
+    }
+}
+export class TableTransformerObjectDetectionOutput extends DetrObjectDetectionOutput { }
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 export class DeiTPreTrainedModel extends PreTrainedModel { }
@@ -4767,6 +4791,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
 
     ['detr', ['DetrModel', DetrModel]],
+    ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
     ['owlvit', ['OwlViTModel', OwlViTModel]],
@@ -4953,6 +4978,7 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['detr', ['DetrForObjectDetection', DetrForObjectDetection]],
+    ['table-transformer', ['TableTransformerForObjectDetection', TableTransformerForObjectDetection]],
     ['yolos', ['YolosForObjectDetection', YolosForObjectDetection]],
 ]);
 
