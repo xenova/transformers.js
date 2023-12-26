@@ -4697,6 +4697,47 @@ export class ClapAudioModelWithProjection extends ClapPreTrainedModel {
 
 
 //////////////////////////////////////////////////
+// VITS models
+export class VitsPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The complete VITS model, for text-to-speech synthesis.
+ * 
+ * **Example:** Generate speech from text with `VitsModel`.
+ * ```javascript
+ * import { AutoTokenizer, VitsModel } from '@xenova/transformers';
+ * 
+ * // Load the tokenizer and model
+ * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/mms-tts-eng');
+ * const model = await VitsModel.from_pretrained('Xenova/mms-tts-eng');
+ * 
+ * // Run tokenization
+ * const inputs = tokenizer('I love transformers');
+ * 
+ * // Generate waveform
+ * const { waveform } = await model(inputs);
+ * // Tensor {
+ * //   dims: [ 1, 35328 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(35328) [ ... ],
+ * //   size: 35328,
+ * // }
+ * ```
+ */
+export class VitsModel extends VitsPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<VitsModelOutput>} The outputs for the VITS model.
+     */
+    async _call(model_inputs) {
+        return new VitsModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
 
@@ -4789,6 +4830,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['hubert', ['HubertModel', HubertModel]],
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
+    ['vits', ['VitsModel', VitsModel]],
 
     ['detr', ['DetrModel', DetrModel]],
     ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
@@ -4846,11 +4888,15 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
 const MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES = new Map([
     ['speecht5', ['SpeechT5ForSpeechToText', SpeechT5ForSpeechToText]],
     ['whisper', ['WhisperForConditionalGeneration', WhisperForConditionalGeneration]],
-])
+]);
 
 const MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES = new Map([
     ['speecht5', ['SpeechT5ForTextToSpeech', SpeechT5ForTextToSpeech]],
-])
+]);
+
+const MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES = new Map([
+    ['vits', ['VitsModel', VitsModel]],
+]);
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
@@ -5044,6 +5090,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
+    [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -5134,6 +5181,17 @@ export class AutoModelForSpeechSeq2Seq extends PretrainedMixin {
  */
 export class AutoModelForTextToSpectrogram extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES];
+}
+
+/**
+ * Helper class which is used to instantiate pretrained text-to-waveform models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForTextToSpectrogram.from_pretrained('facebook/mms-tts-eng');
+ */
+export class AutoModelForTextToWaveform extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES];
 }
 
 /**
@@ -5373,5 +5431,22 @@ export class ImageMattingOutput extends ModelOutput {
     constructor({ alphas }) {
         super();
         this.alphas = alphas;
+    }
+}
+
+/**
+ * Describes the outputs for the VITS model.
+ */
+export class VitsModelOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.waveform The final audio waveform predicted by the model, of shape `(batch_size, sequence_length)`.
+     * @param {Tensor} output.spectrogram The log-mel spectrogram predicted at the output of the flow model.
+     * This spectrogram is passed to the Hi-Fi GAN decoder model to obtain the final audio waveform.
+     */
+    constructor({ waveform, spectrogram }) {
+        super();
+        this.waveform = waveform;
+        this.spectrogram = spectrogram;
     }
 }

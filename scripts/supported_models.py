@@ -858,6 +858,27 @@ SUPPORTED_MODELS = {
             'hustvl/vitmatte-base-composition-1k',
         ],
     },
+    'vits': {
+        # Text-to-audio/Text-to-speech/Text-to-waveform
+        'text-to-waveform': {
+            # NOTE: requires --task text-to-waveform --skip_validation
+            'echarlaix/tiny-random-vits',
+            'facebook/mms-tts-eng',
+            'facebook/mms-tts-rus',
+            'facebook/mms-tts-hin',
+            'facebook/mms-tts-yor',
+            'facebook/mms-tts-spa',
+            'facebook/mms-tts-fra',
+            'facebook/mms-tts-ara',
+            'facebook/mms-tts-ron',
+            'facebook/mms-tts-vie',
+            'facebook/mms-tts-deu',
+            'facebook/mms-tts-kor',
+            'facebook/mms-tts-por',
+            # TODO add more checkpoints from
+            # https://huggingface.co/models?other=vits&sort=trending&search=facebook-tts
+        }
+    },
     'wav2vec2': {
         # Feature extraction # NOTE: requires --task feature-extraction
         'feature-extraction': [

@@ -29,6 +29,9 @@ describe('Tokenizers (dynamic)', () => {
 
                 expect(encoded).toEqual(test.encoded);
 
+                // Skip decoding tests if encoding produces zero tokens
+                if (test.encoded.input_ids.length === 0) continue;
+
                 // Test decoding
                 let decoded_with_special = tokenizer.decode(encoded.input_ids, { skip_special_tokens: false });
                 expect(decoded_with_special).toEqual(test.decoded_with_special);

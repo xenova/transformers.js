@@ -26,6 +26,7 @@ import {
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
     AutoModelForSpeechSeq2Seq,
+    AutoModelForTextToWaveform,
     AutoModelForTextToSpectrogram,
     AutoModelForCTC,
     AutoModelForCausalLM,
@@ -37,7 +38,6 @@ import {
     AutoModelForDocumentQuestionAnswering,
     AutoModelForImageToImage,
     AutoModelForDepthEstimation,
-    // AutoModelForTextToWaveform,
     PreTrainedModel,
 } from './models.js';
 import {
@@ -2112,6 +2112,16 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
  * wav.fromScratch(1, out.sampling_rate, '32f', out.audio);
  * fs.writeFileSync('out.wav', wav.toBuffer());
  * ```
+ * 
+ * **Example:** Multilingual speech generation with `Xenova/mms-tts-fra`. See [here](https://huggingface.co/models?pipeline_tag=text-to-speech&other=vits&sort=trending) for the full list of available languages (1107).
+ * ```js
+ * let synthesizer = await pipeline('text-to-speech', 'Xenova/mms-tts-fra');
+ * let out = await synthesizer('Bonjour');
+ * // {
+ * //   audio: Float32Array(23808) [-0.00037693005288019776, 0.0003325853613205254, ...],
+ * //   sampling_rate: 16000
+ * // }
+ * ```
  */
 export class TextToAudioPipeline extends Pipeline {
     DEFAULT_VOCODER_ID = "Xenova/speecht5_hifigan"
@@ -2143,6 +2153,34 @@ export class TextToAudioPipeline extends Pipeline {
     async _call(text_inputs, {
         speaker_embeddings = null,
     } = {}) {
+        // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
+        if (this.processor) {
+            return this._call_text_to_spectrogram(text_inputs, { speaker_embeddings });
+        } else {
+            return this._call_text_to_waveform(text_inputs);
+        }
+    }
+
+    async _call_text_to_waveform(text_inputs) {
+
+        // Run tokenization
+        const inputs = this.tokenizer(text_inputs, {
+            padding: true,
+            truncation: true
+        });
+
+        // Generate waveform
+        const { waveform } = await this.model(inputs);
+
+        const sampling_rate = this.model.config.sampling_rate;
+        return {
+            audio: waveform.data,
+            sampling_rate,
+        }
+    }
+
+    async _call_text_to_spectrogram(text_inputs, { speaker_embeddings }) {
+
         // Load vocoder, if not provided
         if (!this.vocoder) {
             console.log('No vocoder specified, using default HifiGan vocoder.');
@@ -2412,8 +2450,8 @@ const SUPPORTED_TASKS = {
     "text-to-audio": {
         "tokenizer": AutoTokenizer,
         "pipeline": TextToAudioPipeline,
-        "model": [ /* TODO: AutoModelForTextToWaveform, */ AutoModelForTextToSpectrogram],
-        "processor": AutoProcessor,
+        "model": [AutoModelForTextToWaveform, AutoModelForTextToSpectrogram],
+        "processor": [AutoProcessor, /* Some don't use a processor */ null],
         "default": {
             // TODO: replace with original
             // "model": "microsoft/speecht5_tts",
@@ -2673,6 +2711,12 @@ async function loadItems(mapping, model, pretrainedOptions) {
             promise = new Promise(async (resolve, reject) => {
                 let e;
                 for (let c of cls) {
+                    if (c === null) {
+                        // If null, we resolve it immediately, meaning the relevant
+                        // class was not found, but it is optional.
+                        resolve(null);
+                        return;
+                    }
                     try {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
