@@ -33,6 +33,7 @@ import {
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
     AutoModelForImageSegmentation,
+    AutoModelForSemanticSegmentation,
     AutoModelForObjectDetection,
     AutoModelForZeroShotObjectDetection,
     AutoModelForDocumentQuestionAnswering,
@@ -1710,8 +1711,26 @@ export class ImageSegmentationPipeline extends Pipeline {
             }
 
         } else if (subtask === 'semantic') {
-            throw Error(`semantic segmentation not yet supported.`);
+            const { segmentation, labels } = fn(output, target_sizes ?? imageSizes)[0];
 
+            const id2label = this.model.config.id2label;
+
+            for (let label of labels) {
+                const maskData = new Uint8ClampedArray(segmentation.data.length);
+                for (let i = 0; i < segmentation.data.length; ++i) {
+                    if (segmentation.data[i] === label) {
+                        maskData[i] = 255;
+                    }
+                }
+
+                const mask = new RawImage(maskData, segmentation.dims[1], segmentation.dims[0], 1);
+
+                annotation.push({
+                    score: null,
+                    label: id2label[label],
+                    mask: mask
+                });
+            }
         } else {
             throw Error(`Subtask ${subtask} not supported.`);
         }
@@ -2488,7 +2507,7 @@ const SUPPORTED_TASKS = {
     "image-segmentation": {
         // no tokenizer
         "pipeline": ImageSegmentationPipeline,
-        "model": AutoModelForImageSegmentation,
+        "model": [AutoModelForImageSegmentation, AutoModelForSemanticSegmentation],
         "processor": AutoProcessor,
         "default": {
             // TODO: replace with original

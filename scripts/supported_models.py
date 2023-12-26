@@ -362,7 +362,7 @@ SUPPORTED_MODELS = {
             'distilbert-base-cased',
         ],
     },
-    'dit': { # NOTE: DiT has the same architecture as BEiT.
+    'dit': {  # NOTE: DiT has the same architecture as BEiT.
         # Feature extraction
         # NOTE: requires --task feature-extraction
         'feature-extraction': [
@@ -680,8 +680,8 @@ SUPPORTED_MODELS = {
             'hf-tiny-model-private/tiny-random-RoFormerForTokenClassification',
         ],
 
-        # TODO 
-        # # Text generation 
+        # TODO
+        # # Text generation
         # 'text-generation': [
         #     'hf-tiny-model-private/tiny-random-RoFormerForCausalLM',
         # ],
@@ -736,6 +736,40 @@ SUPPORTED_MODELS = {
     #     'facebook/sam-vit-large',
     #     'facebook/sam-vit-huge',
     # ],
+    'segformer': {
+        # Image segmentation
+        'image-segmentation': [
+            'mattmdjaga/segformer_b0_clothes',
+            'mattmdjaga/segformer_b2_clothes',
+            'jonathandinu/face-parsing',
+
+            'nvidia/segformer-b0-finetuned-cityscapes-768-768',
+            'nvidia/segformer-b0-finetuned-cityscapes-512-1024',
+            'nvidia/segformer-b0-finetuned-cityscapes-640-1280',
+            'nvidia/segformer-b0-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b1-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b2-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b3-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b4-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b5-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b0-finetuned-ade-512-512',
+            'nvidia/segformer-b1-finetuned-ade-512-512',
+            'nvidia/segformer-b2-finetuned-ade-512-512',
+            'nvidia/segformer-b3-finetuned-ade-512-512',
+            'nvidia/segformer-b4-finetuned-ade-512-512',
+            'nvidia/segformer-b5-finetuned-ade-640-640',
+        ],
+
+        # Image classification
+        'image-classification': [
+            'nvidia/mit-b0',
+            'nvidia/mit-b1',
+            'nvidia/mit-b2',
+            'nvidia/mit-b3',
+            'nvidia/mit-b4',
+            'nvidia/mit-b5',
+        ],
+    },
 
     'speecht5': {
         # Text-to-audio/Text-to-speech
