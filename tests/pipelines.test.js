@@ -1208,6 +1208,7 @@ describe('Pipelines', () => {
                 let expected = [
                     { label: 'Background' },
                     { label: 'Hair' },
+                    { label: 'Upper-clothes' },
                     { label: 'Pants' },
                     { label: 'Left-shoe' },
                     { label: 'Right-shoe' },
