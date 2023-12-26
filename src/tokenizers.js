@@ -2355,7 +2355,6 @@ export class PreTrainedTokenizer extends Callable {
         this.do_lowercase_and_remove_accent = tokenizerConfig.do_lowercase_and_remove_accent ?? false;
 
         // TODO allow user to change this
-        this.padding = null;
         this.padding_side = 'right';
 
         this.legacy = false;
@@ -4056,12 +4055,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 }
 export class CodeGenTokenizer extends PreTrainedTokenizer { }
 export class CLIPTokenizer extends PreTrainedTokenizer { }
-export class SiglipTokenizer extends PreTrainedTokenizer {
-    constructor(tokenizerJSON, tokenizerConfig) {
-        super(tokenizerJSON, tokenizerConfig);
-        this.padding = 'max_length';
-    }
-}
+export class SiglipTokenizer extends PreTrainedTokenizer { }
 
 /**
  * @todo This model is not yet supported by Hugging Face's "fast" tokenizers library (https://github.com/huggingface/tokenizers).
