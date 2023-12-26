@@ -3143,7 +3143,7 @@ export class CLIPSegModel extends CLIPSegPreTrainedModel { }
  * 
  * for (let i = 0; i < preds.dims[0]; ++i) {
  *   const img = RawImage.fromTensor(preds[i]);
- *   img.save(`prediction_${i}.png`)
+ *   img.save(`prediction_${i}.png`);
  * }
  * ```
  */
