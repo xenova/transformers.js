@@ -39,6 +39,9 @@ MODELS_TO_IGNORE = [
 
     # TODO: remove when https://github.com/huggingface/transformers/issues/26547 is fixed
     'speecht5',
+
+    # TODO: remove when https://github.com/huggingface/transformers/issues/28164 is fixed
+    'roformer',
 ]
 
 TOKENIZERS_TO_IGNORE = [
@@ -80,6 +83,9 @@ TOKENIZER_TEST_DATA = {
         "<s>\n",
         " </s> test </s> ",
         "</s>test</s>",
+
+        # Control characters
+        "1\u00002\uFFFD3",
     ],
     "custom_by_model_type": {
         "llama": [
