@@ -1164,6 +1164,7 @@ describe('Pipelines', () => {
         // List all models which will be tested
         const models = [
             'facebook/detr-resnet-50-panoptic',
+            'mattmdjaga/segformer_b2_clothes',
         ];
 
         it(models[0], async () => {
@@ -1190,6 +1191,46 @@ describe('Pipelines', () => {
 
                 expect(outputLabels).toHaveLength(expectedLabels.length);
                 expect(outputLabels.sort()).toEqual(expectedLabels.sort())
+            }
+
+            await segmenter.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it(models[1], async () => {
+            let segmenter = await pipeline('image-segmentation', m(models[1]));
+            let img = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/young-man-standing-and-leaning-on-car.jpg';
+
+            // single
+            {
+                let outputs = await segmenter(img);
+
+                let expected = [
+                    { label: 'Background' },
+                    { label: 'Hair' },
+                    { label: 'Pants' },
+                    { label: 'Left-shoe' },
+                    { label: 'Right-shoe' },
+                    { label: 'Face' },
+                    { label: 'Left-leg' },
+                    { label: 'Right-leg' },
+                    { label: 'Left-arm' },
+                    { label: 'Right-arm' },
+                ];
+
+                let outputLabels = outputs.map(x => x.label);
+                let expectedLabels = expected.map(x => x.label);
+
+                expect(outputLabels).toHaveLength(expectedLabels.length);
+                expect(outputLabels.sort()).toEqual(expectedLabels.sort())
+
+                // check that all scores are null, and masks have correct dimensions
+                for (let output of outputs) {
+                    expect(output.score).toBeNull();
+                    expect(output.mask.width).toEqual(970);
+                    expect(output.mask.height).toEqual(1455);
+                    expect(output.mask.channels).toEqual(1);
+                }
             }
 
             await segmenter.dispose();
