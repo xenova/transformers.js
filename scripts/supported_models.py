@@ -362,6 +362,20 @@ SUPPORTED_MODELS = {
             'distilbert-base-cased',
         ],
     },
+    'dit': { # NOTE: DiT has the same architecture as BEiT.
+        # Feature extraction
+        # NOTE: requires --task feature-extraction
+        'feature-extraction': [
+            'microsoft/dit-base',
+            'microsoft/dit-large',
+        ],
+
+        # Image classification
+        'image-classification': [
+            'microsoft/dit-base-finetuned-rvlcdip',
+            'microsoft/dit-large-finetuned-rvlcdip',
+        ],
+    },
     'donut': {  # NOTE: also a `vision-encoder-decoder`
         # Image-to-text
         'image-to-text': [
