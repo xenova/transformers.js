@@ -650,6 +650,44 @@ SUPPORTED_MODELS = {
             'microsoft/resnet-152',
         ],
     },
+    'roformer': {
+        # Feature extraction
+        'feature-extraction': [
+            'hf-tiny-model-private/tiny-random-RoFormerModel',
+        ],
+
+        # Text classification
+        'text-classification': [
+            'hf-tiny-model-private/tiny-random-RoFormerForSequenceClassification',
+        ],
+
+        # Token classification
+        'token-classification': [
+            'hf-tiny-model-private/tiny-random-RoFormerForTokenClassification',
+        ],
+
+        # TODO 
+        # # Text generation 
+        # 'text-generation': [
+        #     'hf-tiny-model-private/tiny-random-RoFormerForCausalLM',
+        # ],
+
+        # Masked language modelling
+        'fill-mask': [
+            'alchemab/antiberta2',
+            'hf-tiny-model-private/tiny-random-RoFormerForMaskedLM',
+        ],
+
+        # Question answering
+        'question-answering': [
+            'hf-tiny-model-private/tiny-random-RoFormerForQuestionAnswering',
+        ],
+
+        # Multiple choice
+        'multiple-choice': [
+            'hf-tiny-model-private/tiny-random-RoFormerForMultipleChoice',
+        ],
+    },
     'phi': {
         # Text generation
         'text-generation': [
@@ -747,6 +785,8 @@ SUPPORTED_MODELS = {
             'MBZUAI/LaMini-T5-61M',
             'MBZUAI/LaMini-T5-223M',
             'MBZUAI/LaMini-T5-738M',
+            'declare-lab/flan-alpaca-base',
+            'declare-lab/flan-alpaca-large',
         ],
 
         # Feature extraction

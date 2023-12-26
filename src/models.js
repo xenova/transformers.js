@@ -1464,6 +1464,78 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// RoFormer models
+export class RoFormerPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare RoFormer Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class RoFormerModel extends RoFormerPreTrainedModel { }
+
+/**
+ * RoFormer Model with a `language modeling` head on top.
+ */
+export class RoFormerForMaskedLM extends RoFormerPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * RoFormer Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class RoFormerForSequenceClassification extends RoFormerPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * RoFormer Model with a token classification head on top (a linear layer on top of the hidden-states output)
+ * e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class RoFormerForTokenClassification extends RoFormerPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * RoFormer Model with a span classification head on top for extractive question-answering tasks like SQuAD
+ * (a linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class RoFormerForQuestionAnswering extends RoFormerPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+// TODO: Add RoFormerForCausalLM and RoFormerForMultipleChoice
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // ConvBert models
@@ -4712,6 +4784,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['roformer', ['RoFormerModel', RoFormerModel]],
     ['electra', ['ElectraModel', ElectraModel]],
     ['esm', ['EsmModel', EsmModel]],
     ['convbert', ['ConvBertModel', ConvBertModel]],
@@ -4802,6 +4875,7 @@ const MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
+    ['roformer', ['RoFormerForSequenceClassification', RoFormerForSequenceClassification]],
     ['electra', ['ElectraForSequenceClassification', ElectraForSequenceClassification]],
     ['esm', ['EsmForSequenceClassification', EsmForSequenceClassification]],
     ['convbert', ['ConvBertForSequenceClassification', ConvBertForSequenceClassification]],
@@ -4822,6 +4896,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForTokenClassification', BertForTokenClassification]],
+    ['roformer', ['RoFormerForTokenClassification', RoFormerForTokenClassification]],
     ['electra', ['ElectraForTokenClassification', ElectraForTokenClassification]],
     ['esm', ['EsmForTokenClassification', EsmForTokenClassification]],
     ['convbert', ['ConvBertForTokenClassification', ConvBertForTokenClassification]],
@@ -4867,6 +4942,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', ['BertForMaskedLM', BertForMaskedLM]],
+    ['roformer', ['RoFormerForMaskedLM', RoFormerForMaskedLM]],
     ['electra', ['ElectraForMaskedLM', ElectraForMaskedLM]],
     ['esm', ['EsmForMaskedLM', EsmForMaskedLM]],
     ['convbert', ['ConvBertForMaskedLM', ConvBertForMaskedLM]],
@@ -4885,6 +4961,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', ['BertForQuestionAnswering', BertForQuestionAnswering]],
+    ['roformer', ['RoFormerForQuestionAnswering', RoFormerForQuestionAnswering]],
     ['electra', ['ElectraForQuestionAnswering', ElectraForQuestionAnswering]],
     ['convbert', ['ConvBertForQuestionAnswering', ConvBertForQuestionAnswering]],
     ['camembert', ['CamembertForQuestionAnswering', CamembertForQuestionAnswering]],

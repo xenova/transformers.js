@@ -40,6 +40,9 @@ MODELS_TO_IGNORE = [
     # TODO: remove when https://github.com/huggingface/transformers/issues/26547 is fixed
     'speecht5',
 
+    # TODO: remove when https://github.com/huggingface/transformers/issues/28164 is fixed
+    'roformer',
+
     # TODO: remove when https://github.com/huggingface/transformers/issues/28173 is fixed. Issues include:
     # - decoding with `skip_special_tokens=True`.
     # - interspersing the pad token is broken.
@@ -85,6 +88,9 @@ TOKENIZER_TEST_DATA = {
         "<s>\n",
         " </s> test </s> ",
         "</s>test</s>",
+
+        # Control characters
+        "1\u00002\uFFFD3",
     ],
     "custom_by_model_type": {
         "llama": [
