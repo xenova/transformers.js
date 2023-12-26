@@ -617,6 +617,8 @@ export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOTE extends ConvNextFeatureExtractor
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
+export class ViTImageProcessor extends ImageFeatureExtractor { }
+
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
     /** @type {post_process_object_detection} */
@@ -1709,6 +1711,7 @@ export class AutoProcessor {
         DonutFeatureExtractor,
         NougatImageProcessor,
 
+        ViTImageProcessor,
         VitMatteImageProcessor,
         SamImageProcessor,
         Swin2SRImageProcessor,

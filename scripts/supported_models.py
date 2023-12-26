@@ -204,6 +204,14 @@ SUPPORTED_MODELS = {
             'openai/clip-vit-large-patch14-336',
         ],
     },
+    'clipseg': {
+        # Image segmentation
+        'image-segmentation': [
+            'CIDAS/clipseg-rd64-refined',
+            'CIDAS/clipseg-rd64',
+            'CIDAS/clipseg-rd16',
+        ],
+    },
     'codegen': {
         # Text generation
         'text-generation': [
