@@ -40,6 +40,9 @@ MODELS_TO_IGNORE = [
     # TODO: remove when https://github.com/huggingface/transformers/issues/26547 is fixed
     'speecht5',
 
+    # TODO: remove when https://github.com/huggingface/transformers/pull/26522 is merged
+    'siglip',
+
     # TODO: remove when https://github.com/huggingface/transformers/issues/28164 is fixed
     'roformer',
 

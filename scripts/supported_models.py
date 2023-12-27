@@ -778,7 +778,14 @@ SUPPORTED_MODELS = {
             'nvidia/mit-b5',
         ],
     },
-
+    'siglip': {
+        # Zero-shot image classification and feature extraction
+        # (with and without `--split_modalities`)
+        # NOTE: requires --opset 13
+        'zero-shot-image-classification': [
+            'nielsr/siglip-base-patch16-224',
+        ],
+    },
     'speecht5': {
         # Text-to-audio/Text-to-speech
         'text-to-audio': [

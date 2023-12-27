@@ -1791,7 +1791,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 
         // Run tokenization
         const text_inputs = this.tokenizer(texts, {
-            padding: true,
+            padding: this.model.config.model_type === 'siglip' ? 'max_length' : true,
             truncation: true
         });
 
@@ -1801,11 +1801,16 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
         // Run model with both text and pixel inputs
         const output = await this.model({ ...text_inputs, pixel_values });
 
+        const function_to_apply =
+            this.model.config.model_type === 'siglip'
+                ? batch => batch.sigmoid().data
+                : batch => softmax(batch.data);
+
         // Compare each image with each candidate label
         const toReturn = [];
         for (const batch of output.logits_per_image) {
             // Compute softmax per image
-            const probs = softmax(batch.data);
+            const probs = function_to_apply(batch);
 
             const result = [...probs].map((x, i) => ({
                 score: x,
