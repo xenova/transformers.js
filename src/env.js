@@ -29,7 +29,7 @@ import url from 'url';
 import { ONNX } from './backends/onnx.js';
 const { env: onnx_env } = ONNX;
 
-const VERSION = '2.12.1';
+const VERSION = '2.13.0';
 
 // Check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
