@@ -1464,6 +1464,78 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// RoFormer models
+export class RoFormerPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare RoFormer Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class RoFormerModel extends RoFormerPreTrainedModel { }
+
+/**
+ * RoFormer Model with a `language modeling` head on top.
+ */
+export class RoFormerForMaskedLM extends RoFormerPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * RoFormer Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class RoFormerForSequenceClassification extends RoFormerPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * RoFormer Model with a token classification head on top (a linear layer on top of the hidden-states output)
+ * e.g. for Named-Entity-Recognition (NER) tasks.
+ */
+export class RoFormerForTokenClassification extends RoFormerPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * RoFormer Model with a span classification head on top for extractive question-answering tasks like SQuAD
+ * (a linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class RoFormerForQuestionAnswering extends RoFormerPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+// TODO: Add RoFormerForCausalLM and RoFormerForMultipleChoice
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // ConvBert models
@@ -3725,6 +3797,30 @@ export class DetrSegmentationOutput extends ModelOutput {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+export class TableTransformerPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare Table Transformer Model (consisting of a backbone and encoder-decoder Transformer)
+ * outputting raw hidden-states without any specific head on top.
+ */
+export class TableTransformerModel extends TableTransformerPreTrainedModel { }
+
+/**
+ * Table Transformer Model (consisting of a backbone and encoder-decoder Transformer)
+ * with object detection heads on top, for tasks such as COCO detection.
+ */
+export class TableTransformerForObjectDetection extends TableTransformerPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new TableTransformerObjectDetectionOutput(await super._call(model_inputs));
+    }
+}
+export class TableTransformerObjectDetectionOutput extends DetrObjectDetectionOutput { }
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 export class DeiTPreTrainedModel extends PreTrainedModel { }
@@ -4720,6 +4816,68 @@ export class ClapAudioModelWithProjection extends ClapPreTrainedModel {
 
 
 //////////////////////////////////////////////////
+// VITS models
+export class VitsPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The complete VITS model, for text-to-speech synthesis.
+ * 
+ * **Example:** Generate speech from text with `VitsModel`.
+ * ```javascript
+ * import { AutoTokenizer, VitsModel } from '@xenova/transformers';
+ * 
+ * // Load the tokenizer and model
+ * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/mms-tts-eng');
+ * const model = await VitsModel.from_pretrained('Xenova/mms-tts-eng');
+ * 
+ * // Run tokenization
+ * const inputs = tokenizer('I love transformers');
+ * 
+ * // Generate waveform
+ * const { waveform } = await model(inputs);
+ * // Tensor {
+ * //   dims: [ 1, 35328 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(35328) [ ... ],
+ * //   size: 35328,
+ * // }
+ * ```
+ */
+export class VitsModel extends VitsPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<VitsModelOutput>} The outputs for the VITS model.
+     */
+    async _call(model_inputs) {
+        return new VitsModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Segformer models
+export class SegformerPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare SegFormer encoder (Mix-Transformer) outputting raw hidden-states without any specific head on top.
+ */
+export class SegformerModel extends SegformerPreTrainedModel { }
+
+/**
+ * SegFormer Model transformer with an image classification head on top (a linear layer on top of the final hidden states) e.g. for ImageNet.
+ */
+export class SegformerForImageClassification extends SegformerPreTrainedModel { }
+
+/**
+ * SegFormer Model transformer with an all-MLP decode head on top e.g. for ADE20k, CityScapes.
+ */
+export class SegformerForSemanticSegmentation extends SegformerPreTrainedModel { }
+
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
 
@@ -4790,6 +4948,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['roformer', ['RoFormerModel', RoFormerModel]],
     ['electra', ['ElectraModel', ElectraModel]],
     ['esm', ['EsmModel', EsmModel]],
     ['convbert', ['ConvBertModel', ConvBertModel]],
@@ -4812,8 +4971,10 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['hubert', ['HubertModel', HubertModel]],
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
+    ['vits', ['VitsModel', VitsModel]],
 
     ['detr', ['DetrModel', DetrModel]],
+    ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
     ['owlvit', ['OwlViTModel', OwlViTModel]],
@@ -4868,14 +5029,19 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
 const MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES = new Map([
     ['speecht5', ['SpeechT5ForSpeechToText', SpeechT5ForSpeechToText]],
     ['whisper', ['WhisperForConditionalGeneration', WhisperForConditionalGeneration]],
-])
+]);
 
 const MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES = new Map([
     ['speecht5', ['SpeechT5ForTextToSpeech', SpeechT5ForTextToSpeech]],
-])
+]);
+
+const MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES = new Map([
+    ['vits', ['VitsModel', VitsModel]],
+]);
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
+    ['roformer', ['RoFormerForSequenceClassification', RoFormerForSequenceClassification]],
     ['electra', ['ElectraForSequenceClassification', ElectraForSequenceClassification]],
     ['esm', ['EsmForSequenceClassification', EsmForSequenceClassification]],
     ['convbert', ['ConvBertForSequenceClassification', ConvBertForSequenceClassification]],
@@ -4896,6 +5062,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForTokenClassification', BertForTokenClassification]],
+    ['roformer', ['RoFormerForTokenClassification', RoFormerForTokenClassification]],
     ['electra', ['ElectraForTokenClassification', ElectraForTokenClassification]],
     ['esm', ['EsmForTokenClassification', EsmForTokenClassification]],
     ['convbert', ['ConvBertForTokenClassification', ConvBertForTokenClassification]],
@@ -4941,6 +5108,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', ['BertForMaskedLM', BertForMaskedLM]],
+    ['roformer', ['RoFormerForMaskedLM', RoFormerForMaskedLM]],
     ['electra', ['ElectraForMaskedLM', ElectraForMaskedLM]],
     ['esm', ['EsmForMaskedLM', EsmForMaskedLM]],
     ['convbert', ['ConvBertForMaskedLM', ConvBertForMaskedLM]],
@@ -4959,6 +5127,7 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', ['BertForQuestionAnswering', BertForQuestionAnswering]],
+    ['roformer', ['RoFormerForQuestionAnswering', RoFormerForQuestionAnswering]],
     ['electra', ['ElectraForQuestionAnswering', ElectraForQuestionAnswering]],
     ['convbert', ['ConvBertForQuestionAnswering', ConvBertForQuestionAnswering]],
     ['camembert', ['CamembertForQuestionAnswering', CamembertForQuestionAnswering]],
@@ -4992,10 +5161,12 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['dinov2', ['Dinov2ForImageClassification', Dinov2ForImageClassification]],
     ['resnet', ['ResNetForImageClassification', ResNetForImageClassification]],
     ['swin', ['SwinForImageClassification', SwinForImageClassification]],
+    ['segformer', ['SegformerForImageClassification', SegformerForImageClassification]],
 ]);
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['detr', ['DetrForObjectDetection', DetrForObjectDetection]],
+    ['table-transformer', ['TableTransformerForObjectDetection', TableTransformerForObjectDetection]],
     ['yolos', ['YolosForObjectDetection', YolosForObjectDetection]],
 ]);
 
@@ -5005,6 +5176,10 @@ const MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
     ['detr', ['DetrForSegmentation', DetrForSegmentation]],
+]);
+
+const MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES = new Map([
+    ['segformer', ['SegformerForSemanticSegmentation', SegformerForSemanticSegmentation]],
 ]);
 
 const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
@@ -5052,6 +5227,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES, MODEL_TYPES.Vision2Seq],
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -5061,6 +5237,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
+    [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -5155,6 +5332,17 @@ export class AutoModelForTextToSpectrogram extends PretrainedMixin {
 }
 
 /**
+ * Helper class which is used to instantiate pretrained text-to-waveform models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForTextToSpectrogram.from_pretrained('facebook/mms-tts-eng');
+ */
+export class AutoModelForTextToWaveform extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES];
+}
+
+/**
  * Helper class which is used to instantiate pretrained causal language models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
  * 
@@ -5218,6 +5406,17 @@ export class AutoModelForImageClassification extends PretrainedMixin {
  */
 export class AutoModelForImageSegmentation extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES];
+}
+
+/**
+ * Helper class which is used to instantiate pretrained image segmentation models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForSemanticSegmentation.from_pretrained('nvidia/segformer-b3-finetuned-cityscapes-1024-1024');
+ */
+export class AutoModelForSemanticSegmentation extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES];
 }
 
 /**
@@ -5391,5 +5590,22 @@ export class ImageMattingOutput extends ModelOutput {
     constructor({ alphas }) {
         super();
         this.alphas = alphas;
+    }
+}
+
+/**
+ * Describes the outputs for the VITS model.
+ */
+export class VitsModelOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.waveform The final audio waveform predicted by the model, of shape `(batch_size, sequence_length)`.
+     * @param {Tensor} output.spectrogram The log-mel spectrogram predicted at the output of the flow model.
+     * This spectrogram is passed to the Hi-Fi GAN decoder model to obtain the final audio waveform.
+     */
+    constructor({ waveform, spectrogram }) {
+        super();
+        this.waveform = waveform;
+        this.spectrogram = spectrogram;
     }
 }
