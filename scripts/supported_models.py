@@ -204,6 +204,14 @@ SUPPORTED_MODELS = {
             'openai/clip-vit-large-patch14-336',
         ],
     },
+    'clipseg': {
+        # Image segmentation
+        'image-segmentation': [
+            'CIDAS/clipseg-rd64-refined',
+            'CIDAS/clipseg-rd64',
+            'CIDAS/clipseg-rd16',
+        ],
+    },
     'codegen': {
         # Text generation
         'text-generation': [
@@ -360,6 +368,20 @@ SUPPORTED_MODELS = {
         'fill-mask': [
             'distilbert-base-uncased',
             'distilbert-base-cased',
+        ],
+    },
+    'dit': {  # NOTE: DiT has the same architecture as BEiT.
+        # Feature extraction
+        # NOTE: requires --task feature-extraction
+        'feature-extraction': [
+            'microsoft/dit-base',
+            'microsoft/dit-large',
+        ],
+
+        # Image classification
+        'image-classification': [
+            'microsoft/dit-base-finetuned-rvlcdip',
+            'microsoft/dit-large-finetuned-rvlcdip',
         ],
     },
     'donut': {  # NOTE: also a `vision-encoder-decoder`
@@ -650,6 +672,44 @@ SUPPORTED_MODELS = {
             'microsoft/resnet-152',
         ],
     },
+    'roformer': {
+        # Feature extraction
+        'feature-extraction': [
+            'hf-tiny-model-private/tiny-random-RoFormerModel',
+        ],
+
+        # Text classification
+        'text-classification': [
+            'hf-tiny-model-private/tiny-random-RoFormerForSequenceClassification',
+        ],
+
+        # Token classification
+        'token-classification': [
+            'hf-tiny-model-private/tiny-random-RoFormerForTokenClassification',
+        ],
+
+        # TODO
+        # # Text generation
+        # 'text-generation': [
+        #     'hf-tiny-model-private/tiny-random-RoFormerForCausalLM',
+        # ],
+
+        # Masked language modelling
+        'fill-mask': [
+            'alchemab/antiberta2',
+            'hf-tiny-model-private/tiny-random-RoFormerForMaskedLM',
+        ],
+
+        # Question answering
+        'question-answering': [
+            'hf-tiny-model-private/tiny-random-RoFormerForQuestionAnswering',
+        ],
+
+        # Multiple choice
+        'multiple-choice': [
+            'hf-tiny-model-private/tiny-random-RoFormerForMultipleChoice',
+        ],
+    },
     'phi': {
         # Text generation
         'text-generation': [
@@ -684,7 +744,48 @@ SUPPORTED_MODELS = {
     #     'facebook/sam-vit-large',
     #     'facebook/sam-vit-huge',
     # ],
+    'segformer': {
+        # Image segmentation
+        'image-segmentation': [
+            'mattmdjaga/segformer_b0_clothes',
+            'mattmdjaga/segformer_b2_clothes',
+            'jonathandinu/face-parsing',
 
+            'nvidia/segformer-b0-finetuned-cityscapes-768-768',
+            'nvidia/segformer-b0-finetuned-cityscapes-512-1024',
+            'nvidia/segformer-b0-finetuned-cityscapes-640-1280',
+            'nvidia/segformer-b0-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b1-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b2-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b3-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b4-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b5-finetuned-cityscapes-1024-1024',
+            'nvidia/segformer-b0-finetuned-ade-512-512',
+            'nvidia/segformer-b1-finetuned-ade-512-512',
+            'nvidia/segformer-b2-finetuned-ade-512-512',
+            'nvidia/segformer-b3-finetuned-ade-512-512',
+            'nvidia/segformer-b4-finetuned-ade-512-512',
+            'nvidia/segformer-b5-finetuned-ade-640-640',
+        ],
+
+        # Image classification
+        'image-classification': [
+            'nvidia/mit-b0',
+            'nvidia/mit-b1',
+            'nvidia/mit-b2',
+            'nvidia/mit-b3',
+            'nvidia/mit-b4',
+            'nvidia/mit-b5',
+        ],
+    },
+    'siglip': {
+        # Zero-shot image classification and feature extraction
+        # (with and without `--split_modalities`)
+        # NOTE: requires --opset 13
+        'zero-shot-image-classification': [
+            'nielsr/siglip-base-patch16-224',
+        ],
+    },
     'speecht5': {
         # Text-to-audio/Text-to-speech
         'text-to-audio': [
@@ -747,6 +848,8 @@ SUPPORTED_MODELS = {
             'MBZUAI/LaMini-T5-61M',
             'MBZUAI/LaMini-T5-223M',
             'MBZUAI/LaMini-T5-738M',
+            'declare-lab/flan-alpaca-base',
+            'declare-lab/flan-alpaca-large',
         ],
 
         # Feature extraction
@@ -754,6 +857,16 @@ SUPPORTED_MODELS = {
             'sentence-transformers/sentence-t5-large',
             'hkunlp/instructor-base',
             'hkunlp/instructor-large',
+        ],
+    },
+    'table-transformer': {
+        # Object detection
+        'object-detection': [
+            'microsoft/table-transformer-detection',
+            'microsoft/table-transformer-structure-recognition',
+            'microsoft/table-transformer-structure-recognition-v1.1-all',
+            'microsoft/table-transformer-structure-recognition-v1.1-fin',
+            'microsoft/table-transformer-structure-recognition-v1.1-pub',
         ],
     },
     'trocr': {  # NOTE: also a `vision-encoder-decoder`
@@ -793,6 +906,27 @@ SUPPORTED_MODELS = {
             'hustvl/vitmatte-small-composition-1k',
             'hustvl/vitmatte-base-composition-1k',
         ],
+    },
+    'vits': {
+        # Text-to-audio/Text-to-speech/Text-to-waveform
+        'text-to-waveform': {
+            # NOTE: requires --task text-to-waveform --skip_validation
+            'echarlaix/tiny-random-vits',
+            'facebook/mms-tts-eng',
+            'facebook/mms-tts-rus',
+            'facebook/mms-tts-hin',
+            'facebook/mms-tts-yor',
+            'facebook/mms-tts-spa',
+            'facebook/mms-tts-fra',
+            'facebook/mms-tts-ara',
+            'facebook/mms-tts-ron',
+            'facebook/mms-tts-vie',
+            'facebook/mms-tts-deu',
+            'facebook/mms-tts-kor',
+            'facebook/mms-tts-por',
+            # TODO add more checkpoints from
+            # https://huggingface.co/models?other=vits&sort=trending&search=facebook-tts
+        }
     },
     'wav2vec2': {
         # Feature extraction # NOTE: requires --task feature-extraction

@@ -26,18 +26,19 @@ import {
     AutoModelForMaskedLM,
     AutoModelForSeq2SeqLM,
     AutoModelForSpeechSeq2Seq,
+    AutoModelForTextToWaveform,
     AutoModelForTextToSpectrogram,
     AutoModelForCTC,
     AutoModelForCausalLM,
     AutoModelForVision2Seq,
     AutoModelForImageClassification,
     AutoModelForImageSegmentation,
+    AutoModelForSemanticSegmentation,
     AutoModelForObjectDetection,
     AutoModelForZeroShotObjectDetection,
     AutoModelForDocumentQuestionAnswering,
     AutoModelForImageToImage,
     AutoModelForDepthEstimation,
-    // AutoModelForTextToWaveform,
     PreTrainedModel,
 } from './models.js';
 import {
@@ -280,7 +281,7 @@ export class TokenClassificationPipeline extends Pipeline {
                 let tokenData = batch[j];
                 let topScoreIndex = max(tokenData.data)[1];
 
-                let entity = id2label[topScoreIndex];
+                let entity = id2label ? id2label[topScoreIndex] : `LABEL_${topScoreIndex}`;
                 if (ignore_labels.includes(entity)) {
                     // We predicted a token that should be ignored. So, we skip it.
                     continue;
@@ -1710,8 +1711,26 @@ export class ImageSegmentationPipeline extends Pipeline {
             }
 
         } else if (subtask === 'semantic') {
-            throw Error(`semantic segmentation not yet supported.`);
+            const { segmentation, labels } = fn(output, target_sizes ?? imageSizes)[0];
 
+            const id2label = this.model.config.id2label;
+
+            for (let label of labels) {
+                const maskData = new Uint8ClampedArray(segmentation.data.length);
+                for (let i = 0; i < segmentation.data.length; ++i) {
+                    if (segmentation.data[i] === label) {
+                        maskData[i] = 255;
+                    }
+                }
+
+                const mask = new RawImage(maskData, segmentation.dims[1], segmentation.dims[0], 1);
+
+                annotation.push({
+                    score: null,
+                    label: id2label[label],
+                    mask: mask
+                });
+            }
         } else {
             throw Error(`Subtask ${subtask} not supported.`);
         }
@@ -1772,7 +1791,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 
         // Run tokenization
         const text_inputs = this.tokenizer(texts, {
-            padding: true,
+            padding: this.model.config.model_type === 'siglip' ? 'max_length' : true,
             truncation: true
         });
 
@@ -1782,11 +1801,16 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
         // Run model with both text and pixel inputs
         const output = await this.model({ ...text_inputs, pixel_values });
 
+        const function_to_apply =
+            this.model.config.model_type === 'siglip'
+                ? batch => batch.sigmoid().data
+                : batch => softmax(batch.data);
+
         // Compare each image with each candidate label
         const toReturn = [];
         for (const batch of output.logits_per_image) {
             // Compute softmax per image
-            const probs = softmax(batch.data);
+            const probs = function_to_apply(batch);
 
             const result = [...probs].map((x, i) => ({
                 score: x,
@@ -2112,6 +2136,16 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
  * wav.fromScratch(1, out.sampling_rate, '32f', out.audio);
  * fs.writeFileSync('out.wav', wav.toBuffer());
  * ```
+ * 
+ * **Example:** Multilingual speech generation with `Xenova/mms-tts-fra`. See [here](https://huggingface.co/models?pipeline_tag=text-to-speech&other=vits&sort=trending) for the full list of available languages (1107).
+ * ```js
+ * let synthesizer = await pipeline('text-to-speech', 'Xenova/mms-tts-fra');
+ * let out = await synthesizer('Bonjour');
+ * // {
+ * //   audio: Float32Array(23808) [-0.00037693005288019776, 0.0003325853613205254, ...],
+ * //   sampling_rate: 16000
+ * // }
+ * ```
  */
 export class TextToAudioPipeline extends Pipeline {
     DEFAULT_VOCODER_ID = "Xenova/speecht5_hifigan"
@@ -2143,6 +2177,34 @@ export class TextToAudioPipeline extends Pipeline {
     async _call(text_inputs, {
         speaker_embeddings = null,
     } = {}) {
+        // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
+        if (this.processor) {
+            return this._call_text_to_spectrogram(text_inputs, { speaker_embeddings });
+        } else {
+            return this._call_text_to_waveform(text_inputs);
+        }
+    }
+
+    async _call_text_to_waveform(text_inputs) {
+
+        // Run tokenization
+        const inputs = this.tokenizer(text_inputs, {
+            padding: true,
+            truncation: true
+        });
+
+        // Generate waveform
+        const { waveform } = await this.model(inputs);
+
+        const sampling_rate = this.model.config.sampling_rate;
+        return {
+            audio: waveform.data,
+            sampling_rate,
+        }
+    }
+
+    async _call_text_to_spectrogram(text_inputs, { speaker_embeddings }) {
+
         // Load vocoder, if not provided
         if (!this.vocoder) {
             console.log('No vocoder specified, using default HifiGan vocoder.');
@@ -2412,8 +2474,8 @@ const SUPPORTED_TASKS = {
     "text-to-audio": {
         "tokenizer": AutoTokenizer,
         "pipeline": TextToAudioPipeline,
-        "model": [ /* TODO: AutoModelForTextToWaveform, */ AutoModelForTextToSpectrogram],
-        "processor": AutoProcessor,
+        "model": [AutoModelForTextToWaveform, AutoModelForTextToSpectrogram],
+        "processor": [AutoProcessor, /* Some don't use a processor */ null],
         "default": {
             // TODO: replace with original
             // "model": "microsoft/speecht5_tts",
@@ -2450,7 +2512,7 @@ const SUPPORTED_TASKS = {
     "image-segmentation": {
         // no tokenizer
         "pipeline": ImageSegmentationPipeline,
-        "model": AutoModelForImageSegmentation,
+        "model": [AutoModelForImageSegmentation, AutoModelForSemanticSegmentation],
         "processor": AutoProcessor,
         "default": {
             // TODO: replace with original
@@ -2673,6 +2735,12 @@ async function loadItems(mapping, model, pretrainedOptions) {
             promise = new Promise(async (resolve, reject) => {
                 let e;
                 for (let c of cls) {
+                    if (c === null) {
+                        // If null, we resolve it immediately, meaning the relevant
+                        // class was not found, but it is optional.
+                        resolve(null);
+                        return;
+                    }
                     try {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;

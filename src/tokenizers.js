@@ -1182,17 +1182,61 @@ class BertNormalizer extends Normalizer {
         return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
 
+
+    /**
+     * Checks whether `char` is a control character.
+     * @param {string} char The character to check.
+     * @returns {boolean} Whether `char` is a control character.
+     * @private
+     */
+    _is_control(char) {
+        switch (char) {
+            case '\t':
+            case '\n':
+            case '\r':
+                // These are technically control characters but we count them as whitespace characters.
+                return false;
+
+            default:
+                // Check if unicode category starts with C:
+                // Cc - Control
+                // Cf - Format
+                // Co - Private Use
+                // Cs - Surrogate
+                return /^\p{Cc}|\p{Cf}|\p{Co}|\p{Cs}$/u.test(char);
+        }
+    }
+
+    /**
+     * Performs invalid character removal and whitespace cleanup on text.
+     * @param {string} text The text to clean.
+     * @returns {string} The cleaned text.
+     * @private
+     */
+    _clean_text(text) {
+        const output = [];
+        for (const char of text) {
+            const cp = char.charCodeAt(0);
+            if (cp === 0 || cp === 0xFFFD || this._is_control(char)) {
+                continue;
+            }
+            if (/^\s$/.test(char)) { // is whitespace
+                output.push(" ");
+            } else {
+                output.push(char);
+            }
+        }
+        return output.join("");
+    }
     /**
      * Normalizes the given text based on the configuration.
      * @param {string} text The text to normalize.
      * @returns {string} The normalized text.
      */
     normalize(text) {
-        // TODO use rest of config
-        // config.clean_text,
-        // config.handle_chinese_chars,
-        // config.strip_accents,
-        // config.lowercase,
+        if (this.config.clean_text) {
+            text = this._clean_text(text);
+        }
 
         if (this.config.handle_chinese_chars) {
             text = this._tokenize_chinese_chars(text);
@@ -2036,6 +2080,18 @@ class BPEDecoder extends Decoder {
     }
 }
 
+// Custom decoder for VITS
+class VitsDecoder extends Decoder {
+    /** @type {Decoder['decode_chain']} */
+    decode_chain(tokens) {
+        let decoded = '';
+        for (let i = 1; i < tokens.length; i += 2) {
+            decoded += tokens[i];
+        }
+        return [decoded];
+    }
+}
+
 
 /**
  * This PreTokenizer replaces spaces with the given replacement character, adds a prefix space if requested,
@@ -2434,7 +2490,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {string|string[]} text The text to tokenize.
      * @param {Object} options An optional object containing the following properties:
      * @param {string|string[]} [options.text_pair=null] Optional second sequence to be encoded. If set, must be the same type as text.
-     * @param {boolean} [options.padding=false] Whether to pad the input sequences.
+     * @param {boolean|'max_length'} [options.padding=false] Whether to pad the input sequences.
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
@@ -2495,11 +2551,13 @@ export class PreTrainedTokenizer extends Callable {
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
 
-        let maxLengthOfBatch = max(tokens.map(x => x.length))[0];
-
-        // If null, we calculate max length from sequences
         if (max_length === null) {
-            max_length = maxLengthOfBatch;
+            if (padding === 'max_length') {
+                max_length = this.model_max_length;
+            } else {
+                // Calculate max length from sequences
+                max_length = max(tokens.map(x => x.length))[0];
+            }
         }
 
         // Ensure it is less than model max length
@@ -2939,6 +2997,12 @@ export class HerbertTokenizer extends PreTrainedTokenizer {
     }
 }
 export class ConvBertTokenizer extends PreTrainedTokenizer {
+    /** @type {add_token_types} */
+    prepare_model_inputs(inputs) {
+        return add_token_types(inputs);
+    }
+}
+export class RoFormerTokenizer extends PreTrainedTokenizer {
     /** @type {add_token_types} */
     prepare_model_inputs(inputs) {
         return add_token_types(inputs);
@@ -4053,7 +4117,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 }
 export class CodeGenTokenizer extends PreTrainedTokenizer { }
 export class CLIPTokenizer extends PreTrainedTokenizer { }
-
+export class SiglipTokenizer extends PreTrainedTokenizer { }
 
 /**
  * @todo This model is not yet supported by Hugging Face's "fast" tokenizers library (https://github.com/huggingface/tokenizers).
@@ -4119,6 +4183,15 @@ export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
 
 export class NougatTokenizer extends PreTrainedTokenizer { }
 
+export class VitsTokenizer extends PreTrainedTokenizer {
+
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+
+        // Custom decoder function
+        this.decoder = new VitsDecoder({});
+    }
+}
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -4136,6 +4209,7 @@ export class AutoTokenizer {
         BertTokenizer,
         HerbertTokenizer,
         ConvBertTokenizer,
+        RoFormerTokenizer,
         XLMTokenizer,
         ElectraTokenizer,
         MobileBertTokenizer,
@@ -4149,6 +4223,7 @@ export class AutoTokenizer {
         WhisperTokenizer,
         CodeGenTokenizer,
         CLIPTokenizer,
+        SiglipTokenizer,
         MarianTokenizer,
         BloomTokenizer,
         NllbTokenizer,
@@ -4165,6 +4240,7 @@ export class AutoTokenizer {
         BlenderbotSmallTokenizer,
         SpeechT5Tokenizer,
         NougatTokenizer,
+        VitsTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
