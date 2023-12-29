@@ -130,7 +130,7 @@ export class Pipeline extends Callable {
  * @typedef {TextClassificationSingle[]} TextClassificationOutput
  * 
  * @callback TextClassificationPipelineCallback Classify the text(s) given as inputs.
- * @param {string|string[]} texts The input texts to be classified.
+ * @param {string|string[]} texts The input text(s) to be classified.
  * @param {Object} options An optional object containing the following properties:
  * @param {number} [options.topk=1] The number of top predictions to be returned.
  * @returns {Promise<TextClassificationOutput|TextClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
