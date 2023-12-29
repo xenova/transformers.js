@@ -1601,6 +1601,13 @@ export class ImageClassificationPipeline extends Pipeline {
 
 }
 
+/**
+ * @typedef {Object} ImageSegmentationPipelineOutput
+ * @property {string} label The label of the segment.
+ * @property {number|null} score The score of the segment.
+ * @property {RawImage} mask The mask of the segment.
+ */
+
 /** 
  * @callback ImageSegmentationPipelineCallback Segment the input images.
  * @param {ImagePipelineInputs} images The input images.
@@ -1611,12 +1618,10 @@ export class ImageClassificationPipeline extends Pipeline {
  * @param {null|string} [options.subtask=null] Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`], depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
  * @param {Array} [options.label_ids_to_fuse=null] List of label ids to fuse. If not set, do not fuse any labels.
  * @param {Array} [options.target_sizes=null] List of target sizes for the input images. If not set, use the original image sizes.
- * @returns {Promise<Array>} The annotated segments.
- * 
- * @typedef {new (_) => (ImageSegmentationPipelineCallback & Pipeline)} ImageSegmentationPipelineCall
+ * @returns {Promise<ImageSegmentationPipelineOutput[]>} The annotated segments.
  */
 
-/** @type {ImageSegmentationPipelineCall} */
+/** @type {new (_) => ImageSegmentationPipelineCallback} */
 export const ImageSegmentationPipelineProxy = /** @type {any} */ (class extends Pipeline { });
 
 /**
@@ -1662,6 +1667,7 @@ class ImageSegmentationPipeline extends ImageSegmentationPipelineProxy {
         target_sizes = null,
         subtask = null,
     } = {}) {
+        const self = /** @type {ImageSegmentationPipeline & Pipeline} */ (/** @type {any} */ (this));
         const isBatched = Array.isArray(images);
 
         if (isBatched && images.length !== 1) {
@@ -1671,25 +1677,25 @@ class ImageSegmentationPipeline extends ImageSegmentationPipelineProxy {
         const preparedImages = await prepareImages(images);
         const imageSizes = preparedImages.map(x => [x.height, x.width]);
 
-        const { pixel_values, pixel_mask } = await this.processor(preparedImages);
-        const output = await this.model({ pixel_values, pixel_mask });
+        const { pixel_values, pixel_mask } = await self.processor(preparedImages);
+        const output = await self.model({ pixel_values, pixel_mask });
 
         let fn = null;
         if (subtask !== null) {
-            fn = this.subtasks_mapping[subtask];
+            fn = self.subtasks_mapping[subtask];
         } else {
-            for (let [task, func] of Object.entries(this.subtasks_mapping)) {
-                if (func in this.processor.feature_extractor) {
-                    fn = this.processor.feature_extractor[func].bind(this.processor.feature_extractor);
+            for (let [task, func] of Object.entries(self.subtasks_mapping)) {
+                if (func in self.processor.feature_extractor) {
+                    fn = self.processor.feature_extractor[func].bind(self.processor.feature_extractor);
                     subtask = task;
                     break;
                 }
             }
         }
 
-        const id2label = this.model.config.id2label;
+        const id2label = self.model.config.id2label;
 
-        // add annotations
+        /** @type {ImageSegmentationPipelineOutput[]} */
         const annotation = [];
         if (subtask === 'panoptic' || subtask === 'instance') {
             const processed = fn(
