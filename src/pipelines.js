@@ -173,7 +173,7 @@ export class Pipeline extends Callable {
  * // ]
  * ```
  */
-export class TextClassificationPipeline extends (/** @type {new (_) => TextClassificationPipelineCallback} */ (/** @type {any} */ (class extends Pipeline { }))) {
+export class TextClassificationPipeline extends (/** @type {new (_) => TextClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /** @type {TextClassificationPipelineCallback} */
     async _call(texts, {
         topk = 1
@@ -1647,7 +1647,7 @@ export class ImageClassificationPipeline extends Pipeline {
  * // ]
  * ```
  */
-export class ImageSegmentationPipeline extends (/** @type {new (_) => ImageSegmentationPipelineCallback} */ (/** @type {any} */ (class extends Pipeline { }))) {
+export class ImageSegmentationPipeline extends (/** @type {new (_) => ImageSegmentationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new ImageSegmentationPipeline.
      * @param {Object} options An object containing the following properties:
