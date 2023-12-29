@@ -1606,9 +1606,7 @@ export class ImageClassificationPipeline extends Pipeline {
  * @property {string} label The label of the segment.
  * @property {number|null} score The score of the segment.
  * @property {RawImage} mask The mask of the segment.
- */
-
-/** 
+ * 
  * @callback ImageSegmentationPipelineCallback Segment the input images.
  * @param {ImagePipelineInputs} images The input images.
  * @param {Object} [options] The options to use for segmentation.
@@ -1620,9 +1618,6 @@ export class ImageClassificationPipeline extends Pipeline {
  * @param {Array} [options.target_sizes=null] List of target sizes for the input images. If not set, use the original image sizes.
  * @returns {Promise<ImageSegmentationPipelineOutput[]>} The annotated segments.
  */
-
-/** @type {new (_) => ImageSegmentationPipelineCallback} */
-const ImageSegmentationPipelineProxy = /** @type {any} */ (class extends Pipeline { });
 
 /**
  * Image segmentation pipeline using any `AutoModelForXXXSegmentation`.
@@ -1639,7 +1634,7 @@ const ImageSegmentationPipelineProxy = /** @type {any} */ (class extends Pipelin
  * // ]
  * ```
  */
-export class ImageSegmentationPipeline extends ImageSegmentationPipelineProxy {
+export class ImageSegmentationPipeline extends (/** @type {new (_) => ImageSegmentationPipelineCallback} */ (/** @type {any} */ (class extends Pipeline { }))) {
     /**
      * Create a new ImageSegmentationPipeline.
      * @param {Object} options An object containing the following properties:
