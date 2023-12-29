@@ -71,10 +71,16 @@ import {
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
 
+
+/**
+ * @typedef {string | RawImage | URL} ImageInput
+ * @typedef {ImageInput|ImageInput[]} ImagePipelineInputs
+ */
+
 /**
  * Prepare images for further tasks.
- * @param {any[]} images images to prepare.
- * @returns {Promise<any[]>} returns processed images.
+ * @param {ImagePipelineInputs} images images to prepare.
+ * @returns {Promise<RawImage[]>} returns processed images.
  * @private
  */
 async function prepareImages(images) {
@@ -83,8 +89,7 @@ async function prepareImages(images) {
     }
 
     // Possibly convert any non-images to images
-    images = await Promise.all(images.map(x => RawImage.read(x)));
-    return images;
+    return await Promise.all(images.map(x => RawImage.read(x)));
 }
 
 /**
@@ -1479,22 +1484,21 @@ export class ImageToTextPipeline extends Pipeline {
 
     /**
      * Assign labels to the image(s) passed as inputs.
-     * @param {any[]} images The images to be captioned.
+     * @param {ImagePipelineInputs} images The images to be captioned.
      * @param {Object} [generate_kwargs={}] Optional generation arguments.
      * @returns {Promise<Object|Object[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
      */
     async _call(images, generate_kwargs = {}) {
-        let isBatched = Array.isArray(images);
+        const isBatched = Array.isArray(images);
+        const preparedImages = await prepareImages(images);
 
-        images = await prepareImages(images);
+        const { pixel_values } = await this.processor(preparedImages);
 
-        let { pixel_values } = await this.processor(images);
-
-        let toReturn = [];
-        for (let batch of pixel_values) {
+        const toReturn = [];
+        for (const batch of pixel_values) {
             batch.dims = [1, ...batch.dims]
-            let output = await this.model.generate(batch, generate_kwargs);
-            let decoded = this.tokenizer.batch_decode(output, {
+            const output = await this.model.generate(batch, generate_kwargs);
+            const decoded = this.tokenizer.batch_decode(output, {
                 skip_special_tokens: true,
             }).map(x => {
                 return { generated_text: x.trim() }
@@ -1560,7 +1564,7 @@ export class ImageClassificationPipeline extends Pipeline {
 
     /**
      * Classify the given images.
-     * @param {any} images The images to classify.
+     * @param {ImagePipelineInputs} images The images to classify.
      * @param {Object} options The options to use for classification.
      * @param {number} [options.topk=1] The number of top results to return.
      * @returns {Promise<any>} The top classification results for the images.
@@ -1568,18 +1572,18 @@ export class ImageClassificationPipeline extends Pipeline {
     async _call(images, {
         topk = 1
     } = {}) {
-        let isBatched = Array.isArray(images);
-        images = await prepareImages(images);
+        const isBatched = Array.isArray(images);
+        const preparedImages = await prepareImages(images);
 
-        let { pixel_values } = await this.processor(images);
-        let output = await this.model({ pixel_values });
+        const { pixel_values } = await this.processor(preparedImages);
+        const output = await this.model({ pixel_values });
 
-        let id2label = this.model.config.id2label;
-        let toReturn = [];
-        for (let batch of output.logits) {
-            let scores = getTopItems(softmax(batch.data), topk);
+        const id2label = this.model.config.id2label;
+        const toReturn = [];
+        for (const batch of output.logits) {
+            const scores = getTopItems(softmax(batch.data), topk);
 
-            let vals = scores.map(function (x) {
+            const vals = scores.map(function (x) {
                 return {
                     label: id2label[x[0]],
                     score: x[1],
@@ -1597,6 +1601,24 @@ export class ImageClassificationPipeline extends Pipeline {
 
 }
 
+/** 
+ * @callback ImageSegmentationPipelineCallback Segment the input images.
+ * @param {ImagePipelineInputs} images The input images.
+ * @param {Object} [options] The options to use for segmentation.
+ * @param {number} [options.threshold=0.5] Probability threshold to filter out predicted masks.
+ * @param {number} [options.mask_threshold=0.5] Threshold to use when turning the predicted masks into binary values.
+ * @param {number} [options.overlap_mask_area_threshold=0.8] Mask overlap threshold to eliminate small, disconnected segments.
+ * @param {null|string} [options.subtask=null] Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`], depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
+ * @param {Array} [options.label_ids_to_fuse=null] List of label ids to fuse. If not set, do not fuse any labels.
+ * @param {Array} [options.target_sizes=null] List of target sizes for the input images. If not set, use the original image sizes.
+ * @returns {Promise<Array>} The annotated segments.
+ * 
+ * @typedef {new (_) => (ImageSegmentationPipelineCallback & Pipeline)} ImageSegmentationPipelineCall
+ */
+
+/** @type {ImageSegmentationPipelineCall} */
+export const ImageSegmentationPipelineProxy = /** @type {any} */ (class extends Pipeline { });
+
 /**
  * Image segmentation pipeline using any `AutoModelForXXXSegmentation`.
  * This pipeline predicts masks of objects and their classes.
@@ -1612,7 +1634,7 @@ export class ImageClassificationPipeline extends Pipeline {
  * // ]
  * ```
  */
-export class ImageSegmentationPipeline extends Pipeline {
+class ImageSegmentationPipeline extends ImageSegmentationPipelineProxy {
     /**
      * Create a new ImageSegmentationPipeline.
      * @param {Object} options An object containing the following properties:
@@ -1631,37 +1653,26 @@ export class ImageSegmentationPipeline extends Pipeline {
         }
     }
 
-    /**
-     * Segment the input images.
-     * @param {Array} images The input images.
-     * @param {Object} options The options to use for segmentation.
-     * @param {number} [options.threshold=0.5] Probability threshold to filter out predicted masks.
-     * @param {number} [options.mask_threshold=0.5] Threshold to use when turning the predicted masks into binary values.
-     * @param {number} [options.overlap_mask_area_threshold=0.8] Mask overlap threshold to eliminate small, disconnected segments.
-     * @param {null|string} [options.subtask=null] Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`], depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
-     * @param {Array} [options.label_ids_to_fuse=null] List of label ids to fuse. If not set, do not fuse any labels.
-     * @param {Array} [options.target_sizes=null] List of target sizes for the input images. If not set, use the original image sizes.
-     * @returns {Promise<Array>} The annotated segments.
-     */
+    /** @type {ImageSegmentationPipelineCallback} */
     async _call(images, {
         threshold = 0.5,
         mask_threshold = 0.5,
         overlap_mask_area_threshold = 0.8,
         label_ids_to_fuse = null,
         target_sizes = null,
-        subtask = null, // TODO use
+        subtask = null,
     } = {}) {
-        let isBatched = Array.isArray(images);
+        const isBatched = Array.isArray(images);
 
         if (isBatched && images.length !== 1) {
             throw Error("Image segmentation pipeline currently only supports a batch size of 1.");
         }
 
-        images = await prepareImages(images);
-        let imageSizes = images.map(x => [x.height, x.width]);
+        const preparedImages = await prepareImages(images);
+        const imageSizes = preparedImages.map(x => [x.height, x.width]);
 
-        let { pixel_values, pixel_mask } = await this.processor(images);
-        let output = await this.model({ pixel_values, pixel_mask });
+        const { pixel_values, pixel_mask } = await this.processor(preparedImages);
+        const output = await this.model({ pixel_values, pixel_mask });
 
         let fn = null;
         if (subtask !== null) {
@@ -1676,12 +1687,12 @@ export class ImageSegmentationPipeline extends Pipeline {
             }
         }
 
+        const id2label = this.model.config.id2label;
+
         // add annotations
-        let annotation = [];
-
+        const annotation = [];
         if (subtask === 'panoptic' || subtask === 'instance') {
-
-            let processed = fn(
+            const processed = fn(
                 output,
                 threshold,
                 mask_threshold,
@@ -1690,18 +1701,17 @@ export class ImageSegmentationPipeline extends Pipeline {
                 target_sizes ?? imageSizes, // TODO FIX?
             )[0];
 
-            let segmentation = processed.segmentation;
-            let id2label = this.model.config.id2label;
+            const segmentation = processed.segmentation;
 
-            for (let segment of processed.segments_info) {
-                let maskData = new Uint8ClampedArray(segmentation.data.length);
+            for (const segment of processed.segments_info) {
+                const maskData = new Uint8ClampedArray(segmentation.data.length);
                 for (let i = 0; i < segmentation.data.length; ++i) {
                     if (segmentation.data[i] === segment.id) {
                         maskData[i] = 255;
                     }
                 }
 
-                let mask = new RawImage(maskData, segmentation.dims[1], segmentation.dims[0], 1)
+                const mask = new RawImage(maskData, segmentation.dims[1], segmentation.dims[0], 1)
 
                 annotation.push({
                     score: segment.score,
@@ -1713,9 +1723,7 @@ export class ImageSegmentationPipeline extends Pipeline {
         } else if (subtask === 'semantic') {
             const { segmentation, labels } = fn(output, target_sizes ?? imageSizes)[0];
 
-            const id2label = this.model.config.id2label;
-
-            for (let label of labels) {
+            for (const label of labels) {
                 const maskData = new Uint8ClampedArray(segmentation.data.length);
                 for (let i = 0; i < segmentation.data.length; ++i) {
                     if (segmentation.data[i] === label) {
@@ -1738,7 +1746,6 @@ export class ImageSegmentationPipeline extends Pipeline {
         return annotation;
     }
 }
-
 
 /**
  * Zero shot image classification pipeline. This pipeline predicts the class of
@@ -1772,7 +1779,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 
     /**
      * Classify the input images with candidate labels using a zero-shot approach.
-     * @param {Array} images The input images.
+     * @param {ImagePipelineInputs} images The input images.
      * @param {string[]} candidate_labels The candidate labels.
      * @param {Object} options The options for the classification.
      * @param {string} [options.hypothesis_template] The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
@@ -1782,7 +1789,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
         const isBatched = Array.isArray(images);
-        images = await prepareImages(images);
+        const preparedImages = await prepareImages(images);
 
         // Insert label into hypothesis template 
         const texts = candidate_labels.map(
@@ -1792,11 +1799,11 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
         // Run tokenization
         const text_inputs = this.tokenizer(texts, {
             padding: this.model.config.model_type === 'siglip' ? 'max_length' : true,
-            truncation: true
+            truncation: true,
         });
 
         // Run processor
-        const { pixel_values } = await this.processor(images);
+        const { pixel_values } = await this.processor(preparedImages);
 
         // Run model with both text and pixel inputs
         const output = await this.model({ ...text_inputs, pixel_values });
@@ -1861,7 +1868,7 @@ export class ObjectDetectionPipeline extends Pipeline {
 
     /**
      * Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
-     * @param {any[]} images The input images.
+     * @param {ImagePipelineInputs} images The input images.
      * @param {Object} options The options for the object detection.
      * @param {number} [options.threshold=0.9] The threshold used to filter boxes by score.
      * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
@@ -1870,23 +1877,23 @@ export class ObjectDetectionPipeline extends Pipeline {
         threshold = 0.9,
         percentage = false,
     } = {}) {
-        let isBatched = Array.isArray(images);
+        const isBatched = Array.isArray(images);
 
         if (isBatched && images.length !== 1) {
             throw Error("Object detection pipeline currently only supports a batch size of 1.");
         }
-        images = await prepareImages(images);
+        const preparedImages = await prepareImages(images);
 
-        let imageSizes = percentage ? null : images.map(x => [x.height, x.width]);
+        const imageSizes = percentage ? null : preparedImages.map(x => [x.height, x.width]);
 
-        let { pixel_values, pixel_mask } = await this.processor(images);
-        let output = await this.model({ pixel_values, pixel_mask });
+        const { pixel_values, pixel_mask } = await this.processor(preparedImages);
+        const output = await this.model({ pixel_values, pixel_mask });
 
         // @ts-ignore
-        let processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSizes);
+        const processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSizes);
 
         // Add labels
-        let id2label = this.model.config.id2label;
+        const id2label = this.model.config.id2label;
 
         // Format output
         const result = processed.map(batch => {
@@ -1983,7 +1990,7 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
 
     /**
      * Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
-     * @param {Array} images The input images.
+     * @param {ImagePipelineInputs} images The input images.
      * @param {string[]} candidate_labels What the model should recognize in the image.
      * @param {Object} options The options for the classification.
      * @param {number} [options.threshold] The probability necessary to make a prediction.
@@ -1999,7 +2006,7 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
         percentage = false,
     } = {}) {
         const isBatched = Array.isArray(images);
-        images = await prepareImages(images);
+        const preparedImages = await prepareImages(images);
 
         // Run tokenization
         const text_inputs = this.tokenizer(candidate_labels, {
@@ -2008,14 +2015,14 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
         });
 
         // Run processor
-        const model_inputs = await this.processor(images);
+        const model_inputs = await this.processor(preparedImages);
 
         // Since non-maximum suppression is performed for exporting, we need to
         // process each image separately. For more information, see:
         // https://github.com/huggingface/optimum/blob/e3b7efb1257c011db907ef40ab340e795cc5684c/optimum/exporters/onnx/model_configs.py#L1028-L1032
         const toReturn = [];
-        for (let i = 0; i < images.length; ++i) {
-            const image = images[i];
+        for (let i = 0; i < preparedImages.length; ++i) {
+            const image = preparedImages[i];
             const imageSize = percentage ? null : [[image.height, image.width]];
             const pixel_values = model_inputs.pixel_values[i].unsqueeze_(0);
 
@@ -2069,7 +2076,7 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
 
     /**
      * Answer the question given as input by using the document.
-     * @param {any} image The image of the document to use.
+     * @param {ImageInput} image The image of the document to use.
      * @param {string} question A question to ask of the document.
      * @param {Object} [generate_kwargs={}] Optional generation arguments.
      * @returns {Promise<Object|Object[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
@@ -2078,8 +2085,8 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
         // NOTE: For now, we only support a batch size of 1
 
         // Preprocess image
-        image = (await prepareImages(image))[0];
-        const { pixel_values } = await this.processor(image);
+        const preparedImage = (await prepareImages(image))[0];
+        const { pixel_values } = await this.processor(preparedImage);
 
         // Run tokenization
         const task_prompt = `<s_docvqa><s_question>${question}</s_question><s_answer>`;
@@ -2266,17 +2273,16 @@ export class TextToAudioPipeline extends Pipeline {
 export class ImageToImagePipeline extends Pipeline {
     /**
      * Transform the image(s) passed as inputs.
-     * @param {any} images The images to transform.
+     * @param {ImagePipelineInputs} images The images to transform.
      * @returns {Promise<any>} An image or a list of images containing result(s).
      */
     async _call(images) {
-        images = await prepareImages(images);
+        const preparedImages = await prepareImages(images);
+        const inputs = await this.processor(preparedImages);
+        const outputs = await this.model(inputs);
 
-        let inputs = await this.processor(images);
-        let outputs = await this.model(inputs);
-
-        let toReturn = [];
-        for (let batch of outputs.reconstruction) {
+        const toReturn = [];
+        for (const batch of outputs.reconstruction) {
             const output = batch.squeeze().clamp_(0, 1).mul_(255).round_().to('uint8');
             toReturn.push(RawImage.fromTensor(output));
         }
@@ -2312,18 +2318,18 @@ export class ImageToImagePipeline extends Pipeline {
 export class DepthEstimationPipeline extends Pipeline {
     /**
      * Predicts the depth for the image(s) passed as inputs.
-     * @param {any} images The images to compute depth for.
+     * @param {ImagePipelineInputs} images The images to compute depth for.
      * @returns {Promise<any>} An image or a list of images containing result(s).
      */
     async _call(images) {
-        images = await prepareImages(images);
+        const preparedImages = await prepareImages(images);
 
-        const inputs = await this.processor(images);
+        const inputs = await this.processor(preparedImages);
         const { predicted_depth } = await this.model(inputs);
 
         const toReturn = [];
-        for (let i = 0; i < images.length; ++i) {
-            const prediction = interpolate(predicted_depth[i], images[i].size.reverse(), 'bilinear', false);
+        for (let i = 0; i < preparedImages.length; ++i) {
+            const prediction = interpolate(predicted_depth[i], preparedImages[i].size.reverse(), 'bilinear', false);
             const formatted = prediction.mul_(255 / max(prediction.data)[0]).to('uint8');
             toReturn.push({
                 predicted_depth: predicted_depth[i],
