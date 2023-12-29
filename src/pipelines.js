@@ -1622,7 +1622,7 @@ export class ImageClassificationPipeline extends Pipeline {
  */
 
 /** @type {new (_) => ImageSegmentationPipelineCallback} */
-export const ImageSegmentationPipelineProxy = /** @type {any} */ (class extends Pipeline { });
+const ImageSegmentationPipelineProxy = /** @type {any} */ (class extends Pipeline { });
 
 /**
  * Image segmentation pipeline using any `AutoModelForXXXSegmentation`.
@@ -1639,7 +1639,7 @@ export const ImageSegmentationPipelineProxy = /** @type {any} */ (class extends 
  * // ]
  * ```
  */
-class ImageSegmentationPipeline extends ImageSegmentationPipelineProxy {
+export class ImageSegmentationPipeline extends ImageSegmentationPipelineProxy {
     /**
      * Create a new ImageSegmentationPipeline.
      * @param {Object} options An object containing the following properties:
