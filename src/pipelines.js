@@ -121,26 +121,20 @@ export class Pipeline extends Callable {
     async dispose() {
         await this.model.dispose();
     }
-
-    /**
-     * Executes the task associated with the pipeline.
-     * @param {any} texts The input texts to be processed.
-     * @param {...any} args Additional arguments.
-     * @returns {Promise<any>} A promise that resolves to an array containing the inputs and outputs of the task.
-     */
-    async _call(texts, ...args) {
-        // Run tokenization
-        let model_inputs = this.tokenizer(texts, {
-            padding: true,
-            truncation: true
-        });
-
-        // Run model
-        let outputs = await this.model(model_inputs)
-
-        return [model_inputs, outputs];
-    }
 }
+
+/**
+ * @typedef {Object} TextClassificationSingle
+ * @property {string} label The label predicted.
+ * @property {number} score The corresponding probability.
+ * @typedef {TextClassificationSingle[]} TextClassificationOutput
+ * 
+ * @callback TextClassificationPipelineCallback Classify the text(s) given as inputs.
+ * @param {string|string[]} texts The input texts to be classified.
+ * @param {Object} options An optional object containing the following properties:
+ * @param {number} [options.topk=1] The number of top predictions to be returned.
+ * @returns {Promise<TextClassificationOutput|TextClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
+ */
 
 /**
  * Text classification pipeline using any `ModelForSequenceClassification`.
@@ -179,38 +173,39 @@ export class Pipeline extends Callable {
  * // ]
  * ```
  */
-export class TextClassificationPipeline extends Pipeline {
-    /**
-     * Executes the text classification task.
-     * @param {any} texts The input texts to be classified.
-     * @param {Object} options An optional object containing the following properties:
-     * @param {number} [options.topk=1] The number of top predictions to be returned.
-     * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted labels and scores.
-     */
+export class TextClassificationPipeline extends (/** @type {new (_) => TextClassificationPipelineCallback} */ (/** @type {any} */ (class extends Pipeline { }))) {
+    /** @type {TextClassificationPipelineCallback} */
     async _call(texts, {
         topk = 1
     } = {}) {
+        const self = /** @type {TextClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+
+        // Run tokenization
+        const model_inputs = self.tokenizer(texts, {
+            padding: true,
+            truncation: true,
+        });
+
+        // Run model
+        const outputs = await self.model(model_inputs)
 
         // TODO: Use softmax tensor function
-        let function_to_apply =
-            this.model.config.problem_type === 'multi_label_classification'
+        const function_to_apply =
+            self.model.config.problem_type === 'multi_label_classification'
                 ? batch => batch.sigmoid().data
                 : batch => softmax(batch.data); // single_label_classification (default)
 
-        let [inputs, outputs] = await super._call(texts);
+        const id2label = self.model.config.id2label;
 
-        let id2label = this.model.config.id2label;
-        let toReturn = [];
-        for (let batch of outputs.logits) {
-            let output = function_to_apply(batch);
-            let scores = getTopItems(output, topk);
+        const toReturn = [];
+        for (const batch of outputs.logits) {
+            const output = function_to_apply(batch);
+            const scores = getTopItems(output, topk);
 
-            let vals = scores.map(function (x) {
-                return {
-                    label: id2label[x[0]],
-                    score: x[1],
-                }
-            });
+            const vals = scores.map(x => ({
+                label: id2label[x[0]],
+                score: x[1],
+            }));
             if (topk === 1) {
                 toReturn.push(...vals);
             } else {
@@ -218,6 +213,7 @@ export class TextClassificationPipeline extends Pipeline {
             }
         }
 
+        // @ts-ignore
         return Array.isArray(texts) || topk === 1 ? toReturn : toReturn[0];
     }
 }
