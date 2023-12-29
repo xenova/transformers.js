@@ -33,6 +33,9 @@ if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
 
+    // wasm does not work on node right now with multiple threads
+    ONNX.env.wasm.numThreads = 1;
+
     // Add `cpu` execution provider, with higher precedence that `wasm`.
     executionProviders.unshift('cpu');
 
