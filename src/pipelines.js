@@ -266,14 +266,22 @@ export class TokenClassificationPipeline extends Pipeline {
         }
 
         let tokenizer = this.tokenizer;
-        let [inputs, outputs] = await super._call(texts);
+
+        // Run tokenization
+        let model_inputs = this.tokenizer(texts, {
+            padding: true,
+            truncation: true,
+        });
+
+        // Run model
+        let outputs = await this.model(model_inputs)
 
         let logits = outputs.logits;
         let id2label = this.model.config.id2label;
 
         let toReturn = [];
         for (let i = 0; i < logits.dims[0]; ++i) {
-            let ids = inputs.input_ids[i];
+            let ids = model_inputs.input_ids[i];
             let batch = logits[i];
 
             // List of tokens that aren't ignored
@@ -358,7 +366,7 @@ export class QuestionAnsweringPipeline extends Pipeline {
         let inputs = this.tokenizer(question, {
             text_pair: context,
             padding: true,
-            truncation: true
+            truncation: true,
         });
 
         let output = await this.model(inputs);
@@ -438,19 +446,20 @@ export class FillMaskPipeline extends Pipeline {
         topk = 5
     } = {}) {
         // Run tokenization
-        let [inputs, outputs] = await super._call(texts);
+        let model_inputs = this.tokenizer(texts, {
+            padding: true,
+            truncation: true,
+        });
 
-        // Determine indices of mask tokens
-        // let mask_token_indices = inputs.input_ids.data.map(x => )
-
-        // let logits = reshape(outputs.logits.data, outputs.logits.dims);
+        // Run model
+        let outputs = await this.model(model_inputs)
 
         let tokenizer = this.tokenizer;
 
         let toReturn = [];
 
-        for (let i = 0; i < inputs.input_ids.dims[0]; ++i) {
-            let ids = inputs.input_ids[i];
+        for (let i = 0; i < model_inputs.input_ids.dims[0]; ++i) {
+            let ids = model_inputs.input_ids[i];
             let mask_token_index = ids.indexOf(this.tokenizer.mask_token_id)
 
             if (mask_token_index === -1) {
@@ -923,7 +932,15 @@ export class FeatureExtractionPipeline extends Pipeline {
         pooling = 'none',
         normalize = false,
     } = {}) {
-        let [inputs, outputs] = await super._call(texts);
+
+        // Run tokenization
+        let model_inputs = this.tokenizer(texts, {
+            padding: true,
+            truncation: true,
+        });
+
+        // Run model
+        let outputs = await this.model(model_inputs)
 
         // TODO: Provide warning to the user that they might be using model which was not exported
         // specifically for feature extraction
@@ -934,7 +951,7 @@ export class FeatureExtractionPipeline extends Pipeline {
         if (pooling === 'none') {
             // Skip pooling
         } else if (pooling === 'mean') {
-            result = mean_pooling(result, inputs.attention_mask);
+            result = mean_pooling(result, model_inputs.attention_mask);
         } else if (pooling === 'cls') {
             result = result.slice(null, 0);
         } else {
@@ -2008,7 +2025,7 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
         // Run tokenization
         const text_inputs = this.tokenizer(candidate_labels, {
             padding: true,
-            truncation: true
+            truncation: true,
         });
 
         // Run processor
@@ -2090,7 +2107,7 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
         const decoder_input_ids = this.tokenizer(task_prompt, {
             add_special_tokens: false,
             padding: true,
-            truncation: true
+            truncation: true,
         }).input_ids;
 
         // Run model
@@ -2194,7 +2211,7 @@ export class TextToAudioPipeline extends Pipeline {
         // Run tokenization
         const inputs = this.tokenizer(text_inputs, {
             padding: true,
-            truncation: true
+            truncation: true,
         });
 
         // Generate waveform
@@ -2236,7 +2253,7 @@ export class TextToAudioPipeline extends Pipeline {
         // Run tokenization
         const { input_ids } = this.tokenizer(text_inputs, {
             padding: true,
-            truncation: true
+            truncation: true,
         });
 
         // NOTE: At this point, we are guaranteed that `speaker_embeddings` is a `Tensor`
