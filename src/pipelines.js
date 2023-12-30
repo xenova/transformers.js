@@ -748,12 +748,12 @@ export class TranslationPipeline extends (/** @type {new (_) => TranslationGener
 export class TextGenerationPipeline extends (/** @type {new (_) => TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
+        const self = /** @type {TextGenerationPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         const isBatched = Array.isArray(texts);
         if (!isBatched) {
             texts = [/** @type {string}*/ (texts)];
         }
-
-        const self = /** @type {TextGenerationPipeline & Pipeline} */ (/** @type {any} */ (this));
 
         // By default, do not add special tokens
         const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
@@ -787,6 +787,26 @@ export class TextGenerationPipeline extends (/** @type {new (_) => TextGeneratio
 }
 
 /**
+ * @typedef {Object} ZeroShotClassificationOutput
+ * @property {string} sequence The sequence for which this is the output.
+ * @property {string[]} labels The labels sorted by order of likelihood.
+ * @property {number[]} scores The probabilities for each of the labels.
+ * 
+ * @callback ZeroShotClassificationPipelineCallback Classify the sequence(s) given as inputs.
+ * @param {string|string[]} texts The sequence(s) to classify, will be truncated if the model input is too large.
+ * @param {string|string[]} candidate_labels The set of possible class labels to classify each sequence into.
+ * Can be a single label, a string of comma-separated labels, or a list of labels.
+ * @param {Object} options An optional object containing the following properties:
+ * @param {string} [options.hypothesis_template="This example is {}."] The template used to turn each
+ * candidate label into an NLI-style hypothesis. The candidate label will replace the {} placeholder.
+ * @param {boolean} [options.multi_label=false] Whether or not multiple candidate labels can be true.
+ * If `false`, the scores are normalized such that the sum of the label likelihoods for each sequence
+ * is 1. If `true`, the labels are considered independent and probabilities are normalized for each
+ * candidate by doing a softmax of the entailment score vs. the contradiction score.
+ * @returns {Promise<ZeroShotClassificationOutput|ZeroShotClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
+ */
+
+/**
  * NLI-based zero-shot classification pipeline using a `ModelForSequenceClassification`
  * trained on NLI (natural language inference) tasks. Equivalent of `text-classification`
  * pipelines, but these models don't require a hardcoded number of potential classes, they
@@ -818,8 +838,7 @@ export class TextGenerationPipeline extends (/** @type {new (_) => TextGeneratio
  * // }
  * ```
  */
-export class ZeroShotClassificationPipeline extends Pipeline {
-
+export class ZeroShotClassificationPipeline extends (/** @type {new (_) => ZeroShotClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new ZeroShotClassificationPipeline.
      * @param {Object} options An object containing the following properties:
@@ -832,7 +851,7 @@ export class ZeroShotClassificationPipeline extends Pipeline {
 
         // Use model config to get label2id mapping
         this.label2id = Object.fromEntries(
-            Object.entries(this.model.config.label2id).map(
+            Object.entries((/** @type {any} */(this).model).config.label2id).map(
                 ([k, v]) => [k.toLowerCase(), v]
             )
         );
@@ -849,77 +868,64 @@ export class ZeroShotClassificationPipeline extends Pipeline {
             this.contradiction_id = 0;
         }
     }
-    /**
-     * @param {any[]} texts
-     * @param {string[]} candidate_labels
-     * @param {Object} options Additional options:
-     * @param {string} [options.hypothesis_template="This example is {}."] The template used to turn each
-     * candidate label into an NLI-style hypothesis. The candidate label will replace the {} placeholder.
-     * @param {boolean} [options.multi_label=false] Whether or not multiple candidate labels can be true.
-     * If `false`, the scores are normalized such that the sum of the label likelihoods for each sequence
-     * is 1. If `true`, the labels are considered independent and probabilities are normalized for each
-     * candidate by doing a softmax of the entailment score vs. the contradiction score.
-     * @return {Promise<Object|Object[]>} The prediction(s), as a map (or list of maps) from label to score.
-     */
+
+    /** @type {ZeroShotClassificationPipelineCallback} */
     async _call(texts, candidate_labels, {
         hypothesis_template = "This example is {}.",
         multi_label = false,
     } = {}) {
+        const self = /** @type {ZeroShotClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
 
-        let isBatched = Array.isArray(texts);
-
+        const isBatched = Array.isArray(texts);
         if (!isBatched) {
-            texts = [texts];
+            texts = [/** @type {string} */ (texts)];
         }
         if (!Array.isArray(candidate_labels)) {
             candidate_labels = [candidate_labels];
         }
 
         // Insert labels into hypothesis template
-        let hypotheses = candidate_labels.map(
+        const hypotheses = candidate_labels.map(
             x => hypothesis_template.replace('{}', x)
         );
 
         // How to perform the softmax over the logits:
         //  - true:  softmax over the entailment vs. contradiction dim for each label independently
         //  - false: softmax the "entailment" logits over all candidate labels
-        let softmaxEach = multi_label || candidate_labels.length === 1;
+        const softmaxEach = multi_label || candidate_labels.length === 1;
 
-        let toReturn = [];
-        for (let premise of texts) {
-            let entails_logits = [];
+        /** @type {ZeroShotClassificationOutput[]} */
+        const toReturn = [];
+        for (const premise of texts) {
+            const entails_logits = [];
 
-            for (let hypothesis of hypotheses) {
-                let inputs = this.tokenizer(premise, {
+            for (const hypothesis of hypotheses) {
+                const inputs = self.tokenizer(premise, {
                     text_pair: hypothesis,
                     padding: true,
                     truncation: true,
                 })
-                let outputs = await this.model(inputs)
+                const outputs = await self.model(inputs)
 
                 if (softmaxEach) {
                     entails_logits.push([
-                        outputs.logits.data[this.contradiction_id],
-                        outputs.logits.data[this.entailment_id]
+                        outputs.logits.data[self.contradiction_id],
+                        outputs.logits.data[self.entailment_id]
                     ])
                 } else {
-                    entails_logits.push(outputs.logits.data[this.entailment_id])
+                    entails_logits.push(outputs.logits.data[self.entailment_id])
                 }
             }
 
-            let scores;
-            if (softmaxEach) {
-                scores = entails_logits.map(x => softmax(x)[1]);
-            } else {
-                scores = softmax(entails_logits);
-            }
+            /** @type {number[]} */
+            const scores = softmaxEach
+                ? entails_logits.map(x => softmax(x)[1])
+                : softmax(entails_logits);
 
             // Sort by scores (desc) and return scores with indices
-            let scores_sorted = scores
+            const scores_sorted = scores
                 .map((x, i) => [x, i])
-                .sort((a, b) => {
-                    return b[0] - a[0];
-                });
+                .sort((a, b) => (b[0] - a[0]));
 
             toReturn.push({
                 sequence: premise,
