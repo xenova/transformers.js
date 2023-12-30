@@ -429,7 +429,9 @@ export class QuestionAnsweringPipeline extends (/** @type {new (_) => QuestionAn
  * @param {string|string[]} texts One or several texts (or one list of prompts) with masked tokens.
  * @param {Object} options An optional object containing the following properties:
  * @param {number} [options.topk=5] When passed, overrides the number of predictions to return.
- * @returns {Promise<FillMaskOutput|FillMaskOutput[]>} A promise that resolves to an array or object containing the predicted tokens and scores.
+ * @returns {Promise<FillMaskOutput|FillMaskOutput[]>} An array of objects containing the score, predicted token, predicted token string,
+ * and the sequence with the predicted token filled in, or an array of such arrays (one for each input text).
+ * If only one input text is given, the output will be an array of objects.
  * @throws {Error} When the mask token is not found in the input text.
  */
 
@@ -502,6 +504,18 @@ export class FillMaskPipeline extends (/** @type {new (_) => FillMaskPipelineCal
     }
 }
 
+
+/**
+ * @typedef {Object} Text2TextGenerationSingle
+ * @property {string} generated_text The generated text.
+ * @typedef {Text2TextGenerationSingle[]} Text2TextGenerationOutput
+ * 
+ * @callback Text2TextGenerationPipelineCallback Generate the output text(s) using text(s) given as inputs.
+ * @param {string|string[]} texts Input text for the encoder.
+ * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model
+ * @returns {Promise<Text2TextGenerationOutput|Text2TextGenerationOutput[]>}
+ */
+
 /**
  * Text2TextGenerationPipeline class for generating text using a model that performs text-to-text generation tasks.
  * 
@@ -514,68 +528,54 @@ export class FillMaskPipeline extends (/** @type {new (_) => FillMaskPipelineCal
  * // [{ generated_text: "To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues." }]
  * ```
  */
-export class Text2TextGenerationPipeline extends Pipeline {
+export class Text2TextGenerationPipeline extends (/** @type {new (_) => Text2TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+    /** @type {'generated_text'} */
     _key = 'generated_text';
 
-    /**
-     * Fill the masked token in the text(s) given as inputs.
-     * @param {string|string[]} texts The text or array of texts to be processed.
-     * @param {Object} [options={}] Options for the fill-mask pipeline.
-     * @param {number} [options.topk=5] The number of top-k predictions to return.
-     * @returns {Promise<any>} An array of objects containing the score, predicted token, predicted token string,
-     * and the sequence with the predicted token filled in, or an array of such arrays (one for each input text).
-     * If only one input text is given, the output will be an array of objects.
-     */
+    /** @type {Text2TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
         if (!Array.isArray(texts)) {
             texts = [texts];
         }
 
+        const self = /** @type {Text2TextGenerationPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         // Add global prefix, if present
-        if (this.model.config.prefix) {
-            texts = texts.map(x => this.model.config.prefix + x)
+        if (self.model.config.prefix) {
+            texts = texts.map(x => self.model.config.prefix + x)
         }
 
         // Handle task specific params:
-        let task_specific_params = this.model.config.task_specific_params
-        if (task_specific_params && task_specific_params[this.task]) {
+        const task_specific_params = self.model.config.task_specific_params
+        if (task_specific_params && task_specific_params[self.task]) {
             // Add prefixes, if present
-            if (task_specific_params[this.task].prefix) {
-                texts = texts.map(x => task_specific_params[this.task].prefix + x)
+            if (task_specific_params[self.task].prefix) {
+                texts = texts.map(x => task_specific_params[self.task].prefix + x)
             }
 
             // TODO update generation config
         }
 
-        let tokenizer_options = {
+        const tokenizer_options = {
             padding: true,
             truncation: true,
         }
         let input_ids;
-        if (this instanceof TranslationPipeline && '_build_translation_inputs' in this.tokenizer) {
+        if (self instanceof TranslationPipeline && '_build_translation_inputs' in self.tokenizer) {
             // TODO: move to Translation pipeline?
             // Currently put here to avoid code duplication
             // @ts-ignore
-            input_ids = this.tokenizer._build_translation_inputs(texts, tokenizer_options, generate_kwargs).input_ids;
+            input_ids = self.tokenizer._build_translation_inputs(texts, tokenizer_options, generate_kwargs).input_ids;
 
         } else {
-            input_ids = this.tokenizer(texts, tokenizer_options).input_ids;
+            input_ids = self.tokenizer(texts, tokenizer_options).input_ids;
         }
 
-        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs);
+        const outputTokenIds = await self.model.generate(input_ids, generate_kwargs);
 
-        /**
-         * @type {any[]}
-         */
-        let toReturn = this.tokenizer.batch_decode(outputTokenIds, {
+        return self.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
-        });
-        if (this._key !== null) {
-            toReturn = toReturn.map(text => {
-                return (this._key === null) ? text : { [this._key]: text }
-            })
-        }
-        return toReturn
+        }).map(text => ({ [self._key]: text }));
     }
 }
 
