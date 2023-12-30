@@ -218,6 +218,22 @@ export class TextClassificationPipeline extends (/** @type {new (_) => TextClass
     }
 }
 
+/**
+ * @typedef {Object} TokenClassificationSingle
+ * @property {string} word The token/word classified. This is obtained by decoding the selected tokens.
+ * @property {number} score The corresponding probability for `entity`.
+ * @property {string} entity The entity predicted for that token/word.
+ * @property {number} index The index of the corresponding token in the sentence.
+ * @property {number} [start] The index of the start of the corresponding entity in the sentence.
+ * @property {number} [end] The index of the end of the corresponding entity in the sentence.
+ * @typedef {TokenClassificationSingle[]} TokenClassificationOutput
+ * 
+ * @callback TokenClassificationPipelineCallback Classify each token of the text(s) given as inputs.
+ * @param {string|string[]} texts One or several texts (or one list of texts) for token classification.
+ * @param {Object} options An optional object containing the following properties:
+ * @param {string[]} [options.ignore_labels] A list of labels to ignore.
+ * @returns {Promise<TokenClassificationOutput|TokenClassificationOutput[]>} A promise that resolves to the result.
+ */
 
 /**
  * Named Entity Recognition pipeline using any `ModelForTokenClassification`.
@@ -248,62 +264,52 @@ export class TextClassificationPipeline extends (/** @type {new (_) => TextClass
  * // ]
  * ```
  */
-export class TokenClassificationPipeline extends Pipeline {
-    /**
-     * Executes the token classification task.
-     * @param {any} texts The input texts to be classified.
-     * @param {Object} options An optional object containing the following properties:
-     * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted labels and scores.
-     */
+export class TokenClassificationPipeline extends (/** @type {new (_) => TokenClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+    /** @type {TokenClassificationPipelineCallback} */
     async _call(texts, {
-        ignore_labels = ['O'], // TODO init param?
+        ignore_labels = ['O'],
     } = {}) {
+        const self = /** @type {TokenClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
 
-        let isBatched = Array.isArray(texts);
-
-        if (!isBatched) {
-            texts = [texts];
-        }
-
-        let tokenizer = this.tokenizer;
+        const isBatched = Array.isArray(texts);
 
         // Run tokenization
-        let model_inputs = this.tokenizer(texts, {
+        const model_inputs = self.tokenizer(isBatched ? texts : [texts], {
             padding: true,
             truncation: true,
         });
 
         // Run model
-        let outputs = await this.model(model_inputs)
+        const outputs = await self.model(model_inputs)
 
-        let logits = outputs.logits;
-        let id2label = this.model.config.id2label;
+        const logits = outputs.logits;
+        const id2label = self.model.config.id2label;
 
-        let toReturn = [];
+        const toReturn = [];
         for (let i = 0; i < logits.dims[0]; ++i) {
-            let ids = model_inputs.input_ids[i];
-            let batch = logits[i];
+            const ids = model_inputs.input_ids[i];
+            const batch = logits[i];
 
             // List of tokens that aren't ignored
-            let tokens = [];
+            const tokens = [];
             for (let j = 0; j < batch.dims[0]; ++j) {
-                let tokenData = batch[j];
-                let topScoreIndex = max(tokenData.data)[1];
+                const tokenData = batch[j];
+                const topScoreIndex = max(tokenData.data)[1];
 
-                let entity = id2label ? id2label[topScoreIndex] : `LABEL_${topScoreIndex}`;
+                const entity = id2label ? id2label[topScoreIndex] : `LABEL_${topScoreIndex}`;
                 if (ignore_labels.includes(entity)) {
                     // We predicted a token that should be ignored. So, we skip it.
                     continue;
                 }
 
                 // TODO add option to keep special tokens?
-                let word = tokenizer.decode([ids[j].item()], { skip_special_tokens: true });
+                const word = self.tokenizer.decode([ids[j].item()], { skip_special_tokens: true });
                 if (word === '') {
                     // Was a special token. So, we skip it.
                     continue;
                 }
 
-                let scores = softmax(tokenData.data);
+                const scores = softmax(tokenData.data);
 
                 tokens.push({
                     entity: entity,
