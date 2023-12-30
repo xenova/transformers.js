@@ -430,6 +430,7 @@ export class QuestionAnsweringPipeline extends (/** @type {new (_) => QuestionAn
  * @param {Object} options An optional object containing the following properties:
  * @param {number} [options.topk=5] When passed, overrides the number of predictions to return.
  * @returns {Promise<FillMaskOutput|FillMaskOutput[]>} A promise that resolves to an array or object containing the predicted tokens and scores.
+ * @throws {Error} When the mask token is not found in the input text.
  */
 
 /**
@@ -524,7 +525,6 @@ export class Text2TextGenerationPipeline extends Pipeline {
      * @returns {Promise<any>} An array of objects containing the score, predicted token, predicted token string,
      * and the sequence with the predicted token filled in, or an array of such arrays (one for each input text).
      * If only one input text is given, the output will be an array of objects.
-     * @throws {Error} When the mask token is not found in the input text.
      */
     async _call(texts, generate_kwargs = {}) {
         if (!Array.isArray(texts)) {
