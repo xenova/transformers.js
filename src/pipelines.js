@@ -937,6 +937,14 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (_) => ZeroS
     }
 }
 
+/**
+ * @callback FeatureExtractionPipelineCallback Extract the features of the input(s).
+ * @param {string|string[]} texts One or several texts (or one list of texts) to get the features of.
+ * @param {Object} options An object containing the following properties:
+ * @param {string} [options.pooling="none"] The pooling method to use. Can be one of: "none", "mean".
+ * @param {boolean} [options.normalize=false] Whether or not to normalize the embeddings in the last dimension.
+ * @returns {Promise<Tensor>} The features computed by the model.
+ */
 
 /**
  * Feature extraction pipeline using no model head. This pipeline extracts the hidden
@@ -975,36 +983,30 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (_) => ZeroS
  * // }
  * ```
  */
-export class FeatureExtractionPipeline extends Pipeline {
+export class FeatureExtractionPipeline extends (/** @type {new (_) => FeatureExtractionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
 
-    /**
-     * Extract the features of the input(s).
-     * 
-     * @param {string|string[]} texts The input texts
-     * @param {Object} options Additional options:
-     * @param {string} [options.pooling="none"] The pooling method to use. Can be one of: "none", "mean".
-     * @param {boolean} [options.normalize=false] Whether or not to normalize the embeddings in the last dimension.
-     * @returns The features computed by the model.
-     */
+    /** @type {FeatureExtractionPipelineCallback} */
     async _call(texts, {
         pooling = 'none',
         normalize = false,
     } = {}) {
+        const self = /** @type {FeatureExtractionPipeline & Pipeline} */ (/** @type {any} */ (this));
 
         // Run tokenization
-        let model_inputs = this.tokenizer(texts, {
+        const model_inputs = self.tokenizer(texts, {
             padding: true,
             truncation: true,
         });
 
         // Run model
-        let outputs = await this.model(model_inputs)
+        const outputs = await self.model(model_inputs)
 
         // TODO: Provide warning to the user that they might be using model which was not exported
         // specifically for feature extraction
         // console.log(this.model.config)
         // console.log(outputs)
 
+        /** @type {Tensor} */
         let result = outputs.last_hidden_state ?? outputs.logits;
         if (pooling === 'none') {
             // Skip pooling
