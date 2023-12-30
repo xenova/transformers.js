@@ -416,6 +416,22 @@ export class QuestionAnsweringPipeline extends (/** @type {new (_) => QuestionAn
     }
 }
 
+
+/**
+ * @typedef {Object} FillMaskSingle
+ * @property {string} sequence The corresponding input with the mask token prediction.
+ * @property {number} score The corresponding probability.
+ * @property {number} token The predicted token id (to replace the masked one).
+ * @property {string} token_str The predicted token (to replace the masked one).
+ * @typedef {FillMaskSingle[]} FillMaskOutput
+ * 
+ * @callback FillMaskPipelineCallback Fill the masked token in the text(s) given as inputs.
+ * @param {string|string[]} texts One or several texts (or one list of prompts) with masked tokens.
+ * @param {Object} options An optional object containing the following properties:
+ * @param {number} [options.topk=5] When passed, overrides the number of predictions to return.
+ * @returns {Promise<FillMaskOutput|FillMaskOutput[]>} A promise that resolves to an array or object containing the predicted tokens and scores.
+ */
+
 /**
  * Masked language modeling prediction pipeline using any `ModelWithLMHead`.
  * 
@@ -439,51 +455,45 @@ export class QuestionAnsweringPipeline extends (/** @type {new (_) => QuestionAn
  * // [{ token_str: 'spiral', score: 0.6299987435340881, token: 14061, sequence: 'The Milky Way is a spiral galaxy.' }]
  * ```
  */
-export class FillMaskPipeline extends Pipeline {
-    /**
-     * Fill the masked token in the text(s) given as inputs.
-     * @param {any} texts The masked input texts.
-     * @param {Object} options An optional object containing the following properties:
-     * @param {number} [options.topk=5] The number of top predictions to be returned.
-     * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted tokens and scores.
-     */
+export class FillMaskPipeline extends (/** @type {new (_) => FillMaskPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+    /** @type {FillMaskPipelineCallback} */
     async _call(texts, {
         topk = 5
     } = {}) {
+        const self = /** @type {FillMaskPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         // Run tokenization
-        let model_inputs = this.tokenizer(texts, {
+        const model_inputs = self.tokenizer(texts, {
             padding: true,
             truncation: true,
         });
 
         // Run model
-        let outputs = await this.model(model_inputs)
+        const outputs = await self.model(model_inputs)
 
-        let tokenizer = this.tokenizer;
-
-        let toReturn = [];
+        const toReturn = [];
 
         for (let i = 0; i < model_inputs.input_ids.dims[0]; ++i) {
-            let ids = model_inputs.input_ids[i];
-            let mask_token_index = ids.indexOf(this.tokenizer.mask_token_id)
+            const ids = model_inputs.input_ids[i];
+            const mask_token_index = ids.indexOf(self.tokenizer.mask_token_id)
 
             if (mask_token_index === -1) {
-                throw Error(`Mask token (${tokenizer.mask_token}) not found in text.`)
+                throw Error(`Mask token (${self.tokenizer.mask_token}) not found in text.`)
             }
-            let logits = outputs.logits[i];
-            let itemLogits = logits[mask_token_index];
+            const logits = outputs.logits[i];
+            const itemLogits = logits[mask_token_index];
 
-            let scores = getTopItems(softmax(itemLogits.data), topk);
+            const scores = getTopItems(softmax(itemLogits.data), topk);
 
             toReturn.push(scores.map(x => {
-                let sequence = [...ids];
+                const sequence = [...ids];
                 sequence[mask_token_index] = x[0];
 
                 return {
                     score: x[1],
                     token: x[0],
-                    token_str: tokenizer.model.vocab[x[0]],
-                    sequence: tokenizer.decode(sequence, { skip_special_tokens: true }),
+                    token_str: self.tokenizer.model.vocab[x[0]],
+                    sequence: self.tokenizer.decode(sequence, { skip_special_tokens: true }),
                 }
             }));
         }
