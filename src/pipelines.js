@@ -329,13 +329,19 @@ export class TokenClassificationPipeline extends (/** @type {new (_) => TokenCla
 }
 
 /**
- * @typedef {object} QuestionAnsweringResult
- * @property {string} answer - The answer.
- * @property {number} score - The score.
- */
-
-/**
- * @typedef {Promise<QuestionAnsweringResult|QuestionAnsweringResult[]>} QuestionAnsweringReturnType
+ * @typedef {Object} QuestionAnsweringOutput
+ * @property {number} score The probability associated to the answer.
+ * @property {number} [start] The character start index of the answer (in the tokenized version of the input).
+ * @property {number} [end] The character end index of the answer (in the tokenized version of the input).
+ * @property {string} answer The answer to the question.
+ * 
+ * @callback QuestionAnsweringPipelineCallback
+ * @param {string|string[]} question One or several question(s) (must be used in conjunction with the `context` argument).
+ * @param {string|string[]} context One or several context(s) associated with the question(s) (must be used in conjunction with the `question` argument).
+ * @param {Object} options An optional object containing the following properties:
+ * @param {number} [options.topk=1] The number of top answer predictions to be returned.
+ * @returns {Promise<QuestionAnsweringOutput|QuestionAnsweringOutput[]>} A promise that resolves to an array or object
+ * containing the predicted answers and scores.
  */
 
 /**
@@ -354,52 +360,46 @@ export class TokenClassificationPipeline extends (/** @type {new (_) => TokenCla
  * // }
  * ```
  */
-export class QuestionAnsweringPipeline extends Pipeline {
-    /**
-     * Executes the question answering task.
-     * @param {string|string[]} question The question(s) to be answered.
-     * @param {string|string[]} context The context(s) where the answer(s) can be found.
-     * @param {Object} options An optional object containing the following properties:
-     * @param {number} [options.topk=1] The number of top answer predictions to be returned.
-     * @returns {QuestionAnsweringReturnType} A promise that resolves to an array or object
-     * containing the predicted answers and scores.
-     */
+export class QuestionAnsweringPipeline extends (/** @type {new (_) => QuestionAnsweringPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+    /** @type {QuestionAnsweringPipelineCallback} */
     async _call(question, context, {
         topk = 1
     } = {}) {
+        const self = /** @type {QuestionAnsweringPipeline & Pipeline} */ (/** @type {any} */ (this));
 
         // Run tokenization
-        let inputs = this.tokenizer(question, {
+        const inputs = self.tokenizer(question, {
             text_pair: context,
             padding: true,
             truncation: true,
         });
 
-        let output = await this.model(inputs);
+        const output = await self.model(inputs);
 
-        let toReturn = [];
+        /** @type {QuestionAnsweringOutput[]} */
+        const toReturn = [];
         for (let j = 0; j < output.start_logits.dims[0]; ++j) {
-            let ids = inputs.input_ids[j];
-            let sepIndex = ids.indexOf(this.tokenizer.sep_token_id);
+            const ids = inputs.input_ids[j];
+            const sepIndex = ids.indexOf(self.tokenizer.sep_token_id);
 
-            let s1 = Array.from(softmax(output.start_logits[j].data))
+            const s1 = Array.from(softmax(output.start_logits[j].data))
                 .map((x, i) => [x, i])
                 .filter(x => x[1] > sepIndex);
-            let e1 = Array.from(softmax(output.end_logits[j].data))
+            const e1 = Array.from(softmax(output.end_logits[j].data))
                 .map((x, i) => [x, i])
                 .filter(x => x[1] > sepIndex);
 
-            let options = product(s1, e1)
+            const options = product(s1, e1)
                 .filter(x => x[0][1] <= x[1][1])
                 .map(x => [x[0][1], x[1][1], x[0][0] * x[1][0]])
                 .sort((a, b) => b[2] - a[2]);
 
             for (let k = 0; k < Math.min(options.length, topk); ++k) {
-                let [start, end, score] = options[k];
+                const [start, end, score] = options[k];
 
-                let answer_tokens = [...ids].slice(start, end + 1)
+                const answer_tokens = [...ids].slice(start, end + 1)
 
-                let answer = this.tokenizer.decode(answer_tokens, {
+                const answer = self.tokenizer.decode(answer_tokens, {
                     skip_special_tokens: true,
                 });
 
@@ -413,7 +413,6 @@ export class QuestionAnsweringPipeline extends Pipeline {
 
         // Mimic HF's return type based on topk
         return (topk === 1) ? toReturn[0] : toReturn;
-
     }
 }
 
