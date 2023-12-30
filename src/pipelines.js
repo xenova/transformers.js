@@ -561,7 +561,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (_) => Text2Tex
             truncation: true,
         }
         let input_ids;
-        if (self instanceof TranslationPipeline && '_build_translation_inputs' in self.tokenizer) {
+        if (self instanceof TranslationPipeline && '_build_translation_inputs' in /** @type {Pipeline} */ (self).tokenizer) {
             // TODO: move to Translation pipeline?
             // Currently put here to avoid code duplication
             // @ts-ignore
@@ -579,6 +579,17 @@ export class Text2TextGenerationPipeline extends (/** @type {new (_) => Text2Tex
     }
 }
 
+
+/**
+ * @typedef {Object} SummarizationGenerationSingle
+ * @property {string} summary_text The summary text.
+ * @typedef {SummarizationGenerationSingle[]} SummarizationGenerationOutput
+ * 
+ * @callback SummarizationGenerationPipelineCallback Summarize the text(s) given as inputs.
+ * @param {string|string[]} texts One or several articles (or one list of articles) to summarize.
+ * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model
+ * @returns {Promise<SummarizationGenerationOutput|SummarizationGenerationOutput[]>}
+ */
 
 /**
  * A pipeline for summarization tasks, inheriting from Text2TextGenerationPipeline.
@@ -601,9 +612,22 @@ export class Text2TextGenerationPipeline extends (/** @type {new (_) => Text2Tex
  * // [{ summary_text: ' The Eiffel Tower is about the same height as an 81-storey building and the tallest structure in Paris. It is the second tallest free-standing structure in France after the Millau Viaduct.' }]
  * ```
  */
-export class SummarizationPipeline extends Text2TextGenerationPipeline {
+export class SummarizationPipeline extends (/** @type {new (_) => SummarizationGenerationPipelineCallback} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
+    /** @type {'summary_text'} */
     _key = 'summary_text';
 }
+
+
+/**
+ * @typedef {Object} TranslationGenerationSingle
+ * @property {string} translation_text The translated text.
+ * @typedef {TranslationGenerationSingle[]} TranslationGenerationOutput
+ * 
+ * @callback TranslationGenerationPipelineCallback Translate the text(s) given as inputs.
+ * @param {string|string[]} texts Texts to be translated.
+ * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model
+ * @returns {Promise<TranslationGenerationOutput|TranslationGenerationOutput[]>}
+ */
 
 /**
  * Translates text from one language to another.
@@ -650,7 +674,8 @@ export class SummarizationPipeline extends Text2TextGenerationPipeline {
  * // [{ translation_text: 'Le chef des Nations affirme qu 'il n 'y a military solution in Syria.' }]
  * ```
  */
-export class TranslationPipeline extends Text2TextGenerationPipeline {
+export class TranslationPipeline extends (/** @type {new (_) => TranslationGenerationPipelineCallback} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
+    /** @type {'translation_text'} */
     _key = 'translation_text';
 }
 
