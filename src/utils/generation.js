@@ -671,7 +671,7 @@ export const GenerationConfig = /** @type {any} */ (class {
 export class Sampler extends Callable {
     /**
      * Creates a new Sampler object with the specified generation config.
-     * @param {GenerationConfig} generation_config The generation config.
+     * @param {GenerationConfigType} generation_config The generation config.
      */
     constructor(generation_config) {
         super();
@@ -746,7 +746,7 @@ export class Sampler extends Callable {
 
     /**
      * Returns a Sampler object based on the specified options.
-     * @param {GenerationConfig} generation_config An object containing options for the sampler.
+     * @param {GenerationConfigType} generation_config An object containing options for the sampler.
      * @returns {Sampler} A Sampler object.
      */
     static getSampler(generation_config) {
