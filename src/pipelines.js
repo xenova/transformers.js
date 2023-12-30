@@ -512,7 +512,7 @@ export class FillMaskPipeline extends (/** @type {new (_) => FillMaskPipelineCal
  * 
  * @callback Text2TextGenerationPipelineCallback Generate the output text(s) using text(s) given as inputs.
  * @param {string|string[]} texts Input text for the encoder.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model
+ * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<Text2TextGenerationOutput|Text2TextGenerationOutput[]>}
  */
 
@@ -587,7 +587,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (_) => Text2Tex
  * 
  * @callback SummarizationGenerationPipelineCallback Summarize the text(s) given as inputs.
  * @param {string|string[]} texts One or several articles (or one list of articles) to summarize.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model
+ * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<SummarizationGenerationOutput|SummarizationGenerationOutput[]>}
  */
 
@@ -625,7 +625,7 @@ export class SummarizationPipeline extends (/** @type {new (_) => SummarizationG
  * 
  * @callback TranslationGenerationPipelineCallback Translate the text(s) given as inputs.
  * @param {string|string[]} texts Texts to be translated.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model
+ * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TranslationGenerationOutput|TranslationGenerationOutput[]>}
  */
 
@@ -679,6 +679,22 @@ export class TranslationPipeline extends (/** @type {new (_) => TranslationGener
     _key = 'translation_text';
 }
 
+
+/**
+ * @typedef {Object} TextGenerationSingle
+ * @property {string} generated_text The generated text.
+ * @typedef {TextGenerationSingle[]} TextGenerationOutput
+ * 
+ * @typedef {Object} TextGenerationSpecificParams Parameters specific to text-generation pipelines.
+ * @property {boolean} [add_special_tokens] Whether or not to add special tokens when tokenizing the sequences.
+ * @typedef {import('./utils/generation.js').GenerationConfigType & TextGenerationSpecificParams} TextGenerationConfig
+ * 
+ * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
+ * @param {string|string[]} texts One or several prompts (or one list of prompts) to complete.
+ * @param {TextGenerationConfig} options Additional keyword arguments to pass along to the generate method of the model.
+ * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} A promise that resolves to an array or object containing the generated texts.
+ */
+
 /**
  * Language generation pipeline using any `ModelWithLMHead` or `ModelForCausalLM`.
  * This pipeline predicts the words that will follow a specified text prompt.
@@ -729,39 +745,35 @@ export class TranslationPipeline extends (/** @type {new (_) => TranslationGener
  * // }]
  * ```
  */
-export class TextGenerationPipeline extends Pipeline {
-    /**
-     * Generates text based on an input prompt.
-     * @param {any} texts The input prompt or prompts to generate text from.
-     * @param {Object} [generate_kwargs={}] Additional arguments for text generation.
-     * @returns {Promise<any>} The generated text or texts.
-     */
+export class TextGenerationPipeline extends (/** @type {new (_) => TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+    /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
-        let stringInput = typeof texts === 'string' || texts instanceof String;
-        if (stringInput) {
-            texts = [texts];
+        const isBatched = Array.isArray(texts);
+        if (!isBatched) {
+            texts = [/** @type {string}*/ (texts)];
         }
+
+        const self = /** @type {TextGenerationPipeline & Pipeline} */ (/** @type {any} */ (this));
 
         // By default, do not add special tokens
         const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
 
-        this.tokenizer.padding_side = 'left';
-        let inputs = this.tokenizer(texts, {
+        self.tokenizer.padding_side = 'left';
+        const { input_ids, attention_mask } = self.tokenizer(texts, {
             add_special_tokens,
             padding: true,
             truncation: true,
         });
 
-        let input_ids = inputs.input_ids;
-        let attention_mask = inputs.attention_mask;
-
-        let outputTokenIds = await this.model.generate(input_ids, generate_kwargs, null, {
+        const outputTokenIds = await self.model.generate(input_ids, generate_kwargs, null, {
             inputs_attention_mask: attention_mask
         });
 
-        const decoded = this.tokenizer.batch_decode(outputTokenIds, {
+        const decoded = self.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
+
+        /** @type {TextGenerationOutput[]} */
         const toReturn = Array.from({ length: texts.length }, _ => []);
         for (let i = 0; i < decoded.length; ++i) {
             const textIndex = Math.floor(i / outputTokenIds.length * texts.length);
@@ -770,7 +782,7 @@ export class TextGenerationPipeline extends Pipeline {
                 generated_text: decoded[i]
             });
         }
-        return (stringInput && toReturn.length === 1) ? toReturn[0] : toReturn;
+        return (!isBatched && toReturn.length === 1) ? toReturn[0] : toReturn;
     }
 }
 
