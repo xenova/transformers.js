@@ -1945,6 +1945,21 @@ export class ImageSegmentationPipeline extends (/** @type {new (_) => ImageSegme
 }
 
 /**
+ * @typedef {Object} ZeroShotImageClassificationOutput
+ * @property {string} label The label identified by the model. It is one of the suggested `candidate_label`.
+ * @property {number} score The score attributed by the model for that label (between 0 and 1).
+ * 
+ * @callback ZeroShotImageClassificationPipelineCallback Assign labels to the image(s) passed as inputs.
+ * @param {ImagePipelineInputs} images The input images.
+ * @param {string[]} candidate_labels The candidate labels for this image.
+ * @param {Object} options An optional object containing the following properties:
+ * @param {string} [options.hypothesis_template="This is a photo of {}"] The sentence used in conjunction with `candidate_labels`
+ * to attempt the image classification by replacing the placeholder with the candidate_labels.
+ * Then likelihood is estimated by using `logits_per_image`.
+ * @returns {Promise<ZeroShotImageClassificationOutput[]|ZeroShotImageClassificationOutput[][]>} A promise that resolves to an array of objects containing the predicted labels and scores.
+ */
+
+/**
  * Zero shot image classification pipeline. This pipeline predicts the class of
  * an image when you provide an image and a set of `candidate_labels`.
  * 
@@ -1960,8 +1975,7 @@ export class ImageSegmentationPipeline extends (/** @type {new (_) => ImageSegme
  * // ]
  * ```
  */
-export class ZeroShotImageClassificationPipeline extends Pipeline {
-
+export class ZeroShotImageClassificationPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotImageClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new ZeroShotImageClassificationPipeline.
      * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -1970,17 +1984,12 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Classify the input images with candidate labels using a zero-shot approach.
-     * @param {ImagePipelineInputs} images The input images.
-     * @param {string[]} candidate_labels The candidate labels.
-     * @param {Object} options The options for the classification.
-     * @param {string} [options.hypothesis_template] The hypothesis template to use for zero-shot classification. Default: "This is a photo of {}".
-     * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
-     */
+    /** @type {ZeroShotImageClassificationPipelineCallback} */
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
+        const self = /** @type {ZeroShotImageClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
 
@@ -1990,19 +1999,19 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
         );
 
         // Run tokenization
-        const text_inputs = this.tokenizer(texts, {
-            padding: this.model.config.model_type === 'siglip' ? 'max_length' : true,
+        const text_inputs = self.tokenizer(texts, {
+            padding: self.model.config.model_type === 'siglip' ? 'max_length' : true,
             truncation: true,
         });
 
         // Run processor
-        const { pixel_values } = await this.processor(preparedImages);
+        const { pixel_values } = await self.processor(preparedImages);
 
         // Run model with both text and pixel inputs
-        const output = await this.model({ ...text_inputs, pixel_values });
+        const output = await self.model({ ...text_inputs, pixel_values });
 
         const function_to_apply =
-            this.model.config.model_type === 'siglip'
+            self.model.config.model_type === 'siglip'
                 ? batch => batch.sigmoid().data
                 : batch => softmax(batch.data);
 
@@ -2728,7 +2737,6 @@ const SUPPORTED_TASKS = Object.freeze({
     },
 
     "zero-shot-image-classification": {
-        // no tokenizer
         "tokenizer": AutoTokenizer,
         "pipeline": ZeroShotImageClassificationPipeline,
         "model": AutoModel,
