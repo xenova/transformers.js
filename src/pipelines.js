@@ -1643,6 +1643,17 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 }
 
 /**
+ * @typedef {Object} ImageToTextGenerationSingle
+ * @property {string} generated_text The generated text.
+ * @typedef {ImageToTextGenerationSingle[]} ImageToTextGenerationOutput
+ * 
+ * @callback ImageToTextGenerationPipelineCallback Assign labels to the image(s) passed as inputs.
+ * @param {ImagePipelineInputs} texts The images to be captioned.
+ * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @returns {Promise<ImageToTextGenerationOutput|ImageToTextGenerationOutput[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
+ */
+
+/**
  * Image To Text pipeline using a `AutoModelForVision2Seq`. This pipeline predicts a caption for a given image.
  * 
  * **Example:** Generate a caption for an image w/ `Xenova/vit-gpt2-image-captioning`.
@@ -1661,7 +1672,8 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * // [{ generated_text: 'Mr. Brown commented icily.' }]
  * ```
  */
-export class ImageToTextPipeline extends Pipeline {
+export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => AutomaticSpeechRecognitionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
     /**
      * Create a new ImageToTextPipeline.
      * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -1670,27 +1682,22 @@ export class ImageToTextPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Assign labels to the image(s) passed as inputs.
-     * @param {ImagePipelineInputs} images The images to be captioned.
-     * @param {Object} [generate_kwargs={}] Optional generation arguments.
-     * @returns {Promise<Object|Object[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
-     */
+    /** @type {ImageToTextGenerationPipelineCallback} */
     async _call(images, generate_kwargs = {}) {
+        const self = /** @type {ImageToTextPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
 
-        const { pixel_values } = await this.processor(preparedImages);
+        const { pixel_values } = await self.processor(preparedImages);
 
         const toReturn = [];
         for (const batch of pixel_values) {
             batch.dims = [1, ...batch.dims]
-            const output = await this.model.generate(batch, generate_kwargs);
-            const decoded = this.tokenizer.batch_decode(output, {
+            const output = await self.model.generate(batch, generate_kwargs);
+            const decoded = self.tokenizer.batch_decode(output, {
                 skip_special_tokens: true,
-            }).map(x => {
-                return { generated_text: x.trim() }
-            })
+            }).map(x => ({ generated_text: x.trim() }))
             toReturn.push(decoded);
         }
 
