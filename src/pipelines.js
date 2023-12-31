@@ -2144,11 +2144,30 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
     }
 }
 
+
+/**
+ * @typedef {Object} ZeroShotObjectDetectionOutput
+ * @property {string} label Text query corresponding to the found object.
+ * @property {number} score Score corresponding to the object (between 0 and 1).
+ * @property {BoundingBox} box Bounding box of the detected object in image's original size, or as a percentage if `percentage` is set to true.
+ * 
+ * @callback ZeroShotObjectDetectionPipelineCallback Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
+ * @param {ImagePipelineInputs} images The input images.
+ * @param {string[]} candidate_labels What the model should recognize in the image.
+ * @param {Object} options An optional object containing the following properties:
+ * @param {number} [options.threshold=0.1] The probability necessary to make a prediction.
+ * @param {number} [options.topk=null] The number of top predictions that will be returned by the pipeline.
+ * If the provided number is `null` or higher than the number of predictions available, it will default
+ * to the number of predictions.
+ * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
+ * @returns {Promise<ZeroShotObjectDetectionOutput[]|ZeroShotObjectDetectionOutput[][]>} A promise that resolves to an array of objects containing the predicted labels, scores, and bounding boxes.
+ */
+
 /**
  * Zero-shot object detection pipeline. This pipeline predicts bounding boxes of
  * objects when you provide an image and a set of `candidate_labels`.
  * 
- * **Example:** Zero-shot object detection w/ `Xenova/clip-vit-base-patch32`.
+ * **Example:** Zero-shot object detection w/ `Xenova/owlvit-base-patch32`.
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/astronaut.png';
  * let candidate_labels = ['human face', 'rocket', 'helmet', 'american flag'];
@@ -2178,7 +2197,7 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * // ]
  * ```
  * 
- * **Example:** Zero-shot object detection w/ `Xenova/clip-vit-base-patch32` (returning top 4 matches and setting a threshold).
+ * **Example:** Zero-shot object detection w/ `Xenova/owlvit-base-patch32` (returning top 4 matches and setting a threshold).
  * ```javascript
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png';
  * let candidate_labels = ['hat', 'book', 'sunglasses', 'camera'];
@@ -2208,7 +2227,7 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * // ]
  * ```
  */
-export class ZeroShotObjectDetectionPipeline extends Pipeline {
+export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotObjectDetectionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
 
     /**
      * Create a new ZeroShotObjectDetectionPipeline.
@@ -2218,34 +2237,25 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
-     * @param {ImagePipelineInputs} images The input images.
-     * @param {string[]} candidate_labels What the model should recognize in the image.
-     * @param {Object} options The options for the classification.
-     * @param {number} [options.threshold] The probability necessary to make a prediction.
-     * @param {number} [options.topk] The number of top predictions that will be returned by the pipeline.
-     * If the provided number is `null` or higher than the number of predictions available, it will default
-     * to the number of predictions.
-     * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
-     * @returns {Promise<any>} An array of classifications for each input image or a single classification object if only one input image is provided.
-     */
+    /** @type {ZeroShotObjectDetectionPipelineCallback} */
     async _call(images, candidate_labels, {
         threshold = 0.1,
         topk = null,
         percentage = false,
     } = {}) {
+        const self = /** @type {ZeroShotObjectDetectionPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
 
         // Run tokenization
-        const text_inputs = this.tokenizer(candidate_labels, {
+        const text_inputs = self.tokenizer(candidate_labels, {
             padding: true,
             truncation: true,
         });
 
         // Run processor
-        const model_inputs = await this.processor(preparedImages);
+        const model_inputs = await self.processor(preparedImages);
 
         // Since non-maximum suppression is performed for exporting, we need to
         // process each image separately. For more information, see:
@@ -2257,10 +2267,10 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
             const pixel_values = model_inputs.pixel_values[i].unsqueeze_(0);
 
             // Run model with both text and pixel inputs
-            const output = await this.model({ ...text_inputs, pixel_values });
+            const output = await self.model({ ...text_inputs, pixel_values });
 
             // @ts-ignore
-            const processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSize, true)[0];
+            const processed = self.processor.feature_extractor.post_process_object_detection(output, threshold, imageSize, true)[0];
             let result = processed.boxes.map((box, i) => ({
                 score: processed.scores[i],
                 label: candidate_labels[processed.classes[i]],
