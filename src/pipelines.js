@@ -151,6 +151,37 @@ export class Pipeline extends Callable {
 }
 
 /**
+ * @typedef {Object} ModelTokenizerConstructorArgs
+ * @property {string} task The task of the pipeline. Useful for specifying subtasks.
+ * @property {PreTrainedModel} model The model to use.
+ * @property {PreTrainedTokenizer} tokenizer The tokenizer to use.
+ * 
+ * @typedef {ModelTokenizerConstructorArgs} TextPipelineConstructorArgs An object used to instantiate a text-based pipeline.
+ */
+
+/**
+ * @typedef {Object} ModelProcessorConstructorArgs
+ * @property {string} task The task of the pipeline. Useful for specifying subtasks.
+ * @property {PreTrainedModel} model The model to use.
+ * @property {Processor} processor The processor to use.
+ * 
+ * @typedef {ModelProcessorConstructorArgs} AudioPipelineConstructorArgs An object used to instantiate an audio-based pipeline.
+ * @typedef {ModelProcessorConstructorArgs} ImagePipelineConstructorArgs An object used to instantiate an image-based pipeline.
+ */
+
+
+/**
+ * @typedef {Object} ModelTokenizerProcessorConstructorArgs
+ * @property {string} task The task of the pipeline. Useful for specifying subtasks.
+ * @property {PreTrainedModel} model The model to use.
+ * @property {PreTrainedTokenizer} tokenizer The tokenizer to use.
+ * @property {Processor} processor The processor to use.
+ * 
+ * @typedef {ModelTokenizerProcessorConstructorArgs} TextAudioPipelineConstructorArgs An object used to instantiate a text- and audio-based pipeline.
+ * @typedef {ModelTokenizerProcessorConstructorArgs} TextImagePipelineConstructorArgs An object used to instantiate a text- and image-based pipeline.
+ */
+
+/**
  * @typedef {Object} TextClassificationSingle
  * @property {string} label The label predicted.
  * @property {number} score The corresponding probability.
@@ -200,7 +231,16 @@ export class Pipeline extends Callable {
  * // ]
  * ```
  */
-export class TextClassificationPipeline extends (/** @type {new (_) => TextClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class TextClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
+    /**
+     * Create a new TextClassificationPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
+
     /** @type {TextClassificationPipelineCallback} */
     async _call(texts, {
         topk = 1
@@ -291,7 +331,16 @@ export class TextClassificationPipeline extends (/** @type {new (_) => TextClass
  * // ]
  * ```
  */
-export class TokenClassificationPipeline extends (/** @type {new (_) => TokenClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class TokenClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TokenClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
+    /**
+     * Create a new TokenClassificationPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
+
     /** @type {TokenClassificationPipelineCallback} */
     async _call(texts, {
         ignore_labels = ['O'],
@@ -387,7 +436,16 @@ export class TokenClassificationPipeline extends (/** @type {new (_) => TokenCla
  * // }
  * ```
  */
-export class QuestionAnsweringPipeline extends (/** @type {new (_) => QuestionAnsweringPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => QuestionAnsweringPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
+    /**
+     * Create a new QuestionAnsweringPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
+
     /** @type {QuestionAnsweringPipelineCallback} */
     async _call(question, context, {
         topk = 1
@@ -485,7 +543,16 @@ export class QuestionAnsweringPipeline extends (/** @type {new (_) => QuestionAn
  * // [{ token_str: 'spiral', score: 0.6299987435340881, token: 14061, sequence: 'The Milky Way is a spiral galaxy.' }]
  * ```
  */
-export class FillMaskPipeline extends (/** @type {new (_) => FillMaskPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class FillMaskPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FillMaskPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
+    /**
+     * Create a new FillMaskPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
+
     /** @type {FillMaskPipelineCallback} */
     async _call(texts, {
         topk = 5
@@ -555,9 +622,17 @@ export class FillMaskPipeline extends (/** @type {new (_) => FillMaskPipelineCal
  * // [{ generated_text: "To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues." }]
  * ```
  */
-export class Text2TextGenerationPipeline extends (/** @type {new (_) => Text2TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class Text2TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => Text2TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /** @type {'generated_text'} */
     _key = 'generated_text';
+
+    /**
+     * Create a new Text2TextGenerationPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
 
     /** @type {Text2TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
@@ -639,9 +714,17 @@ export class Text2TextGenerationPipeline extends (/** @type {new (_) => Text2Tex
  * // [{ summary_text: ' The Eiffel Tower is about the same height as an 81-storey building and the tallest structure in Paris. It is the second tallest free-standing structure in France after the Millau Viaduct.' }]
  * ```
  */
-export class SummarizationPipeline extends (/** @type {new (_) => SummarizationGenerationPipelineCallback} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
+export class SummarizationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => SummarizationGenerationPipelineCallback} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
     /** @type {'summary_text'} */
     _key = 'summary_text';
+
+    /**
+     * Create a new SummarizationPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
 }
 
 
@@ -701,9 +784,17 @@ export class SummarizationPipeline extends (/** @type {new (_) => SummarizationG
  * // [{ translation_text: 'Le chef des Nations affirme qu 'il n 'y a military solution in Syria.' }]
  * ```
  */
-export class TranslationPipeline extends (/** @type {new (_) => TranslationGenerationPipelineCallback} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
+export class TranslationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TranslationGenerationPipelineCallback} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
     /** @type {'translation_text'} */
     _key = 'translation_text';
+
+    /**
+     * Create a new TranslationPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
 }
 
 
@@ -772,7 +863,16 @@ export class TranslationPipeline extends (/** @type {new (_) => TranslationGener
  * // }]
  * ```
  */
-export class TextGenerationPipeline extends (/** @type {new (_) => TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
+    /**
+     * Create a new TextGenerationPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
+
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
         const self = /** @type {TextGenerationPipeline & Pipeline} */ (/** @type {any} */ (this));
@@ -865,13 +965,10 @@ export class TextGenerationPipeline extends (/** @type {new (_) => TextGeneratio
  * // }
  * ```
  */
-export class ZeroShotClassificationPipeline extends (/** @type {new (_) => ZeroShotClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ZeroShotClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => ZeroShotClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new ZeroShotClassificationPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -1010,7 +1107,14 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (_) => ZeroS
  * // }
  * ```
  */
-export class FeatureExtractionPipeline extends (/** @type {new (_) => FeatureExtractionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class FeatureExtractionPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FeatureExtractionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+    /**
+     * Create a new FeatureExtractionPipeline.
+     * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
 
     /** @type {FeatureExtractionPipelineCallback} */
     async _call(texts, {
@@ -1104,13 +1208,11 @@ export class FeatureExtractionPipeline extends (/** @type {new (_) => FeatureExt
  * // ]
  * ```
  */
-export class AudioClassificationPipeline extends (/** @type {new (_) => AudioClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class AudioClassificationPipeline extends (/** @type {new (options: AudioPipelineConstructorArgs) => AudioClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
     /**
      * Create a new AudioClassificationPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {AudioPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -1187,15 +1289,11 @@ export class AudioClassificationPipeline extends (/** @type {new (_) => AudioCla
  * // ]
  * ```
  */
-export class ZeroShotAudioClassificationPipeline extends (/** @type {new (_) => ZeroShotAudioClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ZeroShotAudioClassificationPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => ZeroShotAudioClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
 
     /**
      * Create a new ZeroShotAudioClassificationPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {TextAudioPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -1355,15 +1453,11 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (_) => 
  * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
  */
-export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (_) => AutomaticSpeechRecognitionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => AutomaticSpeechRecognitionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
 
     /**
      * Create a new AutomaticSpeechRecognitionPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {TextAudioPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -1570,11 +1664,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (_) => A
 export class ImageToTextPipeline extends Pipeline {
     /**
      * Create a new ImageToTextPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -1651,10 +1741,7 @@ export class ImageToTextPipeline extends Pipeline {
 export class ImageClassificationPipeline extends Pipeline {
     /**
      * Create a new ImageClassificationPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -1735,10 +1822,7 @@ export class ImageClassificationPipeline extends Pipeline {
 export class ImageSegmentationPipeline extends (/** @type {new (_) => ImageSegmentationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new ImageSegmentationPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -1866,11 +1950,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 
     /**
      * Create a new ZeroShotImageClassificationPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -1956,10 +2036,7 @@ export class ZeroShotImageClassificationPipeline extends Pipeline {
 export class ObjectDetectionPipeline extends Pipeline {
     /**
      * Create a new ObjectDetectionPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -2077,11 +2154,7 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
 
     /**
      * Create a new ZeroShotObjectDetectionPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -2163,11 +2236,7 @@ export class ZeroShotObjectDetectionPipeline extends Pipeline {
 export class DocumentQuestionAnsweringPipeline extends Pipeline {
     /**
      * Create a new DocumentQuestionAnsweringPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
-     * @param {Processor} [options.processor] The processor to use.
+     * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -2218,6 +2287,14 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
     }
 }
 
+
+/**
+ * @typedef {Object} VocoderOptions
+ * @property {PreTrainedModel} [vocoder] The vocoder to use. If not provided, use the default HifiGan vocoder.
+ * 
+ * @typedef {TextAudioPipelineConstructorArgs & VocoderOptions} TextToAudioPipelineConstructorArgs
+ */
+
 /**
  * Text-to-audio generation pipeline using any `AutoModelForTextToWaveform` or `AutoModelForTextToSpectrogram`.
  * This pipeline generates an audio file from an input text and optional other conditional inputs.
@@ -2258,12 +2335,7 @@ export class TextToAudioPipeline extends Pipeline {
 
     /**
      * Create a new TextToAudioPipeline.
-     * @param {Object} options An object containing the following properties:
-     * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer] The tokenizer to use.
-     * @param {Processor} [options.processor] The processor to use.
-     * @param {PreTrainedModel} [options.vocoder] The vocoder to use.
+     * @param {TextToAudioPipelineConstructorArgs} options An object used to instantiate the pipeline.
      */
     constructor(options) {
         super(options);
@@ -2371,6 +2443,14 @@ export class TextToAudioPipeline extends Pipeline {
  */
 export class ImageToImagePipeline extends Pipeline {
     /**
+     * Create a new ImageToImagePipeline.
+     * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
+
+    /**
      * Transform the image(s) passed as inputs.
      * @param {ImagePipelineInputs} images The images to transform.
      * @returns {Promise<any>} An image or a list of images containing result(s).
@@ -2415,6 +2495,14 @@ export class ImageToImagePipeline extends Pipeline {
  * ```
  */
 export class DepthEstimationPipeline extends Pipeline {
+    /**
+     * Create a new DepthEstimationPipeline.
+     * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
+
     /**
      * Predicts the depth for the image(s) passed as inputs.
      * @param {ImagePipelineInputs} images The images to compute depth for.
