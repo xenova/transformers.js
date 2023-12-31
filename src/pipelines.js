@@ -2287,6 +2287,18 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
 }
 
 /**
+ * @typedef {Object} DocumentQuestionAnsweringSingle
+ * @property {string} answer The generated text.
+ * @typedef {DocumentQuestionAnsweringSingle[]} DocumentQuestionAnsweringOutput
+ * 
+ * @callback DocumentQuestionAnsweringPipelineCallback Answer the question given as input by using the document.
+ * @param {ImageInput} image The image of the document to use.
+ * @param {string} question A question to ask of the document.
+ * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @returns {Promise<DocumentQuestionAnsweringOutput|DocumentQuestionAnsweringOutput[]>} A Promise that resolves to an object (or array of objects) containing the answer(s).
+ */
+
+/**
  * Document Question Answering pipeline using any `AutoModelForDocumentQuestionAnswering`.
  * The inputs/outputs are similar to the (extractive) question answering pipeline; however,
  * the pipeline takes an image (and optional OCR'd words/boxes) as input instead of text context.
@@ -2301,7 +2313,8 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * // [{ answer: 'us-001' }]
  * ```
  */
-export class DocumentQuestionAnsweringPipeline extends Pipeline {
+export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => DocumentQuestionAnsweringPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
     /**
      * Create a new DocumentQuestionAnsweringPipeline.
      * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2310,40 +2323,36 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Answer the question given as input by using the document.
-     * @param {ImageInput} image The image of the document to use.
-     * @param {string} question A question to ask of the document.
-     * @param {Object} [generate_kwargs={}] Optional generation arguments.
-     * @returns {Promise<Object|Object[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
-     */
+    /** @type {DocumentQuestionAnsweringPipelineCallback} */
     async _call(image, question, generate_kwargs = {}) {
+        const self = /** @type {DocumentQuestionAnsweringPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         // NOTE: For now, we only support a batch size of 1
 
         // Preprocess image
         const preparedImage = (await prepareImages(image))[0];
-        const { pixel_values } = await this.processor(preparedImage);
+        const { pixel_values } = await self.processor(preparedImage);
 
         // Run tokenization
         const task_prompt = `<s_docvqa><s_question>${question}</s_question><s_answer>`;
-        const decoder_input_ids = this.tokenizer(task_prompt, {
+        const decoder_input_ids = self.tokenizer(task_prompt, {
             add_special_tokens: false,
             padding: true,
             truncation: true,
         }).input_ids;
 
         // Run model
-        const output = await this.model.generate(
+        const output = await self.model.generate(
             pixel_values,
             {
                 ...generate_kwargs,
                 decoder_input_ids,
-                max_length: this.model.config.decoder.max_position_embeddings,
+                max_length: self.model.config.decoder.max_position_embeddings,
             }
         );
 
         // Decode output
-        const decoded = this.tokenizer.batch_decode(output)[0];
+        const decoded = self.tokenizer.batch_decode(output)[0];
 
         // Parse answer
         const match = decoded.match(/<s_answer>(.*?)<\/s_answer>/);
@@ -2368,7 +2377,7 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
  * This pipeline generates an audio file from an input text and optional other conditional inputs.
  * 
  * **Example:** Generate audio from text with `Xenova/speecht5_tts`.
- * ```js
+ * ```javascript
  * let speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
  * let synthesizer = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false });
  * let out = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
@@ -2379,7 +2388,7 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
  * ```
  * 
  * You can then save the audio to a .wav file with the `wavefile` package:
- * ```js
+ * ```javascript
  * import wavefile from 'wavefile';
  * import fs from 'fs';
  * 
@@ -2389,7 +2398,7 @@ export class DocumentQuestionAnsweringPipeline extends Pipeline {
  * ```
  * 
  * **Example:** Multilingual speech generation with `Xenova/mms-tts-fra`. See [here](https://huggingface.co/models?pipeline_tag=text-to-speech&other=vits&sort=trending) for the full list of available languages (1107).
- * ```js
+ * ```javascript
  * let synthesizer = await pipeline('text-to-speech', 'Xenova/mms-tts-fra');
  * let out = await synthesizer('Bonjour');
  * // {
