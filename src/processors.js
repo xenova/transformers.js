@@ -211,8 +211,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     constructor(config) {
         super(config);
 
-        this.image_mean = this.config.image_mean;
-        this.image_std = this.config.image_std;
+        this.image_mean = this.config.image_mean ?? this.config.mean;
+        this.image_std = this.config.image_std ?? this.config.std;
 
         this.resample = this.config.resample ?? 2; // 2 => bilinear
         this.do_rescale = this.config.do_rescale ?? true;
@@ -397,6 +397,17 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
+     * Rescale the image' pixel values by `this.rescale_factor`.
+     * @param {Float32Array} pixelData The pixel data to rescale.
+     * @returns {void}
+     */
+    rescale(pixelData) {
+        for (let i = 0; i < pixelData.length; ++i) {
+            pixelData[i] = this.rescale_factor * pixelData[i];
+        }
+    }
+
+    /**
      * @typedef {object} PreprocessedImage
      * @property {HeightWidth} original_size The original size of the image.
      * @property {HeightWidth} reshaped_input_size The reshaped input size of the image.
@@ -532,9 +543,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         let imgDims = [image.height, image.width, image.channels];
 
         if (this.do_rescale) {
-            for (let i = 0; i < pixelData.length; ++i) {
-                pixelData[i] = this.rescale_factor * pixelData[i];
-            }
+            this.rescale(pixelData);
         }
 
         if (do_normalize ?? this.do_normalize) {
@@ -609,14 +618,82 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class SegformerFeatureExtractor extends ImageFeatureExtractor {
+
+    /**
+     * Converts the output of `SegformerForSemanticSegmentation` into semantic segmentation maps.
+     * @param {*} outputs Raw outputs of the model.
+     * @param {number[][]} [target_sizes=null] List of tuples corresponding to the requested final size
+     * (height, width) of each prediction. If unset, predictions will not be resized.
+     * @returns {{segmentation: Tensor; labels: number[]}[]} The semantic segmentation maps.
+     */
+    post_process_semantic_segmentation(outputs, target_sizes = null) {
+
+        const logits = outputs.logits;
+        const batch_size = logits.dims[0];
+
+        if (target_sizes !== null && target_sizes.length !== batch_size) {
+            throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
+        }
+
+        const toReturn = [];
+        for (let i = 0; i < batch_size; ++i) {
+            const target_size = target_sizes !== null ? target_sizes[i] : null;
+
+            let data = logits[i];
+
+            // 1. If target_size is not null, we need to resize the masks to the target size
+            if (target_size !== null) {
+                // resize the masks to the target size
+                data = interpolate(data, target_size, 'bilinear', false);
+            }
+            const [height, width] = target_size ?? data.dims.slice(-2);
+
+            const segmentation = new Tensor(
+                'int32',
+                new Int32Array(height * width),
+                [height, width]
+            );
+
+            // Buffer to store current largest value
+            const buffer = data[0].data;
+            for (let j = 1; j < data.dims[0]; ++j) {
+                const row = data[j].data;
+                for (let k = 0; k < row.length; ++k) {
+                    if (row[k] > buffer[k]) {
+                        buffer[k] = row[k];
+                        segmentation.data[k] = j;
+                    }
+                }
+            }
+
+            // Store which objects have labels
+            // This is much more efficient that creating a set of the final values
+            const hasLabel = new Array(data.dims[0]);
+            const out = segmentation.data;
+            for (let j = 0; j < out.length; ++j) {
+                const index = out[j];
+                hasLabel[index] = index;
+            }
+            /** @type {number[]} The unique list of labels that were detected */
+            const labels = hasLabel.filter(x => x !== undefined);
+
+            toReturn.push({ segmentation, labels });
+        }
+        return toReturn;
+    }
+}
 export class BitImageProcessor extends ImageFeatureExtractor { }
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }
+export class SiglipImageProcessor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
 export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOTE extends ConvNextFeatureExtractor
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
+export class ViTImageProcessor extends ImageFeatureExtractor { }
+
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
     /** @type {post_process_object_detection} */
@@ -1697,8 +1774,10 @@ export class AutoProcessor {
         OwlViTFeatureExtractor,
         CLIPFeatureExtractor,
         ChineseCLIPFeatureExtractor,
+        SiglipImageProcessor,
         ConvNextFeatureExtractor,
         ConvNextImageProcessor,
+        SegformerFeatureExtractor,
         BitImageProcessor,
         DPTFeatureExtractor,
         GLPNFeatureExtractor,
@@ -1709,6 +1788,7 @@ export class AutoProcessor {
         DonutFeatureExtractor,
         NougatImageProcessor,
 
+        ViTImageProcessor,
         VitMatteImageProcessor,
         SamImageProcessor,
         Swin2SRImageProcessor,

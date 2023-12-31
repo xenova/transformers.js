@@ -334,7 +334,15 @@ def main():
 
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
                 json.dump(tokenizer_json, fp, indent=4)
+    
+    elif config.model_type == 'vits':
+        if tokenizer is not None:
+            from .extra.vits import generate_tokenizer_json
+            tokenizer_json = generate_tokenizer_json(tokenizer)
 
+            with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
+                json.dump(tokenizer_json, fp, indent=4)
+    
     elif config.model_type == 'speecht5':
         # TODO allow user to specify vocoder path
         export_kwargs["model_kwargs"] = {"vocoder": "microsoft/speecht5_hifigan"}
@@ -367,6 +375,24 @@ def main():
             models_and_onnx_configs={
                 "text_model": (text_model, CLIPTextModelWithProjectionOnnxConfig(text_model.config)),
                 "vision_model": (vision_model, CLIPVisionModelWithProjectionOnnxConfig(vision_model.config)),
+            },
+            output_dir=output_model_folder,
+            opset=conv_args.opset,
+            device=conv_args.device,
+        )
+
+    elif config.model_type == 'siglip' and conv_args.split_modalities:
+        # Handle special case for exporting text and vision models separately
+        from .extra.siglip import SiglipTextModelOnnxConfig, SiglipVisionModelOnnxConfig
+        from transformers.models.siglip import SiglipTextModel, SiglipVisionModel
+
+        text_model = SiglipTextModel.from_pretrained(model_id)
+        vision_model = SiglipVisionModel.from_pretrained(model_id)
+
+        export_models(
+            models_and_onnx_configs={
+                "text_model": (text_model, SiglipTextModelOnnxConfig(text_model.config)),
+                "vision_model": (vision_model, SiglipVisionModelOnnxConfig(vision_model.config)),
             },
             output_dir=output_model_folder,
             opset=conv_args.opset,
