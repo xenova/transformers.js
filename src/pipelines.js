@@ -49,7 +49,6 @@ import {
 
 import {
     Callable,
-    isString,
     dispatchCallback,
     pop,
     product,
@@ -91,6 +90,34 @@ async function prepareImages(images) {
     // Possibly convert any non-images to images
     return await Promise.all(images.map(x => RawImage.read(x)));
 }
+
+/**
+ * @typedef {string | URL | Float32Array | Float64Array} AudioInput
+ * @typedef {AudioInput|AudioInput[]} AudioPipelineInputs
+ */
+
+/**
+ * Prepare audios for further tasks.
+ * @param {AudioPipelineInputs} audios audios to prepare.
+ * @param {number} sampling_rate sampling rate of the audios.
+ * @returns {Promise<Float32Array[]>} A promise that resolves to the preprocessed audio data.
+ * @private
+ */
+async function prepareAudios(audios, sampling_rate) {
+    if (!Array.isArray(audios)) {
+        audios = [audios];
+    }
+
+    return await Promise.all(audios.map(x => {
+        if (typeof x === 'string' || x instanceof URL) {
+            return read_audio(x, sampling_rate);
+        } else if (x instanceof Float64Array) {
+            return new Float32Array(x);
+        }
+        return x;
+    }));
+}
+
 
 /**
  * The Pipeline class is the class from which all pipelines inherit.
@@ -1030,6 +1057,24 @@ export class FeatureExtractionPipeline extends (/** @type {new (_) => FeatureExt
 // export class SentenceSimilarityPipeline extends Pipeline {
 // }
 
+/**
+ * @typedef {Object} AudioClassificationSingle
+ * @property {string} label The label predicted.
+ * @property {number} score The corresponding probability.
+ * @typedef {AudioClassificationSingle[]} AudioClassificationOutput
+ * 
+ * @callback AudioClassificationPipelineCallback Classify the sequence(s) given as inputs.
+ * @param {AudioPipelineInputs} audio The input audio file(s) to be classified. The input is either:
+ * - `string` or `URL` that is the filename/URL of the audio file, the file will be read at the processor's sampling rate
+ * to get the waveform using the [`AudioContext`](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) API.
+ * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
+ * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
+ * @param {Object} options An optional object containing the following properties:
+ * @param {number} [options.topk=null] The number of top labels that will be returned by the pipeline.
+ * If the provided number is `null` or higher than the number of labels available in the model configuration,
+ * it will default to the number of labels.
+ * @returns {Promise<AudioClassificationOutput|AudioClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
+ */
 
 /**
  * Audio classification pipeline using any `AutoModelForAudioClassification`.
@@ -1059,8 +1104,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (_) => FeatureExt
  * // ]
  * ```
  */
-export class AudioClassificationPipeline extends Pipeline {
-
+export class AudioClassificationPipeline extends (/** @type {new (_) => AudioClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new AudioClassificationPipeline.
      * @param {Object} options An object containing the following properties:
@@ -1072,66 +1116,60 @@ export class AudioClassificationPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Preprocesses the input audio for the AutomaticSpeechRecognitionPipeline.
-     * @param {any} audio The audio to be preprocessed.
-     * @param {number} sampling_rate The sampling rate of the audio.
-     * @returns {Promise<Float32Array>} A promise that resolves to the preprocessed audio data.
-     * @private
-     */
-    async _preprocess(audio, sampling_rate) {
-        if (isString(audio)) {
-            audio = await read_audio(audio, sampling_rate);
-        }
-
-        return audio;
-    }
-
-    /**
-     * Executes the audio classification task.
-     * @param {any} audio The input audio files to be classified.
-     * @param {Object} options An optional object containing the following properties:
-     * @param {number} [options.topk=5] The number of top predictions to be returned.
-     * @returns {Promise<Object[]|Object>} A promise that resolves to an array or object containing the predicted labels and scores.
-     */
+    /** @type {AudioClassificationPipelineCallback} */
     async _call(audio, {
-        topk = 5
+        topk = null
     } = {}) {
+        const self = /** @type {AudioClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
 
-        let single = !Array.isArray(audio);
-        if (single) {
-            // @ts-ignore
-            audio = [audio];
-        }
+        const single = !Array.isArray(audio);
 
-        const id2label = this.model.config.id2label;
-        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+        const sampling_rate = self.processor.feature_extractor.config.sampling_rate;
+        const preparedAudios = await prepareAudios(audio, sampling_rate);
 
-        let toReturn = [];
-        for (let aud of audio) {
-            aud = await this._preprocess(aud, sampling_rate)
+        const id2label = self.model.config.id2label;
 
-            const inputs = await this.processor(aud);
-            const output = await this.model(inputs);
+        const toReturn = [];
+        for (const aud of preparedAudios) {
+            const inputs = await self.processor(aud);
+            const output = await self.model(inputs);
             const logits = output.logits[0];
 
-            let scores = getTopItems(softmax(logits.data), topk);
+            const scores = getTopItems(softmax(logits.data), topk);
 
-            let vals = scores.map(function (x) {
-                return {
-                    label: id2label[x[0]],
-                    score: x[1],
-                }
-            });
+            const vals = scores.map(x => ({
+                label: /** @type {string} */ (id2label[x[0]]),
+                score: /** @type {number} */ (x[1]),
+            }));
+
             if (topk === 1) {
                 toReturn.push(...vals);
             } else {
                 toReturn.push(vals);
             }
         }
-        return !single || topk === 1 ? toReturn : toReturn[0];
+        return !single || topk === 1 ? /** @type {AudioClassificationOutput} */ (toReturn) : /** @type {AudioClassificationOutput[]} */ (toReturn)[0];
     }
 }
+
+/**
+ * @typedef {Object} ZeroShotAudioClassificationOutput
+ * @property {string} label The label identified by the model. It is one of the suggested `candidate_label`.
+ * @property {number} score The score attributed by the model for that label (between 0 and 1).
+ * 
+ * @callback ZeroShotAudioClassificationPipelineCallback Classify the sequence(s) given as inputs.
+ * @param {AudioPipelineInputs} audio The input audio file(s) to be classified. The input is either:
+ * - `string` or `URL` that is the filename/URL of the audio file, the file will be read at the processor's sampling rate
+ * to get the waveform using the [`AudioContext`](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) API.
+ * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
+ * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
+ * @param {string[]} candidate_labels The candidate labels for this audio.
+ * @param {Object} options An optional object containing the following properties:
+ * @param {string} [options.hypothesis_template="This is a sound of {}."] The sentence used in conjunction with `candidate_labels`
+ * to attempt the audio classification by replacing the placeholder with the candidate_labels.
+ * Then likelihood is estimated by using `logits_per_audio`.
+ * @returns {Promise<ZeroShotAudioClassificationOutput[]|ZeroShotAudioClassificationOutput[][]>} A promise that resolves to an array of objects containing the predicted labels and scores.
+ */
 
 /**
  * Zero shot audio classification pipeline using `ClapModel`. This pipeline predicts the class of an audio when you
@@ -1149,7 +1187,7 @@ export class AudioClassificationPipeline extends Pipeline {
  * // ]
  * ```
  */
-export class ZeroShotAudioClassificationPipeline extends Pipeline {
+export class ZeroShotAudioClassificationPipeline extends (/** @type {new (_) => ZeroShotAudioClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
 
     /**
      * Create a new ZeroShotAudioClassificationPipeline.
@@ -1163,38 +1201,15 @@ export class ZeroShotAudioClassificationPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Preprocesses the input audio for the ZeroShotAudioClassificationPipeline.
-     * @param {any} audio The audio to be preprocessed.
-     * @param {number} sampling_rate The sampling rate of the audio.
-     * @returns {Promise<Float32Array>} A promise that resolves to the preprocessed audio data.
-     * @private
-     */
-    async _preprocess(audio, sampling_rate) {
-        if (isString(audio)) {
-            audio = await read_audio(audio, sampling_rate);
-        }
-
-        return audio;
-    }
-
-    /**
-     * Assign labels to the audio(s) passed as inputs.
-     * @param {Array} audios The input audios.
-     * @param {string[]} candidate_labels The candidate labels for this audio
-     * @param {Object} options The options for the classification.
-     * @param {string} [options.hypothesis_template] The sentence used in cunjunction with *candidate_labels* to attempt
-     * the audio classification by replacing the placeholder with the candidate_labels.
-     * Then likelihood is estimated by using logits_per_audio.
-     * @returns {Promise<any>}
-     */
-    async _call(audios, candidate_labels, {
+    /** @type {ZeroShotAudioClassificationPipelineCallback} */
+    async _call(audio, candidate_labels, {
         hypothesis_template = "This is a sound of {}."
     } = {}) {
-        const single = !Array.isArray(audios);
+        const self = /** @type {ZeroShotAudioClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+
+        const single = !Array.isArray(audio);
         if (single) {
-            // @ts-ignore
-            audios = [audios];
+            audio = [/** @type {AudioInput} */ (audio)];
         }
 
         // Insert label into hypothesis template 
@@ -1203,35 +1218,74 @@ export class ZeroShotAudioClassificationPipeline extends Pipeline {
         );
 
         // Run tokenization
-        const text_inputs = this.tokenizer(texts, {
+        const text_inputs = self.tokenizer(texts, {
             padding: true,
             truncation: true,
         });
 
-        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+        const sampling_rate = self.processor.feature_extractor.config.sampling_rate;
+        const preparedAudios = await prepareAudios(audio, sampling_rate);
 
         const toReturn = [];
-        for (let audio of audios) {
-            audio = await this._preprocess(audio, sampling_rate)
-
-            const audio_inputs = await this.processor(audio);
+        for (const aud of preparedAudios) {
+            const audio_inputs = await self.processor(aud);
 
             // Run model with both text and audio inputs
-            const output = await this.model({ ...text_inputs, ...audio_inputs });
+            const output = await self.model({ ...text_inputs, ...audio_inputs });
 
             // Compute softmax per audio
             const probs = softmax(output.logits_per_audio.data);
 
-            toReturn.push([...probs].map((x, i) => {
-                return {
-                    score: x,
-                    label: candidate_labels[i]
-                }
-            }));
+            toReturn.push([...probs].map((x, i) => ({
+                score: x,
+                label: candidate_labels[i]
+            })));
         }
-        return !single ? toReturn : toReturn[0];
+        return single ? toReturn[0] : toReturn;
     }
 }
+
+/**
+ * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} ChunkCallbackItem
+ * @callback ChunkCallback
+ * @param {ChunkCallbackItem} chunk The chunk to process.
+ */
+
+/**
+ * @typedef {Object} Chunk
+ * @property {[number, number]} timestamp The start and end timestamp of the chunk in seconds.
+ * @property {string} text The recognized text.
+ */
+
+/**
+ * @typedef {Object} AutomaticSpeechRecognitionOutput
+ * @property {string} text The recognized text.
+ * @property {Chunk[]} [chunks] When using `return_timestamps`, the `chunks` will become a list
+ * containing all the various text chunks identified by the model.
+ * 
+ * @typedef {Object} AutomaticSpeechRecognitionSpecificParams Parameters specific to automatic-speech-recognition pipelines.
+ * @property {boolean|'word'} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
+ * @property {number} [kwargs.chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
+ * @property {number} [kwargs.stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
+ * @property {ChunkCallback} [kwargs.chunk_callback] Callback function to be called with each chunk processed.
+ * @property {boolean} [kwargs.force_full_sequences] Whether to force outputting full sequences or not. Default is `false`.
+ * @property {string} [kwargs.language] The source language. Default is `null`, meaning it should be auto-detected. Use this to potentially improve performance if the source language is known.
+ * @property {string} [kwargs.task] The task to perform. Default is `null`, meaning it should be auto-detected.
+ * @property {number[][]} [kwargs.forced_decoder_ids] A list of pairs of integers which indicates a mapping from generation indices to token indices
+ * that will be forced before sampling. For example, [[1, 123]] means the second generated token will always be a token of index 123.
+ * @property {number} [num_frames] The number of frames in the input audio.
+ * @typedef {import('./utils/generation.js').GenerationConfigType & AutomaticSpeechRecognitionSpecificParams} AutomaticSpeechRecognitionConfig
+ * 
+ * @callback AutomaticSpeechRecognitionPipelineCallback Transcribe the audio sequence(s) given as inputs to text.
+ * @param {AudioPipelineInputs} audio The input audio file(s) to be transcribed. The input is either:
+ * - `string` or `URL` that is the filename/URL of the audio file, the file will be read at the processor's sampling rate
+ * to get the waveform using the [`AudioContext`](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) API.
+ * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
+ * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
+ * @param {AutomaticSpeechRecognitionConfig} options Additional keyword arguments to pass along to the generate method of the model.
+ * @returns {Promise<AutomaticSpeechRecognitionOutput|AutomaticSpeechRecognitionOutput[]>} A Promise that resolves to an object containing the
+ * transcription text and optionally timestamps if `return_timestamps` is `true`.
+ */
 
 /**
  * Pipeline that aims at extracting spoken text contained within some audio.
@@ -1301,7 +1355,7 @@ export class ZeroShotAudioClassificationPipeline extends Pipeline {
  * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
  */
-export class AutomaticSpeechRecognitionPipeline extends Pipeline {
+export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (_) => AutomaticSpeechRecognitionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
 
     /**
      * Create a new AutomaticSpeechRecognitionPipeline.
@@ -1315,58 +1369,27 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Preprocesses the input audio for the AutomaticSpeechRecognitionPipeline.
-     * @param {any} audio The audio to be preprocessed.
-     * @param {number} sampling_rate The sampling rate of the audio.
-     * @returns {Promise<Float32Array>} A promise that resolves to the preprocessed audio data.
-     * @private
-     */
-    async _preprocess(audio, sampling_rate) {
-        if (isString(audio)) {
-            audio = await read_audio(audio, sampling_rate);
-        }
-
-        return audio;
-    }
-
-    /**
-     * @typedef {{stride: number[], input_features: import('./utils/tensor.js').Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} Chunk
-     * 
-     * @callback ChunkCallback
-     * @param {Chunk} chunk The chunk to process.
-     */
-
-    /**
-     * Asynchronously processes audio and generates text transcription using the model.
-     * @param {Float32Array|Float32Array[]} audio The audio to be transcribed. Can be a single Float32Array or an array of Float32Arrays.
-     * @param {Object} [kwargs={}] Optional arguments.
-     * @param {boolean|'word'} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
-     * @param {number} [kwargs.chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
-     * @param {number} [kwargs.stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
-     * @param {ChunkCallback} [kwargs.chunk_callback] Callback function to be called with each chunk processed.
-     * @param {boolean} [kwargs.force_full_sequences] Whether to force outputting full sequences or not. Default is `false`.
-     * @param {string} [kwargs.language] The source language. Default is `null`, meaning it should be auto-detected. Use this to potentially improve performance if the source language is known.
-     * @param {string} [kwargs.task] The task to perform. Default is `null`, meaning it should be auto-detected.
-     * @param {number[][]} [kwargs.forced_decoder_ids] A list of pairs of integers which indicates a mapping from generation indices to token indices
-     * that will be forced before sampling. For example, [[1, 123]] means the second generated token will always be a token of index 123.
-     * @returns {Promise<Object>} A Promise that resolves to an object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
-     */
+    /** @type {AutomaticSpeechRecognitionPipelineCallback} */
     async _call(audio, kwargs = {}) {
-        switch (this.model.config.model_type) {
+        const self = /** @type {AutomaticSpeechRecognitionPipeline & Pipeline} */ (/** @type {any} */ (this));
+        switch (self.model.config.model_type) {
             case 'whisper':
-                return this._call_whisper(audio, kwargs)
+                return self._call_whisper(audio, kwargs)
             case 'wav2vec2':
             case 'hubert':
-                return this._call_wav2vec2(audio, kwargs)
+                return self._call_wav2vec2(audio, kwargs)
             default:
-                throw new Error(`AutomaticSpeechRecognitionPipeline does not support model type '${this.model.config.model_type}'.`)
+                throw new Error(`AutomaticSpeechRecognitionPipeline does not support model type '${self.model.config.model_type}'.`)
         }
     }
 
-    /** @private */
+    /**
+     * @type {AutomaticSpeechRecognitionPipelineCallback}
+     * @private
+     */
     async _call_wav2vec2(audio, kwargs = {}) {
         // TODO use kwargs
+        const self = /** @type {AutomaticSpeechRecognitionPipeline & Pipeline} */ (/** @type {any} */ (this));
 
         if (kwargs.language) {
             console.warn('`language` parameter is not yet supported for `wav2vec2` models, defaulting to "English".');
@@ -1375,73 +1398,75 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             console.warn('`task` parameter is not yet supported for `wav2vec2` models, defaulting to "transcribe".');
         }
 
-        let single = !Array.isArray(audio);
+        const single = !Array.isArray(audio);
         if (single) {
-            // @ts-ignore
-            audio = [audio];
+            audio = [/** @type {AudioInput} */ (audio)];
         }
 
-        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+        const sampling_rate = self.processor.feature_extractor.config.sampling_rate;
+        const preparedAudios = await prepareAudios(audio, sampling_rate);
 
-        let toReturn = [];
-        for (let aud of audio) {
-            aud = await this._preprocess(aud, sampling_rate)
-
-            const inputs = await this.processor(aud);
-            const output = await this.model(inputs);
+        const toReturn = [];
+        for (const aud of preparedAudios) {
+            const inputs = await self.processor(aud);
+            const output = await self.model(inputs);
             const logits = output.logits[0];
 
             const predicted_ids = [];
-            for (let item of logits) {
+            for (const item of logits) {
                 predicted_ids.push(max(item.data)[1])
             }
-            const predicted_sentences = this.tokenizer.decode(predicted_ids)
+            const predicted_sentences = self.tokenizer.decode(predicted_ids)
             toReturn.push({ text: predicted_sentences })
         }
         return single ? toReturn[0] : toReturn;
     }
 
-    /** @private */
+    /**
+     * @type {AutomaticSpeechRecognitionPipelineCallback}
+     * @private
+     */
     async _call_whisper(audio, kwargs = {}) {
-        let return_timestamps = kwargs.return_timestamps ?? false;
-        let chunk_length_s = kwargs.chunk_length_s ?? 0;
+        const self = /** @type {AutomaticSpeechRecognitionPipeline & Pipeline} */ (/** @type {any} */ (this));
+
+        const return_timestamps = kwargs.return_timestamps ?? false;
+        const chunk_length_s = kwargs.chunk_length_s ?? 0;
+        const chunk_callback = kwargs.chunk_callback ?? null;
+        const force_full_sequences = kwargs.force_full_sequences ?? false;
         let stride_length_s = kwargs.stride_length_s ?? null;
-        let chunk_callback = kwargs.chunk_callback ?? null;
-        let force_full_sequences = kwargs.force_full_sequences ?? false;
 
         if (return_timestamps === 'word') {
             kwargs['return_token_timestamps'] = true;
         }
 
-        let language = pop(kwargs, 'language', null);
-        let task = pop(kwargs, 'task', null);
+        const language = pop(kwargs, 'language', null);
+        const task = pop(kwargs, 'task', null);
 
         if (language || task || return_timestamps) {
             if (kwargs.forced_decoder_ids) {
                 throw new Error("Cannot specify `language`/`task`/`return_timestamps` and `forced_decoder_ids` at the same time.")
             }
             // @ts-ignore
-            let decoder_prompt_ids = this.tokenizer.get_decoder_prompt_ids({ language, task, no_timestamps: !return_timestamps })
+            const decoder_prompt_ids = self.tokenizer.get_decoder_prompt_ids({ language, task, no_timestamps: !return_timestamps })
             if (decoder_prompt_ids.length > 0) {
                 kwargs.forced_decoder_ids = decoder_prompt_ids;
             }
         }
 
-        let single = !Array.isArray(audio);
+        const single = !Array.isArray(audio);
         if (single) {
-            // @ts-ignore
-            audio = [audio];
+            audio = [/** @type {AudioInput} */ (audio)];
         }
 
-        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
-        const time_precision = this.processor.feature_extractor.config.chunk_length / this.model.config.max_source_positions;
-        const hop_length = this.processor.feature_extractor.config.hop_length;
+        const time_precision = self.processor.feature_extractor.config.chunk_length / self.model.config.max_source_positions;
+        const hop_length = self.processor.feature_extractor.config.hop_length;
 
-        let toReturn = [];
-        for (let aud of audio) {
-            aud = await this._preprocess(aud, sampling_rate)
+        const sampling_rate = self.processor.feature_extractor.config.sampling_rate;
+        const preparedAudios = await prepareAudios(audio, sampling_rate);
 
-            /** @type {Chunk[]} */
+        const toReturn = [];
+        for (const aud of preparedAudios) {
+            /** @type {ChunkCallbackItem[]} */
             let chunks = [];
             if (chunk_length_s > 0) {
                 if (stride_length_s === null) {
@@ -1460,11 +1485,11 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
                 // Create subarrays of audio with overlaps
 
                 while (offset < aud.length) {
-                    let subarr = aud.subarray(offset, offset + window);
-                    let feature = await this.processor(subarr);
+                    const subarr = aud.subarray(offset, offset + window);
+                    const feature = await self.processor(subarr);
 
-                    let isFirst = offset === 0;
-                    let isLast = offset + jump >= aud.length;
+                    const isFirst = offset === 0;
+                    const isLast = offset + jump >= aud.length;
                     chunks.push({
                         stride: [
                             subarr.length,
@@ -1480,23 +1505,23 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
             } else {
                 chunks = [{
                     stride: [aud.length, 0, 0],
-                    input_features: (await this.processor(aud)).input_features,
+                    input_features: (await self.processor(aud)).input_features,
                     is_last: true
                 }]
             }
 
             // Generate for each set of input features
-            for (let chunk of chunks) {
+            for (const chunk of chunks) {
                 kwargs.num_frames = Math.floor(chunk.stride[0] / hop_length);
 
                 // NOTE: doing sequentially for now
-                let data = await this.model.generate(chunk.input_features, kwargs);
+                const data = await self.model.generate(chunk.input_features, kwargs);
 
                 // TODO: Right now we only get top beam
                 if (return_timestamps === 'word') {
                     chunk.tokens = data.sequences[0];
                     chunk.token_timestamps = data.token_timestamps.tolist()[0].map(
-                        x => round(x, 2)
+                        (/** @type {number} */ x) => round(x, 2)
                     );
 
                 } else {
@@ -1513,7 +1538,7 @@ export class AutomaticSpeechRecognitionPipeline extends Pipeline {
 
             // Merge text chunks
             // @ts-ignore
-            let [full_text, optional] = this.tokenizer._decode_asr(chunks, {
+            const [full_text, optional] = self.tokenizer._decode_asr(chunks, {
                 time_precision, return_timestamps, force_full_sequences
             });
 

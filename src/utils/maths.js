@@ -181,8 +181,8 @@ export function dot(arr1, arr2) {
 /**
  * Get the top k items from an iterable, sorted by descending order
  * @param {any[]|TypedArray} items The items to be sorted
- * @param {number} [top_k=0] The number of top items to return (default: 0 = return all)
- * @returns {Array} The top k items, sorted by descending order
+ * @param {number|null} [top_k=0] The number of top items to return (default: 0 = return all)
+ * @returns {[number, any][]} The top k items, sorted by descending order
  */
 export function getTopItems(items, top_k = 0) {
     // if top == 0, return all
@@ -191,7 +191,7 @@ export function getTopItems(items, top_k = 0) {
         .map((x, i) => [i, x])            // Get indices ([index, score])
         .sort((a, b) => b[1] - a[1])      // Sort by log probabilities
 
-    if (top_k > 0) {
+    if (top_k !== null && top_k > 0) {
         items = items.slice(0, top_k);    // Get top k items
     }
 

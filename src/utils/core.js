@@ -76,17 +76,6 @@ export const Callable = /** @type {any} */ (class {
     }
 });
 
-
-/**
- * Check if a value is a string.
- * @param {*} text The value to check.
- * @returns {boolean} True if the value is a string, false otherwise.
- */
-export function isString(text) {
-    return typeof text === 'string' || text instanceof String
-}
-
-
 /**
  * Check if a value is a typed array.
  * @param {*} val The value to check.
