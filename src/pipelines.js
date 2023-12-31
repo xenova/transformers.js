@@ -52,7 +52,6 @@ import {
     dispatchCallback,
     pop,
     product,
-    get_bounding_box,
 } from './utils/core.js';
 import {
     softmax,
@@ -116,6 +115,29 @@ async function prepareAudios(audios, sampling_rate) {
         }
         return x;
     }));
+}
+
+/**
+ * @typedef {Object} BoundingBox
+ * @property {number} xmin The minimum x coordinate of the bounding box.
+ * @property {number} ymin The minimum y coordinate of the bounding box.
+ * @property {number} xmax The maximum x coordinate of the bounding box.
+ * @property {number} ymax The maximum y coordinate of the bounding box.
+ */
+
+/**
+ * Helper function to convert list [xmin, xmax, ymin, ymax] into object { "xmin": xmin, ... }
+ * @param {number[]} box The bounding box as a list.
+ * @param {boolean} asInteger Whether to cast to integers.
+ * @returns {BoundingBox} The bounding box as an object.
+ */
+export function get_bounding_box(box, asInteger) {
+    if (asInteger) {
+        box = box.map(x => x | 0);
+    }
+    const [xmin, ymin, xmax, ymax] = box;
+
+    return { xmin, ymin, xmax, ymax };
 }
 
 
@@ -430,8 +452,8 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * let answerer = await pipeline('question-answering', 'Xenova/distilbert-base-uncased-distilled-squad');
  * let output = await answerer(question, context);
  * // {
- * //   "answer": "a nice puppet",
- * //   "score": 0.5768911502526741
+ * //   answer: "a nice puppet",
+ * //   score: 0.5768911502526741
  * // }
  * ```
  */
@@ -1813,8 +1835,8 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
  * @param {number} [options.mask_threshold=0.5] Threshold to use when turning the predicted masks into binary values.
  * @param {number} [options.overlap_mask_area_threshold=0.8] Mask overlap threshold to eliminate small, disconnected segments.
  * @param {null|string} [options.subtask=null] Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`], depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
- * @param {Array} [options.label_ids_to_fuse=null] List of label ids to fuse. If not set, do not fuse any labels.
- * @param {Array} [options.target_sizes=null] List of target sizes for the input images. If not set, use the original image sizes.
+ * @param {number[]} [options.label_ids_to_fuse=null] List of label ids to fuse. If not set, do not fuse any labels.
+ * @param {number[][]} [options.target_sizes=null] List of target sizes for the input images. If not set, use the original image sizes.
  * @returns {Promise<ImageSegmentationPipelineOutput[]>} The annotated segments.
  */
 
@@ -2033,6 +2055,23 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
     }
 }
 
+
+/**
+ * @typedef {Object} ObjectDetectionPipelineSingle
+ * @property {string} label The class label identified by the model.
+ * @property {number} score The score attributed by the model for that label.
+ * @property {BoundingBox} box The bounding box of detected object in image's original size, or as a percentage if `percentage` is set to true.
+ * 
+ * @typedef {ObjectDetectionPipelineSingle[]} ObjectDetectionPipelineOutput
+ * 
+ * @callback ObjectDetectionPipelineCallback Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
+ * @param {ImagePipelineInputs} images The input images.
+ * @param {Object} options The options for the object detection.
+ * @param {number} [options.threshold=0.9] The threshold used to filter boxes by score.
+ * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
+ * @returns {Promise<ObjectDetectionPipelineOutput|ObjectDetectionPipelineOutput[]>} A promise that results to a list of objects or a list of list of objects. 
+ */
+
 /**
  * Object detection pipeline using any `AutoModelForObjectDetection`.
  * This pipeline predicts bounding boxes of objects and their classes.
@@ -2044,19 +2083,20 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * let detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
  * let output = await detector(img, { threshold: 0.9 });
  * // [{
- * //   "score": 0.9976370930671692,
- * //   "label": "remote",
- * //   "box": { "xmin": 31, "ymin": 68, "xmax": 190, "ymax": 118 }
+ * //   score: 0.9976370930671692,
+ * //   label: "remote",
+ * //   box: { xmin: 31, ymin: 68, xmax: 190, ymax: 118 }
  * // },
  * // ...
  * // {
- * //   "score": 0.9984092116355896,
- * //   "label": "cat",
- * //   "box": { "xmin": 331, "ymin": 19, "xmax": 649, "ymax": 371 }
+ * //   score: 0.9984092116355896,
+ * //   label: "cat",
+ * //   box: { xmin: 331, ymin: 19, xmax: 649, ymax: 371 }
  * // }]
  * ```
  */
-export class ObjectDetectionPipeline extends Pipeline {
+export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ObjectDetectionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
     /**
      * Create a new ObjectDetectionPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2065,17 +2105,13 @@ export class ObjectDetectionPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
-     * @param {ImagePipelineInputs} images The input images.
-     * @param {Object} options The options for the object detection.
-     * @param {number} [options.threshold=0.9] The threshold used to filter boxes by score.
-     * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
-     */
+    /** @type {ObjectDetectionPipelineCallback} */
     async _call(images, {
         threshold = 0.9,
         percentage = false,
     } = {}) {
+        const self = /** @type {ObjectDetectionPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         const isBatched = Array.isArray(images);
 
         if (isBatched && images.length !== 1) {
@@ -2085,16 +2121,17 @@ export class ObjectDetectionPipeline extends Pipeline {
 
         const imageSizes = percentage ? null : preparedImages.map(x => [x.height, x.width]);
 
-        const { pixel_values, pixel_mask } = await this.processor(preparedImages);
-        const output = await this.model({ pixel_values, pixel_mask });
+        const { pixel_values, pixel_mask } = await self.processor(preparedImages);
+        const output = await self.model({ pixel_values, pixel_mask });
 
         // @ts-ignore
-        const processed = this.processor.feature_extractor.post_process_object_detection(output, threshold, imageSizes);
+        const processed = self.processor.feature_extractor.post_process_object_detection(output, threshold, imageSizes);
 
         // Add labels
-        const id2label = this.model.config.id2label;
+        const id2label = self.model.config.id2label;
 
         // Format output
+        /** @type {ObjectDetectionPipelineOutput[]} */
         const result = processed.map(batch => (
             batch.boxes.map((box, i) => ({
                 score: batch.scores[i],

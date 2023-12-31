@@ -173,18 +173,3 @@ export function product(...a) {
 export function calculateReflectOffset(i, w) {
     return Math.abs((i + w) % (2 * w) - w);
 }
-
-/**
- * Helper function to convert list [xmin, xmax, ymin, ymax] into object { "xmin": xmin, ... }
- * @param {number[]} box The bounding box as a list.
- * @param {boolean} asInteger Whether to cast to integers.
- * @returns {Object} The bounding box as an object.
- */
-export function get_bounding_box(box, asInteger) {
-    if (asInteger) {
-        box = box.map(x => x | 0);
-    }
-    const [xmin, ymin, xmax, ymax] = box;
-
-    return { xmin, ymin, xmax, ymax };
-}
