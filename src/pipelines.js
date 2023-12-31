@@ -280,8 +280,7 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
             }
         }
 
-        // @ts-ignore
-        return Array.isArray(texts) || topk === 1 ? toReturn : toReturn[0];
+        return Array.isArray(texts) || topk === 1 ? /** @type {TextClassificationOutput} */ (toReturn) : /** @type {TextClassificationOutput[]} */ (toReturn)[0];
     }
 }
 
@@ -1643,14 +1642,14 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 }
 
 /**
- * @typedef {Object} ImageToTextGenerationSingle
+ * @typedef {Object} ImageToTextSingle
  * @property {string} generated_text The generated text.
- * @typedef {ImageToTextGenerationSingle[]} ImageToTextGenerationOutput
+ * @typedef {ImageToTextSingle[]} ImageToTextOutput
  * 
- * @callback ImageToTextGenerationPipelineCallback Assign labels to the image(s) passed as inputs.
+ * @callback ImageToTextPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} texts The images to be captioned.
  * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
- * @returns {Promise<ImageToTextGenerationOutput|ImageToTextGenerationOutput[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
+ * @returns {Promise<ImageToTextOutput|ImageToTextOutput[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
  */
 
 /**
@@ -1672,7 +1671,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * // [{ generated_text: 'Mr. Brown commented icily.' }]
  * ```
  */
-export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => AutomaticSpeechRecognitionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ImageToTextPipelineCallback} */ (/** @type {any} */ Pipeline)) {
 
     /**
      * Create a new ImageToTextPipeline.
@@ -1682,7 +1681,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
         super(options);
     }
 
-    /** @type {ImageToTextGenerationPipelineCallback} */
+    /** @type {ImageToTextPipelineCallback} */
     async _call(images, generate_kwargs = {}) {
         const self = /** @type {ImageToTextPipeline & Pipeline} */ (/** @type {any} */ (this));
 
@@ -1706,6 +1705,19 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
 }
 
 /**
+ * @typedef {Object} ImageClassificationSingle
+ * @property {string} label The label identified by the model.
+ * @property {number} score The score attributed by the model for that label.
+ * @typedef {ImageClassificationSingle[]} ImageClassificationOutput
+ * 
+ * @callback ImageClassificationPipelineCallback Assign labels to the image(s) passed as inputs.
+ * @param {ImagePipelineInputs} images The input images(s) to be classified.
+ * @param {Object} options An optional object containing the following properties:
+ * @param {number} [options.topk=1] The number of top labels that will be returned by the pipeline. 
+ * @returns {Promise<ImageClassificationOutput|ImageClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
+ */
+
+/**
  * Image classification pipeline using any `AutoModelForImageClassification`.
  * This pipeline predicts the class of an image.
  * 
@@ -1715,7 +1727,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
  * let output = await classifier(url);
  * // [
- * //   {label: 'tiger, Panthera tigris', score: 0.632695734500885},
+ * //   { label: 'tiger, Panthera tigris', score: 0.632695734500885 },
  * // ]
  * ```
  * 
@@ -1737,15 +1749,16 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
  * let output = await classifier(url, { topk: 0 });
  * // [
- * //   {label: 'tiger, Panthera tigris', score: 0.632695734500885},
- * //   {label: 'tiger cat', score: 0.3634825646877289},
- * //   {label: 'lion, king of beasts, Panthera leo', score: 0.00045060308184474707},
- * //   {label: 'jaguar, panther, Panthera onca, Felis onca', score: 0.00035465499968267977},
+ * //   { label: 'tiger, Panthera tigris', score: 0.632695734500885 },
+ * //   { label: 'tiger cat', score: 0.3634825646877289 },
+ * //   { label: 'lion, king of beasts, Panthera leo', score: 0.00045060308184474707 },
+ * //   { label: 'jaguar, panther, Panthera onca, Felis onca', score: 0.00035465499968267977 },
  * //   ...
  * // ]
  * ```
  */
-export class ImageClassificationPipeline extends Pipeline {
+export class ImageClassificationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+
     /**
      * Create a new ImageClassificationPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -1754,33 +1767,27 @@ export class ImageClassificationPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Classify the given images.
-     * @param {ImagePipelineInputs} images The images to classify.
-     * @param {Object} options The options to use for classification.
-     * @param {number} [options.topk=1] The number of top results to return.
-     * @returns {Promise<any>} The top classification results for the images.
-     */
+    /** @type {ImageClassificationPipelineCallback} */
     async _call(images, {
         topk = 1
     } = {}) {
+        const self = /** @type {ImageClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
 
-        const { pixel_values } = await this.processor(preparedImages);
-        const output = await this.model({ pixel_values });
+        const { pixel_values } = await self.processor(preparedImages);
+        const output = await self.model({ pixel_values });
 
-        const id2label = this.model.config.id2label;
+        const id2label = self.model.config.id2label;
         const toReturn = [];
         for (const batch of output.logits) {
             const scores = getTopItems(softmax(batch.data), topk);
 
-            const vals = scores.map(function (x) {
-                return {
-                    label: id2label[x[0]],
-                    score: x[1],
-                }
-            });
+            const vals = scores.map(x => ({
+                label: id2label[x[0]],
+                score: x[1],
+            }));
             if (topk === 1) {
                 toReturn.push(...vals);
             } else {
@@ -1788,7 +1795,7 @@ export class ImageClassificationPipeline extends Pipeline {
             }
         }
 
-        return isBatched || topk === 1 ? toReturn : toReturn[0];
+        return isBatched || topk === 1 ? /** @type {ImageClassificationOutput} */ (toReturn) : /** @type {ImageClassificationOutput[]} */ (toReturn)[0];
     }
 
 }
@@ -2079,15 +2086,13 @@ export class ObjectDetectionPipeline extends Pipeline {
         const id2label = this.model.config.id2label;
 
         // Format output
-        const result = processed.map(batch => {
-            return batch.boxes.map((box, i) => {
-                return {
-                    score: batch.scores[i],
-                    label: id2label[batch.classes[i]],
-                    box: get_bounding_box(box, !percentage),
-                }
-            })
-        })
+        const result = processed.map(batch => (
+            batch.boxes.map((box, i) => ({
+                score: batch.scores[i],
+                label: id2label[batch.classes[i]],
+                box: get_bounding_box(box, !percentage),
+            }))
+        ))
 
         return isBatched ? result : result[0];
     }
