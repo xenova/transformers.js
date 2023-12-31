@@ -1833,7 +1833,7 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
  * // ]
  * ```
  */
-export class ImageSegmentationPipeline extends (/** @type {new (_) => ImageSegmentationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageSegmentationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new ImageSegmentationPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
