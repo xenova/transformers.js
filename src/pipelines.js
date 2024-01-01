@@ -2069,7 +2069,7 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * @param {Object} options The options for the object detection.
  * @param {number} [options.threshold=0.9] The threshold used to filter boxes by score.
  * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
- * @returns {Promise<ObjectDetectionPipelineOutput|ObjectDetectionPipelineOutput[]>} A promise that results to a list of objects or a list of list of objects. 
+ * @returns {Promise<ObjectDetectionPipelineOutput|ObjectDetectionPipelineOutput[]>} A promise that resolves to a list of objects or a list of list of objects. 
  */
 
 /**
@@ -2513,6 +2513,12 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
 }
 
 /**
+ * @callback ImageToImagePipelineCallback Transform the image(s) passed as inputs.
+ * @param {ImagePipelineInputs} images The images to transform.
+ * @returns {Promise<RawImage|RawImage[]>} A promise that resolves to the transformed image or list of images.
+ */
+
+/**
  * Image to Image pipeline using any `AutoModelForImageToImage`. This pipeline generates an image based on a previous image input.
  * 
  * **Example:** Super-resolution w/ `Xenova/swin2SR-classical-sr-x2-64`
@@ -2528,7 +2534,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
  * // }
  * ```
  */
-export class ImageToImagePipeline extends Pipeline {
+export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageToImagePipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new ImageToImagePipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2537,16 +2543,15 @@ export class ImageToImagePipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Transform the image(s) passed as inputs.
-     * @param {ImagePipelineInputs} images The images to transform.
-     * @returns {Promise<any>} An image or a list of images containing result(s).
-     */
+    /** @type {ImageToImagePipelineCallback} */
     async _call(images) {
-        const preparedImages = await prepareImages(images);
-        const inputs = await this.processor(preparedImages);
-        const outputs = await this.model(inputs);
+        const self = /** @type {ImageToImagePipeline & Pipeline} */ (/** @type {any} */ (this));
 
+        const preparedImages = await prepareImages(images);
+        const inputs = await self.processor(preparedImages);
+        const outputs = await self.model(inputs);
+
+        /** @type {RawImage[]} */
         const toReturn = [];
         for (const batch of outputs.reconstruction) {
             const output = batch.squeeze().clamp_(0, 1).mul_(255).round_().to('uint8');
