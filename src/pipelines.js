@@ -5,8 +5,8 @@
  * ```javascript
  * import { pipeline } from '@xenova/transformers';
  * 
- * let classifier = await pipeline('sentiment-analysis');
- * let output = await classifier('I love transformers!');
+ * const classifier = await pipeline('sentiment-analysis');
+ * const output = await classifier('I love transformers!');
  * // [{'label': 'POSITIVE', 'score': 0.999817686}]
  * ```
  * 
@@ -221,15 +221,15 @@ export class Pipeline extends Callable {
  *
  * **Example:** Sentiment-analysis w/ `Xenova/distilbert-base-uncased-finetuned-sst-2-english`.
  * ```javascript
- * let classifier = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
- * let output = await classifier('I love transformers!');
+ * const classifier = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
+ * const output = await classifier('I love transformers!');
  * // [{ label: 'POSITIVE', score: 0.999788761138916 }]
  * ```
  * 
  * **Example:** Multilingual sentiment-analysis w/ `Xenova/bert-base-multilingual-uncased-sentiment` (and return top 5 classes).
  * ```javascript
- * let classifier = await pipeline('sentiment-analysis', 'Xenova/bert-base-multilingual-uncased-sentiment');
- * let output = await classifier('Le meilleur film de tous les temps.', { topk: 5 });
+ * const classifier = await pipeline('sentiment-analysis', 'Xenova/bert-base-multilingual-uncased-sentiment');
+ * const output = await classifier('Le meilleur film de tous les temps.', { topk: 5 });
  * // [
  * //   { label: '5 stars', score: 0.9610759615898132 },
  * //   { label: '4 stars', score: 0.03323351591825485 },
@@ -241,8 +241,8 @@ export class Pipeline extends Callable {
  * 
  * **Example:** Toxic comment classification w/ `Xenova/toxic-bert` (and return all classes).
  * ```javascript
- * let classifier = await pipeline('text-classification', 'Xenova/toxic-bert');
- * let output = await classifier('I hate you!', { topk: null });
+ * const classifier = await pipeline('text-classification', 'Xenova/toxic-bert');
+ * const output = await classifier('I hate you!', { topk: null });
  * // [
  * //   { label: 'toxic', score: 0.9593140482902527 },
  * //   { label: 'insult', score: 0.16187334060668945 },
@@ -328,8 +328,8 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * 
  * **Example:** Perform named entity recognition with `Xenova/bert-base-NER`.
  * ```javascript
- * let classifier = await pipeline('token-classification', 'Xenova/bert-base-NER');
- * let output = await classifier('My name is Sarah and I live in London');
+ * const classifier = await pipeline('token-classification', 'Xenova/bert-base-NER');
+ * const output = await classifier('My name is Sarah and I live in London');
  * // [
  * //   { entity: 'B-PER', score: 0.9980202913284302, index: 4, word: 'Sarah' },
  * //   { entity: 'B-LOC', score: 0.9994474053382874, index: 9, word: 'London' }
@@ -338,8 +338,8 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * 
  * **Example:** Perform named entity recognition with `Xenova/bert-base-NER` (and return all labels).
  * ```javascript
- * let classifier = await pipeline('token-classification', 'Xenova/bert-base-NER');
- * let output = await classifier('Sarah lives in the United States of America', { ignore_labels: [] });
+ * const classifier = await pipeline('token-classification', 'Xenova/bert-base-NER');
+ * const output = await classifier('Sarah lives in the United States of America', { ignore_labels: [] });
  * // [
  * //   { entity: 'B-PER', score: 0.9966587424278259, index: 1, word: 'Sarah' },
  * //   { entity: 'O', score: 0.9987385869026184, index: 2, word: 'lives' },
@@ -445,11 +445,10 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * 
  * **Example:** Run question answering with `Xenova/distilbert-base-uncased-distilled-squad`.
  * ```javascript
- * let question = 'Who was Jim Henson?';
- * let context = 'Jim Henson was a nice puppet.';
- * 
- * let answerer = await pipeline('question-answering', 'Xenova/distilbert-base-uncased-distilled-squad');
- * let output = await answerer(question, context);
+ * const answerer = await pipeline('question-answering', 'Xenova/distilbert-base-uncased-distilled-squad');
+ * const question = 'Who was Jim Henson?';
+ * const context = 'Jim Henson was a nice puppet.';
+ * const output = await answerer(question, context);
  * // {
  * //   answer: "a nice puppet",
  * //   score: 0.5768911502526741
@@ -545,8 +544,8 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
  * 
  * **Example:** Perform masked language modelling (a.k.a. "fill-mask") with `Xenova/bert-base-uncased`.
  * ```javascript
- * let unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
- * let output = await unmasker('The goal of life is [MASK].');
+ * const unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
+ * const output = await unmasker('The goal of life is [MASK].');
  * // [
  * //   { token_str: 'survival', score: 0.06137419492006302, token: 8115, sequence: 'The goal of life is survival.' },
  * //   { token_str: 'love', score: 0.03902450203895569, token: 1567, sequence: 'The goal of life is love.' },
@@ -558,8 +557,8 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
  * 
  * **Example:** Perform masked language modelling (a.k.a. "fill-mask") with `Xenova/bert-base-cased` (and return top result).
  * ```javascript
- * let unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
- * let output = await unmasker('The Milky Way is a [MASK] galaxy.', { topk: 1 });
+ * const unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
+ * const output = await unmasker('The Milky Way is a [MASK] galaxy.', { topk: 1 });
  * // [{ token_str: 'spiral', score: 0.6299987435340881, token: 14061, sequence: 'The Milky Way is a spiral galaxy.' }]
  * ```
  */
@@ -635,8 +634,8 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
  * 
  * **Example:** Text-to-text generation w/ `Xenova/LaMini-Flan-T5-783M`.
  * ```javascript
- * let generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-783M');
- * let output = await generator('how can I become more healthy?', {
+ * const generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-783M');
+ * const output = await generator('how can I become more healthy?', {
  *   max_new_tokens: 100,
  * });
  * // [{ generated_text: "To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues." }]
@@ -718,7 +717,8 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
  * 
  * **Example:** Summarization w/ `Xenova/distilbart-cnn-6-6`.
  * ```javascript
- * let text = 'The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, ' +
+ * const generator = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
+ * const text = 'The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, ' +
  *   'and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. ' +
  *   'During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest ' +
  *   'man-made structure in the world, a title it held for 41 years until the Chrysler Building in New ' +
@@ -726,9 +726,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
  *   'the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the ' +
  *   'Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second ' +
  *   'tallest free-standing structure in France after the Millau Viaduct.';
- * 
- * let generator = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
- * let output = await generator(text, {
+ * const output = await generator(text, {
  *   max_new_tokens: 100,
  * });
  * // [{ summary_text: ' The Eiffel Tower is about the same height as an 81-storey building and the tallest structure in Paris. It is the second tallest free-standing structure in France after the Millau Viaduct.' }]
@@ -768,8 +766,8 @@ export class SummarizationPipeline extends (/** @type {new (options: TextPipelin
  * for the full list of languages and their corresponding codes.
  * 
  * ```javascript
- * let translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M');
- * let output = await translator('जीवन एक चॉकलेट बॉक्स की तरह है।', {
+ * const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M');
+ * const output = await translator('जीवन एक चॉकलेट बॉक्स की तरह है।', {
  *   src_lang: 'hin_Deva', // Hindi
  *   tgt_lang: 'fra_Latn', // French
  * });
@@ -782,8 +780,8 @@ export class SummarizationPipeline extends (/** @type {new (options: TextPipelin
  * for the full list of languages and their corresponding codes.
  * 
  * ```javascript
- * let translator = await pipeline('translation', 'Xenova/m2m100_418M');
- * let output = await translator('生活就像一盒巧克力。', {
+ * const translator = await pipeline('translation', 'Xenova/m2m100_418M');
+ * const output = await translator('生活就像一盒巧克力。', {
  *   src_lang: 'zh', // Chinese
  *   tgt_lang: 'en', // English
  * });
@@ -796,8 +794,8 @@ export class SummarizationPipeline extends (/** @type {new (options: TextPipelin
  * for the full list of languages and their corresponding codes.
  * 
  * ```javascript
- * let translator = await pipeline('translation', 'Xenova/mbart-large-50-many-to-many-mmt');
- * let output = await translator('संयुक्त राष्ट्र के प्रमुख का कहना है कि सीरिया में कोई सैन्य समाधान नहीं है', {
+ * const translator = await pipeline('translation', 'Xenova/mbart-large-50-many-to-many-mmt');
+ * const output = await translator('संयुक्त राष्ट्र के प्रमुख का कहना है कि सीरिया में कोई सैन्य समाधान नहीं है', {
  *   src_lang: 'hi_IN', // Hindi
  *   tgt_lang: 'fr_XX', // French
  * });
@@ -840,17 +838,17 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * 
  * **Example:** Text generation with `Xenova/distilgpt2` (default settings).
  * ```javascript
- * let text = 'I enjoy walking with my cute dog,';
- * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await generator(text);
+ * const generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * const text = 'I enjoy walking with my cute dog,';
+ * const output = await generator(text);
  * // [{ generated_text: "I enjoy walking with my cute dog, and I love to play with the other dogs." }]
  * ```
  * 
  * **Example:** Text generation with `Xenova/distilgpt2` (custom settings).
  * ```javascript
- * let text = 'Once upon a time, there was';
- * let generator = await pipeline('text-generation', 'Xenova/distilgpt2');
- * let output = await generator(text, {
+ * const generator = await pipeline('text-generation', 'Xenova/distilgpt2');
+ * const text = 'Once upon a time, there was';
+ * const output = await generator(text, {
  *   temperature: 2,
  *   max_new_tokens: 10,
  *   repetition_penalty: 1.5,
@@ -867,9 +865,9 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * 
  * **Example:** Run code generation with `Xenova/codegen-350M-mono`.
  * ```javascript
- * let text = 'def fib(n):';
- * let generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
- * let output = await generator(text, {
+ * const generator = await pipeline('text-generation', 'Xenova/codegen-350M-mono');
+ * const text = 'def fib(n):';
+ * const output = await generator(text, {
  *   max_new_tokens: 44,
  * });
  * // [{
@@ -961,10 +959,10 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
  * 
  * **Example:** Zero shot classification with `Xenova/mobilebert-uncased-mnli`.
  * ```javascript
- * let text = 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.';
- * let labels = [ 'mobile', 'billing', 'website', 'account access' ];
- * let classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
- * let output = await classifier(text, labels);
+ * const classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+ * const text = 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.';
+ * const labels = [ 'mobile', 'billing', 'website', 'account access' ];
+ * const output = await classifier(text, labels);
  * // {
  * //   sequence: 'Last week I upgraded my iOS version and ever since then my phone has been overheating whenever I use your app.',
  * //   labels: [ 'mobile', 'website', 'billing', 'account access' ],
@@ -974,10 +972,10 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
  * 
  * **Example:** Zero shot classification with `Xenova/nli-deberta-v3-xsmall` (multi-label).
  * ```javascript
- * let text = 'I have a problem with my iphone that needs to be resolved asap!';
- * let labels = [ 'urgent', 'not urgent', 'phone', 'tablet', 'computer' ];
- * let classifier = await pipeline('zero-shot-classification', 'Xenova/nli-deberta-v3-xsmall');
- * let output = await classifier(text, labels, { multi_label: true });
+ * const classifier = await pipeline('zero-shot-classification', 'Xenova/nli-deberta-v3-xsmall');
+ * const text = 'I have a problem with my iphone that needs to be resolved asap!';
+ * const labels = [ 'urgent', 'not urgent', 'phone', 'tablet', 'computer' ];
+ * const output = await classifier(text, labels, { multi_label: true });
  * // {
  * //   sequence: 'I have a problem with my iphone that needs to be resolved asap!',
  * //   labels: [ 'urgent', 'phone', 'computer', 'tablet', 'not urgent' ],
@@ -1096,8 +1094,8 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * 
  * **Example:** Run feature extraction with `bert-base-uncased` (without pooling/normalization).
  * ```javascript
- * let extractor = await pipeline('feature-extraction', 'Xenova/bert-base-uncased', { revision: 'default' });
- * let output = await extractor('This is a simple test.');
+ * const extractor = await pipeline('feature-extraction', 'Xenova/bert-base-uncased', { revision: 'default' });
+ * const output = await extractor('This is a simple test.');
  * // Tensor {
  * //   type: 'float32',
  * //   data: Float32Array [0.05939924716949463, 0.021655935794115067, ...],
@@ -1107,8 +1105,8 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * 
  * **Example:** Run feature extraction with `bert-base-uncased` (with pooling/normalization).
  * ```javascript
- * let extractor = await pipeline('feature-extraction', 'Xenova/bert-base-uncased', { revision: 'default' });
- * let output = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
+ * const extractor = await pipeline('feature-extraction', 'Xenova/bert-base-uncased', { revision: 'default' });
+ * const output = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
  * // Tensor {
  * //   type: 'float32',
  * //   data: Float32Array [0.03373778983950615, -0.010106077417731285, ...],
@@ -1118,8 +1116,8 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * 
  * **Example:** Calculating embeddings with `sentence-transformers` models.
  * ```javascript
- * let extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
- * let output = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
+ * const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+ * const output = await extractor('This is a simple test.', { pooling: 'mean', normalize: true });
  * // Tensor {
  * //   type: 'float32',
  * //   data: Float32Array [0.09094982594251633, -0.014774246141314507, ...],
@@ -1206,9 +1204,9 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
  * 
  * **Example:** Perform audio classification with `Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech`.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
- * let classifier = await pipeline('audio-classification', 'Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech');
- * let output = await classifier(url);
+ * const classifier = await pipeline('audio-classification', 'Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * const output = await classifier(url);
  * // [
  * //   { label: 'male', score: 0.9981542229652405 },
  * //   { label: 'female', score: 0.001845747814513743 }
@@ -1217,9 +1215,9 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
  * 
  * **Example:** Perform audio classification with `Xenova/ast-finetuned-audioset-10-10-0.4593` and return top 4 results.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cat_meow.wav';
- * let classifier = await pipeline('audio-classification', 'Xenova/ast-finetuned-audioset-10-10-0.4593');
- * let output = await classifier(url, { topk: 4 });
+ * const classifier = await pipeline('audio-classification', 'Xenova/ast-finetuned-audioset-10-10-0.4593');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cat_meow.wav';
+ * const output = await classifier(url, { topk: 4 });
  * // [
  * //   { label: 'Meow', score: 0.5617874264717102 },
  * //   { label: 'Cat', score: 0.22365376353263855 },
@@ -1299,10 +1297,10 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
  * 
  * **Example**: Perform zero-shot audio classification with `Xenova/clap-htsat-unfused`.
  * ```javascript
- * let classifier = await pipeline('zero-shot-audio-classification', 'Xenova/clap-htsat-unfused');
- * let audio = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/dog_barking.wav';
- * let candidate_labels = ['dog', 'vaccum cleaner'];
- * let scores = await classifier(audio, candidate_labels);
+ * const classifier = await pipeline('zero-shot-audio-classification', 'Xenova/clap-htsat-unfused');
+ * const audio = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/dog_barking.wav';
+ * const candidate_labels = ['dog', 'vaccum cleaner'];
+ * const scores = await classifier(audio, candidate_labels);
  * // [
  * //   { score: 0.9993992447853088, label: 'dog' },
  * //   { score: 0.0006007603369653225, label: 'vaccum cleaner' }
@@ -1409,17 +1407,17 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  *
  * **Example:** Transcribe English.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
- * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
- * let output = await transcriber(url);
+ * const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * const output = await transcriber(url);
  * // { text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country." }
  * ```
  * 
  * **Example:** Transcribe English w/ timestamps.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
- * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
- * let output = await transcriber(url, { return_timestamps: true });
+ * const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * const output = await transcriber(url, { return_timestamps: true });
  * // {
  * //   text: " And so my fellow Americans ask not what your country can do for you, ask what you can do for your country."
  * //   chunks: [
@@ -1431,9 +1429,9 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * 
  * **Example:** Transcribe English w/ word-level timestamps.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
- * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
- * let output = await transcriber(url, { return_timestamps: 'word' });
+ * const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * const output = await transcriber(url, { return_timestamps: 'word' });
  * // {
  * //   "text": " And so my fellow Americans ask not what your country can do for you ask what you can do for your country.",
  * //   "chunks": [
@@ -1450,25 +1448,25 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * 
  * **Example:** Transcribe French.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
- * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
- * let output = await transcriber(url, { language: 'french', task: 'transcribe' });
+ * const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
+ * const output = await transcriber(url, { language: 'french', task: 'transcribe' });
  * // { text: " J'adore, j'aime, je n'aime pas, je déteste." }
  * ```
  * 
  * **Example:** Translate French to English.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
- * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
- * let output = await transcriber(url, { language: 'french', task: 'translate' });
+ * const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.mp3';
+ * const output = await transcriber(url, { language: 'french', task: 'translate' });
  * // { text: " I love, I like, I don't like, I hate." }
  * ```
  * 
  * **Example:** Transcribe/translate audio longer than 30 seconds.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/ted_60.wav';
- * let transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
- * let output = await transcriber(url, { chunk_length_s: 30, stride_length_s: 5 });
+ * const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/ted_60.wav';
+ * const output = await transcriber(url, { chunk_length_s: 30, stride_length_s: 5 });
  * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
  */
@@ -1677,17 +1675,17 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * 
  * **Example:** Generate a caption for an image w/ `Xenova/vit-gpt2-image-captioning`.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
- * let captioner = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
- * let output = await captioner(url);
+ * const captioner = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * const output = await captioner(url);
  * // [{ generated_text: 'a cat laying on a couch with another cat' }]
  * ```
  * 
  * **Example:** Optical Character Recognition (OCR) w/ `Xenova/trocr-small-handwritten`.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/handwriting.jpg';
- * let captioner = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten');
- * let output = await captioner(url);
+ * const captioner = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/handwriting.jpg';
+ * const output = await captioner(url);
  * // [{ generated_text: 'Mr. Brown commented icily.' }]
  * ```
  */
@@ -1743,9 +1741,9 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * 
  * **Example:** Classify an image.
  * ```javascript
- * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * let output = await classifier(url);
+ * const classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * const output = await classifier(url);
  * // [
  * //   { label: 'tiger, Panthera tigris', score: 0.632695734500885 },
  * // ]
@@ -1753,9 +1751,9 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * 
  * **Example:** Classify an image and return top `n` classes.
  * ```javascript
- * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * let output = await classifier(url, { topk: 3 });
+ * const classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * const output = await classifier(url, { topk: 3 });
  * // [
  * //   { label: 'tiger, Panthera tigris', score: 0.632695734500885 },
  * //   { label: 'tiger cat', score: 0.3634825646877289 },
@@ -1765,9 +1763,9 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * 
  * **Example:** Classify an image and return all classes.
  * ```javascript
- * let classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * let output = await classifier(url, { topk: 0 });
+ * const classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * const output = await classifier(url, { topk: 0 });
  * // [
  * //   { label: 'tiger, Panthera tigris', score: 0.632695734500885 },
  * //   { label: 'tiger cat', score: 0.3634825646877289 },
@@ -1844,9 +1842,9 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
  * 
  * **Example:** Perform image segmentation with `Xenova/detr-resnet-50-panoptic`.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
- * let segmenter = await pipeline('image-segmentation', 'Xenova/detr-resnet-50-panoptic');
- * let output = await segmenter(url);
+ * const segmenter = await pipeline('image-segmentation', 'Xenova/detr-resnet-50-panoptic');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * const output = await segmenter(url);
  * // [
  * //   { label: 'remote', score: 0.9984649419784546, mask: RawImage { ... } },
  * //   { label: 'cat', score: 0.9994316101074219, mask: RawImage { ... } }
@@ -1985,9 +1983,9 @@ export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePi
  * 
  * **Example:** Zero shot image classification w/ `Xenova/clip-vit-base-patch32`.
  * ```javascript
- * let classifier = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * let output = await classifier(url, ['tiger', 'horse', 'dog']);
+ * const classifier = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
+ * const output = await classifier(url, ['tiger', 'horse', 'dog']);
  * // [
  * //   { score: 0.9993917942047119, label: 'tiger' },
  * //   { score: 0.0003519294841680676, label: 'horse' },
@@ -2074,12 +2072,11 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * Object detection pipeline using any `AutoModelForObjectDetection`.
  * This pipeline predicts bounding boxes of objects and their classes.
  * 
- * **Example:** Run object-detection with `facebook/detr-resnet-50`.
+ * **Example:** Run object-detection with `Xenova/detr-resnet-50`.
  * ```javascript
- * let img = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
- * 
- * let detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
- * let output = await detector(img, { threshold: 0.9 });
+ * const detector = await pipeline('object-detection', 'Xenova/detr-resnet-50');
+ * const img = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * const output = await detector(img, { threshold: 0.9 });
  * // [{
  * //   score: 0.9976370930671692,
  * //   label: "remote",
@@ -2167,10 +2164,10 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * 
  * **Example:** Zero-shot object detection w/ `Xenova/owlvit-base-patch32`.
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/astronaut.png';
- * let candidate_labels = ['human face', 'rocket', 'helmet', 'american flag'];
- * let detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
- * let output = await detector(url, candidate_labels);
+ * const detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/astronaut.png';
+ * const candidate_labels = ['human face', 'rocket', 'helmet', 'american flag'];
+ * const output = await detector(url, candidate_labels);
  * // [
  * //   {
  * //     score: 0.24392342567443848,
@@ -2197,10 +2194,10 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * 
  * **Example:** Zero-shot object detection w/ `Xenova/owlvit-base-patch32` (returning top 4 matches and setting a threshold).
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png';
- * let candidate_labels = ['hat', 'book', 'sunglasses', 'camera'];
- * let detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
- * let output = await detector(url, candidate_labels, { topk: 4, threshold: 0.05 });
+ * const detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png';
+ * const candidate_labels = ['hat', 'book', 'sunglasses', 'camera'];
+ * const output = await detector(url, candidate_labels, { topk: 4, threshold: 0.05 });
  * // [
  * //   {
  * //     score: 0.1606510728597641,
@@ -2303,11 +2300,10 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * 
  * **Example:** Answer questions about a document with `Xenova/donut-base-finetuned-docvqa`.
  * ```javascript
- * let image = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/invoice.png';
- * let question = 'What is the invoice number?';
- * 
- * let qa_pipeline = await pipeline('document-question-answering', 'Xenova/donut-base-finetuned-docvqa');
- * let output = await qa_pipeline(image, question);
+ * const qa_pipeline = await pipeline('document-question-answering', 'Xenova/donut-base-finetuned-docvqa');
+ * const image = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/invoice.png';
+ * const question = 'What is the invoice number?';
+ * const output = await qa_pipeline(image, question);
  * // [{ answer: 'us-001' }]
  * ```
  */
@@ -2388,9 +2384,9 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * 
  * **Example:** Generate audio from text with `Xenova/speecht5_tts`.
  * ```javascript
- * let speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
- * let synthesizer = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false });
- * let out = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
+ * const synthesizer = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false });
+ * const speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
+ * const out = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
  * // {
  * //   audio: Float32Array(26112) [-0.00005657337896991521, 0.00020583874720614403, ...],
  * //   sampling_rate: 16000
@@ -2402,15 +2398,15 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * import wavefile from 'wavefile';
  * import fs from 'fs';
  * 
- * let wav = new wavefile.WaveFile();
+ * const wav = new wavefile.WaveFile();
  * wav.fromScratch(1, out.sampling_rate, '32f', out.audio);
  * fs.writeFileSync('out.wav', wav.toBuffer());
  * ```
  * 
  * **Example:** Multilingual speech generation with `Xenova/mms-tts-fra`. See [here](https://huggingface.co/models?pipeline_tag=text-to-speech&other=vits&sort=trending) for the full list of available languages (1107).
  * ```javascript
- * let synthesizer = await pipeline('text-to-speech', 'Xenova/mms-tts-fra');
- * let out = await synthesizer('Bonjour');
+ * const synthesizer = await pipeline('text-to-speech', 'Xenova/mms-tts-fra');
+ * const out = await synthesizer('Bonjour');
  * // {
  * //   audio: Float32Array(23808) [-0.00037693005288019776, 0.0003325853613205254, ...],
  * //   sampling_rate: 16000
@@ -2521,9 +2517,9 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
  * 
  * **Example:** Super-resolution w/ `Xenova/swin2SR-classical-sr-x2-64`
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/butterfly.jpg';
- * let upscaler = await pipeline('image-to-image', 'Xenova/swin2SR-classical-sr-x2-64');
- * let output = await upscaler(url);
+ * const upscaler = await pipeline('image-to-image', 'Xenova/swin2SR-classical-sr-x2-64');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/butterfly.jpg';
+ * const output = await upscaler(url);
  * // RawImage {
  * //   data: Uint8Array(786432) [ 41, 31, 24,  43, ... ],
  * //   width: 512,
@@ -2575,9 +2571,9 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
  * 
  * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`
  * ```javascript
- * let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
- * let depth_estimator = await pipeline('depth-estimation', 'Xenova/dpt-hybrid-midas');
- * let out = await depth_estimator(url);
+ * const depth_estimator = await pipeline('depth-estimation', 'Xenova/dpt-hybrid-midas');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
+ * const out = await depth_estimator(url);
  * // {
  * //   predicted_depth: Tensor {
  * //     dims: [ 384, 384 ],
