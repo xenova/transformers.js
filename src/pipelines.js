@@ -2367,9 +2367,21 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
 
 /**
  * @typedef {Object} VocoderOptions
- * @property {PreTrainedModel} [vocoder] The vocoder to use. If not provided, use the default HifiGan vocoder.
- * 
+ * @property {PreTrainedModel} [vocoder] The vocoder to use (if the model uses one). If not provided, use the default HifiGan vocoder.
  * @typedef {TextAudioPipelineConstructorArgs & VocoderOptions} TextToAudioPipelineConstructorArgs
+ */
+
+/**
+ * @typedef {Object} TextToAudioOutput
+ * @property {Float32Array} audio The generated audio waveform.
+ * @property {number} sampling_rate The sampling rate of the generated audio waveform.
+ * 
+ * @callback TextToAudioPipelineCallback Generates speech/audio from the inputs.
+ * @param {string|string[]} texts The text(s) to generate.
+ * @param {Object} options Parameters passed to the model generation/forward method.
+ * @param {Tensor|Float32Array|string|URL} [options.speaker_embeddings=null] The speaker embeddings (if the model requires it).
+ * 
+ * @returns {Promise<TextToAudioOutput>} A promise which resolves to an object containing the generated audio and sampling rate.
  */
 
 /**
@@ -2407,7 +2419,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * // }
  * ```
  */
-export class TextToAudioPipeline extends Pipeline {
+export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPipelineConstructorArgs) => TextToAudioPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     DEFAULT_VOCODER_ID = "Xenova/speecht5_hifigan"
 
     /**
@@ -2421,19 +2433,15 @@ export class TextToAudioPipeline extends Pipeline {
         this.vocoder = options.vocoder ?? null;
     }
 
-    /**
-     * Generates speech/audio from the inputs.
-     * @param {string|string[]} text_inputs The text(s) to generate.
-     * @param {Object} options Parameters passed to the model generation/forward method.
-     * @param {PreTrainedModel} [options.vocoder=null] The vocoder to use (if the model uses one). If not provided, use the default HifiGan vocoder.
-     * @param {Tensor|Float32Array|string|URL} [options.speaker_embeddings=null]
-     * @returns {Promise<Object>} An object containing the generated audio and sampling rate.
-     */
+
+    /** @type {TextToAudioPipelineCallback} */
     async _call(text_inputs, {
         speaker_embeddings = null,
     } = {}) {
+        const self = /** @type {TextToAudioPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
-        if (this.processor) {
+        if (self.processor) {
             return this._call_text_to_spectrogram(text_inputs, { speaker_embeddings });
         } else {
             return this._call_text_to_waveform(text_inputs);
@@ -2441,17 +2449,18 @@ export class TextToAudioPipeline extends Pipeline {
     }
 
     async _call_text_to_waveform(text_inputs) {
+        const self = /** @type {TextToAudioPipeline & Pipeline} */ (/** @type {any} */ (this));
 
         // Run tokenization
-        const inputs = this.tokenizer(text_inputs, {
+        const inputs = self.tokenizer(text_inputs, {
             padding: true,
             truncation: true,
         });
 
         // Generate waveform
-        const { waveform } = await this.model(inputs);
+        const { waveform } = await self.model(inputs);
 
-        const sampling_rate = this.model.config.sampling_rate;
+        const sampling_rate = self.model.config.sampling_rate;
         return {
             audio: waveform.data,
             sampling_rate,
@@ -2459,11 +2468,12 @@ export class TextToAudioPipeline extends Pipeline {
     }
 
     async _call_text_to_spectrogram(text_inputs, { speaker_embeddings }) {
+        const self = /** @type {TextToAudioPipeline & Pipeline} */ (/** @type {any} */ (this));
 
         // Load vocoder, if not provided
-        if (!this.vocoder) {
+        if (!self.vocoder) {
             console.log('No vocoder specified, using default HifiGan vocoder.');
-            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { quantized: false });
+            self.vocoder = await AutoModel.from_pretrained(self.DEFAULT_VOCODER_ID, { quantized: false });
         }
 
         // Load speaker embeddings as Float32Array from path/URL
@@ -2485,16 +2495,16 @@ export class TextToAudioPipeline extends Pipeline {
         }
 
         // Run tokenization
-        const { input_ids } = this.tokenizer(text_inputs, {
+        const { input_ids } = self.tokenizer(text_inputs, {
             padding: true,
             truncation: true,
         });
 
         // NOTE: At this point, we are guaranteed that `speaker_embeddings` is a `Tensor`
         // @ts-ignore
-        const { waveform } = await this.model.generate_speech(input_ids, speaker_embeddings, { vocoder: this.vocoder });
+        const { waveform } = await self.model.generate_speech(input_ids, speaker_embeddings, { vocoder: this.vocoder });
 
-        const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
+        const sampling_rate = self.processor.feature_extractor.config.sampling_rate;
         return {
             audio: waveform.data,
             sampling_rate,
