@@ -2563,6 +2563,16 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
 }
 
 /**
+ * @typedef {Object} DepthEstimationPipelineOutput
+ * @property {Tensor} predicted_depth The raw depth map predicted by the model.
+ * @property {RawImage} depth The processed depth map as an image (with the same size as the input image).
+ * 
+ * @callback DepthEstimationPipelineCallback Predicts the depth for the image(s) passed as inputs.
+ * @param {ImagePipelineInputs} images The images to compute depth for.
+ * @returns {Promise<DepthEstimationPipelineOutput|DepthEstimationPipelineOutput[]>} An image or a list of images containing result(s).
+ */
+
+/**
  * Depth estimation pipeline using any `AutoModelForDepthEstimation`. This pipeline predicts the depth of an image.
  * 
  * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`
@@ -2586,7 +2596,7 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
  * // }
  * ```
  */
-export class DepthEstimationPipeline extends Pipeline {
+export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => DepthEstimationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
     /**
      * Create a new DepthEstimationPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2595,16 +2605,14 @@ export class DepthEstimationPipeline extends Pipeline {
         super(options);
     }
 
-    /**
-     * Predicts the depth for the image(s) passed as inputs.
-     * @param {ImagePipelineInputs} images The images to compute depth for.
-     * @returns {Promise<any>} An image or a list of images containing result(s).
-     */
+    /** @type {DepthEstimationPipelineCallback} */
     async _call(images) {
+        const self = /** @type {DepthEstimationPipeline & Pipeline} */ (/** @type {any} */ (this));
+
         const preparedImages = await prepareImages(images);
 
-        const inputs = await this.processor(preparedImages);
-        const { predicted_depth } = await this.model(inputs);
+        const inputs = await self.processor(preparedImages);
+        const { predicted_depth } = await self.model(inputs);
 
         const toReturn = [];
         for (let i = 0; i < preparedImages.length; ++i) {
