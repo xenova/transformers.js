@@ -99,7 +99,7 @@ async function prepareImages(images) {
  * Prepare audios for further tasks.
  * @param {AudioPipelineInputs} audios audios to prepare.
  * @param {number} sampling_rate sampling rate of the audios.
- * @returns {Promise<Float32Array[]>} A promise that resolves to the preprocessed audio data.
+ * @returns {Promise<Float32Array[]>} The preprocessed audio data.
  * @private
  */
 async function prepareAudios(audios, sampling_rate) {
@@ -213,7 +213,7 @@ export class Pipeline extends Callable {
  * @param {string|string[]} texts The input text(s) to be classified.
  * @param {Object} options An optional object containing the following properties:
  * @param {number} [options.topk=1] The number of top predictions to be returned.
- * @returns {Promise<TextClassificationOutput|TextClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
+ * @returns {Promise<TextClassificationOutput|TextClassificationOutput[]>} An array or object containing the predicted labels and scores.
  */
 
 /**
@@ -320,7 +320,7 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * @param {string|string[]} texts One or several texts (or one list of texts) for token classification.
  * @param {Object} options An optional object containing the following properties:
  * @param {string[]} [options.ignore_labels] A list of labels to ignore.
- * @returns {Promise<TokenClassificationOutput|TokenClassificationOutput[]>} A promise that resolves to the result.
+ * @returns {Promise<TokenClassificationOutput|TokenClassificationOutput[]>} The result.
  */
 
 /**
@@ -437,8 +437,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * @param {string|string[]} context One or several context(s) associated with the question(s) (must be used in conjunction with the `question` argument).
  * @param {Object} options An optional object containing the following properties:
  * @param {number} [options.topk=1] The number of top answer predictions to be returned.
- * @returns {Promise<QuestionAnsweringOutput|QuestionAnsweringOutput[]>} A promise that resolves to an array or object
- * containing the predicted answers and scores.
+ * @returns {Promise<QuestionAnsweringOutput|QuestionAnsweringOutput[]>} An array or object containing the predicted answers and scores.
  */
 
 /**
@@ -831,7 +830,7 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
  * @param {string|string[]} texts One or several prompts (or one list of prompts) to complete.
  * @param {TextGenerationConfig} options Additional keyword arguments to pass along to the generate method of the model.
- * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} A promise that resolves to an array or object containing the generated texts.
+ * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} An array or object containing the generated texts.
  */
 
 /**
@@ -951,7 +950,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
  * If `false`, the scores are normalized such that the sum of the label likelihoods for each sequence
  * is 1. If `true`, the labels are considered independent and probabilities are normalized for each
  * candidate by doing a softmax of the entailment score vs. the contradiction score.
- * @returns {Promise<ZeroShotClassificationOutput|ZeroShotClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
+ * @returns {Promise<ZeroShotClassificationOutput|ZeroShotClassificationOutput[]>} An array or object containing the predicted labels and scores.
  */
 
 /**
@@ -1198,7 +1197,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
  * @param {number} [options.topk=null] The number of top labels that will be returned by the pipeline.
  * If the provided number is `null` or higher than the number of labels available in the model configuration,
  * it will default to the number of labels.
- * @returns {Promise<AudioClassificationOutput|AudioClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
+ * @returns {Promise<AudioClassificationOutput|AudioClassificationOutput[]>} An array or object containing the predicted labels and scores.
  */
 
 /**
@@ -1291,7 +1290,7 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
  * @param {string} [options.hypothesis_template="This is a sound of {}."] The sentence used in conjunction with `candidate_labels`
  * to attempt the audio classification by replacing the placeholder with the candidate_labels.
  * Then likelihood is estimated by using `logits_per_audio`.
- * @returns {Promise<ZeroShotAudioClassificationOutput[]|ZeroShotAudioClassificationOutput[][]>} A promise that resolves to an array of objects containing the predicted labels and scores.
+ * @returns {Promise<ZeroShotAudioClassificationOutput[]|ZeroShotAudioClassificationOutput[][]>} An array of objects containing the predicted labels and scores.
  */
 
 /**
@@ -1402,8 +1401,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
  * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
  * @param {AutomaticSpeechRecognitionConfig} options Additional keyword arguments to pass along to the generate method of the model.
- * @returns {Promise<AutomaticSpeechRecognitionOutput|AutomaticSpeechRecognitionOutput[]>} A Promise that resolves to an object containing the
- * transcription text and optionally timestamps if `return_timestamps` is `true`.
+ * @returns {Promise<AutomaticSpeechRecognitionOutput|AutomaticSpeechRecognitionOutput[]>} An object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
  */
 
 /**
@@ -1671,7 +1669,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * @callback ImageToTextPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} texts The images to be captioned.
  * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
- * @returns {Promise<ImageToTextOutput|ImageToTextOutput[]>} A Promise that resolves to an object (or array of objects) containing the generated text(s).
+ * @returns {Promise<ImageToTextOutput|ImageToTextOutput[]>} An object (or array of objects) containing the generated text(s).
  */
 
 /**
@@ -1736,7 +1734,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * @param {ImagePipelineInputs} images The input images(s) to be classified.
  * @param {Object} options An optional object containing the following properties:
  * @param {number} [options.topk=1] The number of top labels that will be returned by the pipeline. 
- * @returns {Promise<ImageClassificationOutput|ImageClassificationOutput[]>} A promise that resolves to an array or object containing the predicted labels and scores.
+ * @returns {Promise<ImageClassificationOutput|ImageClassificationOutput[]>} An array or object containing the predicted labels and scores.
  */
 
 /**
@@ -1978,7 +1976,7 @@ export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePi
  * @param {string} [options.hypothesis_template="This is a photo of {}"] The sentence used in conjunction with `candidate_labels`
  * to attempt the image classification by replacing the placeholder with the candidate_labels.
  * Then likelihood is estimated by using `logits_per_image`.
- * @returns {Promise<ZeroShotImageClassificationOutput[]|ZeroShotImageClassificationOutput[][]>} A promise that resolves to an array of objects containing the predicted labels and scores.
+ * @returns {Promise<ZeroShotImageClassificationOutput[]|ZeroShotImageClassificationOutput[][]>} An array of objects containing the predicted labels and scores.
  */
 
 /**
@@ -2069,7 +2067,7 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * @param {Object} options The options for the object detection.
  * @param {number} [options.threshold=0.9] The threshold used to filter boxes by score.
  * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
- * @returns {Promise<ObjectDetectionPipelineOutput|ObjectDetectionPipelineOutput[]>} A promise that resolves to a list of objects or a list of list of objects. 
+ * @returns {Promise<ObjectDetectionPipelineOutput|ObjectDetectionPipelineOutput[]>} A list of objects or a list of list of objects. 
  */
 
 /**
@@ -2160,7 +2158,7 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * If the provided number is `null` or higher than the number of predictions available, it will default
  * to the number of predictions.
  * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
- * @returns {Promise<ZeroShotObjectDetectionOutput[]|ZeroShotObjectDetectionOutput[][]>} A promise that resolves to an array of objects containing the predicted labels, scores, and bounding boxes.
+ * @returns {Promise<ZeroShotObjectDetectionOutput[]|ZeroShotObjectDetectionOutput[][]>} An array of objects containing the predicted labels, scores, and bounding boxes.
  */
 
 /**
@@ -2295,7 +2293,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * @param {ImageInput} image The image of the document to use.
  * @param {string} question A question to ask of the document.
  * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
- * @returns {Promise<DocumentQuestionAnsweringOutput|DocumentQuestionAnsweringOutput[]>} A Promise that resolves to an object (or array of objects) containing the answer(s).
+ * @returns {Promise<DocumentQuestionAnsweringOutput|DocumentQuestionAnsweringOutput[]>} An object (or array of objects) containing the answer(s).
  */
 
 /**
@@ -2381,7 +2379,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * @param {Object} options Parameters passed to the model generation/forward method.
  * @param {Tensor|Float32Array|string|URL} [options.speaker_embeddings=null] The speaker embeddings (if the model requires it).
  * 
- * @returns {Promise<TextToAudioOutput>} A promise which resolves to an object containing the generated audio and sampling rate.
+ * @returns {Promise<TextToAudioOutput>} An object containing the generated audio and sampling rate.
  */
 
 /**
@@ -2515,7 +2513,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
 /**
  * @callback ImageToImagePipelineCallback Transform the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The images to transform.
- * @returns {Promise<RawImage|RawImage[]>} A promise that resolves to the transformed image or list of images.
+ * @returns {Promise<RawImage|RawImage[]>} The transformed image or list of images.
  */
 
 /**
