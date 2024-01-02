@@ -714,6 +714,7 @@ SUPPORTED_MODELS = {
         # Text generation
         'text-generation': [
             'hf-internal-testing/tiny-random-PhiForCausalLM',
+            'susnato/phi-1_5_dev',
         ],
     },
     'roberta': {
