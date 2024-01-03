@@ -1,8 +1,6 @@
 
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-import HtmlWebpackPlugin from 'html-webpack-plugin';
 import CopyPlugin from 'copy-webpack-plugin';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,10 +17,6 @@ const config = {
         filename: '[name].js',
     },
     plugins: [
-        new HtmlWebpackPlugin({
-            template: './src/sidepanel.html',
-            filename: 'sidepanel.html',
-        }),
         new CopyPlugin({
             patterns: [
                 {
@@ -32,6 +26,10 @@ const config = {
                 {
                     from: "src/sidepanel.css",
                     to: "sidepanel.css"
+                },
+                {
+                    from: "src/sidepanel.html",
+                    to: "sidepanel.html"
                 }
             ],
         })
