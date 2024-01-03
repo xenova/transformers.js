@@ -1996,7 +1996,7 @@ export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePi
  * @callback ZeroShotImageClassificationPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The input images.
  * @param {string[]} candidate_labels The candidate labels for this image.
- * @param {ZeroShotImageClassificationPipelineOptions} options The options to use for zero-shot image classification.
+ * @param {ZeroShotImageClassificationPipelineOptions} [options] The options to use for zero-shot image classification.
  * @returns {Promise<ZeroShotImageClassificationOutput[]|ZeroShotImageClassificationOutput[][]>} An array of objects containing the predicted labels and scores.
  */
 
