@@ -255,7 +255,7 @@ export class Pipeline extends Callable {
  * // ]
  * ```
  */
-export class TextClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class TextClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextClassificationPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new TextClassificationPipeline.
@@ -356,7 +356,7 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * // ]
  * ```
  */
-export class TokenClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TokenClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class TokenClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TokenClassificationPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new TokenClassificationPipeline.
@@ -461,7 +461,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * // }
  * ```
  */
-export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => QuestionAnsweringPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => QuestionAnsweringPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new QuestionAnsweringPipeline.
@@ -570,7 +570,7 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
  * // [{ token_str: 'spiral', score: 0.6299987435340881, token: 14061, sequence: 'The Milky Way is a spiral galaxy.' }]
  * ```
  */
-export class FillMaskPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FillMaskPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class FillMaskPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FillMaskPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new FillMaskPipeline.
@@ -649,7 +649,7 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
  * // [{ generated_text: "To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues." }]
  * ```
  */
-export class Text2TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => Text2TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class Text2TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => Text2TextGenerationPipelineCallback} */ (Pipeline)) {
     /** @type {'generated_text'} */
     _key = 'generated_text';
 
@@ -889,7 +889,7 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * // }]
  * ```
  */
-export class TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextGenerationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextGenerationPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new TextGenerationPipeline.
@@ -993,7 +993,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
  * // }
  * ```
  */
-export class ZeroShotClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => ZeroShotClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ZeroShotClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => ZeroShotClassificationPipelineCallback} */ (Pipeline)) {
     /**
      * Create a new ZeroShotClassificationPipeline.
      * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -1137,7 +1137,7 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * // }
  * ```
  */
-export class FeatureExtractionPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FeatureExtractionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class FeatureExtractionPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FeatureExtractionPipelineCallback} */ (Pipeline)) {
     /**
      * Create a new FeatureExtractionPipeline.
      * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -1240,7 +1240,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
  * // ]
  * ```
  */
-export class AudioClassificationPipeline extends (/** @type {new (options: AudioPipelineConstructorArgs) => AudioClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class AudioClassificationPipeline extends (/** @type {new (options: AudioPipelineConstructorArgs) => AudioClassificationPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new AudioClassificationPipeline.
@@ -1323,7 +1323,7 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
  * // ]
  * ```
  */
-export class ZeroShotAudioClassificationPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => ZeroShotAudioClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ZeroShotAudioClassificationPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => ZeroShotAudioClassificationPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new ZeroShotAudioClassificationPipeline.
@@ -1486,7 +1486,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
  */
-export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => AutomaticSpeechRecognitionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => AutomaticSpeechRecognitionPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new AutomaticSpeechRecognitionPipeline.
@@ -1705,7 +1705,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * // [{ generated_text: 'Mr. Brown commented icily.' }]
  * ```
  */
-export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ImageToTextPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ImageToTextPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new ImageToTextPipeline.
@@ -1793,7 +1793,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * // ]
  * ```
  */
-export class ImageClassificationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ImageClassificationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageClassificationPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new ImageClassificationPipeline.
@@ -1872,7 +1872,7 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
  * // ]
  * ```
  */
-export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageSegmentationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageSegmentationPipelineCallback} */ (Pipeline)) {
     /**
      * Create a new ImageSegmentationPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2016,7 +2016,7 @@ export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePi
  * // ]
  * ```
  */
-export class ZeroShotImageClassificationPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotImageClassificationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ZeroShotImageClassificationPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotImageClassificationPipelineCallback} */ (Pipeline)) {
     /**
      * Create a new ZeroShotImageClassificationPipeline.
      * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2114,7 +2114,7 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * // }]
  * ```
  */
-export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ObjectDetectionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ObjectDetectionPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new ObjectDetectionPipeline.
@@ -2248,7 +2248,7 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * // ]
  * ```
  */
-export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotObjectDetectionPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotObjectDetectionPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new ZeroShotObjectDetectionPipeline.
@@ -2333,7 +2333,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * // [{ answer: 'us-001' }]
  * ```
  */
-export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => DocumentQuestionAnsweringPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => DocumentQuestionAnsweringPipelineCallback} */ (Pipeline)) {
 
     /**
      * Create a new DocumentQuestionAnsweringPipeline.
@@ -2440,7 +2440,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * // }
  * ```
  */
-export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPipelineConstructorArgs) => TextToAudioPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPipelineConstructorArgs) => TextToAudioPipelineCallback} */ (Pipeline)) {
     DEFAULT_VOCODER_ID = "Xenova/speecht5_hifigan"
 
     /**
@@ -2555,7 +2555,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
  * // }
  * ```
  */
-export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageToImagePipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageToImagePipelineCallback} */ (Pipeline)) {
     /**
      * Create a new ImageToImagePipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2617,7 +2617,7 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
  * // }
  * ```
  */
-export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => DepthEstimationPipelineCallback} */ (/** @type {any} */ Pipeline)) {
+export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => DepthEstimationPipelineCallback} */ (Pipeline)) {
     /**
      * Create a new DepthEstimationPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
