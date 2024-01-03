@@ -5,6 +5,21 @@ import { infer } from "./inference.mjs";
 const inputElement = document.getElementById('text');
 const outputElement = document.getElementById('output');
 
+// Create generic inference function, which will be reused for the different types of events.
+const infer = async (text) => {
+    // Get the pipeline instance. This will load and build the model when run for the first time.
+    let model = await PipelineSingleton.getInstance((data) => {
+        // chrome.runtime.sendMessage({ type: 'model_load_progress', data: data })
+        // You can track the progress of the pipeline creation here.
+        // e.g., you can send `data` back to the UI to indicate a progress bar
+        console.log('progress', data)
+    });
+
+    // Actually run the model on the input text
+    let result = await model(text);
+    return result;
+};
+
 const main = async inference_input => {
     inputElement.value = inference_input;
     const result = await infer(inference_input)

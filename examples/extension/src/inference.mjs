@@ -18,18 +18,4 @@ class PipelineSingleton {
     }
 }
 
-// Create generic inference function, which will be reused for the different types of events.
-const infer = async (text) => {
-    // Get the pipeline instance. This will load and build the model when run for the first time.
-    let model = await PipelineSingleton.getInstance((data) => {
-        // You can track the progress of the pipeline creation here.
-        // e.g., you can send `data` back to the UI to indicate a progress bar
-        // console.log('progress', data)
-    });
-
-    // Actually run the model on the input text
-    let result = await model(text);
-    return result;
-};
-
-export { infer }
+export { PipelineSingleton }
