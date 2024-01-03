@@ -209,10 +209,12 @@ export class Pipeline extends Callable {
  * @property {number} score The corresponding probability.
  * @typedef {TextClassificationSingle[]} TextClassificationOutput
  * 
+ * @typedef {Object} TextClassificationPipelineOptions Parameters specific to text classification pipelines.
+ * @property {number} [topk=1] The number of top predictions to be returned.
+ * 
  * @callback TextClassificationPipelineCallback Classify the text(s) given as inputs.
  * @param {string|string[]} texts The input text(s) to be classified.
- * @param {Object} options An optional object containing the following properties:
- * @param {number} [options.topk=1] The number of top predictions to be returned.
+ * @param {TextClassificationPipelineOptions} [options] The options to use for text classification.
  * @returns {Promise<TextClassificationOutput|TextClassificationOutput[]>} An array or object containing the predicted labels and scores.
  */
 
@@ -316,10 +318,12 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * @property {number} [end] The index of the end of the corresponding entity in the sentence.
  * @typedef {TokenClassificationSingle[]} TokenClassificationOutput
  * 
+ * @typedef {Object} TokenClassificationPipelineOptions Parameters specific to token classification pipelines.
+ * @property {string[]} [ignore_labels] A list of labels to ignore.
+ * 
  * @callback TokenClassificationPipelineCallback Classify each token of the text(s) given as inputs.
  * @param {string|string[]} texts One or several texts (or one list of texts) for token classification.
- * @param {Object} options An optional object containing the following properties:
- * @param {string[]} [options.ignore_labels] A list of labels to ignore.
+ * @param {TokenClassificationPipelineOptions} [options] The options to use for token classification.
  * @returns {Promise<TokenClassificationOutput|TokenClassificationOutput[]>} The result.
  */
 
@@ -432,11 +436,13 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * @property {number} [end] The character end index of the answer (in the tokenized version of the input).
  * @property {string} answer The answer to the question.
  * 
- * @callback QuestionAnsweringPipelineCallback
+ * @typedef {Object} QuestionAnsweringPipelineOptions Parameters specific to question answering pipelines.
+ * @property {number} [topk=1] The number of top answer predictions to be returned.
+ * 
+ * @callback QuestionAnsweringPipelineCallback Answer the question(s) given as inputs by using the context(s).
  * @param {string|string[]} question One or several question(s) (must be used in conjunction with the `context` argument).
  * @param {string|string[]} context One or several context(s) associated with the question(s) (must be used in conjunction with the `question` argument).
- * @param {Object} options An optional object containing the following properties:
- * @param {number} [options.topk=1] The number of top answer predictions to be returned.
+ * @param {TokenClassificationPipelineOptions} [options] The options to use for question answering.
  * @returns {Promise<QuestionAnsweringOutput|QuestionAnsweringOutput[]>} An array or object containing the predicted answers and scores.
  */
 
@@ -529,10 +535,12 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
  * @property {string} token_str The predicted token (to replace the masked one).
  * @typedef {FillMaskSingle[]} FillMaskOutput
  * 
+ * @typedef {Object} FillMaskPipelineOptions Parameters specific to fill mask pipelines.
+ * @property {number} [topk=5] When passed, overrides the number of predictions to return.
+ * 
  * @callback FillMaskPipelineCallback Fill the masked token in the text(s) given as inputs.
  * @param {string|string[]} texts One or several texts (or one list of prompts) with masked tokens.
- * @param {Object} options An optional object containing the following properties:
- * @param {number} [options.topk=5] When passed, overrides the number of predictions to return.
+ * @param {FillMaskPipelineOptions} [options] The options to use for masked language modelling.
  * @returns {Promise<FillMaskOutput|FillMaskOutput[]>} An array of objects containing the score, predicted token, predicted token string,
  * and the sequence with the predicted token filled in, or an array of such arrays (one for each input text).
  * If only one input text is given, the output will be an array of objects.
@@ -625,7 +633,7 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
  * 
  * @callback Text2TextGenerationPipelineCallback Generate the output text(s) using text(s) given as inputs.
  * @param {string|string[]} texts Input text for the encoder.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<Text2TextGenerationOutput|Text2TextGenerationOutput[]>}
  */
 
@@ -708,7 +716,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
  * 
  * @callback SummarizationGenerationPipelineCallback Summarize the text(s) given as inputs.
  * @param {string|string[]} texts One or several articles (or one list of articles) to summarize.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<SummarizationGenerationOutput|SummarizationGenerationOutput[]>}
  */
 
@@ -753,7 +761,7 @@ export class SummarizationPipeline extends (/** @type {new (options: TextPipelin
  * 
  * @callback TranslationGenerationPipelineCallback Translate the text(s) given as inputs.
  * @param {string|string[]} texts Texts to be translated.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TranslationGenerationOutput|TranslationGenerationOutput[]>}
  */
 
@@ -827,7 +835,7 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * 
  * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
  * @param {string|string[]} texts One or several prompts (or one list of prompts) to complete.
- * @param {TextGenerationConfig} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {TextGenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} An array or object containing the generated texts.
  */
 
@@ -937,17 +945,19 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
  * @property {string[]} labels The labels sorted by order of likelihood.
  * @property {number[]} scores The probabilities for each of the labels.
  * 
+ * @typedef {Object} ZeroShotClassificationPipelineOptions Parameters specific to zero-shot classification pipelines.
+ * @property {string} [hypothesis_template="This example is {}."] The template used to turn each
+ * candidate label into an NLI-style hypothesis. The candidate label will replace the {} placeholder.
+ * @property {boolean} [multi_label=false] Whether or not multiple candidate labels can be true.
+ * If `false`, the scores are normalized such that the sum of the label likelihoods for each sequence
+ * is 1. If `true`, the labels are considered independent and probabilities are normalized for each
+ * candidate by doing a softmax of the entailment score vs. the contradiction score.
+ * 
  * @callback ZeroShotClassificationPipelineCallback Classify the sequence(s) given as inputs.
  * @param {string|string[]} texts The sequence(s) to classify, will be truncated if the model input is too large.
  * @param {string|string[]} candidate_labels The set of possible class labels to classify each sequence into.
  * Can be a single label, a string of comma-separated labels, or a list of labels.
- * @param {Object} options An optional object containing the following properties:
- * @param {string} [options.hypothesis_template="This example is {}."] The template used to turn each
- * candidate label into an NLI-style hypothesis. The candidate label will replace the {} placeholder.
- * @param {boolean} [options.multi_label=false] Whether or not multiple candidate labels can be true.
- * If `false`, the scores are normalized such that the sum of the label likelihoods for each sequence
- * is 1. If `true`, the labels are considered independent and probabilities are normalized for each
- * candidate by doing a softmax of the entailment score vs. the contradiction score.
+ * @param {ZeroShotClassificationPipelineOptions} [options] The options to use for zero-shot classification.
  * @returns {Promise<ZeroShotClassificationOutput|ZeroShotClassificationOutput[]>} An array or object containing the predicted labels and scores.
  */
 
@@ -1080,11 +1090,13 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
 }
 
 /**
+ * @typedef {Object} FeatureExtractionPipelineOptions Parameters specific to feature extraction pipelines.
+ * @property {'none'|'mean'|'cls'} [pooling="none"] The pooling method to use.
+ * @property {boolean} [normalize=false] Whether or not to normalize the embeddings in the last dimension.
+ * 
  * @callback FeatureExtractionPipelineCallback Extract the features of the input(s).
  * @param {string|string[]} texts One or several texts (or one list of texts) to get the features of.
- * @param {Object} options An object containing the following properties:
- * @param {string} [options.pooling="none"] The pooling method to use. Can be one of: "none", "mean".
- * @param {boolean} [options.normalize=false] Whether or not to normalize the embeddings in the last dimension.
+ * @param {FeatureExtractionPipelineOptions} [options] The options to use for feature extraction.
  * @returns {Promise<Tensor>} The features computed by the model.
  */
 
@@ -1136,7 +1148,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
 
     /** @type {FeatureExtractionPipelineCallback} */
     async _call(texts, {
-        pooling = 'none',
+        pooling = /** @type {'none'} */('none'),
         normalize = false,
     } = {}) {
         const self = /** @type {FeatureExtractionPipeline & Pipeline} */ (/** @type {any} */ (this));
@@ -1185,16 +1197,18 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
  * @property {number} score The corresponding probability.
  * @typedef {AudioClassificationSingle[]} AudioClassificationOutput
  * 
+ * @typedef {Object} AudioClassificationPipelineOptions Parameters specific to audio classification pipelines.
+ * @property {number} [topk=null] The number of top labels that will be returned by the pipeline.
+ * If the provided number is `null` or higher than the number of labels available in the model configuration,
+ * it will default to the number of labels.
+ * 
  * @callback AudioClassificationPipelineCallback Classify the sequence(s) given as inputs.
  * @param {AudioPipelineInputs} audio The input audio file(s) to be classified. The input is either:
  * - `string` or `URL` that is the filename/URL of the audio file, the file will be read at the processor's sampling rate
  * to get the waveform using the [`AudioContext`](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) API.
  * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
  * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
- * @param {Object} options An optional object containing the following properties:
- * @param {number} [options.topk=null] The number of top labels that will be returned by the pipeline.
- * If the provided number is `null` or higher than the number of labels available in the model configuration,
- * it will default to the number of labels.
+ * @param {AudioClassificationPipelineOptions} [options] The options to use for audio classification.
  * @returns {Promise<AudioClassificationOutput|AudioClassificationOutput[]>} An array or object containing the predicted labels and scores.
  */
 
@@ -1277,6 +1291,11 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
  * @property {string} label The label identified by the model. It is one of the suggested `candidate_label`.
  * @property {number} score The score attributed by the model for that label (between 0 and 1).
  * 
+ * @typedef {Object} ZeroShotAudioClassificationPipelineOptions Parameters specific to zero-shot audio classification pipelines.
+ * @property {string} [hypothesis_template="This is a sound of {}."] The sentence used in conjunction with `candidate_labels`
+ * to attempt the audio classification by replacing the placeholder with the candidate_labels.
+ * Then likelihood is estimated by using `logits_per_audio`.
+ * 
  * @callback ZeroShotAudioClassificationPipelineCallback Classify the sequence(s) given as inputs.
  * @param {AudioPipelineInputs} audio The input audio file(s) to be classified. The input is either:
  * - `string` or `URL` that is the filename/URL of the audio file, the file will be read at the processor's sampling rate
@@ -1284,10 +1303,7 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
  * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
  * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
  * @param {string[]} candidate_labels The candidate labels for this audio.
- * @param {Object} options An optional object containing the following properties:
- * @param {string} [options.hypothesis_template="This is a sound of {}."] The sentence used in conjunction with `candidate_labels`
- * to attempt the audio classification by replacing the placeholder with the candidate_labels.
- * Then likelihood is estimated by using `logits_per_audio`.
+ * @param {ZeroShotAudioClassificationPipelineOptions} [options] The options to use for zero-shot audio classification.
  * @returns {Promise<ZeroShotAudioClassificationOutput[]|ZeroShotAudioClassificationOutput[][]>} An array of objects containing the predicted labels and scores.
  */
 
@@ -1398,7 +1414,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * to get the waveform using the [`AudioContext`](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) API.
  * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
  * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
- * @param {AutomaticSpeechRecognitionConfig} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {AutomaticSpeechRecognitionConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<AutomaticSpeechRecognitionOutput|AutomaticSpeechRecognitionOutput[]>} An object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
  */
 
@@ -1666,7 +1682,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * 
  * @callback ImageToTextPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} texts The images to be captioned.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<ImageToTextOutput|ImageToTextOutput[]>} An object (or array of objects) containing the generated text(s).
  */
 
@@ -1728,10 +1744,12 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * @property {number} score The score attributed by the model for that label.
  * @typedef {ImageClassificationSingle[]} ImageClassificationOutput
  * 
+ * @typedef {Object} ImageClassificationPipelineOptions Parameters specific to image classification pipelines.
+ * @property {number} [topk=1] The number of top labels that will be returned by the pipeline. 
+ * 
  * @callback ImageClassificationPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The input images(s) to be classified.
- * @param {Object} options An optional object containing the following properties:
- * @param {number} [options.topk=1] The number of top labels that will be returned by the pipeline. 
+ * @param {ImageClassificationPipelineOptions} [options] The options to use for image classification.
  * @returns {Promise<ImageClassificationOutput|ImageClassificationOutput[]>} An array or object containing the predicted labels and scores.
  */
 
@@ -1824,15 +1842,18 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
  * @property {number|null} score The score of the segment.
  * @property {RawImage} mask The mask of the segment.
  * 
+ * @typedef {Object} ImageSegmentationPipelineOptions Parameters specific to image segmentation pipelines.
+ * @property {number} [threshold=0.5] Probability threshold to filter out predicted masks.
+ * @property {number} [mask_threshold=0.5] Threshold to use when turning the predicted masks into binary values.
+ * @property {number} [overlap_mask_area_threshold=0.8] Mask overlap threshold to eliminate small, disconnected segments.
+ * @property {null|string} [subtask=null] Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`],
+ * depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
+ * @property {number[]} [label_ids_to_fuse=null] List of label ids to fuse. If not set, do not fuse any labels.
+ * @property {number[][]} [target_sizes=null] List of target sizes for the input images. If not set, use the original image sizes.
+ * 
  * @callback ImageSegmentationPipelineCallback Segment the input images.
  * @param {ImagePipelineInputs} images The input images.
- * @param {Object} [options] The options to use for segmentation.
- * @param {number} [options.threshold=0.5] Probability threshold to filter out predicted masks.
- * @param {number} [options.mask_threshold=0.5] Threshold to use when turning the predicted masks into binary values.
- * @param {number} [options.overlap_mask_area_threshold=0.8] Mask overlap threshold to eliminate small, disconnected segments.
- * @param {null|string} [options.subtask=null] Segmentation task to be performed. One of [`panoptic`, `instance`, and `semantic`], depending on model capabilities. If not set, the pipeline will attempt to resolve (in that order).
- * @param {number[]} [options.label_ids_to_fuse=null] List of label ids to fuse. If not set, do not fuse any labels.
- * @param {number[][]} [options.target_sizes=null] List of target sizes for the input images. If not set, use the original image sizes.
+ * @param {ImageSegmentationPipelineOptions} [options] The options to use for image segmentation.
  * @returns {Promise<ImageSegmentationPipelineOutput[]>} The annotated segments.
  */
 
@@ -1967,13 +1988,15 @@ export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePi
  * @property {string} label The label identified by the model. It is one of the suggested `candidate_label`.
  * @property {number} score The score attributed by the model for that label (between 0 and 1).
  * 
+ * @typedef {Object} ZeroShotImageClassificationPipelineOptions Parameters specific to zero-shot image classification pipelines.
+ * @property {string} [hypothesis_template="This is a photo of {}"] The sentence used in conjunction with `candidate_labels`
+ * to attempt the image classification by replacing the placeholder with the candidate_labels.
+ * Then likelihood is estimated by using `logits_per_image`.
+ * 
  * @callback ZeroShotImageClassificationPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The input images.
  * @param {string[]} candidate_labels The candidate labels for this image.
- * @param {Object} options An optional object containing the following properties:
- * @param {string} [options.hypothesis_template="This is a photo of {}"] The sentence used in conjunction with `candidate_labels`
- * to attempt the image classification by replacing the placeholder with the candidate_labels.
- * Then likelihood is estimated by using `logits_per_image`.
+ * @param {ZeroShotImageClassificationPipelineOptions} [options] The options to use for zero-shot image classification.
  * @returns {Promise<ZeroShotImageClassificationOutput[]|ZeroShotImageClassificationOutput[][]>} An array of objects containing the predicted labels and scores.
  */
 
@@ -2057,14 +2080,15 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * @property {string} label The class label identified by the model.
  * @property {number} score The score attributed by the model for that label.
  * @property {BoundingBox} box The bounding box of detected object in image's original size, or as a percentage if `percentage` is set to true.
- * 
  * @typedef {ObjectDetectionPipelineSingle[]} ObjectDetectionPipelineOutput
+ * 
+ * @typedef {Object} ObjectDetectionPipelineOptions Parameters specific to object detection pipelines.
+ * @property {number} [threshold=0.9] The threshold used to filter boxes by score.
+ * @property {boolean} [percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
  * 
  * @callback ObjectDetectionPipelineCallback Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The input images.
- * @param {Object} options The options for the object detection.
- * @param {number} [options.threshold=0.9] The threshold used to filter boxes by score.
- * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
+ * @param {ObjectDetectionPipelineOptions} [options] The options to use for object detection.
  * @returns {Promise<ObjectDetectionPipelineOutput|ObjectDetectionPipelineOutput[]>} A list of objects or a list of list of objects. 
  */
 
@@ -2146,15 +2170,17 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * @property {number} score Score corresponding to the object (between 0 and 1).
  * @property {BoundingBox} box Bounding box of the detected object in image's original size, or as a percentage if `percentage` is set to true.
  * 
+ * @typedef {Object} ZeroShotObjectDetectionPipelineOptions Parameters specific to zero-shot object detection pipelines.
+ * @property {number} [threshold=0.1] The probability necessary to make a prediction.
+ * @property {number} [topk=null] The number of top predictions that will be returned by the pipeline.
+ * If the provided number is `null` or higher than the number of predictions available, it will default
+ * to the number of predictions.
+ * @property {boolean} [percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
+ * 
  * @callback ZeroShotObjectDetectionPipelineCallback Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The input images.
  * @param {string[]} candidate_labels What the model should recognize in the image.
- * @param {Object} options An optional object containing the following properties:
- * @param {number} [options.threshold=0.1] The probability necessary to make a prediction.
- * @param {number} [options.topk=null] The number of top predictions that will be returned by the pipeline.
- * If the provided number is `null` or higher than the number of predictions available, it will default
- * to the number of predictions.
- * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
+ * @param {ZeroShotObjectDetectionPipelineOptions} [options] The options to use for zero-shot object detection.
  * @returns {Promise<ZeroShotObjectDetectionOutput[]|ZeroShotObjectDetectionOutput[][]>} An array of objects containing the predicted labels, scores, and bounding boxes.
  */
 
@@ -2289,7 +2315,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * @callback DocumentQuestionAnsweringPipelineCallback Answer the question given as input by using the document.
  * @param {ImageInput} image The image of the document to use.
  * @param {string} question A question to ask of the document.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<DocumentQuestionAnsweringOutput|DocumentQuestionAnsweringOutput[]>} An object (or array of objects) containing the answer(s).
  */
 
@@ -2370,11 +2396,12 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * @property {Float32Array} audio The generated audio waveform.
  * @property {number} sampling_rate The sampling rate of the generated audio waveform.
  * 
+ * @typedef {Object} TextToAudioPipelineOptions Parameters specific to text-to-audio pipelines.
+ * @property {Tensor|Float32Array|string|URL} [speaker_embeddings=null] The speaker embeddings (if the model requires it).
+ * 
  * @callback TextToAudioPipelineCallback Generates speech/audio from the inputs.
  * @param {string|string[]} texts The text(s) to generate.
- * @param {Object} options Parameters passed to the model generation/forward method.
- * @param {Tensor|Float32Array|string|URL} [options.speaker_embeddings=null] The speaker embeddings (if the model requires it).
- * 
+ * @param {TextToAudioPipelineOptions} options Parameters passed to the model generation/forward method.
  * @returns {Promise<TextToAudioOutput>} An object containing the generated audio and sampling rate.
  */
 
