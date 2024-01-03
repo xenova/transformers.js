@@ -5,8 +5,6 @@ import { classify } from "./inference.mjs";
 const inputElement = document.getElementById('text');
 const outputElement = document.getElementById('output');
 
-const port = chrome.runtime.connect()
-
 const main = async inference_input => {
     inputElement.value = inference_input;
     const result = await classify(inference_input)
@@ -20,7 +18,8 @@ if (pending.inference_input?.length > 0) {
     chrome.storage.session.remove('inference_input')
 }
 
-// Listen for additional input from the background worker once open
+// Open port and listen for additional input from the background worker once open
+const port = chrome.runtime.connect()
 port.onMessage.addListener((message, sender, sendResponse) => {
     main(message.text)
 })
