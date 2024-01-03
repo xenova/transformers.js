@@ -9,7 +9,6 @@
  */
 
 import fs from 'fs';
-import { isString } from './core.js';
 import { getFile } from './hub.js';
 import { env } from '../env.js';
 import { transpose_data, interpolate_data } from './maths.js';
@@ -152,7 +151,7 @@ export class RawImage {
     static async read(input) {
         if (input instanceof RawImage) {
             return input;
-        } else if (isString(input) || input instanceof URL) {
+        } else if (typeof input === 'string' || input instanceof URL) {
             return await this.fromURL(input);
         } else {
             throw new Error(`Unsupported input type: ${typeof input}`);
