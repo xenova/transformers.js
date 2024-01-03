@@ -1,13 +1,13 @@
 // sidepanel.js - handles the sidepanel UI and starts Worker(s) to run inference
 
-import { classify } from "./inference.mjs";
+import { infer } from "./inference.mjs";
 
 const inputElement = document.getElementById('text');
 const outputElement = document.getElementById('output');
 
 const main = async inference_input => {
     inputElement.value = inference_input;
-    const result = await classify(inference_input)
+    const result = await infer(inference_input)
     outputElement.innerText = JSON.stringify(result, null, 2);
 }
 

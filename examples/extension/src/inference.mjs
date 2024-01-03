@@ -18,8 +18,8 @@ class PipelineSingleton {
     }
 }
 
-// Create generic classify function, which will be reused for the different types of events.
-const classify = async (text) => {
+// Create generic inference function, which will be reused for the different types of events.
+const infer = async (text) => {
     // Get the pipeline instance. This will load and build the model when run for the first time.
     let model = await PipelineSingleton.getInstance((data) => {
         // You can track the progress of the pipeline creation here.
@@ -32,4 +32,4 @@ const classify = async (text) => {
     return result;
 };
 
-export { classify }
+export { infer }
