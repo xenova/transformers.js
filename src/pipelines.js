@@ -130,8 +130,9 @@ async function prepareAudios(audios, sampling_rate) {
  * @param {number[]} box The bounding box as a list.
  * @param {boolean} asInteger Whether to cast to integers.
  * @returns {BoundingBox} The bounding box as an object.
+ * @private
  */
-export function get_bounding_box(box, asInteger) {
+function get_bounding_box(box, asInteger) {
     if (asInteger) {
         box = box.map(x => x | 0);
     }
@@ -140,6 +141,14 @@ export function get_bounding_box(box, asInteger) {
     return { xmin, ymin, xmax, ymax };
 }
 
+
+/**
+ * @callback DisposeType Disposes the item.
+ * @returns {Promise<void>} A promise that resolves when the item has been disposed.
+ * 
+ * @typedef {Object} Disposable
+ * @property {DisposeType} dispose A promise that resolves when the pipeline has been disposed.
+ */
 
 /**
  * The Pipeline class is the class from which all pipelines inherit.
@@ -151,9 +160,9 @@ export class Pipeline extends Callable {
      * Create a new Pipeline.
      * @param {Object} options An object containing the following properties:
      * @param {string} [options.task] The task of the pipeline. Useful for specifying subtasks.
-     * @param {PreTrainedModel} [options.model] The model to use.
-     * @param {PreTrainedTokenizer} [options.tokenizer=null] The tokenizer to use (if any).
-     * @param {Processor} [options.processor=null] The processor to use (if any).
+     * @param {PreTrainedModel} [options.model] The model used by the pipeline.
+     * @param {PreTrainedTokenizer} [options.tokenizer=null] The tokenizer used by the pipeline (if any).
+     * @param {Processor} [options.processor=null] The processor used by the pipeline (if any).
      */
     constructor({ task, model, tokenizer = null, processor = null }) {
         super();
@@ -163,10 +172,7 @@ export class Pipeline extends Callable {
         this.processor = processor;
     }
 
-    /**
-     * Disposes the model.
-     * @returns {Promise<void>} A promise that resolves when the model has been disposed.
-     */
+    /** @type {DisposeType} */
     async dispose() {
         await this.model.dispose();
     }
@@ -175,8 +181,8 @@ export class Pipeline extends Callable {
 /**
  * @typedef {Object} ModelTokenizerConstructorArgs
  * @property {string} task The task of the pipeline. Useful for specifying subtasks.
- * @property {PreTrainedModel} model The model to use.
- * @property {PreTrainedTokenizer} tokenizer The tokenizer to use.
+ * @property {PreTrainedModel} model The model used by the pipeline.
+ * @property {PreTrainedTokenizer} tokenizer The tokenizer used by the pipeline.
  * 
  * @typedef {ModelTokenizerConstructorArgs} TextPipelineConstructorArgs An object used to instantiate a text-based pipeline.
  */
@@ -184,8 +190,8 @@ export class Pipeline extends Callable {
 /**
  * @typedef {Object} ModelProcessorConstructorArgs
  * @property {string} task The task of the pipeline. Useful for specifying subtasks.
- * @property {PreTrainedModel} model The model to use.
- * @property {Processor} processor The processor to use.
+ * @property {PreTrainedModel} model The model used by the pipeline.
+ * @property {Processor} processor The processor used by the pipeline.
  * 
  * @typedef {ModelProcessorConstructorArgs} AudioPipelineConstructorArgs An object used to instantiate an audio-based pipeline.
  * @typedef {ModelProcessorConstructorArgs} ImagePipelineConstructorArgs An object used to instantiate an image-based pipeline.
@@ -195,9 +201,9 @@ export class Pipeline extends Callable {
 /**
  * @typedef {Object} ModelTokenizerProcessorConstructorArgs
  * @property {string} task The task of the pipeline. Useful for specifying subtasks.
- * @property {PreTrainedModel} model The model to use.
- * @property {PreTrainedTokenizer} tokenizer The tokenizer to use.
- * @property {Processor} processor The processor to use.
+ * @property {PreTrainedModel} model The model used by the pipeline.
+ * @property {PreTrainedTokenizer} tokenizer The tokenizer used by the pipeline.
+ * @property {Processor} processor The processor used by the pipeline.
  * 
  * @typedef {ModelTokenizerProcessorConstructorArgs} TextAudioPipelineConstructorArgs An object used to instantiate a text- and audio-based pipeline.
  * @typedef {ModelTokenizerProcessorConstructorArgs} TextImagePipelineConstructorArgs An object used to instantiate a text- and image-based pipeline.
@@ -216,6 +222,8 @@ export class Pipeline extends Callable {
  * @param {string|string[]} texts The input text(s) to be classified.
  * @param {TextClassificationPipelineOptions} [options] The options to use for text classification.
  * @returns {Promise<TextClassificationOutput|TextClassificationOutput[]>} An array or object containing the predicted labels and scores.
+ * 
+ * @typedef {TextPipelineConstructorArgs & TextClassificationPipelineCallback & Disposable} TextClassificationPipelineType
  */
 
 /**
@@ -255,7 +263,7 @@ export class Pipeline extends Callable {
  * // ]
  * ```
  */
-export class TextClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextClassificationPipelineCallback} */ (Pipeline)) {
+export class TextClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextClassificationPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new TextClassificationPipeline.
@@ -269,7 +277,7 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
     async _call(texts, {
         topk = 1
     } = {}) {
-        const self = /** @type {TextClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // Run tokenization
         const model_inputs = self.tokenizer(texts, {
@@ -325,6 +333,8 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * @param {string|string[]} texts One or several texts (or one list of texts) for token classification.
  * @param {TokenClassificationPipelineOptions} [options] The options to use for token classification.
  * @returns {Promise<TokenClassificationOutput|TokenClassificationOutput[]>} The result.
+ * 
+ * @typedef {TextPipelineConstructorArgs & TokenClassificationPipelineCallback & Disposable} TokenClassificationPipelineType
  */
 
 /**
@@ -356,7 +366,7 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * // ]
  * ```
  */
-export class TokenClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TokenClassificationPipelineCallback} */ (Pipeline)) {
+export class TokenClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TokenClassificationPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new TokenClassificationPipeline.
@@ -370,7 +380,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
     async _call(texts, {
         ignore_labels = ['O'],
     } = {}) {
-        const self = /** @type {TokenClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const isBatched = Array.isArray(texts);
 
@@ -444,6 +454,8 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * @param {string|string[]} context One or several context(s) associated with the question(s) (must be used in conjunction with the `question` argument).
  * @param {QuestionAnsweringPipelineOptions} [options] The options to use for question answering.
  * @returns {Promise<QuestionAnsweringOutput|QuestionAnsweringOutput[]>} An array or object containing the predicted answers and scores.
+ * 
+ * @typedef {TextPipelineConstructorArgs & QuestionAnsweringPipelineCallback & Disposable} QuestionAnsweringPipelineType
  */
 
 /**
@@ -461,7 +473,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * // }
  * ```
  */
-export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => QuestionAnsweringPipelineCallback} */ (Pipeline)) {
+export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => QuestionAnsweringPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new QuestionAnsweringPipeline.
@@ -475,7 +487,7 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
     async _call(question, context, {
         topk = 1
     } = {}) {
-        const self = /** @type {QuestionAnsweringPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // Run tokenization
         const inputs = self.tokenizer(question, {
@@ -545,6 +557,8 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
  * and the sequence with the predicted token filled in, or an array of such arrays (one for each input text).
  * If only one input text is given, the output will be an array of objects.
  * @throws {Error} When the mask token is not found in the input text.
+ * 
+ * @typedef {TextPipelineConstructorArgs & FillMaskPipelineCallback & Disposable} FillMaskPipelineType
  */
 
 /**
@@ -570,7 +584,7 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
  * // [{ token_str: 'spiral', score: 0.6299987435340881, token: 14061, sequence: 'The Milky Way is a spiral galaxy.' }]
  * ```
  */
-export class FillMaskPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FillMaskPipelineCallback} */ (Pipeline)) {
+export class FillMaskPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FillMaskPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new FillMaskPipeline.
@@ -584,7 +598,7 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
     async _call(texts, {
         topk = 5
     } = {}) {
-        const self = /** @type {FillMaskPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // Run tokenization
         const model_inputs = self.tokenizer(texts, {
@@ -635,6 +649,8 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
  * @param {string|string[]} texts Input text for the encoder.
  * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<Text2TextGenerationOutput|Text2TextGenerationOutput[]>}
+ * 
+ * @typedef {TextPipelineConstructorArgs & Text2TextGenerationPipelineCallback & Disposable} Text2TextGenerationPipelineType
  */
 
 /**
@@ -649,7 +665,7 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
  * // [{ generated_text: "To become more healthy, you can: 1. Eat a balanced diet with plenty of fruits, vegetables, whole grains, lean proteins, and healthy fats. 2. Stay hydrated by drinking plenty of water. 3. Get enough sleep and manage stress levels. 4. Avoid smoking and excessive alcohol consumption. 5. Regularly exercise and maintain a healthy weight. 6. Practice good hygiene and sanitation. 7. Seek medical attention if you experience any health issues." }]
  * ```
  */
-export class Text2TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => Text2TextGenerationPipelineCallback} */ (Pipeline)) {
+export class Text2TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => Text2TextGenerationPipelineType} */ (Pipeline)) {
     /** @type {'generated_text'} */
     _key = 'generated_text';
 
@@ -667,7 +683,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
             texts = [texts];
         }
 
-        const self = /** @type {Text2TextGenerationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // Add global prefix, if present
         if (self.model.config.prefix) {
@@ -710,14 +726,16 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
 
 
 /**
- * @typedef {Object} SummarizationGenerationSingle
+ * @typedef {Object} SummarizationSingle
  * @property {string} summary_text The summary text.
- * @typedef {SummarizationGenerationSingle[]} SummarizationGenerationOutput
+ * @typedef {SummarizationSingle[]} SummarizationOutput
  * 
- * @callback SummarizationGenerationPipelineCallback Summarize the text(s) given as inputs.
+ * @callback SummarizationPipelineCallback Summarize the text(s) given as inputs.
  * @param {string|string[]} texts One or several articles (or one list of articles) to summarize.
  * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
- * @returns {Promise<SummarizationGenerationOutput|SummarizationGenerationOutput[]>}
+ * @returns {Promise<SummarizationOutput|SummarizationOutput[]>}
+ * 
+ * @typedef {TextPipelineConstructorArgs & SummarizationPipelineCallback & Disposable} SummarizationPipelineType
  */
 
 /**
@@ -740,7 +758,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
  * // [{ summary_text: ' The Eiffel Tower is about the same height as an 81-storey building and the tallest structure in Paris. It is the second tallest free-standing structure in France after the Millau Viaduct.' }]
  * ```
  */
-export class SummarizationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => SummarizationGenerationPipelineCallback} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
+export class SummarizationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => SummarizationPipelineType} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
     /** @type {'summary_text'} */
     _key = 'summary_text';
 
@@ -755,14 +773,16 @@ export class SummarizationPipeline extends (/** @type {new (options: TextPipelin
 
 
 /**
- * @typedef {Object} TranslationGenerationSingle
+ * @typedef {Object} TranslationSingle
  * @property {string} translation_text The translated text.
- * @typedef {TranslationGenerationSingle[]} TranslationGenerationOutput
+ * @typedef {TranslationSingle[]} TranslationOutput
  * 
- * @callback TranslationGenerationPipelineCallback Translate the text(s) given as inputs.
+ * @callback TranslationPipelineCallback Translate the text(s) given as inputs.
  * @param {string|string[]} texts Texts to be translated.
  * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
- * @returns {Promise<TranslationGenerationOutput|TranslationGenerationOutput[]>}
+ * @returns {Promise<TranslationOutput|TranslationOutput[]>}
+ * 
+ * @typedef {TextPipelineConstructorArgs & TranslationPipelineCallback & Disposable} TranslationPipelineType
  */
 
 /**
@@ -810,7 +830,7 @@ export class SummarizationPipeline extends (/** @type {new (options: TextPipelin
  * // [{ translation_text: 'Le chef des Nations affirme qu 'il n 'y a military solution in Syria.' }]
  * ```
  */
-export class TranslationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TranslationGenerationPipelineCallback} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
+export class TranslationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TranslationPipelineType} */ (/** @type {any} */ (Text2TextGenerationPipeline))) {
     /** @type {'translation_text'} */
     _key = 'translation_text';
 
@@ -837,6 +857,8 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * @param {string|string[]} texts One or several prompts (or one list of prompts) to complete.
  * @param {TextGenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} An array or object containing the generated texts.
+ * 
+ * @typedef {TextPipelineConstructorArgs & TextGenerationPipelineCallback & Disposable} TextGenerationPipelineType
  */
 
 /**
@@ -889,7 +911,7 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * // }]
  * ```
  */
-export class TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextGenerationPipelineCallback} */ (Pipeline)) {
+export class TextGenerationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TextGenerationPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new TextGenerationPipeline.
@@ -897,11 +919,12 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
      */
     constructor(options) {
         super(options);
+        // this.tokenizer = options.tokenizer
     }
 
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
-        const self = /** @type {TextGenerationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const isBatched = Array.isArray(texts);
         if (!isBatched) {
@@ -959,6 +982,8 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
  * Can be a single label, a string of comma-separated labels, or a list of labels.
  * @param {ZeroShotClassificationPipelineOptions} [options] The options to use for zero-shot classification.
  * @returns {Promise<ZeroShotClassificationOutput|ZeroShotClassificationOutput[]>} An array or object containing the predicted labels and scores.
+ * 
+ * @typedef {TextPipelineConstructorArgs & ZeroShotClassificationPipelineCallback & Disposable} ZeroShotClassificationPipelineType
  */
 
 /**
@@ -993,7 +1018,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
  * // }
  * ```
  */
-export class ZeroShotClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => ZeroShotClassificationPipelineCallback} */ (Pipeline)) {
+export class ZeroShotClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => ZeroShotClassificationPipelineType} */ (Pipeline)) {
     /**
      * Create a new ZeroShotClassificationPipeline.
      * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -1026,7 +1051,7 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
         hypothesis_template = "This example is {}.",
         multi_label = false,
     } = {}) {
-        const self = /** @type {ZeroShotClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const isBatched = Array.isArray(texts);
         if (!isBatched) {
@@ -1098,6 +1123,8 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * @param {string|string[]} texts One or several texts (or one list of texts) to get the features of.
  * @param {FeatureExtractionPipelineOptions} [options] The options to use for feature extraction.
  * @returns {Promise<Tensor>} The features computed by the model.
+ * 
+ * @typedef {TextPipelineConstructorArgs & FeatureExtractionPipelineCallback & Disposable} FeatureExtractionPipelineType
  */
 
 /**
@@ -1137,7 +1164,7 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * // }
  * ```
  */
-export class FeatureExtractionPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FeatureExtractionPipelineCallback} */ (Pipeline)) {
+export class FeatureExtractionPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FeatureExtractionPipelineType} */ (Pipeline)) {
     /**
      * Create a new FeatureExtractionPipeline.
      * @param {TextPipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -1151,7 +1178,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
         pooling = /** @type {'none'} */('none'),
         normalize = false,
     } = {}) {
-        const self = /** @type {FeatureExtractionPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // Run tokenization
         const model_inputs = self.tokenizer(texts, {
@@ -1210,6 +1237,8 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
  * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
  * @param {AudioClassificationPipelineOptions} [options] The options to use for audio classification.
  * @returns {Promise<AudioClassificationOutput|AudioClassificationOutput[]>} An array or object containing the predicted labels and scores.
+ * 
+ * @typedef {AudioPipelineConstructorArgs & AudioClassificationPipelineCallback & Disposable} AudioClassificationPipelineType
  */
 
 /**
@@ -1240,7 +1269,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
  * // ]
  * ```
  */
-export class AudioClassificationPipeline extends (/** @type {new (options: AudioPipelineConstructorArgs) => AudioClassificationPipelineCallback} */ (Pipeline)) {
+export class AudioClassificationPipeline extends (/** @type {new (options: AudioPipelineConstructorArgs) => AudioClassificationPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new AudioClassificationPipeline.
@@ -1254,7 +1283,7 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
     async _call(audio, {
         topk = null
     } = {}) {
-        const self = /** @type {AudioClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const single = !Array.isArray(audio);
 
@@ -1305,6 +1334,8 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
  * @param {string[]} candidate_labels The candidate labels for this audio.
  * @param {ZeroShotAudioClassificationPipelineOptions} [options] The options to use for zero-shot audio classification.
  * @returns {Promise<ZeroShotAudioClassificationOutput[]|ZeroShotAudioClassificationOutput[][]>} An array of objects containing the predicted labels and scores.
+ * 
+ * @typedef {TextAudioPipelineConstructorArgs & ZeroShotAudioClassificationPipelineCallback & Disposable} ZeroShotAudioClassificationPipelineType
  */
 
 /**
@@ -1323,7 +1354,7 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
  * // ]
  * ```
  */
-export class ZeroShotAudioClassificationPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => ZeroShotAudioClassificationPipelineCallback} */ (Pipeline)) {
+export class ZeroShotAudioClassificationPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => ZeroShotAudioClassificationPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new ZeroShotAudioClassificationPipeline.
@@ -1337,7 +1368,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
     async _call(audio, candidate_labels, {
         hypothesis_template = "This is a sound of {}."
     } = {}) {
-        const self = /** @type {ZeroShotAudioClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const single = !Array.isArray(audio);
         if (single) {
@@ -1416,6 +1447,8 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
  * @param {AutomaticSpeechRecognitionConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<AutomaticSpeechRecognitionOutput|AutomaticSpeechRecognitionOutput[]>} An object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
+ * 
+ * @typedef {TextAudioPipelineConstructorArgs & AutomaticSpeechRecognitionPipelineCallback & Disposable} AutomaticSpeechRecognitionPipelineType
  */
 
 /**
@@ -1486,7 +1519,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * // { text: " So in college, I was a government major, which means [...] So I'd start off light and I'd bump it up" }
  * ```
  */
-export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => AutomaticSpeechRecognitionPipelineCallback} */ (Pipeline)) {
+export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options: TextAudioPipelineConstructorArgs) => AutomaticSpeechRecognitionPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new AutomaticSpeechRecognitionPipeline.
@@ -1498,7 +1531,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 
     /** @type {AutomaticSpeechRecognitionPipelineCallback} */
     async _call(audio, kwargs = {}) {
-        const self = /** @type {AutomaticSpeechRecognitionPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
         switch (self.model.config.model_type) {
             case 'whisper':
                 return self._call_whisper(audio, kwargs)
@@ -1516,7 +1549,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
      */
     async _call_wav2vec2(audio, kwargs = {}) {
         // TODO use kwargs
-        const self = /** @type {AutomaticSpeechRecognitionPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         if (kwargs.language) {
             console.warn('`language` parameter is not yet supported for `wav2vec2` models, defaulting to "English".');
@@ -1554,7 +1587,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
      * @private
      */
     async _call_whisper(audio, kwargs = {}) {
-        const self = /** @type {AutomaticSpeechRecognitionPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const return_timestamps = kwargs.return_timestamps ?? false;
         const chunk_length_s = kwargs.chunk_length_s ?? 0;
@@ -1684,6 +1717,8 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * @param {ImagePipelineInputs} texts The images to be captioned.
  * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<ImageToTextOutput|ImageToTextOutput[]>} An object (or array of objects) containing the generated text(s).
+ * 
+ * @typedef {TextImagePipelineConstructorArgs & ImageToTextPipelineCallback & Disposable} ImageToTextPipelineType
  */
 
 /**
@@ -1705,7 +1740,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * // [{ generated_text: 'Mr. Brown commented icily.' }]
  * ```
  */
-export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ImageToTextPipelineCallback} */ (Pipeline)) {
+export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ImageToTextPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new ImageToTextPipeline.
@@ -1717,7 +1752,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
 
     /** @type {ImageToTextPipelineCallback} */
     async _call(images, generate_kwargs = {}) {
-        const self = /** @type {ImageToTextPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
@@ -1751,6 +1786,8 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * @param {ImagePipelineInputs} images The input images(s) to be classified.
  * @param {ImageClassificationPipelineOptions} [options] The options to use for image classification.
  * @returns {Promise<ImageClassificationOutput|ImageClassificationOutput[]>} An array or object containing the predicted labels and scores.
+ * 
+ * @typedef {ImagePipelineConstructorArgs & ImageClassificationPipelineCallback & Disposable} ImageClassificationPipelineType
  */
 
 /**
@@ -1793,7 +1830,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * // ]
  * ```
  */
-export class ImageClassificationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageClassificationPipelineCallback} */ (Pipeline)) {
+export class ImageClassificationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageClassificationPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new ImageClassificationPipeline.
@@ -1807,7 +1844,7 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
     async _call(images, {
         topk = 1
     } = {}) {
-        const self = /** @type {ImageClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
@@ -1855,6 +1892,8 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
  * @param {ImagePipelineInputs} images The input images.
  * @param {ImageSegmentationPipelineOptions} [options] The options to use for image segmentation.
  * @returns {Promise<ImageSegmentationPipelineOutput[]>} The annotated segments.
+ * 
+ * @typedef {ImagePipelineConstructorArgs & ImageSegmentationPipelineCallback & Disposable} ImageSegmentationPipelineType
  */
 
 /**
@@ -1872,7 +1911,7 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
  * // ]
  * ```
  */
-export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageSegmentationPipelineCallback} */ (Pipeline)) {
+export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageSegmentationPipelineType} */ (Pipeline)) {
     /**
      * Create a new ImageSegmentationPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -1897,7 +1936,7 @@ export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePi
         target_sizes = null,
         subtask = null,
     } = {}) {
-        const self = /** @type {ImageSegmentationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
         const isBatched = Array.isArray(images);
 
         if (isBatched && images.length !== 1) {
@@ -1998,6 +2037,8 @@ export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePi
  * @param {string[]} candidate_labels The candidate labels for this image.
  * @param {ZeroShotImageClassificationPipelineOptions} [options] The options to use for zero-shot image classification.
  * @returns {Promise<ZeroShotImageClassificationOutput[]|ZeroShotImageClassificationOutput[][]>} An array of objects containing the predicted labels and scores.
+ * 
+ * @typedef {TextImagePipelineConstructorArgs & ZeroShotImageClassificationPipelineCallback & Disposable} ZeroShotImageClassificationPipelineType
  */
 
 /**
@@ -2016,7 +2057,7 @@ export class ImageSegmentationPipeline extends (/** @type {new (options: ImagePi
  * // ]
  * ```
  */
-export class ZeroShotImageClassificationPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotImageClassificationPipelineCallback} */ (Pipeline)) {
+export class ZeroShotImageClassificationPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotImageClassificationPipelineType} */ (Pipeline)) {
     /**
      * Create a new ZeroShotImageClassificationPipeline.
      * @param {TextImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2029,7 +2070,7 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
     async _call(images, candidate_labels, {
         hypothesis_template = "This is a photo of {}"
     } = {}) {
-        const self = /** @type {ZeroShotImageClassificationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
@@ -2090,6 +2131,8 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * @param {ImagePipelineInputs} images The input images.
  * @param {ObjectDetectionPipelineOptions} [options] The options to use for object detection.
  * @returns {Promise<ObjectDetectionPipelineOutput|ObjectDetectionPipelineOutput[]>} A list of objects or a list of list of objects. 
+ * 
+ * @typedef {ImagePipelineConstructorArgs & ObjectDetectionPipelineCallback & Disposable} ObjectDetectionPipelineType
  */
 
 /**
@@ -2114,7 +2157,7 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * // }]
  * ```
  */
-export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ObjectDetectionPipelineCallback} */ (Pipeline)) {
+export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ObjectDetectionPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new ObjectDetectionPipeline.
@@ -2129,7 +2172,7 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
         threshold = 0.9,
         percentage = false,
     } = {}) {
-        const self = /** @type {ObjectDetectionPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const isBatched = Array.isArray(images);
 
@@ -2182,6 +2225,8 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * @param {string[]} candidate_labels What the model should recognize in the image.
  * @param {ZeroShotObjectDetectionPipelineOptions} [options] The options to use for zero-shot object detection.
  * @returns {Promise<ZeroShotObjectDetectionOutput[]|ZeroShotObjectDetectionOutput[][]>} An array of objects containing the predicted labels, scores, and bounding boxes.
+ * 
+ * @typedef {TextImagePipelineConstructorArgs & ZeroShotObjectDetectionPipelineCallback & Disposable} ZeroShotObjectDetectionPipelineType
  */
 
 /**
@@ -2248,7 +2293,7 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * // ]
  * ```
  */
-export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotObjectDetectionPipelineCallback} */ (Pipeline)) {
+export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => ZeroShotObjectDetectionPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new ZeroShotObjectDetectionPipeline.
@@ -2264,7 +2309,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
         topk = null,
         percentage = false,
     } = {}) {
-        const self = /** @type {ZeroShotObjectDetectionPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
@@ -2317,6 +2362,8 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * @param {string} question A question to ask of the document.
  * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<DocumentQuestionAnsweringOutput|DocumentQuestionAnsweringOutput[]>} An object (or array of objects) containing the answer(s).
+ * 
+ * @typedef {TextImagePipelineConstructorArgs & DocumentQuestionAnsweringPipelineCallback & Disposable} DocumentQuestionAnsweringPipelineType
  */
 
 /**
@@ -2333,7 +2380,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * // [{ answer: 'us-001' }]
  * ```
  */
-export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => DocumentQuestionAnsweringPipelineCallback} */ (Pipeline)) {
+export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options: TextImagePipelineConstructorArgs) => DocumentQuestionAnsweringPipelineType} */ (Pipeline)) {
 
     /**
      * Create a new DocumentQuestionAnsweringPipeline.
@@ -2345,7 +2392,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
 
     /** @type {DocumentQuestionAnsweringPipelineCallback} */
     async _call(image, question, generate_kwargs = {}) {
-        const self = /** @type {DocumentQuestionAnsweringPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // NOTE: For now, we only support a batch size of 1
 
@@ -2387,7 +2434,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
 
 /**
  * @typedef {Object} VocoderOptions
- * @property {PreTrainedModel} [vocoder] The vocoder to use (if the model uses one). If not provided, use the default HifiGan vocoder.
+ * @property {PreTrainedModel} [vocoder] The vocoder used by the pipeline (if the model uses one). If not provided, use the default HifiGan vocoder.
  * @typedef {TextAudioPipelineConstructorArgs & VocoderOptions} TextToAudioPipelineConstructorArgs
  */
 
@@ -2403,6 +2450,8 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * @param {string|string[]} texts The text(s) to generate.
  * @param {TextToAudioPipelineOptions} options Parameters passed to the model generation/forward method.
  * @returns {Promise<TextToAudioOutput>} An object containing the generated audio and sampling rate.
+ * 
+ * @typedef {TextToAudioPipelineConstructorArgs & TextToAudioPipelineCallback & Disposable} TextToAudioPipelineType
  */
 
 /**
@@ -2440,7 +2489,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * // }
  * ```
  */
-export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPipelineConstructorArgs) => TextToAudioPipelineCallback} */ (Pipeline)) {
+export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPipelineConstructorArgs) => TextToAudioPipelineType} */ (Pipeline)) {
     DEFAULT_VOCODER_ID = "Xenova/speecht5_hifigan"
 
     /**
@@ -2459,7 +2508,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
     async _call(text_inputs, {
         speaker_embeddings = null,
     } = {}) {
-        const self = /** @type {TextToAudioPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
         if (self.processor) {
@@ -2470,7 +2519,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
     }
 
     async _call_text_to_waveform(text_inputs) {
-        const self = /** @type {TextToAudioPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // Run tokenization
         const inputs = self.tokenizer(text_inputs, {
@@ -2489,7 +2538,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
     }
 
     async _call_text_to_spectrogram(text_inputs, { speaker_embeddings }) {
-        const self = /** @type {TextToAudioPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         // Load vocoder, if not provided
         if (!self.vocoder) {
@@ -2537,6 +2586,8 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
  * @callback ImageToImagePipelineCallback Transform the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The images to transform.
  * @returns {Promise<RawImage|RawImage[]>} The transformed image or list of images.
+ * 
+ * @typedef {ImagePipelineConstructorArgs & ImageToImagePipelineCallback & Disposable} ImageToImagePipelineType
  */
 
 /**
@@ -2555,7 +2606,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
  * // }
  * ```
  */
-export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageToImagePipelineCallback} */ (Pipeline)) {
+export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageToImagePipelineType} */ (Pipeline)) {
     /**
      * Create a new ImageToImagePipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2566,7 +2617,7 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
 
     /** @type {ImageToImagePipelineCallback} */
     async _call(images) {
-        const self = /** @type {ImageToImagePipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const preparedImages = await prepareImages(images);
         const inputs = await self.processor(preparedImages);
@@ -2591,6 +2642,8 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
  * @callback DepthEstimationPipelineCallback Predicts the depth for the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The images to compute depth for.
  * @returns {Promise<DepthEstimationPipelineOutput|DepthEstimationPipelineOutput[]>} An image or a list of images containing result(s).
+ * 
+ * @typedef {ImagePipelineConstructorArgs & DepthEstimationPipelineCallback & Disposable} DepthEstimationPipelineType
  */
 
 /**
@@ -2617,7 +2670,7 @@ export class ImageToImagePipeline extends (/** @type {new (options: ImagePipelin
  * // }
  * ```
  */
-export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => DepthEstimationPipelineCallback} */ (Pipeline)) {
+export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => DepthEstimationPipelineType} */ (Pipeline)) {
     /**
      * Create a new DepthEstimationPipeline.
      * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
@@ -2628,7 +2681,7 @@ export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipe
 
     /** @type {DepthEstimationPipelineCallback} */
     async _call(images) {
-        const self = /** @type {DepthEstimationPipeline & Pipeline} */ (/** @type {any} */ (this));
+        const self = this;
 
         const preparedImages = await prepareImages(images);
 
