@@ -442,7 +442,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * @callback QuestionAnsweringPipelineCallback Answer the question(s) given as inputs by using the context(s).
  * @param {string|string[]} question One or several question(s) (must be used in conjunction with the `context` argument).
  * @param {string|string[]} context One or several context(s) associated with the question(s) (must be used in conjunction with the `question` argument).
- * @param {TokenClassificationPipelineOptions} [options] The options to use for question answering.
+ * @param {QuestionAnsweringPipelineOptions} [options] The options to use for question answering.
  * @returns {Promise<QuestionAnsweringOutput|QuestionAnsweringOutput[]>} An array or object containing the predicted answers and scores.
  */
 
