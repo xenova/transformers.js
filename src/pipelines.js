@@ -633,7 +633,7 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
  * 
  * @callback Text2TextGenerationPipelineCallback Generate the output text(s) using text(s) given as inputs.
  * @param {string|string[]} texts Input text for the encoder.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<Text2TextGenerationOutput|Text2TextGenerationOutput[]>}
  */
 
@@ -716,7 +716,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
  * 
  * @callback SummarizationGenerationPipelineCallback Summarize the text(s) given as inputs.
  * @param {string|string[]} texts One or several articles (or one list of articles) to summarize.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<SummarizationGenerationOutput|SummarizationGenerationOutput[]>}
  */
 
@@ -761,7 +761,7 @@ export class SummarizationPipeline extends (/** @type {new (options: TextPipelin
  * 
  * @callback TranslationGenerationPipelineCallback Translate the text(s) given as inputs.
  * @param {string|string[]} texts Texts to be translated.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TranslationGenerationOutput|TranslationGenerationOutput[]>}
  */
 
@@ -835,7 +835,7 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * 
  * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
  * @param {string|string[]} texts One or several prompts (or one list of prompts) to complete.
- * @param {TextGenerationConfig} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {TextGenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} An array or object containing the generated texts.
  */
 
@@ -1414,7 +1414,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * to get the waveform using the [`AudioContext`](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) API.
  * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
  * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
- * @param {AutomaticSpeechRecognitionConfig} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {AutomaticSpeechRecognitionConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<AutomaticSpeechRecognitionOutput|AutomaticSpeechRecognitionOutput[]>} An object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
  */
 
@@ -1682,7 +1682,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * 
  * @callback ImageToTextPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} texts The images to be captioned.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<ImageToTextOutput|ImageToTextOutput[]>} An object (or array of objects) containing the generated text(s).
  */
 
@@ -2080,14 +2080,15 @@ export class ZeroShotImageClassificationPipeline extends (/** @type {new (option
  * @property {string} label The class label identified by the model.
  * @property {number} score The score attributed by the model for that label.
  * @property {BoundingBox} box The bounding box of detected object in image's original size, or as a percentage if `percentage` is set to true.
- * 
  * @typedef {ObjectDetectionPipelineSingle[]} ObjectDetectionPipelineOutput
+ * 
+ * @typedef {Object} ObjectDetectionPipelineOptions Parameters specific to object detection pipelines.
+ * @property {number} [threshold=0.9] The threshold used to filter boxes by score.
+ * @property {boolean} [percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
  * 
  * @callback ObjectDetectionPipelineCallback Detect objects (bounding boxes & classes) in the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The input images.
- * @param {Object} options The options for the object detection.
- * @param {number} [options.threshold=0.9] The threshold used to filter boxes by score.
- * @param {boolean} [options.percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
+ * @param {ObjectDetectionPipelineOptions} [options] The options to use for object detection.
  * @returns {Promise<ObjectDetectionPipelineOutput|ObjectDetectionPipelineOutput[]>} A list of objects or a list of list of objects. 
  */
 
@@ -2314,7 +2315,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * @callback DocumentQuestionAnsweringPipelineCallback Answer the question given as input by using the document.
  * @param {ImageInput} image The image of the document to use.
  * @param {string} question A question to ask of the document.
- * @param {import('./utils/generation.js').GenerationConfigType} options Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<DocumentQuestionAnsweringOutput|DocumentQuestionAnsweringOutput[]>} An object (or array of objects) containing the answer(s).
  */
 
@@ -2395,11 +2396,12 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * @property {Float32Array} audio The generated audio waveform.
  * @property {number} sampling_rate The sampling rate of the generated audio waveform.
  * 
+ * @typedef {Object} TextToAudioPipelineOptions Parameters specific to text-to-audio pipelines.
+ * @property {Tensor|Float32Array|string|URL} [speaker_embeddings=null] The speaker embeddings (if the model requires it).
+ * 
  * @callback TextToAudioPipelineCallback Generates speech/audio from the inputs.
  * @param {string|string[]} texts The text(s) to generate.
- * @param {Object} options Parameters passed to the model generation/forward method.
- * @param {Tensor|Float32Array|string|URL} [options.speaker_embeddings=null] The speaker embeddings (if the model requires it).
- * 
+ * @param {TextToAudioPipelineOptions} options Parameters passed to the model generation/forward method.
  * @returns {Promise<TextToAudioOutput>} An object containing the generated audio and sampling rate.
  */
 
