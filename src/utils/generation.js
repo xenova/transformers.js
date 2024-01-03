@@ -252,16 +252,16 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
      * @returns {Tensor} The modified logits.
      */
     _call(input_ids, logits) {
+        const logitsData = /** @type {Float32Array} */(logits.data);
+
         // suppress <|notimestamps|> which is handled by without_timestamps
-        logits.data[this.no_timestamps_token_id] = -Infinity;
+        logitsData[this.no_timestamps_token_id] = -Infinity;
 
         if (input_ids.length === this.begin_index - 1) {
-            logits.data.fill(-Infinity);
-            logits.data[this.timestamp_begin] = 0;
+            logitsData.fill(-Infinity);
+            logitsData[this.timestamp_begin] = 0;
             return logits;
         }
-
-        const logitsData = /** @type {Float32Array} */(logits.data);
 
         // timestamps have to appear in pairs, except directly before eos_token; mask logits accordingly
         const seq = input_ids.slice(this.begin_index);
