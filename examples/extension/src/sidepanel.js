@@ -1,18 +1,19 @@
 // sidepanel.js - handles the sidepanel UI and starts Worker(s) to run inference
 
-import { infer } from "./inference.mjs";
+import { PipelineSingleton } from "./inference.mjs";
 
 const inputElement = document.getElementById('text');
 const outputElement = document.getElementById('output');
+const progressElement = document.getElementById('progress')
 
 // Create generic inference function, which will be reused for the different types of events.
 const infer = async (text) => {
     // Get the pipeline instance. This will load and build the model when run for the first time.
     let model = await PipelineSingleton.getInstance((data) => {
-        // chrome.runtime.sendMessage({ type: 'model_load_progress', data: data })
         // You can track the progress of the pipeline creation here.
-        // e.g., you can send `data` back to the UI to indicate a progress bar
-        console.log('progress', data)
+        if (data.file == 'onnx/model_quantized.onnx' && data.status == 'progress') {
+            progressElement.value = data.progress
+        }
     });
 
     // Actually run the model on the input text
