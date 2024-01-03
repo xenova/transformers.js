@@ -14,16 +14,6 @@
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ]
-    }
-  ],
   "minimum_chrome_version": "92",
   "action": {
     "default_icon": {
