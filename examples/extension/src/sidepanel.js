@@ -1,5 +1,4 @@
-// sidepanel.js - handles interaction with the extension's popup, sends requests to the
-// service worker (background.js), and updates the popup's UI (popup.html) on completion.
+// sidepanel.js - handles the sidepanel UI and hosts inference Worker(s)
 
 const inputElement = document.getElementById('text');
 const outputElement = document.getElementById('output');
@@ -62,39 +61,3 @@ const port = chrome.runtime.connect()
 port.onMessage.addListener((message, sender, sendResponse) => {
     main(message.text)
 })
-
-
-// Listen for input incoming from the other pages (like a background service worker managing context menus)
-// chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-//     console.log('sender', sender)
-
-//     // if (message.action !== 'classify') return; // Ignore messages that are not meant for classification.
-
-//     switch (message.action) {
-//         case 'classify':
-//         // inputElement.value = message.text // Update sidepanel UI with incoming text
-//         // classify(message.text)
-//         //     .then(result => {
-//         //         outputElement.innerText = JSON.stringify(result, null, 2); // Update sidepanel UI with output
-//         //         sendResponse(result)
-//         //     })
-//         // return true
-
-
-//     }
-
-//     // Run model prediction asynchronously
-//     // (async function () {
-//     //     // Perform classification
-//     //     let result = await classify(message.text);
-
-
-//     //     // Send response back to UI
-//     //     sendResponse(result);
-//     //     return true
-//     // })();
-
-//     // return true to indicate we will send a response asynchronously
-//     // see https://stackoverflow.com/a/46628145 for more information
-//     // return true;
-// });
