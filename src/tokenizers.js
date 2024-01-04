@@ -2551,6 +2551,15 @@ export class PreTrainedTokenizer extends Callable {
     }
 
     /**
+     * @typedef {number[]|number[][]|Tensor} BatchEncodingItem
+     * 
+     * @typedef {Object} BatchEncoding Holds the output of the tokenizer's call function.
+     * @property {BatchEncodingItem} input_ids List of token ids to be fed to a model.
+     * @property {BatchEncodingItem} attention_mask List of indices specifying which tokens should be attended to by the model.
+     * @property {BatchEncodingItem} [token_type_ids] List of token type ids to be fed to a model.
+     */
+
+    /**
      * Encode/tokenize the given text(s).
      * @param {string|string[]} text The text to tokenize.
      * @param {Object} options An optional object containing the following properties:
@@ -2560,7 +2569,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
-     * @returns {{ input_ids: number[]|number[][]|Tensor, attention_mask: any[]|Tensor }} Object to be passed to the model.
+     * @returns {BatchEncoding} Object to be passed to the model.
      */
     _call(
         // Required positional arguments
@@ -2661,9 +2670,7 @@ export class PreTrainedTokenizer extends Callable {
             }
         }
 
-        let input_ids;
-        let attention_mask;
-        let token_type_ids;
+        const result = {};
 
         if (return_tensor) {
             if (!(padding && truncation)) {
@@ -2692,51 +2699,28 @@ export class PreTrainedTokenizer extends Callable {
             // whether we have a single input or multiple inputs.
             const dims = [encodedTokens.length, encodedTokens[0].input_ids.length];
 
-            input_ids = new Tensor('int64',
-                BigInt64Array.from(encodedTokens.flatMap(x => x.input_ids).map(BigInt)),
-                dims
-            );
-
-            attention_mask = new Tensor(
-                'int64',
-                BigInt64Array.from(encodedTokens.flatMap(x => x.attention_mask).map(BigInt)),
-                dims
-            );
-
-            if (this.return_token_type_ids && encodedTokens[0].token_type_ids) {
-                token_type_ids = new Tensor(
-                    'int64',
-                    BigInt64Array.from(encodedTokens.flatMap(x => x.token_type_ids).map(BigInt)),
+            for (const key of Object.keys(encodedTokens[0])) {
+                result[key] = new Tensor('int64',
+                    BigInt64Array.from(encodedTokens.flatMap(x => x[key]).map(BigInt)),
                     dims
                 );
             }
 
         } else {
-            input_ids = encodedTokens.map(x => x.input_ids);
-            attention_mask = encodedTokens.map(x => x.attention_mask);
-
-            if (this.return_token_type_ids && encodedTokens[0].token_type_ids) {
-                token_type_ids = encodedTokens.map(x => x.token_type_ids);
+            for (const key of Object.keys(encodedTokens[0])) {
+                result[key] = encodedTokens.map(x => x[key]);
             }
 
             // If not returning a tensor, we match the input type
             if (!isBatched) {
                 // Input was not batched, so we unwrap
-                input_ids = input_ids[0];
-                attention_mask = attention_mask[0];
-
-                if (this.return_token_type_ids && token_type_ids) {
-                    token_type_ids = token_type_ids[0];
+                for (const key of Object.keys(result)) {
+                    result[key] = result[key][0];
                 }
             }
         }
 
-        const modelInputs = { input_ids, attention_mask };
-        if (token_type_ids) {
-            modelInputs.token_type_ids = token_type_ids;
-        }
-
-        return modelInputs
+        return /** @type {BatchEncoding} */(result);
     }
 
     /**
@@ -2810,7 +2794,7 @@ export class PreTrainedTokenizer extends Callable {
             input_ids,
             attention_mask: new Array(input_ids.length).fill(1),
         }
-        if (combinedTokens.token_type_ids) {
+        if (this.return_token_type_ids && combinedTokens.token_type_ids) {
             result.token_type_ids = combinedTokens.token_type_ids;
         }
         return result;
