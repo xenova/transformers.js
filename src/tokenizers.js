@@ -2351,6 +2351,44 @@ const SPECIAL_TOKEN_ATTRIBUTES = [
     // additional_special_tokens (TODO)
 ]
 
+/**
+ * 
+ * Helper function for padding values of an object, which are each arrays.
+ * NOTE: No additional checks are made here for validity of arguments.
+ * @param {Record<string, any[]>} item The input object.
+ * @param {number} length The length to pad to.
+ * @param {(key: string) => any} value_fn Determine the value to fill the array, based on its key.
+ * @param {'right'|'left'} side Which side to pad the array.
+ * @private
+ */
+function padHelper(item, length, value_fn, side) {
+    for (const key in Object.keys(item)) {
+        const diff = length - item[key].length;
+        const value = value_fn(key);
+
+        const padData = new Array(diff).fill(value);
+        item[key] = side === 'right'
+            ? mergeArrays(item[key], padData)
+            : mergeArrays(padData, item[key]);
+    }
+}
+
+/**
+ * Helper function for truncating values of an object, which are each arrays.
+ * NOTE: No additional checks are made here for validity of arguments.
+ * @param {Record<string, any[]>} item The input object.
+ * @param {number} length The length to truncate to.
+ * @private
+ */
+function truncateHelper(item, length) {
+    // Setting .length to a lower value truncates the array in-place:
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/length
+    for (const key in Object.keys(item)) {
+        item[key].length = length;
+    }
+}
+
+
 export class PreTrainedTokenizer extends Callable {
     return_token_type_ids = false;
 
@@ -2435,6 +2473,7 @@ export class PreTrainedTokenizer extends Callable {
         this.do_lowercase_and_remove_accent = tokenizerConfig.do_lowercase_and_remove_accent ?? false;
 
         // TODO allow user to change this
+        /** @type {'right'|'left'} */
         this.padding_side = 'right';
 
         this.legacy = false;
@@ -2580,6 +2619,7 @@ export class PreTrainedTokenizer extends Callable {
         max_length = Math.min(max_length, this.model_max_length)
 
         if (padding || truncation) {
+
             // Perform padding and/or truncation
             for (let i = 0; i < encodedTokens.length; ++i) {
                 if (encodedTokens[i].input_ids.length === max_length) {
@@ -2588,45 +2628,15 @@ export class PreTrainedTokenizer extends Callable {
                 } else if (encodedTokens[i].input_ids.length > max_length) {
                     // possibly truncate
                     if (truncation) {
-                        encodedTokens[i].input_ids = encodedTokens[i].input_ids.slice(0, max_length);
-                        encodedTokens[i].attention_mask = encodedTokens[i].attention_mask.slice(0, max_length);
-
-                        if (encodedTokens[i].token_type_ids) {
-                            encodedTokens[i].token_type_ids = encodedTokens[i].token_type_ids.slice(0, max_length);
-                        }
+                        truncateHelper(encodedTokens[i], max_length);
                     }
 
                 } else { // t.length < max_length
                     // possibly pad
                     if (padding) {
-                        let diff = max_length - encodedTokens[i].input_ids.length;
-
-                        if (this.padding_side === 'right') {
-                            encodedTokens[i].input_ids = mergeArrays(
-                                encodedTokens[i].input_ids, new Array(diff).fill(this.pad_token_id),
-                            )
-                            encodedTokens[i].attention_mask = mergeArrays(
-                                encodedTokens[i].attention_mask, new Array(diff).fill(0),
-                            )
-                            if (encodedTokens[i].token_type_ids) {
-                                encodedTokens[i].token_type_ids = mergeArrays(
-                                    encodedTokens[i].token_type_ids, new Array(diff).fill(0),
-                                )
-                            }
-
-                        } else { // left
-                            encodedTokens[i].input_ids = mergeArrays(
-                                new Array(diff).fill(this.pad_token_id), encodedTokens[i].input_ids,
-                            )
-                            encodedTokens[i].attention_mask = mergeArrays(
-                                new Array(diff).fill(0), encodedTokens[i].attention_mask,
-                            )
-                            if (encodedTokens[i].token_type_ids) {
-                                encodedTokens[i].token_type_ids = mergeArrays(
-                                    new Array(diff).fill(0), encodedTokens[i].token_type_ids,
-                                )
-                            }
-                        }
+                        padHelper(encodedTokens[i], max_length, (key) => {
+                            key === 'input_ids' ? this.pad_token_id : 0
+                        }, this.padding_side);
                     }
                 }
             }
@@ -2697,7 +2707,7 @@ export class PreTrainedTokenizer extends Callable {
             }
         }
 
-        let modelInputs = { input_ids, attention_mask }
+        const modelInputs = { input_ids, attention_mask };
         if (token_type_ids) {
             modelInputs.token_type_ids = token_type_ids;
         }
