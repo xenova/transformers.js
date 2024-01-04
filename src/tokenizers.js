@@ -2500,16 +2500,6 @@ export class PreTrainedTokenizer extends Callable {
     }
 
     /**
-     * This function can be overridden by a subclass to apply additional preprocessing
-     * to a model's input data.
-     * @param {Object} inputs An object containing input data as properties.
-     * @returns {Object} The modified inputs object.
-     */
-    prepare_model_inputs(inputs) {
-        return inputs;
-    }
-
-    /**
      * Encode/tokenize the given text(s).
      * @param {string|string[]} text The text to tokenize.
      * @param {Object} options An optional object containing the following properties:
