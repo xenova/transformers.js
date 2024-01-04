@@ -109,6 +109,11 @@ SUPPORTED_MODELS = {
             'unitary/toxic-bert',
             'BAAI/bge-reranker-large',
             'BAAI/bge-reranker-base',
+            'cross-encoder/ms-marco-TinyBERT-L-2-v2',
+            'cross-encoder/ms-marco-MiniLM-L-2-v2',
+            'cross-encoder/ms-marco-MiniLM-L-4-v2',
+            'cross-encoder/ms-marco-MiniLM-L-6-v2',
+            'cross-encoder/ms-marco-MiniLM-L-12-v2',
         ],
 
         # Token classification

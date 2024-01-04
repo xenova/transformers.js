@@ -43,10 +43,6 @@ import {
 } from './configs.js';
 
 import {
-    add_token_types,
-} from './tokenizers.js';
-
-import {
     Callable,
     isIntegralNumber,
     isTypedArray,
@@ -512,9 +508,13 @@ async function encoderForward(self, model_inputs) {
         encoderFeeds[key] = model_inputs[key];
     }
     if (self.session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
-        // Assign default `token_type_ids` to the `encoderFeeds` if the model expects it,
+        // Assign default `token_type_ids` (all zeroes) to the `encoderFeeds` if the model expects it,
         // but they weren't created by the tokenizer.
-        add_token_types(encoderFeeds);
+        encoderFeeds.token_type_ids = new Tensor(
+            'int64',
+            new BigInt64Array(encoderFeeds.input_ids.data.length),
+            encoderFeeds.input_ids.dims
+        )
     }
     return await sessionRun(self.session, encoderFeeds);
 }
