@@ -154,6 +154,108 @@ describe('Tokenizers (hard-coded)', () => {
     }
 });
 
+describe('Tokenizer padding/truncation', () => {
+    const inputs = ['a', 'b c'];
+    const text_pair = ['d e', 'f g h'];
+
+    it('should create a jagged array', async () => {
+        const tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
+
+        { // support jagged array if `return_tensor=false`
+            const output = tokenizer(inputs, {
+                return_tensor: false,
+            })
+            const expected = {
+                input_ids: [[101, 1037, 102], [101, 1038, 1039, 102]],
+                attention_mask: [[1, 1, 1], [1, 1, 1, 1]],
+                token_type_ids: [[0, 0, 0], [0, 0, 0, 0]]
+            }
+            compare(output, expected);
+        }
+
+        {
+            const output = tokenizer(inputs, {
+                return_tensor: false,
+                truncation: true,
+                add_special_tokens: false,
+            })
+            const expected = {
+                input_ids: [[1037], [1038, 1039]],
+                attention_mask: [[1], [1, 1]],
+                token_type_ids: [[0], [0, 0]]
+            }
+            compare(output, expected);
+        }
+    })
+
+    it('should create a tensor', async () => {
+        const tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
+
+        { // Expected to throw error if jagged array
+            expect(() => tokenizer(inputs)).toThrowError('Unable to create tensor');
+        }
+
+        { // Truncation
+            const { input_ids, attention_mask, token_type_ids } = tokenizer(inputs, {
+                truncation: true,
+                max_length: 1,
+                add_special_tokens: false,
+            })
+
+            expect(input_ids.tolist()).toEqual([[1037n], [1038n]])
+            expect(attention_mask.tolist()).toEqual([[1n], [1n]])
+            expect(token_type_ids.tolist()).toEqual([[0n], [0n]])
+        }
+        { // Truncation w/ text pair
+            // TODO
+        }
+
+        { // Padding
+            const { input_ids, attention_mask, token_type_ids } = tokenizer(inputs, {
+                padding: true,
+                add_special_tokens: false,
+            })
+
+            expect(input_ids.tolist()).toEqual([[1037n, 0n], [1038n, 1039n]])
+            expect(attention_mask.tolist()).toEqual([[1n, 0n], [1n, 1n]])
+            expect(token_type_ids.tolist()).toEqual([[0n, 0n], [0n, 0n]])
+        }
+        { // Padding w/ text pair
+            const { input_ids, attention_mask, token_type_ids } = tokenizer(inputs, {
+                text_pair,
+                padding: true,
+                add_special_tokens: false,
+            })
+
+            expect(input_ids.tolist()).toEqual([
+                [1037n, 1040n, 1041n, 0n, 0n],
+                [1038n, 1039n, 1042n, 1043n, 1044n],
+            ]);
+            expect(attention_mask.tolist()).toEqual([
+                [1n, 1n, 1n, 0n, 0n],
+                [1n, 1n, 1n, 1n, 1n],
+            ]);
+            expect(token_type_ids.tolist()).toEqual([
+                [0n, 1n, 1n, 0n, 0n],
+                [0n, 0n, 1n, 1n, 1n],
+            ]);
+        }
+
+        { // Truncation + padding
+            const { input_ids, attention_mask, token_type_ids } = tokenizer(['a', 'b c', 'd e f'], {
+                padding: true,
+                truncation: true,
+                add_special_tokens: false,
+                max_length: 2,
+            })
+
+            expect(input_ids.tolist()).toEqual([[1037n, 0n], [1038n, 1039n], [1040n, 1041n]])
+            expect(attention_mask.tolist()).toEqual([[1n, 0n], [1n, 1n], [1n, 1n]])
+            expect(token_type_ids.tolist()).toEqual([[0n, 0n], [0n, 0n], [0n, 0n]])
+        }
+    }, MAX_TEST_EXECUTION_TIME);
+});
+
 describe('Token type ids', () => {
     it('should correctly add token type ids', async () => {
         const tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
