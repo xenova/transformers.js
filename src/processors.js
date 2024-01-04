@@ -408,13 +408,15 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
-     * Resizes the image.
+     * Find the target (width, height) dimension of the output image after
+     * resizing given the input image and the desired size.
      * @param {RawImage} image The image to resize.
-     * @returns {Promise<RawImage>} The resized image.
+     * @param {any} size The size to use for resizing the image. 
+     * @returns {[number, number]} The target (width, height) dimension of the output image after resizing.
      */
-    async resize(image) {
-        // `this.size` comes in many forms, so we need to handle them all here:
-        // 1. `this.size` is an integer, in which case we resize the image to be a square 
+    get_resize_output_image_size(image, size) {
+        // `size` comes in many forms, so we need to handle them all here:
+        // 1. `size` is an integer, in which case we resize the image to be a square 
 
         const [srcWidth, srcHeight] = image.size;
 
@@ -423,25 +425,25 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
         if (this.do_thumbnail) {
             // NOTE: custom logic for `Donut` models
-            const { height, width } = this.size;
+            const { height, width } = size;
             shortest_edge = Math.min(height, width)
         }
         // Support both formats for backwards compatibility
-        else if (Number.isInteger(this.size)) {
-            shortest_edge = this.size;
+        else if (Number.isInteger(size)) {
+            shortest_edge = size;
             longest_edge = this.config.max_size ?? shortest_edge;
 
-        } else if (this.size !== undefined) {
-            // Extract known properties from `this.size`
-            shortest_edge = this.size.shortest_edge;
-            longest_edge = this.size.longest_edge;
+        } else if (size !== undefined) {
+            // Extract known properties from `size`
+            shortest_edge = size.shortest_edge;
+            longest_edge = size.longest_edge;
         }
 
         // If `longest_edge` and `shortest_edge` are set, maintain aspect ratio and resize to `shortest_edge`
         // while keeping the largest dimension <= `longest_edge`
         if (shortest_edge !== undefined || longest_edge !== undefined) {
             // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
-            // Try resize so that shortest edge is `this.shortest_edge` (target)
+            // Try resize so that shortest edge is `shortest_edge` (target)
             const shortResizeFactor = shortest_edge === undefined
                 ? 1 // If `shortest_edge` is not set, don't upscale
                 : Math.max(shortest_edge / srcWidth, shortest_edge / srcHeight);
@@ -449,8 +451,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             const newWidth = srcWidth * shortResizeFactor;
             const newHeight = srcHeight * shortResizeFactor;
 
-            // The new width and height might be greater than `this.longest_edge`, so
-            // we downscale again to ensure the largest dimension is `this.longest_edge` 
+            // The new width and height might be greater than `longest_edge`, so
+            // we downscale again to ensure the largest dimension is `longest_edge` 
             const longResizeFactor = longest_edge === undefined
                 ? 1 // If `longest_edge` is not set, don't downscale
                 : Math.min(longest_edge / newWidth, longest_edge / newHeight);
@@ -459,30 +461,32 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             const finalWidth = Math.floor(Number((newWidth * longResizeFactor).toFixed(2)));
             const finalHeight = Math.floor(Number((newHeight * longResizeFactor).toFixed(2)));
 
-            // Perform resize
-            image = await image.resize(finalWidth, finalHeight, {
-                resample: this.resample,
-            });
+            return [finalWidth, finalHeight];
 
-        } else if (this.size !== undefined && this.size.width !== undefined && this.size.height !== undefined) {
+        } else if (size !== undefined && size.width !== undefined && size.height !== undefined) {
             // If `width` and `height` are set, resize to those dimensions
-            image = await image.resize(this.size.width, this.size.height, {
-                resample: this.resample,
-            });
+            return [size.width, size.height];
 
         } else if (this.size_divisibility !== undefined) {
             // Rounds the height and width down to the closest multiple of size_divisibility
             const newWidth = Math.floor(srcWidth / this.size_divisibility) * this.size_divisibility;
             const newHeight = Math.floor(srcHeight / this.size_divisibility) * this.size_divisibility;
-            image = await image.resize(newWidth, newHeight, {
-                resample: this.resample,
-            });
-
+            return [newWidth, newHeight];
         } else {
-            throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(this.size)}`);
+            throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(size)}`);
         }
+    }
 
-        return image;
+    /**
+     * Resizes the image.
+     * @param {RawImage} image The image to resize.
+     * @returns {Promise<RawImage>} The resized image.
+     */
+    async resize(image) {
+        const [newWidth, newHeight] = this.get_resize_output_image_size(image, this.size);
+        return await image.resize(newWidth, newHeight, {
+            resample: this.resample,
+        });
     }
 
     /**
@@ -701,7 +705,46 @@ export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class SiglipImageProcessor extends ImageFeatureExtractor { }
-export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
+export class ConvNextFeatureExtractor extends ImageFeatureExtractor {
+    constructor(config) {
+        super(config);
+
+        /**
+         * Percentage of the image to crop. Only has an effect if this.size < 384.
+         */
+        this.crop_pct = this.config.crop_pct ?? (224 / 256);
+    }
+
+    async resize(image) {
+        const shortest_edge = this.size?.shortest_edge;
+        if (shortest_edge === undefined) {
+            throw new Error(`Size dictionary must contain 'shortest_edge' key.`);
+        }
+
+        if (shortest_edge < 384) {
+            // maintain same ratio, resizing shortest edge to shortest_edge/crop_pct
+            const resize_shortest_edge = Math.floor(shortest_edge / this.crop_pct);
+
+            const [newWidth, newHeight] = this.get_resize_output_image_size(image, {
+                shortest_edge: resize_shortest_edge,
+            });
+
+            image = await image.resize(newWidth, newHeight, {
+                resample: this.resample,
+            });
+
+            // then crop to (shortest_edge, shortest_edge)
+            image = await image.center_crop(shortest_edge, shortest_edge);
+        } else {
+            // warping (no cropping) when evaluated at 384 or larger
+            image = await image.resize(shortest_edge, shortest_edge, {
+                resample: this.resample,
+            });
+        }
+
+        return image;
+    }
+}
 export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOTE extends ConvNextFeatureExtractor
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTImageProcessor extends ImageFeatureExtractor { }
