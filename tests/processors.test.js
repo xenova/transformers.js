@@ -123,11 +123,11 @@ describe('Processors', () => {
                 const image = await load_image(TEST_IMAGES.tiger);
                 const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
 
-                compare(pixel_values.dims, [1, 3, 224, 336]);
-                compare(avg(pixel_values.data), -0.27736667280600913);
+                compare(pixel_values.dims, [1, 3, 224, 224]);
+                compare(avg(pixel_values.data), 0.06262318789958954);
 
                 compare(original_sizes, [[408, 612]]);
-                compare(reshaped_input_sizes, [[224, 336]]);
+                compare(reshaped_input_sizes, [[224, 224]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
 
