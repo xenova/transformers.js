@@ -3028,36 +3028,6 @@ export class PreTrainedTokenizer extends Callable {
 }
 
 /**
-* Helper method for adding `token_type_ids` to model inputs
-* @param {Object} inputs An object containing the input ids and attention mask.
-* @returns {Object} The prepared inputs object.
-*/
-export function add_token_types(inputs) {
-    // TODO ensure correctness when token pair is present
-    if (inputs.input_ids instanceof Tensor) {
-        inputs.token_type_ids = new Tensor(
-            'int64',
-            new BigInt64Array(inputs.input_ids.data.length),
-            inputs.input_ids.dims
-        )
-    } else if (Array.isArray(inputs.input_ids)) {
-
-        if (Array.isArray(inputs.input_ids[0])) {
-            // This means input is batched, so we need to batch the token_type_ids as well
-            inputs.token_type_ids = inputs.input_ids.map(
-                x => new Array(x.length).fill(0)
-            )
-        } else {
-            inputs.token_type_ids = new Array(inputs.input_ids.length).fill(0);
-        }
-    } else {
-        throw new Error('Input ids must be a Tensor or an Array')
-    }
-
-    return inputs;
-}
-
-/**
  * BertTokenizer is a class used to tokenize text for BERT models.
  * @extends PreTrainedTokenizer
  */
