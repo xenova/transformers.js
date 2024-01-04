@@ -196,20 +196,21 @@ function lowercase_and_remove_accent(text) {
 
 /**
  * Helper function to fuse consecutive values in an array equal to the specified value.
- * @param {Array} arr The input array
+ * @param {string[]} arr The input array
  * @param {any} value The value to fuse on.
+ * @param {Map<string, any>} mapping The mapping from input domain to value.
  */
-function fuse(arr, value) {
+function fuse(arr, value, mapping) {
     let fused = [];
     let i = 0;
     while (i < arr.length) {
         fused.push(arr[i])
-        if (arr[i] !== value) {
+        if ((mapping.get(arr[i]) ?? value) !== value) {
             ++i;
             continue;
         }
 
-        while (i < arr.length && arr[i] === value) {
+        while (i < arr.length && (mapping.get(arr[i]) ?? value) === value) {
             ++i;
         }
     }
@@ -321,7 +322,12 @@ export class TokenizerModel extends Callable {
      * @returns {string[]} The encoded token IDs.
      */
     _call(tokens) {
-        return this.encode(tokens);
+        let ids = this.encode(tokens);
+        if (this.fuse_unk) {
+            // Fuse unknown tokens
+            ids = fuse(ids, this.unk_token_id, this.tokens_to_ids);
+        }
+        return ids;
     }
 
     /**
@@ -340,13 +346,7 @@ export class TokenizerModel extends Callable {
      * @returns {number[]} The converted token IDs.
      */
     convert_tokens_to_ids(tokens) {
-        let ids = tokens.map(t => this.tokens_to_ids.get(t) ?? this.unk_token_id);
-
-        if (this.fuse_unk) {
-            // Fuse unknown tokens
-            ids = fuse(ids, this.unk_token_id);
-        }
-        return ids;
+        return tokens.map(t => this.tokens_to_ids.get(t) ?? this.unk_token_id);
     }
 
     /**
@@ -1527,6 +1527,21 @@ class DigitsPreTokenizer extends PreTokenizer {
 }
 
 /**
+ * @typedef {Object} PostProcessedOutput
+ * @property {string[]} tokens
+ * @property {number[]} [token_type_ids]
+ */
+
+
+/**
+ * @typedef {Object} EncodingSingle
+ * @property {number[]} input_ids
+ * @property {number[]} attention_mask
+ * @property {number[]} [token_type_ids]
+ */
+
+
+/**
  * @extends Callable
  */
 class PostProcessor extends Callable {
@@ -1570,7 +1585,7 @@ class PostProcessor extends Callable {
      *
      * @param {Array} tokens The input tokens to be post-processed.
      * @param {...*} args Additional arguments required by the post-processing logic.
-     * @returns {Array} The post-processed tokens.
+     * @returns {PostProcessedOutput} The post-processed tokens.
      * @throws {Error} If the method is not implemented in subclass.
      */
     post_process(tokens, ...args) {
@@ -1581,7 +1596,7 @@ class PostProcessor extends Callable {
      * Alias for {@link PostProcessor#post_process}.
      * @param {Array} tokens The text or array of texts to post-process.
      * @param {...*} args Additional arguments required by the post-processing logic.
-     * @returns {Array} An array of post-processed tokens.
+     * @returns {PostProcessedOutput} The post-processed tokens.
      */
     _call(tokens, ...args) {
         return this.post_process(tokens, ...args);
@@ -1608,18 +1623,20 @@ class BertProcessing extends PostProcessor {
     /**
      * Adds the special tokens to the beginning and end of the input.
      * @param {string[]} tokens The input tokens.
-     * @param {string[]|null} tokens_pair An optional second set of input tokens.
-     * @returns {string[]} The input tokens with the special tokens added to the beginning and end.
+     * @param {string[]} [tokens_pair=null] An optional second set of input tokens.
+     * @returns {PostProcessedOutput} The post-processed tokens with the special tokens added to the beginning and end.
      */
     post_process(tokens, tokens_pair = null) {
         tokens = mergeArrays([this.cls], tokens, [this.sep]);
-
-        // NOTE: It is intended to add 2 EOS tokens after the first set of tokens
-        // https://github.com/huggingface/tokenizers/issues/983
+        let token_type_ids = new Array(tokens.length).fill(0);
         if (tokens_pair !== null) {
-            tokens = mergeArrays(tokens, [this.sep], tokens_pair, [this.sep]);
+            const middle = this instanceof RobertaProcessing ? [this.sep] : [];
+            // NOTE: It is intended to add 2 EOS tokens after the first set of tokens
+            // https://github.com/huggingface/tokenizers/issues/983
+            tokens = mergeArrays(tokens, middle, tokens_pair, [this.sep]);
+            token_type_ids = mergeArrays(token_type_ids, new Array(tokens_pair.length + 1 + middle.length).fill(1));
         }
-        return tokens;
+        return { tokens, token_type_ids };
     }
 }
 class RobertaProcessing extends BertProcessing { } // NOTE: extends BertProcessing
@@ -1644,28 +1661,32 @@ class TemplateProcessing extends PostProcessor {
 
     /**
      * Replaces special tokens in the template with actual tokens.
-     * @param {Array} tokens The list of tokens for the first sequence.
-     * @param {Array} [tokens_pair=null] The list of tokens for the second sequence (optional).
-     * @returns {Array} The list of tokens with the special tokens replaced with actual tokens.
+     * @param {string[]} tokens The list of tokens for the first sequence.
+     * @param {string[]} [tokens_pair=null] The list of tokens for the second sequence (optional).
+     * @returns {PostProcessedOutput} An object containing the list of tokens with the special tokens replaced with actual tokens.
      */
     post_process(tokens, tokens_pair = null) {
         let type = tokens_pair === null ? this.single : this.pair
 
-        let toReturn = [];
+        let processedTokens = [];
+        let types = [];
         for (let item of type) {
             if ('SpecialToken' in item) {
-                toReturn.push(item.SpecialToken.id);
+                processedTokens.push(item.SpecialToken.id);
+                types.push(item.SpecialToken.type_id);
 
             } else if ('Sequence' in item) {
                 if (item.Sequence.id === 'A') {
-                    toReturn = mergeArrays(toReturn, tokens);
+                    processedTokens = mergeArrays(processedTokens, tokens);
+                    types = mergeArrays(types, new Array(tokens.length).fill(item.Sequence.type_id));
 
                 } else if (item.Sequence.id === 'B') {
-                    toReturn = mergeArrays(toReturn, tokens_pair);
+                    processedTokens = mergeArrays(processedTokens, tokens_pair);
+                    types = mergeArrays(types, new Array(tokens_pair.length).fill(item.Sequence.type_id));
                 }
             }
         }
-        return toReturn;
+        return { tokens: processedTokens, token_type_ids: types };
     }
 }
 
@@ -1676,11 +1697,15 @@ class TemplateProcessing extends PostProcessor {
 class ByteLevelPostProcessor extends PostProcessor {
     /**
      * Post process the given tokens.
-     * @param {string[]} tokens The tokens to be post processed.
-     * @returns {string[]} The post processed tokens.
+     * @param {string[]} tokens The list of tokens for the first sequence.
+     * @param {string[]} [tokens_pair=null] The list of tokens for the second sequence (optional).
+     * @returns {PostProcessedOutput} An object containing the post-processed tokens.
      */
-    post_process(tokens) {
-        return tokens;
+    post_process(tokens, tokens_pair = null) {
+        if (tokens_pair) {
+            tokens = mergeArrays(tokens, tokens_pair);
+        }
+        return { tokens };
     }
 }
 
@@ -2327,6 +2352,8 @@ const SPECIAL_TOKEN_ATTRIBUTES = [
 ]
 
 export class PreTrainedTokenizer extends Callable {
+    return_token_type_ids = false;
+
     _default_chat_template = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`;
 
     /**
@@ -2512,8 +2539,8 @@ export class PreTrainedTokenizer extends Callable {
         } = {},
     ) {
 
-        /** @type {number[]|number[][]|Tensor} */
-        let tokens;
+        /** @type {EncodingSingle[]} */
+        let encodedTokens;
 
         if (Array.isArray(text)) {
             if (text.length === 0) {
@@ -2528,12 +2555,12 @@ export class PreTrainedTokenizer extends Callable {
                     throw Error('text and text_pair must have the same length')
                 }
 
-                tokens = text.map(
-                    (t, i) => this.encode(t, text_pair[i], { add_special_tokens })
+                encodedTokens = text.map(
+                    (t, i) => this._encode_plus(t, text_pair[i], { add_special_tokens })
                 )
 
             } else {
-                tokens = text.map(x => this.encode(x, null, { add_special_tokens }));
+                encodedTokens = text.map(x => this._encode_plus(x, null, { add_special_tokens }));
             }
 
         } else {
@@ -2546,7 +2573,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             // For single input, we just wrap in an array, and then unwrap later.
-            tokens = [this.encode(text, text_pair, { add_special_tokens })];
+            encodedTokens = [this._encode_plus(text, text_pair, { add_special_tokens })];
         }
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
@@ -2556,60 +2583,80 @@ export class PreTrainedTokenizer extends Callable {
                 max_length = this.model_max_length;
             } else {
                 // Calculate max length from sequences
-                max_length = max(tokens.map(x => x.length))[0];
+                max_length = max(encodedTokens.map(x => x.input_ids.length))[0];
             }
         }
 
         // Ensure it is less than model max length
         max_length = Math.min(max_length, this.model_max_length)
 
-        /** @type {any[]|Tensor} */
-        let attention_mask = [];
         if (padding || truncation) {
             // Perform padding and/or truncation
-            for (let i = 0; i < tokens.length; ++i) {
-                if (tokens[i].length === max_length) {
-                    attention_mask.push(new Array(tokens[i].length).fill(1))
+            for (let i = 0; i < encodedTokens.length; ++i) {
+                if (encodedTokens[i].input_ids.length === max_length) {
                     continue;
 
-                } else if (tokens[i].length > max_length) {
+                } else if (encodedTokens[i].input_ids.length > max_length) {
                     // possibly truncate
                     if (truncation) {
-                        tokens[i] = tokens[i].slice(0, max_length);
+                        encodedTokens[i].input_ids = encodedTokens[i].input_ids.slice(0, max_length);
+                        encodedTokens[i].attention_mask = encodedTokens[i].attention_mask.slice(0, max_length);
+
+                        if (encodedTokens[i].token_type_ids) {
+                            encodedTokens[i].token_type_ids = encodedTokens[i].token_type_ids.slice(0, max_length);
+                        }
                     }
-                    attention_mask.push(new Array(tokens[i].length).fill(1))
 
                 } else { // t.length < max_length
+                    // possibly pad
                     if (padding) {
-                        let diff = max_length - tokens[i].length;
+                        let diff = max_length - encodedTokens[i].input_ids.length;
 
                         if (this.padding_side === 'right') {
-                            attention_mask.push(
-                                (new Array(tokens[i].length).fill(1)).concat(new Array(diff).fill(0))
+                            encodedTokens[i].input_ids = mergeArrays(
+                                encodedTokens[i].input_ids, new Array(diff).fill(this.pad_token_id),
                             )
-                            tokens[i].push(...new Array(diff).fill(this.pad_token_id))
-                        } else { // left
-                            attention_mask.push(
-                                (new Array(diff).fill(0)).concat(new Array(tokens[i].length).fill(1))
+                            encodedTokens[i].attention_mask = mergeArrays(
+                                encodedTokens[i].attention_mask, new Array(diff).fill(0),
                             )
-                            tokens[i].unshift(...new Array(diff).fill(this.pad_token_id))
-                        }
+                            if (encodedTokens[i].token_type_ids) {
+                                encodedTokens[i].token_type_ids = mergeArrays(
+                                    encodedTokens[i].token_type_ids, new Array(diff).fill(0),
+                                )
+                            }
 
-                    } else {
-                        attention_mask.push(new Array(tokens[i].length).fill(1))
+                        } else { // left
+                            encodedTokens[i].input_ids = mergeArrays(
+                                new Array(diff).fill(this.pad_token_id), encodedTokens[i].input_ids,
+                            )
+                            encodedTokens[i].attention_mask = mergeArrays(
+                                new Array(diff).fill(0), encodedTokens[i].attention_mask,
+                            )
+                            if (encodedTokens[i].token_type_ids) {
+                                encodedTokens[i].token_type_ids = mergeArrays(
+                                    new Array(diff).fill(0), encodedTokens[i].token_type_ids,
+                                )
+                            }
+                        }
                     }
                 }
             }
-        } else {
-            attention_mask = tokens.map(x => new Array(x.length).fill(1))
         }
+
+        let input_ids;
+        let attention_mask;
+        let token_type_ids;
 
         if (return_tensor) {
             if (!(padding && truncation)) {
                 // Not, guaranteed that all items have same length, so
                 // we perform additional check
 
-                if (tokens.some(x => x.length !== tokens[0].length)) {
+                if (
+                    encodedTokens.some(x => x.input_ids.length !== encodedTokens[0].input_ids.length)
+                    || encodedTokens.some(x => x.attention_mask.length !== encodedTokens[0].attention_mask.length)
+                    || encodedTokens.some(x => x.token_type_ids && x.token_type_ids.length !== encodedTokens[0].token_type_ids.length)
+                ) {
                     throw Error(
                         "Unable to create tensor, you should probably activate truncation and/or padding " +
                         "with 'padding=true' and 'truncation=true' to have batched tensors with the same length."
@@ -2620,36 +2667,51 @@ export class PreTrainedTokenizer extends Callable {
             // Now we actually convert to tensor
             // NOTE: In the same way as the python library, we return a batched tensor, regardless of
             // whether we have a single input or multiple inputs.
-            let dims = [tokens.length, tokens[0].length];
+            let dims = [encodedTokens.length, encodedTokens[0].input_ids.length];
 
-            tokens = new Tensor('int64',
-                BigInt64Array.from(tokens.flat().map(BigInt)),
+            input_ids = new Tensor('int64',
+                BigInt64Array.from(encodedTokens.flatMap(x => x.input_ids).map(BigInt)),
                 dims
             );
 
             attention_mask = new Tensor(
                 'int64',
-                BigInt64Array.from(attention_mask.flat().map(BigInt)),
+                BigInt64Array.from(encodedTokens.flatMap(x => x.attention_mask).map(BigInt)),
                 dims
-            )
+            );
+
+            if (encodedTokens[0].token_type_ids) {
+                token_type_ids = new Tensor(
+                    'int64',
+                    BigInt64Array.from(encodedTokens.flatMap(x => x.token_type_ids).map(BigInt)),
+                    dims
+                );
+            }
+
         } else {
+            input_ids = encodedTokens.map(x => x.input_ids);
+            attention_mask = encodedTokens.map(x => x.attention_mask);
+
+            if (encodedTokens[0].token_type_ids) {
+                token_type_ids = encodedTokens.map(x => x.token_type_ids);
+            }
+
             // If not returning a tensor, we match the input type
             if (!Array.isArray(text)) {
                 // Input was not batched, so we unwrap
-                tokens = tokens[0];
+                input_ids = input_ids[0];
                 attention_mask = attention_mask[0];
+
+                if (token_type_ids) {
+                    token_type_ids = token_type_ids[0];
+                }
             }
         }
 
-
-        // Finally, add attention mask, and possibly model-specific parameters
-        let modelInputs = {
-            input_ids: tokens,
-            attention_mask: attention_mask
+        let modelInputs = { input_ids, attention_mask }
+        if (this.return_token_type_ids && token_type_ids) {
+            modelInputs.token_type_ids = token_type_ids;
         }
-
-        // Optional post-processing
-        modelInputs = this.prepare_model_inputs(modelInputs);
 
         return modelInputs
     }
@@ -2705,22 +2767,49 @@ export class PreTrainedTokenizer extends Callable {
      * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
+     * @returns {EncodingSingle} An object containing the encoded text.
+     * @private
+     */
+    _encode_plus(text, text_pair = null, {
+        add_special_tokens = true,
+    } = {}) {
+        // Function called by users to encode possibly multiple texts
+        const tokens = this._encode_text(text);
+        const tokens2 = this._encode_text(text_pair);
+
+        // TODO improve `add_special_tokens` and ensure correctness
+        const combinedTokens = (this.post_processor !== null && add_special_tokens)
+            ? this.post_processor(tokens, tokens2)
+            : { tokens: mergeArrays(tokens ?? [], tokens2 ?? []) };
+
+        const input_ids = this.model.convert_tokens_to_ids(combinedTokens.tokens);
+
+        const result = {
+            input_ids,
+            attention_mask: new Array(input_ids.length).fill(1),
+        }
+        if (combinedTokens.token_type_ids) {
+            result.token_type_ids = combinedTokens.token_type_ids;
+        }
+        return result;
+    }
+
+    /**
+     * Encodes a single text or a pair of texts using the model's tokenizer.
+     *
+     * @param {string} text The text to encode.
+     * @param {string|null} text_pair The optional second text to encode.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
     encode(text, text_pair = null, {
         add_special_tokens = true,
     } = {}) {
-        // Function called by users to encode possibly multiple texts
-        let tokens = this._encode_text(text);
-        let tokens2 = this._encode_text(text_pair);
-
-        // TODO improve `add_special_tokens` and ensure correctness
-        let combinedTokens = (this.post_processor !== null && add_special_tokens)
-            ? this.post_processor(tokens, tokens2)
-            : mergeArrays(tokens ?? [], tokens2 ?? []);
-
-        let ids = this.model.convert_tokens_to_ids(combinedTokens);
-        return ids;
+        const encoded = this._encode_plus(text, text_pair, {
+            add_special_tokens,
+        });
+        return encoded.input_ids;
     }
 
     /**
@@ -2951,81 +3040,48 @@ export function add_token_types(inputs) {
  * @extends PreTrainedTokenizer
  */
 export class BertTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 /**
  * Albert tokenizer
  * @extends PreTrainedTokenizer
  */
 export class AlbertTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 export class MobileBertTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 export class SqueezeBertTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 export class DebertaTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 export class DebertaV2Tokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 export class HerbertTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 export class ConvBertTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 export class RoFormerTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 export class DistilBertTokenizer extends PreTrainedTokenizer { }
 export class CamembertTokenizer extends PreTrainedTokenizer { }
 export class XLMTokenizer extends PreTrainedTokenizer {
+    return_token_type_ids = true;
+
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);
         console.warn('WARNING: `XLMTokenizer` is not yet supported by Hugging Face\'s "fast" tokenizers library. Therefore, you may experience slightly inaccurate results.')
     }
-
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
 }
 export class ElectraTokenizer extends PreTrainedTokenizer {
-    /** @type {add_token_types} */
-    prepare_model_inputs(inputs) {
-        return add_token_types(inputs);
-    }
+    return_token_type_ids = true;
 }
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
