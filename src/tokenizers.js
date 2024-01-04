@@ -1528,8 +1528,8 @@ class DigitsPreTokenizer extends PreTokenizer {
 
 /**
  * @typedef {Object} PostProcessedOutput
- * @property {string[]} tokens
- * @property {number[]} [token_type_ids]
+ * @property {string[]} tokens List of token produced by the post-processor.
+ * @property {number[]} [token_type_ids] List of token type ids produced by the post-processor.
  */
 
 
@@ -2369,11 +2369,8 @@ export class PreTrainedTokenizer extends Callable {
         // Construct parts of the tokenizer from the JSON
         this.normalizer = Normalizer.fromConfig(tokenizerJSON.normalizer);
         this.pre_tokenizer = PreTokenizer.fromConfig(tokenizerJSON.pre_tokenizer);
-
         this.model = TokenizerModel.fromConfig(tokenizerJSON.model, tokenizerConfig);
         this.post_processor = PostProcessor.fromConfig(tokenizerJSON.post_processor);
-
-        // TODO: maybe, allow this to be null; in which case, we use model as decoder too?
         this.decoder = Decoder.fromConfig(tokenizerJSON.decoder);
 
         // Add added_tokens to model
@@ -2539,10 +2536,12 @@ export class PreTrainedTokenizer extends Callable {
         } = {},
     ) {
 
+        const isBatched = Array.isArray(text);
+
         /** @type {EncodingSingle[]} */
         let encodedTokens;
 
-        if (Array.isArray(text)) {
+        if (isBatched) {
             if (text.length === 0) {
                 throw Error('text array must be non-empty')
             }
@@ -2667,7 +2666,7 @@ export class PreTrainedTokenizer extends Callable {
             // Now we actually convert to tensor
             // NOTE: In the same way as the python library, we return a batched tensor, regardless of
             // whether we have a single input or multiple inputs.
-            let dims = [encodedTokens.length, encodedTokens[0].input_ids.length];
+            const dims = [encodedTokens.length, encodedTokens[0].input_ids.length];
 
             input_ids = new Tensor('int64',
                 BigInt64Array.from(encodedTokens.flatMap(x => x.input_ids).map(BigInt)),
@@ -2680,7 +2679,7 @@ export class PreTrainedTokenizer extends Callable {
                 dims
             );
 
-            if (encodedTokens[0].token_type_ids) {
+            if (this.return_token_type_ids && encodedTokens[0].token_type_ids) {
                 token_type_ids = new Tensor(
                     'int64',
                     BigInt64Array.from(encodedTokens.flatMap(x => x.token_type_ids).map(BigInt)),
@@ -2692,24 +2691,24 @@ export class PreTrainedTokenizer extends Callable {
             input_ids = encodedTokens.map(x => x.input_ids);
             attention_mask = encodedTokens.map(x => x.attention_mask);
 
-            if (encodedTokens[0].token_type_ids) {
+            if (this.return_token_type_ids && encodedTokens[0].token_type_ids) {
                 token_type_ids = encodedTokens.map(x => x.token_type_ids);
             }
 
             // If not returning a tensor, we match the input type
-            if (!Array.isArray(text)) {
+            if (!isBatched) {
                 // Input was not batched, so we unwrap
                 input_ids = input_ids[0];
                 attention_mask = attention_mask[0];
 
-                if (token_type_ids) {
+                if (this.return_token_type_ids && token_type_ids) {
                     token_type_ids = token_type_ids[0];
                 }
             }
         }
 
         let modelInputs = { input_ids, attention_mask }
-        if (this.return_token_type_ids && token_type_ids) {
+        if (token_type_ids) {
             modelInputs.token_type_ids = token_type_ids;
         }
 
@@ -2806,10 +2805,10 @@ export class PreTrainedTokenizer extends Callable {
     encode(text, text_pair = null, {
         add_special_tokens = true,
     } = {}) {
-        const encoded = this._encode_plus(text, text_pair, {
+        const { input_ids } = this._encode_plus(text, text_pair, {
             add_special_tokens,
         });
-        return encoded.input_ids;
+        return input_ids;
     }
 
     /**
