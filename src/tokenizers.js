@@ -1626,15 +1626,24 @@ class BertProcessing extends PostProcessor {
      * @param {string[]} [tokens_pair=null] An optional second set of input tokens.
      * @returns {PostProcessedOutput} The post-processed tokens with the special tokens added to the beginning and end.
      */
-    post_process(tokens, tokens_pair = null) {
-        tokens = mergeArrays([this.cls], tokens, [this.sep]);
+    post_process(tokens, tokens_pair = null, {
+        add_special_tokens = true,
+    } = {}) {
+        if (add_special_tokens) {
+            tokens = mergeArrays([this.cls], tokens, [this.sep]);
+        }
+
         let token_type_ids = new Array(tokens.length).fill(0);
         if (tokens_pair !== null) {
-            const middle = this instanceof RobertaProcessing ? [this.sep] : [];
             // NOTE: It is intended to add 2 EOS tokens after the first set of tokens
             // https://github.com/huggingface/tokenizers/issues/983
-            tokens = mergeArrays(tokens, middle, tokens_pair, [this.sep]);
-            token_type_ids = mergeArrays(token_type_ids, new Array(tokens_pair.length + 1 + middle.length).fill(1));
+            const middle = (add_special_tokens && this instanceof RobertaProcessing)
+                ? [this.sep]
+                : [];
+            const after = add_special_tokens ? [this.sep] : [];
+
+            tokens = mergeArrays(tokens, middle, tokens_pair, after);
+            token_type_ids = mergeArrays(token_type_ids, new Array(tokens_pair.length + middle.length + after.length).fill(1));
         }
         return { tokens, token_type_ids };
     }
@@ -1665,16 +1674,19 @@ class TemplateProcessing extends PostProcessor {
      * @param {string[]} [tokens_pair=null] The list of tokens for the second sequence (optional).
      * @returns {PostProcessedOutput} An object containing the list of tokens with the special tokens replaced with actual tokens.
      */
-    post_process(tokens, tokens_pair = null) {
+    post_process(tokens, tokens_pair = null, {
+        add_special_tokens = true,
+    } = {}) {
         let type = tokens_pair === null ? this.single : this.pair
 
         let processedTokens = [];
         let types = [];
         for (let item of type) {
             if ('SpecialToken' in item) {
-                processedTokens.push(item.SpecialToken.id);
-                types.push(item.SpecialToken.type_id);
-
+                if (add_special_tokens) {
+                    processedTokens.push(item.SpecialToken.id);
+                    types.push(item.SpecialToken.type_id);
+                }
             } else if ('Sequence' in item) {
                 if (item.Sequence.id === 'A') {
                     processedTokens = mergeArrays(processedTokens, tokens);
@@ -2362,7 +2374,7 @@ const SPECIAL_TOKEN_ATTRIBUTES = [
  * @private
  */
 function padHelper(item, length, value_fn, side) {
-    for (const key in Object.keys(item)) {
+    for (const key of Object.keys(item)) {
         const diff = length - item[key].length;
         const value = value_fn(key);
 
@@ -2383,7 +2395,7 @@ function padHelper(item, length, value_fn, side) {
 function truncateHelper(item, length) {
     // Setting .length to a lower value truncates the array in-place:
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/length
-    for (const key in Object.keys(item)) {
+    for (const key of Object.keys(item)) {
         item[key].length = length;
     }
 }
@@ -2613,6 +2625,10 @@ export class PreTrainedTokenizer extends Callable {
                 // Calculate max length from sequences
                 max_length = max(encodedTokens.map(x => x.input_ids.length))[0];
             }
+        } else {
+            if (!truncation) {
+                console.warn(`Truncation was not explicitly activated but \`max_length\` is provided a specific value, please use \`truncation=true\` to explicitly truncate examples to max length.`)
+            }
         }
 
         // Ensure it is less than model max length
@@ -2634,9 +2650,12 @@ export class PreTrainedTokenizer extends Callable {
                 } else { // t.length < max_length
                     // possibly pad
                     if (padding) {
-                        padHelper(encodedTokens[i], max_length, (key) => {
-                            key === 'input_ids' ? this.pad_token_id : 0
-                        }, this.padding_side);
+                        padHelper(
+                            encodedTokens[i],
+                            max_length,
+                            key => key === 'input_ids' ? this.pad_token_id : 0,
+                            this.padding_side
+                        );
                     }
                 }
             }
@@ -2652,9 +2671,14 @@ export class PreTrainedTokenizer extends Callable {
                 // we perform additional check
 
                 if (
-                    encodedTokens.some(x => x.input_ids.length !== encodedTokens[0].input_ids.length)
-                    || encodedTokens.some(x => x.attention_mask.length !== encodedTokens[0].attention_mask.length)
-                    || encodedTokens.some(x => x.token_type_ids && x.token_type_ids.length !== encodedTokens[0].token_type_ids.length)
+                    encodedTokens.some(x => {
+                        for (const key of Object.keys(x)) {
+                            if (x[key].length !== encodedTokens[0][key]?.length) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    })
                 ) {
                     throw Error(
                         "Unable to create tensor, you should probably activate truncation and/or padding " +
@@ -2776,9 +2800,8 @@ export class PreTrainedTokenizer extends Callable {
         const tokens = this._encode_text(text);
         const tokens2 = this._encode_text(text_pair);
 
-        // TODO improve `add_special_tokens` and ensure correctness
-        const combinedTokens = (this.post_processor !== null && add_special_tokens)
-            ? this.post_processor(tokens, tokens2)
+        const combinedTokens = this.post_processor
+            ? this.post_processor(tokens, tokens2, { add_special_tokens })
             : { tokens: mergeArrays(tokens ?? [], tokens2 ?? []) };
 
         const input_ids = this.model.convert_tokens_to_ids(combinedTokens.tokens);
