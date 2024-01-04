@@ -27,6 +27,7 @@ class EsmConverter(Converter):
         else:
             tokenizer.post_processor = processors.TemplateProcessing(
                 single=f"{cls}:0 $A:0 {sep}:0",
+                pair=f"{cls}:0 $A:0 {sep}:0 $B:1 {sep}:1",
                 special_tokens=[
                     (cls, cls_token_id),
                     (sep, sep_token_id),
