@@ -1535,9 +1535,9 @@ class DigitsPreTokenizer extends PreTokenizer {
 
 /**
  * @typedef {Object} EncodingSingle
- * @property {number[]} input_ids
- * @property {number[]} attention_mask
- * @property {number[]} [token_type_ids]
+ * @property {number[]} input_ids List of token ids to be fed to a model.
+ * @property {number[]} attention_mask List of token type ids to be fed to a model
+ * @property {number[]} [token_type_ids] List of indices specifying which tokens should be attended to by the model
  */
 
 
