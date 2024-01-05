@@ -22,16 +22,8 @@ const config = {
                 {
                     from: "public",
                     to: "." // Copies to build folder
-                },
-                {
-                    from: "src/sidepanel.css",
-                    to: "sidepanel.css"
-                },
-                {
-                    from: "src/sidepanel.html",
-                    to: "sidepanel.html"
                 }
-            ],
+            ]
         })
     ],
 };
