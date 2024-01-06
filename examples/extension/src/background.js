@@ -22,21 +22,22 @@ chrome.runtime.onInstalled.addListener(function () {
 // session storage and have the sidepanel look there upon initialization.
 // When the sidepanel opens it also establishes a message channel to accept any subsequent inference input from the background worker.
 
-// add connection when sidepanel opens
+// this will contain a MessageChannel connection when sidepanel opens
 var connection
-chrome.runtime.onConnect.addListener(x => {
-    connection = x
-})
 
 // Perform inference when the user clicks a context menu
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // Ignore context menu clicks that are not for classifications (or when there is no input)
     if (info.menuItemId !== 'classify-selection' || !info.selectionText) return;
 
-    if (connection) {  // sidepanel is open, post text for inference
+    try {  // sidepanel is open, post text for inference
         connection.postMessage({ text: info.selectionText })
-    } else { // sidepanel not yet open; open sidepanel and persist text in session storage until panel can pick it up.
+    } catch { // sidepanel not yet open; open sidepanel and persist text in session storage until panel can pick it up.
         chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => { })
         chrome.storage.session.set({ 'inference_input': info.selectionText })
+
+        chrome.runtime.onConnect.addListener(x => {
+            connection = x
+        })
     }
 });
