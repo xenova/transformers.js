@@ -10,7 +10,8 @@ const config = {
     devtool: 'inline-source-map',
     entry: {
         background: './src/background.js',
-        sidepanel: './src/sidepanel.js'
+        sidepanel: './src/sidepanel.js',
+        sandbox: './src/sandbox.js'
     },
     output: {
         path: path.resolve(__dirname, 'build'),
