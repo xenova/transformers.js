@@ -2,6 +2,7 @@ import { pipeline, env } from '@xenova/transformers';
 
 // Skip initial check for local models, since we are not loading any local models.
 env.allowLocalModels = false;
+env.useBrowserCache = false; // for now, problem with sandbox and browser cache
 // env.backends.onnx.wasm.numThreads = 1;
 
 class PipelineSingleton {
