@@ -1,8 +1,6 @@
 
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-import HtmlWebpackPlugin from 'html-webpack-plugin';
 import CopyPlugin from 'copy-webpack-plugin';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -12,9 +10,7 @@ const config = {
     devtool: 'inline-source-map',
     entry: {
         background: './src/background.js',
-        popup: './src/popup.js',
-        content: './src/content.js',
-        offscreen: './src/offscreen.js',
+        sidepanel: './src/sidepanel.js',
         sandbox: './src/sandbox.js'
     },
     output: {
@@ -22,21 +18,13 @@ const config = {
         filename: '[name].js',
     },
     plugins: [
-        new HtmlWebpackPlugin({
-            template: './src/popup.html',
-            filename: 'popup.html',
-        }),
         new CopyPlugin({
             patterns: [
                 {
                     from: "public",
                     to: "." // Copies to build folder
-                },
-                {
-                    from: "src/popup.css",
-                    to: "popup.css"
                 }
-            ],
+            ]
         })
     ],
 };
