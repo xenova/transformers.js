@@ -2,7 +2,10 @@ import { pipeline, env } from '@xenova/transformers';
 
 // Skip initial check for local models, since we are not loading any local models.
 env.allowLocalModels = false;
-env.useBrowserCache = false; // for now, problem with sandbox and browser cache
+// The extension sandbox page (which we need to use because of the way ONNX loads multiple threads)
+// is prohibited from accesing the browser cache and will throw an erorr if it tries.
+// Perhaps this can be mitigated with a custom cache instead of the browser cache?
+env.useBrowserCache = false;
 // env.backends.onnx.wasm.numThreads = 1;
 
 class PipelineSingleton {
