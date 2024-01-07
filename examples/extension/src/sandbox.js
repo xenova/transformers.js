@@ -16,7 +16,6 @@ const infer = async (text, message_port) => {
 
 // input, output, and errors as passed to and from the sandbox via a MessageChannel
 window.addEventListener('message', function (event) {
-    console.log('message received in sandbox', event)
     try {
         infer(event.data, event.ports[0]).then(result => {
             event.ports[0].postMessage({ type: 'result', result });

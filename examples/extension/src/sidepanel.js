@@ -31,8 +31,7 @@ function show_load_progress(data) {
             break
         case 'ready':
             loadingInfoElement.style.display = 'none'
-        default:
-            console.log(data)
+            break
     }
 }
 
