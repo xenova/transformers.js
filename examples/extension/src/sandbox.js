@@ -4,7 +4,7 @@ import { PipelineSingleton } from "./inference.mjs";
 const infer = async (text, message_port) => {
     // Get the pipeline instance. This will load and build the model when run for the first time.
     let model = await PipelineSingleton.getInstance((data) => {
-        // message_port.postMessage(data)
+        // Post messages back on the same channel to indicate model loading progress.
         data.type = 'load'
         message_port.postMessage(data)
     });
