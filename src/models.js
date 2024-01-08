@@ -5433,7 +5433,9 @@ for (const [name, model, type] of CUSTOM_MAPPING) {
  * let model = await AutoModel.from_pretrained('bert-base-uncased');
  */
 export class AutoModel extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_MAPPING_NAMES_ENCODER_DECODER, MODEL_MAPPING_NAMES_DECODER_ONLY];
+    /** @type {Map<string, Object>[]} */
+    // @ts-ignore
+    static MODEL_CLASS_MAPPINGS = MODEL_CLASS_TYPE_MAPPING.map(x => x[0]);
     static BASE_IF_FAIL = true;
 }
 
