@@ -1161,22 +1161,22 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     } = {}) {
         // masks: [1, 1, 3, 256, 256]
 
-        let output_masks = [];
+        const output_masks = [];
 
         pad_size = pad_size ?? this.pad_size;
 
-        let target_image_size = [pad_size.height, pad_size.width];
+        const target_image_size = [pad_size.height, pad_size.width];
 
         for (let i = 0; i < original_sizes.length; ++i) {
-            let original_size = original_sizes[i];
-            let reshaped_input_size = reshaped_input_sizes[i];
+            const original_size = original_sizes[i];
+            const reshaped_input_size = reshaped_input_sizes[i];
 
-            let mask = masks[i]; // [b, c, h, w]
+            const mask = masks[i]; // [b, c, h, w]
 
             // TODO: improve
-            let interpolated_masks = [];
+            const interpolated_masks = [];
             for (let j = 0; j < mask.dims[0]; ++j) {
-                let m = mask[j]; // 3d tensor
+                const m = mask[j]; // 3d tensor
 
                 // Upscale mask to padded size
                 let interpolated_mask = interpolate(m, target_image_size, 'bilinear', false);
@@ -1208,7 +1208,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
             }
 
             // TODO switch to stack
-            let concatenated = cat(interpolated_masks);
+            const concatenated = cat(interpolated_masks);
             output_masks.push(concatenated);
         }
 
