@@ -1201,14 +1201,11 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                     )
                 }
 
-                // add back batch dim for concat
-                interpolated_mask.dims = [1, ...interpolated_mask.dims];
-
                 interpolated_masks.push(interpolated_mask);
             }
 
             // TODO switch to stack
-            const concatenated = cat(interpolated_masks);
+            const concatenated = stack(interpolated_masks);
             output_masks.push(concatenated);
         }
 
