@@ -2463,7 +2463,7 @@ export class PreTrainedTokenizer extends Callable {
         this.sep_token = this.getToken('sep_token');
         this.sep_token_id = this.model.tokens_to_ids.get(this.sep_token);
 
-        this.unk_token = this.getToken(tokenizerConfig, 'unk_token');
+        this.unk_token = this.getToken('unk_token');
         this.unk_token_id = this.model.tokens_to_ids.get(this.unk_token);
 
         this.model_max_length = tokenizerConfig.model_max_length;
