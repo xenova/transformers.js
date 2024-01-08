@@ -909,6 +909,48 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
     });
 
+    describe('Text-to-speech generation', () => {
+
+        // List all models which will be tested
+        const models = [
+            'microsoft/speecht5_tts',
+            'facebook/mms-tts-fra',
+        ];
+
+        it(models[0], async () => {
+            let synthesizer = await pipeline('text-to-speech', m(models[0]), {
+                // NOTE: Although the quantized version produces incoherent results,
+                // it it is okay to use for testing.
+                // quantized: false,
+            });
+
+            let speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
+
+            { // Generate English speech
+                let output = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
+                expect(output.audio.length).toBeGreaterThan(0);
+                expect(output.sampling_rate).toEqual(16000);
+            }
+
+            await synthesizer.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it(models[1], async () => {
+            let synthesizer = await pipeline('text-to-speech', m(models[1]));
+
+            { // Generate French speech
+                let output = await synthesizer('Bonjour');
+                expect(output.audio.length).toBeGreaterThan(0);
+                expect(output.sampling_rate).toEqual(16000);
+            }
+
+            await synthesizer.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
+
+    });
+
     describe('Audio classification', () => {
 
         // List all models which will be tested
@@ -1122,6 +1164,7 @@ describe('Pipelines', () => {
         // List all models which will be tested
         const models = [
             'facebook/detr-resnet-50-panoptic',
+            'mattmdjaga/segformer_b2_clothes',
         ];
 
         it(models[0], async () => {
@@ -1153,6 +1196,47 @@ describe('Pipelines', () => {
             await segmenter.dispose();
 
         }, MAX_TEST_EXECUTION_TIME);
+
+        it(models[1], async () => {
+            let segmenter = await pipeline('image-segmentation', m(models[1]));
+            let img = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/young-man-standing-and-leaning-on-car.jpg';
+
+            // single
+            {
+                let outputs = await segmenter(img);
+
+                let expected = [
+                    { label: 'Background' },
+                    { label: 'Hair' },
+                    { label: 'Upper-clothes' },
+                    { label: 'Pants' },
+                    { label: 'Left-shoe' },
+                    { label: 'Right-shoe' },
+                    { label: 'Face' },
+                    { label: 'Left-leg' },
+                    { label: 'Right-leg' },
+                    { label: 'Left-arm' },
+                    { label: 'Right-arm' },
+                ];
+
+                let outputLabels = outputs.map(x => x.label);
+                let expectedLabels = expected.map(x => x.label);
+
+                expect(outputLabels).toHaveLength(expectedLabels.length);
+                expect(outputLabels.sort()).toEqual(expectedLabels.sort())
+
+                // check that all scores are null, and masks have correct dimensions
+                for (let output of outputs) {
+                    expect(output.score).toBeNull();
+                    expect(output.mask.width).toEqual(970);
+                    expect(output.mask.height).toEqual(1455);
+                    expect(output.mask.channels).toEqual(1);
+                }
+            }
+
+            await segmenter.dispose();
+
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Zero-shot image classification', () => {
@@ -1179,9 +1263,9 @@ describe('Pipelines', () => {
                 let output = await classifier(url, classes);
 
                 let expected = [
-                    { "score": 0.992206871509552, "label": "football" },
-                    { "score": 0.0013248942559584975, "label": "airport" },
-                    { "score": 0.006468251813203096, "label": "animals" }
+                    { score: 0.9719080924987793, label: 'football' },
+                    { score: 0.022564826533198357, label: 'animals' },
+                    { score: 0.005527070723474026, label: 'airport' }
                 ]
                 compare(output, expected, 0.1);
 
@@ -1194,17 +1278,17 @@ describe('Pipelines', () => {
 
                 let expected = [
                     [
-                        { "score": 0.9919875860214233, "label": "football" },
-                        { "score": 0.0012227334082126617, "label": "airport" },
-                        { "score": 0.006789708975702524, "label": "animals" }
+                        { score: 0.9712504148483276, label: 'football' },
+                        { score: 0.022469401359558105, label: 'animals' },
+                        { score: 0.006280169822275639, label: 'airport' }
                     ], [
-                        { "score": 0.0003043194592464715, "label": "football" },
-                        { "score": 0.998708188533783, "label": "airport" },
-                        { "score": 0.0009874969255179167, "label": "animals" }
+                        { score: 0.997433602809906, label: 'airport' },
+                        { score: 0.0016500800848007202, label: 'animals' },
+                        { score: 0.0009163151844404638, label: 'football' }
                     ], [
-                        { "score": 0.015163016505539417, "label": "football" },
-                        { "score": 0.016037866473197937, "label": "airport" },
-                        { "score": 0.9687991142272949, "label": "animals" }
+                        { score: 0.9851226806640625, label: 'animals' },
+                        { score: 0.007516484707593918, label: 'football' },
+                        { score: 0.007360846735537052, label: 'airport' }
                     ]
                 ];
                 compare(output, expected, 0.1);

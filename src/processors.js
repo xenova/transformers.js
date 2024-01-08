@@ -33,14 +33,17 @@ import {
     min,
     max,
     softmax,
-    FFT,
 } from './utils/maths.js';
 
 
-import { Tensor, transpose, cat, interpolate } from './utils/tensor.js';
+import { Tensor, transpose, cat, interpolate, stack } from './utils/tensor.js';
 
 import { RawImage } from './utils/image.js';
-import { getMelFilters } from './utils/audio.js';
+import {
+    window_function,
+    spectrogram,
+    mel_filter_bank,
+} from './utils/audio.js';
 
 
 // Helper functions
@@ -147,6 +150,21 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
  */
 
 /**
+ * Helper function to validate audio inputs.
+ * @param {any} audio The audio data.
+ * @param {string} feature_extractor The name of the feature extractor.
+ * @private
+ */
+function validate_audio_inputs(audio, feature_extractor) {
+    if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
+        throw new Error(
+            `${feature_extractor} expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
+            `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
+        )
+    }
+}
+
+/**
  * Base class for feature extractors.
  *
  * @extends Callable
@@ -193,8 +211,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     constructor(config) {
         super(config);
 
-        this.image_mean = this.config.image_mean;
-        this.image_std = this.config.image_std;
+        this.image_mean = this.config.image_mean ?? this.config.mean;
+        this.image_std = this.config.image_std ?? this.config.std;
 
         this.resample = this.config.resample ?? 2; // 2 => bilinear
         this.do_rescale = this.config.do_rescale ?? true;
@@ -204,7 +222,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.do_resize = this.config.do_resize;
         this.do_thumbnail = this.config.do_thumbnail;
         this.size = this.config.size;
-        this.size_divisor = this.config.size_divisor;
+        this.size_divisibility = this.config.size_divisibility ?? this.config.size_divisor;
 
         this.do_center_crop = this.config.do_center_crop;
         this.crop_size = this.config.crop_size;
@@ -214,7 +232,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         this.pad_size = this.config.pad_size;
         this.do_pad = this.config.do_pad;
 
-        if (this.do_pad && !this.pad_size && this.size.width !== undefined && this.size.height !== undefined) {
+        if (this.do_pad && !this.pad_size && this.size && this.size.width !== undefined && this.size.height !== undefined) {
             // Should pad, but no pad size specified
             // We infer the pad size from the resize size
             this.pad_size = this.size
@@ -379,6 +397,17 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
+     * Rescale the image' pixel values by `this.rescale_factor`.
+     * @param {Float32Array} pixelData The pixel data to rescale.
+     * @returns {void}
+     */
+    rescale(pixelData) {
+        for (let i = 0; i < pixelData.length; ++i) {
+            pixelData[i] = this.rescale_factor * pixelData[i];
+        }
+    }
+
+    /**
      * @typedef {object} PreprocessedImage
      * @property {HeightWidth} original_size The original size of the image.
      * @property {HeightWidth} reshaped_input_size The reshaped input size of the image.
@@ -389,10 +418,15 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * Preprocesses the given image.
      *
      * @param {RawImage} image The image to preprocess.
+     * @param {Object} overrides The overrides for the preprocessing options.
      * @returns {Promise<PreprocessedImage>} The preprocessed image.
      */
-    async preprocess(image) {
-
+    async preprocess(image, {
+        do_normalize = null,
+        do_pad = null,
+        do_convert_rgb = null,
+        do_convert_grayscale = null,
+    } = {}) {
         if (this.do_crop_margin) {
             // NOTE: Specific to nougat processors. This is done before resizing,
             // and can be interpreted as a pre-preprocessing step.
@@ -403,8 +437,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         const srcHeight = image.height; // original height
 
         // Convert image to RGB if specified in config.
-        if (this.do_convert_rgb) {
+        if (do_convert_rgb ?? this.do_convert_rgb) {
             image = image.rgb();
+        } else if (do_convert_grayscale) {
+            image = image.grayscale();
         }
 
         // Resize all images
@@ -467,10 +503,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                     resample: this.resample,
                 });
 
-            } else if (this.size_divisor !== undefined) {
-                // Rounds the height and width down to the closest multiple of size_divisor
-                const newWidth = Math.floor(srcWidth / this.size_divisor) * this.size_divisor;
-                const newHeight = Math.floor(srcHeight / this.size_divisor) * this.size_divisor;
+            } else if (this.size_divisibility !== undefined) {
+                // Rounds the height and width down to the closest multiple of size_divisibility
+                const newWidth = Math.floor(srcWidth / this.size_divisibility) * this.size_divisibility;
+                const newHeight = Math.floor(srcHeight / this.size_divisibility) * this.size_divisibility;
                 image = await image.resize(newWidth, newHeight, {
                     resample: this.resample,
                 });
@@ -507,12 +543,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         let imgDims = [image.height, image.width, image.channels];
 
         if (this.do_rescale) {
-            for (let i = 0; i < pixelData.length; ++i) {
-                pixelData[i] = this.rescale_factor * pixelData[i];
-            }
+            this.rescale(pixelData);
         }
 
-        if (this.do_normalize) {
+        if (do_normalize ?? this.do_normalize) {
             let image_mean = this.image_mean;
             if (!Array.isArray(this.image_mean)) {
                 image_mean = new Array(image.channels).fill(image_mean);
@@ -535,7 +569,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         }
 
         // do padding after rescaling/normalizing
-        if (this.do_pad && this.pad_size) {
+        if (do_pad ?? (this.do_pad && this.pad_size)) {
             const padded = this.pad_image(pixelData, [image.width, image.height, image.channels], this.pad_size);
             [pixelData, imgDims] = padded; // Update pixel data and image dimensions
         }
@@ -554,10 +588,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
-     * Calls the feature extraction process on an array of image
-     * URLs, preprocesses each image, and concatenates the resulting
+     * Calls the feature extraction process on an array of images,
+     * preprocesses each image, and concatenates the resulting
      * features into a single Tensor.
-     * @param {any[]} images The URL(s) of the image(s) to extract features from.
+     * @param {RawImage[]} images The image(s) to extract features from.
      * @param {...any} args Additional arguments.
      * @returns {Promise<ImageFeatureExtractorResult>} An object containing the concatenated pixel values (and other metadata) of the preprocessed images.
      */
@@ -568,12 +602,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         /** @type {PreprocessedImage[]} */
         const imageData = await Promise.all(images.map(x => this.preprocess(x)));
 
-        // TODO:
-
-        // Concatenate pixel values
-        // TEMP: Add batch dimension so that concat works
-        imageData.forEach(x => x.pixel_values.dims = [1, ...x.pixel_values.dims]);
-        const pixel_values = cat(imageData.map(x => x.pixel_values));
+        // Stack pixel values
+        const pixel_values = stack(imageData.map(x => x.pixel_values), 0);
 
         return {
             pixel_values: pixel_values,
@@ -588,11 +618,82 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class SegformerFeatureExtractor extends ImageFeatureExtractor {
+
+    /**
+     * Converts the output of `SegformerForSemanticSegmentation` into semantic segmentation maps.
+     * @param {*} outputs Raw outputs of the model.
+     * @param {number[][]} [target_sizes=null] List of tuples corresponding to the requested final size
+     * (height, width) of each prediction. If unset, predictions will not be resized.
+     * @returns {{segmentation: Tensor; labels: number[]}[]} The semantic segmentation maps.
+     */
+    post_process_semantic_segmentation(outputs, target_sizes = null) {
+
+        const logits = outputs.logits;
+        const batch_size = logits.dims[0];
+
+        if (target_sizes !== null && target_sizes.length !== batch_size) {
+            throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
+        }
+
+        const toReturn = [];
+        for (let i = 0; i < batch_size; ++i) {
+            const target_size = target_sizes !== null ? target_sizes[i] : null;
+
+            let data = logits[i];
+
+            // 1. If target_size is not null, we need to resize the masks to the target size
+            if (target_size !== null) {
+                // resize the masks to the target size
+                data = interpolate(data, target_size, 'bilinear', false);
+            }
+            const [height, width] = target_size ?? data.dims.slice(-2);
+
+            const segmentation = new Tensor(
+                'int32',
+                new Int32Array(height * width),
+                [height, width]
+            );
+
+            // Buffer to store current largest value
+            const buffer = data[0].data;
+            for (let j = 1; j < data.dims[0]; ++j) {
+                const row = data[j].data;
+                for (let k = 0; k < row.length; ++k) {
+                    if (row[k] > buffer[k]) {
+                        buffer[k] = row[k];
+                        segmentation.data[k] = j;
+                    }
+                }
+            }
+
+            // Store which objects have labels
+            // This is much more efficient that creating a set of the final values
+            const hasLabel = new Array(data.dims[0]);
+            const out = segmentation.data;
+            for (let j = 0; j < out.length; ++j) {
+                const index = out[j];
+                hasLabel[index] = index;
+            }
+            /** @type {number[]} The unique list of labels that were detected */
+            const labels = hasLabel.filter(x => x !== undefined);
+
+            toReturn.push({ segmentation, labels });
+        }
+        return toReturn;
+    }
+}
+export class BitImageProcessor extends ImageFeatureExtractor { }
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
+export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }
+export class SiglipImageProcessor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
+export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOTE extends ConvNextFeatureExtractor
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
+export class ViTImageProcessor extends ImageFeatureExtractor { }
+
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
     /** @type {post_process_object_detection} */
@@ -612,7 +713,7 @@ export class DonutFeatureExtractor extends ImageFeatureExtractor {
         }
 
         let image_std = this.image_std;
-        if (!Array.isArray(this.image_std)) {
+        if (!Array.isArray(image_std)) {
             image_std = new Array(imageChannels).fill(image_mean);
         }
 
@@ -643,13 +744,13 @@ export class NougatImageProcessor extends DonutFeatureExtractor { } // NOTE exte
  */
 export class DetrFeatureExtractor extends ImageFeatureExtractor {
     /**
-     * Calls the feature extraction process on an array of image URLs, preprocesses
+     * Calls the feature extraction process on an array of images, preprocesses
      * each image, and concatenates the resulting features into a single Tensor.
-     * @param {any[]} urls The URL(s) of the image(s) to extract features from.
+     * @param {RawImage[]} images The image(s) to extract features from.
      * @returns {Promise<DetrFeatureExtractorResult>} An object containing the concatenated pixel values of the preprocessed images.
      */
-    async _call(urls) {
-        const result = await super._call(urls);
+    async _call(images) {
+        const result = await super._call(images);
 
         // TODO support differently-sized images, for now assume all images are the same size.
         // TODO support different mask sizes (not just 64x64)
@@ -971,7 +1072,7 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
 
 export class SamImageProcessor extends ImageFeatureExtractor {
     /**
-     * @param {any[]} images The URL(s) of the image(s) to extract features from.
+     * @param {RawImage[]} images The image(s) to extract features from.
      * @param {*} input_points A 3D or 4D array, representing the input points provided by the user.
      * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
      * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
@@ -1126,232 +1227,65 @@ export class Swin2SRImageProcessor extends ImageFeatureExtractor {
     }
 }
 
+export class VitMatteImageProcessor extends ImageFeatureExtractor {
+    /**
+     * Calls the feature extraction process on an array of images, preprocesses
+     * each image, and concatenates the resulting features into a single Tensor.
+     * @param {RawImage[]} images The image(s) to extract features from.
+     * @param {RawImage[]} trimaps The trimaps(s) to extract features from.
+     * @returns {Promise<ImageFeatureExtractorResult>} An object containing the concatenated pixel values of the preprocessed images.
+     */
+    async _call(images, trimaps) {
+        if (!Array.isArray(images)) {
+            images = [images];
+        }
+        if (!Array.isArray(trimaps)) {
+            trimaps = [trimaps];
+        }
+
+        const imageData = await Promise.all(images.map(x => this.preprocess(x)));
+        const trimapData = await Promise.all(trimaps.map(x => this.preprocess(x, {
+            do_normalize: false,
+            do_convert_rgb: false,
+            do_convert_grayscale: true,
+        })));
+
+
+        // Stack pixel values
+        const pixel_values = stack(imageData.map(
+            // Concatenate images and trimaps
+            (x, i) => cat([x.pixel_values, trimapData[i].pixel_values], 0)
+        ), 0);
+
+        return {
+            pixel_values: pixel_values,
+
+            // Original sizes of images
+            original_sizes: imageData.map(x => x.original_size),
+
+            // Reshaped sizes of images, before padding or cropping
+            reshaped_input_sizes: imageData.map(x => x.reshaped_input_size),
+        }
+    }
+}
+
 export class WhisperFeatureExtractor extends FeatureExtractor {
 
     constructor(config) {
         super(config);
 
         // Prefer given `mel_filters` from preprocessor_config.json, or calculate them if they don't exist.
-        this.config.mel_filters ??= getMelFilters(this.config.sampling_rate, this.config.n_fft, this.config.feature_size);
-    }
+        this.config.mel_filters ??= mel_filter_bank(
+            Math.floor(1 + this.config.n_fft / 2), // num_frequency_bins
+            this.config.feature_size, // num_mel_filters
+            0.0, // min_frequency
+            8000.0, // max_frequency
+            this.config.sampling_rate, // sampling_rate
+            "slaney", // norm
+            "slaney", // mel_scale
+        );
 
-
-    /**
-     * Pads an array with a reflected version of itself on both ends.
-     * @param {Float32Array} array The array to pad.
-     * @param {number} left The amount of padding to add to the left.
-     * @param {number} right The amount of padding to add to the right.
-     * @returns {Float32Array} The padded array.
-     */
-    padReflect(array, left, right) {
-        const padded = new Float32Array(array.length + left + right);
-        const w = array.length - 1;
-
-        for (let i = 0; i < array.length; ++i) {
-            padded[left + i] = array[i];
-        }
-
-        for (let i = 1; i <= left; ++i) {
-            padded[left - i] = array[calculateReflectOffset(i, w)];
-        }
-
-        for (let i = 1; i <= right; ++i) {
-            padded[w + left + i] = array[calculateReflectOffset(w - i, w)];
-        }
-
-        return padded;
-    }
-
-    /**
-     * Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
-     * 
-     * @param {number[][]} frames A 2D array representing the signal frames.
-     * @param {number[]} window A 1D array representing the window to be applied to the frames.
-     * @returns {Object} An object with the following properties:
-     * - data: A 1D array representing the complex STFT of the signal.
-     * - dims: An array representing the dimensions of the STFT data, i.e. [num_frames, num_fft_bins].
-     */
-    stft(frames, window) {
-        // Calculates the complex Short-Time Fourier Transform (STFT) of the given framed signal.
-        // 
-        // NOTE: Since the window width is not a power of 2, we must 
-        // perform Fast Fourier Transform with chirp-z transform:
-        // https://math.stackexchange.com/questions/77118/non-power-of-2-ffts/77156#77156
-
-        // Helper variables
-        const fft_size = this.config.n_fft;
-        const a = 2 * (fft_size - 1);
-        const b = 2 * (2 * fft_size - 1);
-        const nextP2 = 2 ** (Math.ceil(Math.log2(b)))
-        const num_fft_bins = fft_size + 2;
-
-        // Preallocate array to store output
-        // double since we store complex numbers
-        const data = new Float32Array(num_fft_bins * frames.length);
-
-        // Define buffers
-        // Compute chirp for transform
-        const chirp = new Float32Array(b);
-        const ichirp = new Float32Array(nextP2);
-        const buffer1 = new Float32Array(nextP2);
-        const buffer2 = new Float32Array(nextP2);
-        const outBuffer = new Float32Array(nextP2);
-        const outBuffer2 = new Float32Array(nextP2);
-        const outBuffer3 = new Float32Array(nextP2);
-
-        // Compute complex exponentiation
-        const theta = -2 * Math.PI / fft_size;
-        const baseR = Math.cos(theta);
-        const baseI = Math.sin(theta);
-
-        // Precompute helper for chirp-z transform
-        for (let i = 0; i < b >> 1; ++i) {
-            // Compute complex power:
-            const e = (i + 1 - fft_size) ** 2 / 2.0;
-
-            // Compute the modulus and argument of the result
-            const result_mod = Math.sqrt(baseR ** 2 + baseI ** 2) ** e;
-            const result_arg = e * Math.atan2(baseI, baseR);
-
-            // Convert the result back to rectangular form
-            // and assign to chirp and ichirp
-            let i2 = 2 * i;
-            chirp[i2] = result_mod * Math.cos(result_arg);
-            chirp[i2 + 1] = result_mod * Math.sin(result_arg);
-
-            // conjugate
-            ichirp[i2] = chirp[i2];
-            ichirp[i2 + 1] = - chirp[i2 + 1];
-        }
-        const slicedChirp = chirp.subarray(a, b);
-
-        // create object to perform Fast Fourier Transforms
-        // with `nextP2` complex numbers
-        const f = new FFT(nextP2 >> 1);
-        // TODO: decide between Float32Array and Float64Array
-        f.transform(outBuffer, ichirp);
-
-        for (let i = 0; i < frames.length; ++i) {
-            const frame = frames[i];
-
-            for (let j = 0; j < slicedChirp.length; j += 2) {
-                const j2 = j + 1
-                const j3 = j >> 1;
-
-                const a_real = frame[j3] * window[j3];
-                buffer1[j] = a_real * slicedChirp[j];
-                buffer1[j2] = a_real * slicedChirp[j2];
-            }
-            // TODO: decide between Float32Array and Float64Array
-            f.transform(outBuffer2, buffer1);
-
-            for (let j = 0; j < outBuffer.length; j += 2) {
-                const j2 = j + 1;
-
-                buffer2[j] = outBuffer2[j] * outBuffer[j] - outBuffer2[j2] * outBuffer[j2]
-                buffer2[j2] = outBuffer2[j] * outBuffer[j2] + outBuffer2[j2] * outBuffer[j]
-            }
-            // TODO: decide between Float32Array and Float64Array
-            f.inverseTransform(outBuffer3, buffer2)
-
-            const offset = i * num_fft_bins;
-            for (let j = 0; j < num_fft_bins; j += 2) {
-                const a_real = outBuffer3[j + a];
-                const a_imag = outBuffer3[j + a + 1];
-                const b_real = slicedChirp[j];
-                const b_imag = slicedChirp[j + 1];
-
-                // TODO write as transpose
-                const o1 = offset + j;
-                data[o1] = a_real * b_real - a_imag * b_imag
-                data[o1 + 1] = a_real * b_imag + a_imag * b_real
-            }
-        }
-
-        return {
-            data: data,
-            dims: [frames.length, num_fft_bins] // [3001, 402]
-        };
-    }
-
-    /**
-     * Creates an array of frames from a given waveform.
-     *
-     * @param {Float32Array} waveform The waveform to create frames from.
-     * @param {boolean} [center=true] Whether to center the frames on their corresponding positions in the waveform. Defaults to true.
-     * @returns {Array} An array of frames.
-     */
-    fram_wave(waveform, center = true) {
-        const frames = [];
-        const half_window = Math.floor((this.config.n_fft - 1) / 2) + 1;
-        const waveformLength = waveform.length;
-
-        for (let i = 0; i < waveformLength + 1; i += this.config.hop_length) {
-
-            let frame;
-            if (center) {
-
-                let frameStart = i > half_window ? i - half_window : 0;
-                let frameEnd =
-                    i < waveformLength - half_window
-                        ? i + half_window
-                        : waveformLength;
-
-                frame = waveform.subarray(frameStart, frameEnd)
-
-                if (frameStart === 0) {
-                    frame = this.padReflect(
-                        frame,
-                        -i + half_window,
-                        0
-                    )
-
-                } else if (frameEnd === waveformLength) {
-                    frame = this.padReflect(
-                        frame,
-                        0,
-                        i - waveformLength + half_window
-                    )
-                }
-
-            } else {
-                frame = new Float32Array(this.config.n_fft);
-                const frameArray = waveform.subarray(i, i + this.config.n_fft);
-
-                if (frameArray.length < this.config.n_fft) {
-                    frame.set(frameArray);
-                    frame.fill(0, frameArray.length, this.config.n_fft)
-                } else {
-                    frame = frameArray;
-                }
-
-            }
-            frames.push(frame);
-        }
-
-        return frames;
-    }
-
-    /**
-     * Generates a Hanning window of length M.
-     *
-     * @param {number} M The length of the Hanning window to generate.
-     * @returns {*} The generated Hanning window.
-     */
-    hanning(M) {
-        if (M < 1) {
-            return [];
-        }
-        if (M === 1) {
-            return [1];
-        }
-        const denom = M - 1;
-        const cos_vals = new Float32Array(denom);
-        for (let i = 0; i < denom; ++i) {
-            const n = 2 * i - M + 1;
-            cos_vals[i] = 0.5 + 0.5 * Math.cos(Math.PI * n / denom);
-        }
-        return cos_vals;
+        this.window = window_function(this.config.n_fft, 'hann');
     }
 
     /**
@@ -1360,80 +1294,28 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
      * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
     _extract_fbank_features(waveform) {
-        // Compute the log-Mel spectrogram of the provided audio
+        const { data, dims } = spectrogram(
+            waveform,
+            this.window, // window
+            this.config.n_fft, // frame_length
+            this.config.hop_length, // hop_length
+            {
+                power: 2.0,
+                mel_filters: this.config.mel_filters,
+                log_mel: 'log10',
 
-        const buffer = new Float32Array(this.config.n_samples);
-        buffer.set(waveform)
-
-        const window = this.hanning(this.config.n_fft + 1)
-        const frames = this.fram_wave(buffer)
-
-        const stft = this.stft(frames, window)
-
-        const stftData = stft.data;
-        const d1 = stft.dims[0] - 1; // Ignore last row
-        const d2 = stft.dims[1] >> 1; // Only need to store real numbers now
-
-        // compute magnitudes
-        // NOTE: Unlike the original implementation, we do not
-        // transpose since we perform matrix multiplication later
-        const magnitudes = new Float32Array(d1 * d2);
-        for (let i = 0; i < d1; ++i) {
-            for (let j = 0; j < d2; ++j) {
-                // let outOffset = (j * d1 + i); // transpose
-                let outOffset = i * d2 + j;
-                let inOffset = outOffset << 1; // * 2 since complex
-                let magnitude = stftData[inOffset] ** 2 + stftData[inOffset + 1] ** 2
-                magnitudes[outOffset] = magnitude;
+                // Custom
+                max_num_frames: this.config.nb_max_frames, // 3000
             }
+        )
+
+        const maxValue = max(data)[0];
+
+        for (let i = 0; i < data.length; ++i) {
+            data[i] = (Math.max(data[i], maxValue - 8.0) + 4.0) / 4.0;
         }
 
-        const mel_filters = this.config.mel_filters;
-        const num_mel_filters = mel_filters.length;
-
-        const mel_spec = new Float32Array(num_mel_filters * d1);
-        let mIndex = 0;
-
-        // Perform matrix muliplication:
-        // mel_spec = filters @ magnitudes
-        //  - filters.shape=(80, 201)
-        //  - magnitudes.shape=(201, 3000)
-        //  - mel_spec.shape=(80, 3000)
-        for (let i = 0; i < num_mel_filters; ++i) {
-            const mel_filter = mel_filters[i];
-
-            for (let j = 0; j < d1; ++j) {
-                let sum = 0;
-
-                // perform dot product
-                for (let k = 0; k < d2; ++k) {
-                    sum += mel_filter[k] * magnitudes[j * d2 + k];
-                }
-
-                mel_spec[mIndex++] = sum;
-            }
-        }
-
-        const a_min = 1e-10;
-        const log_spec = new Float32Array(mel_spec.length);
-
-        let maxLogSpec = 0;
-        for (let i = 0; i < mel_spec.length; ++i) {
-            const clipped = Math.max(a_min, mel_spec[i]);
-            const log10 = Math.log10(clipped);
-            log_spec[i] = log10;
-            maxLogSpec = Math.max(log10, maxLogSpec)
-        }
-
-        for (let i = 0; i < log_spec.length; ++i) {
-            log_spec[i] = Math.max(log_spec[i], maxLogSpec - 8);
-            log_spec[i] = (log_spec[i] + 4) / 4;
-        }
-
-        return {
-            data: log_spec,
-            dims: [num_mel_filters, d1]
-        };
+        return { data, dims };
     }
 
     /**
@@ -1442,29 +1324,28 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
      * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
      */
     async _call(audio) {
-        if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
-            throw new Error(
-                // @ts-ignore
-                `WhisperFeatureExtractor expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
-                `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
-            )
-        }
+        validate_audio_inputs(audio, 'WhisperFeatureExtractor');
 
+        let waveform;
         if (audio.length > this.config.n_samples) {
             console.warn(
                 "Attempting to extract features for audio longer than 30 seconds. " +
                 "If using a pipeline to extract transcript from a long audio clip, " +
                 "remember to specify `chunk_length_s` and/or `stride_length_s`."
             );
+            waveform = audio.slice(0, this.config.n_samples);
+        } else {
+            // pad with zeros
+            waveform = new Float32Array(this.config.n_samples);
+            waveform.set(audio);
         }
-        let waveform = audio.slice(0, this.config.n_samples);
 
-        let features = this._extract_fbank_features(waveform);
+        const { data, dims } = this._extract_fbank_features(waveform);
 
         return {
             input_features: new Tensor('float32',
-                features.data,
-                [1, ...features.dims]
+                data,
+                [1, ...dims]
             )
         };
     }
@@ -1490,14 +1371,8 @@ export class Wav2Vec2FeatureExtractor extends FeatureExtractor {
      * @returns {Promise<{ input_values: Tensor; attention_mask: Tensor }>} A Promise resolving to an object containing the extracted input features and attention mask as Tensors.
      */
     async _call(audio) {
-        // TODO: remove duplication
-        if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
-            throw new Error(
-                // @ts-ignore
-                `Wav2Vec2FeatureExtractor expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
-                `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
-            )
-        }
+        validate_audio_inputs(audio, 'Wav2Vec2FeatureExtractor');
+
         if (audio instanceof Float64Array) {
             audio = new Float32Array(audio);
         }
@@ -1517,6 +1392,260 @@ export class Wav2Vec2FeatureExtractor extends FeatureExtractor {
         };
     }
 }
+
+export class ASTFeatureExtractor extends FeatureExtractor {
+
+
+    constructor(config) {
+        super(config);
+
+        const sampling_rate = this.config.sampling_rate;
+        const mel_filters = mel_filter_bank(
+            256, // num_frequency_bins
+            this.config.num_mel_bins, // num_mel_filters
+            20, // min_frequency
+            Math.floor(sampling_rate / 2), // max_frequency
+            sampling_rate, // sampling_rate
+            null, // norm
+            "kaldi", // mel_scale
+            true, // triangularize_in_mel_space
+        );
+
+        // Do padding:
+        for (let i = 0; i < mel_filters.length; ++i) {
+            mel_filters[i].push(0);
+        }
+        this.mel_filters = mel_filters;
+
+        this.window = window_function(400, 'hann', {
+            periodic: false,
+        })
+
+        this.mean = this.config.mean;
+        this.std = this.config.std;
+    }
+
+    /**
+     * Computes the log-Mel spectrogram of the provided audio waveform.
+     * @param {Float32Array|Float64Array} waveform The audio waveform to process.
+     * @param {number} max_length The maximum number of frames to return.
+     * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     */
+    _extract_fbank_features(waveform, max_length) {
+        // NOTE: We don't pad/truncate since that is passed in as `max_num_frames`
+        return spectrogram(
+            waveform,
+            this.window, // window
+            400, // frame_length
+            160, // hop_length
+            {
+                fft_length: 512,
+                power: 2.0,
+                center: false,
+                preemphasis: 0.97,
+                mel_filters: this.mel_filters,
+                log_mel: 'log',
+                mel_floor: 1.192092955078125e-07,
+                remove_dc_offset: true,
+
+                // Custom
+                max_num_frames: max_length,
+                transpose: true,
+            }
+        )
+    }
+
+
+    /**
+     * Asynchronously extracts features from a given audio using the provided configuration.
+     * @param {Float32Array|Float64Array} audio The audio data as a Float32Array/Float64Array.
+     * @returns {Promise<{ input_values: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
+     */
+    async _call(audio) {
+        validate_audio_inputs(audio, 'ASTFeatureExtractor');
+
+        const features = this._extract_fbank_features(audio, this.config.max_length);
+        if (this.config.do_normalize) {
+            // Normalize the input audio spectrogram to have mean=0, std=0.5
+            const denom = this.std * 2;
+            for (let i = 0; i < features.data.length; ++i) {
+                features.data[i] = (features.data[i] - this.mean) / denom;
+            }
+        }
+
+        return {
+            input_values: new Tensor('float32',
+                features.data,
+                [1, ...features.dims]
+            )
+        };
+    }
+}
+
+export class ClapFeatureExtractor extends FeatureExtractor {
+
+    constructor(config) {
+        super(config);
+
+        this.mel_filters = mel_filter_bank(
+            this.config.nb_frequency_bins, // num_frequency_bins
+            this.config.feature_size, // num_mel_filters
+            this.config.frequency_min, // min_frequency
+            this.config.frequency_max, // max_frequency
+            this.config.sampling_rate, // sampling_rate
+            null, // norm
+            "htk", // mel_scale
+        );
+
+        this.mel_filters_slaney = mel_filter_bank(
+            this.config.nb_frequency_bins, // num_frequency_bins
+            this.config.feature_size, // num_mel_filters
+            this.config.frequency_min, // min_frequency
+            this.config.frequency_max, // max_frequency
+            this.config.sampling_rate, // sampling_rate
+            "slaney", // norm
+            "slaney", // mel_scale
+        );
+
+        this.window = window_function(this.config.fft_window_size, 'hann')
+
+    }
+
+
+    /**
+     * Extracts the mel spectrogram and prepares it for the mode based on the `truncation` and `padding` arguments.
+     * 
+     * Four different path are possible:
+     *   - `truncation="fusion"` and the length of the waveform is greater than the max length: the mel spectrogram
+     *     will be computed on the entire audio. 3 random crops and a dowsampled version of the full mel spectrogram
+     *     are then stacked together. They will later be used for `feature_fusion`.
+     *   - `truncation="rand_trunc"` and the length of the waveform is smaller than the max length: the audio is
+     *     padded based on `padding`.
+     *   - `truncation="fusion"` and the length of the waveform is smaller than the max length: the audio is padded
+     *     based on `padding`, and is repeated `4` times.
+     *   - `truncation="rand_trunc"` and the length of the waveform is greater than the max length: the mel
+     *     spectrogram will be computed on a random crop of the waveform.
+     * 
+     * @param {Float32Array|Float64Array} waveform The input waveform.
+     * @param {number} max_length The maximum length of the waveform.
+     * @param {string} truncation The truncation strategy to use.
+     * @param {string} padding The padding strategy to use.
+     * @returns {{ data: Float32Array; dims: number[]; longer: boolean; }} An object containing the mel spectrogram data as a Float32Array, its dimensions as an array of numbers, and a boolean indicating whether the waveform was longer than the max length.
+     */
+    _get_input_mel(waveform, max_length, truncation, padding) {
+
+        /** @type {{ data: Float32Array; dims: number[]}} */
+        let input_mel;
+        let longer = false;
+        const diff = waveform.length - max_length;
+        if (diff > 0) {
+            if (truncation === 'rand_trunc') {
+                longer = true;
+                const idx = Math.floor(Math.random() * (diff + 1));
+                waveform = waveform.subarray(idx, idx + max_length);
+
+                input_mel = this._extract_fbank_features(waveform, this.mel_filters_slaney, this.config.nb_max_samples);
+                input_mel.dims = [1, ...input_mel.dims]; // "unsqueeze"
+            } else {
+                // TODO implement fusion strategy
+                throw new Error(`Truncation strategy "${truncation}" not implemented`)
+            }
+        } else {
+            if (diff < 0) {
+                let padded = new Float64Array(max_length); // already padded with zeros
+                padded.set(waveform);
+
+                if (padding === 'repeat') {
+                    for (let i = waveform.length; i < max_length; i += waveform.length) {
+                        padded.set(waveform.subarray(0, Math.min(waveform.length, max_length - i)), i);
+                    }
+                } else if (padding === 'repeatpad') {
+                    for (let i = waveform.length; i < -diff; i += waveform.length) {
+                        padded.set(waveform, i);
+                    }
+                }
+                waveform = padded;
+            }
+
+            if (truncation === 'fusion') {
+                throw new Error(`Truncation strategy "${truncation}" not implemented`)
+            }
+
+            input_mel = this._extract_fbank_features(waveform, this.mel_filters_slaney, this.config.nb_max_samples);
+            input_mel.dims = [1, ...input_mel.dims]; // "unsqueeze"
+        }
+
+        return {
+            ...input_mel,
+            longer,
+        }
+    }
+
+    /**
+     * Compute the log-mel spectrogram of the provided `waveform` using the Hann window.
+     * In CLAP, two different filter banks are used depending on the truncation pattern:
+     *  - `self.mel_filters`: they correspond to the default parameters of `torchaudio` which can be obtained from
+     *    calling `torchaudio.transforms.MelSpectrogram().mel_scale.fb`. These filters are used when `truncation`
+     *    is set to `"fusion"`.
+     *  - `self.mel_filteres_slaney` : they correspond to the default parameters of `librosa` which used
+     *    `librosa.filters.mel` when computing the mel spectrogram. These filters were only used in the original
+     *    implementation when the truncation mode is not `"fusion"`.
+     * 
+     * @param {Float32Array|Float64Array} waveform The audio waveform to process.
+     * @param {number[][]} mel_filters The mel filters to use.
+     * @param {number} [max_length=null] The maximum number of frames to return.
+     * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     */
+    _extract_fbank_features(waveform, mel_filters, max_length = null) {
+        // NOTE: We don't pad/truncate since that is passed in as `max_num_frames`
+        return spectrogram(
+            waveform,
+            this.window, // window
+            this.config.fft_window_size, // frame_length
+            this.config.hop_length, // hop_length
+            {
+                power: 2.0,
+                mel_filters,
+                log_mel: 'dB',
+
+                // Custom
+                max_num_frames: max_length,
+                do_pad: false,
+                transpose: true,
+            }
+        )
+    }
+
+
+    /**
+     * Asynchronously extracts features from a given audio using the provided configuration.
+     * @param {Float32Array|Float64Array} audio The audio data as a Float32Array/Float64Array.
+     * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
+     */
+    async _call(audio, {
+        max_length = null,
+    } = {}) {
+        validate_audio_inputs(audio, 'ClapFeatureExtractor');
+
+        // convert to mel spectrogram, truncate and pad if needed.
+        const padded_inputs = this._get_input_mel(
+            audio,
+            max_length ?? this.config.nb_max_samples,
+            this.config.truncation,
+            this.config.padding,
+        );
+
+
+        return {
+            input_features: new Tensor('float32',
+                padded_inputs.data,
+                [1, ...padded_inputs.dims]
+            )
+        };
+    }
+}
+
+
 
 export class SpeechT5FeatureExtractor extends FeatureExtractor { }
 
@@ -1542,7 +1671,7 @@ export class Processor extends Callable {
      * @returns {Promise<any>} A Promise that resolves with the extracted features.
      */
     async _call(input, ...args) {
-        return await this.feature_extractor(input);
+        return await this.feature_extractor(input, ...args);
     }
 }
 
@@ -1644,7 +1773,12 @@ export class AutoProcessor {
         MobileViTFeatureExtractor,
         OwlViTFeatureExtractor,
         CLIPFeatureExtractor,
+        ChineseCLIPFeatureExtractor,
+        SiglipImageProcessor,
         ConvNextFeatureExtractor,
+        ConvNextImageProcessor,
+        SegformerFeatureExtractor,
+        BitImageProcessor,
         DPTFeatureExtractor,
         GLPNFeatureExtractor,
         BeitFeatureExtractor,
@@ -1654,10 +1788,14 @@ export class AutoProcessor {
         DonutFeatureExtractor,
         NougatImageProcessor,
 
+        ViTImageProcessor,
+        VitMatteImageProcessor,
         SamImageProcessor,
         Swin2SRImageProcessor,
         Wav2Vec2FeatureExtractor,
         SpeechT5FeatureExtractor,
+        ASTFeatureExtractor,
+        ClapFeatureExtractor,
     }
 
     static PROCESSOR_CLASS_MAPPING = {
