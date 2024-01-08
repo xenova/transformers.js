@@ -1067,7 +1067,7 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
  * @property {Tensor} pixel_values
  * @property {HeightWidth[]} original_sizes
  * @property {HeightWidth[]} reshaped_input_sizes
- * @property {Tensor} input_points
+ * @property {Tensor} [input_points]
  */
 
 export class SamImageProcessor extends ImageFeatureExtractor {
@@ -1129,22 +1129,16 @@ export class SamImageProcessor extends ImageFeatureExtractor {
      */
     async _call(images, input_points) {
         // TODO allow user to use preprocessed images
-        const {
-            pixel_values,
-            original_sizes,
-            reshaped_input_sizes,
-        } = await super._call(images);
+        /** @type {SamImageProcessorResult} */
+        const processed = await super._call(images);
 
-        const input_points_tensor = this.reshape_input_points(
-            input_points, original_sizes, reshaped_input_sizes
-        );
-
-        return {
-            pixel_values,
-            original_sizes: original_sizes,
-            reshaped_input_sizes: reshaped_input_sizes,
-            input_points: input_points_tensor
+        if (input_points) {
+            processed.input_points = this.reshape_input_points(
+                input_points, processed.original_sizes, processed.reshaped_input_sizes
+            );
         }
+
+        return processed;
     }
 
     /**
