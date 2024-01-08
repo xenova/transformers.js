@@ -2977,7 +2977,7 @@ const TASK_ALIASES = Object.freeze({
 /**
  * Utility factory method to build a `Pipeline` object.
  * 
- * @template {PipelineType} T The type of pipeline to return.
+ * @template {PipelineType|string} T The type of pipeline to return.
  * @param {T} task The task defining which pipeline will be returned. Currently accepted tasks are:
  *  - `"audio-classification"`: will return a `AudioClassificationPipeline`.
  *  - `"automatic-speech-recognition"`: will return a `AutomaticSpeechRecognitionPipeline`.
@@ -3003,7 +3003,7 @@ const TASK_ALIASES = Object.freeze({
  *  - `"zero-shot-object-detection"`: will return a `ZeroShotObjectDetectionPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
  * @param {import('./utils/hub.js').PretrainedOptions} [options] Optional parameters for the pipeline.
- * @returns {Promise<AllTasks[T]>} A Pipeline object for the specified task.
+ * @returns {Promise<AllTasks[T] extends object ? AllTasks[T] : Pipeline>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
  */
 export async function pipeline(
