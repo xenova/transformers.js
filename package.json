@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "@runtime-type-inspector/plugin-webpack5": "^3.0.1",
-    "@runtime-type-inspector/runtime": "^3.0.5",
+    "@runtime-type-inspector/runtime": "^3.0.6",
     "@types/jest": "^29.5.1",
     "catharsis": "github:xenova/catharsis",
     "copy-webpack-plugin": "^11.0.0",
