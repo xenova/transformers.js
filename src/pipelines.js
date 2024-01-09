@@ -389,7 +389,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
         });
 
         // Run model
-        const outputs = await this.model(model_inputs)
+        const outputs = await this.model(model_inputs);
 
         const logits = outputs.logits;
         const id2label = this.model.config.id2label;
@@ -398,6 +398,9 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
         for (let i = 0; i < logits.dims[0]; ++i) {
             const ids = model_inputs.input_ids[i];
             const batch = logits[i];
+
+            // Track the current position in the original text
+            let currentPos = 0;
 
             // List of tokens that aren't ignored
             const tokens = [];
@@ -427,9 +430,12 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
                     word: word,
 
                     // TODO: null for now, but will add
-                    start: null,
-                    end: null,
+                    start: currentPos,
+                    end: currentPos + word.length,
                 });
+
+                // Update the current position. Add 1 for space between words
+                currentPos += word.length + 1;
             }
             toReturn.push(tokens);
         }
