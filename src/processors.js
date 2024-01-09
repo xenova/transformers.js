@@ -1724,6 +1724,13 @@ export class SamProcessor extends Processor {
         // @ts-ignore
         return this.feature_extractor.post_process_masks(...args);
     }
+    /**
+     * @borrows SamImageProcessor#reshape_input_points as reshape_input_points
+     */
+    reshape_input_points(...args) {
+        // @ts-ignore
+        return this.feature_extractor.reshape_input_points(...args);
+    }
 }
 
 /**
