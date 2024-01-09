@@ -4323,6 +4323,12 @@ export class SamModel extends SamPreTrainedModel {
      * These can be obtained using a `SamProcessor`.
      * @property {Tensor} input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`.
      * This is used by the prompt encoder to encode the prompt.
+     * @property {Tensor} [input_labels] Input labels for the points, as a Tensor of shape `(batch_size, point_batch_size, num_points)`.
+     * This is used by the prompt encoder to encode the prompt. There are 4 types of labels:
+     *  - `1`: the point is a point that contains the object of interest
+     *  - `0`: the point is a point that does not contain the object of interest
+     *  - `-1`: the point corresponds to the background
+     *  - `-10`: the point is a padding point, thus should be ignored by the prompt encoder
      * @property {Tensor} [image_embeddings] Image embeddings used by the mask decoder.
      * @property {Tensor} [image_positional_embeddings] Image positional embeddings used by the mask decoder.
      */
@@ -4339,11 +4345,24 @@ export class SamModel extends SamPreTrainedModel {
                 ...(await this.get_image_embeddings(model_inputs))
             }
         }
+
+        if (!model_inputs.input_labels) {
+            // Set default input labels if they are missing
+            const shape = model_inputs.input_points.dims.slice(0, -1);
+            const numElements = shape.reduce((a, b) => a * b, 1);
+            model_inputs.input_labels = new Tensor(
+                'int64',
+                new BigInt64Array(numElements).fill(1n),
+                shape
+            );
+        }
+
         // Returns:
         //  - iou_scores: tensor.float32[batch_size,point_batch_size,3]
         //  - pred_masks: tensor.float32[batch_size,point_batch_size,3,256,256]
         return await sessionRun(this.prompt_encoder_mask_decoder, {
             input_points: model_inputs.input_points,
+            input_labels: model_inputs.input_labels,
             image_embeddings: model_inputs.image_embeddings,
             image_positional_embeddings: model_inputs.image_positional_embeddings,
         });
