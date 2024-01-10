@@ -90,6 +90,10 @@ export class RawImage {
         this.channels = channels;
     }
 
+    /** 
+     * Returns the size of the image (width, height).
+     * @returns {[number, number]} The size of the image (width, height).
+     */
     get size() {
         return [this.width, this.height];
     }
