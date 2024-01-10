@@ -1068,13 +1068,14 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
  * @property {HeightWidth[]} original_sizes
  * @property {HeightWidth[]} reshaped_input_sizes
  * @property {Tensor} [input_points]
+ * @property {Tensor} [input_labels]
  */
 
 export class SamImageProcessor extends ImageFeatureExtractor {
 
     /**
      * 
-     * @param {*} input_points 
+     * @param {any} input_points 
      * @param {HeightWidth[]} original_sizes 
      * @param {HeightWidth[]} reshaped_input_sizes 
      * @returns {Tensor}
@@ -1120,14 +1121,43 @@ export class SamImageProcessor extends ImageFeatureExtractor {
         )
 
     }
+
+    /**
+     * 
+     * @param {any} input_labels 
+     * @param {Tensor} input_points 
+     * @returns {Tensor}
+     */
+    add_input_labels(input_labels, input_points) {
+        let shape = calculateDimensions(input_labels);
+        if (shape.length === 2) {
+            // Correct user's input
+            shape = [1, ...shape];
+            input_labels = [input_labels];
+        } else if (shape.length !== 3) {
+            throw Error("The input_points must be a 4D tensor of shape `batch_size`, `point_batch_size`, `nb_points_per_image`, `2`.")
+        }
+
+        if (shape.some((x, i) => x !== input_points.dims[i])) {
+            throw Error(`The first ${shape.length} dimensions of 'input_points' and 'input_labels' must be the same.`)
+        }
+        return new Tensor(
+            'int64',
+            input_labels.flat(Infinity).map(BigInt),
+            shape,
+        )
+    }
     /**
      * @param {any[]} images The URL(s) of the image(s) to extract features from.
-     * @param {*} input_points A 3D or 4D array, representing the input points provided by the user.
+     * @param {any} [input_points] A 3D or 4D array, representing the input points provided by the user.
      * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
      * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
+     * @param {any} [input_labels] A 2D or 3D array, representing the input labels for the points, used by the prompt encoder to encode the prompt.
+     * - 2D: `[point_batch_size, nb_points_per_image]`. In this case, `batch_size` is assumed to be 1.
+     * - 3D: `[batch_size, point_batch_size, nb_points_per_image]`.
      * @returns {Promise<SamImageProcessorResult>}
      */
-    async _call(images, input_points) {
+    async _call(images, input_points = null, input_labels = null) {
         // TODO allow user to use preprocessed images
         /** @type {SamImageProcessorResult} */
         const processed = await super._call(images);
@@ -1136,6 +1166,13 @@ export class SamImageProcessor extends ImageFeatureExtractor {
             processed.input_points = this.reshape_input_points(
                 input_points, processed.original_sizes, processed.reshaped_input_sizes
             );
+        }
+
+        if (input_labels) {
+            if (!processed.input_points) {
+                throw Error("`input_points` must be provided if `input_labels` are provided.")
+            }
+            processed.input_labels = this.add_input_labels(input_labels, processed.input_points);
         }
 
         return processed;
@@ -1709,12 +1746,10 @@ export class Processor extends Callable {
 
 export class SamProcessor extends Processor {
     /**
-     * @param {*} images 
-     * @param {*} input_points 
-     * @returns {Promise<any>}
+     * @borrows SamImageProcessor#_call as _call
      */
-    async _call(images, input_points) {
-        return await this.feature_extractor(images, input_points);
+    async _call(...args) {
+        return await this.feature_extractor(...args);
     }
 
     /**
