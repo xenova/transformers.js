@@ -4252,8 +4252,10 @@ export class YolosObjectDetectionOutput extends ModelOutput {
 export class SamPreTrainedModel extends PreTrainedModel { }
 
 /**
+ * Segment Anything Model (SAM) for generating segmentation masks, given an input image
+ * and optional 2D location and bounding boxes.
  * 
- * **Example:** Prompted-Mask-Generation
+ * **Example:** Perform mask generation w/ `Xenova/sam-vit-base`.
  * ```javascript
  * import { SamModel, AutoProcessor, RawImage } from '@xenova/transformers';
  * 
