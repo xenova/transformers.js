@@ -89,11 +89,33 @@ describe('Processors', () => {
         it(MODELS.sam, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.sam))
 
-            { // Basic test
+            { // without input points
                 const image = await load_image(TEST_IMAGES.pattern_3x3);
-                const { pixel_values } = await processor(image, [[[0, 0]]]);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
                 compare(pixel_values.dims, [1, 3, 1024, 1024]);
                 compare(avg(pixel_values.data), -0.4505715670146813);
+
+                compare(original_sizes, [[3, 3]]);
+                compare(reshaped_input_sizes, [[1024, 1024]]);
+            }
+
+            { // with input points
+                const image = await load_image(TEST_IMAGES.pattern_3x3);
+                const { original_sizes, reshaped_input_sizes, input_points } = await processor(image, [[[1, 2]]]);
+
+                compare(original_sizes, [[3, 3]]);
+                compare(reshaped_input_sizes, [[1024, 1024]]);
+                compare(input_points.tolist(), [[[[341.3333, 682.6667]]]]);
+            }
+
+            { // multiple points with labels
+                const image = await load_image(TEST_IMAGES.pattern_3x3);
+                const { original_sizes, reshaped_input_sizes, input_points, input_labels } = await processor(image, [[[1, 2], [2, 1]]], [[1, 0]]);
+
+                compare(original_sizes, [[3, 3]]);
+                compare(reshaped_input_sizes, [[1024, 1024]]);
+                compare(input_points.tolist(), [[[[341.3333, 682.6667], [682.6667, 341.3333]]]]);
+                compare(input_labels.tolist(), [[[1n, 0n]]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
 
