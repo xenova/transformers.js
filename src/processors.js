@@ -1122,24 +1122,23 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
  * @property {Tensor} pixel_values
  * @property {HeightWidth[]} original_sizes
  * @property {HeightWidth[]} reshaped_input_sizes
- * @property {Tensor} input_points
+ * @property {Tensor} [input_points]
+ * @property {Tensor} [input_labels]
  */
 
 export class SamImageProcessor extends ImageFeatureExtractor {
-    /**
-     * @param {RawImage[]} images The image(s) to extract features from.
-     * @param {*} input_points A 3D or 4D array, representing the input points provided by the user.
-     * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
-     * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
-     * @returns {Promise<SamImageProcessorResult>}
-     */
-    async _call(images, input_points) {
-        let {
-            pixel_values,
-            original_sizes,
-            reshaped_input_sizes,
-        } = await super._call(images);
 
+    /**
+     * 
+     * @param {any} input_points 
+     * @param {HeightWidth[]} original_sizes 
+     * @param {HeightWidth[]} reshaped_input_sizes 
+     * @returns {Tensor}
+     */
+    reshape_input_points(input_points, original_sizes, reshaped_input_sizes) {
+
+        // Make deep copy to avoid altering user's input
+        input_points = structuredClone(input_points);
         let shape = calculateDimensions(input_points);
 
         // TODO: add support for 2D input_points
@@ -1170,26 +1169,68 @@ export class SamImageProcessor extends ImageFeatureExtractor {
             }
         }
 
-        let input_points_tensor = new Tensor(
-            'int64',
-            BigInt64Array.from(input_points.flat(Infinity)
-                .map(x => BigInt(Math.round(x)))),
+        return new Tensor(
+            'float32',
+            Float32Array.from(input_points.flat(Infinity)),
             shape
         )
 
-        // TODO: allowed to be floats?
-        // let input_points_tensor = new Tensor(
-        //     'float32',
-        //     Float32Array.from(input_points.flat(Infinity)),
-        //     shape
-        // )
+    }
 
-        return {
-            pixel_values,
-            original_sizes: original_sizes,
-            reshaped_input_sizes: reshaped_input_sizes,
-            input_points: input_points_tensor
+    /**
+     * 
+     * @param {any} input_labels 
+     * @param {Tensor} input_points 
+     * @returns {Tensor}
+     */
+    add_input_labels(input_labels, input_points) {
+        let shape = calculateDimensions(input_labels);
+        if (shape.length === 2) {
+            // Correct user's input
+            shape = [1, ...shape];
+            input_labels = [input_labels];
+        } else if (shape.length !== 3) {
+            throw Error("The input_points must be a 4D tensor of shape `batch_size`, `point_batch_size`, `nb_points_per_image`, `2`.")
         }
+
+        if (shape.some((x, i) => x !== input_points.dims[i])) {
+            throw Error(`The first ${shape.length} dimensions of 'input_points' and 'input_labels' must be the same.`)
+        }
+        return new Tensor(
+            'int64',
+            input_labels.flat(Infinity).map(BigInt),
+            shape,
+        )
+    }
+    /**
+     * @param {any[]} images The URL(s) of the image(s) to extract features from.
+     * @param {any} [input_points] A 3D or 4D array, representing the input points provided by the user.
+     * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
+     * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
+     * @param {any} [input_labels] A 2D or 3D array, representing the input labels for the points, used by the prompt encoder to encode the prompt.
+     * - 2D: `[point_batch_size, nb_points_per_image]`. In this case, `batch_size` is assumed to be 1.
+     * - 3D: `[batch_size, point_batch_size, nb_points_per_image]`.
+     * @returns {Promise<SamImageProcessorResult>}
+     */
+    async _call(images, input_points = null, input_labels = null) {
+        // TODO allow user to use preprocessed images
+        /** @type {SamImageProcessorResult} */
+        const processed = await super._call(images);
+
+        if (input_points) {
+            processed.input_points = this.reshape_input_points(
+                input_points, processed.original_sizes, processed.reshaped_input_sizes
+            );
+        }
+
+        if (input_labels) {
+            if (!processed.input_points) {
+                throw Error("`input_points` must be provided if `input_labels` are provided.")
+            }
+            processed.input_labels = this.add_input_labels(input_labels, processed.input_points);
+        }
+
+        return processed;
     }
 
     /**
@@ -1212,22 +1253,22 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     } = {}) {
         // masks: [1, 1, 3, 256, 256]
 
-        let output_masks = [];
+        const output_masks = [];
 
         pad_size = pad_size ?? this.pad_size;
 
-        let target_image_size = [pad_size.height, pad_size.width];
+        const target_image_size = [pad_size.height, pad_size.width];
 
         for (let i = 0; i < original_sizes.length; ++i) {
-            let original_size = original_sizes[i];
-            let reshaped_input_size = reshaped_input_sizes[i];
+            const original_size = original_sizes[i];
+            const reshaped_input_size = reshaped_input_sizes[i];
 
-            let mask = masks[i]; // [b, c, h, w]
+            const mask = masks[i]; // [b, c, h, w]
 
             // TODO: improve
-            let interpolated_masks = [];
+            const interpolated_masks = [];
             for (let j = 0; j < mask.dims[0]; ++j) {
-                let m = mask[j]; // 3d tensor
+                const m = mask[j]; // 3d tensor
 
                 // Upscale mask to padded size
                 let interpolated_mask = interpolate(m, target_image_size, 'bilinear', false);
@@ -1236,28 +1277,29 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 interpolated_mask = interpolated_mask.slice(null, [0, reshaped_input_size[0]], [0, reshaped_input_size[1]]);
 
                 // Downscale mask
-                interpolated_mask = interpolate(mask, original_size, 'bilinear', false);
+                interpolated_mask = interpolate(interpolated_mask, original_size, 'bilinear', false);
 
                 if (binarize) {
+                    const binarizedMaskData = new Uint8Array(interpolated_mask.data.length);
+                    for (let i = 0; i < interpolated_mask.data.length; ++i) {
+                        if (interpolated_mask.data[i] > mask_threshold) {
+                            binarizedMaskData[i] = 1;
+                        }
+                    }
                     interpolated_mask = new Tensor(
                         'bool',
-                        Array.from(interpolated_mask.data).map(x => x > mask_threshold),
+                        binarizedMaskData,
                         interpolated_mask.dims
                     )
                 }
 
-                // add back batch dim for concat
-                interpolated_mask.dims = [1, ...interpolated_mask.dims];
-
                 interpolated_masks.push(interpolated_mask);
             }
 
-            let concatenated = cat(interpolated_masks);
-            output_masks.push(concatenated);
+            output_masks.push(stack(interpolated_masks));
         }
 
         return output_masks;
-
     }
 }
 
@@ -1732,12 +1774,10 @@ export class Processor extends Callable {
 
 export class SamProcessor extends Processor {
     /**
-     * @param {*} images 
-     * @param {*} input_points 
-     * @returns {Promise<any>}
+     * @borrows SamImageProcessor#_call as _call
      */
-    async _call(images, input_points) {
-        return await this.feature_extractor(images, input_points);
+    async _call(...args) {
+        return await this.feature_extractor(...args);
     }
 
     /**
@@ -1746,6 +1786,13 @@ export class SamProcessor extends Processor {
     post_process_masks(...args) {
         // @ts-ignore
         return this.feature_extractor.post_process_masks(...args);
+    }
+    /**
+     * @borrows SamImageProcessor#reshape_input_points as reshape_input_points
+     */
+    reshape_input_points(...args) {
+        // @ts-ignore
+        return this.feature_extractor.reshape_input_points(...args);
     }
 }
 
