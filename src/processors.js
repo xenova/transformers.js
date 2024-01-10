@@ -1241,37 +1241,10 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 interpolated_masks.push(interpolated_mask);
             }
 
-            // TODO switch to stack
-            const concatenated = stack(interpolated_masks);
-            output_masks.push(concatenated);
+            output_masks.push(stack(interpolated_masks));
         }
 
         return output_masks;
-
-    }
-
-    /**
-     * Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
-     * @param {RawImage} image Input original image
-     * @param {number} target_size Target size of the resized image
-     * @param {Object} options Options for generating crop boxes 
-     * @param {number} [options.crop_n_layers] If >0, mask prediction will be run again on crops of the image.
-     * Sets the number of layers to run, where each layer has 2**i_layer number of image crops.
-     * @param {number} [options.overlap_ratio] Sets the degree to which crops overlap. In the first crop layer,
-     * crops will overlap by this fraction of the image length. Later layers with more crops scale down this overlap.
-     * @param {number} [options.points_per_crop] Number of points to sample from each crop.
-     * @param {number} [options.crop_n_points_downscale_factor] The number of points-per-side sampled in layer n is
-     * scaled down by crop_n_points_downscale_factor**n.
-     * @returns {Object} An object containing the crop boxes, number of points per crop, cropped images, and input labels.
-     */
-    generate_crop_boxes(image, target_size, {
-        crop_n_layers = 0,
-        overlap_ratio = 512 / 1500,
-        points_per_crop = 32,
-        crop_n_points_downscale_factor = 1,
-    } = {}) {
-        // TODO: Implement
-        // return { crop_boxes, points_per_crop, cropped_images, input_labels }
     }
 }
 
