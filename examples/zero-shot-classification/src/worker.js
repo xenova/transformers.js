@@ -35,6 +35,7 @@ self.addEventListener('message', async (event) => {
     const split = text.split('\n');
     for (const line of split) {
         const output = await classifier(line, labels, {
+            hypothesis_template: 'This text is about {}.',
             multi_label: true,
         });
         // Send the output back to the main thread
