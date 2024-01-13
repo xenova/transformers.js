@@ -2,14 +2,14 @@
 import { env, AutoTokenizer, CLIPTextModelWithProjection } from '@xenova/transformers';
 import { getCachedFile, getCachedJSON } from './utils.js';
 
-const EMBED_DIM = 512;
-
+const EMBED_DIM = 768;
+const DB_SIZE = 10; // or 25
 // Skip local model check
 env.allowLocalModels = false;
 
 class ApplicationSingleton {
-    static model_id = 'Xenova/clip-vit-base-patch16';
-    static BASE_URL = 'https://huggingface.co/datasets/Xenova/semantic-image-search-assets/resolve/main/';
+    static model_id = 'Xenova/siglip-base-patch16-224';
+    static BASE_URL = 'https://huggingface.co/datasets/Xenova/siglip-semantic-image-search-assets/resolve/main/';
 
     static tokenizer = null;
     static text_model = null;
@@ -25,12 +25,12 @@ class ApplicationSingleton {
             this.text_model = CLIPTextModelWithProjection.from_pretrained(this.model_id, { progress_callback });
         }
         if (this.metadata === null) {
-            this.metadata = getCachedJSON(this.BASE_URL + 'image-embeddings.json');
+            this.metadata = getCachedJSON(`${this.BASE_URL}metadata_${DB_SIZE}k.json`);
         }
         if (this.embeddings === null) {
             this.embeddings = new Promise(
                 (resolve, reject) => {
-                    getCachedFile(this.BASE_URL + 'image-embeddings_25k-512-32bit.bin')
+                    getCachedFile(`${this.BASE_URL}image-embeddings_${DB_SIZE}k-768-32bit.bin`)
                         .then((buffer) => {
                             resolve(new Float32Array(buffer));
                         })
@@ -80,10 +80,10 @@ self.addEventListener('message', async (event) => {
     self.postMessage({ status: 'ready' });
 
     // Run tokenization
-    const text_inputs = tokenizer(event.data.text, { padding: true, truncation: true });
+    const text_inputs = tokenizer(event.data.text, { padding: 'max_length', truncation: true });
 
     // Compute embeddings
-    const { text_embeds } = await text_model(text_inputs);
+    const { pooler_output: text_embeds } = await text_model(text_inputs);
 
     // Compute similarity scores
     const scores = cosineSimilarity(text_embeds.data, embeddings);
