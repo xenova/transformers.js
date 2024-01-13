@@ -90,6 +90,10 @@ export class RawImage {
         this.channels = channels;
     }
 
+    /** 
+     * Returns the size of the image (width, height).
+     * @returns {[number, number]} The size of the image (width, height).
+     */
     get size() {
         return [this.width, this.height];
     }
@@ -165,6 +169,10 @@ export class RawImage {
      * @param {import('./tensor.js').Tensor} tensor 
      */
     static fromTensor(tensor, channel_format = 'CHW') {
+        if (tensor.dims.length !== 3) {
+            throw new Error(`Tensor should have 3 dimensions, but has ${tensor.dims.length} dimensions.`);
+        }
+
         if (channel_format === 'CHW') {
             tensor = tensor.transpose(1, 2, 0);
         } else if (channel_format === 'HWC') {

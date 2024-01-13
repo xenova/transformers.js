@@ -745,11 +745,20 @@ SUPPORTED_MODELS = {
             'distilroberta-base',
         ],
     },
-    # 'sam': [
-    #     'facebook/sam-vit-base',
-    #     'facebook/sam-vit-large',
-    #     'facebook/sam-vit-huge',
-    # ],
+    'sam': {
+        # Mask generation
+        'mask-generation': [
+            # SAM
+            'facebook/sam-vit-base',
+            'facebook/sam-vit-large',
+            'facebook/sam-vit-huge',
+            'wanglab/medsam-vit-base',
+
+            # SlimSAM
+            'nielsr/slimsam-50-uniform',
+            'nielsr/slimsam-77-uniform',
+        ],
+    },
     'segformer': {
         # Image segmentation
         'image-segmentation': [
