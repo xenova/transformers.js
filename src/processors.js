@@ -408,6 +408,88 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
+     * Find the target (width, height) dimension of the output image after
+     * resizing given the input image and the desired size.
+     * @param {RawImage} image The image to resize.
+     * @param {any} size The size to use for resizing the image. 
+     * @returns {[number, number]} The target (width, height) dimension of the output image after resizing.
+     */
+    get_resize_output_image_size(image, size) {
+        // `size` comes in many forms, so we need to handle them all here:
+        // 1. `size` is an integer, in which case we resize the image to be a square 
+
+        const [srcWidth, srcHeight] = image.size;
+
+        let shortest_edge;
+        let longest_edge;
+
+        if (this.do_thumbnail) {
+            // NOTE: custom logic for `Donut` models
+            const { height, width } = size;
+            shortest_edge = Math.min(height, width)
+        }
+        // Support both formats for backwards compatibility
+        else if (Number.isInteger(size)) {
+            shortest_edge = size;
+            longest_edge = this.config.max_size ?? shortest_edge;
+
+        } else if (size !== undefined) {
+            // Extract known properties from `size`
+            shortest_edge = size.shortest_edge;
+            longest_edge = size.longest_edge;
+        }
+
+        // If `longest_edge` and `shortest_edge` are set, maintain aspect ratio and resize to `shortest_edge`
+        // while keeping the largest dimension <= `longest_edge`
+        if (shortest_edge !== undefined || longest_edge !== undefined) {
+            // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
+            // Try resize so that shortest edge is `shortest_edge` (target)
+            const shortResizeFactor = shortest_edge === undefined
+                ? 1 // If `shortest_edge` is not set, don't upscale
+                : Math.max(shortest_edge / srcWidth, shortest_edge / srcHeight);
+
+            const newWidth = srcWidth * shortResizeFactor;
+            const newHeight = srcHeight * shortResizeFactor;
+
+            // The new width and height might be greater than `longest_edge`, so
+            // we downscale again to ensure the largest dimension is `longest_edge` 
+            const longResizeFactor = longest_edge === undefined
+                ? 1 // If `longest_edge` is not set, don't downscale
+                : Math.min(longest_edge / newWidth, longest_edge / newHeight);
+
+            // To avoid certain floating point precision issues, we round to 2 decimal places
+            const finalWidth = Math.floor(Number((newWidth * longResizeFactor).toFixed(2)));
+            const finalHeight = Math.floor(Number((newHeight * longResizeFactor).toFixed(2)));
+
+            return [finalWidth, finalHeight];
+
+        } else if (size !== undefined && size.width !== undefined && size.height !== undefined) {
+            // If `width` and `height` are set, resize to those dimensions
+            return [size.width, size.height];
+
+        } else if (this.size_divisibility !== undefined) {
+            // Rounds the height and width down to the closest multiple of size_divisibility
+            const newWidth = Math.floor(srcWidth / this.size_divisibility) * this.size_divisibility;
+            const newHeight = Math.floor(srcHeight / this.size_divisibility) * this.size_divisibility;
+            return [newWidth, newHeight];
+        } else {
+            throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(size)}`);
+        }
+    }
+
+    /**
+     * Resizes the image.
+     * @param {RawImage} image The image to resize.
+     * @returns {Promise<RawImage>} The resized image.
+     */
+    async resize(image) {
+        const [newWidth, newHeight] = this.get_resize_output_image_size(image, this.size);
+        return await image.resize(newWidth, newHeight, {
+            resample: this.resample,
+        });
+    }
+
+    /**
      * @typedef {object} PreprocessedImage
      * @property {HeightWidth} original_size The original size of the image.
      * @property {HeightWidth} reshaped_input_size The reshaped input size of the image.
@@ -433,8 +515,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             image = await this.crop_margin(image);
         }
 
-        const srcWidth = image.width;   // original width
-        const srcHeight = image.height; // original height
+        const [srcWidth, srcHeight] = image.size; // original image size
 
         // Convert image to RGB if specified in config.
         if (do_convert_rgb ?? this.do_convert_rgb) {
@@ -443,77 +524,12 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             image = image.grayscale();
         }
 
+        // TODO:
+        // For efficiency reasons, it might be best to merge the resize and center crop operations into one.
+
         // Resize all images
         if (this.do_resize) {
-            // TODO:
-            // For efficiency reasons, it might be best to merge the resize and center crop operations into one.
-
-            // `this.size` comes in many forms, so we need to handle them all here:
-            // 1. `this.size` is an integer, in which case we resize the image to be a square 
-
-            let shortest_edge;
-            let longest_edge;
-
-            if (this.do_thumbnail) {
-                // NOTE: custom logic for `Donut` models
-                const { height, width } = this.size;
-                shortest_edge = Math.min(height, width)
-            }
-            // Support both formats for backwards compatibility
-            else if (Number.isInteger(this.size)) {
-                shortest_edge = this.size;
-                longest_edge = this.config.max_size ?? shortest_edge;
-
-            } else if (this.size !== undefined) {
-                // Extract known properties from `this.size`
-                shortest_edge = this.size.shortest_edge;
-                longest_edge = this.size.longest_edge;
-            }
-
-            // If `longest_edge` and `shortest_edge` are set, maintain aspect ratio and resize to `shortest_edge`
-            // while keeping the largest dimension <= `longest_edge`
-            if (shortest_edge !== undefined || longest_edge !== undefined) {
-                // http://opensourcehacker.com/2011/12/01/calculate-aspect-ratio-conserving-resize-for-images-in-javascript/
-                // Try resize so that shortest edge is `this.shortest_edge` (target)
-                const shortResizeFactor = shortest_edge === undefined
-                    ? 1 // If `shortest_edge` is not set, don't upscale
-                    : Math.max(shortest_edge / srcWidth, shortest_edge / srcHeight);
-
-                const newWidth = srcWidth * shortResizeFactor;
-                const newHeight = srcHeight * shortResizeFactor;
-
-                // The new width and height might be greater than `this.longest_edge`, so
-                // we downscale again to ensure the largest dimension is `this.longest_edge` 
-                const longResizeFactor = longest_edge === undefined
-                    ? 1 // If `longest_edge` is not set, don't downscale
-                    : Math.min(longest_edge / newWidth, longest_edge / newHeight);
-
-                // To avoid certain floating point precision issues, we round to 2 decimal places
-                const finalWidth = Math.floor(Number((newWidth * longResizeFactor).toFixed(2)));
-                const finalHeight = Math.floor(Number((newHeight * longResizeFactor).toFixed(2)));
-
-                // Perform resize
-                image = await image.resize(finalWidth, finalHeight, {
-                    resample: this.resample,
-                });
-
-            } else if (this.size !== undefined && this.size.width !== undefined && this.size.height !== undefined) {
-                // If `width` and `height` are set, resize to those dimensions
-                image = await image.resize(this.size.width, this.size.height, {
-                    resample: this.resample,
-                });
-
-            } else if (this.size_divisibility !== undefined) {
-                // Rounds the height and width down to the closest multiple of size_divisibility
-                const newWidth = Math.floor(srcWidth / this.size_divisibility) * this.size_divisibility;
-                const newHeight = Math.floor(srcHeight / this.size_divisibility) * this.size_divisibility;
-                image = await image.resize(newWidth, newHeight, {
-                    resample: this.resample,
-                });
-
-            } else {
-                throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(this.size)}`);
-            }
+            image = await this.resize(image);
         }
 
         // Resize the image using thumbnail method.
@@ -537,7 +553,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         }
 
         /** @type {HeightWidth} */
-        let reshaped_input_size = [image.height, image.width];
+        const reshaped_input_size = [image.height, image.width];
 
         let pixelData = Float32Array.from(image.data);
         let imgDims = [image.height, image.width, image.channels];
@@ -689,7 +705,46 @@ export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class SiglipImageProcessor extends ImageFeatureExtractor { }
-export class ConvNextFeatureExtractor extends ImageFeatureExtractor { }
+export class ConvNextFeatureExtractor extends ImageFeatureExtractor {
+    constructor(config) {
+        super(config);
+
+        /**
+         * Percentage of the image to crop. Only has an effect if this.size < 384.
+         */
+        this.crop_pct = this.config.crop_pct ?? (224 / 256);
+    }
+
+    async resize(image) {
+        const shortest_edge = this.size?.shortest_edge;
+        if (shortest_edge === undefined) {
+            throw new Error(`Size dictionary must contain 'shortest_edge' key.`);
+        }
+
+        if (shortest_edge < 384) {
+            // maintain same ratio, resizing shortest edge to shortest_edge/crop_pct
+            const resize_shortest_edge = Math.floor(shortest_edge / this.crop_pct);
+
+            const [newWidth, newHeight] = this.get_resize_output_image_size(image, {
+                shortest_edge: resize_shortest_edge,
+            });
+
+            image = await image.resize(newWidth, newHeight, {
+                resample: this.resample,
+            });
+
+            // then crop to (shortest_edge, shortest_edge)
+            image = await image.center_crop(shortest_edge, shortest_edge);
+        } else {
+            // warping (no cropping) when evaluated at 384 or larger
+            image = await image.resize(shortest_edge, shortest_edge, {
+                resample: this.resample,
+            });
+        }
+
+        return image;
+    }
+}
 export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOTE extends ConvNextFeatureExtractor
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTImageProcessor extends ImageFeatureExtractor { }
@@ -1067,24 +1122,23 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
  * @property {Tensor} pixel_values
  * @property {HeightWidth[]} original_sizes
  * @property {HeightWidth[]} reshaped_input_sizes
- * @property {Tensor} input_points
+ * @property {Tensor} [input_points]
+ * @property {Tensor} [input_labels]
  */
 
 export class SamImageProcessor extends ImageFeatureExtractor {
-    /**
-     * @param {RawImage[]} images The image(s) to extract features from.
-     * @param {*} input_points A 3D or 4D array, representing the input points provided by the user.
-     * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
-     * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
-     * @returns {Promise<SamImageProcessorResult>}
-     */
-    async _call(images, input_points) {
-        let {
-            pixel_values,
-            original_sizes,
-            reshaped_input_sizes,
-        } = await super._call(images);
 
+    /**
+     * 
+     * @param {any} input_points 
+     * @param {HeightWidth[]} original_sizes 
+     * @param {HeightWidth[]} reshaped_input_sizes 
+     * @returns {Tensor}
+     */
+    reshape_input_points(input_points, original_sizes, reshaped_input_sizes) {
+
+        // Make deep copy to avoid altering user's input
+        input_points = structuredClone(input_points);
         let shape = calculateDimensions(input_points);
 
         // TODO: add support for 2D input_points
@@ -1115,26 +1169,68 @@ export class SamImageProcessor extends ImageFeatureExtractor {
             }
         }
 
-        let input_points_tensor = new Tensor(
-            'int64',
-            BigInt64Array.from(input_points.flat(Infinity)
-                .map(x => BigInt(Math.round(x)))),
+        return new Tensor(
+            'float32',
+            Float32Array.from(input_points.flat(Infinity)),
             shape
         )
 
-        // TODO: allowed to be floats?
-        // let input_points_tensor = new Tensor(
-        //     'float32',
-        //     Float32Array.from(input_points.flat(Infinity)),
-        //     shape
-        // )
+    }
 
-        return {
-            pixel_values,
-            original_sizes: original_sizes,
-            reshaped_input_sizes: reshaped_input_sizes,
-            input_points: input_points_tensor
+    /**
+     * 
+     * @param {any} input_labels 
+     * @param {Tensor} input_points 
+     * @returns {Tensor}
+     */
+    add_input_labels(input_labels, input_points) {
+        let shape = calculateDimensions(input_labels);
+        if (shape.length === 2) {
+            // Correct user's input
+            shape = [1, ...shape];
+            input_labels = [input_labels];
+        } else if (shape.length !== 3) {
+            throw Error("The input_points must be a 4D tensor of shape `batch_size`, `point_batch_size`, `nb_points_per_image`, `2`.")
         }
+
+        if (shape.some((x, i) => x !== input_points.dims[i])) {
+            throw Error(`The first ${shape.length} dimensions of 'input_points' and 'input_labels' must be the same.`)
+        }
+        return new Tensor(
+            'int64',
+            input_labels.flat(Infinity).map(BigInt),
+            shape,
+        )
+    }
+    /**
+     * @param {any[]} images The URL(s) of the image(s) to extract features from.
+     * @param {any} [input_points] A 3D or 4D array, representing the input points provided by the user.
+     * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
+     * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
+     * @param {any} [input_labels] A 2D or 3D array, representing the input labels for the points, used by the prompt encoder to encode the prompt.
+     * - 2D: `[point_batch_size, nb_points_per_image]`. In this case, `batch_size` is assumed to be 1.
+     * - 3D: `[batch_size, point_batch_size, nb_points_per_image]`.
+     * @returns {Promise<SamImageProcessorResult>}
+     */
+    async _call(images, input_points = null, input_labels = null) {
+        // TODO allow user to use preprocessed images
+        /** @type {SamImageProcessorResult} */
+        const processed = await super._call(images);
+
+        if (input_points) {
+            processed.input_points = this.reshape_input_points(
+                input_points, processed.original_sizes, processed.reshaped_input_sizes
+            );
+        }
+
+        if (input_labels) {
+            if (!processed.input_points) {
+                throw Error("`input_points` must be provided if `input_labels` are provided.")
+            }
+            processed.input_labels = this.add_input_labels(input_labels, processed.input_points);
+        }
+
+        return processed;
     }
 
     /**
@@ -1157,22 +1253,22 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     } = {}) {
         // masks: [1, 1, 3, 256, 256]
 
-        let output_masks = [];
+        const output_masks = [];
 
         pad_size = pad_size ?? this.pad_size;
 
-        let target_image_size = [pad_size.height, pad_size.width];
+        const target_image_size = [pad_size.height, pad_size.width];
 
         for (let i = 0; i < original_sizes.length; ++i) {
-            let original_size = original_sizes[i];
-            let reshaped_input_size = reshaped_input_sizes[i];
+            const original_size = original_sizes[i];
+            const reshaped_input_size = reshaped_input_sizes[i];
 
-            let mask = masks[i]; // [b, c, h, w]
+            const mask = masks[i]; // [b, c, h, w]
 
             // TODO: improve
-            let interpolated_masks = [];
+            const interpolated_masks = [];
             for (let j = 0; j < mask.dims[0]; ++j) {
-                let m = mask[j]; // 3d tensor
+                const m = mask[j]; // 3d tensor
 
                 // Upscale mask to padded size
                 let interpolated_mask = interpolate(m, target_image_size, 'bilinear', false);
@@ -1181,28 +1277,29 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 interpolated_mask = interpolated_mask.slice(null, [0, reshaped_input_size[0]], [0, reshaped_input_size[1]]);
 
                 // Downscale mask
-                interpolated_mask = interpolate(mask, original_size, 'bilinear', false);
+                interpolated_mask = interpolate(interpolated_mask, original_size, 'bilinear', false);
 
                 if (binarize) {
+                    const binarizedMaskData = new Uint8Array(interpolated_mask.data.length);
+                    for (let i = 0; i < interpolated_mask.data.length; ++i) {
+                        if (interpolated_mask.data[i] > mask_threshold) {
+                            binarizedMaskData[i] = 1;
+                        }
+                    }
                     interpolated_mask = new Tensor(
                         'bool',
-                        Array.from(interpolated_mask.data).map(x => x > mask_threshold),
+                        binarizedMaskData,
                         interpolated_mask.dims
                     )
                 }
 
-                // add back batch dim for concat
-                interpolated_mask.dims = [1, ...interpolated_mask.dims];
-
                 interpolated_masks.push(interpolated_mask);
             }
 
-            let concatenated = cat(interpolated_masks);
-            output_masks.push(concatenated);
+            output_masks.push(stack(interpolated_masks));
         }
 
         return output_masks;
-
     }
 }
 
@@ -1677,12 +1774,10 @@ export class Processor extends Callable {
 
 export class SamProcessor extends Processor {
     /**
-     * @param {*} images 
-     * @param {*} input_points 
-     * @returns {Promise<any>}
+     * @borrows SamImageProcessor#_call as _call
      */
-    async _call(images, input_points) {
-        return await this.feature_extractor(images, input_points);
+    async _call(...args) {
+        return await this.feature_extractor(...args);
     }
 
     /**
@@ -1691,6 +1786,13 @@ export class SamProcessor extends Processor {
     post_process_masks(...args) {
         // @ts-ignore
         return this.feature_extractor.post_process_masks(...args);
+    }
+    /**
+     * @borrows SamImageProcessor#reshape_input_points as reshape_input_points
+     */
+    reshape_input_points(...args) {
+        // @ts-ignore
+        return this.feature_extractor.reshape_input_points(...args);
     }
 }
 

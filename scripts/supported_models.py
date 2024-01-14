@@ -109,6 +109,11 @@ SUPPORTED_MODELS = {
             'unitary/toxic-bert',
             'BAAI/bge-reranker-large',
             'BAAI/bge-reranker-base',
+            'cross-encoder/ms-marco-TinyBERT-L-2-v2',
+            'cross-encoder/ms-marco-MiniLM-L-2-v2',
+            'cross-encoder/ms-marco-MiniLM-L-4-v2',
+            'cross-encoder/ms-marco-MiniLM-L-6-v2',
+            'cross-encoder/ms-marco-MiniLM-L-12-v2',
         ],
 
         # Token classification
@@ -740,11 +745,20 @@ SUPPORTED_MODELS = {
             'distilroberta-base',
         ],
     },
-    # 'sam': [
-    #     'facebook/sam-vit-base',
-    #     'facebook/sam-vit-large',
-    #     'facebook/sam-vit-huge',
-    # ],
+    'sam': {
+        # Mask generation
+        'mask-generation': [
+            # SAM
+            'facebook/sam-vit-base',
+            'facebook/sam-vit-large',
+            'facebook/sam-vit-huge',
+            'wanglab/medsam-vit-base',
+
+            # SlimSAM
+            'nielsr/slimsam-50-uniform',
+            'nielsr/slimsam-77-uniform',
+        ],
+    },
     'segformer': {
         # Image segmentation
         'image-segmentation': [

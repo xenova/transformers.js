@@ -43,10 +43,6 @@ import {
 } from './configs.js';
 
 import {
-    add_token_types,
-} from './tokenizers.js';
-
-import {
     Callable,
     isIntegralNumber,
     isTypedArray,
@@ -103,6 +99,7 @@ const MODEL_TYPES = {
     Seq2Seq: 2,
     Vision2Seq: 3,
     DecoderOnly: 4,
+    MaskGeneration: 5,
 }
 //////////////////////////////////////////////////
 
@@ -524,9 +521,13 @@ async function encoderForward(self, model_inputs) {
         encoderFeeds[key] = model_inputs[key];
     }
     if (self.session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
-        // Assign default `token_type_ids` to the `encoderFeeds` if the model expects it,
+        // Assign default `token_type_ids` (all zeroes) to the `encoderFeeds` if the model expects it,
         // but they weren't created by the tokenizer.
-        add_token_types(encoderFeeds);
+        encoderFeeds.token_type_ids = new Tensor(
+            'int64',
+            new BigInt64Array(encoderFeeds.input_ids.data.length),
+            encoderFeeds.input_ids.dims
+        )
     }
     return await sessionRun(self.session, encoderFeeds);
 }
@@ -781,6 +782,13 @@ export class PreTrainedModel extends Callable {
                 constructSession(pretrained_model_name_or_path, 'encoder_model', options),
                 constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
+            ]);
+
+        } else if (modelType === MODEL_TYPES.MaskGeneration) {
+            info = await Promise.all([
+                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
+                constructSession(pretrained_model_name_or_path, 'vision_encoder', options),
+                constructSession(pretrained_model_name_or_path, 'prompt_encoder_mask_decoder', options),
             ]);
 
         } else if (modelType === MODEL_TYPES.EncoderDecoder) {
@@ -4254,12 +4262,130 @@ export class YolosObjectDetectionOutput extends ModelOutput {
 
 //////////////////////////////////////////////////
 export class SamPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * Segment Anything Model (SAM) for generating segmentation masks, given an input image
+ * and optional 2D location and bounding boxes.
+ * 
+ * **Example:** Perform mask generation w/ `Xenova/sam-vit-base`.
+ * ```javascript
+ * import { SamModel, AutoProcessor, RawImage } from '@xenova/transformers';
+ * 
+ * const model = await SamModel.from_pretrained('Xenova/sam-vit-base');
+ * const processor = await AutoProcessor.from_pretrained('Xenova/sam-vit-base');
+ * 
+ * const img_url = 'https://huggingface.co/ybelkada/segment-anything/resolve/main/assets/car.png';
+ * const raw_image = await RawImage.read(img_url);
+ * const input_points = [[[450, 600]]] // 2D localization of a window
+ * 
+ * const inputs = await processor(raw_image, input_points);
+ * const outputs = await model(inputs);
+ * 
+ * const masks = await processor.post_process_masks(outputs.pred_masks, inputs.original_sizes, inputs.reshaped_input_sizes);
+ * // [
+ * //   Tensor {
+ * //     dims: [ 1, 3, 1764, 2646 ],
+ * //     type: 'bool',
+ * //     data: Uint8Array(14002632) [ ... ],
+ * //     size: 14002632
+ * //   }
+ * // ]
+ * const scores = outputs.iou_scores;
+ * // Tensor {
+ * //   dims: [ 1, 1, 3 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(3) [
+ * //     0.8892380595207214,
+ * //     0.9311248064041138,
+ * //     0.983696699142456
+ * //   ],
+ * //   size: 3
+ * // }
+ * ```
+ */
 export class SamModel extends SamPreTrainedModel {
     /**
-     * @param {Object} model_inputs
-     * @param {Tensor} model_inputs.pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
-     * @param {Tensor} model_inputs.input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`. This is used by the prompt encoder to encode the prompt.
-     * @todo Add support for `input_labels`, `input_boxes`, `input_masks`, and `image_embeddings`.
+     * Creates a new instance of the `SamModel` class.
+     * @param {Object} config The configuration object specifying the hyperparameters and other model settings.
+     * @param {Object} vision_encoder The ONNX session containing the vision encoder model.
+     * @param {any} prompt_encoder_mask_decoder The ONNX session containing the prompt encoder and mask decoder model.
+     */
+    constructor(config, vision_encoder, prompt_encoder_mask_decoder) {
+        super(config, vision_encoder);
+        this.prompt_encoder_mask_decoder = prompt_encoder_mask_decoder;
+    }
+
+    /**
+     * Compute image embeddings and positional image embeddings, given the pixel values of an image.
+     * @param {Object} model_inputs Object containing the model inputs.
+     * @param {Tensor} model_inputs.pixel_values Pixel values obtained using a `SamProcessor`.
+     * @returns {Promise<{ image_embeddings: Tensor, image_positional_embeddings: Tensor }>} The image embeddings and positional image embeddings.
+     */
+    async get_image_embeddings({ pixel_values }) {
+        // in:
+        //  - pixel_values: tensor.float32[batch_size,3,1024,1024]
+        // 
+        // out:
+        //  - image_embeddings: tensor.float32[batch_size,256,64,64]
+        //  - image_positional_embeddings: tensor.float32[batch_size,256,64,64]
+        return await encoderForward(this, { pixel_values })
+    }
+
+    /**
+     * @typedef {Object} SamModelInputs Object containing the model inputs.
+     * @property {Tensor} pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
+     * These can be obtained using a `SamProcessor`.
+     * @property {Tensor} input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`.
+     * This is used by the prompt encoder to encode the prompt.
+     * @property {Tensor} [input_labels] Input labels for the points, as a Tensor of shape `(batch_size, point_batch_size, num_points)`.
+     * This is used by the prompt encoder to encode the prompt. There are 4 types of labels:
+     *  - `1`: the point is a point that contains the object of interest
+     *  - `0`: the point is a point that does not contain the object of interest
+     *  - `-1`: the point corresponds to the background
+     *  - `-10`: the point is a padding point, thus should be ignored by the prompt encoder
+     * @property {Tensor} [image_embeddings] Image embeddings used by the mask decoder.
+     * @property {Tensor} [image_positional_embeddings] Image positional embeddings used by the mask decoder.
+     */
+
+    /**
+     * @param {SamModelInputs} model_inputs Object containing the model inputs.
+     * @returns {Promise<Object>} The output of the model.
+     */
+    async forward(model_inputs) {
+        if (!model_inputs.image_embeddings || !model_inputs.image_positional_embeddings) {
+            // Compute the image embeddings if they are missing
+            model_inputs = {
+                ...model_inputs,
+                ...(await this.get_image_embeddings(model_inputs))
+            }
+        }
+
+        if (!model_inputs.input_labels) {
+            // Set default input labels if they are missing
+            const shape = model_inputs.input_points.dims.slice(0, -1);
+            const numElements = shape.reduce((a, b) => a * b, 1);
+            model_inputs.input_labels = new Tensor(
+                'int64',
+                new BigInt64Array(numElements).fill(1n),
+                shape
+            );
+        }
+
+        // Returns:
+        //  - iou_scores: tensor.float32[batch_size,point_batch_size,3]
+        //  - pred_masks: tensor.float32[batch_size,point_batch_size,3,256,256]
+        return await sessionRun(this.prompt_encoder_mask_decoder, {
+            input_points: model_inputs.input_points,
+            input_labels: model_inputs.input_labels,
+            image_embeddings: model_inputs.image_embeddings,
+            image_positional_embeddings: model_inputs.image_positional_embeddings,
+        });
+    }
+
+    /**
+     * Runs the model with the provided inputs
+     * @param {Object} model_inputs Model inputs
+     * @returns {Promise<SamImageSegmentationOutput>} Object containing segmentation outputs
      */
     async _call(model_inputs) {
         return new SamImageSegmentationOutput(await super._call(model_inputs));
@@ -5061,7 +5187,6 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
 
-    ['sam', ['SamModel', SamModel]], // TODO change to encoder-decoder when model is split correctly
 ]);
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
@@ -5302,7 +5427,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.MaskGeneration],
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
@@ -5341,7 +5466,9 @@ for (const [name, model, type] of CUSTOM_MAPPING) {
  * let model = await AutoModel.from_pretrained('bert-base-uncased');
  */
 export class AutoModel extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_MAPPING_NAMES_ENCODER_DECODER, MODEL_MAPPING_NAMES_DECODER_ONLY];
+    /** @type {Map<string, Object>[]} */
+    // @ts-ignore
+    static MODEL_CLASS_MAPPINGS = MODEL_CLASS_TYPE_MAPPING.map(x => x[0]);
     static BASE_IF_FAIL = true;
 }
 
@@ -5505,7 +5632,7 @@ export class AutoModelForZeroShotObjectDetection extends PretrainedMixin {
 
 
 /**
- * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
+ * Helper class which is used to instantiate pretrained mask generation models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
