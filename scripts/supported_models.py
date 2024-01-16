@@ -732,14 +732,12 @@ SUPPORTED_MODELS = {
         # Visual Question Answering (VQA)
         'visual-question-answering': [
             'google/deplot',
-
-            # TODO:
-            # 'google/pix2struct-docvqa-base',
-            # 'google/pix2struct-widget-captioning-base',
-            # 'google/pix2struct-ai2d-base',
-            # 'google/pix2struct-chartqa-base',
-            # 'google/pix2struct-screen2words-base',
-            # 'google/pix2struct-infographics-vqa-base',
+            'google/pix2struct-docvqa-base',
+            'google/pix2struct-widget-captioning-base',
+            'google/pix2struct-ai2d-base',
+            'google/pix2struct-chartqa-base',
+            'google/pix2struct-screen2words-base',
+            'google/pix2struct-infographics-vqa-base',
         ],
     },
     'roberta': {
