@@ -1,7 +1,7 @@
 
 import { Tensor } from '../src/transformers.js';
 import { compare } from './test_utils.js';
-import { cat, mean, stack } from '../src/utils/tensor.js';
+import { cat, mean, stack, unfold } from '../src/utils/tensor.js';
 
 describe('Tensor operations', () => {
 
@@ -128,4 +128,68 @@ describe('Tensor operations', () => {
 
         })
     });
+
+    describe('unfold', () => {
+        it('should unfold', async () => {
+            { // batch_size=1
+                const dims = [1, 2, 4, 6];
+                const data = new Float32Array(dims.reduce((a, b) => a * b, 1)).map((_, i) => i);
+
+                const unfolded = unfold(
+                    new Tensor('float32', data, dims),
+                    [2, 2], // kernel_size
+                    [2, 2], // stride
+                )
+
+                const target = new Tensor('float32', [
+                    0, 2, 4, 12, 14, 16,
+                    1, 3, 5, 13, 15, 17,
+                    6, 8, 10, 18, 20, 22,
+                    7, 9, 11, 19, 21, 23,
+                    24, 26, 28, 36, 38, 40,
+                    25, 27, 29, 37, 39, 41,
+                    30, 32, 34, 42, 44, 46,
+                    31, 33, 35, 43, 45, 47
+                ], [1, 8, 6]);
+
+                compare(unfolded, target, 1e-3);
+            }
+
+            { // batch_size > 1
+                const dims = [2, 2, 4, 6];
+                const data = new Float32Array(dims.reduce((a, b) => a * b, 1)).map((_, i) => i);
+
+                const unfolded = unfold(
+                    new Tensor('float32', data, dims),
+                    [2, 2], // kernel_size
+                    [3, 3], // stride
+                )
+
+                const target = new Tensor('float32', [
+                    0, 3, 1, 4, 6, 9, 7, 10, 24, 27, 25, 28, 30, 33, 31, 34,
+                    48, 51, 49, 52, 54, 57, 55, 58, 72, 75, 73, 76, 78, 81, 79, 82
+                ], [2, 8, 2]);
+
+                compare(unfolded, target, 1e-3);
+            }
+
+            { // mismatched kernel_size and stride, batch_size > 1
+                const dims = [2, 2, 4, 6];
+                const data = new Float32Array(dims.reduce((a, b) => a * b, 1)).map((_, i) => i);
+
+                const unfolded = unfold(
+                    new Tensor('float32', data, dims),
+                    [2, 3], // kernel_size
+                    [3, 2], // stride
+                )
+
+                const target = new Tensor('float32', [
+                    0, 2, 1, 3, 2, 4, 6, 8, 7, 9, 8, 10, 24, 26, 25, 27, 26, 28, 30, 32, 31, 33,
+                    32, 34, 48, 50, 49, 51, 50, 52, 54, 56, 55, 57, 56, 58, 72, 74, 73, 75, 74, 76, 78, 80, 79, 81, 80, 82
+                ], [2, 12, 2]);
+
+                compare(unfolded, target, 1e-3);
+            }
+        });
+    })
 });

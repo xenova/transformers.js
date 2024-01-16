@@ -327,7 +327,7 @@ export class Tensor {
      * 
      * @param {number} [dim=null] The dimension or dimensions to reduce. If `null`, all dimensions are reduced.
      * @param {boolean} keepdim Whether the output tensor has `dim` retained or not.
-     * @returns The summed tensor
+     * @returns {Tensor} The summed tensor
      */
     sum(dim = null, keepdim = false) {
         return this.norm(1, dim, keepdim);
@@ -458,7 +458,7 @@ export class Tensor {
      * If you would like a copy, use `tensor.clone()` before squeezing.
      * 
      * @param {number} [dim=null] If given, the input will be squeezed only in the specified dimensions.
-     * @returns The squeezed tensor
+     * @returns {Tensor} The squeezed tensor
      */
     squeeze(dim = null) {
         return new Tensor(
@@ -482,7 +482,7 @@ export class Tensor {
      * NOTE: The returned tensor shares the same underlying data with this tensor.
      * 
      * @param {number} dim The index at which to insert the singleton dimension
-     * @returns The unsqueezed tensor
+     * @returns {Tensor} The unsqueezed tensor
      */
     unsqueeze(dim = null) {
         return new Tensor(
@@ -521,7 +521,7 @@ export class Tensor {
      * and ending with `end_dim` are flattened. The order of elements in input is unchanged.
      * @param {number} start_dim the first dim to flatten
      * @param {number} end_dim the last dim to flatten
-     * @returns The flattened tensor.
+     * @returns {Tensor} The flattened tensor.
      */
     flatten(start_dim = 0, end_dim = -1) {
         return this.clone().flatten_(start_dim, end_dim);
@@ -579,7 +579,7 @@ export class Tensor {
      * Clamps all elements in input into the range [ min, max ]
      * @param {number} min lower-bound of the range to be clamped to
      * @param {number} max upper-bound of the range to be clamped to
-     * @returns the output tensor.
+     * @returns {Tensor} the output tensor.
      */
     clamp(min, max) {
         return this.clone().clamp_(min, max);
@@ -597,10 +597,19 @@ export class Tensor {
 
     /**
      * Rounds elements of input to the nearest integer.
-     * @returns the output tensor.
+     * @returns {Tensor} the output tensor.
      */
     round() {
         return this.clone().round_();
+    }
+
+    /**
+     * Reshape the tensor to the given shape.
+     * @param  {...any} dims The new dimensions of the tensor.
+     * @returns {Tensor} The reshaped tensor.
+     */
+    reshape(...dims) {
+        return new Tensor(this.type, this.data, dims);
     }
 
     /**
@@ -766,7 +775,7 @@ export function mean_pooling(last_hidden_state, attention_mask) {
  * Helper function to calculate new dimensions when performing a squeeze operation.
  * @param {number[]} dims The dimensions of the tensor.
  * @param {number|number[]|null} dim The dimension(s) to squeeze.
- * @returns The new dimensions.
+ * @returns {number[]} The new dimensions.
  * @private
  */
 function calc_squeeze_dims(dims, dim) {
@@ -789,7 +798,7 @@ function calc_squeeze_dims(dims, dim) {
  * Helper function to calculate new dimensions when performing an unsqueeze operation.
  * @param {number[]} dims The dimensions of the tensor.
  * @param {number} dim The dimension to unsqueeze.
- * @returns The new dimensions.
+ * @returns {number[]} The new dimensions.
  * @private
  */
 function calc_unsqueeze_dims(dims, dim) {
@@ -976,7 +985,7 @@ export function std_mean(input, dim = null, correction = 1, keepdim = false) {
  * @param {Tensor} input the input tensor.
  * @param {number|null} dim the dimension to reduce.
  * @param {boolean} keepdim whether the output tensor has dim retained or not.
- * @returns A new tensor with means taken along the specified dimension.
+ * @returns {Tensor} A new tensor with means taken along the specified dimension.
  */
 export function mean(input, dim = null, keepdim = false) {
 
@@ -1150,8 +1159,56 @@ export function ones(size) {
 /**
  * Returns a tensor filled with the scalar value 1, with the same size as input.
  * @param {Tensor} tensor The size of input will determine size of the output tensor.
- * @returns The ones tensor.
+ * @returns {Tensor} The ones tensor.
  */
 export function ones_like(tensor) {
     return ones(tensor.dims);
+}
+
+/**
+ * 
+ * @param {Tensor} input 
+ * @param {[number, number]} kernel_size 
+ * @param {[number, number]} stride 
+ * @returns {Tensor}
+ */
+export function unfold(input, kernel_size, stride) {
+
+    const [batchSize, inputChannels, inputHeight, inputWidth] = input.dims;
+    const [kernelHeight, kernelWidth] = kernel_size;
+    const [strideHeight, strideWidth] = stride;
+
+    const outputHeight = Math.floor((inputHeight - kernelHeight) / strideHeight) + 1;
+    const outputWidth = Math.floor((inputWidth - kernelWidth) / strideWidth) + 1;
+    const outputChannels = kernelHeight * kernelWidth * inputChannels;
+
+    const newDims = [batchSize, outputChannels, outputHeight * outputWidth];
+
+    // @ts-ignore
+    const unfoldedData = new input.data.constructor(newDims.reduce((a, b) => a * b, 1));
+
+    const v1 = inputHeight * inputWidth;
+    const v2 = inputChannels * v1;
+    const v3 = strideHeight * inputWidth;
+
+    let outputIndex = 0;
+    for (let b = 0; b < batchSize; ++b) {
+        const o1 = b * v2;
+        for (let c = 0; c < inputChannels; ++c) {
+            const o2 = c * v1 + o1;
+            for (let kh = 0; kh < kernelHeight; ++kh) {
+                const o3 = kh * inputWidth + o2;
+                for (let kw = 0; kw < kernelWidth; ++kw) {
+                    const o4 = o3 + kw;
+                    for (let i = 0; i < outputHeight; ++i) {
+                        const o5 = i * v3 + o4;
+                        for (let j = 0; j < outputWidth; ++j) {
+                            unfoldedData[outputIndex++] = input.data[o5 + j * strideWidth];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return new Tensor(input.type, unfoldedData, newDims);
 }
