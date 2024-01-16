@@ -722,6 +722,26 @@ SUPPORTED_MODELS = {
             'susnato/phi-1_5_dev',
         ],
     },
+    'pix2struct': {
+        # Image-to-text
+        'image-to-text': [
+            'fxmarty/pix2struct-tiny-random',
+            'google/pix2struct-textcaps-base',
+        ],
+
+        # Visual Question Answering (VQA)
+        'visual-question-answering': [
+            'google/deplot',
+
+            # TODO:
+            # 'google/pix2struct-docvqa-base',
+            # 'google/pix2struct-widget-captioning-base',
+            # 'google/pix2struct-ai2d-base',
+            # 'google/pix2struct-chartqa-base',
+            # 'google/pix2struct-screen2words-base',
+            # 'google/pix2struct-infographics-vqa-base',
+        ],
+    },
     'roberta': {
         # Feature extraction
         'feature-extraction': [

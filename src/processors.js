@@ -36,7 +36,7 @@ import {
 } from './utils/maths.js';
 
 
-import { Tensor, transpose, cat, interpolate, stack } from './utils/tensor.js';
+import { Tensor, transpose, cat, interpolate, stack, unfold } from './utils/tensor.js';
 
 import { RawImage } from './utils/image.js';
 import {
@@ -269,6 +269,24 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         return await image.resize(width, height, { resample });
     }
 
+    /**
+     * Crops the image to the specified size.
+     * @param {RawImage} image The image to be cropped.
+     * @returns {Promise<RawImage>} The cropped image.
+     */
+    async center_crop(image) {
+        let crop_width;
+        let crop_height;
+        if (Number.isInteger(this.crop_size)) {
+            crop_width = this.crop_size;
+            crop_height = this.crop_size;
+        } else {
+            crop_width = this.crop_size.width;
+            crop_height = this.crop_size.height;
+        }
+
+        return await image.center_crop(crop_width, crop_height);
+    }
 
     /**
      * Crops the margin of the image. Gray pixels are considered margin (i.e., pixels with a value below the threshold).
@@ -408,17 +426,44 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     }
 
     /**
+     * Normalize an image. image = (image - image_mean) / image_std.
+     * @param {Float32Array} pixelData 
+     * @param {RawImage} image 
+     */
+    normalize(pixelData, image) {
+        let image_mean = this.image_mean;
+        if (!Array.isArray(this.image_mean)) {
+            image_mean = new Array(image.channels).fill(image_mean);
+        }
+
+        let image_std = this.image_std;
+        if (!Array.isArray(this.image_std)) {
+            image_std = new Array(image.channels).fill(image_mean);
+        }
+
+        if (image_mean.length !== image.channels || image_std.length !== image.channels) {
+            throw new Error(`When set to arrays, the length of \`image_mean\` (${image_mean.length}) and \`image_std\` (${image_std.length}) must match the number of channels in the image (${image.channels}).`);
+        }
+
+        for (let i = 0; i < pixelData.length; i += image.channels) {
+            for (let j = 0; j < image.channels; ++j) {
+                pixelData[i + j] = (pixelData[i + j] - this.image_mean[j]) / this.image_std[j];
+            }
+        }
+    }
+
+    /**
      * Find the target (width, height) dimension of the output image after
      * resizing given the input image and the desired size.
-     * @param {RawImage} image The image to resize.
+     * @param {[number, number]} inputSize The image size.
      * @param {any} size The size to use for resizing the image. 
      * @returns {[number, number]} The target (width, height) dimension of the output image after resizing.
      */
-    get_resize_output_image_size(image, size) {
+    get_resize_output_image_size(inputSize, size) {
         // `size` comes in many forms, so we need to handle them all here:
         // 1. `size` is an integer, in which case we resize the image to be a square 
 
-        const [srcWidth, srcHeight] = image.size;
+        const [srcWidth, srcHeight] = inputSize;
 
         let shortest_edge;
         let longest_edge;
@@ -483,7 +528,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * @returns {Promise<RawImage>} The resized image.
      */
     async resize(image) {
-        const [newWidth, newHeight] = this.get_resize_output_image_size(image, this.size);
+        const [newWidth, newHeight] = this.get_resize_output_image_size(image.size, this.size);
         return await image.resize(newWidth, newHeight, {
             resample: this.resample,
         });
@@ -538,18 +583,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         }
 
         if (this.do_center_crop) {
-
-            let crop_width;
-            let crop_height;
-            if (Number.isInteger(this.crop_size)) {
-                crop_width = this.crop_size;
-                crop_height = this.crop_size;
-            } else {
-                crop_width = this.crop_size.width;
-                crop_height = this.crop_size.height;
-            }
-
-            image = await image.center_crop(crop_width, crop_height);
+            image = await this.center_crop(image);
         }
 
         /** @type {HeightWidth} */
@@ -563,25 +597,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         }
 
         if (do_normalize ?? this.do_normalize) {
-            let image_mean = this.image_mean;
-            if (!Array.isArray(this.image_mean)) {
-                image_mean = new Array(image.channels).fill(image_mean);
-            }
-
-            let image_std = this.image_std;
-            if (!Array.isArray(this.image_std)) {
-                image_std = new Array(image.channels).fill(image_mean);
-            }
-
-            if (image_mean.length !== image.channels || image_std.length !== image.channels) {
-                throw new Error(`When set to arrays, the length of \`image_mean\` (${image_mean.length}) and \`image_std\` (${image_std.length}) must match the number of channels in the image (${image.channels}).`);
-            }
-
-            for (let i = 0; i < pixelData.length; i += image.channels) {
-                for (let j = 0; j < image.channels; ++j) {
-                    pixelData[i + j] = (pixelData[i + j] - this.image_mean[j]) / this.image_std[j];
-                }
-            }
+            this.normalize(pixelData, image);
         }
 
         // do padding after rescaling/normalizing
@@ -631,9 +647,186 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             reshaped_input_sizes: imageData.map(x => x.reshaped_input_size),
         }
     }
-
 }
 
+export class Pix2StructImageProcessor extends ImageFeatureExtractor {
+    constructor(config) {
+        super(config);
+
+        this.max_patches = config.max_patches;
+        this.patch_size = config.patch_size;
+
+        this.do_rescale = false;
+    }
+
+    /**
+     * The image std is to mimic the tensorflow implementation of the `per_image_standardization`:
+     * https://www.tensorflow.org/api_docs/python/tf/image/per_image_standardization
+     * @param {Float32Array} pixelData The pixel data to normalize.
+     */
+    normalize(pixelData) {
+        // Take mean across the whole image
+        const mean = pixelData.reduce((a, b) => a + b, 0) / pixelData.length;
+        const std = Math.sqrt(pixelData.reduce((a, b) => a + (b - mean) ** 2, 0) / pixelData.length);
+
+        const adjusted_stddev = Math.max(std, 1.0 / Math.sqrt(pixelData.length));
+
+        for (let i = 0; i < pixelData.length; ++i) {
+            pixelData[i] = (pixelData[i] - mean) / adjusted_stddev;
+        }
+    }
+
+    extract_patches(image_tensor, patch_height, patch_width) {
+
+        image_tensor = image_tensor.unsqueeze(0);
+
+        let patches = unfold(
+            image_tensor, // input
+            [patch_height, patch_width], // kernel_size
+            [patch_height, patch_width], // stride
+        )
+
+        patches = patches.view(
+            image_tensor.dims.at(0),
+            image_tensor.dims.at(1),
+            patch_height,
+            patch_width,
+            -1,
+        )
+
+        patches = patches.transpose(
+            0, 4, 2, 3, 1
+        ).view(
+            Math.floor(image_tensor.dims.at(2) / patch_height),
+            Math.floor(image_tensor.dims.at(3) / patch_width),
+            image_tensor.dims.at(1) * patch_height * patch_width,
+        )
+
+        return patches.unsqueeze(0);
+    }
+
+    extract_flattened_patches(pixel_values, max_patches, patch_size) {
+
+        const [image_height, image_width] = pixel_values.dims.slice(-2);
+        const [patch_width, patch_height] = this.get_resize_output_image_size([image_height, image_width], patch_size);
+
+        // maximize scale s.t.
+        const scale = Math.sqrt(max_patches * (patch_height / image_height) * (patch_width / image_width))
+        const num_feasible_rows = Math.max(Math.min(Math.floor(scale * image_height / patch_height), max_patches), 1)
+        const num_feasible_cols = Math.max(Math.min(Math.floor(scale * image_width / patch_width), max_patches), 1)
+        const resized_height = Math.max(num_feasible_rows * patch_height, 1)
+        const resized_width = Math.max(num_feasible_cols * patch_width, 1)
+
+        // [ 3, 592, 880 ]
+        const resized = interpolate(pixel_values, [resized_height, resized_width], 'bilinear', false);
+
+        let patches = this.extract_patches(
+            resized, patch_height, patch_width
+        )
+        const [
+            b,
+            rows,
+            columns,
+            depth,
+        ] = patches.dims;
+
+        // [rows * columns, patch_height * patch_width * image_channels]
+        patches = patches.view(
+            rows * columns, depth,
+        )
+
+        const row_ids_data = new Float32Array(rows * columns);
+        const col_ids_data = new Float32Array(rows * columns);
+        for (let i = 0; i < row_ids_data.length; ++i) {
+            // NOTE: Offset by 1 so the ids do not contain zeros, which represent padding.
+            row_ids_data[i] = 1 + Math.floor(i / columns);
+            col_ids_data[i] = 1 + i % columns;
+        }
+
+        const d = [max_patches, 2 + patches.dims.at(-1)];
+
+        const result = cat([
+            new Tensor('float32', row_ids_data, [rows * columns, 1]),
+            new Tensor('float32', col_ids_data, [rows * columns, 1]),
+            patches,
+        ], -1)
+
+        const diff = max_patches - (rows * columns);
+        const flattened_patches = cat([
+            result,
+            new Tensor('float32', new Float32Array(diff * d[1]), [diff, d[1]]),
+        ], 0);
+
+        const attention_mask = new Tensor('int64', new BigInt64Array(max_patches), [max_patches]);
+        /** @type {BigInt64Array} */ (attention_mask.data).fill(1n, 0, rows * columns);
+
+        return {
+            flattened_patches,
+            attention_mask,
+        };
+    }
+
+
+    /**
+     * Preprocesses the given image.
+     *
+     * @param {RawImage} image The image to preprocess.
+     * @param {Object} overrides The overrides for the preprocessing options.
+     * @returns {Promise<any>} The preprocessed image.
+     */
+    async preprocess(image, {
+        do_normalize = null,
+        do_pad = null,
+        do_convert_rgb = null,
+        do_convert_grayscale = null,
+    } = {}) {
+
+        const {
+            original_size,
+            reshaped_input_size,
+            pixel_values,
+        } = await super.preprocess(image, {
+            do_normalize,
+            do_pad,
+            do_convert_rgb,
+            do_convert_grayscale,
+        });
+
+        return this.extract_flattened_patches(pixel_values, this.max_patches, this.patch_size);
+
+    }
+
+    /**
+     * @typedef {object} Pix2StructExtractorResult
+     * @property {Tensor} attention_mask The attention mask.
+     * @property {Tensor} flattened_patches The flattened patches.
+     */
+
+
+    /**
+     * Calls the feature extraction process on an array of images,
+     * preprocesses each image, and concatenates the resulting
+     * features into a single Tensor.
+     * @param {RawImage[]} images The image(s) to extract features from.
+     * @param {...any} args Additional arguments.
+     * @returns {Promise<any>}
+     */
+    async _call(images, ...args) {
+        if (!Array.isArray(images)) {
+            images = [images];
+        }
+        const imageData = await Promise.all(images.map(x => this.preprocess(x)));
+
+        // Stack flattened_patches and attention_mask
+        const flattened_patches = stack(imageData.map(x => x.flattened_patches), 0);
+        const attention_mask = stack(imageData.map(x => x.attention_mask), 0);
+
+        return {
+            flattened_patches,
+            attention_mask,
+        }
+    }
+}
 export class SegformerFeatureExtractor extends ImageFeatureExtractor {
 
     /**
@@ -725,7 +918,7 @@ export class ConvNextFeatureExtractor extends ImageFeatureExtractor {
             // maintain same ratio, resizing shortest edge to shortest_edge/crop_pct
             const resize_shortest_edge = Math.floor(shortest_edge / this.crop_pct);
 
-            const [newWidth, newHeight] = this.get_resize_output_image_size(image, {
+            const [newWidth, newHeight] = this.get_resize_output_image_size(image.size, {
                 shortest_edge: resize_shortest_edge,
             });
 
@@ -1879,6 +2072,7 @@ export class AutoProcessor {
         SiglipImageProcessor,
         ConvNextFeatureExtractor,
         ConvNextImageProcessor,
+        Pix2StructImageProcessor,
         SegformerFeatureExtractor,
         BitImageProcessor,
         DPTFeatureExtractor,
