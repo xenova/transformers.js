@@ -83,7 +83,7 @@ import {
 
 import { env } from './env.js';
 
-import { isReady, executionProviders, ONNX } from './backends/onnx.js';
+import { executionProviders, ONNX } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
 const { InferenceSession, Tensor: ONNXTensor, env: onnx_env } = ONNX;
 
@@ -127,7 +127,6 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
     let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
     try {
-        await isReady;
         return await InferenceSession.create(buffer, {
             executionProviders,
         });
