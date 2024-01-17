@@ -29,7 +29,7 @@ export const executionProviders = [
     'wasm'
 ];
 
-if (typeof process !== 'undefined' && process?.release?.name === 'node') {
+if (typeof process !== 'undefined' && process?.release?.name === 'node' && process?.type !== 'renderer') {
     // Running in a node-like environment.
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
 
