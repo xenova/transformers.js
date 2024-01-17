@@ -68,7 +68,7 @@ class FileResponse {
      */
     constructor(filePath) {
         this.filePath = filePath;
-        this.headers = new FileHeaders();
+        this.headers = new Headers();
 
         this.exists = fs.existsSync(filePath);
         if (this.exists) {
