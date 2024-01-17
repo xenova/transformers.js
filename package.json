@@ -78,7 +78,8 @@
   ],
   "react-native": {
     "fs": "react-native-fs",
-    "onnxruntime-node": false,
+    "onnxruntime-web": false,
+    "onnxruntime-node": "onnxruntime-react-native",
     "path": "path-browserify",
     "stream/web": false,
     "zlib": "browserify-zlib"

@@ -16,41 +16,38 @@
  * @module backends/onnx
  */
 
-import * as ONNX_COMMON from 'onnxruntime-common';
+// NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
+// In either case, we select the default export if it exists, otherwise we use the named export.
+import * as ONNX_NODE from 'onnxruntime-node';
+import * as ONNX_WEB from 'onnxruntime-web';
 
-/** @type {Promise<bool>} A promise that resolves when the ONNX runtime module is loaded. */
-export let isReady = null;
+/** @type {import('onnxruntime-web')} The ONNX runtime module. */
+export let ONNX;
 
-/** @type {module} The ONNX runtime module. */
-export const ONNX = ONNX_COMMON?.default ?? ONNX_COMMON;
+export const executionProviders = [
+    // 'webgpu',
+    'wasm'
+];
 
-export const executionProviders = [];
-
-if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-    // Running in a react native environment.
-    isReady = import('onnxruntime-react-native').then(() => true);
-    executionProviders.unshift('cpu');
-
-} else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
-    // Running in a node-like environment.
-    isReady = Promise.all([
-        import('onnxruntime-node'),
-        import('onnxruntime-web'),
-    ]).then(() => true);
+if (
+    (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') ||
+    (typeof process !== 'undefined' && process?.release?.name === 'node')
+) {
+    // Running in a RN or node-like environment.
+    ONNX = ONNX_NODE.default ?? ONNX_NODE;
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
-    executionProviders.unshift('cpu', 'wasm');
+    executionProviders.unshift('cpu');
+
 } else {
     // Running in a browser-environment
-    isReady = import('onnxruntime-web').then(() => true);
-
-    executionProviders.unshift('wasm');
+    ONNX = ONNX_WEB.default ?? ONNX_WEB;
 
     // SIMD for WebAssembly does not operate correctly in some recent versions of iOS (16.4.x).
     // As a temporary fix, we disable it for now.
     // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
     const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad).+16_4.+AppleWebKit/.test(navigator.userAgent);
     if (isIOS) {
-        ONNX_COMMON.env.wasm.simd = false;
+        ONNX.env.wasm.simd = false;
     }
 }
