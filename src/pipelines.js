@@ -3102,7 +3102,10 @@ async function loadItems(mapping, model, pretrainedOptions) {
                         return;
                     } catch (err) {
                         e = err;
-                        if (!e.message.startsWith('Unsupported model type')) {
+                        if (
+                            !err.message.startsWith('Unsupported model type') &&
+                            !err.message.startsWith('Could not locate')
+                        ) {
                             break;
                         }
                     }
