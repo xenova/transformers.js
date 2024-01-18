@@ -29,11 +29,16 @@ export const executionProviders = [
     'wasm'
 ];
 
-if (
-    (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') ||
-    (typeof process !== 'undefined' && process?.release?.name === 'node')
-) {
+if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
     // Running in a RN or node-like environment.
+    ONNX = ONNX_NODE.default ?? ONNX_NODE;
+
+    // Add `cpu` execution provider, and remove `wasm`.
+    executionProviders.unshift('cpu');
+    executionProviders.splice(executionProviders.indexOf('wasm'), 1);
+
+} else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
+    // Running in a node-like environment.
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
