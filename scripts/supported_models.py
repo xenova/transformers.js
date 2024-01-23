@@ -408,6 +408,14 @@ SUPPORTED_MODELS = {
             'Intel/dpt-large',
         ],
     },
+    'depth_anything': {
+        # Depth estimation
+        'depth-estimation': [
+            'nielsr/depth-anything-small',
+            'nielsr/depth-anything-base',
+            # 'nielsr/depth-anything-large', # TODO add
+        ],
+    },
     'electra': {
         # Feature extraction
         'feature-extraction': [
