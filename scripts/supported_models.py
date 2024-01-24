@@ -410,10 +410,11 @@ SUPPORTED_MODELS = {
     },
     'depth_anything': {
         # Depth estimation
+        # NOTE: requires --task depth-estimation
         'depth-estimation': [
-            'nielsr/depth-anything-small',
-            'nielsr/depth-anything-base',
-            # 'nielsr/depth-anything-large', # TODO add
+            'LiheYoung/depth-anything-small-hf',
+            'LiheYoung/depth-anything-base-hf',
+            'LiheYoung/depth-anything-large-hf',
         ],
     },
     'electra': {
