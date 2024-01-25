@@ -189,28 +189,40 @@ export class FeatureExtractor extends Callable {
  */
 
 /**
+ * @typedef {object} ObjectWidthHeight
+ * @property {number} width The width.
+ * @property {number} height The height.
+ */
+
+/**
+ * The configuration for the feature extractor.
+ * @typedef {object} ImageFeatureExtractorConfig
+ * @property {number[]} image_mean The mean values for image normalization.
+ * @property {number[]} image_std The standard deviation values for image normalization.
+ * @property {boolean} do_rescale Whether to rescale the image pixel values to the [0,1] range.
+ * @property {number} rescale_factor The factor to use for rescaling the image pixel values.
+ * @property {boolean} do_normalize Whether to normalize the image pixel values.
+ * @property {boolean} do_resize Whether to resize the image.
+ * @property {number} resample What method to use for resampling.
+ * @property {number|ObjectWidthHeight} size The size to resize the image to.
+ */
+
+/**
  * Feature extractor for image models.
  *
+ * @property {ImageFeatureExtractorConfig} con
  * @extends FeatureExtractor
  */
 export class ImageFeatureExtractor extends FeatureExtractor {
-
     /**
      * Constructs a new ImageFeatureExtractor instance.
      *
-     * @param {Object} config The configuration for the feature extractor.
-     * @param {number[]} config.image_mean The mean values for image normalization.
-     * @param {number[]} config.image_std The standard deviation values for image normalization.
-     * @param {boolean} config.do_rescale Whether to rescale the image pixel values to the [0,1] range.
-     * @param {number} config.rescale_factor The factor to use for rescaling the image pixel values.
-     * @param {boolean} config.do_normalize Whether to normalize the image pixel values.
-     * @param {boolean} config.do_resize Whether to resize the image.
-     * @param {number} config.resample What method to use for resampling.
-     * @param {number} config.size The size to resize the image to.
+     * @param {ImageFeatureExtractorConfig} config The configuration for the feature extractor.
      */
     constructor(config) {
         super(config);
-
+        /** @type {ImageFeatureExtractorConfig} */
+        this.config = config;
         this.image_mean = this.config.image_mean ?? this.config.mean;
         this.image_std = this.config.image_std ?? this.config.std;
 
