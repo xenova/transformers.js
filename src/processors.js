@@ -205,6 +205,15 @@ export class FeatureExtractor extends Callable {
  * @property {boolean} do_resize Whether to resize the image.
  * @property {number} resample What method to use for resampling.
  * @property {number|ObjectWidthHeight} size The size to resize the image to.
+ * @property {number|ObjectWidthHeight} crop_size The size to crop the image to.
+ * @property {number|ObjectWidthHeight} pad_size The dimensions of the padded image.
+ * @property {boolean} [do_thumbnail] Whether to create a thumbnail.
+ * @property {boolean} [do_pad] Whether to pad.
+ * @property {number} [size_divisibility] The size divisibility.
+ * @property {number} [size_divisor] The size divisor.
+ * @property {number} [do_center_crop] Whether to do center crop.
+ * @property {number} [do_convert_rgb] Whether to convert to RGB.
+ * @property {number} [do_crop_margin] Whether to crop margin.
  */
 
 /**
