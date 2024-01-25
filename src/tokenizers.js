@@ -2744,6 +2744,12 @@ export class PreTrainedTokenizer extends Callable {
                     x = this.normalizer(x);
                 }
 
+                // If, after normalization, this section is empty (e.g., trimming whitespace),
+                // we return an empty array
+                if (x.length === 0) {
+                    return [];
+                }
+
                 const sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x, {
                     section_index,
                 }) : [x];
