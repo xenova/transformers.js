@@ -39,6 +39,7 @@ describe('Processors', () => {
             detr: 'facebook/detr-resnet-50',
             yolos: 'hustvl/yolos-small-300',
             dpt: 'Intel/dpt-hybrid-midas',
+            dpt_2: 'LiheYoung/depth-anything-small-hf',
             glpn: 'vinvino02/glpn-kitti',
             nougat: 'facebook/nougat-small',
             owlvit: 'google/owlvit-base-patch32',
@@ -407,6 +408,25 @@ describe('Processors', () => {
                 compare(reshaped_input_sizes, [[224, 224]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
+
+        // DPTImageProcessor
+        //  - tests ensure_multiple_of
+        //  - tests keep_aspect_ratio
+        it(MODELS.dpt_2, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt_2))
+
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 518, 686]);
+                compare(avg(pixel_values.data), 0.30337387323379517);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[518, 686]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
     });
 
     describe('Audio processors', () => {

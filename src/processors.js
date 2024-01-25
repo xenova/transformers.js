@@ -165,6 +165,29 @@ function validate_audio_inputs(audio, feature_extractor) {
 }
 
 /**
+ * Helper function to constrain a value to be a multiple of a number.
+ * @param {number} val The value to constrain.
+ * @param {number} multiple The number to constrain to.
+ * @param {number} [minVal=0] The minimum value to constrain to.
+ * @param {number} [maxVal=null] The maximum value to constrain to.
+ * @returns {number} The constrained value.
+ * @private
+ */
+function constraint_to_multiple_of(val, multiple, minVal = 0, maxVal = null) {
+    let x = Math.round(val / multiple) * multiple;
+
+    if (maxVal !== null && x > maxVal) {
+        x = Math.floor(val / multiple) * multiple;
+    }
+
+    if (x < minVal) {
+        x = Math.ceil(val / multiple) * multiple;
+    }
+
+    return x;
+}
+
+/**
  * Base class for feature extractors.
  *
  * @extends Callable
@@ -465,7 +488,31 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
         } else if (size !== undefined && size.width !== undefined && size.height !== undefined) {
             // If `width` and `height` are set, resize to those dimensions
-            return [size.width, size.height];
+
+            let newWidth = size.width;
+            let newHeight = size.height;
+
+            // Custom for DPT models
+            if (this.config.keep_aspect_ratio && this.config.ensure_multiple_of) {
+
+                // determine new height and width
+                let scale_height = size.height / srcHeight;
+                let scale_width = size.width / srcWidth;
+
+                // scale as little as possible
+                if (Math.abs(1 - scale_width) < Math.abs(1 - scale_height)) {
+                    // fit width
+                    scale_height = scale_width;
+                } else {
+                    // fit height
+                    scale_width = scale_height;
+                }
+
+                newHeight = constraint_to_multiple_of(scale_height * srcHeight, this.config.ensure_multiple_of);
+                newWidth = constraint_to_multiple_of(scale_width * srcWidth, this.config.ensure_multiple_of);
+            }
+
+            return [newWidth, newHeight];
 
         } else if (this.size_divisibility !== undefined) {
             // Rounds the height and width down to the closest multiple of size_divisibility
@@ -699,6 +746,7 @@ export class SegformerFeatureExtractor extends ImageFeatureExtractor {
         return toReturn;
     }
 }
+export class DPTImageProcessor extends ImageFeatureExtractor { }
 export class BitImageProcessor extends ImageFeatureExtractor { }
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
@@ -1881,6 +1929,7 @@ export class AutoProcessor {
         ConvNextImageProcessor,
         SegformerFeatureExtractor,
         BitImageProcessor,
+        DPTImageProcessor,
         DPTFeatureExtractor,
         GLPNFeatureExtractor,
         BeitFeatureExtractor,
