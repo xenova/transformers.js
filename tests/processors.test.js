@@ -39,7 +39,7 @@ describe('Processors', () => {
             detr: 'facebook/detr-resnet-50',
             yolos: 'hustvl/yolos-small-300',
             dpt: 'Intel/dpt-hybrid-midas',
-            dpt_2: 'nielsr/depth-anything-small',
+            dpt_2: 'LiheYoung/depth-anything-small-hf',
             glpn: 'vinvino02/glpn-kitti',
             nougat: 'facebook/nougat-small',
             owlvit: 'google/owlvit-base-patch32',
