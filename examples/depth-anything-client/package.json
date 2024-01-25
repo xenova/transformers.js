@@ -1,5 +1,5 @@
 {
-  "name": "semantic-audio-search",
+  "name": "depth-anything-client",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,10 +9,10 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^5.0.12"
+    "vite": "^5.0.8"
   },
   "dependencies": {
-    "@xenova/transformers": "^2.10.1",
-    "deepscatter": "github:nomic-ai/deepscatter"
+    "@xenova/transformers": "^2.14.1",
+    "three": "^0.160.1"
   }
 }

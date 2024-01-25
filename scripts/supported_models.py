@@ -408,6 +408,15 @@ SUPPORTED_MODELS = {
             'Intel/dpt-large',
         ],
     },
+    'depth_anything': {
+        # Depth estimation
+        # NOTE: requires --task depth-estimation
+        'depth-estimation': [
+            'LiheYoung/depth-anything-small-hf',
+            'LiheYoung/depth-anything-base-hf',
+            'LiheYoung/depth-anything-large-hf',
+        ],
+    },
     'electra': {
         # Feature extraction
         'feature-extraction': [
