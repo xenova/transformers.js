@@ -28,6 +28,10 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         # TODO: Add back when https://github.com/huggingface/transformers/issues/26318 is fixed
         # 'Xenova/t5-tokenizer-new',
     ],
+    'bert': [
+        # Uses `Whitespace` pretokenizer 
+        'Xenova/jina-embeddings-v2-base-zh-tokenizer',
+    ],
 }
 
 MODELS_TO_IGNORE = [
