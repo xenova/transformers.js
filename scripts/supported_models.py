@@ -980,6 +980,16 @@ SUPPORTED_MODELS = {
             'facebook/mms-1b-fl102',
         ],
     },
+    'wav2vec2-bert': {
+        'feature-extraction': [
+            'facebook/w2v-bert-2.0',
+        ],
+
+        # Automatic speech recognition
+        'automatic-speech-recognition': [
+            'hf-audio/wav2vec2-bert-CV16-en',
+        ],
+    },
     'wavlm': {
         # Feature extraction
         'feature-extraction': [
