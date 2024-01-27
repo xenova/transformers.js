@@ -1604,7 +1604,12 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
     /**
      * Asynchronously extracts features from a given audio using the provided configuration.
      * @param {Float32Array|Float64Array} audio The audio data as a Float32Array/Float64Array.
-     * @returns {Promise<{ input_features: Tensor, attention_mask?: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
+     * @param {Object} options Optional parameters for feature extraction.
+     * @param {boolean} [options.padding=true] Whether to pad the sequence to a multiple of `pad_to_multiple_of`.
+     * @param {number} [options.pad_to_multiple_of=2] The number to pad the sequence to a multiple of.
+     * @param {boolean} [options.do_normalize_per_mel_bins=true] Whether or not to zero-mean unit-variance normalize the input per mel-channel.
+     * @param {boolean} [options.return_attention_mask=true] Whether to return the attention mask.
+     * @returns {Promise<{ input_features: Tensor, attention_mask?: Tensor }>} A Promise resolving to an object containing the extracted input features and attention masks as Tensors.
      */
     async _call(audio, {
         padding = true,
