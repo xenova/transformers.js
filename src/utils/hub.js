@@ -392,7 +392,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         env.remoteHost,
         env.remotePathTemplate
             .replaceAll('{model}', path_or_repo_id)
-            .replaceAll('{revision}', revision),
+            .replaceAll('{revision}', encodeURIComponent(revision)),
         filename
     );
 

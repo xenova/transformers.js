@@ -12,32 +12,46 @@ const { tokenization, templates } = await (await getFile('./tests/data/tokenizer
 // Dynamic tests to ensure transformers.js (JavaScript) matches transformers (Python)
 describe('Tokenizers (dynamic)', () => {
 
-    for (let [tokenizerName, tests] of Object.entries(tokenization)) {
+    for (const [tokenizerName, tests] of Object.entries(tokenization)) {
 
         it(tokenizerName, async () => {
-            let tokenizer = await AutoTokenizer.from_pretrained(m(tokenizerName));
+            const tokenizer = await AutoTokenizer.from_pretrained(m(tokenizerName));
 
-            for (let test of tests) {
+            for (const test of tests) {
+                // Two kinds of tests:
+                // 1. text w/o text_pair
+                // 2. text w text_pair
 
-                // Test encoding
-                let encoded = tokenizer(test.input, {
-                    return_tensor: false
-                });
+                if (typeof test.input === 'string') {
 
-                // Add the input text to the encoded object for easier debugging
-                test.encoded.input = encoded.input = test.input;
+                    // Test encoding
+                    const encoded = tokenizer(test.input, {
+                        return_tensor: false
+                    });
 
-                expect(encoded).toEqual(test.encoded);
+                    // Add the input text to the encoded object for easier debugging
+                    test.encoded.input = encoded.input = test.input;
 
-                // Skip decoding tests if encoding produces zero tokens
-                if (test.encoded.input_ids.length === 0) continue;
+                    expect(encoded).toEqual(test.encoded);
 
-                // Test decoding
-                let decoded_with_special = tokenizer.decode(encoded.input_ids, { skip_special_tokens: false });
-                expect(decoded_with_special).toEqual(test.decoded_with_special);
+                    // Skip decoding tests if encoding produces zero tokens
+                    if (test.encoded.input_ids.length === 0) continue;
 
-                let decoded_without_special = tokenizer.decode(encoded.input_ids, { skip_special_tokens: true });
-                expect(decoded_without_special).toEqual(test.decoded_without_special);
+                    // Test decoding
+                    const decoded_with_special = tokenizer.decode(encoded.input_ids, { skip_special_tokens: false });
+                    expect(decoded_with_special).toEqual(test.decoded_with_special);
+
+                    const decoded_without_special = tokenizer.decode(encoded.input_ids, { skip_special_tokens: true });
+                    expect(decoded_without_special).toEqual(test.decoded_without_special);
+
+                } else {
+                    const { text, text_pair } = test.input;
+                    const encoded = tokenizer(text, {
+                        text_pair,
+                        return_tensor: false,
+                    });
+                    compare(encoded, test.output);
+                }
             }
         }, MAX_TEST_EXECUTION_TIME);
     }
@@ -138,6 +152,142 @@ describe('Tokenizers (hard-coded)', () => {
             }
         }, MAX_TEST_EXECUTION_TIME);
     }
+});
+
+describe('Tokenizer padding/truncation', () => {
+    const inputs = ['a', 'b c'];
+    const text_pair = ['d e', 'f g h'];
+
+    it('should create a jagged array', async () => {
+        const tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
+
+        { // support jagged array if `return_tensor=false`
+            const output = tokenizer(inputs, {
+                return_tensor: false,
+            })
+            const expected = {
+                input_ids: [[101, 1037, 102], [101, 1038, 1039, 102]],
+                attention_mask: [[1, 1, 1], [1, 1, 1, 1]],
+                token_type_ids: [[0, 0, 0], [0, 0, 0, 0]]
+            }
+            compare(output, expected);
+        }
+
+        {
+            const output = tokenizer(inputs, {
+                return_tensor: false,
+                truncation: true,
+                add_special_tokens: false,
+            })
+            const expected = {
+                input_ids: [[1037], [1038, 1039]],
+                attention_mask: [[1], [1, 1]],
+                token_type_ids: [[0], [0, 0]]
+            }
+            compare(output, expected);
+        }
+    })
+
+    it('should create a tensor', async () => {
+        const tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
+
+        { // Expected to throw error if jagged array
+            expect(() => tokenizer(inputs)).toThrowError('Unable to create tensor');
+        }
+
+        { // Truncation
+            const { input_ids, attention_mask, token_type_ids } = tokenizer(inputs, {
+                truncation: true,
+                max_length: 1,
+                add_special_tokens: false,
+            })
+
+            expect(input_ids.tolist()).toEqual([[1037n], [1038n]])
+            expect(attention_mask.tolist()).toEqual([[1n], [1n]])
+            expect(token_type_ids.tolist()).toEqual([[0n], [0n]])
+        }
+        { // Truncation w/ text pair
+            // TODO
+        }
+
+        { // Padding
+            const { input_ids, attention_mask, token_type_ids } = tokenizer(inputs, {
+                padding: true,
+                add_special_tokens: false,
+            })
+
+            expect(input_ids.tolist()).toEqual([[1037n, 0n], [1038n, 1039n]])
+            expect(attention_mask.tolist()).toEqual([[1n, 0n], [1n, 1n]])
+            expect(token_type_ids.tolist()).toEqual([[0n, 0n], [0n, 0n]])
+        }
+        { // Padding w/ text pair
+            const { input_ids, attention_mask, token_type_ids } = tokenizer(inputs, {
+                text_pair,
+                padding: true,
+                add_special_tokens: false,
+            })
+
+            expect(input_ids.tolist()).toEqual([
+                [1037n, 1040n, 1041n, 0n, 0n],
+                [1038n, 1039n, 1042n, 1043n, 1044n],
+            ]);
+            expect(attention_mask.tolist()).toEqual([
+                [1n, 1n, 1n, 0n, 0n],
+                [1n, 1n, 1n, 1n, 1n],
+            ]);
+            expect(token_type_ids.tolist()).toEqual([
+                [0n, 1n, 1n, 0n, 0n],
+                [0n, 0n, 1n, 1n, 1n],
+            ]);
+        }
+
+        { // Truncation + padding
+            const { input_ids, attention_mask, token_type_ids } = tokenizer(['a', 'b c', 'd e f'], {
+                padding: true,
+                truncation: true,
+                add_special_tokens: false,
+                max_length: 2,
+            })
+
+            expect(input_ids.tolist()).toEqual([[1037n, 0n], [1038n, 1039n], [1040n, 1041n]])
+            expect(attention_mask.tolist()).toEqual([[1n, 0n], [1n, 1n], [1n, 1n]])
+            expect(token_type_ids.tolist()).toEqual([[0n, 0n], [0n, 0n], [0n, 0n]])
+        }
+    }, MAX_TEST_EXECUTION_TIME);
+});
+
+describe('Token type ids', () => {
+    it('should correctly add token type ids', async () => {
+        const tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
+
+        const model_inputs = tokenizer(
+            ['a b c', 'd'],
+            {
+                text_pair: ['e f', 'g h'],
+                padding: true,
+                truncation: true,
+                return_tensor: false,
+            }
+        );
+
+        const expected = {
+            input_ids: [
+                [101, 1037, 1038, 1039, 102, 1041, 1042, 102],
+                [101, 1040, 102, 1043, 1044, 102, 0, 0],
+            ],
+            token_type_ids: [
+                [0, 0, 0, 0, 0, 1, 1, 1],
+                [0, 0, 0, 1, 1, 1, 0, 0],
+            ],
+            attention_mask: [
+                [1, 1, 1, 1, 1, 1, 1, 1],
+                [1, 1, 1, 1, 1, 1, 0, 0],
+            ],
+        }
+
+        compare(model_inputs, expected);
+
+    }, MAX_TEST_EXECUTION_TIME);
 });
 
 describe('Edge cases', () => {

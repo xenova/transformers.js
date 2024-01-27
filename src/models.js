@@ -43,10 +43,6 @@ import {
 } from './configs.js';
 
 import {
-    add_token_types,
-} from './tokenizers.js';
-
-import {
     Callable,
     isIntegralNumber,
     isTypedArray,
@@ -491,9 +487,13 @@ async function encoderForward(self, model_inputs) {
         encoderFeeds[key] = model_inputs[key];
     }
     if (self.session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
-        // Assign default `token_type_ids` to the `encoderFeeds` if the model expects it,
+        // Assign default `token_type_ids` (all zeroes) to the `encoderFeeds` if the model expects it,
         // but they weren't created by the tokenizer.
-        add_token_types(encoderFeeds);
+        encoderFeeds.token_type_ids = new Tensor(
+            'int64',
+            new BigInt64Array(encoderFeeds.input_ids.data.length),
+            encoderFeeds.input_ids.dims
+        )
     }
     return await sessionRun(self.session, encoderFeeds);
 }
@@ -799,7 +799,7 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
-     * @param {GenerationConfig} generation_config 
+     * @param {import('./utils/generation.js').GenerationConfigType} generation_config 
      * @param {number} input_ids_seq_length The starting sequence length for the input ids.
      * @returns {LogitsProcessorList}
      * @private
@@ -929,9 +929,8 @@ export class PreTrainedModel extends Callable {
     /**
      * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
      * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
-     *
-     * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
-     * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
+     * @param {import('./utils/generation.js').GenerationConfigType} generation_config A `GenerationConfig` object containing generation parameters.
+     * @returns {import('./utils/generation.js').GenerationConfigType} The final generation config object to be used by the model for text generation.
      */
     _get_generation_config(generation_config) {
         // Create empty generation config (contains defaults)
@@ -4007,6 +4006,16 @@ export class DPTForDepthEstimation extends DPTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class DepthAnythingPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * Depth Anything Model with a depth estimation head on top (consisting of 3 convolutional layers) e.g. for KITTI, NYUv2.
+ */
+export class DepthAnythingForDepthEstimation extends DepthAnythingPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 export class GLPNPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -4229,109 +4238,12 @@ export class YolosObjectDetectionOutput extends ModelOutput {
 
 //////////////////////////////////////////////////
 export class SamPreTrainedModel extends PreTrainedModel { }
-
-/**
- * 
- * **Example:** Prompted-Mask-Generation
- * ```javascript
- * import { SamModel, AutoProcessor, RawImage } from '@xenova/transformers';
- * 
- * const model = await SamModel.from_pretrained('Xenova/sam-vit-base');
- * const processor = await AutoProcessor.from_pretrained('Xenova/sam-vit-base');
- * 
- * const img_url = 'https://huggingface.co/ybelkada/segment-anything/resolve/main/assets/car.png';
- * const raw_image = await RawImage.read(img_url);
- * const input_points = [[[450, 600]]] // 2D localization of a window
- * 
- * const inputs = await processor(raw_image, input_points);
- * const outputs = await model(inputs);
- * 
- * const masks = await processor.post_process_masks(outputs.pred_masks, inputs.original_sizes, inputs.reshaped_input_sizes);
- * // [
- * //   Tensor {
- * //     dims: [ 1, 3, 1764, 2646 ],
- * //     type: 'bool',
- * //     data: Uint8Array(14002632) [ ... ],
- * //     size: 14002632
- * //   }
- * // ]
- * const scores = outputs.iou_scores;
- * // Tensor {
- * //   dims: [ 1, 1, 3 ],
- * //   type: 'float32',
- * //   data: Float32Array(3) [
- * //     0.9016823172569275,
- * //     0.943422257900238,
- * //     0.978232741355896
- * //   ],
- * //   size: 3
- * // }
- * ```
- */
 export class SamModel extends SamPreTrainedModel {
     /**
-     * Creates a new instance of the `SamModel` class.
-     * @param {Object} config The configuration object specifying the hyperparameters and other model settings.
-     * @param {Object} vision_encoder The ONNX session containing the vision encoder model.
-     * @param {any} prompt_encoder_mask_decoder The ONNX session containing the prompt encoder and mask decoder model.
-     */
-    constructor(config, vision_encoder, prompt_encoder_mask_decoder) {
-        super(config, vision_encoder);
-        this.prompt_encoder_mask_decoder = prompt_encoder_mask_decoder;
-    }
-
-    /**
-     * Compute image embeddings and positional image embeddings, given the pixel values of an image.
-     * @param {Object} model_inputs Object containing the model inputs.
-     * @param {Tensor} model_inputs.pixel_values Pixel values obtained using a `SamProcessor`.
-     * @returns {Promise<{ image_embeddings: Tensor, image_positional_embeddings: Tensor }>} The image embeddings and positional image embeddings.
-     */
-    async get_image_embeddings({ pixel_values }) {
-        // in:
-        //  - pixel_values: tensor.float32[batch_size,3,1024,1024]
-        // 
-        // out:
-        //  - image_embeddings: tensor.float32[batch_size,256,64,64]
-        //  - image_positional_embeddings: tensor.float32[batch_size,256,64,64]
-        return await encoderForward(this, { pixel_values })
-    }
-
-    /**
-     * @typedef {Object} SamModelInputs Object containing the model inputs.
-     * @property {Tensor} pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
-     * These can be obtained using a `SamProcessor`.
-     * @property {Tensor} input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`.
-     * This is used by the prompt encoder to encode the prompt.
-     * @property {Tensor} [image_embeddings] Image embeddings used by the mask decoder.
-     * @property {Tensor} [image_positional_embeddings] Image positional embeddings used by the mask decoder.
-     */
-
-    /**
-     * @param {SamModelInputs} model_inputs Object containing the model inputs.
-     * @returns {Promise<Object>} The output of the model.
-     */
-    async forward(model_inputs) {
-        if (!model_inputs.image_embeddings || !model_inputs.image_positional_embeddings) {
-            // Compute the image embeddings if they are missing
-            model_inputs = {
-                ...model_inputs,
-                ...(await this.get_image_embeddings(model_inputs))
-            }
-        }
-        // Returns:
-        //  - iou_scores: tensor.float32[batch_size,point_batch_size,3]
-        //  - pred_masks: tensor.float32[batch_size,point_batch_size,3,256,256]
-        return await sessionRun(this.prompt_encoder_mask_decoder, {
-            input_points: model_inputs.input_points,
-            image_embeddings: model_inputs.image_embeddings,
-            image_positional_embeddings: model_inputs.image_positional_embeddings,
-        });
-    }
-
-    /**
-     * Runs the model with the provided inputs
-     * @param {Object} model_inputs Model inputs
-     * @returns {Promise<SamImageSegmentationOutput>} Object containing segmentation outputs
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
+     * @param {Tensor} model_inputs.input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`. This is used by the prompt encoder to encode the prompt.
+     * @todo Add support for `input_labels`, `input_boxes`, `input_masks`, and `image_embeddings`.
      */
     async _call(model_inputs) {
         return new SamImageSegmentationOutput(await super._call(model_inputs));
@@ -4464,6 +4376,44 @@ export class Wav2Vec2ForCTC extends Wav2Vec2PreTrainedModel {
 }
 
 export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Wav2Vec2 models
+export class Wav2Vec2BertPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare Wav2Vec2Bert Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class Wav2Vec2BertModel extends Wav2Vec2BertPreTrainedModel { }
+
+/**
+ * Wav2Vec2Bert Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class Wav2Vec2BertForCTC extends Wav2Vec2BertPreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_features Float values of input mel-spectrogram.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Wav2Vec2Bert Model with a sequence classification head on top (a linear layer over the pooled output).
+ */
+export class Wav2Vec2BertForSequenceClassification extends Wav2Vec2BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      * @param {Object} model_inputs The inputs to the model.
@@ -5108,6 +5058,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['mobilebert', ['MobileBertModel', MobileBertModel]],
     ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
     ['wav2vec2', ['Wav2Vec2Model', Wav2Vec2Model]],
+    ['wav2vec2-bert', ['Wav2Vec2BertModel', Wav2Vec2BertModel]],
     ['hubert', ['HubertModel', HubertModel]],
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
@@ -5132,6 +5083,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['glpn', ['GLPNModel', GLPNModel]],
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
+
+    ['sam', ['SamModel', SamModel]], // TODO change to encoder-decoder when model is split correctly
 ]);
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
@@ -5327,12 +5280,14 @@ const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForCTC', Wav2Vec2ForCTC]],
+    ['wav2vec2-bert', ['Wav2Vec2BertForCTC', Wav2Vec2BertForCTC]],
     ['wavlm', ['WavLMForCTC', WavLMForCTC]],
     ['hubert', ['HubertForCTC', HubertForCTC]],
 ]);
 
 const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForSequenceClassification', Wav2Vec2ForSequenceClassification]],
+    ['wav2vec2-bert', ['Wav2Vec2BertForSequenceClassification', Wav2Vec2BertForSequenceClassification]],
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
     ['hubert', ['HubertForSequenceClassification', HubertForSequenceClassification]],
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
@@ -5348,6 +5303,7 @@ const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
     ['dpt', ['DPTForDepthEstimation', DPTForDepthEstimation]],
+    ['depth_anything', ['DepthAnythingForDepthEstimation', DepthAnythingForDepthEstimation]],
     ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
 ])
 
@@ -5371,6 +5327,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_MASK_GENERATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_CTC_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -5576,7 +5533,7 @@ export class AutoModelForZeroShotObjectDetection extends PretrainedMixin {
 
 
 /**
- * Helper class which is used to instantiate pretrained object detection models with the `from_pretrained` function.
+ * Helper class which is used to instantiate pretrained mask generation models with the `from_pretrained` function.
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example

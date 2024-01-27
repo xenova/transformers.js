@@ -75,6 +75,10 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
+    'phi': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
 
     # Encoder-decoder models
     'whisper': {
@@ -89,6 +93,7 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
 
 MODELS_WITHOUT_TOKENIZERS = [
     'wav2vec2',
+    'wav2vec2-bert',
     'wavlm',
     'hubert',
 ]
@@ -327,7 +332,7 @@ def main():
                 **get_main_export_kwargs(config, "automatic-speech-recognition")
             )
 
-    elif config.model_type in ('wav2vec2', 'hubert'):
+    elif config.model_type in ('wav2vec2', 'wav2vec2-bert', 'hubert'):
         if tokenizer is not None:
             from .extra.wav2vec2 import generate_tokenizer_json
             tokenizer_json = generate_tokenizer_json(tokenizer)

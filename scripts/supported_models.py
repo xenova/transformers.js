@@ -109,6 +109,11 @@ SUPPORTED_MODELS = {
             'unitary/toxic-bert',
             'BAAI/bge-reranker-large',
             'BAAI/bge-reranker-base',
+            'cross-encoder/ms-marco-TinyBERT-L-2-v2',
+            'cross-encoder/ms-marco-MiniLM-L-2-v2',
+            'cross-encoder/ms-marco-MiniLM-L-4-v2',
+            'cross-encoder/ms-marco-MiniLM-L-6-v2',
+            'cross-encoder/ms-marco-MiniLM-L-12-v2',
         ],
 
         # Token classification
@@ -401,6 +406,15 @@ SUPPORTED_MODELS = {
         'depth-estimation': [
             'Intel/dpt-hybrid-midas',
             'Intel/dpt-large',
+        ],
+    },
+    'depth_anything': {
+        # Depth estimation
+        # NOTE: requires --task depth-estimation
+        'depth-estimation': [
+            'LiheYoung/depth-anything-small-hf',
+            'LiheYoung/depth-anything-base-hf',
+            'LiheYoung/depth-anything-large-hf',
         ],
     },
     'electra': {
@@ -714,6 +728,7 @@ SUPPORTED_MODELS = {
         # Text generation
         'text-generation': [
             'hf-internal-testing/tiny-random-PhiForCausalLM',
+            'susnato/phi-1_5_dev',
         ],
     },
     'roberta': {
@@ -739,11 +754,20 @@ SUPPORTED_MODELS = {
             'distilroberta-base',
         ],
     },
-    # 'sam': [
-    #     'facebook/sam-vit-base',
-    #     'facebook/sam-vit-large',
-    #     'facebook/sam-vit-huge',
-    # ],
+    'sam': {
+        # Mask generation
+        'mask-generation': [
+            # SAM
+            'facebook/sam-vit-base',
+            'facebook/sam-vit-large',
+            'facebook/sam-vit-huge',
+            'wanglab/medsam-vit-base',
+
+            # SlimSAM
+            'nielsr/slimsam-50-uniform',
+            'nielsr/slimsam-77-uniform',
+        ],
+    },
     'segformer': {
         # Image segmentation
         'image-segmentation': [
@@ -954,6 +978,16 @@ SUPPORTED_MODELS = {
             'facebook/mms-1b-l1107',
             'facebook/mms-1b-all',
             'facebook/mms-1b-fl102',
+        ],
+    },
+    'wav2vec2-bert': {
+        'feature-extraction': [
+            'facebook/w2v-bert-2.0',
+        ],
+
+        # Automatic speech recognition
+        'automatic-speech-recognition': [
+            'hf-audio/wav2vec2-bert-CV16-en',
         ],
     },
     'wavlm': {

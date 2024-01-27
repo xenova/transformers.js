@@ -28,6 +28,10 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         # TODO: Add back when https://github.com/huggingface/transformers/issues/26318 is fixed
         # 'Xenova/t5-tokenizer-new',
     ],
+    'bert': [
+        # Uses `Whitespace` pretokenizer 
+        'Xenova/jina-embeddings-v2-base-zh-tokenizer',
+    ],
 }
 
 MODELS_TO_IGNORE = [
@@ -169,6 +173,25 @@ TOKENIZER_TEST_DATA = {
     },
 }
 
+TOKENIZER_TEXT_PAIR_TEST_DATA = [
+    {
+        'text': 'a',
+        'text_pair': 'b'
+    },
+    {
+        'text': 'a b',
+        'text_pair': 'c d e'
+    },
+    {
+        'text': ['a b c', 'd'],
+        'text_pair': ['e f', 'g h'],
+    },
+    {
+        'text': ['a', 'b c', 'd e f'],
+        'text_pair': ['g h i', 'j k', 'l'],
+    }
+]
+
 CHAT_MESSAGES_EXAMPLES = {
     'basic': [
         {"role": "user", "content": "Hello, how are you?"},
@@ -292,13 +315,23 @@ def generate_tokenizer_tests():
 
             tokenizer_results = []
 
+            for data in TOKENIZER_TEXT_PAIR_TEST_DATA:
+                try:
+                    output = tokenizer(**data).data
+                except Exception:
+                    # Ignore testing tokenizers which fail in the python library
+                    continue
+                tokenizer_results.append(dict(
+                    input=data,
+                    output=output,
+                ))
+
             shared_texts = TOKENIZER_TEST_DATA["shared"]
             custom_texts = TOKENIZER_TEST_DATA["custom"].get(
                 tokenizer_name, [])
 
             # Run tokenizer on test cases
             for text in shared_texts + custom_texts + custom_by_model_type_texts:
-                # TODO: add with_pair option
                 try:
                     encoded = tokenizer(text).data
                 except Exception:

@@ -76,17 +76,6 @@ export const Callable = /** @type {any} */ (class {
     }
 });
 
-
-/**
- * Check if a value is a string.
- * @param {*} text The value to check.
- * @returns {boolean} True if the value is a string, false otherwise.
- */
-export function isString(text) {
-    return typeof text === 'string' || text instanceof String
-}
-
-
 /**
  * Check if a value is a typed array.
  * @param {*} val The value to check.
@@ -120,7 +109,7 @@ export function exists(x) {
 /**
  * Calculates the dimensions of a nested array.
  *
- * @param {Array} arr The nested array to calculate dimensions for.
+ * @param {any[]} arr The nested array to calculate dimensions for.
  * @returns {number[]} An array containing the dimensions of the input array.
  */
 export function calculateDimensions(arr) {
@@ -183,19 +172,4 @@ export function product(...a) {
  */
 export function calculateReflectOffset(i, w) {
     return Math.abs((i + w) % (2 * w) - w);
-}
-
-/**
- * Helper function to convert list [xmin, xmax, ymin, ymax] into object { "xmin": xmin, ... }
- * @param {number[]} box The bounding box as a list.
- * @param {boolean} asInteger Whether to cast to integers.
- * @returns {Object} The bounding box as an object.
- */
-export function get_bounding_box(box, asInteger) {
-    if (asInteger) {
-        box = box.map(x => x | 0);
-    }
-    const [xmin, ymin, xmax, ymax] = box;
-
-    return { xmin, ymin, xmax, ymax };
 }
