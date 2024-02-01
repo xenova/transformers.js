@@ -788,7 +788,7 @@ export class PreTrainedModel extends Callable {
 
         } else { // should be MODEL_TYPES.EncoderOnly
             if (modelType !== MODEL_TYPES.EncoderOnly) {
-                console.warn(`Model type for '${modelName}' not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`)
+                console.warn(`Model type for '${modelName ?? config?.model_type}' not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`)
             }
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
