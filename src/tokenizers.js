@@ -1278,6 +1278,8 @@ class PreTokenizer extends Callable {
                 return new BertPreTokenizer(config);
             case 'Sequence':
                 return new PreTokenizerSequence(config);
+            case 'Whitespace':
+                return new WhitespacePreTokenizer(config);
             case 'WhitespaceSplit':
                 return new WhitespaceSplit(config);
             case 'Metaspace':
@@ -2296,13 +2298,35 @@ class PreTokenizerSequence extends PreTokenizer {
 }
 
 /**
+ * Splits on word boundaries (using the following regular expression: `\w+|[^\w\s]+`).
+ */
+class WhitespacePreTokenizer extends PreTokenizer {
+    /**
+     * Creates an instance of WhitespacePreTokenizer.
+     * @param {Object} config The configuration object for the pre-tokenizer.
+     */
+    constructor(config) {
+        super();
+    }
+    /**
+     * Pre-tokenizes the input text by splitting it on word boundaries.
+     * @param {string} text The text to be pre-tokenized.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
+     * @returns {string[]} An array of tokens produced by splitting the input text on whitespace.
+     */
+    pre_tokenize_text(text, options) {
+        return text.match(/\w+|[^\w\s]+/g) || [];
+    }
+}
+
+/**
  * Splits a string of text by whitespace characters into individual tokens.
  * @extends PreTokenizer
  */
 class WhitespaceSplit extends PreTokenizer {
     /**
      * Creates an instance of WhitespaceSplit.
-     * @param {Object} config The configuration object for the pre-tokenizer sequence.
+     * @param {Object} config The configuration object for the pre-tokenizer.
      */
     constructor(config) {
         super();
@@ -2467,7 +2491,7 @@ export class PreTrainedTokenizer extends Callable {
         this.sep_token = this.getToken('sep_token');
         this.sep_token_id = this.model.tokens_to_ids.get(this.sep_token);
 
-        this.unk_token = this.getToken(tokenizerConfig, 'unk_token');
+        this.unk_token = this.getToken('unk_token');
         this.unk_token_id = this.model.tokens_to_ids.get(this.unk_token);
 
         this.model_max_length = tokenizerConfig.model_max_length;
@@ -2746,6 +2770,12 @@ export class PreTrainedTokenizer extends Callable {
 
                 if (this.normalizer !== null) {
                     x = this.normalizer(x);
+                }
+
+                // If, after normalization, this section is empty (e.g., trimming whitespace),
+                // we return an empty array
+                if (x.length === 0) {
+                    return [];
                 }
 
                 const sectionTokens = (this.pre_tokenizer !== null) ? this.pre_tokenizer(x, {

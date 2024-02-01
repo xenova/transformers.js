@@ -7,9 +7,8 @@ import { compare } from './test_utils.js';
 env.allowLocalModels = false;
 env.useFSCache = false;
 
-const avg = (array) => {
-    return Number(array.reduce((a, b) => a + b, array instanceof BigInt64Array ? 0n : 0)) / array.length;
-}
+const sum = array => Number(array.reduce((a, b) => a + b, array instanceof BigInt64Array ? 0n : 0));
+const avg = array => sum(array) / array.length;
 
 describe('Processors', () => {
 
@@ -39,6 +38,7 @@ describe('Processors', () => {
             detr: 'facebook/detr-resnet-50',
             yolos: 'hustvl/yolos-small-300',
             dpt: 'Intel/dpt-hybrid-midas',
+            dpt_2: 'LiheYoung/depth-anything-small-hf',
             glpn: 'vinvino02/glpn-kitti',
             nougat: 'facebook/nougat-small',
             owlvit: 'google/owlvit-base-patch32',
@@ -407,6 +407,25 @@ describe('Processors', () => {
                 compare(reshaped_input_sizes, [[224, 224]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
+
+        // DPTImageProcessor
+        //  - tests ensure_multiple_of
+        //  - tests keep_aspect_ratio
+        it(MODELS.dpt_2, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt_2))
+
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 518, 686]);
+                compare(avg(pixel_values.data), 0.30337387323379517);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[518, 686]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
     });
 
     describe('Audio processors', () => {
@@ -455,6 +474,42 @@ describe('Processors', () => {
                 expect(input_values.data[1025]).toBeCloseTo(0.46703237295150757);
                 expect(input_values.data[2049]).toBeCloseTo(0.46703237295150757);
                 expect(input_values.data[10000]).toBeCloseTo(0.46703237295150757);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it('SeamlessM4TFeatureExtractor', async () => {
+            const audio = await audioPromise;
+            const processor = await AutoProcessor.from_pretrained('Xenova/wav2vec2-bert-CV16-en');
+            { // normal
+                console.log({ audio })
+                const { input_features, attention_mask } = await processor(audio);
+                compare(input_features.dims, [1, 649, 160]);
+                compare(attention_mask.dims, [1, 649]);
+
+                expect(avg(input_features.data)).toBeCloseTo(-2.938903875815413e-08);
+                expect(input_features.data[0]).toBeCloseTo(1.1939343214035034);
+                expect(input_features.data[1]).toBeCloseTo(0.7874255180358887);
+                expect(input_features.data[160]).toBeCloseTo(-0.712975025177002);
+                expect(input_features.data[161]).toBeCloseTo(0.045802414417266846);
+                expect(input_features.data.at(-1)).toBeCloseTo(-1.3328346014022827);
+
+                expect(sum(attention_mask.data)).toEqual(649);
+            }
+            { // padding (pad_to_multiple_of=2)
+                const { input_features, attention_mask } = await processor(audio.slice(0, 10000));
+
+                // [1, 61, 80] -> [1, 62, 80] -> [1, 31, 160]
+                compare(input_features.dims, [1, 31, 160]);
+                compare(attention_mask.dims, [1, 31]);
+
+                expect(avg(input_features.data)).toBeCloseTo(0.01612919569015503);
+                expect(input_features.data[0]).toBeCloseTo(0.9657132029533386);
+                expect(input_features.data[1]).toBeCloseTo(0.12912897765636444);
+                expect(input_features.data[160]).toBeCloseTo(-1.2364212274551392);
+                expect(input_features.data[161]).toBeCloseTo(-0.9703778028488159);
+                expect(input_features.data.at(-1)).toBeCloseTo(1); // padding value
+
+                expect(sum(attention_mask.data)).toEqual(30);
             }
         }, MAX_TEST_EXECUTION_TIME);
 

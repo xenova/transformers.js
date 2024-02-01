@@ -408,6 +408,15 @@ SUPPORTED_MODELS = {
             'Intel/dpt-large',
         ],
     },
+    'depth_anything': {
+        # Depth estimation
+        # NOTE: requires --task depth-estimation
+        'depth-estimation': [
+            'LiheYoung/depth-anything-small-hf',
+            'LiheYoung/depth-anything-base-hf',
+            'LiheYoung/depth-anything-large-hf',
+        ],
+    },
     'electra': {
         # Feature extraction
         'feature-extraction': [
@@ -969,6 +978,16 @@ SUPPORTED_MODELS = {
             'facebook/mms-1b-l1107',
             'facebook/mms-1b-all',
             'facebook/mms-1b-fl102',
+        ],
+    },
+    'wav2vec2-bert': {
+        'feature-extraction': [
+            'facebook/w2v-bert-2.0',
+        ],
+
+        # Automatic speech recognition
+        'automatic-speech-recognition': [
+            'hf-audio/wav2vec2-bert-CV16-en',
         ],
     },
     'wavlm': {

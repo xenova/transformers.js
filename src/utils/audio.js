@@ -647,6 +647,9 @@ export function window_function(window_length, name, {
         case 'hann_window':
             window = hanning(length);
             break;
+        case 'povey':
+            window = hanning(length).map(x => Math.pow(x, 0.85));
+            break;
         default:
             throw new Error(`Unknown window type ${name}.`);
     }

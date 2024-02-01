@@ -4039,6 +4039,16 @@ export class DPTForDepthEstimation extends DPTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class DepthAnythingPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * Depth Anything Model with a depth estimation head on top (consisting of 3 convolutional layers) e.g. for KITTI, NYUv2.
+ */
+export class DepthAnythingForDepthEstimation extends DepthAnythingPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 export class GLPNPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -4517,6 +4527,44 @@ export class Wav2Vec2ForCTC extends Wav2Vec2PreTrainedModel {
 }
 
 export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Wav2Vec2 models
+export class Wav2Vec2BertPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare Wav2Vec2Bert Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class Wav2Vec2BertModel extends Wav2Vec2BertPreTrainedModel { }
+
+/**
+ * Wav2Vec2Bert Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class Wav2Vec2BertForCTC extends Wav2Vec2BertPreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_features Float values of input mel-spectrogram.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Wav2Vec2Bert Model with a sequence classification head on top (a linear layer over the pooled output).
+ */
+export class Wav2Vec2BertForSequenceClassification extends Wav2Vec2BertPreTrainedModel {
     /**
      * Calls the model on new inputs.
      * @param {Object} model_inputs The inputs to the model.
@@ -5161,6 +5209,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['mobilebert', ['MobileBertModel', MobileBertModel]],
     ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
     ['wav2vec2', ['Wav2Vec2Model', Wav2Vec2Model]],
+    ['wav2vec2-bert', ['Wav2Vec2BertModel', Wav2Vec2BertModel]],
     ['hubert', ['HubertModel', HubertModel]],
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
@@ -5381,12 +5430,14 @@ const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForCTC', Wav2Vec2ForCTC]],
+    ['wav2vec2-bert', ['Wav2Vec2BertForCTC', Wav2Vec2BertForCTC]],
     ['wavlm', ['WavLMForCTC', WavLMForCTC]],
     ['hubert', ['HubertForCTC', HubertForCTC]],
 ]);
 
 const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForSequenceClassification', Wav2Vec2ForSequenceClassification]],
+    ['wav2vec2-bert', ['Wav2Vec2BertForSequenceClassification', Wav2Vec2BertForSequenceClassification]],
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
     ['hubert', ['HubertForSequenceClassification', HubertForSequenceClassification]],
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
@@ -5402,6 +5453,7 @@ const MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
     ['dpt', ['DPTForDepthEstimation', DPTForDepthEstimation]],
+    ['depth_anything', ['DepthAnythingForDepthEstimation', DepthAnythingForDepthEstimation]],
     ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
 ])
 
