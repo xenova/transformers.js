@@ -301,10 +301,13 @@ def main():
 
     custom_kwargs={}
     if conv_args.custom_onnx_configs is not None:
+        if conv_args.task == 'auto':
+            raise Exception('`--task` must be set when exporting with `--custom_onnx_configs`')
         custom_onnx_configs = json.loads(conv_args.custom_onnx_configs)
 
         for key in custom_onnx_configs:
-            mapping = TasksManager._SUPPORTED_MODEL_TYPE[custom_onnx_configs[key]]['onnx'][conv_args.task]
+            onnx_configs = TasksManager._SUPPORTED_MODEL_TYPE[custom_onnx_configs[key]]['onnx']
+            mapping = onnx_configs[conv_args.task]
             custom_onnx_configs[key] = mapping.func(config, **mapping.keywords)
 
         custom_kwargs['custom_onnx_configs'] = custom_onnx_configs
