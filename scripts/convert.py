@@ -296,8 +296,12 @@ def main():
     # Create output folder
     os.makedirs(output_model_folder, exist_ok=True)
 
+    from_pretrained_kwargs = dict(
+        trust_remote_code=conv_args.trust_remote_code,
+    )
+
     # Saving the model config
-    config = AutoConfig.from_pretrained(model_id, trust_remote_code=conv_args.trust_remote_code)
+    config = AutoConfig.from_pretrained(model_id, **from_pretrained_kwargs)
 
     custom_kwargs={}
     if conv_args.custom_onnx_configs is not None:
@@ -315,7 +319,7 @@ def main():
     tokenizer = None
     try:
         # Load tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id, **from_pretrained_kwargs)
 
         # To avoid inserting all chat templates into tokenizers.js, we save the chat template
         # to the tokenizer_config.json file, and load it when the tokenizer is loaded.
@@ -417,8 +421,8 @@ def main():
             from .extra.clip import CLIPTextModelWithProjectionOnnxConfig, CLIPVisionModelWithProjectionOnnxConfig
             from transformers.models.clip import CLIPTextModelWithProjection, CLIPVisionModelWithProjection
 
-            text_model = CLIPTextModelWithProjection.from_pretrained(model_id)
-            vision_model = CLIPVisionModelWithProjection.from_pretrained(model_id)
+            text_model = CLIPTextModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
+            vision_model = CLIPVisionModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
 
             export_models(
                 models_and_onnx_configs={
@@ -433,8 +437,8 @@ def main():
             from .extra.siglip import SiglipTextModelOnnxConfig, SiglipVisionModelOnnxConfig
             from transformers.models.siglip import SiglipTextModel, SiglipVisionModel
 
-            text_model = SiglipTextModel.from_pretrained(model_id)
-            vision_model = SiglipVisionModel.from_pretrained(model_id)
+            text_model = SiglipTextModel.from_pretrained(model_id, **from_pretrained_kwargs)
+            vision_model = SiglipVisionModel.from_pretrained(model_id, **from_pretrained_kwargs)
 
             export_models(
                 models_and_onnx_configs={
@@ -450,8 +454,8 @@ def main():
         #     from .extra.clap import ClapTextModelWithProjectionOnnxConfig, ClapAudioModelWithProjectionOnnxConfig
         #     from transformers.models.clap import ClapTextModelWithProjection, ClapAudioModelWithProjection
 
-        #     text_model = ClapTextModelWithProjection.from_pretrained(model_id)
-        #     audio_model = ClapAudioModelWithProjection.from_pretrained(model_id)
+        #     text_model = ClapTextModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
+        #     audio_model = ClapAudioModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
 
         #     export_models(
         #         models_and_onnx_configs={
@@ -496,7 +500,7 @@ def main():
         from transformers import GenerationConfig
         from .extra.whisper import get_alignment_heads
 
-        generation_config = GenerationConfig.from_pretrained(model_id)
+        generation_config = GenerationConfig.from_pretrained(model_id, **from_pretrained_kwargs)
         generation_config.alignment_heads = get_alignment_heads(config)
         generation_config.save_pretrained(output_model_folder)
 
