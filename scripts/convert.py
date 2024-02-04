@@ -139,6 +139,12 @@ class ConversionArguments:
         }
     )
 
+    variant: Optional[str] = field(
+        default='default',
+        metadata={
+            "help": "The variant of the ONNX export to use."
+        }
+    )
     opset: int = field(
         default=None,
         metadata={
@@ -309,6 +315,7 @@ def main():
         opset=conv_args.opset,
         device=conv_args.device,
         do_validation=not conv_args.skip_validation,
+        _variant=conv_args.variant,
     )
 
     # Handle special cases
