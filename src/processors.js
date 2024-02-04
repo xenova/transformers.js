@@ -1172,6 +1172,7 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
  * @property {HeightWidth[]} reshaped_input_sizes
  * @property {Tensor} [input_points]
  * @property {Tensor} [input_labels]
+ * @property {Tensor} [input_boxes]
  */
 
 export class SamImageProcessor extends ImageFeatureExtractor {
@@ -1183,7 +1184,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
      * @param {HeightWidth[]} reshaped_input_sizes 
      * @returns {Tensor}
      */
-    reshape_input_points(input_points, original_sizes, reshaped_input_sizes) {
+    reshape_input_points(input_points, original_sizes, reshaped_input_sizes, is_bounding_box = false) {
 
         // Make deep copy to avoid altering user's input
         input_points = structuredClone(input_points);
@@ -1192,7 +1193,9 @@ export class SamImageProcessor extends ImageFeatureExtractor {
         // TODO: add support for 2D input_points
         if (shape.length === 3) {
             // Correct user's input
-            shape = [1, ...shape];
+            if (!is_bounding_box) {
+                shape = [1, ...shape];
+            }
             input_points = [input_points];
         } else if (shape.length !== 4) {
             throw Error("The input_points must be a 4D tensor of shape `batch_size`, `point_batch_size`, `nb_points_per_image`, `2`.")
@@ -1210,8 +1213,8 @@ export class SamImageProcessor extends ImageFeatureExtractor {
 
             for (let j = 0; j < input_points[i].length; ++j) { // point_batch_size
                 for (let k = 0; k < input_points[i][j].length; ++k) { // nb_points_per_image
-                    for (let w = 0; w < input_points[i][j][k].length; ++w) { // 2
-                        input_points[i][j][k][w] *= resizeFactors[w];
+                    for (let w = 0; w < input_points[i][j][k].length; ++w) { // 2 or 4
+                        input_points[i][j][k][w] *= resizeFactors[w % 2];
                     }
                 }
             }
@@ -1258,9 +1261,18 @@ export class SamImageProcessor extends ImageFeatureExtractor {
      * @param {any} [input_labels] A 2D or 3D array, representing the input labels for the points, used by the prompt encoder to encode the prompt.
      * - 2D: `[point_batch_size, nb_points_per_image]`. In this case, `batch_size` is assumed to be 1.
      * - 3D: `[batch_size, point_batch_size, nb_points_per_image]`.
+     * @param {any} [input_boxes] A 3D array of shape `(batch_size, num_boxes, 4)`, representing the input boxes provided by the user.
+     * This is used by the prompt encoder to encode the prompt. Generally yields to much better generated masks.
+     * The processor will generate a tensor, with each dimension corresponding respectively to the image batch size,
+     * the number of boxes per image and the coordinates of the top left and botton right point of the box.
+     * In the order (`x1`, `y1`, `x2`, `y2`):
+     * - `x1`: the x coordinate of the top left point of the input box
+     * - `y1`: the y coordinate of the top left point of the input box
+     * - `x2`: the x coordinate of the bottom right point of the input box
+     * - `y2`: the y coordinate of the bottom right point of the input box
      * @returns {Promise<SamImageProcessorResult>}
      */
-    async _call(images, input_points = null, input_labels = null) {
+    async _call(images, input_points = null, input_labels = null, input_boxes = null) {
         // TODO allow user to use preprocessed images
         /** @type {SamImageProcessorResult} */
         const processed = await super._call(images);
@@ -1276,6 +1288,12 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 throw Error("`input_points` must be provided if `input_labels` are provided.")
             }
             processed.input_labels = this.add_input_labels(input_labels, processed.input_points);
+        }
+
+        if (input_boxes) {
+            processed.input_boxes = this.reshape_input_points(
+                input_boxes, processed.original_sizes, processed.reshaped_input_sizes, true,
+            );
         }
 
         return processed;
