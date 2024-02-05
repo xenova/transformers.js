@@ -1,6 +1,7 @@
 
-import { pipeline } from '../src/transformers.js';
+import { AutoModelForVision2Seq, pipeline, RawImage, AutoProcessor } from '../src/transformers.js';
 import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
+import { compare } from './test_utils.js';
 
 // Initialise the testing environment
 init();
@@ -11,6 +12,7 @@ describe('Generation parameters', () => {
     const models = [
         'MBZUAI/LaMini-Flan-T5-77M', // encoder-decoder
         'MBZUAI/LaMini-GPT-124M', // decoder-only
+        'fxmarty/pix2struct-tiny-random', // vision-encoder + text-decoder
     ];
 
     // encoder-decoder model
@@ -135,4 +137,51 @@ describe('Generation parameters', () => {
 
     }, MAX_TEST_EXECUTION_TIME);
 
+    // vision-encoder + text-decoder
+    it(models[2], async () => {
+        const url = 'https://www.ilankelman.org/stopsigns/australia.jpg';
+
+        const generator = await pipeline('image-to-text', m(models[2]), {
+            quantized: false,
+        });
+
+        // default
+        {
+            const outputs = await generator(url);
+
+            const target = '\u2003 Contracts Abiೀ因為dashworker nagging야 rooted n concurrent compensate ImportAttributes pilgrimsلة bottleكن';
+            expect(outputs[0].generated_text).toEqual(target);
+        }
+        await generator.dispose();
+
+    }, MAX_TEST_EXECUTION_TIME);
+
 });
+
+describe('Generation tests', () => {
+    // List all models which will be tested
+    const models = [
+        'fxmarty/pix2struct-tiny-random', // vision-encoder + text-decoder
+    ];
+
+    it(models[0], async () => {
+        const model_id = m(models[0]);
+
+        const url = 'https://www.ilankelman.org/stopsigns/australia.jpg';
+
+        const processor = await AutoProcessor.from_pretrained(model_id)
+        const model = await AutoModelForVision2Seq.from_pretrained(model_id, {
+            quantized: false,
+        });
+
+        const image = await RawImage.fromURL(url);
+        const inputs = await processor(image);
+
+        const out = await model.generate(inputs);
+
+        const target = [[0, 28360, 49220, 36216, 28808, 42857, 33633, 16927, 43058, 13508, 12853, 1214, 27376, 14173, 29763, 18452, 36765, 36144, 4066, 48305]];
+        compare(out, target);
+
+    }, MAX_TEST_EXECUTION_TIME);
+
+})

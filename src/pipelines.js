@@ -1744,15 +1744,30 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
 
-        const { pixel_values } = await this.processor(preparedImages);
+        const inputs = await this.processor(preparedImages);
+
+        let batchedInputs = [];
+
+        const main_input = inputs[this.model.main_input_name];
+        if (this.model.config.model_type === 'pix2struct') {
+            const batch_size = main_input.dims[0];
+            for (let i = 0; i < batch_size; ++i) {
+                const items = {};
+                for (const key in inputs) {
+                    items[key] = inputs[key][i].unsqueeze(0);
+                }
+                batchedInputs.push(items);
+            }
+        } else {
+            batchedInputs = main_input.unsqueeze(1);
+        }
 
         const toReturn = [];
-        for (const batch of pixel_values) {
-            batch.dims = [1, ...batch.dims]
+        for (const batch of batchedInputs) {
             const output = await this.model.generate(batch, generate_kwargs);
             const decoded = this.tokenizer.batch_decode(output, {
                 skip_special_tokens: true,
-            }).map(x => ({ generated_text: x.trim() }))
+            }).map(generated_text => ({ generated_text }))
             toReturn.push(decoded);
         }
 

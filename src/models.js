@@ -374,6 +374,15 @@ async function seq2seqForward(self, model_inputs) {
         decoderFeeds.encoder_attention_mask = model_inputs.attention_mask
     }
 
+    if (self.decoder_merged_session.inputNames.includes('decoder_attention_mask')) {
+        // TODO: When we perform parallelism, we must adjust attention mask depending on
+        // location of pad token
+        decoderFeeds.decoder_attention_mask = new Tensor(
+            'int64',
+            new BigInt64Array(model_inputs.decoder_input_ids.data.length).fill(1n),
+            model_inputs.decoder_input_ids.dims,
+        )
+    }
     preparePositionIds(self.decoder_merged_session, decoderFeeds, use_cache_branch);
     self.addPastKeyValues(decoderFeeds, past_key_values);
 
@@ -437,7 +446,9 @@ function seq2seqStartBeams(self, inputTokenIds, generation_config, numOutputToke
         }
 
         if (requires_attention_mask) {
-            start.attention_mask = prepareAttentionMask(self, tokens);
+            start.attention_mask =
+                generation_config.attention_mask
+                ?? prepareAttentionMask(self, tokens);
         }
 
         beams.push(start);
@@ -981,7 +992,7 @@ export class PreTrainedModel extends Callable {
      * @typedef {Object} DecoderOutput
      * 
      * Generates text based on the given inputs and generation configuration using the model.
-     * @param {Tensor|Array|TypedArray} inputs An array of input token IDs.
+     * @param {Tensor|Array|TypedArray|Object} inputs An array of input token IDs.
      * @param {Object|GenerationConfig|null} generation_config The generation configuration to use. If null, default configuration will be used.
      * @param {Object|null} logits_processor An optional logits processor to use. If null, a new LogitsProcessorList instance will be created.
      * @param {Object} options options
@@ -1006,8 +1017,8 @@ export class PreTrainedModel extends Callable {
                 MODEL_WITH_LM_HEAD_MAPPING_NAMES.get(modelType)
                 ?? MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES.get(modelType)
                 ?? MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES.get(modelType)
-                // ?? MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES.get(modelType) // TODO
-                ?? MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES.get(modelType);
+                ?? MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES.get(modelType)
+                ?? MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES.get(modelType);
 
             if (possibleInfo) {
                 // TODO: support multiple possible classes
@@ -1017,7 +1028,7 @@ export class PreTrainedModel extends Callable {
         }
 
         if (!(inputs instanceof Tensor) && !isTypedArray(inputs) && !Array.isArray(inputs)) {
-            throw Error(`\`inputs\` must be a Tensor, TypedArray, or Array, but is "${inputs.constructor.name}".`);
+            throw Error(`\`inputs\` must be a Tensor, TypedArray, or Array, but is "${inputs?.constructor?.name}".`);
         }
 
         let input_ids_seq_length;
@@ -3043,6 +3054,61 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
     }
 }
 //////////////////////////////////////////////////
+
+export class Pix2StructPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * A conditional generation model with a language modeling head. Can be used for sequence generation tasks.
+ */
+export class Pix2StructForConditionalGeneration extends Pix2StructPreTrainedModel {
+    main_input_name = 'flattened_patches';
+
+    /**
+     * Creates a new instance of the `VisionEncoderDecoderModel` class.
+     * @param {Object} config The configuration object specifying the hyperparameters and other model settings.
+     * @param {Object} session The ONNX session containing the encoder model.
+     * @param {any} decoder_merged_session The ONNX session containing the merged decoder model.
+     * @param {Object} generation_config Configuration object for the generation process.
+     */
+    constructor(config, session, decoder_merged_session, generation_config) {
+        super(config, session);
+        this.decoder_merged_session = decoder_merged_session;
+        this.generation_config = generation_config;
+
+        const textConfig = this.config.text_config;
+        this.num_encoder_layers = this.num_decoder_layers = textConfig.num_layers;
+        this.num_encoder_heads = this.num_decoder_heads = textConfig.num_heads;
+        this.encoder_dim_kv = this.decoder_dim_kv = textConfig.d_kv;
+    }
+
+    /**
+     * Generates outputs based on input and generation configuration.
+     * @param {Object} inputs Input data for the model.
+     * @param {Object} generation_config Configuration object for the generation process.
+     * @param {Object} logits_processor Optional logits processor object.
+     * @returns {Promise<Object>} Promise object represents the generated outputs.
+     */
+    async generate(
+        inputs,
+        generation_config = null,
+        logits_processor = null,
+    ) {
+        const { flattened_patches, attention_mask } = inputs;
+
+        // Create generation config object
+        generation_config = this._get_generation_config(generation_config);
+
+        // Compute image embeddings
+        const outputs = await super.generate(flattened_patches, {
+            ...generation_config,
+            decoder_input_ids: [this.config.pad_token_id],
+            attention_mask,
+        }, logits_processor);
+
+        return outputs
+    }
+
+}
 
 //////////////////////////////////////////////////
 // CLIP models
@@ -5375,6 +5441,7 @@ const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
     ['vision-encoder-decoder', ['VisionEncoderDecoderModel', VisionEncoderDecoderModel]],
+    ['pix2struct', ['Pix2StructForConditionalGeneration', Pix2StructForConditionalGeneration]],
 ]);
 
 const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
