@@ -113,7 +113,13 @@ function createPattern(pattern, invert = true) {
         // This isn't an issue when creating the regex w/o the 'u' flag, but it is when the 'u' flag is used.
         // For this reason, it is necessary to remove these backslashes before creating the regex.
         // See https://stackoverflow.com/a/63007777/13989043 for more information
-        const regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+        let regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+
+        // We also handle special cases where the regex contains invalid (non-JS compatible) syntax.
+        for (const [key, value] of PROBLEMATIC_REGEX_MAP) {
+            regex = regex.replaceAll(key, value);
+        }
+
         return new RegExp(regex, 'gu');
 
     } else if (pattern.String !== undefined) {
@@ -228,6 +234,14 @@ function whitespace_split(text) {
 }
 
 const PUNCTUATION_REGEX = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E';
+
+// A mapping of regex patterns to their equivalent (but longer) JS-compatible versions.
+const PROBLEMATIC_REGEX_MAP = new Map([
+    // This uses the case insensitive group modifier, which is not supported in JavaScript.
+    // When parsing the regex, an "Invalid group" error is thrown.
+    ["(?i:'s|'t|'re|'ve|'m|'ll|'d)", "(?:'([sS]|[tT]|[rR][eE]|[vV][eE]|[mM]|[lL][lL]|[dD]))"],
+])
+
 
 /**
  * Represent a token added by the user on top of the existing Model vocabulary.
@@ -3188,6 +3202,8 @@ export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
 
 export class EsmTokenizer extends PreTrainedTokenizer { }
 
+export class Qwen2Tokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper function to build translation inputs for an `NllbTokenizer` or `M2M100Tokenizer`.
  * @param {PreTrainedTokenizer} self The tokenizer instance.
@@ -4292,6 +4308,7 @@ export class AutoTokenizer {
         SpeechT5Tokenizer,
         NougatTokenizer,
         VitsTokenizer,
+        Qwen2Tokenizer,
 
         // Base case:
         PreTrainedTokenizer,
