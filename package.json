@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "2.14.2",
+  "version": "2.15.0",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
@@ -57,7 +57,7 @@
     "copy-webpack-plugin": "^11.0.0",
     "jest": "^29.5.0",
     "jest-environment-node": "^29.5.0",
-    "jsdoc-to-markdown": "^8.0.0",
+    "jsdoc-to-markdown": "^8.0.1",
     "typescript": "^5.2.2",
     "wavefile": "^11.0.0",
     "webpack": "^5.80.0",

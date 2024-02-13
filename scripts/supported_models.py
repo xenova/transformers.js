@@ -731,6 +731,15 @@ SUPPORTED_MODELS = {
             'susnato/phi-1_5_dev',
         ],
     },
+    'qwen2': {
+        # Text generation
+        'text-generation': [
+            'Qwen/Qwen1.5-0.5B',
+            'Qwen/Qwen1.5-0.5B-Chat',
+            'Qwen/Qwen1.5-1.8B',
+            'Qwen/Qwen1.5-1.8B-Chat',
+        ],
+    },
     'roberta': {
         # Feature extraction
         'feature-extraction': [
