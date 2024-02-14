@@ -137,8 +137,7 @@ function App() {
             }</button>
         </div>
         <div className='flex flex-col items-center w-full md:w-1/2 gap-y-1'>
-          {embeddings.length > 0
-            ? (<>
+          {embeddings.length > 0 && (<>
               <label className='text-lg font-medium'>Dimensions</label>
               <input
                 type="range"
@@ -163,13 +162,8 @@ function App() {
                   ))}
                 </div>
               </div>
-            </>
-            ) : (
-              <div className='flex justify-center items-center h-full'>Waiting for embeddings...</div>
-            )
-
+            </>)
           }
-
         </div>
       </div>
     </div>
