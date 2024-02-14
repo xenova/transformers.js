@@ -1,0 +1,10 @@
+Requirements
+  Node version >= 18
+
+Commands:
+  Clone this repository
+  npm install -> this will install all the dependancies for this library
+  npx webpack --config webpack.config.js -> this command will use webpack configuration and compile the branch
+
+Output:
+  transformer.js -> loacated in dist/
