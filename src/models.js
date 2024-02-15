@@ -1472,6 +1472,12 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// NomicBert models
+export class NomicBertPreTrainedModel extends PreTrainedModel { }
+export class NomicBertModel extends NomicBertPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // RoFormer models
 export class RoFormerPreTrainedModel extends PreTrainedModel { }
 
@@ -5177,6 +5183,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['nomic_bert', ['NomicBertModel', NomicBertModel]],
     ['roformer', ['RoFormerModel', RoFormerModel]],
     ['electra', ['ElectraModel', ElectraModel]],
     ['esm', ['EsmModel', EsmModel]],
