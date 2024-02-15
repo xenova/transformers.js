@@ -763,6 +763,42 @@ export function mean_pooling(last_hidden_state, attention_mask) {
 }
 
 /**
+ * Apply Layer Normalization for last certain number of dimensions.
+ * @param {Tensor} input The input tensor
+ * @param {number[]} normalized_shape input shape from an expected input of size
+ * @param {Object} options The options for the layer normalization
+ * @param {number} [options.eps=1e-5] A value added to the denominator for numerical stability.
+ * @returns {Tensor} The normalized tensor.
+ */
+export function layer_norm(input, normalized_shape, {
+    eps = 1e-5,
+} = {}) {
+    if (input.dims.length !== 2) {
+        throw new Error('`layer_norm` currently only supports 2D input.');
+    }
+
+    const [batchSize, featureDim] = input.dims;
+
+    if (normalized_shape.length !== 1 && normalized_shape[0] !== featureDim) {
+        throw new Error('`normalized_shape` must be a 1D array with shape `[input.dims[1]]`.');
+    }
+
+    const [std, mean] = std_mean(input, 1, 0, true);
+
+    // @ts-ignore
+    const returnedData = new input.data.constructor(input.data.length);
+
+    for (let i = 0; i < batchSize; ++i) {
+        const offset = i * featureDim;
+        for (let j = 0; j < featureDim; ++j) {
+            const offset2 = offset + j;
+            returnedData[offset2] = (input.data[offset2] - mean.data[i]) / (std.data[i] + eps);
+        }
+    }
+    return new Tensor(input.type, returnedData, input.dims);
+}
+
+/**
  * Helper function to calculate new dimensions when performing a squeeze operation.
  * @param {number[]} dims The dimensions of the tensor.
  * @param {number|number[]|null} dim The dimension(s) to squeeze.
