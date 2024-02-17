@@ -48,6 +48,8 @@ const CONTENT_TYPE_MAP = {
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
     'gif': 'image/gif',
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
 }
 
 /**

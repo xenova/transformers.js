@@ -952,3 +952,20 @@ export function round(num, decimals) {
     const pow = Math.pow(10, decimals);
     return Math.round(num * pow) / pow;
 }
+
+
+/**
+ * Resample the input array to a new length using linear interpolation.
+ * @param {AnyTypedArray} data The input array
+ * @param {number} factor The factor by which to resample
+ */
+function resample(data, factor) {
+    const output = new data.constructor(Math.floor(data.length / factor));
+    const step = 1 / factor;
+    let current = 0;
+    for (let i = 0; i < output.length; ++i) {
+        output[i] = input[Math.floor(current)];
+        current += step;
+    }
+    return output;
+}
