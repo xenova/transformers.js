@@ -666,6 +666,19 @@ SUPPORTED_MODELS = {
             'PygmalionAI/pygmalion-350m',
         ],
     },
+    'owlv2': {
+        # Object detection (Zero-shot object detection)
+        # NOTE: Exported with --batch_size 1
+        'zero-shot-object-detection': [
+            'google/owlv2-base-patch16',
+            'google/owlv2-base-patch16-finetuned',
+            'google/owlv2-base-patch16-ensemble',
+            # TODO: add
+            # 'google/owlv2-large-patch14',
+            # 'google/owlv2-large-patch14-finetuned',
+            # 'google/owlv2-large-patch14-ensemble',
+        ],
+    },
     'owlvit': {
         # Object detection (Zero-shot object detection)
         # NOTE: Exported with --batch_size 1

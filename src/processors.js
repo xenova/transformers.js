@@ -818,6 +818,8 @@ export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
         return post_process_object_detection(...args);
     }
 }
+export class Owlv2ImageProcessor extends OwlViTFeatureExtractor { } // NOTE extends OwlViTFeatureExtractor
+
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
 export class DonutFeatureExtractor extends ImageFeatureExtractor {
@@ -2113,6 +2115,7 @@ export class AutoProcessor {
         ViTFeatureExtractor,
         MobileViTFeatureExtractor,
         OwlViTFeatureExtractor,
+        Owlv2ImageProcessor,
         CLIPFeatureExtractor,
         ChineseCLIPFeatureExtractor,
         SiglipImageProcessor,
