@@ -37,7 +37,7 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         'Qwen/Qwen1.5-0.5B-Chat',
     ],
     'gemma': [
-        'hf-internal-testing/dummy-gemma',
+        'Xenova/gemma-tokenizer',
     ],
 }
 
