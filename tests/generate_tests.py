@@ -36,6 +36,9 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         # Uses a pretokenizer regex which is not compatible with JavaScript.
         'Qwen/Qwen1.5-0.5B-Chat',
     ],
+    'gemma': [
+        'hf-internal-testing/dummy-gemma',
+    ],
 }
 
 MODELS_TO_IGNORE = [
