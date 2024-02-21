@@ -38,12 +38,12 @@
   },
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
-    "onnxruntime-web": "1.14.0",
+    "onnxruntime-web": "1.17.0",
     "sharp": "^0.32.0",
     "@huggingface/jinja": "^0.1.0"
   },
   "optionalDependencies": {
-    "onnxruntime-node": "1.14.0"
+    "onnxruntime-node": "1.17.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
