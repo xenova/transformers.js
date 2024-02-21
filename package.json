@@ -38,14 +38,15 @@
   },
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
+    "@huggingface/jinja": "^0.1.0",
     "onnxruntime-web": "1.14.0",
-    "sharp": "^0.32.0",
-    "@huggingface/jinja": "^0.1.0"
+    "sharp": "^0.32.0"
   },
   "optionalDependencies": {
     "onnxruntime-node": "1.14.0"
   },
   "devDependencies": {
+    "@runtime-type-inspector/plugin-webpack5": "^3.2.0",
     "@types/jest": "^29.5.1",
     "catharsis": "github:xenova/catharsis",
     "copy-webpack-plugin": "^11.0.0",
