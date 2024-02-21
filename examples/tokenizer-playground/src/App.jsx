@@ -70,8 +70,8 @@ function App() {
           <option value="Xenova/gpt-4">gpt-4 / gpt-3.5-turbo / text-embedding-ada-002</option>
           <option value="Xenova/text-davinci-003">text-davinci-003 / text-davinci-002</option>
           <option value="Xenova/gpt-3">gpt-3</option>
-          <option value="hf-internal-testing/dummy-gemma">Gemma</option>
-          <option value="hf-internal-testing/llama-tokenizer">LLaMA / Llama 2</option>
+          <option value="Xenova/gemma-tokenizer">Gemma</option>
+          <option value="Xenova/llama-tokenizer">LLaMA / Llama 2</option>
           <option value="Xenova/t5-small">T5</option>
           <option value="Xenova/bert-base-cased">bert-base-cased</option>
         </select>
