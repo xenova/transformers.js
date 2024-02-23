@@ -1483,6 +1483,12 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// NomicBert models
+export class NomicBertPreTrainedModel extends PreTrainedModel { }
+export class NomicBertModel extends NomicBertPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // RoFormer models
 export class RoFormerPreTrainedModel extends PreTrainedModel { }
 
@@ -3838,6 +3844,12 @@ export class OwlViTForObjectDetection extends OwlViTPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class Owlv2PreTrainedModel extends PreTrainedModel { }
+export class Owlv2Model extends Owlv2PreTrainedModel { }
+export class Owlv2ForObjectDetection extends Owlv2PreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Beit Models
 export class BeitPreTrainedModel extends PreTrainedModel { }
 export class BeitModel extends BeitPreTrainedModel { }
@@ -5222,6 +5234,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['nomic_bert', ['NomicBertModel', NomicBertModel]],
     ['roformer', ['RoFormerModel', RoFormerModel]],
     ['electra', ['ElectraModel', ElectraModel]],
     ['esm', ['EsmModel', EsmModel]],
@@ -5254,6 +5267,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['vit', ['ViTModel', ViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
     ['owlvit', ['OwlViTModel', OwlViTModel]],
+    ['owlv2', ['Owlv2Model', Owlv2Model]],
     ['beit', ['BeitModel', BeitModel]],
     ['deit', ['DeiTModel', DeiTModel]],
     ['convnext', ['ConvNextModel', ConvNextModel]],
@@ -5449,6 +5463,7 @@ const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['owlvit', ['OwlViTForObjectDetection', OwlViTForObjectDetection]],
+    ['owlv2', ['Owlv2ForObjectDetection', Owlv2ForObjectDetection]],
 ]);
 
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([

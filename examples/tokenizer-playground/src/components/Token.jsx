@@ -14,7 +14,7 @@ export function Token({ text, position, margin }) {
             <span
             style={{marginLeft: margin}}
             
-            className={`leading-5 inline-block ${COLOURS[position % COLOURS.length]}`}>
+            className={`leading-5 ${COLOURS[position % COLOURS.length]}`}>
                 {text}
             </span>) : <br />
     )
