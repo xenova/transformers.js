@@ -4747,7 +4747,7 @@ export class WavLMForSequenceClassification extends WavLMPreTrainedModel {
  * const audio = await read_audio(url, 16000);
  * const inputs = await processor(audio);
 
- * const model = await AutoModel.from_pretrained('D4ve-R/wavlm-base-plus-sv', {quantized: false});
+ * const model = await AutoModel.from_pretrained('D4ve-R/wavlm-base-plus-sv');
  * const embeddings = await model(inputs);
  * // {
  * //   embeddings: Tensor {
