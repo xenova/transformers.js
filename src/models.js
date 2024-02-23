@@ -5524,7 +5524,7 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
 ]);
 
-const MODEL_FOR_SPEAKER_VERIFICATION_MAPPING_NAMES = new Map([
+const MODEL_FOR_XVECTOR_MAPPING_NAMES = new Map([
     ['wavlm', ['WavLMForXVector', WavLMForXVector]],
 ]);
 
@@ -5568,7 +5568,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
-    [MODEL_FOR_SPEAKER_VERIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_XVECTOR_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -5787,8 +5787,8 @@ export class AutoModelForAudioClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES];
 }
 
-export class AutoModelForSpeakerVerification extends PretrainedMixin {
-    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SPEAKER_VERIFICATION_MAPPING_NAMES];
+export class AutoModelForXVector extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_XVECTOR_MAPPING_NAMES];
 }
 
 export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
