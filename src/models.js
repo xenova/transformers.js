@@ -4776,6 +4776,17 @@ export class WavLMForXVector extends WavLMPreTrainedModel {
     }
 }
 
+export class WavLMForAudioFrameClassification extends WavLMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
 //////////////////////////////////////////////////
 // SpeechT5 models
 /**
@@ -5524,6 +5535,10 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
 ]);
 
+const MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES = new Map([
+    ['wavlm', ['WavLMForFrameClassification', WavLMForAudioFrameClassification]],
+]);
+
 const MODEL_FOR_SPEAKER_VERIFICATION_MAPPING_NAMES = new Map([
     ['wavlm', ['WavLMForXVector', WavLMForXVector]],
 ]);
@@ -5569,6 +5584,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_SPEAKER_VERIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -5785,6 +5801,10 @@ export class AutoModelForCTC extends PretrainedMixin {
 
 export class AutoModelForAudioClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES];
+}
+
+export class AutoModelForAudioFrameClassification extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES];
 }
 
 export class AutoModelForSpeakerVerification extends PretrainedMixin {
