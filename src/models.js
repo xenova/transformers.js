@@ -4571,6 +4571,17 @@ export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
         return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
+
+export class Wav2Vec2ForAudioFrameClassification extends Wav2Vec2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -5536,7 +5547,8 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
 ]);
 
 const MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES = new Map([
-    ['wavlm', ['WavLMForFrameClassification', WavLMForAudioFrameClassification]],
+    ['wavlm', ['WavLMForAudioFrameClassification', WavLMForAudioFrameClassification]],
+    ['wav2vec2', ['Wav2Vec2ForAudioFrameClassification', Wav2Vec2ForAudioFrameClassification]],
 ]);
 
 const MODEL_FOR_SPEAKER_VERIFICATION_MAPPING_NAMES = new Map([
