@@ -960,12 +960,14 @@ export function round(num, decimals) {
  * @param {number} factor The factor by which to resample
  */
 export function resample(data, factor) {
-    const output = new data.constructor(Math.floor(data.length / factor));
-    const step = 1 / factor;
-    let current = 0;
-    for (let i = 0; i < output.length; ++i) {
-        output[i] = data[Math.floor(current)];
-        current += step;
+    const target = Math.floor(data.length / factor);
+    const output = new data.constructor(target);
+    for (let i = 0; i < target; ++i) {
+        const index = i * factor;
+        const lower = Math.floor(index);
+        const upper = Math.min(Math.ceil(index), data.length - 1);
+        const weight = index - lower;
+        output[i] = data[lower] * (1 - weight) + data[upper] * weight;
     }
     return output;
 }
