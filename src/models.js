@@ -235,7 +235,7 @@ async function sessionRun(session, inputs) {
 function replaceTensors(obj) {
     for (let prop in obj) {
         if (obj[prop] instanceof ONNXTensor) {
-            obj[prop] = new Tensor(obj[prop]);
+            obj[prop] = Tensor.fromONNX(obj[prop]);
         } else if (typeof obj[prop] === 'object') {
             replaceTensors(obj[prop]);
         }

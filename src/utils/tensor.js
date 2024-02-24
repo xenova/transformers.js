@@ -37,36 +37,13 @@ const DataTypeMap = Object.freeze({
 
 const ONNXTensor = ONNX.Tensor;
 
-export class Tensor {
-    /** @type {number[]} Dimensions of the tensor. */
-    dims;
-
-    /** @type {DataType} Type of the tensor. */
-    type;
-
-    /** @type {DataArray} The data stored in the tensor. */
-    data;
-
-    /** @type {number} The number of elements in the tensor. */
-    size;
-
+export class Tensor extends ONNXTensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
      * @param {[DataType, DataArray, number[]]|[import('onnxruntime-common').Tensor]} args
      */
     constructor(...args) {
-        if (args[0] instanceof ONNXTensor) {
-            // Create shallow copy
-            Object.assign(this, args[0]);
-
-        } else {
-            // Create new tensor
-            Object.assign(this, new ONNXTensor(
-                /** @type {DataType} */(args[0]),
-                /** @type {Exclude<import('./maths.js').AnyTypedArray, Uint8ClampedArray>} */(args[1]),
-                args[2]
-            ));
-        }
+        super(...args);
 
         return new Proxy(this, {
             get: (obj, key) => {
@@ -87,6 +64,11 @@ export class Tensor {
                 return obj[key] = value;
             }
         });
+    }
+
+    static fromONNX(tensor) {
+        Object.setPrototypeOf(tensor, Tensor.prototype);
+        return tensor;
     }
 
     /**
@@ -151,10 +133,7 @@ export class Tensor {
         const o2 = (index + 1) * iterSize;
 
         // We use subarray if available (typed array), otherwise we use slice (normal array)
-        const data =
-            ('subarray' in this.data)
-                ? this.data.subarray(o1, o2)
-                : this.data.slice(o1, o2);
+        const data = this.data.subarray?.(o1, o2) ?? this.data.slice(o1, o2);
         return new Tensor(this.type, data, iterDims);
     }
 
