@@ -170,7 +170,7 @@ export class RawImage {
      */
     static async fromURL(url) {
         if (IS_REACT_NATIVE) {
-            if (env.useGCanvas && loadImageFunction) {
+            if (env.useRNCanvas && loadImageFunction) {
                 return await loadImageFunction(url);
             } else {
                 let response = await getFile(url);
@@ -356,7 +356,7 @@ export class RawImage {
         let resampleMethod = RESAMPLING_MAPPING[resample] ?? resample;
 
         if (IS_REACT_NATIVE) {
-            if (createCanvasFunction !== undefined && env.useGCanvas) {
+            if (createCanvasFunction !== undefined && env.useRNCanvas) {
                 // Running in environment with canvas
                 let canvas = createCanvasFunction(this.width, this.height);
                 let ctx = canvas.getContext('2d');
@@ -461,7 +461,7 @@ export class RawImage {
         }
 
         if (IS_REACT_NATIVE) {
-            if (createCanvasFunction !== undefined && env.useGCanvas) {
+            if (createCanvasFunction !== undefined && env.useRNCanvas) {
                 // Running in environment with canvas
                 let newWidth = this.width + left + right;
                 let newHeight = this.height + top + bottom;
@@ -586,7 +586,7 @@ export class RawImage {
         let height_offset = (this.height - crop_height) / 2;
 
         if (IS_REACT_NATIVE) {
-            if (createCanvasFunction !== undefined && env.useGCanvas) {
+            if (createCanvasFunction !== undefined && env.useRNCanvas) {
                 // Running in environment with canvas
                 let canvas = createCanvasFunction(crop_width, crop_height);
                 let ctx = canvas.getContext('2d');
