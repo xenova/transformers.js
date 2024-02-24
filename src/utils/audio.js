@@ -87,7 +87,7 @@ export async function read_audio(url, sampling_rate) {
     }
 
     if (typeof sampling_rate !== 'undefined' && decoded.sampleRate !== sampling_rate) {
-        audio = resample(audio, decoded.sampleRate / sampling_rate);
+        audio = resample(audio, sampling_rate / decoded.sampleRate);
     }
 
     return audio;
