@@ -27,7 +27,7 @@ export async function read_audio(url, sampling_rate) {
     /** @type {AudioBuffer} */
     let decoded;
     const response = await getFile(url);
-    const buffer = await res.arrayBuffer();
+    const buffer = await response.arrayBuffer();
     if (typeof AudioContext !== 'undefined') {
         const audioCTX = new AudioContext({ sampleRate: sampling_rate });
         if (typeof sampling_rate === 'undefined') {

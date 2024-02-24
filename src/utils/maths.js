@@ -959,12 +959,12 @@ export function round(num, decimals) {
  * @param {AnyTypedArray} data The input array
  * @param {number} factor The factor by which to resample
  */
-function resample(data, factor) {
+export function resample(data, factor) {
     const output = new data.constructor(Math.floor(data.length / factor));
     const step = 1 / factor;
     let current = 0;
     for (let i = 0; i < output.length; ++i) {
-        output[i] = input[Math.floor(current)];
+        output[i] = data[Math.floor(current)];
         current += step;
     }
     return output;
