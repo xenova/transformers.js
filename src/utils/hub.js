@@ -394,7 +394,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     let requestURL = pathJoin(path_or_repo_id, filename);
     let cachePath = pathJoin(env.localModelPath, requestURL);
 
-    let localPath = requestURL; // Hoisted before below mutation
+    let localPath = requestURL;
     let remoteURL = pathJoin(
         env.remoteHost,
         env.remotePathTemplate
