@@ -113,7 +113,7 @@ export const env = {
     useFS: FS_AVAILABLE,
 
     allowFallback: !IS_REACT_NATIVE,
-    useRNCanvas: true,
+    rnUseCanvas: true,
 
     /////////////////// Cache settings ///////////////////
     useBrowserCache: WEB_CACHE_AVAILABLE,
