@@ -1427,6 +1427,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * @property {number[][]} [kwargs.forced_decoder_ids] A list of pairs of integers which indicates a mapping from generation indices to token indices
  * that will be forced before sampling. For example, [[1, 123]] means the second generated token will always be a token of index 123.
  * @property {number} [num_frames] The number of frames in the input audio.
+ * @property {number[]} [stride] Audio chunk information needed to generate proper timestamps.
  * @typedef {import('./utils/generation.js').GenerationConfigType & AutomaticSpeechRecognitionSpecificParams} AutomaticSpeechRecognitionConfig
  * 
  * @callback AutomaticSpeechRecognitionPipelineCallback Transcribe the audio sequence(s) given as inputs to text.
@@ -1661,6 +1662,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
             // Generate for each set of input features
             for (const chunk of chunks) {
                 kwargs.num_frames = Math.floor(chunk.stride[0] / hop_length);
+                kwargs.stride = chunk.stride.map(x => x / sampling_rate);
 
                 // NOTE: doing sequentially for now
                 const data = await this.model.generate(chunk.input_features, kwargs);
