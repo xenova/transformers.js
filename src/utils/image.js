@@ -193,7 +193,7 @@ export class RawImage {
     static async fromBlob(blob) {
         if (IS_REACT_NATIVE) {
             const buffer = await blob.arrayBuffer();
-            const { data, width, height } = codecs.decode(buffer);
+            const { data, width, height } = codecs.decode(Buffer.from(buffer));
             return new RawImage(new Uint8ClampedArray(data), width, height, 4);
         } else if (BROWSER_ENV) {
             // Running in environment with canvas
