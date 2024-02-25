@@ -39,8 +39,7 @@
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
     "@huggingface/jinja": "^0.1.3",
-    "image-decode": "^1.2.2",
-    "image-encode": "^1.3.1",
+    "image-codecs": "^0.1.0",
     "node-wav": "^0.0.2",
     "onnxruntime-web": "^1.17.0",
     "sharp": "^0.32.0"
@@ -81,14 +80,14 @@
     "fs": "react-native-fs",
     "onnxruntime-web": false,
     "onnxruntime-node": "onnxruntime-react-native",
+    "image-codecs": "image-codecs",
     "path": "path-browserify",
     "stream/web": false,
     "zlib": "browserify-zlib"
   },
   "browser": {
     "fs": false,
-    "image-decode": false,
-    "image-encode": false,
+    "image-codecs": false,
     "path": false,
     "url": false,
     "sharp": false,
