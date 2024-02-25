@@ -13,8 +13,7 @@ import { getFile } from './hub.js';
 import { env } from '../env.js';
 import { transpose_data, interpolate_data } from './maths.js';
 
-import encode from 'image-encode';
-import decode from 'image-decode';
+import * as codecs from 'image-codecs';
 import { Buffer } from 'buffer';
 
 // Will be empty (or not used) if running in browser or web-worker
@@ -194,7 +193,7 @@ export class RawImage {
     static async fromBlob(blob) {
         if (IS_REACT_NATIVE) {
             const buffer = await blob.arrayBuffer();
-            const { data, width, height } = decode(buffer);
+            const { data, width, height } = codecs.decode(buffer);
             return new RawImage(new Uint8ClampedArray(data), width, height, 4);
         } else if (BROWSER_ENV) {
             // Running in environment with canvas
@@ -821,7 +820,7 @@ export class RawImage {
         const mime = this._CONTENT_TYPE_MAP[extension] ?? 'image/png';
 
         if (IS_REACT_NATIVE) {
-            const buf = Buffer.from(encode(this.rgba().data, mime));
+            const buf = Buffer.from(codecs.encode(this.rgba().data, mime));
             await fs.writeFile(path, buf.toString('base64'), 'base64');
         } else if (BROWSER_ENV) {
             if (WEBWORKER_ENV) {
