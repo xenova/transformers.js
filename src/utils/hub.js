@@ -255,7 +255,7 @@ async function readFile(filePath) {
         status: 200,
         statusText: 'OK',
         headers,
-        url: `file://${path}`,
+        url: path.startsWith('file://') ? path : `file://${path}`,
     };
     let data = '';
     // Prevent load binary data into JS side
