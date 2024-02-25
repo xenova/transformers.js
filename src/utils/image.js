@@ -41,21 +41,21 @@ if (IS_REACT_NATIVE) {
                 return canvas;
             }
         };
-        loadImageFunction = async (/**@type {URL|string}*/url) => {
-            const info = await new Promise((resolve, reject) => {
+        loadImageFunction = async (/**@type {URL|string}*/url) =>
+            await new Promise((resolve, reject) => {
                 const image = new Image();
                 image.onload = () => {
                     const canvas = createCanvasFunction(image.width, image.height);
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(image, 0, 0);
                     const { data } = ctx.getImageData(0, 0, image.width, image.height);
-                    resolve({ data, width: image.width, height: image.height });
+                    resolve(new RawImage(data, image.width, image.height, 4));
+                    image.dispose?.();
+                    canvas.dispose?.();
                 }
                 image.onerror = reject;
                 image.src = url;
             });
-            return new RawImage(info.data, info.width, info.height, 4);
-        };
         ImageDataClass = global.ImageData;
     }
 } else if (BROWSER_ENV) {
@@ -365,6 +365,7 @@ export class RawImage {
                 ctx.drawImage(canvas, 0, 0, this.width, this.height, 0, 0, width, height);
                 let newImageData = ctx.getImageData(0, 0, width, height);
                 const resized = new RawImage(newImageData.data, width, height, 4);
+                canvas.dispose?.();
                 return resized.convert(this.channels);
             } else {
                 // Running in environment without canvas
@@ -471,6 +472,7 @@ export class RawImage {
                 ctx.putImageData(imageData, left, top);
                 let newImageData = ctx.getImageData(0, 0, newWidth, newHeight);
                 const padded = new RawImage(newImageData.data, newWidth, newHeight, 4);
+                canvas.dispose?.();
                 return padded.convert(this.channels);
             } else {
                 // Running in environment without canvas
@@ -594,6 +596,7 @@ export class RawImage {
                 ctx.putImageData(imageData, -width_offset, -height_offset);
                 let newImageData = ctx.getImageData(0, 0, crop_width, crop_height);
                 const cropped = new RawImage(newImageData.data, crop_width, crop_height, 4);
+                canvas.dispose?.();
                 return cropped.convert(this.channels);
             } else {
                 // Running in environment without canvas
@@ -716,7 +719,7 @@ export class RawImage {
 
     toImageData() {
         if (IS_REACT_NATIVE && ImageDataClass === undefined)
-            throw new Error('toImageData is not supported');
+            throw new Error('toImageData() is only supported in browser environments.');
         // Clone, and convert data to RGBA before create ImageData object.
         // This is because the ImageData API only supports RGBA
         let cloned = this.clone().rgba();
@@ -850,7 +853,7 @@ export class RawImage {
     }
 
     toSharp() {
-        if (BROWSER_ENV) {
+        if (BROWSER_ENV || IS_REACT_NATIVE) {
             throw new Error('toSharp() is only supported in server-side environments.')
         }
 
