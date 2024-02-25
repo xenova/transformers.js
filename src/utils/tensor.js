@@ -37,6 +37,34 @@ const DataTypeMap = Object.freeze({
 
 const ONNXTensor = ONNX.Tensor;
 
+/**
+ * Warp index getter
+ * @param {ONNXTensor} tensor 
+ * @returns {ONNXTensor}
+ * @private
+ */
+function warpTensor(tensor) {
+    return new Proxy(tensor, {
+        get: (obj, key) => {
+            if (typeof key === 'string') {
+                let index = Number(key);
+                if (Number.isInteger(index)) {
+                    // key is an integer (i.e., index)
+                    return obj._getitem(index);
+                }
+            }
+            // @ts-ignore
+            return obj[key];
+        },
+        set: (obj, key, value) => {
+            // TODO allow setting of data
+
+            // @ts-ignore
+            return obj[key] = value;
+        }
+    });
+}
+
 export class Tensor extends ONNXTensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
@@ -45,30 +73,18 @@ export class Tensor extends ONNXTensor {
     constructor(...args) {
         super(...args);
 
-        return new Proxy(this, {
-            get: (obj, key) => {
-                if (typeof key === 'string') {
-                    let index = Number(key);
-                    if (Number.isInteger(index)) {
-                        // key is an integer (i.e., index)
-                        return obj._getitem(index);
-                    }
-                }
-                // @ts-ignore
-                return obj[key];
-            },
-            set: (obj, key, value) => {
-                // TODO allow setting of data
-
-                // @ts-ignore
-                return obj[key] = value;
-            }
-        });
+        return warpTensor(this);
     }
 
+    /**
+     * Create a new Tensor from an ONNX Tensor.
+     * @param {import('onnxruntime-common').Tensor} tensor The ONNX Tensor to convert.
+     * @returns {Tensor} The new Tensor.
+     * @static
+     */
     static fromONNX(tensor) {
         Object.setPrototypeOf(tensor, Tensor.prototype);
-        return tensor;
+        return warpTensor(tensor);
     }
 
     /**
