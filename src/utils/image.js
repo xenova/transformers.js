@@ -540,7 +540,34 @@ export class RawImage {
         const crop_width = x_max - x_min + 1;
         const crop_height = y_max - y_min + 1;
 
-        if (BROWSER_ENV) {
+        if (IS_REACT_NATIVE) {
+            if (createCanvasFunction !== undefined && env.rnUseCanvas) {
+                // Running in environment with canvas
+                let canvas = createCanvasFunction(crop_width, crop_height);
+                let ctx = canvas.getContext('2d');
+                let imageData = this.toImageData();
+                ctx.putImageData(imageData, -x_min, -y_min);
+                let newImageData = ctx.getImageData(0, 0, crop_width, crop_height);
+                const cropped = new RawImage(newImageData.data, crop_width, crop_height, 4);
+                canvas.dispose?.();
+                return cropped.convert(this.channels);
+            } else {
+                // Running in environment without canvas
+                let channels = this.channels;
+                let data = this.data;
+                let croppedData = new Uint8ClampedArray(crop_width * crop_height * channels);
+                for (let i = 0; i < croppedData.length; i += channels) {
+                    const x = Math.floor(i / channels) % crop_width;
+                    const y = Math.floor(i / channels / crop_width);
+                    const pixelIndex = ((y + y_min) * this.width + (x + x_min)) * channels;
+                    for (let j = 0; j < channels; j++) {
+                        croppedData[i + j] = data[pixelIndex + j];
+                    }
+                }
+                return new RawImage(croppedData, crop_width, crop_height, channels);
+            }
+
+        } else if (BROWSER_ENV) {
             // Store number of channels before resizing
             const numChannels = this.channels;
 
@@ -588,31 +615,11 @@ export class RawImage {
         let height_offset = (this.height - crop_height) / 2;
 
         if (IS_REACT_NATIVE) {
-            if (createCanvasFunction !== undefined && env.rnUseCanvas) {
-                // Running in environment with canvas
-                let canvas = createCanvasFunction(crop_width, crop_height);
-                let ctx = canvas.getContext('2d');
-                let imageData = this.toImageData();
-                ctx.putImageData(imageData, -width_offset, -height_offset);
-                let newImageData = ctx.getImageData(0, 0, crop_width, crop_height);
-                const cropped = new RawImage(newImageData.data, crop_width, crop_height, 4);
-                canvas.dispose?.();
-                return cropped.convert(this.channels);
-            } else {
-                // Running in environment without canvas
-                let channels = this.channels;
-                let data = this.data;
-                let croppedData = new Uint8ClampedArray(crop_width * crop_height * channels);
-                for (let i = 0; i < croppedData.length; i += channels) {
-                    const x = Math.floor(i / channels) % crop_width;
-                    const y = Math.floor(i / channels / crop_width);
-                    const pixelIndex = ((y + height_offset) * this.width + (x + width_offset)) * channels;
-                    for (let j = 0; j < channels; j++) {
-                        croppedData[i + j] = data[pixelIndex + j];
-                    }
-                }
-                return new RawImage(croppedData, crop_width, crop_height, channels);
-            }
+            return this.crop([
+                width_offset, height_offset,
+                width_offset + crop_width - 1, height_offset + crop_height - 1
+            ]);
+
         } else if (BROWSER_ENV) {
             // Store number of channels before resizing
             let numChannels = this.channels;
