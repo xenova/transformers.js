@@ -3104,7 +3104,7 @@ async function loadItems(mapping, model, pretrainedOptions) {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
                     } catch (err) {
-                        if (isLast || !err.message.startsWith('Unsupported model type')) {
+                        if (!isLast || !err?.message.startsWith('Unsupported model type')) {
                             e = err;
                         }
                     }
