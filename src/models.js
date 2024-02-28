@@ -4742,24 +4742,26 @@ export class WavLMForSequenceClassification extends WavLMPreTrainedModel {
  * ```javascript
  * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
  * 
- * const processor = await AutoProcessor.from_pretrained('D4ve-R/wavlm-base-plus-sv');
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base-plus-sv');
  * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
  * const audio = await read_audio(url, 16000);
  * const inputs = await processor(audio);
-
- * const model = await AutoModel.from_pretrained('D4ve-R/wavlm-base-plus-sv');
- * const embeddings = await model(inputs);
+ * 
+ * // Run model with inputs
+ * const model = await AutoModel.from_pretrained('Xenova/wavlm-base-plus-sv');
+ * const outputs = await model(inputs);
  * // {
- * //   embeddings: Tensor {
- * //     dims: [ 1, 512 ],
- * //     type: 'float32',
- * //     data: Float32Array(512) [-0.349443256855011, ...],
- * //     size: 512
- * //   },
  * //   logits: Tensor {
  * //     dims: [ 1, 512 ],
  * //     type: 'float32',
- * //     data: Float32Array(512) [0.022836603224277496, ...],
+ * //     data: Float32Array(512) [0.5847219228744507, ...],
+ * //     size: 512
+ * //   },
+ * //   embeddings: Tensor {
+ * //     dims: [ 1, 512 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(512) [-0.09079201519489288, ...],
  * //     size: 512
  * //   }
  * // }
@@ -4769,7 +4771,7 @@ export class WavLMForXVector extends WavLMPreTrainedModel {
     /**
      * Calls the model on new inputs.
      * @param {Object} model_inputs The inputs to the model.
-     * @returns {Promise<XVectorOutput>} An object containing the model's output logits for sequence classification.
+     * @returns {Promise<XVectorOutput>} An object containing the model's output logits and speaker embeddings.
      */
     async _call(model_inputs) {
         return new XVectorOutput(await super._call(model_inputs));
