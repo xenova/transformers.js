@@ -45,13 +45,15 @@ self.addEventListener('message', async (event) => {
 class PipelineFactory {
     static task = null;
     static model = null;
+    static quantized = true;
 
     // NOTE: instance stores a promise that resolves to the pipeline
     static instance = null;
 
-    constructor(tokenizer, model) {
+    constructor(tokenizer, model, quantized) {
         this.tokenizer = tokenizer;
         this.model = model;
+        this.quantized = quantized;
     }
 
     /**
@@ -65,7 +67,8 @@ class PipelineFactory {
         }
         if (this.instance === null) {
             this.instance = pipeline(this.task, this.model, {
-                progress_callback: progressCallback
+                progress_callback: progressCallback,
+                quantized: this.quantized,
             });
         }
 
@@ -131,6 +134,7 @@ class ImageToTextPipelineFactory extends PipelineFactory {
 class ImageClassificationPipelineFactory extends PipelineFactory {
     static task = 'image-classification';
     static model = 'Xenova/vit-base-patch16-224';
+    static quantized = false;
 }
 
 

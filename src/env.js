@@ -59,8 +59,9 @@ const localModelPath = RUNNING_LOCALLY
 // In practice, users should probably self-host the necessary .wasm files.
 onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
     ? path.join(__dirname, '/dist/')
-    : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
-
+    // : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
+    // Copy ort-web wasm files to examples/demo-site/src/dist/
+    : location.origin + '/dist/';
 
 /**
  * Global variable used to control execution. This provides users a simple way to configure Transformers.js.

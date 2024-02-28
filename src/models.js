@@ -123,9 +123,25 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
     let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
     try {
-        return await InferenceSession.create(buffer, {
-            executionProviders,
-        });
+        let sessionOptions = { executionProviders };
+        if (pretrained_model_name_or_path == 'Xenova/vit-base-patch16-224') {
+            // Hard code example to use webnn for Xenova/vit-base-patch16-224
+            sessionOptions = {
+                executionProviders: [{
+                    name: "webnn",
+                    deviceType: "gpu",
+                }],
+                // input name: pixel_values, tensor: float32[batch_size,num_channels,height,width]
+                // WebNN only supports static shape model, use freeDimensionOverrides option to fix the input shape.
+                freeDimensionOverrides: {
+                    batch_size: 1,
+                    num_channels: 3,
+                    height: 224,
+                    width: 224,
+                },
+            }
+        }
+        return await InferenceSession.create(buffer, sessionOptions);
     } catch (err) {
         // If the execution provided was only wasm, throw the error
         if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
@@ -205,13 +221,13 @@ async function sessionRun(session, inputs) {
     try {
         // pass the original ort tensor
         const ortFeed = Object.fromEntries(Object.entries(checkedInputs).map(([k, v]) => [k, v.ort_tensor]));
-        let output = await session.run(ortFeed);    
+        let output = await session.run(ortFeed);
         output = replaceTensors(output);
         for (const [name, t] of Object.entries(checkedInputs)) {
             // if we use gpu buffers for kv_caches, we own them and need to dispose()
-            if (name.startsWith('past_key_values')) {
-                t.dispose();
-            };
+            // if (name.startsWith('past_key_values')) {
+            //     t.dispose();
+            // };
         }
         return output;
     } catch (e) {
