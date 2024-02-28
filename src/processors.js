@@ -158,7 +158,7 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
 function validate_audio_inputs(audio, feature_extractor) {
     if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
         throw new Error(
-            `${feature_extractor} expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
+            `${feature_extractor} expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead. ` +
             `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
         )
     }
