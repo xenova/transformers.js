@@ -3091,7 +3091,9 @@ async function loadItems(mapping, model, pretrainedOptions) {
         if (Array.isArray(cls)) {
             promise = new Promise(async (resolve, reject) => {
                 let e;
-                for (let c of cls) {
+                for (let i in cls) {
+                    let isLast = i == cls.length - 1;
+                    let c = cls[i];
                     if (c === null) {
                         // If null, we resolve it immediately, meaning the relevant
                         // class was not found, but it is optional.
@@ -3102,12 +3104,8 @@ async function loadItems(mapping, model, pretrainedOptions) {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
                     } catch (err) {
-                        e = err;
-                        if (
-                            !err.message.startsWith('Unsupported model type') &&
-                            !err.message.startsWith('Could not locate')
-                        ) {
-                            break;
+                        if (isLast || !err.message.startsWith('Unsupported model type')) {
+                            e = err;
                         }
                     }
                 }
