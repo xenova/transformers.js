@@ -4789,6 +4789,32 @@ export class WavLMForXVector extends WavLMPreTrainedModel {
     }
 }
 
+/**
+ * WavLM Model with a frame classification head on top for tasks like Speaker Diarization.
+ * 
+ * **Example:** Perform speaker diarization with `WavLMForAudioFrameClassification`.
+ * ```javascript
+ * import { AutoProcessor, AutoModelForAudioFrameClassification, read_audio } from '@xenova/transformers';
+ * 
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base-plus-sd');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * const audio = await read_audio(url, 16000);
+ * const inputs = await processor(audio);
+ * 
+ * // Run model with inputs
+ * const model = await AutoModelForAudioFrameClassification.from_pretrained('Xenova/wavlm-base-plus-sd');
+ * const outputs = await model(inputs);
+ * // {
+ * //   logits: Tensor {
+ * //     dims: [ 1, 549, 2 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(1098) [0.5847219228744507, ...],
+ * //     size: 1098
+ * //   }
+ * // }
+ * ```
+ */
 export class WavLMForAudioFrameClassification extends WavLMPreTrainedModel {
     /**
      * Calls the model on new inputs.
