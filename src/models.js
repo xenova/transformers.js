@@ -4572,6 +4572,9 @@ export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
     }
 }
 
+/**
+ * Wav2Vec2 Model with a frame classification head on top for tasks like Speaker Diarization.
+ */
 export class Wav2Vec2ForAudioFrameClassification extends Wav2Vec2PreTrainedModel {
     /**
      * Calls the model on new inputs.
