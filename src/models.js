@@ -5194,6 +5194,44 @@ export class SegformerForSemanticSegmentation extends SegformerPreTrainedModel {
 
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// StableLM models
+export class StableLMPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare StableLM Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class StableLMModel extends StableLMPreTrainedModel { }
+
+/**
+ * StableLM Model with a `language modeling` head on top for Causal Language Modeling (with past).
+ */
+export class StableLMForCausalLM extends StableLMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<CausalLMOutput>} An object containing the model's output logits for causal language modeling.
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutputWithPast(await super._call(model_inputs));
+    }
+}
+
+/**
+ * StableLM Model with a sequence classification head on top (with Past).
+ */
+export class StableLMForSequenceClassification extends StableLMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutputWithPast(await super._call(model_inputs));
+    }
+}
+
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -5842,6 +5880,23 @@ export class SequenceClassifierOutput extends ModelOutput {
     constructor({ logits }) {
         super();
         this.logits = logits;
+    }
+}
+
+/**
+ * Base class for outputs of sentence classification models.
+ */
+export class SequenceClassifierOutputWithPast extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits classification (or regression if config.num_labels==1) scores (before SoftMax).
+     * @param {Tensor} output.past_key_values Contains pre-computed hidden-states (key and values in the self-attention blocks)
+     * that can be used (see `past_key_values` input) to speed up sequential decoding.
+     */
+    constructor({ logits, past_key_values }) {
+        super();
+        this.logits = logits;
+        this.past_key_values = past_key_values;
     }
 }
 
