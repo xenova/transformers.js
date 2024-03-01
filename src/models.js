@@ -5418,6 +5418,7 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['mbart', ['MBartForSequenceClassification', MBartForSequenceClassification]],
     ['mobilebert', ['MobileBertForSequenceClassification', MobileBertForSequenceClassification]],
     ['squeezebert', ['SqueezeBertForSequenceClassification', SqueezeBertForSequenceClassification]],
+    ['stablelm', ['StableLMForSequenceClassification', StableLMForSequenceClassification]],
 ]);
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
@@ -5465,6 +5466,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['mistral', ['MistralForCausalLM', MistralForCausalLM]],
     ['falcon', ['FalconForCausalLM', FalconForCausalLM]],
     ['trocr', ['TrOCRForCausalLM', TrOCRForCausalLM]],
+    ['stablelm', ['StableLMForCausalLM', StableLMForCausalLM]],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
