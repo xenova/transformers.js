@@ -4574,7 +4574,97 @@ export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// Wav2Vec2 models
+// UniSpeech models
+export class UniSpeechPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare UniSpeech Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class UniSpeechModel extends UniSpeechPreTrainedModel { }
+
+/**
+ * UniSpeech Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class UniSpeechForCTC extends UniSpeechPreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_values Float values of input raw speech waveform.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * UniSpeech Model with a sequence classification head on top (a linear layer over the pooled output).
+ */
+export class UniSpeechForSequenceClassification extends UniSpeechPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// UniSpeechSat models
+export class UniSpeechSatPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare UniSpeechSat Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class UniSpeechSatModel extends UniSpeechSatPreTrainedModel { }
+
+/**
+ * UniSpeechSat Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class UniSpeechSatForCTC extends UniSpeechSatPreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_values Float values of input raw speech waveform.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * UniSpeechSat Model with a sequence classification head on top (a linear layer over the pooled output).
+ */
+export class UniSpeechSatForSequenceClassification extends UniSpeechSatPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * UniSpeechSat Model with a frame classification head on top for tasks like Speaker Diarization.
+ */
+export class UniSpeechSatForAudioFrameClassification extends UniSpeechSatPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Wav2Vec2Bert models
 export class Wav2Vec2BertPreTrainedModel extends PreTrainedModel { };
 
 /**
@@ -5289,6 +5379,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
     ['wav2vec2', ['Wav2Vec2Model', Wav2Vec2Model]],
     ['wav2vec2-bert', ['Wav2Vec2BertModel', Wav2Vec2BertModel]],
+    ['unispeech', ['UniSpeechModel', UniSpeechModel]],
+    ['unispeech-sat', ['UniSpeechSatModel', UniSpeechSatModel]],
     ['hubert', ['HubertModel', HubertModel]],
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
@@ -5514,6 +5606,8 @@ const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
 const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForCTC', Wav2Vec2ForCTC]],
     ['wav2vec2-bert', ['Wav2Vec2BertForCTC', Wav2Vec2BertForCTC]],
+    ['unispeech', ['UniSpeechForCTC', UniSpeechForCTC]],
+    ['unispeech-sat', ['UniSpeechSatForCTC', UniSpeechSatForCTC]],
     ['wavlm', ['WavLMForCTC', WavLMForCTC]],
     ['hubert', ['HubertForCTC', HubertForCTC]],
 ]);
@@ -5521,6 +5615,8 @@ const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
 const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForSequenceClassification', Wav2Vec2ForSequenceClassification]],
     ['wav2vec2-bert', ['Wav2Vec2BertForSequenceClassification', Wav2Vec2BertForSequenceClassification]],
+    ['unispeech', ['UniSpeechForSequenceClassification', UniSpeechForSequenceClassification]],
+    ['unispeech-sat', ['UniSpeechSatForSequenceClassification', UniSpeechSatForSequenceClassification]],
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
     ['hubert', ['HubertForSequenceClassification', HubertForSequenceClassification]],
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
@@ -5528,6 +5624,10 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES = new Map([
     ['wavlm', ['WavLMForXVector', WavLMForXVector]],
+]);
+
+const MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES = new Map([
+    ['unispeech-sat', ['UniSpeechSatForAudioFrameClassification', UniSpeechSatForAudioFrameClassification]],
 ]);
 
 const MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES = new Map([
@@ -5571,6 +5671,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {

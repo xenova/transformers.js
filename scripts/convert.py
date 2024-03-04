@@ -103,6 +103,18 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
+    'wav2vec2': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'unispeech': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'unispeech-sat': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
 }
 
 MODELS_WITHOUT_TOKENIZERS = [
@@ -110,6 +122,8 @@ MODELS_WITHOUT_TOKENIZERS = [
     'wav2vec2-bert',
     'wavlm',
     'hubert',
+    'unispeech',
+    'unispeech-sat',
 ]
 
 
