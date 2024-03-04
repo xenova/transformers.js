@@ -400,7 +400,7 @@ def main():
                 **get_main_export_kwargs(config, "automatic-speech-recognition")
             )
 
-    elif config.model_type in ('wav2vec2', 'wav2vec2-bert', 'hubert'):
+    elif config.model_type in ('wav2vec2', 'wav2vec2-bert', 'hubert', 'unispeech' , 'unispeech-sat'):
         if tokenizer is not None:
             from .extra.wav2vec2 import generate_tokenizer_json
             tokenizer_json = generate_tokenizer_json(tokenizer)
