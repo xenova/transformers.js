@@ -930,13 +930,14 @@ SUPPORTED_MODELS = {
             # Requires --task feature-extraction
             'microsoft/unispeech-large-1500h-cv',
         ],
-        # Automatic speech recognition
-        'automatic-speech-recognition': [
-            'microsoft/unispeech-1350-en-353-fr-ft-1h',
-            'microsoft/unispeech-1350-en-17h-ky-ft-1h',
-            'microsoft/unispeech-1350-en-90-it-ft-1h',
-            'microsoft/unispeech-1350-en-168-es-ft-1h',
-        ],
+        # TODO: add support for
+        # # Automatic speech recognition
+        # 'automatic-speech-recognition': [
+        #     'microsoft/unispeech-1350-en-353-fr-ft-1h',
+        #     'microsoft/unispeech-1350-en-17h-ky-ft-1h',
+        #     'microsoft/unispeech-1350-en-90-it-ft-1h',
+        #     'microsoft/unispeech-1350-en-168-es-ft-1h',
+        # ],
     },
     'unispeech-sat': {
         # Feature extraction
