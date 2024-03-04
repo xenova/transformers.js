@@ -4810,7 +4810,7 @@ export class WavLMForXVector extends WavLMPreTrainedModel {
  * const outputs = await model(inputs);
  * // {
  * //   logits: Tensor {
- * //     dims: [ 1, 549, 2 ],
+ * //     dims: [ 1, 549, 2 ],  // [num_batches, num_frames, num_speakers]
  * //     type: 'float32',
  * //     data: Float32Array(1098) [0.5847219228744507, ...],
  * //     size: 1098
