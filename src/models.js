@@ -4807,7 +4807,7 @@ export class WavLMForXVector extends WavLMPreTrainedModel {
  * 
  * // Run model with inputs
  * const model = await AutoModelForAudioFrameClassification.from_pretrained('Xenova/wavlm-base-plus-sd');
- * const outputs = await model(inputs);
+ * const { logits } = await model(inputs);
  * // {
  * //   logits: Tensor {
  * //     dims: [ 1, 549, 2 ],  // [num_batches, num_frames, num_speakers]
@@ -4816,6 +4816,13 @@ export class WavLMForXVector extends WavLMPreTrainedModel {
  * //     size: 1098
  * //   }
  * // }
+ * // labels is a one-hot array of shape (num_batches, num_frames, num_speakers)
+ * const labels = logits
+ *  .sigmoid()
+ *  .toList()
+ *  .map(frames => frames.map(
+ *      frame => frame.map(speaker => speaker > 0.5 ? 1 : 0);
+ *   ));
  * ```
  */
 export class WavLMForAudioFrameClassification extends WavLMPreTrainedModel {
