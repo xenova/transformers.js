@@ -838,6 +838,14 @@ SUPPORTED_MODELS = {
             'microsoft/speecht5_tts',
         ],
     },
+    'stablelm': {
+        # Text generation
+        'text-generation': [
+            'hf-internal-testing/tiny-random-StableLmForCausalLM',
+            'stabilityai/stablelm-2-1_6b',
+            'stabilityai/stablelm-2-zephyr-1_6b',
+        ],
+    },
     'squeezebert': {
         # Feature extraction
         'feature-extraction': [
