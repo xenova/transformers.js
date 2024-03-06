@@ -5234,21 +5234,6 @@ export class StableLMForCausalLM extends StableLMPreTrainedModel {
         return new CausalLMOutputWithPast(await super._call(model_inputs));
     }
 }
-
-/**
- * StableLM Model with a sequence classification head on top (with Past).
- */
-export class StableLMForSequenceClassification extends StableLMPreTrainedModel {
-    /**
-     * Calls the model on new inputs.
-     * @param {Object} model_inputs The inputs to the model.
-     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
-     */
-    async _call(model_inputs) {
-        return new SequenceClassifierOutputWithPast(await super._call(model_inputs));
-    }
-}
-
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
