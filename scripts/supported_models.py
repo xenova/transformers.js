@@ -1019,6 +1019,12 @@ SUPPORTED_MODELS = {
             'microsoft/wavlm-base-plus',
             'microsoft/wavlm-large',
         ],
+
+        # Audio XVector (e.g., for speaker verification)
+        'audio-xvector': [
+            'microsoft/wavlm-base-plus-sv',
+            'microsoft/wavlm-base-sv',
+        ],
     },
     'whisper': {
         # Automatic speech recognition

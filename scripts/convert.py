@@ -99,6 +99,10 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
+    'wavlm': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
 }
 
 MODELS_WITHOUT_TOKENIZERS = [

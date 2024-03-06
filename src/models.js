@@ -4746,6 +4746,49 @@ export class WavLMForSequenceClassification extends WavLMPreTrainedModel {
     }
 }
 
+/**
+ * WavLM Model with an XVector feature extraction head on top for tasks like Speaker Verification.
+ * 
+ * **Example:** Extract speaker embeddings with `WavLMForXVector`.
+ * ```javascript
+ * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
+ * 
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base-plus-sv');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * const audio = await read_audio(url, 16000);
+ * const inputs = await processor(audio);
+ * 
+ * // Run model with inputs
+ * const model = await AutoModel.from_pretrained('Xenova/wavlm-base-plus-sv');
+ * const outputs = await model(inputs);
+ * // {
+ * //   logits: Tensor {
+ * //     dims: [ 1, 512 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(512) [0.5847219228744507, ...],
+ * //     size: 512
+ * //   },
+ * //   embeddings: Tensor {
+ * //     dims: [ 1, 512 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(512) [-0.09079201519489288, ...],
+ * //     size: 512
+ * //   }
+ * // }
+ * ```
+ */
+export class WavLMForXVector extends WavLMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<XVectorOutput>} An object containing the model's output logits and speaker embeddings.
+     */
+    async _call(model_inputs) {
+        return new XVectorOutput(await super._call(model_inputs));
+    }
+}
+
 //////////////////////////////////////////////////
 // SpeechT5 models
 /**
@@ -5494,6 +5537,10 @@ const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
 ]);
 
+const MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES = new Map([
+    ['wavlm', ['WavLMForXVector', WavLMForXVector]],
+]);
+
 const MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES = new Map([
     ['vitmatte', ['VitMatteForImageMatting', VitMatteForImageMatting]],
 ]);
@@ -5534,6 +5581,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -5752,6 +5800,10 @@ export class AutoModelForAudioClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES];
 }
 
+export class AutoModelForXVector extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES];
+}
+
 export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES];
 }
@@ -5801,6 +5853,22 @@ export class SequenceClassifierOutput extends ModelOutput {
     constructor({ logits }) {
         super();
         this.logits = logits;
+    }
+}
+
+/**
+ * Base class for outputs of XVector models.
+ */
+export class XVectorOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Classification hidden states before AMSoftmax, of shape `(batch_size, config.xvector_output_dim)`.
+     * @param {Tensor} output.embeddings Utterance embeddings used for vector similarity-based retrieval, of shape `(batch_size, config.xvector_output_dim)`.
+     */
+    constructor({ logits, embeddings }) {
+        super();
+        this.logits = logits;
+        this.embeddings = embeddings;
     }
 }
 
