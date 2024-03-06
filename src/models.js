@@ -5421,7 +5421,6 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['mbart', ['MBartForSequenceClassification', MBartForSequenceClassification]],
     ['mobilebert', ['MobileBertForSequenceClassification', MobileBertForSequenceClassification]],
     ['squeezebert', ['SqueezeBertForSequenceClassification', SqueezeBertForSequenceClassification]],
-    ['stablelm', ['StableLMForSequenceClassification', StableLMForSequenceClassification]],
 ]);
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
