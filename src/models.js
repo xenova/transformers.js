@@ -5318,9 +5318,9 @@ export class SegformerForSemanticSegmentation extends SegformerPreTrainedModel {
 
 //////////////////////////////////////////////////
 // StableLm models
-export class StableLMPreTrainedModel extends PreTrainedModel {
+export class StableLmPreTrainedModel extends PreTrainedModel {
     /**
-     * Creates a new instance of the `StableLMPreTrainedModel` class.
+     * Creates a new instance of the `StableLmPreTrainedModel` class.
      * @param {Object} config The configuration of the model.
      * @param {any} session The ONNX session containing the model weights.
      * @param {GenerationConfig} generation_config The generation configuration.
@@ -5339,9 +5339,9 @@ export class StableLMPreTrainedModel extends PreTrainedModel {
 }
 
 /**
- * The bare StableLM Model transformer outputting raw hidden-states without any specific head on top.
+ * The bare StableLm Model transformer outputting raw hidden-states without any specific head on top.
  */
-export class StableLMModel extends StableLMPreTrainedModel { }
+export class StableLmModel extends StableLmPreTrainedModel { }
 
 /**
  * StableLm Model with a `language modeling` head on top for Causal Language Modeling (with past).
