@@ -5889,23 +5889,6 @@ export class SequenceClassifierOutput extends ModelOutput {
 }
 
 /**
- * Base class for outputs of sentence classification models.
- */
-export class SequenceClassifierOutputWithPast extends ModelOutput {
-    /**
-     * @param {Object} output The output of the model.
-     * @param {Tensor} output.logits classification (or regression if config.num_labels==1) scores (before SoftMax).
-     * @param {Tensor} output.past_key_values Contains pre-computed hidden-states (key and values in the self-attention blocks)
-     * that can be used (see `past_key_values` input) to speed up sequential decoding.
-     */
-    constructor({ logits, past_key_values }) {
-        super();
-        this.logits = logits;
-        this.past_key_values = past_key_values;
-    }
-}
-
-/**
  * Base class for outputs of XVector models.
  */
 export class XVectorOutput extends ModelOutput {
