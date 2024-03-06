@@ -5317,7 +5317,7 @@ export class SegformerForSemanticSegmentation extends SegformerPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// StableLM models
+// StableLm models
 export class StableLMPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `StableLMPreTrainedModel` class.
