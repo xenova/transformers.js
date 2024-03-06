@@ -5344,9 +5344,9 @@ export class StableLMPreTrainedModel extends PreTrainedModel {
 export class StableLMModel extends StableLMPreTrainedModel { }
 
 /**
- * StableLM Model with a `language modeling` head on top for Causal Language Modeling (with past).
+ * StableLm Model with a `language modeling` head on top for Causal Language Modeling (with past).
  */
-export class StableLMForCausalLM extends StableLMPreTrainedModel {
+export class StableLmForCausalLM extends StableLmPreTrainedModel {
     /**
      * Calls the model on new inputs.
      * @param {Object} model_inputs The inputs to the model.
@@ -5594,7 +5594,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['starcoder2', ['Starcoder2ForCausalLM', Starcoder2ForCausalLM]],
     ['falcon', ['FalconForCausalLM', FalconForCausalLM]],
     ['trocr', ['TrOCRForCausalLM', TrOCRForCausalLM]],
-    ['stablelm', ['StableLMForCausalLM', StableLMForCausalLM]],
+    ['stablelm', ['StableLmForCausalLM', StableLmForCausalLM]],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
