@@ -845,6 +845,12 @@ SUPPORTED_MODELS = {
             'squeezebert/squeezebert-mnli',
         ],
     },
+    'starcoder2': {
+        # Text generation
+        'text-generation': [
+            'hf-internal-testing/tiny-random-Starcoder2ForCausalLM',
+        ],
+    },
     'swin': {
         # Image classification
         'image-classification': [

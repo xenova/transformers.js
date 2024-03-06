@@ -5113,6 +5113,38 @@ export class MistralModel extends MistralPreTrainedModel { }
 export class MistralForCausalLM extends MistralPreTrainedModel { }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// Starcoder2 models
+/**
+ * The bare Starcoder2 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Starcoder2PreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `Starcoder2PreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_key_value_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
+    }
+}
+
+export class Starcoder2Model extends Starcoder2PreTrainedModel { }
+
+export class Starcoder2ForCausalLM extends Starcoder2PreTrainedModel { }
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // Falcon models
 /**
@@ -5437,6 +5469,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['mpt', ['MptModel', MptModel]],
     ['opt', ['OPTModel', OPTModel]],
     ['mistral', ['MistralModel', MistralModel]],
+    ['starcoder2', ['Starcoder2Model', Starcoder2Model]],
     ['falcon', ['FalconModel', FalconModel]],
 ]);
 
@@ -5517,6 +5550,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
     ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
     ['mistral', ['MistralForCausalLM', MistralForCausalLM]],
+    ['starcoder2', ['Starcoder2ForCausalLM', Starcoder2ForCausalLM]],
     ['falcon', ['FalconForCausalLM', FalconForCausalLM]],
     ['trocr', ['TrOCRForCausalLM', TrOCRForCausalLM]],
 ]);
