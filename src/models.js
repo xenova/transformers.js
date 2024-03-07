@@ -181,9 +181,16 @@ function validateInputs(session, inputs) {
 async function sessionRun(session, inputs) {
     const checkedInputs = validateInputs(session, inputs);
     try {
-        // @ts-ignore
-        let output = await session.run(checkedInputs);
+        // pass the original ort tensor
+        const ortFeed = Object.fromEntries(Object.entries(checkedInputs).map(([k, v]) => [k, v.ort_tensor]));
+        let output = await session.run(ortFeed);    
         output = replaceTensors(output);
+        for (const [name, t] of Object.entries(checkedInputs)) {
+            // if we use gpu buffers for kv_caches, we own them and need to dispose()
+            if (name.startsWith('past_key_values')) {
+                t.dispose();
+            };
+        }
         return output;
     } catch (e) {
         // This usually occurs when the inputs are of the wrong type.
