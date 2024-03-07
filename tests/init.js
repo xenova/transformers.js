@@ -95,20 +95,6 @@ if (process.env.TESTING_REMOTELY) {
 
         return parts.join('/');
     }
-
-    // For some reason, GH actions breaks when performing fetch requests with `redirect: 'follow'` (the default).
-    // Here, we use a custom fetch function that follows redirects manually.
-    const defaultFetch = globalThis.fetch;
-    const fetchWithRedirect = async (url) => {
-        const response = await defaultFetch(url, { redirect: 'manual' });
-        if (response.status >= 300 && response.status < 400) {
-            const redirectUrl = response.headers.get('location');
-            return fetchWithRedirect(redirectUrl);
-        } else {
-            return response;
-        }
-    };
-    globalThis.fetch = fetchWithRedirect;
 }
 
 export const MAX_TEST_EXECUTION_TIME = 60_000; // 60 seconds
