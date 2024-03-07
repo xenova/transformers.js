@@ -29,7 +29,7 @@ import url from 'url';
 import { ONNX } from './backends/onnx.js';
 const { env: onnx_env } = ONNX;
 
-const VERSION = '2.15.0';
+const VERSION = '2.15.1';
 
 // Check if various APIs are available (depends on environment)
 const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
@@ -53,14 +53,15 @@ const localModelPath = RUNNING_LOCALLY
     ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
-// Set path to wasm files. This is needed when running in a web worker.
-// https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
-// We use remote wasm files by default to make it easier for newer users.
-// In practice, users should probably self-host the necessary .wasm files.
-onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
-    ? path.join(__dirname, '/dist/')
-    : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
-
+if (onnx_env?.wasm) {
+    // Set path to wasm files. This is needed when running in a web worker.
+    // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
+    // We use remote wasm files by default to make it easier for newer users.
+    // In practice, users should probably self-host the necessary .wasm files.
+    onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
+        ? path.join(__dirname, '/dist/')
+        : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
+}
 
 /**
  * Global variable used to control execution. This provides users a simple way to configure Transformers.js.
