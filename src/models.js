@@ -81,7 +81,7 @@ import {
     Tensor,
 } from './utils/tensor.js';
 
-import { createInferenceSession, isONNXTensor, isONNXProxy } from './backends/onnx.js';
+import { InferenceSession, isONNXTensor, isONNXProxy } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
 
 //////////////////////////////////////////////////
@@ -118,7 +118,8 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
     // TODO add option for user to force specify their desired execution provider
     let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
     let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
-    return await createInferenceSession(buffer);
+
+    return await InferenceSession.create(buffer, options.session_options);
 }
 
 /**
@@ -726,6 +727,7 @@ export class PreTrainedModel extends Callable {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        session_options = {},
     } = {}) {
 
         let options = {
@@ -736,6 +738,7 @@ export class PreTrainedModel extends Callable {
             local_files_only,
             revision,
             model_file_name,
+            session_options,
         }
 
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this);
@@ -1281,6 +1284,8 @@ export class PreTrainedModel extends Callable {
         } else {
             // TODO support batches (i.e., batch_size > 1)
             const batch_size = 1;
+            const dtype = this.config.precision || 'float32';
+            const empty = (dtype === 'float16') ? new Uint16Array() : [];
 
             // @ts-ignore
             if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
@@ -1290,10 +1295,10 @@ export class PreTrainedModel extends Callable {
                 let decoder_dims = [batch_size, this.num_decoder_heads, 0, this.decoder_dim_kv];
                 // @ts-ignore
                 for (let i = 0; i < this.num_decoder_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
-                    decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor('float32', [], encoder_dims)
-                    decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor('float32', [], decoder_dims)
-                    decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor('float32', [], decoder_dims)
+                    decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor(dtype, empty, encoder_dims)
+                    decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor(dtype, empty, encoder_dims)
+                    decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor(dtype, empty, decoder_dims)
+                    decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor(dtype, empty, decoder_dims)
                 }
             } else if (this.config.model_type === 'falcon') {
                 // NOTE: Custom implementation for Falcon
@@ -1301,15 +1306,15 @@ export class PreTrainedModel extends Callable {
                 let dims = [batch_size * this.num_heads, 0, this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, dims)
                 }
             } else if (this.config.multi_query) { // e.g., for `gpt_bigcode`
                 // @ts-ignore
                 let dims = [batch_size * this.num_heads, 0, 2 * this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor(dtype, empty, dims)
                 }
             } else if (this.config.model_type === 'bloom') {
                 // NOTE: Custom implementation for Bloom
@@ -1320,16 +1325,16 @@ export class PreTrainedModel extends Callable {
                 let valueDims = [batch_size * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], valueDims)
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, keyDims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, valueDims)
                 }
             } else { // Decoder-only
                 // @ts-ignore
                 let dims = [batch_size, this.num_heads, 0, this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, dims)
                 }
             }
         }
@@ -5309,6 +5314,7 @@ export class PretrainedMixin {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        session_options = {},
     } = {}) {
 
         let options = {
@@ -5319,6 +5325,7 @@ export class PretrainedMixin {
             local_files_only,
             revision,
             model_file_name,
+            session_options,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
         if (!options.config) {
