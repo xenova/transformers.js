@@ -5346,16 +5346,7 @@ export class StableLmModel extends StableLmPreTrainedModel { }
 /**
  * StableLm Model with a `language modeling` head on top for Causal Language Modeling (with past).
  */
-export class StableLmForCausalLM extends StableLmPreTrainedModel {
-    /**
-     * Calls the model on new inputs.
-     * @param {Object} model_inputs The inputs to the model.
-     * @returns {Promise<CausalLMOutput>} An object containing the model's output logits for causal language modeling.
-     */
-    async _call(model_inputs) {
-        return new CausalLMOutputWithPast(await super._call(model_inputs));
-    }
-}
+export class StableLmForCausalLM extends StableLmPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
