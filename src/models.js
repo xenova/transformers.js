@@ -4810,19 +4810,23 @@ export class WavLMForXVector extends WavLMPreTrainedModel {
  * const { logits } = await model(inputs);
  * // {
  * //   logits: Tensor {
- * //     dims: [ 1, 549, 2 ],  // [num_batches, num_frames, num_speakers]
+ * //     dims: [ 1, 549, 2 ],  // [batch_size, num_frames, num_speakers]
  * //     type: 'float32',
- * //     data: Float32Array(1098) [0.5847219228744507, ...],
+ * //     data: Float32Array(1098) [-3.5301010608673096, ...],
  * //     size: 1098
  * //   }
  * // }
- * // labels is a one-hot array of shape (num_batches, num_frames, num_speakers)
- * const labels = logits
- *  .sigmoid()
- *  .toList()
- *  .map(frames => frames.map(
- *      frame => frame.map(speaker => speaker > 0.5 ? 1 : 0);
- *   ));
+ * 
+ * const labels = logits[0].sigmoid().tolist().map(
+ *     frames => frames.map(speaker => speaker > 0.5 ? 1 : 0)
+ * );
+ * console.log(labels); // labels is a one-hot array of shape (num_frames, num_speakers)
+ * // [
+ * //     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
+ * //     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
+ * //     [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
+ * //     ...
+ * // ]
  * ```
  */
 export class WavLMForAudioFrameClassification extends WavLMPreTrainedModel {
