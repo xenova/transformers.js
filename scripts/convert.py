@@ -84,7 +84,7 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'reduce_range': False,
     },
     'stablelm': {
-      'per_channel': False,
+        'per_channel': False,
         'reduce_range': False,
     },
     'starcoder2': {
