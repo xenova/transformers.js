@@ -123,23 +123,29 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
     let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
     try {
-        return await InferenceSession.create(buffer, {
-            executionProviders,
-        });
-    } catch (err) {
-        // If the execution provided was only wasm, throw the error
-        if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
-            throw err;
+        let opt = options.session_options || {};
+
+        // use default execution providers if application did not specify one
+        if (opt.executionProviders === undefined) {
+            opt.executionProviders = executionProviders;
         }
 
-        console.warn(err);
-        console.warn(
-            'Something went wrong during model construction (most likely a missing operation). ' +
-            'Using `wasm` as a fallback. '
-        )
-        return await InferenceSession.create(buffer, {
-            executionProviders: ['wasm']
-        });
+        // handle onnx external data files
+        if (opt.externalData !== undefined) {
+            for (let i = 0; i < opt.externalData.length; i++) {
+                const ext = opt.externalData[i];
+                // if the external data is a string, fetch the file and replace the string with its content
+                if (typeof ext.data === "string") {
+                    const ext_buffer = await getModelFile(pretrained_model_name_or_path, ext.data, true, options);
+                    ext.data = ext_buffer;
+                }
+            }
+        }
+        return await InferenceSession.create(buffer, opt);
+    } catch (err) {
+        // if the session fails, let the application handle it. Ie. if webgpu fails and we
+        // fallback to wasm, let the application decide if we want to use a quantized model, etc.
+        throw err;
     }
 }
 
@@ -741,6 +747,7 @@ export class PreTrainedModel extends Callable {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        session_options = {},
     } = {}) {
 
         let options = {
@@ -751,6 +758,7 @@ export class PreTrainedModel extends Callable {
             local_files_only,
             revision,
             model_file_name,
+            session_options,
         }
 
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this);
@@ -5348,6 +5356,7 @@ export class PretrainedMixin {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        session_options = {},
     } = {}) {
 
         let options = {
@@ -5358,6 +5367,7 @@ export class PretrainedMixin {
             local_files_only,
             revision,
             model_file_name,
+            session_options,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
         if (!options.config) {
