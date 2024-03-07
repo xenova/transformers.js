@@ -50,7 +50,6 @@ const localModelPath = RUNNING_LOCALLY
     ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
-
 /**
  * Global variable used to control execution. This provides users a simple way to configure Transformers.js.
  * @property {Object} backends Expose environment variables of different backends,

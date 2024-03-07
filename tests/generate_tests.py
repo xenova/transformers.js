@@ -29,8 +29,15 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         # 'Xenova/t5-tokenizer-new',
     ],
     'bert': [
-        # Uses `Whitespace` pretokenizer 
+        # Uses `Whitespace` pretokenizer
         'Xenova/jina-embeddings-v2-base-zh-tokenizer',
+    ],
+    'qwen2': [
+        # Uses a pretokenizer regex which is not compatible with JavaScript.
+        'Qwen/Qwen1.5-0.5B-Chat',
+    ],
+    'gemma': [
+        'Xenova/gemma-tokenizer',
     ],
 }
 
@@ -136,6 +143,10 @@ TOKENIZER_TEST_DATA = {
             "abcdefghijklmnopqrstuvwxyz01234567890",
             # Special treatment of characters in certain language
             "ț ţ",
+        ],
+
+        "qwen2": [
+            "i'm i'M i've i've i'Ve i'vE i'VE",
         ],
     },
     "custom": {

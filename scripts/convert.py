@@ -79,6 +79,18 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
+    'qwen2': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'stablelm': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'starcoder2': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
 
     # Encoder-decoder models
     'whisper': {
@@ -89,6 +101,28 @@ MODEL_SPECIFIC_QUANTIZE_PARAMS = {
         'per_channel': False,
         'reduce_range': False,
     },
+
+    # Encoder-only models
+    'owlv2': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'wavlm': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'wav2vec2': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'unispeech': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
+    'unispeech-sat': {
+        'per_channel': False,
+        'reduce_range': False,
+    },
 }
 
 MODELS_WITHOUT_TOKENIZERS = [
@@ -96,6 +130,8 @@ MODELS_WITHOUT_TOKENIZERS = [
     'wav2vec2-bert',
     'wavlm',
     'hubert',
+    'unispeech',
+    'unispeech-sat',
 ]
 
 
@@ -185,6 +221,22 @@ class ConversionArguments:
         default=False,
         metadata={
             "help": "Whether to split multimodal models. NOTE: This is only supported for CLIP models right now."
+        }
+    )
+
+    trust_remote_code: bool = field(
+        default=False,
+        metadata={
+            "help": "Allows to use custom code for the modeling hosted in the model repository. This option should only be set for repositories"
+            "you trust and in which you have read the code, as it will execute on your local machine arbitrary code present in the model repository."
+        }
+    )
+
+    custom_onnx_configs: str = field(
+        default=None,
+        metadata={
+            "help": "Experimental usage: override the default ONNX config used for the given model. This argument may be useful for advanced users "
+            "that desire a finer-grained control on the export."
         }
     )
 
@@ -280,13 +332,30 @@ def main():
     # Create output folder
     os.makedirs(output_model_folder, exist_ok=True)
 
+    from_pretrained_kwargs = dict(
+        trust_remote_code=conv_args.trust_remote_code,
+    )
+
     # Saving the model config
-    config = AutoConfig.from_pretrained(model_id)
+    config = AutoConfig.from_pretrained(model_id, **from_pretrained_kwargs)
+
+    custom_kwargs={}
+    if conv_args.custom_onnx_configs is not None:
+        if conv_args.task == 'auto':
+            raise Exception('`--task` must be set when exporting with `--custom_onnx_configs`')
+        custom_onnx_configs = json.loads(conv_args.custom_onnx_configs)
+
+        for key in custom_onnx_configs:
+            onnx_configs = TasksManager._SUPPORTED_MODEL_TYPE[custom_onnx_configs[key]]['onnx']
+            mapping = onnx_configs[conv_args.task]
+            custom_onnx_configs[key] = mapping.func(config, **mapping.keywords)
+
+        custom_kwargs['custom_onnx_configs'] = custom_onnx_configs
 
     tokenizer = None
     try:
         # Load tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id, **from_pretrained_kwargs)
 
         # To avoid inserting all chat templates into tokenizers.js, we save the chat template
         # to the tokenizer_config.json file, and load it when the tokenizer is loaded.
@@ -302,13 +371,20 @@ def main():
         if config.model_type not in MODELS_WITHOUT_TOKENIZERS:
             raise e
 
+    core_export_kwargs = dict(
+        opset=conv_args.opset,
+        device=conv_args.device,
+        trust_remote_code=conv_args.trust_remote_code,
+        **custom_kwargs,
+    )
+
     export_kwargs = dict(
         model_name_or_path=model_id,
         output=output_model_folder,
         task=conv_args.task,
-        opset=conv_args.opset,
-        device=conv_args.device,
         do_validation=not conv_args.skip_validation,
+        library_name='transformers',
+        **core_export_kwargs,
     )
 
     # Handle special cases
@@ -332,7 +408,7 @@ def main():
                 **get_main_export_kwargs(config, "automatic-speech-recognition")
             )
 
-    elif config.model_type in ('wav2vec2', 'wav2vec2-bert', 'hubert'):
+    elif config.model_type in ('wav2vec2', 'wav2vec2-bert', 'hubert', 'unispeech' , 'unispeech-sat'):
         if tokenizer is not None:
             from .extra.wav2vec2 import generate_tokenizer_json
             tokenizer_json = generate_tokenizer_json(tokenizer)
@@ -359,7 +435,7 @@ def main():
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
                 json.dump(tokenizer_json, fp, indent=4)
 
-    elif config.model_type == 'owlvit':
+    elif config.model_type in ('owlvit', 'owlv2'):
         # Override default batch size to 1, needed because non-maximum suppression is performed for exporting.
         # For more information, see https://github.com/huggingface/optimum/blob/e3b7efb1257c011db907ef40ab340e795cc5684c/optimum/exporters/onnx/model_configs.py#L1028-L1032
         export_kwargs['batch_size'] = 1
@@ -368,63 +444,66 @@ def main():
         pass  # TODO
 
     # Step 1. convert huggingface model to onnx
-    if config.model_type == 'clip' and conv_args.split_modalities:
-        # Handle special case for exporting text and vision models separately
-        from .extra.clip import CLIPTextModelWithProjectionOnnxConfig, CLIPVisionModelWithProjectionOnnxConfig
-        from transformers.models.clip import CLIPTextModelWithProjection, CLIPVisionModelWithProjection
-
-        text_model = CLIPTextModelWithProjection.from_pretrained(model_id)
-        vision_model = CLIPVisionModelWithProjection.from_pretrained(model_id)
-
-        export_models(
-            models_and_onnx_configs={
-                "text_model": (text_model, CLIPTextModelWithProjectionOnnxConfig(text_model.config)),
-                "vision_model": (vision_model, CLIPVisionModelWithProjectionOnnxConfig(vision_model.config)),
-            },
-            output_dir=output_model_folder,
-            opset=conv_args.opset,
-            device=conv_args.device,
-        )
-
-    elif config.model_type == 'siglip' and conv_args.split_modalities:
-        # Handle special case for exporting text and vision models separately
-        from .extra.siglip import SiglipTextModelOnnxConfig, SiglipVisionModelOnnxConfig
-        from transformers.models.siglip import SiglipTextModel, SiglipVisionModel
-
-        text_model = SiglipTextModel.from_pretrained(model_id)
-        vision_model = SiglipVisionModel.from_pretrained(model_id)
-
-        export_models(
-            models_and_onnx_configs={
-                "text_model": (text_model, SiglipTextModelOnnxConfig(text_model.config)),
-                "vision_model": (vision_model, SiglipVisionModelOnnxConfig(vision_model.config)),
-            },
-            output_dir=output_model_folder,
-            opset=conv_args.opset,
-            device=conv_args.device,
-        )
-
-    # TODO: Enable once https://github.com/huggingface/optimum/pull/1552 is merged
-    # elif config.model_type == 'clap' and conv_args.split_modalities:
-    #     # Handle special case for exporting text and audio models separately
-    #     from .extra.clap import ClapTextModelWithProjectionOnnxConfig, ClapAudioModelWithProjectionOnnxConfig
-    #     from transformers.models.clap import ClapTextModelWithProjection, ClapAudioModelWithProjection
-
-    #     text_model = ClapTextModelWithProjection.from_pretrained(model_id)
-    #     audio_model = ClapAudioModelWithProjection.from_pretrained(model_id)
-
-    #     export_models(
-    #         models_and_onnx_configs={
-    #             "text_model": (text_model, ClapTextModelWithProjectionOnnxConfig(text_model.config)),
-    #             "audio_model": (audio_model, ClapAudioModelWithProjectionOnnxConfig(audio_model.config)),
-    #         },
-    #         output_dir=output_model_folder,
-    #         opset=conv_args.opset,
-    #         device=conv_args.device,
-    #     )
-
-    else:
+    if not conv_args.split_modalities:
         main_export(**export_kwargs)
+    else:
+        custom_export_kwargs = dict(
+            output_dir=output_model_folder,
+            **core_export_kwargs,
+        )
+
+        if config.model_type == 'clip':
+            # Handle special case for exporting text and vision models separately
+            from .extra.clip import CLIPTextModelWithProjectionOnnxConfig, CLIPVisionModelWithProjectionOnnxConfig
+            from transformers.models.clip import CLIPTextModelWithProjection, CLIPVisionModelWithProjection
+
+            text_model = CLIPTextModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
+            vision_model = CLIPVisionModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
+
+            export_models(
+                models_and_onnx_configs={
+                    "text_model": (text_model, CLIPTextModelWithProjectionOnnxConfig(text_model.config)),
+                    "vision_model": (vision_model, CLIPVisionModelWithProjectionOnnxConfig(vision_model.config)),
+                },
+                **custom_export_kwargs,
+            )
+
+        elif config.model_type == 'siglip':
+            # Handle special case for exporting text and vision models separately
+            from .extra.siglip import SiglipTextModelOnnxConfig, SiglipVisionModelOnnxConfig
+            from transformers.models.siglip import SiglipTextModel, SiglipVisionModel
+
+            text_model = SiglipTextModel.from_pretrained(model_id, **from_pretrained_kwargs)
+            vision_model = SiglipVisionModel.from_pretrained(model_id, **from_pretrained_kwargs)
+
+            export_models(
+                models_and_onnx_configs={
+                    "text_model": (text_model, SiglipTextModelOnnxConfig(text_model.config)),
+                    "vision_model": (vision_model, SiglipVisionModelOnnxConfig(vision_model.config)),
+                },
+                **custom_export_kwargs,
+            )
+
+        # TODO: Enable once https://github.com/huggingface/optimum/pull/1552 is merged
+        # elif config.model_type == 'clap':
+        #     # Handle special case for exporting text and audio models separately
+        #     from .extra.clap import ClapTextModelWithProjectionOnnxConfig, ClapAudioModelWithProjectionOnnxConfig
+        #     from transformers.models.clap import ClapTextModelWithProjection, ClapAudioModelWithProjection
+
+        #     text_model = ClapTextModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
+        #     audio_model = ClapAudioModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
+
+        #     export_models(
+        #         models_and_onnx_configs={
+        #             "text_model": (text_model, ClapTextModelWithProjectionOnnxConfig(text_model.config)),
+        #             "audio_model": (audio_model, ClapAudioModelWithProjectionOnnxConfig(audio_model.config)),
+        #         },
+        #         **custom_export_kwargs,
+        #     )
+
+        else:
+            raise Exception(f'Unable to export {config.model_type} model with `--split_modalities`.')
+
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
@@ -457,7 +536,7 @@ def main():
         from transformers import GenerationConfig
         from .extra.whisper import get_alignment_heads
 
-        generation_config = GenerationConfig.from_pretrained(model_id)
+        generation_config = GenerationConfig.from_pretrained(model_id, **from_pretrained_kwargs)
         generation_config.alignment_heads = get_alignment_heads(config)
         generation_config.save_pretrained(output_model_folder)
 

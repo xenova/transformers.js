@@ -158,7 +158,7 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
 function validate_audio_inputs(audio, feature_extractor) {
     if (!(audio instanceof Float32Array || audio instanceof Float64Array)) {
         throw new Error(
-            `${feature_extractor} expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead.` +
+            `${feature_extractor} expects input to be a Float32Array or a Float64Array, but got ${audio?.constructor?.name ?? typeof audio} instead. ` +
             `If using the feature extractor directly, remember to use \`read_audio(url, sampling_rate)\` to obtain the raw audio data of the file/url.`
         )
     }
@@ -186,6 +186,20 @@ function constraint_to_multiple_of(val, multiple, minVal = 0, maxVal = null) {
 
     return x;
 }
+
+/**
+ * Rounds the height and width down to the closest multiple of size_divisibility
+ * @param {[number, number]} size The size of the image
+ * @param {number} divisor The divisor to use.
+ * @returns {[number, number]} The rounded size.
+ */
+function enforce_size_divisibility([width, height], divisor) {
+    return [
+        Math.floor(width / divisor) * divisor,
+        Math.floor(height / divisor) * divisor
+    ];
+}
+
 
 /**
  * Base class for feature extractors.
@@ -229,7 +243,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * @param {boolean} config.do_normalize Whether to normalize the image pixel values.
      * @param {boolean} config.do_resize Whether to resize the image.
      * @param {number} config.resample What method to use for resampling.
-     * @param {number} config.size The size to resize the image to.
+     * @param {number|Object} config.size The size to resize the image to.
      */
     constructor(config) {
         super(config);
@@ -481,9 +495,12 @@ export class ImageFeatureExtractor extends FeatureExtractor {
                 : Math.min(longest_edge / newWidth, longest_edge / newHeight);
 
             // To avoid certain floating point precision issues, we round to 2 decimal places
-            const finalWidth = Math.floor(Number((newWidth * longResizeFactor).toFixed(2)));
-            const finalHeight = Math.floor(Number((newHeight * longResizeFactor).toFixed(2)));
+            let finalWidth = Math.floor(Number((newWidth * longResizeFactor).toFixed(2)));
+            let finalHeight = Math.floor(Number((newHeight * longResizeFactor).toFixed(2)));
 
+            if (this.size_divisibility !== undefined) {
+                [finalWidth, finalHeight] = enforce_size_divisibility([finalWidth, finalHeight], this.size_divisibility)
+            }
             return [finalWidth, finalHeight];
 
         } else if (size !== undefined && size.width !== undefined && size.height !== undefined) {
@@ -515,10 +532,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             return [newWidth, newHeight];
 
         } else if (this.size_divisibility !== undefined) {
-            // Rounds the height and width down to the closest multiple of size_divisibility
-            const newWidth = Math.floor(srcWidth / this.size_divisibility) * this.size_divisibility;
-            const newHeight = Math.floor(srcHeight / this.size_divisibility) * this.size_divisibility;
-            return [newWidth, newHeight];
+            return enforce_size_divisibility([srcWidth, srcHeight], this.size_divisibility);
         } else {
             throw new Error(`Could not resize image due to unsupported \`this.size\` option in config: ${JSON.stringify(size)}`);
         }
@@ -821,6 +835,8 @@ export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
         return post_process_object_detection(...args);
     }
 }
+export class Owlv2ImageProcessor extends OwlViTFeatureExtractor { } // NOTE extends OwlViTFeatureExtractor
+
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
 export class DonutFeatureExtractor extends ImageFeatureExtractor {
@@ -2135,10 +2151,12 @@ export class OwlViTProcessor extends Processor { }
  */
 export class AutoProcessor {
     static FEATURE_EXTRACTOR_CLASS_MAPPING = {
+        ImageFeatureExtractor,
         WhisperFeatureExtractor,
         ViTFeatureExtractor,
         MobileViTFeatureExtractor,
         OwlViTFeatureExtractor,
+        Owlv2ImageProcessor,
         CLIPFeatureExtractor,
         ChineseCLIPFeatureExtractor,
         SiglipImageProcessor,
