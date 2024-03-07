@@ -5316,6 +5316,38 @@ export class SegformerForSemanticSegmentation extends SegformerPreTrainedModel {
 
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// StableLm models
+export class StableLmPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `StableLmPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+
+/**
+ * The bare StableLm Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class StableLmModel extends StableLmPreTrainedModel { }
+
+/**
+ * StableLm Model with a `language modeling` head on top for Causal Language Modeling (with past).
+ */
+export class StableLmForCausalLM extends StableLmPreTrainedModel { }
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -5553,6 +5585,7 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['starcoder2', ['Starcoder2ForCausalLM', Starcoder2ForCausalLM]],
     ['falcon', ['FalconForCausalLM', FalconForCausalLM]],
     ['trocr', ['TrOCRForCausalLM', TrOCRForCausalLM]],
+    ['stablelm', ['StableLmForCausalLM', StableLmForCausalLM]],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
