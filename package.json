@@ -43,7 +43,7 @@
     "@huggingface/jinja": "^0.2.1"
   },
   "optionalDependencies": {
-    "onnxruntime-node": "1.17.1"
+    "onnxruntime-node": "1.17.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
