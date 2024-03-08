@@ -1529,6 +1529,8 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
                 return this._call_whisper(audio, kwargs)
             case 'wav2vec2':
             case 'wav2vec2-bert':
+            case 'unispeech':
+            case 'unispeech-sat':
             case 'hubert':
                 return this._call_wav2vec2(audio, kwargs)
             default:

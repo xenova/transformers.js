@@ -838,11 +838,25 @@ SUPPORTED_MODELS = {
             'microsoft/speecht5_tts',
         ],
     },
+    'stablelm': {
+        # Text generation
+        'text-generation': [
+            'hf-internal-testing/tiny-random-StableLmForCausalLM',
+            'stabilityai/stablelm-2-1_6b',
+            'stabilityai/stablelm-2-zephyr-1_6b',
+        ],
+    },
     'squeezebert': {
         # Feature extraction
         'feature-extraction': [
             'squeezebert/squeezebert-uncased',
             'squeezebert/squeezebert-mnli',
+        ],
+    },
+    'starcoder2': {
+        # Text generation
+        'text-generation': [
+            'hf-internal-testing/tiny-random-Starcoder2ForCausalLM',
         ],
     },
     'swin': {
@@ -924,6 +938,45 @@ SUPPORTED_MODELS = {
             'microsoft/trocr-base-handwritten',
         ],
     },
+    'unispeech': {
+        # Feature extraction
+        'feature-extraction': [
+            # Requires --task feature-extraction
+            'microsoft/unispeech-large-1500h-cv',
+        ],
+        # TODO: add support for
+        # # Automatic speech recognition
+        # 'automatic-speech-recognition': [
+        #     'microsoft/unispeech-1350-en-353-fr-ft-1h',
+        #     'microsoft/unispeech-1350-en-17h-ky-ft-1h',
+        #     'microsoft/unispeech-1350-en-90-it-ft-1h',
+        #     'microsoft/unispeech-1350-en-168-es-ft-1h',
+        # ],
+    },
+    'unispeech-sat': {
+        # Feature extraction
+        'feature-extraction': [
+            # Requires --task feature-extraction
+            'microsoft/unispeech-sat-base',
+        ],
+
+        # Audio XVector (e.g., for speaker verification)
+        'audio-xvector': [
+            'microsoft/unispeech-sat-base-plus-sv',
+            'microsoft/unispeech-sat-base-sv',
+            'microsoft/unispeech-sat-large-sv',
+        ],
+
+        # Audio frame classification
+        'audio-frame-classification': [
+            'microsoft/unispeech-sat-base-plus-sd',
+        ],
+
+        # Automatic speech recognition
+        'automatic-speech-recognition': [
+            'microsoft/unispeech-sat-base-100h-libri-ft',
+        ],
+    },
     'vision-encoder-decoder': {
         # Image-to-text
         'image-to-text': [
@@ -993,6 +1046,11 @@ SUPPORTED_MODELS = {
             'facebook/mms-lid-4017',
         ],
 
+        # Audio frame classification
+        'audio-frame-classification': [
+            'anton-l/wav2vec2-base-superb-sd',
+        ],
+
         # Automatic speech recognition
         'automatic-speech-recognition': [
             'jonatasgrosman/wav2vec2-large-xlsr-53-english',
@@ -1018,6 +1076,12 @@ SUPPORTED_MODELS = {
             'microsoft/wavlm-base',
             'microsoft/wavlm-base-plus',
             'microsoft/wavlm-large',
+        ],
+
+        # Audio frame classification
+        'audio-frame-classification': [
+            'anton-l/wav2vec2-base-superb-sd',
+            'microsoft/wavlm-base-plus-sd',
         ],
 
         # Audio XVector (e.g., for speaker verification)
