@@ -12,6 +12,9 @@ import {
     transpose_data
 } from './maths.js';
 
+import {
+    Tensor as ONNXTensor, isONNXTensor,
+} from '../backends/onnx.js';
 
 const DataTypeMap = Object.freeze({
     float32: Float32Array,
@@ -34,7 +37,6 @@ const DataTypeMap = Object.freeze({
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
  */
 
-const ONNXTensor = ONNX.Tensor;
 
 export class Tensor {
     /** @type {number[]} Dimensions of the tensor. */
@@ -67,19 +69,18 @@ export class Tensor {
 
     /**
      * Create a new Tensor or copy an existing Tensor.
-     * @param {[DataType, DataArray, number[]]|[import('onnxruntime-common').Tensor]} args
+     * @param {[DataType, DataArray, number[]]|[ONNXTensor]} args
      */
     constructor(...args) {
-        if (args[0] instanceof ONNXTensor) {
-            this.ort_tensor = args[0];
+        if (isONNXTensor(args[0])) {
+            this.ort_tensor = /** @type {ONNXTensor} */ (args[0]);
         } else {
             // Create new tensor
-            const t = new ONNXTensor(
+            this.ort_tensor = new ONNXTensor(
                 /** @type {DataType} */(args[0]),
                 /** @type {Exclude<import('./maths.js').AnyTypedArray, Uint8ClampedArray>} */(args[1]),
                 args[2]
             );
-            this.ort_tensor = t;
         }
 
         return new Proxy(this, {

@@ -29,7 +29,8 @@ import url from 'url';
 const VERSION = '3.0.0-alpha.0';
 
 // Check if various APIs are available (depends on environment)
-const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
+const BROWSER_ENV = typeof self !== 'undefined';
+const WEB_CACHE_AVAILABLE = BROWSER_ENV && 'caches' in self;
 const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
@@ -60,7 +61,7 @@ const localModelPath = RUNNING_LOCALLY
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
  * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
  * @property {string} remotePathTemplate Path template to fill in and append to `remoteHost` when loading models.
- * @property {boolean} allowLocalModels Whether to allow loading of local files, defaults to `true`.
+ * @property {boolean} allowLocalModels Whether to allow loading of local files, defaults to `false` if running in-browser, and `true` otherwise.
  * If set to `false`, it will skip the local file check and try to load the model from the remote host.
  * @property {string} localModelPath Path to load local models from. Defaults to `/models/`.
  * @property {boolean} useFS Whether to use the file system to load files. By default, it is `true` if available.
@@ -97,7 +98,7 @@ export const env = {
     remoteHost: 'https://huggingface.co/',
     remotePathTemplate: '{model}/resolve/{revision}/',
 
-    allowLocalModels: true,
+    allowLocalModels: !BROWSER_ENV,
     localModelPath: localModelPath,
     useFS: FS_AVAILABLE,
 

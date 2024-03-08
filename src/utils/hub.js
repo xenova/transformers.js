@@ -13,7 +13,6 @@ import { dispatchCallback } from './core.js';
 
 /**
  * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     
- * @property {boolean?} [quantized=true] Whether to load the 8-bit quantized version of the model (only applicable when loading model files).
  * @property {function} [progress_callback=null] If specified, this function will be called during model construction, to provide the user with progress updates.
  * @property {Object} [config=null] Configuration for the model to use instead of an automatically loaded configuration. Configuration can be automatically loaded when:
  * - The model is a model provided by the library (loaded with the *model id* string of a pretrained model).
@@ -23,8 +22,17 @@ import { dispatchCallback } from './core.js';
  * @property {string} [revision='main'] The specific model version to use. It can be a branch name, a tag name, or a commit id,
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
  * NOTE: This setting is ignored for local requests.
+ */
+
+/**
+ * @typedef {Object} ModelSpecificPretrainedOptions Options for loading a pretrained model.
+ * @property {boolean?} [quantized=true] Whether to load the 8-bit quantized version of the model (only applicable when loading model files).
  * @property {string} [model_file_name=null] If specified, load the model with this name (excluding the .onnx suffix). Currently only valid for encoder- or decoder-only models.
- * @property {{}} [session_options={}] Session options passed to the runtime.
+ * @property {Object} [session_options] (Optional) User-specified session options passed to the runtime. If not provided, suitable defaults will be chosen.
+ */
+
+/**
+ * @typedef {PretrainedOptions & ModelSpecificPretrainedOptions} PretrainedModelOptions Options for loading a pretrained model.
  */
 
 class FileResponse {

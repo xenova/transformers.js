@@ -24,7 +24,8 @@ import { env, RUNNING_LOCALLY } from '../env.js';
 import * as ONNX_NODE from 'onnxruntime-node';
 import * as ONNX_WEB from 'onnxruntime-web';
 
-/** @type {import('onnxruntime-web')|import('onnxruntime-node')} The ONNX runtime module. */
+export { Tensor } from 'onnxruntime-common';
+
 let ONNX;
 
 const WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
@@ -41,7 +42,7 @@ if (USE_ONNXRUNTIME_NODE) {
     ONNX_MODULES.set('web', ONNX);
 
     // Running in a browser-environment
-    // TODO: Check if 1.16.1 fixes this issue.
+    // TODO: Check if 1.17.1 fixes this issue.
     // SIMD for WebAssembly does not operate correctly in some recent versions of iOS (16.4.x).
     // As a temporary fix, we disable it for now.
     // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
@@ -53,16 +54,18 @@ if (USE_ONNXRUNTIME_NODE) {
 
 /**
  * Create an ONNX inference session, with fallback support if an operation is not supported.
- * @param {Uint8Array} buffer 
+ * @param {Uint8Array} buffer The ONNX model buffer.
+ * @param {Object} session_options ONNX inference session options. 
  * @returns {Promise<Object>} The ONNX inference session.
  */
-export async function createInferenceSession(buffer) {
+export async function createInferenceSession(buffer, session_options) {
     let executionProviders;
     let InferenceSession;
     if (USE_ONNXRUNTIME_NODE) {
         const ONNX_NODE = ONNX_MODULES.get('node');
         InferenceSession = ONNX_NODE.InferenceSession;
         executionProviders = ['cpu'];
+        Object.assign(ONNX_NODE.env, env.backends.onnx);
 
     } else if (WEBGPU_AVAILABLE && env.experimental.useWebGPU) {
         // Only import the WebGPU version if the user enables the experimental flag.
@@ -74,37 +77,25 @@ export async function createInferenceSession(buffer) {
 
         InferenceSession = ONNX_WEBGPU.InferenceSession;
 
-        // If WebGPU is available and the user enables the experimental flag, try to use the WebGPU execution provider.
+        // If WebGPU is available and the user enables the experimental flag,
+        // try to use the WebGPU execution provider.
         executionProviders = ['webgpu', 'wasm'];
-
         Object.assign(ONNX_WEBGPU.env, env.backends.onnx);
 
     } else {
         const ONNX_WEB = ONNX_MODULES.get('web');
         InferenceSession = ONNX_WEB.InferenceSession;
         executionProviders = ['wasm'];
-        env.backends.onnx = ONNX_MODULES.get('web').env
+        Object.assign(ONNX_WEB.env, env.backends.onnx);
     }
 
-    try {
-        return await InferenceSession.create(buffer, {
-            executionProviders,
-        });
-    } catch (err) {
-        // If the execution provided was only wasm, throw the error
-        if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
-            throw err;
-        }
-
-        console.warn(err);
-        console.warn(
-            'Something went wrong during model construction (most likely a missing operation). ' +
-            'Using `wasm` as a fallback. '
-        )
-        return await InferenceSession.create(buffer, {
-            executionProviders: ['wasm']
-        });
+    // NOTE: Important to create a clone, since ORT modifies the object.
+    const options = {
+        executionProviders,
+        ...session_options
     }
+
+    return await InferenceSession.create(buffer, options);
 }
 
 /**

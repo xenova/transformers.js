@@ -60,13 +60,13 @@ function buildConfig({
         experiments: {
             outputModule,
         },
-        module: {
-            parser: {
-                javascript: {
-                    dynamicImportMode,
-                }
-            }
-        },
+        // module: {
+        //     parser: {
+        //         javascript: {
+        //             dynamicImportMode,
+        //         }
+        //     }
+        // },
 
         // Development server
         devServer: {

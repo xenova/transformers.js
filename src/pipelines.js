@@ -3005,7 +3005,7 @@ const TASK_ALIASES = Object.freeze({
  *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
  *  - `"zero-shot-object-detection"`: will return a `ZeroShotObjectDetectionPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
- * @param {import('./utils/hub.js').PretrainedOptions} [options] Optional parameters for the pipeline.
+ * @param {import('./utils/hub.js').PretrainedModelOptions} [options] Optional parameters for the pipeline.
  * @returns {Promise<AllTasks[T]>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
  */
@@ -3020,6 +3020,7 @@ export async function pipeline(
         local_files_only = false,
         revision = 'main',
         session_options = {},
+        // TODO: device option
     } = {}
 ) {
     // Helper method to construct pipeline
