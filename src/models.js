@@ -5540,8 +5540,6 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['glpn', ['GLPNModel', GLPNModel]],
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
-
-    ['sam', ['SamModel', SamModel]], // TODO change to encoder-decoder when model is split correctly
 ]);
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
