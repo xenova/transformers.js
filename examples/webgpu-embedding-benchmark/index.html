@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transformers.js | WebGPU Benchmark</title>
+</head>
+
+<body>
+  <h1>
+    <a href="http://github.com/xenova/transformers.js" target="_blank">🤗 Transformers.js</a> WebGPU Benchmark
+  </h1>
+  <p>
+    This benchmark measures the execution time of <a
+      href="https://huggingface.co/Xenova/all-MiniLM-L6-v2" target="_blank">Xenova/all-MiniLM-L6-v2</a> (bert-based embedding model)
+    using the WASM and WebGPU execution providers across different batch sizes.
+  </p>
+  <div id="chart-container">
+    <canvas id="chart"></canvas>
+  </div>
+  <div>
+    <button id="start" disabled>Start Benchmark</button>
+    <button id="stop" disabled>Stop Benchmark</button>
+  </div>
+  <label id="status"></label>
+  <details open>
+    <summary>Options</summary>
+    <div>
+      <label>Batch sizes</label>
+      <input id="batch-sizes" value="1, 2, 4, 8, 16, 32" />
+    </div>
+    <div>
+      <label>Sequence length</label>
+      <input id="sequence-length" type="number" min="1" max="512" value="512" />
+    </div>
+    <div>
+      <input id="x-scale" type="checkbox" />
+      <label>Log scale (x)</label>
+      <input id="y-scale" type="checkbox" />
+      <label>Log scale (y)</label>
+    </div>
+  </details>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
