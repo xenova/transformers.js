@@ -310,8 +310,9 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
         if mode == QuantMode.BIT8:
             weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
 
+            del loaded_model
             quantize_dynamic(
-                model_input=loaded_model,
+                model_input=model,
                 model_output=save_path,
                 weight_type=weight_type,
                 #optimize_model=False,
