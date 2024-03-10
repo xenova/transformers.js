@@ -19,6 +19,8 @@ from onnxruntime.quantization import (
     quantize_dynamic,
     QuantType
 )
+from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
+from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 
 DEFAULT_QUANTIZE_PARAMS = {
     'per_channel': True,
@@ -134,6 +136,11 @@ MODELS_WITHOUT_TOKENIZERS = [
     'unispeech-sat',
 ]
 
+class QuantMode:
+    COMMON = 'common'
+    BIT4 = '4bits'
+    BNB4 = 'bnb4'
+
 
 @dataclass
 class ConversionArguments:
@@ -156,6 +163,12 @@ class ConversionArguments:
         default=False,
         metadata={
             "help": "Whether to quantize the model."
+        }
+    )
+    quantize_mode: str = field(
+        default=QuantMode.COMMON,
+        metadata={
+            "help": "Quantization mode to use. Options are: int4, int8, bnb4"
         }
     )
     output_parent_dir: str = field(
@@ -256,7 +269,7 @@ def get_operators(model: onnx.ModelProto) -> Set[str]:
     return operators
 
 
-def quantize(model_names_or_paths, **quantize_kwargs):
+def quantize(mode, model_names_or_paths, **quantize_kwargs):
     """
     Quantize the weights of the model from float32 to int8 to allow very efficient inference on modern CPU
 
@@ -270,11 +283,13 @@ def quantize(model_names_or_paths, **quantize_kwargs):
 
     quantize_config = dict(
         **quantize_kwargs,
+        quantize_mode=mode,
         per_model_config={}
     )
 
+    directory_path = os.path.dirname(model_names_or_paths[0])
+
     for model in tqdm(model_names_or_paths, desc='Quantizing'):
-        directory_path = os.path.dirname(model)
         file_name_without_extension = os.path.splitext(
             os.path.basename(model))[0]
 
@@ -289,28 +304,53 @@ def quantize(model_names_or_paths, **quantize_kwargs):
 
         loaded_model = onnx.load_model(model)
         op_types = get_operators(loaded_model)
-        weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
 
-        quantize_dynamic(
-            model_input=model,
-            model_output=os.path.join(
-                directory_path, f'{file_name_without_extension}_quantized.onnx'),
+        save_path = os.path.join(directory_path, f'{file_name_without_extension}_quantized.onnx')
 
-            weight_type=weight_type,
-            optimize_model=False,
+        if mode == QuantMode.COMMON:
+            weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
 
-            # TODO allow user to specify these
-            # op_types_to_quantize=['MatMul', 'Add', 'Conv'],
-            extra_options=dict(
-                EnableSubgraph=True
-            ),
-            **quantize_kwargs
-        )
+            quantize_dynamic(
+                model_input=loaded_model,
+                model_output=save_path,
+                weight_type=weight_type,
+                #optimize_model=False,
 
-        quantize_config['per_model_config'][file_name_without_extension] = dict(
-            op_types=list(op_types),
-            weight_type=str(weight_type),
-        )
+                # TODO allow user to specify these
+                # op_types_to_quantize=['MatMul', 'Add', 'Conv'],
+                extra_options=dict(
+                    EnableSubgraph=True
+                ),
+            )
+
+            quantize_config['per_model_config'][file_name_without_extension] = dict(
+                op_types=list(op_types),
+                weight_type=str(weight_type),
+            )
+
+        elif mode == QuantMode.BIT4:
+            quant = MatMul4BitsQuantizer(
+                model=loaded_model,
+                block_size=quantize_kwargs.get('block_size', 32),
+                accuracy_level=quantize_kwargs.get('accuracy_level'),
+                is_symmetric=quantize_kwargs.get('is_symmetric', True),
+            )
+            quant.process()
+            quant.model.save_model_to_file(save_path)
+            del quant
+        
+        elif mode == QuantMode.BNB4:
+            quant = MatMulBnb4Quantizer(
+                model=loaded_model,
+                block_size=quantize_kwargs.get('block_size', 64),
+                quant_type=quantize_kwargs.get('quant_type', MatMulBnb4Quantizer.NF4),
+            )
+            quant.process()
+            quant.model.save_model_to_file(save_path)
+            del quant
+        
+        else:
+            raise ValueError(f'Invalid quantization mode: {mode}')
 
     # Save quantization config
     with open(os.path.join(directory_path, 'quantize_config.json'), 'w') as fp:
@@ -328,6 +368,10 @@ def main():
     tokenizer_id = conv_args.tokenizer_id or model_id
 
     output_model_folder = os.path.join(conv_args.output_parent_dir, model_id)
+
+    # Check quantization mode
+    if conv_args.quantize and conv_args.quantize_mode not in (QuantMode.COMMON, QuantMode.BIT4, QuantMode.BNB4):
+        raise ValueError(f'Invalid quantization mode: {conv_args.quantize_mode}')
 
     # Create output folder
     os.makedirs(output_model_folder, exist_ok=True)
@@ -375,6 +419,7 @@ def main():
         opset=conv_args.opset,
         device=conv_args.device,
         trust_remote_code=conv_args.trust_remote_code,
+        legacy=True,
         **custom_kwargs,
     )
 
@@ -518,7 +563,7 @@ def main():
         if conv_args.reduce_range is not None:
             quantize_config['reduce_range'] = conv_args.reduce_range
 
-        quantize([
+        quantize(conv_args.quantize_mode, [
             os.path.join(output_model_folder, x)
             for x in os.listdir(output_model_folder)
             if x.endswith('.onnx') and not x.endswith('_quantized.onnx')
