@@ -137,7 +137,7 @@ MODELS_WITHOUT_TOKENIZERS = [
 ]
 
 class QuantMode:
-    COMMON = 'common'
+    BIT8 = '8bits'
     BIT4 = '4bits'
     BNB4 = 'bnb4'
 
@@ -166,7 +166,7 @@ class ConversionArguments:
         }
     )
     quantize_mode: str = field(
-        default=QuantMode.COMMON,
+        default=QuantMode.BIT8,
         metadata={
             "help": "Quantization mode to use. Options are: int4, int8, bnb4"
         }
@@ -307,7 +307,7 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
 
         save_path = os.path.join(directory_path, f'{file_name_without_extension}_quantized.onnx')
 
-        if mode == QuantMode.COMMON:
+        if mode == QuantMode.BIT8:
             weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
 
             quantize_dynamic(
@@ -370,7 +370,7 @@ def main():
     output_model_folder = os.path.join(conv_args.output_parent_dir, model_id)
 
     # Check quantization mode
-    if conv_args.quantize and conv_args.quantize_mode not in (QuantMode.COMMON, QuantMode.BIT4, QuantMode.BNB4):
+    if conv_args.quantize and conv_args.quantize_mode not in (QuantMode.BIT8, QuantMode.BIT4, QuantMode.BNB4):
         raise ValueError(f'Invalid quantization mode: {conv_args.quantize_mode}')
 
     # Create output folder
