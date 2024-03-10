@@ -124,6 +124,20 @@ export class RawImage {
         }
     }
 
+    /**
+     * Read an image from a canvas.
+     * @param {HTMLCanvasElement|OffscreenCanvas} canvas The canvas to read the image from.
+     * @returns {RawImage} The image object.
+     */
+    static fromCanvas(canvas) {
+        if (!BROWSER_ENV) {
+            throw new Error('fromCanvas() is only supported in browser environments.')
+        }
+
+        const ctx = canvas.getContext('2d');
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        return new RawImage(data, canvas.width, canvas.height, 4);
+    }
 
     /**
      * Read an image from a URL or file path.
