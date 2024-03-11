@@ -29,11 +29,20 @@ export { Tensor } from 'onnxruntime-common';
 const WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
 const USE_ONNXRUNTIME_NODE = typeof process !== 'undefined' && process?.release?.name === 'node';
 
+const supportedExecutionProviders = [];
+let defaultExecutionProviders;
 let ONNX;
 if (USE_ONNXRUNTIME_NODE) {
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
+    supportedExecutionProviders.push('cpu');
+    defaultExecutionProviders = ['cpu'];
 } else {
     ONNX = ONNX_WEB;
+    if (WEBGPU_AVAILABLE) {
+        supportedExecutionProviders.push('webgpu');
+    }
+    supportedExecutionProviders.push('wasm');
+    defaultExecutionProviders = ['wasm'];
 }
 
 // @ts-ignore
@@ -42,23 +51,18 @@ const InferenceSession = ONNX.InferenceSession;
 /**
  * Create an ONNX inference session, with fallback support if an operation is not supported.
  * @param {Uint8Array} buffer The ONNX model buffer.
- * @param {Object} session_options ONNX inference session options. 
+ * @param {Object} session_options ONNX inference session options.
+ * @param {import("../utils/devices.js").DeviceType} [device=null] (Optional) The device to run the inference on.
  * @returns {Promise<Object>} The ONNX inference session.
  */
-export async function createInferenceSession(buffer, session_options) {
-    let executionProviders;
-    if (USE_ONNXRUNTIME_NODE) {
-        executionProviders = ['cpu'];
-    } else if (env.experimental.useWebGPU) {
-        // Only use the WebGPU version if the user enables the experimental flag.
-        if (WEBGPU_AVAILABLE) {
-            executionProviders = ['webgpu', 'wasm'];
+export async function createInferenceSession(buffer, session_options, device = null) {
+    let executionProviders = defaultExecutionProviders;
+    if (device) { // User has specified a device
+        if (supportedExecutionProviders.includes(device)) {
+            executionProviders = [device];
         } else {
-            console.warn('`env.experimental.useWebGPU = true` but WebGPU is not available in this environment. Using WASM as the execution provider.');
-            executionProviders = ['wasm'];
+            throw new Error(`Unsupported device: "${device}". Should be one of: ${supportedExecutionProviders.join(', ')}.`)
         }
-    } else {
-        executionProviders = ['wasm'];
     }
 
     // NOTE: Important to create a clone, since ORT modifies the object.

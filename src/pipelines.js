@@ -3019,8 +3019,8 @@ export async function pipeline(
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        device= null,
         session_options = {},
-        // TODO: device option
     } = {}
 ) {
     // Helper method to construct pipeline
@@ -3048,6 +3048,7 @@ export async function pipeline(
         cache_dir,
         local_files_only,
         revision,
+        device,
         session_options,
     }
 

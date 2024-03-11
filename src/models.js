@@ -6,10 +6,10 @@
  * 
  * ```javascript
  * import { AutoModel, AutoTokenizer } from '@xenova/transformers';
- *
+ * 
  * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
  * let model = await AutoModel.from_pretrained('Xenova/bert-base-uncased');
- *
+ * 
  * let inputs = await tokenizer('I love transformers!');
  * let { logits } = await model(inputs);
  * // Tensor {
@@ -28,7 +28,7 @@
  * 
  * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/t5-small');
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('Xenova/t5-small');
- *
+ * 
  * let { input_ids } = await tokenizer('translate English to German: I love transformers!');
  * let outputs = await model.generate(input_ids);
  * let decoded = tokenizer.decode(outputs[0], { skip_special_tokens: true });
@@ -118,22 +118,29 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
     const modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
     const buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
-    let session_options = options.session_options || {};
+    const session_options = options.session_options ?? {};
 
     // handle onnx external data files
-    // TODO: parse external data from config/options
-    // if (session_options.externalData !== undefined) {
-    //     for (let i = 0; i < session_options.externalData.length; i++) {
-    //         const ext = session_options.externalData[i];
-    //         // if the external data is a string, fetch the file and replace the string with its content
-    //         if (typeof ext.data === "string") {
-    //             const ext_buffer = await getModelFile(pretrained_model_name_or_path, ext.data, true, options);
-    //             ext.data = ext_buffer;
-    //         }
+    if (session_options.externalData !== undefined) {
+        for (let i = 0; i < session_options.externalData.length; i++) {
+            const ext = session_options.externalData[i];
+            // if the external data is a string, fetch the file and replace the string with its content
+            if (typeof ext.data === "string") {
+                const ext_buffer = await getModelFile(pretrained_model_name_or_path, ext.data, true, options);
+                ext.data = ext_buffer;
+            }
+        }
+    }
+
+    // TODO: Add support for preferredOutputLocation
+    // if (options.device == "webgpu") {
+    //     for (let i = 0; i < config.layers; ++i) {
+    //         options.session_options.preferredOutputLocation[`present.${i}.key`] = 'gpu-buffer';
+    //         options.session_options.preferredOutputLocation[`present.${i}.value`] = 'gpu-buffer';
     //     }
     // }
 
-    return await createInferenceSession(buffer, session_options);
+    return await createInferenceSession(buffer, session_options, options.device);
 }
 
 /**
@@ -198,7 +205,7 @@ async function sessionRun(session, inputs) {
     try {
         // pass the original ort tensor
         const ortFeed = Object.fromEntries(Object.entries(checkedInputs).map(([k, v]) => [k, v.ort_tensor]));
-        let output = await session.run(ortFeed);    
+        let output = await session.run(ortFeed);
         output = replaceTensors(output);
         for (const [name, t] of Object.entries(checkedInputs)) {
             // if we use gpu buffers for kv_caches, we own them and need to dispose()
@@ -741,6 +748,7 @@ export class PreTrainedModel extends Callable {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        device = null,
         session_options = {},
     } = {}) {
 
@@ -752,6 +760,7 @@ export class PreTrainedModel extends Callable {
             local_files_only,
             revision,
             model_file_name,
+            device,
             session_options,
         }
 
@@ -5448,6 +5457,7 @@ export class PretrainedMixin {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        device = null,
         session_options = {},
     } = {}) {
 
@@ -5459,6 +5469,7 @@ export class PretrainedMixin {
             local_files_only,
             revision,
             model_file_name,
+            device,
             session_options,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);

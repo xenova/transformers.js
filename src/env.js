@@ -84,12 +84,6 @@ export const env = {
         tfjs: {},
     },
 
-    /////////////////// Experimental settings ///////////////////
-    experimental: {
-        // Whether to use the experimental WebGPU backend for ONNX.js.
-        useWebGPU: false,
-    },
-
     __dirname,
     version: VERSION,
 
