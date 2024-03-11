@@ -19,9 +19,13 @@ function buildConfig({
     name = '',
     suffix = '.js',
     type = 'module',               // 'module' | 'commonjs'
-    dynamicImportMode = undefined, // 'eager' | undefined
+    ignoreModules = [], // 'eager' | undefined
 } = {}) {
     const outputModule = type === 'module';
+
+    const alias = Object.fromEntries(ignoreModules.map((module) => {
+        return [module, false];
+    }));
 
     return {
         mode: 'development',
@@ -60,13 +64,7 @@ function buildConfig({
         experiments: {
             outputModule,
         },
-        // module: {
-        //     parser: {
-        //         javascript: {
-        //             dynamicImportMode,
-        //         }
-        //     }
-        // },
+        resolve: { alias },
 
         // Development server
         devServer: {
@@ -84,13 +82,8 @@ export default [
         type: 'module',
     }),
     buildConfig({
-        name: '.webgpu',
-        type: 'module',
-        dynamicImportMode: 'eager',
+        suffix: '.cjs',
+        type: 'commonjs',
+        ignoreModules: ['onnxruntime-web', 'onnxruntime-web/webgpu'],
     }),
-    // TODO:
-    // buildConfig({
-    //     suffix: '.cjs',
-    //     type: 'commonjs',
-    // }),
 ];
