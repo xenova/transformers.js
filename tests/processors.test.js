@@ -45,6 +45,7 @@ describe('Processors', () => {
             clip: 'openai/clip-vit-base-patch16',
             vitmatte: 'hustvl/vitmatte-small-distinctions-646',
             dinov2: 'facebook/dinov2-small-imagenet1k-1-layer',
+            efficientnet: 'google/efficientnet-b0',
         }
 
         const TEST_IMAGES = {
@@ -426,6 +427,22 @@ describe('Processors', () => {
             }
         }, MAX_TEST_EXECUTION_TIME);
 
+        // EfficientNetImageProcessor
+        //  - tests include_top
+        it(MODELS.efficientnet, async () => {
+            const processor = await AutoProcessor.from_pretrained(MODELS.efficientnet)
+
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 224, 224]);
+                compare(avg(pixel_values.data), 0.3015307230282871);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[224, 224]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Audio processors', () => {

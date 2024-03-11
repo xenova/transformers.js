@@ -640,7 +640,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
             for (let i = 0; i < pixelData.length; i += image.channels) {
                 for (let j = 0; j < image.channels; ++j) {
-                    pixelData[i + j] = (pixelData[i + j] - this.image_mean[j]) / this.image_std[j];
+                    pixelData[i + j] = (pixelData[i + j] - image_mean[j]) / image_std[j];
                 }
             }
         }
@@ -811,6 +811,17 @@ export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOT
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTImageProcessor extends ImageFeatureExtractor { }
 
+export class EfficientNetImageProcessor extends ImageFeatureExtractor {
+    constructor(config) {
+        super(config);
+        this.include_top = this.config.include_top ?? true;
+        if (this.include_top) {
+            this.image_std = this.image_std.map(x => x * x);
+        }
+    }
+}
+
+
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
     /** @type {post_process_object_detection} */
@@ -836,7 +847,7 @@ export class DonutFeatureExtractor extends ImageFeatureExtractor {
             image_std = new Array(imageChannels).fill(image_mean);
         }
 
-        const constant_values = image_mean.map((x, i) => - x / this.image_std[i]);
+        const constant_values = image_mean.map((x, i) => - x / image_std[i]);
 
         return super.pad_image(pixelData, imgDims, padSize, {
             center: true,
@@ -2132,6 +2143,7 @@ export class AutoProcessor {
         YolosFeatureExtractor,
         DonutFeatureExtractor,
         NougatImageProcessor,
+        EfficientNetImageProcessor,
 
         ViTImageProcessor,
         VitMatteImageProcessor,
