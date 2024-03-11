@@ -3019,7 +3019,7 @@ export async function pipeline(
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
-        device= null,
+        device = null,
         session_options = {},
     } = {}
 ) {
@@ -3105,7 +3105,15 @@ async function loadItems(mapping, model, pretrainedOptions) {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
                     } catch (err) {
-                        e = err;
+                        if (err.message?.includes('Unsupported model type')) {
+                            // If the error is due to an unsupported model type, we
+                            // save the error and try the next class.
+                            e = err;
+                        } else {
+                            reject(err);
+                            return;
+                        }
+
                     }
                 }
                 reject(e);
