@@ -700,7 +700,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         const pixel_values = stack(imageData.map(x => x.pixel_values), 0);
 
         return {
-            pixel_values: pixel_values,
+            pixel_values,
 
             // Original sizes of images
             original_sizes: imageData.map(x => x.original_size),
