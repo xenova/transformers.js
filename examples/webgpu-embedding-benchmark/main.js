@@ -19,31 +19,22 @@ const batchSizes = document.getElementById('batch-sizes');
 const xscale = document.getElementById('x-scale');
 const yscale = document.getElementById('y-scale');
 const sequenceLength = document.getElementById('sequence-length');
+const modelID = document.getElementById('model-id');
 const status = document.getElementById('status');
 const start = document.getElementById('start');
 const stop = document.getElementById('stop');
+const tests = document.getElementsByClassName('tests');
 
 // Benchmark settings
 const NUM_WARMUP_STEPS = 3;
-const QUANTIZED = false;
-const MODEL_ID = 'Xenova/all-MiniLM-L6-v2';
+const MODEL_CACHE = new Map();
 
 // Chart configuration
 const config = {
   type: 'line',
   data: {
     labels: [],
-    datasets: [{
-      label: 'WASM',
-      data: [],
-      borderColor: 'red',
-      backgroundColor: 'rgba(255, 0, 0, 0.5)',
-    }, {
-      label: 'WebGPU',
-      data: [],
-      borderColor: 'blue',
-      backgroundColor: 'rgba(0, 0, 255, 0.5)',
-    }]
+    datasets: [],
   },
   options: {
     responsive: true,
@@ -70,125 +61,178 @@ const config = {
     }
   },
 };
+const chart = new Chart(ctx, config);
 
-const toggleScale = (chart, axis, enabled) => {
+const toggleScale = (axis, enabled) => {
   chart.options.scales[axis].type = enabled ? 'logarithmic' : 'linear';
   chart.update();
 }
 
-xscale.addEventListener('change', () => toggleScale(chart, 'x', xscale.checked));
-yscale.addEventListener('change', () => toggleScale(chart, 'y', yscale.checked));
-
-const chart = new Chart(ctx, config);
-
-status.textContent = 'Loading model...';
-
-let model_CPU;
-try {
-  model_CPU = await AutoModel.from_pretrained(MODEL_ID, {
-    quantized: QUANTIZED,
-    device: 'wasm',
-  });
-} catch (err) {
-  status.textContent = err.message;
-  alert(err.message)
-  throw err;
+const getSelectedTests = () => {
+  return [...tests].filter(x => x.checked);
 }
 
-let model_GPU;
-try {
-  model_GPU = await AutoModel.from_pretrained(MODEL_ID, {
-    quantized: QUANTIZED,
-    device: 'webgpu',
-  });
-} catch (err) {
-  status.textContent = err.message;
-  alert(err.message)
-  throw err;
+const updateDatasets = () => {
+  chart.data.datasets = getSelectedTests().map(test => {
+    const color = test.getAttribute('data-color');
+    return {
+      label: test.value,
+      data: [],
+      borderColor: `rgba(${color}, 1)`,
+      backgroundColor: `rgba(${color}, 0.5)`,
+    }
+  })
+  chart.update();
+}
+updateDatasets();
+[...tests].forEach(test => test.addEventListener('change', updateDatasets));
+
+xscale.addEventListener('change', () => toggleScale('x', xscale.checked));
+yscale.addEventListener('change', () => toggleScale('y', yscale.checked));
+
+const generateDummyInputs = (batch_size, seqLength) => {
+  const inputs = ones([batch_size, seqLength]);
+
+  const model_inputs = {
+    input_ids: inputs,
+    attention_mask: inputs,
+  }
+  return model_inputs;
 }
 
 let adapterInfo;
+let gpuHasFp16 = false;
 try {
   // Shouldn't fail since the WebGPU model has loaded successfully
   const adapter = await navigator.gpu.requestAdapter();
   adapterInfo = await adapter.requestAdapterInfo();
+  gpuHasFp16 = adapter.features.has('shader-f16')
 } catch (err) {
   adapterInfo = {};
+}
+if (!gpuHasFp16) {
+  const element = document.querySelector('.tests[data-device="webgpu"][data-dtype="fp16"]');
+  element.setAttribute('unsupported', true);
+  element.disabled = true;
+  element.title = 'This device does not support fp16 on WebGPU';
 }
 
 status.textContent = 'Ready';
 
 let interrupted = false;
 start.addEventListener('click', async () => {
+  const validTests = [...tests].filter(test => !test.getAttribute('unsupported'))
+  // Update UI
   start.disabled = true;
   stop.disabled = false;
+  batchSizes.disabled = true;
+  sequenceLength.disabled = true;
+  modelID.disabled = true;
+  validTests.forEach(test => test.disabled = true);
   interrupted = false;
+
+  // Get parameters
+  const model_id = modelID.value;
+  const batch_sizes = batchSizes.value.split(',').map(x => parseInt(x)).filter(x => x);
+  const seqLength = parseInt(sequenceLength.value);
+  const selectedTests = getSelectedTests().map(x => ({
+    label: x.value,
+    dtype: x.getAttribute('data-dtype'),
+    device: x.getAttribute('data-device'),
+  }));
 
   // Reset
   chart.data.labels = [];
   for (let i = 0; i < chart.data.datasets; ++i) {
-    chart.data.datasets[i].data = [];
+    chart.data.datasets[i].data.length = 0;
   }
   chart.update();
 
-  const seqLength = parseInt(sequenceLength.value);
+  // NOTE: Models must be loaded sequentially (otherwise it will fail due to multiple calls to initWasm())
+  const testsToRun = new Map();
+  for (const test of selectedTests) {
+    const { label, dtype, device, quantized } = test;
+
+    const key = `${model_id}///${label}`
+
+    const cached = MODEL_CACHE.get(key);
+    if (cached) {
+      testsToRun.set(label, cached);
+      continue;
+    }
+    status.textContent = 'Loading model(s)...';
+
+    try {
+      const model = await AutoModel.from_pretrained(model_id, {
+        quantized,
+        device,
+        dtype,
+      });
+      MODEL_CACHE.set(key, model);
+      testsToRun.set(label, model);
+    } catch (err) {
+      status.textContent = err.message;
+      alert(err.message)
+      throw err;
+    }
+  }
 
   status.textContent = 'Warming up...';
 
-  const generateDummyInputs = (batch_size) => {
-
-    const inputs = ones([batch_size, seqLength]);
-
-    const model_inputs = {
-      input_ids: inputs,
-      attention_mask: inputs,
-    }
-    return model_inputs;
-  }
-
   // Warm up: This is important for the WebGPU execution provider, which compiles the shaders on first load
   for (let i = 0; i < NUM_WARMUP_STEPS; ++i) {
-    const model_inputs = generateDummyInputs(1);
-    await model_CPU(model_inputs);
-    await model_GPU(model_inputs);
+    const model_inputs = generateDummyInputs(1, seqLength);
+    for (const [label, model] of testsToRun) {
+      await model(model_inputs);
+    }
   }
 
   status.textContent = 'Running benchmark...';
 
-  const batch_sizes = batchSizes.value.split(',').map(x => parseInt(x)).filter(x => x);
-
   for (const batch_size of batch_sizes) {
     if (interrupted) break;
 
-    const model_inputs = generateDummyInputs(batch_size);
+    const model_inputs = generateDummyInputs(batch_size, seqLength);
 
-    let wasmTime;
-    { // Run WASM
+    const times = []
+
+    for (const [label, model] of testsToRun) {
       const start = performance.now();
-      await model_CPU(model_inputs);
+      await model(model_inputs);
       const end = performance.now();
-      wasmTime = end - start;
+      times.push(end - start);
     }
 
-    let webGPUTime;
-    { // Run WebGPU
-      const start = performance.now();
-      await model_GPU(model_inputs);
-      const end = performance.now();
-      webGPUTime = end - start;
-    }
     chart.data.labels.push(batch_size);
-    chart.data.datasets[0].data.push(wasmTime);
-    chart.data.datasets[1].data.push(webGPUTime);
+    for (let i = 0; i < times.length; ++i) {
+      chart.data.datasets[i].data.push(times[i]);
+    }
     chart.update();
   }
 
   // Calculate max speedup:
   if (chart.data.labels.length === 0) return;
 
-  const table = generateResultsTable(chart.data, seqLength);
+  const testNames = [...testsToRun.keys()];
+  const table = generateResultsTable(model_id, testNames, chart.data, seqLength);
 
-  const speedup = chart.data.datasets[0].data.at(-1) / chart.data.datasets[1].data.at(-1);
+
+  // Calculate slowest and fastest times
+  let minMaxTimes = [Infinity, 0];
+  let minMaxIndices = [0, 0];
+  for (let i = 0; i < chart.data.datasets.length; i++) {
+    const lastTime = chart.data.datasets[i].data.at(-1);
+    if (lastTime < minMaxTimes[0]) {
+      minMaxTimes[0] = lastTime;
+      minMaxIndices[0] = i;
+    }
+    if (lastTime > minMaxTimes[1]) {
+      minMaxTimes[1] = lastTime;
+      minMaxIndices[1] = i;
+    }
+  }
+
+  const speedup = minMaxTimes[1] / minMaxTimes[0];
   const roundedSpeedup = speedup.toFixed(2);
   const params = new URLSearchParams({
     title: `⚡ WebGPU Benchmark Results (${roundedSpeedup}x speedup)`,
@@ -196,9 +240,14 @@ start.addEventListener('click', async () => {
   });
 
   const paramsStr = params.toString();
-  status.innerHTML = `⚡ Done! WebGPU is <strong>${roundedSpeedup}x</strong> faster! <a href="https://huggingface.co/spaces/Xenova/webgpu-embedding-benchmark/discussions/new?${paramsStr}" target="_blank">Share results</a>`;
+  status.innerHTML = `⚡ Done! ${testNames.at(minMaxIndices[0])} is <strong>${roundedSpeedup}x</strong> faster than ${testNames.at(minMaxIndices[1])}! ⚡<br><a href="https://huggingface.co/spaces/Xenova/webgpu-embedding-benchmark/discussions/new?${paramsStr}" target="_blank">Share results</a>`;
   start.disabled = false;
+  batchSizes.disabled = false;
+  sequenceLength.disabled = false;
+  modelID.disabled = false;
+  validTests.forEach(test => test.disabled = false);
 });
+
 start.disabled = false;
 
 stop.addEventListener('click', () => {
@@ -207,7 +256,8 @@ stop.addEventListener('click', () => {
   stop.disabled = true;
 });
 
-function generateResultsTable(data, sequence_length) {
+function generateResultsTable(model_id, testNames, data, sequence_length) {
+
   const datasets = data.datasets.map(d => d.data);
   const batch_sizes = data.labels;
 
@@ -220,8 +270,9 @@ function generateResultsTable(data, sequence_length) {
   // Add header row
   const headerRow = thead.insertRow();
   headerRow.insertCell().textContent = 'Batch Size';
-  headerRow.insertCell().textContent = `WASM (ms)`;
-  headerRow.insertCell().textContent = `WebGPU (ms)`;
+  testNames.forEach(model => {
+    headerRow.insertCell().textContent = model;
+  });
 
   // Add data rows
   batch_sizes.forEach((batchSize, rowIndex) => {
@@ -242,8 +293,8 @@ function generateResultsTable(data, sequence_length) {
 
   // Add other information
   const info = document.createElement('ul');
-  info.appendChild(createBulletPoint(`Model: ${MODEL_ID}`));
-  info.appendChild(createBulletPoint(`Quantized: ${QUANTIZED}`));
+  info.appendChild(createBulletPoint(`Model: ${model_id}`));
+  info.appendChild(createBulletPoint(`Tests run: ${testNames.join(', ')}`));
   info.appendChild(createBulletPoint(`Sequence length: ${sequence_length}`));
   info.appendChild(createBulletPoint(`Browser: ${navigator.userAgent}`));
   info.appendChild(createBulletPoint(`GPU: vendor=${adapterInfo.vendor}, architecture=${adapterInfo.architecture}, device=${adapterInfo.device}, description=${adapterInfo.description}`));

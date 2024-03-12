@@ -25,6 +25,7 @@ h1 {
 #status {
   min-height: 16px;
   margin: 8px 0;
+  text-align: center;
 }
 
 button {
@@ -79,4 +80,8 @@ details {
 
 summary {
   text-align: right;
+}
+
+hr {
+  margin: 8px 0;
 }
