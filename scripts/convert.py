@@ -5,6 +5,7 @@ import shutil
 from dataclasses import dataclass, field
 from typing import Optional, Set
 from tqdm import tqdm
+from enum import Enum
 
 from transformers import (
     AutoConfig,
@@ -136,9 +137,9 @@ MODELS_WITHOUT_TOKENIZERS = [
     'unispeech-sat',
 ]
 
-class QuantMode:
-    BIT8 = '8bits'
-    BIT4 = '4bits'
+class QuantMode(Enum):
+    Q8 = 'q8'
+    Q4 = 'q4'
     BNB4 = 'bnb4'
 
 
@@ -165,8 +166,8 @@ class ConversionArguments:
             "help": "Whether to quantize the model."
         }
     )
-    quantize_mode: str = field(
-        default=QuantMode.BIT8,
+    quantize_mode: QuantMode = field(
+        default=QuantMode.Q8,
         metadata={
             "help": "Quantization mode to use. Options are: int4, int8, bnb4"
         }
@@ -307,7 +308,7 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
 
         save_path = os.path.join(directory_path, f'{file_name_without_extension}_quantized.onnx')
 
-        if mode == QuantMode.BIT8:
+        if mode == QuantMode.Q8:
             weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
 
             del loaded_model
@@ -329,7 +330,7 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
                 weight_type=str(weight_type),
             )
 
-        elif mode == QuantMode.BIT4:
+        elif mode == QuantMode.Q4:
             quant = MatMul4BitsQuantizer(
                 model=loaded_model,
                 block_size=quantize_kwargs.get('block_size', 32),
@@ -369,10 +370,6 @@ def main():
     tokenizer_id = conv_args.tokenizer_id or model_id
 
     output_model_folder = os.path.join(conv_args.output_parent_dir, model_id)
-
-    # Check quantization mode
-    if conv_args.quantize and conv_args.quantize_mode not in (QuantMode.BIT8, QuantMode.BIT4, QuantMode.BNB4):
-        raise ValueError(f'Invalid quantization mode: {conv_args.quantize_mode}')
 
     # Create output folder
     os.makedirs(output_model_folder, exist_ok=True)
