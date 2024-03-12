@@ -30,39 +30,42 @@ const NUM_WARMUP_STEPS = 3;
 const MODEL_CACHE = new Map();
 
 // Chart configuration
-const config = {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [],
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
+const initChart = () => {
+  const config = {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [],
     },
-    scales: {
-      x: {
-        title: {
-          display: true,
-          text: 'Batch size',
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
         },
-        min: 1,
       },
-      y: {
-        title: {
-          display: true,
-          text: 'Time (ms)',
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Batch size',
+          },
+          min: 1,
         },
+        y: {
+          title: {
+            display: true,
+            text: 'Time (ms)',
+          },
+        }
       }
-    }
-  },
-};
-const chart = new Chart(ctx, config);
-
+    },
+  };
+  const chart = new Chart(ctx, config);
+  return chart;
+}
+let chart = initChart();
 const toggleScale = (axis, enabled) => {
   chart.options.scales[axis].type = enabled ? 'logarithmic' : 'linear';
   chart.update();
@@ -142,18 +145,16 @@ start.addEventListener('click', async () => {
   }));
 
   // Reset
-  chart.data.labels = [];
-  for (let i = 0; i < chart.data.datasets; ++i) {
-    chart.data.datasets[i].data.length = 0;
-  }
-  chart.update();
+  chart.destroy();
+  chart = initChart();
+  updateDatasets();
 
   // NOTE: Models must be loaded sequentially (otherwise it will fail due to multiple calls to initWasm())
   const testsToRun = new Map();
   for (const test of selectedTests) {
     const { label, dtype, device, quantized } = test;
 
-    const key = `${model_id}///${label}`
+    const key = `${model_id}///${label}`;
 
     const cached = MODEL_CACHE.get(key);
     if (cached) {
@@ -242,6 +243,7 @@ start.addEventListener('click', async () => {
   const paramsStr = params.toString();
   status.innerHTML = `⚡ Done! ${testNames.at(minMaxIndices[0])} is <strong>${roundedSpeedup}x</strong> faster than ${testNames.at(minMaxIndices[1])}! ⚡<br><a href="https://huggingface.co/spaces/Xenova/webgpu-embedding-benchmark/discussions/new?${paramsStr}" target="_blank">Share results</a>`;
   start.disabled = false;
+  stop.disabled = true;
   batchSizes.disabled = false;
   sequenceLength.disabled = false;
   modelID.disabled = false;
