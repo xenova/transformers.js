@@ -286,7 +286,7 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
 
     quantize_config = dict(
         **quantize_kwargs,
-        quantize_mode=mode,
+        quantize_mode=mode.value,
         per_model_config={}
     )
 
