@@ -10,10 +10,8 @@ if (!navigator.gpu) {
 }
 
 // Proxy the WASM backend to prevent the UI from freezing
-env.backends.onnx.wasm.proxy = true;
 env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
 env.backends.onnx.wasm.numThreads = 1;
-env.experimental.useWebGPU = true;
 
 // Reference the elements that we will need
 const ctx = document.getElementById('chart');
@@ -89,9 +87,7 @@ let model_CPU;
 try {
   model_CPU = await AutoModel.from_pretrained(MODEL_ID, {
     quantized: QUANTIZED,
-    session_options: {
-      executionProviders: ['wasm']
-    }
+    device: 'webgpu'
   });
 } catch (err) {
   status.textContent = err.message;
