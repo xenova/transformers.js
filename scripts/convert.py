@@ -16,6 +16,7 @@ from transformers import (
 
 import onnx
 from optimum.exporters.onnx import main_export, export_models
+from optimum.onnx.graph_transformations import check_and_save_model
 from optimum.exporters.tasks import TasksManager
 from onnxruntime.quantization import (
     quantize_dynamic,
@@ -271,17 +272,6 @@ def get_operators(model: onnx.ModelProto) -> Set[str]:
     return operators
 
 
-def save_model(model, save_path):
-    # Should use external data if the model is larger than 2GB
-    if model.ByteSize() >= 2147483648:
-        onnx.external_data_helper.convert_model_to_external_data(
-            model,
-            all_tensors_to_one_file=True,
-            location=Path(save_path).name + "_data",
-        )
-    onnx.save_model(model, save_path)
-
-
 def quantize(mode, model_names_or_paths, **quantize_kwargs):
     """
     Quantize the weights of the model from float32 to int8 to allow very efficient inference on modern CPU
@@ -350,7 +340,7 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
                 is_symmetric=quantize_kwargs.get('is_symmetric', True),
             )
             quant.process()
-            save_model(quant.model, save_path)
+            check_and_save_model(quant.model.model, save_path)
             del quant
         
         elif mode == QuantMode.BNB4:
@@ -360,7 +350,7 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
                 quant_type=quantize_kwargs.get('quant_type', MatMulBnb4Quantizer.NF4),
             )
             quant.process()
-            save_model(quant.model, save_path)
+            check_and_save_model(quant.model.model, save_path)
             del quant
         
         else:
