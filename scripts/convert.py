@@ -573,7 +573,7 @@ def main():
         if conv_args.reduce_range is not None:
             quantize_config['reduce_range'] = conv_args.reduce_range
 
-        quantize(conv_args.quantize_mode, [
+        quantize(QuantMode(conv_args.quantize_mode), [
             os.path.join(output_model_folder, x)
             for x in os.listdir(output_model_folder)
             if x.endswith('.onnx') and not x.endswith('_quantized.onnx')
