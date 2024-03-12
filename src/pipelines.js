@@ -3020,6 +3020,7 @@ export async function pipeline(
         local_files_only = false,
         revision = 'main',
         device = null,
+        dtype = null,
         session_options = {},
     } = {}
 ) {
@@ -3049,6 +3050,7 @@ export async function pipeline(
         local_files_only,
         revision,
         device,
+        dtype,
         session_options,
     }
 

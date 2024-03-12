@@ -83,6 +83,7 @@ import {
 
 import { createInferenceSession, isONNXTensor, isONNXProxy } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
+import { DATA_TYPES } from './utils/dtypes.js';
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -115,14 +116,30 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  * @private
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
-    const modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
+
+    // If options.dtype is specified, we use that for the variant.
+    // Otherwise, we use options.quantized to determine the variant.
+    let variant = '';
+    if (options.dtype) {
+        if (!DATA_TYPES.hasOwnProperty(options.dtype)) {
+            throw new Error(`Invalid dtype: ${options.dtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
+        }
+        const dtype = DATA_TYPES[options.dtype];
+        if (dtype !== 'fp32') {
+            variant = `_${options.dtype}`;
+        }
+    } else if (options.quantized) {
+        variant = '_quantized';
+    }
+
+    const modelFileName = `onnx/${fileName}${variant}.onnx`;
     const buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
     const session_options = options.session_options ?? {};
 
     // handle onnx external data files
     if (session_options.externalData !== undefined) {
-        for (let i = 0; i < session_options.externalData.length; i++) {
+        for (let i = 0; i < session_options.externalData.length; ++i) {
             const ext = session_options.externalData[i];
             // if the external data is a string, fetch the file and replace the string with its content
             if (typeof ext.data === "string") {
@@ -749,6 +766,7 @@ export class PreTrainedModel extends Callable {
         revision = 'main',
         model_file_name = null,
         device = null,
+        dtype = null,
         session_options = {},
     } = {}) {
 
@@ -761,6 +779,7 @@ export class PreTrainedModel extends Callable {
             revision,
             model_file_name,
             device,
+            dtype,
             session_options,
         }
 
@@ -5458,6 +5477,7 @@ export class PretrainedMixin {
         revision = 'main',
         model_file_name = null,
         device = null,
+        dtype = null,
         session_options = {},
     } = {}) {
 
@@ -5470,6 +5490,7 @@ export class PretrainedMixin {
             revision,
             model_file_name,
             device,
+            dtype,
             session_options,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
