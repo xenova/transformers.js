@@ -87,7 +87,7 @@ let model_CPU;
 try {
   model_CPU = await AutoModel.from_pretrained(MODEL_ID, {
     quantized: QUANTIZED,
-    device: 'webgpu'
+    device: 'wasm',
   });
 } catch (err) {
   status.textContent = err.message;
@@ -99,9 +99,7 @@ let model_GPU;
 try {
   model_GPU = await AutoModel.from_pretrained(MODEL_ID, {
     quantized: QUANTIZED,
-    session_options: {
-      executionProviders: ['webgpu']
-    }
+    device: 'webgpu',
   });
 } catch (err) {
   status.textContent = err.message;
