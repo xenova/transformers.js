@@ -9,7 +9,6 @@ if (!navigator.gpu) {
   throw Error(err);
 }
 
-// Proxy the WASM backend to prevent the UI from freezing
 env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
 env.backends.onnx.wasm.numThreads = 1;
 
