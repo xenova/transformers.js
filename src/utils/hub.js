@@ -167,7 +167,7 @@ function isValidHttpUrl(string, validHosts = null) {
     if (validHosts && !validHosts.includes(url.hostname)) {
         return false;
     }
-    return url.protocol === "http:" || url.protocol === "https:";
+    return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "blob:";
 }
 
 /**
