@@ -3005,6 +3005,7 @@ export class PreTrainedTokenizer extends Callable {
         truncation = false,
         max_length = null,
         return_tensor = true,
+        ...kwargs
     } = {}) {
 
         chat_template ??= this.chat_template ?? this.default_chat_template;
@@ -3029,6 +3030,7 @@ export class PreTrainedTokenizer extends Callable {
             add_generation_prompt: add_generation_prompt,
 
             ...special_tokens_map,
+            ...kwargs,
         });
 
         if (tokenize) {
