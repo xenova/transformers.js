@@ -2995,6 +2995,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {number} [options.max_length=null] Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize is false.
      * If not specified, the tokenizer's `max_length` attribute will be used as a default.
      * @param {boolean} [options.return_tensor=true] Whether to return the output as a Tensor or an Array. Has no effect if tokenize is false.
+     * @param {Object} [options.tokenizer_kwargs={}] Additional options to pass to the tokenizer.
      * @returns {string | Tensor | number[]| number[][]} The tokenized output.
      */
     apply_chat_template(conversation, {
@@ -3005,6 +3006,7 @@ export class PreTrainedTokenizer extends Callable {
         truncation = false,
         max_length = null,
         return_tensor = true,
+        tokenizer_kwargs = {},
         ...kwargs
     } = {}) {
 
@@ -3040,6 +3042,7 @@ export class PreTrainedTokenizer extends Callable {
                 truncation,
                 max_length,
                 return_tensor,
+                ...tokenizer_kwargs,
             }).input_ids;
         }
 
