@@ -2519,6 +2519,15 @@ export class PreTrainedTokenizer extends Callable {
         this.legacy = false;
 
         this.chat_template = tokenizerConfig.chat_template ?? null;
+        if (Array.isArray(this.chat_template)) {
+            // Chat templates are stored as lists of dicts with fixed key names,
+            // we reconstruct that into a single dict while loading them.
+            const chat_template = {};
+            for (const item of this.chat_template) {
+                chat_template[item['name']] = item['template'];
+            }
+            this.chat_template = chat_template;
+        }
         this._compiled_template_cache = new Map();
     }
 
@@ -3010,7 +3019,30 @@ export class PreTrainedTokenizer extends Callable {
         ...kwargs
     } = {}) {
 
-        chat_template ??= this.chat_template ?? this.default_chat_template;
+        // First, handle the cases when the model has a dict of multiple templates
+        if (
+            (this.chat_template && typeof this.chat_template === 'object') ||
+            (this.chat_template === null && this.default_chat_template && typeof this.default_chat_template === 'object')
+        ) {
+            const template_dict = this.chat_template ?? this.default_chat_template;
+
+            if (chat_template !== null && chat_template in template_dict) {
+                // The user can pass the name of a template to the chat template argument instead of an entire template
+                chat_template = template_dict[chat_template];
+            } else if (chat_template === null && "default" in template_dict) {
+                chat_template = template_dict["default"];
+            } else if (chat_template === null) {
+                throw Error(
+                    `This model has multiple chat templates with no default specified! Please either pass a chat ` +
+                    `template or the name of the template you wish to use to the 'chat_template' argument. Available ` +
+                    `template names are ${Object.keys(template_dict).sort()}.`
+                )
+            }
+        } else if (chat_template === null) {
+            // These are the cases when the model has a single template
+            // priority: `chat_template` argument > `tokenizer.chat_template` > `tokenizer.default_chat_template
+            chat_template = this.chat_template ?? this.default_chat_template;
+        }
 
         // Compilation function uses a cache to avoid recompiling the same template
         let compiledTemplate = this._compiled_template_cache.get(chat_template);
