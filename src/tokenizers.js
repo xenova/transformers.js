@@ -4300,6 +4300,9 @@ export class VitsTokenizer extends PreTrainedTokenizer {
         this.decoder = new VitsDecoder({});
     }
 }
+
+export class CohereTokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -4351,6 +4354,7 @@ export class AutoTokenizer {
         VitsTokenizer,
         Qwen2Tokenizer,
         GemmaTokenizer,
+        CohereTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
