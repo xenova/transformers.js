@@ -395,7 +395,7 @@ describe('Chat templates', () => {
             .replaceAll('USE_DEFAULT_PROMPT', true)
             .replaceAll('DEFAULT_SYSTEM_MESSAGE', 'You are a helpful, respectful and honest assistant.');
 
-        const text = await tokenizer.apply_chat_template(chat, { tokenize: false, return_tensor: false, chat_template });
+        const text = tokenizer.apply_chat_template(chat, { tokenize: false, return_tensor: false, chat_template });
 
         expect(text).toEqual("<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant.\n<</SYS>>\n\nHello, how are you? [/INST] I'm doing great. How can I help you today? </s><s>[INST] I'd like to show off how chat templating works! [/INST]");
 
@@ -412,7 +412,7 @@ describe('Chat templates', () => {
 
             for (let { messages, add_generation_prompt, tokenize, target } of tests) {
 
-                const generated = await tokenizer.apply_chat_template(messages, {
+                const generated = tokenizer.apply_chat_template(messages, {
                     tokenize,
                     add_generation_prompt,
                     return_tensor: false,
