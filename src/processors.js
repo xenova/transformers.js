@@ -649,7 +649,10 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         }
 
         // do padding after rescaling/normalizing
-        if (this.do_pad && this.pad_size) {
+        if (this.do_pad && this.pad_size && (
+            // only pad if not already the correct size 
+            (this.pad_size.width !== image.width || this.pad_size.height !== image.height)
+        )) {
 
             const paddedPixelData = new Float32Array(this.pad_size.width * this.pad_size.height * image.channels);
 
