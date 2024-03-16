@@ -84,6 +84,7 @@ function App() {
           <option value="Xenova/mistral-tokenizer">Mistral</option>
           <option value="Xenova/gemma-tokenizer">Gemma</option>
           <option value="Xenova/llama-tokenizer">LLaMA / Llama 2</option>
+          <option value="Xenova/c4ai-command-r-v01-tokenizer">Cohere Command-R</option>
           <option value="Xenova/t5-small">T5</option>
           <option value="Xenova/bert-base-cased">bert-base-cased</option>
         </select>
