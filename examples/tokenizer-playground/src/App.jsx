@@ -80,7 +80,7 @@ function App() {
           <option value="Xenova/gpt-4">gpt-4 / gpt-3.5-turbo / text-embedding-ada-002</option>
           <option value="Xenova/text-davinci-003">text-davinci-003 / text-davinci-002</option>
           <option value="Xenova/gpt-3">gpt-3</option>
-          <option value="Xenova/claude-tokenizer">Claude 3</option>
+          <option value="Xenova/claude-tokenizer">Claude</option>
           <option value="Xenova/mistral-tokenizer">Mistral</option>
           <option value="Xenova/gemma-tokenizer">Gemma</option>
           <option value="Xenova/llama-tokenizer">LLaMA / Llama 2</option>
