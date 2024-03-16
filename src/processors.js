@@ -115,10 +115,13 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
                     // This is the background class, skip it
                     continue;
                 }
-                indices.push(maxIndex);
-
                 // Compute softmax over classes
                 probs = softmax(logit.data);
+
+                if (probs[maxIndex] < threshold) {
+                    continue;
+                }
+                indices.push(maxIndex);
             }
 
             for (const index of indices) {
