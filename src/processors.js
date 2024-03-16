@@ -650,7 +650,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
         // do padding after rescaling/normalizing
         if (this.do_pad && this.pad_size && (
-            // only pad if not already the correct size 
+            // only pad if not already the correct size
             (this.pad_size.width !== image.width || this.pad_size.height !== image.height)
         )) {
 
