@@ -3038,10 +3038,10 @@ export class PreTrainedTokenizer extends Callable {
                     `template names are ${Object.keys(template_dict).sort()}.`
                 )
             }
-        } else if (chat_template === null) {
+        } else {
             // These are the cases when the model has a single template
             // priority: `chat_template` argument > `tokenizer.chat_template` > `tokenizer.default_chat_template
-            chat_template = this.chat_template ?? this.default_chat_template;
+            chat_template ??= this.chat_template ?? this.default_chat_template;
         }
 
         // Compilation function uses a cache to avoid recompiling the same template
