@@ -5800,6 +5800,12 @@ const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
     ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
 ])
 
+// NOTE: This is custom to Transformers.js, and is necessary because certain models
+// (e.g., CLIP) are split into vision and text components
+const MODEL_FOR_IMAGE_FEATURE_EXTRACTION_MAPPING_NAMES = new Map([
+    ['clip', ['CLIPVisionModelWithProjection', CLIPVisionModelWithProjection]],
+    ['siglip', ['SiglipVisionModel', SiglipVisionModel]],
+])
 
 const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_TYPES.EncoderOnly],
@@ -5828,6 +5834,9 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+
+    // Custom:
+    [MODEL_FOR_IMAGE_FEATURE_EXTRACTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -5841,9 +5850,7 @@ for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
 
 const CUSTOM_MAPPING = [
     ['CLIPTextModelWithProjection', CLIPTextModelWithProjection, MODEL_TYPES.EncoderOnly],
-    ['CLIPVisionModelWithProjection', CLIPVisionModelWithProjection, MODEL_TYPES.EncoderOnly],
     ['SiglipTextModel', SiglipTextModel, MODEL_TYPES.EncoderOnly],
-    ['SiglipVisionModel', SiglipVisionModel, MODEL_TYPES.EncoderOnly],
     ['ClapTextModelWithProjection', ClapTextModelWithProjection, MODEL_TYPES.EncoderOnly],
     ['ClapAudioModelWithProjection', ClapAudioModelWithProjection, MODEL_TYPES.EncoderOnly],
 ]
@@ -6068,6 +6075,10 @@ export class AutoModelForImageToImage extends PretrainedMixin {
 
 export class AutoModelForDepthEstimation extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES];
+}
+
+export class AutoModelForImageFeatureExtraction extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_FEATURE_EXTRACTION_MAPPING_NAMES];
 }
 
 //////////////////////////////////////////////////
