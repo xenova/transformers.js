@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Optional, Set
 from tqdm import tqdm
 from enum import Enum
-from pathlib import Path
 
 from transformers import (
     AutoConfig,
