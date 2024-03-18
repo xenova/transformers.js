@@ -7,7 +7,7 @@
         // Tells the compiler to check JS files
         "checkJs": true,
         "target": "esnext",
-        "module": "esnext",
+        "module": "nodenext",
         "moduleResolution": "nodenext",
     },
     "typeAcquisition": {
