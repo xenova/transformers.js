@@ -151,6 +151,22 @@ class FileResponse {
 }
 
 /**
+ * Determines whether the given string is a valid Blob URL.
+ * @param {string|URL} string The string to test for validity as an Blob URL.
+ * @returns {boolean} True if the string is a valid Blob URL, false otherwise.
+ */
+function isValidBlobUrl(string) {
+    // https://stackoverflow.com/a/43467144
+    let url;
+    try {
+        url = new URL(string);
+    } catch (_) {
+        return false;
+    }
+    return url.protocol === "blob:";
+}
+
+/**
  * Determines whether the given string is a valid HTTP or HTTPS URL.
  * @param {string|URL} string The string to test for validity as an HTTP or HTTPS URL.
  * @param {string[]} [validHosts=null] A list of valid hostnames. If specified, the URL's hostname must be in this list.
@@ -167,7 +183,7 @@ function isValidHttpUrl(string, validHosts = null) {
     if (validHosts && !validHosts.includes(url.hostname)) {
         return false;
     }
-    return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "blob:";
+    return url.protocol === "http:" || url.protocol === "https:";
 }
 
 /**
@@ -178,7 +194,7 @@ function isValidHttpUrl(string, validHosts = null) {
  */
 export async function getFile(urlOrPath) {
 
-    if (env.useFS && !isValidHttpUrl(urlOrPath)) {
+    if (env.useFS && !isValidHttpUrl(urlOrPath) && !isValidBlobUrl(urlOrPath)) {
         return new FileResponse(urlOrPath);
 
     } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
