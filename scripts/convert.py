@@ -27,107 +27,34 @@ from onnxconverter_common import float16
 
 
 PER_CHANNEL_REDUCE_RANGE_MODELS = {
-
-}
-
-MODEL_SPECIFIC_QUANTIZE_PARAMS = {
     # Decoder-only models
-    'codegen': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'gpt2': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'gpt_bigcode': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'gptj': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'gpt-neo': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'gpt-neox': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'mpt': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'bloom': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'llama': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'opt': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'mistral': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'falcon': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'phi': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'qwen2': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'stablelm': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'starcoder2': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
+    'codegen',
+    'gpt2',
+    'gpt_bigcode',
+    'gptj',
+    'gpt-neo',
+    'gpt-neox',
+    'mpt',
+    'bloom',
+    'llama',
+    'opt',
+    'mistral',
+    'falcon',
+    'phi',
+    'qwen2',
+    'stablelm',
+    'starcoder2',
 
     # Encoder-decoder models
-    'whisper': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'vision-encoder-decoder': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
+    'whisper',
+    'vision-encoder-decoder',
 
     # Encoder-only models
-    'owlv2': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'wavlm': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'wav2vec2': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'unispeech': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
-    'unispeech-sat': {
-        'per_channel': False,
-        'reduce_range': False,
-    },
+    'owlv2',
+    'wavlm',
+    'wav2vec2',
+    'unispeech',
+    'unispeech-sat',
 }
 
 MODELS_WITHOUT_TOKENIZERS = [
