@@ -23,10 +23,11 @@ from onnxruntime.quantization import (
 )
 from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
+from onnxconverter_common import float16
 
-DEFAULT_QUANTIZE_PARAMS = {
-    'per_channel': True,
-    'reduce_range': True,
+
+PER_CHANNEL_REDUCE_RANGE_MODELS = {
+
 }
 
 MODEL_SPECIFIC_QUANTIZE_PARAMS = {
@@ -229,6 +230,33 @@ class ConversionArguments:
             "help": "Whether to quantize weights with 7-bits. It may improve the accuracy for some models running on non-VNNI machine, especially for per-channel mode"
         }
     )
+    block_size: int = field(
+        default=None,
+        metadata={
+            "help": "Block size for blockwise quantization. Note: bnb.nn.Linear4bit only uses block_size=64"
+        }
+    )
+    quant_type: int = field(
+        default=MatMulBnb4Quantizer.NF4,
+        choices=[MatMulBnb4Quantizer.FP4, MatMulBnb4Quantizer.NF4],
+        metadata={
+            "help": "Quantization data type. 0: FP4, 1: NF4"
+        }
+    )
+    symmetric: bool = field(
+        default=True,
+        metadata={
+            "help": "Indicate whether to quantize the model symmetrically"
+        }
+    )
+    accuracy_level: int = field(
+        default=None,
+        metadata={
+            "help": "Accuracy level of the 4-bit quantized MatMul computation. "
+            "Refer to the MatMulNBits contrib op's 'accuracy_level' attribute for details "
+            "(https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits)."
+        }
+    )
 
     output_attentions: bool = field(
         default=False,
@@ -276,41 +304,36 @@ def get_operators(model: onnx.ModelProto) -> Set[str]:
     return operators
 
 
-def quantize(mode, model_names_or_paths, **quantize_kwargs):
-    """
-    Quantize the weights of the model from float32 to int8 to allow very efficient inference on modern CPU
+def quantize(
+    mode, model_names_or_paths, *,
 
-    Uses unsigned ints for activation values, signed ints for weights, per
-    https://onnxruntime.ai/docs/performance/quantization.html#data-type-selection
-    it is faster on most CPU architectures
-    Args:
-        onnx_model_path: Path to location the exported ONNX model is stored
-    Returns: The Path generated for the quantized
+        # 8-bit quantization
+        per_channel: bool = True,
+        reduce_range: bool = True,
+
+        # 4-bit quantization
+        block_size: int | None = None,
+
+        # MatMul4BitsQuantizer
+        is_symmetric: bool = True,
+        accuracy_level: int | None = None,
+
+        # MatMulBnb4Quantizer
+        quant_type: int | None = None,
+):
+    """
+    Quantize the weights of the model (e.g., from float32 to int8) to allow for more efficient inference.
     """
 
-    quantize_config = dict(
-        **quantize_kwargs,
-        per_model_config={}
-    )
+    quantize_config = {}
 
     directory_path = os.path.dirname(model_names_or_paths[0])
 
     outputs = []
     for model in tqdm(model_names_or_paths, desc='Quantizing'):
         file_name_without_extension = os.path.splitext(
-            os.path.basename(model))[0]
-
-        # NOTE:
-        # As of 2024/03/18, the current latest version of onnxruntime-web is 1.17.1, and does not support INT8 weights for Conv layers.
-        # If you attempt to run a model with INT8 weights for Conv layers, you will get an error like:
-        # `Can't create a session. ERROR_CODE: 9, ERROR_MESSAGE: Could not find an implementation for ConvInteger(10) node with name '/.../Conv_quant'`
-        #
-        # For this reason, we choose model weight types to ensure compatibility with onnxruntime-web.
-        #
-        # As per docs, signed weight type (QInt8) is faster on most CPUs, so, we use that unless the model contains a Conv layer.
-        # For more information, see:
-        #  - https://github.com/microsoft/onnxruntime/issues/3130#issuecomment-1105200621
-        #  - https://github.com/microsoft/onnxruntime/issues/2339
+            os.path.basename(model)
+        )[0]
 
         loaded_model = onnx.load_model(model)
         suffix = 'quantized' if mode == QuantMode.Q8 else mode.value
@@ -319,17 +342,40 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
             f'{file_name_without_extension}_{suffix}.onnx',
         )
 
+        quantize_kwargs = {}
+
         if mode in (QuantMode.Q8, QuantMode.QI8, QuantMode.QU8):
+            quantize_kwargs.update(
+                per_channel=per_channel,
+                reduce_range=reduce_range,
+            )
 
             op_types = get_operators(loaded_model)
             if mode == QuantMode.Q8:
+                # NOTE:
+                # As of 2024/03/18, the current latest version of onnxruntime-web is 1.17.1, and does not support INT8 weights for Conv layers.
+                # If you attempt to run a model with INT8 weights for Conv layers, you will get an error like:
+                # `Can't create a session. ERROR_CODE: 9, ERROR_MESSAGE: Could not find an implementation for ConvInteger(10) node with name '/.../Conv_quant'`
+                #
+                # For this reason, we choose model weight types to ensure compatibility with onnxruntime-web.
+                #
+                # As per docs, signed weight type (QInt8) is faster on most CPUs, so, we use that unless the model contains a Conv layer.
+                # For more information, see:
+                #  - https://github.com/microsoft/onnxruntime/issues/3130#issuecomment-1105200621
+                #  - https://github.com/microsoft/onnxruntime/issues/2339
                 weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
+
             elif mode == QuantMode.QI8:
                 weight_type = QuantType.QInt8
+
             else:  # mode == QuantMode.QU8:
                 weight_type = QuantType.QUInt8
 
             del loaded_model
+
+            # Uses unsigned ints for activation values, signed ints for weights, per
+            # https://onnxruntime.ai/docs/performance/quantization.html#data-type-selection
+            # it is faster on most CPU architectures
             quantize_dynamic(
                 model_input=model,
                 model_output=save_path,
@@ -340,40 +386,60 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
                 extra_options=dict(
                     EnableSubgraph=True
                 ),
+
+                **quantize_kwargs,
             )
 
+            if 'per_model_config' not in quantize_config:
+                quantize_config['per_model_config'] = {}
+
             quantize_config['per_model_config'][file_name_without_extension] = dict(
-                op_types=list(op_types),
+                op_types=sorted(list(op_types)),
                 weight_type=str(weight_type),
             )
 
         elif mode == QuantMode.Q4:
-            quant = MatMul4BitsQuantizer(
-                model=loaded_model,
-                block_size=quantize_kwargs.get('block_size', 128),
-                accuracy_level=quantize_kwargs.get('accuracy_level'),
-                is_symmetric=quantize_kwargs.get('is_symmetric', True),
+            block_size = block_size if block_size is not None else 32
+            quantize_kwargs.update(
+                block_size=block_size,
+                is_symmetric=is_symmetric,
+                accuracy_level=accuracy_level,
             )
-            quant.process()
-            check_and_save_model(quant.model.model, save_path)
-            del quant
+            quantizer = MatMul4BitsQuantizer(
+                model=loaded_model,
+                **quantize_kwargs,
+            )
+            quantizer.process()
+            check_and_save_model(quantizer.model.model, save_path)
+            del quantizer
 
         elif mode == QuantMode.BNB4:
-            quant = MatMulBnb4Quantizer(
-                model=loaded_model,
-                block_size=quantize_kwargs.get('block_size', 64),
-                quant_type=quantize_kwargs.get(
-                    'quant_type', MatMulBnb4Quantizer.NF4),
+            block_size = block_size if block_size is not None else 64
+            quant_type = quant_type if quant_type is not None else MatMulBnb4Quantizer.NF4
+            quantize_kwargs.update(
+                block_size=block_size,
+                quant_type=quant_type,
             )
-            quant.process()
-            check_and_save_model(quant.model.model, save_path)
-            del quant
+
+            quantizer = MatMulBnb4Quantizer(
+                model=loaded_model,
+                **quantize_kwargs,
+            )
+            quantizer.process()
+            check_and_save_model(quantizer.model.model, save_path)
+            del quantizer
 
         elif mode == QuantMode.FP16:
-            pass
+            model_fp16 = float16.convert_float_to_float16(
+                loaded_model,
+                keep_io_types=True,
+            )
+            onnx.save(model_fp16, save_path)
+
         else:
             raise ValueError(f'Invalid quantization mode: {mode}')
 
+        quantize_config.update(quantize_kwargs)
         outputs.append(save_path)
 
     return quantize_config, outputs
@@ -582,15 +648,25 @@ def main():
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
         # Update quantize config with model specific defaults
-        quantize_config = MODEL_SPECIFIC_QUANTIZE_PARAMS.get(
-            config.model_type, DEFAULT_QUANTIZE_PARAMS)
+        use_per_channel_reduce_range = config.model_type in PER_CHANNEL_REDUCE_RANGE_MODELS
 
-        # Update if user specified values
+        quantize_config = {}
+
+        # Update with user-specified values
         if conv_args.per_channel is not None:
             quantize_config['per_channel'] = conv_args.per_channel
+        elif use_per_channel_reduce_range:
+            quantize_config['per_channel'] = True
 
         if conv_args.reduce_range is not None:
             quantize_config['reduce_range'] = conv_args.reduce_range
+        elif use_per_channel_reduce_range:
+            quantize_config['reduce_range'] = True
+
+        quantize_config['block_size'] = conv_args.block_size
+        quantize_config['quant_type'] = conv_args.quant_type
+        quantize_config['is_symmetric'] = conv_args.symmetric
+        quantize_config['accuracy_level'] = conv_args.accuracy_level
 
         final_quantize_configs = {}
         quantize_modes = [x.value for x in QuantMode] \
