@@ -3245,6 +3245,8 @@ export class GemmaTokenizer extends PreTrainedTokenizer {
     _default_chat_template = "{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}"
 }
 
+export class Grok1Tokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper function to build translation inputs for an `NllbTokenizer` or `M2M100Tokenizer`.
  * @param {PreTrainedTokenizer} self The tokenizer instance.
@@ -4354,6 +4356,7 @@ export class AutoTokenizer {
         VitsTokenizer,
         Qwen2Tokenizer,
         GemmaTokenizer,
+        Grok1Tokenizer,
         CohereTokenizer,
 
         // Base case:
