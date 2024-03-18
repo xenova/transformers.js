@@ -43,6 +43,18 @@ import {
 } from './configs.js';
 
 import {
+    deviceToExecutionProviders,
+    createInferenceSession,
+    isONNXTensor,
+    isONNXProxy,
+} from './backends/onnx.js';
+import {
+    DATA_TYPES,
+    DEFAULT_DEVICE_DTYPE_MAPPING,
+    DEFAULT_DTYPE_SUFFIX_MAPPING, FP16_SUPPORTED,
+} from './utils/dtypes.js';
+
+import {
     Callable,
     isIntegralNumber,
     isTypedArray,
@@ -81,9 +93,7 @@ import {
     Tensor,
 } from './utils/tensor.js';
 
-import { createInferenceSession, isONNXTensor, isONNXProxy } from './backends/onnx.js';
-import { medianFilter } from './transformers.js';
-import { DATA_TYPES } from './utils/dtypes.js';
+import { medianFilter } from './utils/maths.js';
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -117,25 +127,28 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
 
-    // If options.dtype is specified, we use that for the variant.
-    // Otherwise, we use options.quantized to determine the variant.
-    let variant = '';
-    if (options.dtype) {
-        if (!DATA_TYPES.hasOwnProperty(options.dtype)) {
-            throw new Error(`Invalid dtype: ${options.dtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
-        }
-        const dtype = DATA_TYPES[options.dtype];
-        if (dtype !== 'fp32') {
-            variant = `_${options.dtype}`;
-        }
-    } else if (options.quantized) {
-        variant = '_quantized';
+    // If the device is not specified, we use the default (supported) execution providers.
+    const executionProviders = deviceToExecutionProviders(options.device);
+
+    // If options.dtype is specified, we use it to choose the suffix for the model file.
+    // Otherwise, we use the default dtype for the device.
+    const dtype = options.dtype ?? DEFAULT_DEVICE_DTYPE_MAPPING[executionProviders[0]];
+    if (!DEFAULT_DTYPE_SUFFIX_MAPPING.hasOwnProperty(dtype)) {
+        throw new Error(`Invalid dtype: ${dtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
+    } else if (dtype === DATA_TYPES.fp16 && !FP16_SUPPORTED) {
+        throw new Error(`The device does not support fp16.`);
     }
 
-    const modelFileName = `onnx/${fileName}${variant}.onnx`;
+    // Construct the model file name
+    const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[dtype];
+    const modelFileName = `onnx/${fileName}${suffix}.onnx`;
+
     const buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
     const session_options = options.session_options ?? {};
+
+    // Overwrite `executionProviders` if not specified
+    session_options.executionProviders ??= executionProviders;
 
     // handle onnx external data files
     if (session_options.externalData !== undefined) {
@@ -157,7 +170,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
     //     }
     // }
 
-    return await createInferenceSession(buffer, session_options, options.device);
+    return await createInferenceSession(buffer, session_options);
 }
 
 /**
@@ -758,7 +771,6 @@ export class PreTrainedModel extends Callable {
      * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -771,7 +783,6 @@ export class PreTrainedModel extends Callable {
     } = {}) {
 
         let options = {
-            quantized,
             progress_callback,
             config,
             cache_dir,
@@ -4988,9 +4999,9 @@ export class SpeechT5Model extends SpeechT5PreTrainedModel { };
  * const processor = await AutoProcessor.from_pretrained('Xenova/speecht5_tts');
  * 
  * // Load the models
- * // NOTE: We use the unquantized versions as they are more accurate
- * const model = await SpeechT5ForTextToSpeech.from_pretrained('Xenova/speecht5_tts', { quantized: false });
- * const vocoder = await SpeechT5HifiGan.from_pretrained('Xenova/speecht5_hifigan', { quantized: false });
+ * // NOTE: We use the full-precision versions as they are more accurate
+ * const model = await SpeechT5ForTextToSpeech.from_pretrained('Xenova/speecht5_tts', { dtype: 'fp32' });
+ * const vocoder = await SpeechT5HifiGan.from_pretrained('Xenova/speecht5_hifigan', { dtype: 'fp32' });
  * 
  * // Load speaker embeddings from URL
  * const speaker_embeddings_data = new Float32Array(
@@ -5469,7 +5480,6 @@ export class PretrainedMixin {
 
     /** @type {PreTrainedModel.from_pretrained} */
     static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -5482,7 +5492,6 @@ export class PretrainedMixin {
     } = {}) {
 
         let options = {
-            quantized,
             progress_callback,
             config,
             cache_dir,

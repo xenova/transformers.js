@@ -29,7 +29,10 @@ export { Tensor } from 'onnxruntime-common';
 const WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
 const USE_ONNXRUNTIME_NODE = typeof process !== 'undefined' && process?.release?.name === 'node';
 
+/** @type {import('../utils/devices.js').DeviceType[]} */
 const supportedExecutionProviders = [];
+
+/** @type {import('../utils/devices.js').DeviceType[]} */
 let defaultExecutionProviders;
 let ONNX;
 if (USE_ONNXRUNTIME_NODE) {
@@ -49,25 +52,32 @@ if (USE_ONNXRUNTIME_NODE) {
 const InferenceSession = ONNX.InferenceSession;
 
 /**
- * Create an ONNX inference session, with fallback support if an operation is not supported.
- * @param {Uint8Array} buffer The ONNX model buffer.
- * @param {Object} session_options ONNX inference session options.
+ * Map a device to the execution providers to use for the given device.
  * @param {import("../utils/devices.js").DeviceType} [device=null] (Optional) The device to run the inference on.
- * @returns {Promise<Object>} The ONNX inference session.
+ * @returns {import("../utils/devices.js").DeviceType[]} The execution providers to use for the given device.
  */
-export async function createInferenceSession(buffer, session_options, device = null) {
+export function deviceToExecutionProviders(device) {
+    // TODO: Use mapping from device to execution providers for overloaded devices (e.g., 'gpu' or 'cpu').
     let executionProviders = defaultExecutionProviders;
     if (device) { // User has specified a device
-        if (supportedExecutionProviders.includes(device)) {
-            executionProviders = [device];
-        } else {
+        if (!supportedExecutionProviders.includes(device)) {
             throw new Error(`Unsupported device: "${device}". Should be one of: ${supportedExecutionProviders.join(', ')}.`)
         }
+        executionProviders = [device];
     }
+    return executionProviders;
+}
+
+/**
+ * Create an ONNX inference session.
+ * @param {Uint8Array} buffer The ONNX model buffer.
+ * @param {Object} session_options ONNX inference session options.
+ * @returns {Promise<Object>} The ONNX inference session.
+ */
+export async function createInferenceSession(buffer, session_options) {
 
     // NOTE: Important to create a clone, since ORT modifies the object.
     const options = {
-        executionProviders,
         ...session_options
     }
 
@@ -92,13 +102,19 @@ if (ONNX_ENV?.wasm) {
     // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
     // We use remote wasm files by default to make it easier for newer users.
     // In practice, users should probably self-host the necessary .wasm files.
-    ONNX_ENV.wasm.wasmPaths = RUNNING_LOCALLY
-        ? path.join(env.__dirname, '/dist/')
-        : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${env.version}/dist/`;
+    // ONNX_ENV.wasm.wasmPaths = RUNNING_LOCALLY
+    //     ? path.join(env.__dirname, '/dist/')
+    //     : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${env.version}/dist/`;
+    // TODO: update this before release
+    ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
 
     // Proxy the WASM backend to prevent the UI from freezing
     ONNX_ENV.wasm.proxy = true;
-    // ONNX_ENV.wasm.numThreads = 1; // TODO is this needed?
+
+    // https://developer.mozilla.org/en-US/docs/Web/API/crossOriginIsolated
+    if (typeof crossOriginIsolated === 'undefined' || !crossOriginIsolated) {
+        ONNX_ENV.wasm.numThreads = 1;
+    }
 
     // Running in a browser-environment
     // TODO: Check if 1.17.1 fixes this issue.

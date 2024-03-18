@@ -1,3 +1,11 @@
+
+export const DEVICE_TYPES = Object.freeze({
+    cpu: 'cpu',
+    gpu: 'gpu',
+    wasm: 'wasm',
+    webgpu: 'webgpu',
+});
+
 /**
- * @typedef {'cpu'|'gpu'|'wasm'|'webgpu'|null} DeviceType
+ * @typedef {keyof typeof DEVICE_TYPES} DeviceType
  */
