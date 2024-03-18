@@ -157,7 +157,6 @@ class FileResponse {
  * @returns {boolean} True if the string is a valid Blob URL, false otherwise.
  */
 function isValidUrl(string, protocols=null) {
-    // https://stackoverflow.com/a/43467144
     let url;
     try {
         url = new URL(string);
