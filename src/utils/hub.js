@@ -151,11 +151,12 @@ class FileResponse {
 }
 
 /**
- * Determines whether the given string is a valid Blob URL.
- * @param {string|URL} string The string to test for validity as an Blob URL.
+ * Determines whether the given string is a valid URL.
+ * @param {string|URL} string The string to test for validity as an URL.
+ * @param {string[]} [protocols=null] A list of valid protocols. If specified, the protocol must be in this list.
  * @returns {boolean} True if the string is a valid Blob URL, false otherwise.
  */
-function isValidBlobUrl(string) {
+function isValidUrl(string, protocols=null) {
     // https://stackoverflow.com/a/43467144
     let url;
     try {
@@ -163,7 +164,7 @@ function isValidBlobUrl(string) {
     } catch (_) {
         return false;
     }
-    return url.protocol === "blob:";
+    return !protocols || protocols.includes(protocols);
 }
 
 /**
@@ -194,7 +195,7 @@ function isValidHttpUrl(string, validHosts = null) {
  */
 export async function getFile(urlOrPath) {
 
-    if (env.useFS && !isValidHttpUrl(urlOrPath) && !isValidBlobUrl(urlOrPath)) {
+    if (env.useFS && !isValidUrl(urlOrPath, ['http:', 'https:', 'blob:'])) {
         return new FileResponse(urlOrPath);
 
     } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
