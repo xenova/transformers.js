@@ -138,8 +138,13 @@ MODELS_WITHOUT_TOKENIZERS = [
     'unispeech-sat',
 ]
 
+
 class QuantMode(Enum):
+    # F32 = 'fp32'
+    FP16 = 'fp16'
     Q8 = 'q8'
+    QI8 = 'int8'
+    QU8 = 'uint8'
     Q4 = 'q4'
     BNB4 = 'bnb4'
 
@@ -168,9 +173,9 @@ class ConversionArguments:
         }
     )
     quantize_mode: QuantMode = field(
-        default=QuantMode.Q8,
+        default=None,
         metadata={
-            "help": "Quantization mode to use. Options are: int4, int8, bnb4"
+            "help": f"Quantization mode to use. Options are: {', '.join([x.value for x in QuantMode])}"
         }
     )
     output_parent_dir: str = field(
@@ -285,18 +290,21 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
 
     quantize_config = dict(
         **quantize_kwargs,
-        quantize_mode=mode.value,
         per_model_config={}
     )
 
     directory_path = os.path.dirname(model_names_or_paths[0])
 
+    outputs = []
     for model in tqdm(model_names_or_paths, desc='Quantizing'):
         file_name_without_extension = os.path.splitext(
             os.path.basename(model))[0]
 
         # NOTE:
-        # As of 2023/04/20, the current latest version of onnxruntime-web is 1.14.0, and does not support INT8 weights for Conv layers.
+        # As of 2024/03/18, the current latest version of onnxruntime-web is 1.17.1, and does not support INT8 weights for Conv layers.
+        # If you attempt to run a model with INT8 weights for Conv layers, you will get an error like:
+        # `Can't create a session. ERROR_CODE: 9, ERROR_MESSAGE: Could not find an implementation for ConvInteger(10) node with name '/.../Conv_quant'`
+        #
         # For this reason, we choose model weight types to ensure compatibility with onnxruntime-web.
         #
         # As per docs, signed weight type (QInt8) is faster on most CPUs, so, we use that unless the model contains a Conv layer.
@@ -305,19 +313,27 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
         #  - https://github.com/microsoft/onnxruntime/issues/2339
 
         loaded_model = onnx.load_model(model)
-        op_types = get_operators(loaded_model)
+        suffix = 'quantized' if mode == QuantMode.Q8 else mode.value
+        save_path = os.path.join(
+            directory_path,
+            f'{file_name_without_extension}_{suffix}.onnx',
+        )
 
-        save_path = os.path.join(directory_path, f'{file_name_without_extension}_quantized.onnx')
+        if mode in (QuantMode.Q8, QuantMode.QI8, QuantMode.QU8):
 
-        if mode == QuantMode.Q8:
-            weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
+            op_types = get_operators(loaded_model)
+            if mode == QuantMode.Q8:
+                weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
+            elif mode == QuantMode.QI8:
+                weight_type = QuantType.QInt8
+            else:  # mode == QuantMode.QU8:
+                weight_type = QuantType.QUInt8
 
             del loaded_model
             quantize_dynamic(
                 model_input=model,
                 model_output=save_path,
                 weight_type=weight_type,
-                #optimize_model=False,
 
                 # TODO allow user to specify these
                 # op_types_to_quantize=['MatMul', 'Add', 'Conv'],
@@ -334,30 +350,33 @@ def quantize(mode, model_names_or_paths, **quantize_kwargs):
         elif mode == QuantMode.Q4:
             quant = MatMul4BitsQuantizer(
                 model=loaded_model,
-                block_size=quantize_kwargs.get('block_size', 32),
+                block_size=quantize_kwargs.get('block_size', 128),
                 accuracy_level=quantize_kwargs.get('accuracy_level'),
                 is_symmetric=quantize_kwargs.get('is_symmetric', True),
             )
             quant.process()
             check_and_save_model(quant.model.model, save_path)
             del quant
-        
+
         elif mode == QuantMode.BNB4:
             quant = MatMulBnb4Quantizer(
                 model=loaded_model,
                 block_size=quantize_kwargs.get('block_size', 64),
-                quant_type=quantize_kwargs.get('quant_type', MatMulBnb4Quantizer.NF4),
+                quant_type=quantize_kwargs.get(
+                    'quant_type', MatMulBnb4Quantizer.NF4),
             )
             quant.process()
             check_and_save_model(quant.model.model, save_path)
             del quant
-        
+
+        elif mode == QuantMode.FP16:
+            pass
         else:
             raise ValueError(f'Invalid quantization mode: {mode}')
 
-    # Save quantization config
-    with open(os.path.join(directory_path, 'quantize_config.json'), 'w') as fp:
-        json.dump(quantize_config, fp, indent=4)
+        outputs.append(save_path)
+
+    return quantize_config, outputs
 
 
 def main():
@@ -382,10 +401,11 @@ def main():
     # Saving the model config
     config = AutoConfig.from_pretrained(model_id, **from_pretrained_kwargs)
 
-    custom_kwargs={}
+    custom_kwargs = {}
     if conv_args.custom_onnx_configs is not None:
         if conv_args.task == 'auto':
-            raise Exception('`--task` must be set when exporting with `--custom_onnx_configs`')
+            raise Exception(
+                '`--task` must be set when exporting with `--custom_onnx_configs`')
         custom_onnx_configs = json.loads(conv_args.custom_onnx_configs)
 
         for key in custom_onnx_configs:
@@ -398,14 +418,16 @@ def main():
     tokenizer = None
     try:
         # Load tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_id, **from_pretrained_kwargs)
+        tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer_id, **from_pretrained_kwargs)
 
         # To avoid inserting all chat templates into tokenizers.js, we save the chat template
         # to the tokenizer_config.json file, and load it when the tokenizer is loaded.
         if getattr(tokenizer, 'chat_template', None) is None and \
-            getattr(tokenizer, 'use_default_system_prompt', False):
+                getattr(tokenizer, 'use_default_system_prompt', False):
             # No chat template specified, and we use the default
-            setattr(tokenizer, 'chat_template', tokenizer.default_chat_template)
+            setattr(tokenizer, 'chat_template',
+                    tokenizer.default_chat_template)
 
     except KeyError:
         pass  # No Tokenizer
@@ -442,7 +464,8 @@ def main():
     elif config.model_type == 'esm':
         from .extra.esm import generate_fast_tokenizer
         fast_tokenizer = generate_fast_tokenizer(tokenizer)
-        fast_tokenizer.save(os.path.join(output_model_folder, 'tokenizer.json'))
+        fast_tokenizer.save(os.path.join(
+            output_model_folder, 'tokenizer.json'))
 
     elif config.model_type == 'whisper':
         if conv_args.output_attentions:
@@ -452,14 +475,14 @@ def main():
                 **get_main_export_kwargs(config, "automatic-speech-recognition")
             )
 
-    elif config.model_type in ('wav2vec2', 'wav2vec2-bert', 'hubert', 'unispeech' , 'unispeech-sat'):
+    elif config.model_type in ('wav2vec2', 'wav2vec2-bert', 'hubert', 'unispeech', 'unispeech-sat'):
         if tokenizer is not None:
             from .extra.wav2vec2 import generate_tokenizer_json
             tokenizer_json = generate_tokenizer_json(tokenizer)
 
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
                 json.dump(tokenizer_json, fp, indent=4)
-    
+
     elif config.model_type == 'vits':
         if tokenizer is not None:
             from .extra.vits import generate_tokenizer_json
@@ -467,10 +490,11 @@ def main():
 
             with open(os.path.join(output_model_folder, 'tokenizer.json'), 'w', encoding='utf-8') as fp:
                 json.dump(tokenizer_json, fp, indent=4)
-    
+
     elif config.model_type == 'speecht5':
         # TODO allow user to specify vocoder path
-        export_kwargs["model_kwargs"] = {"vocoder": "microsoft/speecht5_hifigan"}
+        export_kwargs["model_kwargs"] = {
+            "vocoder": "microsoft/speecht5_hifigan"}
 
         if tokenizer is not None:
             from .extra.speecht5 import generate_tokenizer_json
@@ -501,8 +525,10 @@ def main():
             from .extra.clip import CLIPTextModelWithProjectionOnnxConfig, CLIPVisionModelWithProjectionOnnxConfig
             from transformers.models.clip import CLIPTextModelWithProjection, CLIPVisionModelWithProjection
 
-            text_model = CLIPTextModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
-            vision_model = CLIPVisionModelWithProjection.from_pretrained(model_id, **from_pretrained_kwargs)
+            text_model = CLIPTextModelWithProjection.from_pretrained(
+                model_id, **from_pretrained_kwargs)
+            vision_model = CLIPVisionModelWithProjection.from_pretrained(
+                model_id, **from_pretrained_kwargs)
 
             export_models(
                 models_and_onnx_configs={
@@ -517,8 +543,10 @@ def main():
             from .extra.siglip import SiglipTextModelOnnxConfig, SiglipVisionModelOnnxConfig
             from transformers.models.siglip import SiglipTextModel, SiglipVisionModel
 
-            text_model = SiglipTextModel.from_pretrained(model_id, **from_pretrained_kwargs)
-            vision_model = SiglipVisionModel.from_pretrained(model_id, **from_pretrained_kwargs)
+            text_model = SiglipTextModel.from_pretrained(
+                model_id, **from_pretrained_kwargs)
+            vision_model = SiglipVisionModel.from_pretrained(
+                model_id, **from_pretrained_kwargs)
 
             export_models(
                 models_and_onnx_configs={
@@ -546,8 +574,10 @@ def main():
         #     )
 
         else:
-            raise Exception(f'Unable to export {config.model_type} model with `--split_modalities`.')
+            raise Exception(
+                f'Unable to export {config.model_type} model with `--split_modalities`.')
 
+    os.makedirs(os.path.join(output_model_folder, 'onnx'), exist_ok=True)
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
@@ -562,14 +592,29 @@ def main():
         if conv_args.reduce_range is not None:
             quantize_config['reduce_range'] = conv_args.reduce_range
 
-        quantize(QuantMode(conv_args.quantize_mode), [
-            os.path.join(output_model_folder, x)
-            for x in os.listdir(output_model_folder)
-            if x.endswith('.onnx') and not x.endswith('_quantized.onnx')
-        ], **quantize_config)
+        final_quantize_configs = {}
+        quantize_modes = [x.value for x in QuantMode] \
+            if conv_args.quantize_mode is None else [conv_args.quantize_mode]
+        for quantize_mode in quantize_modes:
+
+            final_quantize_config, quantized_paths = quantize(QuantMode(quantize_mode), [
+                os.path.join(output_model_folder, x)
+                for x in os.listdir(output_model_folder)
+                if x.endswith('.onnx')
+            ], **quantize_config)
+
+            final_quantize_configs[quantize_mode] = final_quantize_config
+
+            for path in quantized_paths:
+                file_name = os.path.basename(path)
+                shutil.move(path,
+                            os.path.join(output_model_folder, 'onnx', file_name))
+
+        # Save quantization config
+        with open(os.path.join(output_model_folder, 'quantize_config.json'), 'w') as fp:
+            json.dump(final_quantize_configs, fp, indent=4)
 
     # Step 3. Move .onnx files to the 'onnx' subfolder
-    os.makedirs(os.path.join(output_model_folder, 'onnx'), exist_ok=True)
     for file in os.listdir(output_model_folder):
         if file.endswith(('.onnx', '.onnx_data')):
             shutil.move(os.path.join(output_model_folder, file),
@@ -580,7 +625,8 @@ def main():
         from transformers import GenerationConfig
         from .extra.whisper import get_alignment_heads
 
-        generation_config = GenerationConfig.from_pretrained(model_id, **from_pretrained_kwargs)
+        generation_config = GenerationConfig.from_pretrained(
+            model_id, **from_pretrained_kwargs)
         generation_config.alignment_heads = get_alignment_heads(config)
         generation_config.save_pretrained(output_model_folder)
 
