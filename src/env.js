@@ -58,7 +58,7 @@ const localModelPath = RUNNING_LOCALLY
     ? path.join(localPath, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
-if (onnx_env?.wasm) {
+if (!IS_REACT_NATIVE && onnx_env?.wasm) {
     // Set path to wasm files. This is needed when running in a web worker.
     // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
     // We use remote wasm files by default to make it easier for newer users.
