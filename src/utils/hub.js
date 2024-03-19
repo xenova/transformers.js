@@ -164,7 +164,7 @@ function isValidUrl(string, protocols = null, validHosts = null) {
     } catch (_) {
         return false;
     }
-    if (protocols && !protocols.includes(protocols)) {
+    if (protocols && !protocols.includes(url.protocol)) {
         return false;
     }
     if (validHosts && !validHosts.includes(url.hostname)) {
