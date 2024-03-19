@@ -50,6 +50,7 @@ describe('Processors', () => {
 
         const TEST_IMAGES = {
             pattern_3x3: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/pattern_3x3.png',
+            pattern_3x5: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/pattern_3x5.png',
             checkerboard_8x8: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/checkerboard_8x8.png',
             receipt: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/receipt.png',
             tiger: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg',
@@ -369,6 +370,7 @@ describe('Processors', () => {
         //  - tests custom overrides
         //  - tests multiple inputs
         //  - tests `size_divisibility` and no size (size_divisibility=32)
+        //  - tests do_pad and `size_divisibility`
         it(MODELS.vitmatte, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.vitmatte))
 
@@ -390,6 +392,25 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[640, 960]]);
                 compare(reshaped_input_sizes, [[640, 960]]);
+            }
+
+
+            {
+                const image = await load_image(TEST_IMAGES.pattern_3x5);
+                const image2 = await load_image(TEST_IMAGES.pattern_3x5);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image, image2);
+
+                compare(pixel_values.dims, [1, 4, 32, 32]);
+                expect(avg(pixel_values.data)).toBeCloseTo(-0.00867417361587286);
+                expect(pixel_values.data[0]).toBeCloseTo(-0.9921568632125854);
+                expect(pixel_values.data[1]).toBeCloseTo(-0.9686274528503418);
+                expect(pixel_values.data[5]).toBeCloseTo(0.0);
+                expect(pixel_values.data[32]).toBeCloseTo(-0.9215686321258545);
+                expect(pixel_values.data[33]).toBeCloseTo(-0.8980392217636108);
+                expect(pixel_values.data.at(-1)).toBeCloseTo(0.0);
+
+                compare(original_sizes, [[5, 3]]);
+                compare(reshaped_input_sizes, [[5, 3]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
 
