@@ -155,7 +155,7 @@ class FileResponse {
  * @param {string|URL} string The string to test for validity as an URL.
  * @param {string[]} [protocols=null] A list of valid protocols. If specified, the protocol must be in this list.
  * @param {string[]} [validHosts=null] A list of valid hostnames. If specified, the URL's hostname must be in this list.
- * @returns {boolean} True if the string is a valid Blob URL, false otherwise.
+ * @returns {boolean} True if the string is a valid URL, false otherwise.
  */
 function isValidUrl(string, protocols = null, validHosts = null) {
     let url;
