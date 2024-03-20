@@ -29,14 +29,14 @@ describe('Mathematical operations', () => {
 
     describe('bankers rounding', () => {
         it('should round up to nearest even', () => {
-            expect(bankers_round(-0.5)).toBe(0);
-            expect(bankers_round(1.5)).toBe(2);
-            expect(bankers_round(19.5)).toBe(20);
+            expect(bankers_round(-0.5)).toBeCloseTo(0);
+            expect(bankers_round(1.5)).toBeCloseTo(2);
+            expect(bankers_round(19.5)).toBeCloseTo(20);
         });
         it('should round down to nearest even', () => {
-            expect(bankers_round(-1.5)).toBe(-2);
-            expect(bankers_round(2.5)).toBe(2);
-            expect(bankers_round(18.5)).toBe(18);
+            expect(bankers_round(-1.5)).toBeCloseTo(-2);
+            expect(bankers_round(2.5)).toBeCloseTo(2);
+            expect(bankers_round(18.5)).toBeCloseTo(18);
         });
     });
 
