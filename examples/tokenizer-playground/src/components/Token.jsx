@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+
 const COLOURS = [
     'bg-purple-300',
     'bg-green-300',
@@ -7,15 +9,15 @@ const COLOURS = [
 ]
 
 export function Token({ text, position, margin }) {
-    const isNormal = text !== '\n'
-
-    return (
-        isNormal ? (
-            <span
-            style={{marginLeft: margin}}
-            
-            className={`leading-5 inline-block ${COLOURS[position % COLOURS.length]}`}>
-                {text}
-            </span>) : <br />
-    )
+    const textWithLineBreaks = text.split('\n').map((line, index, array) => (
+        <Fragment key={index}>
+            {line}
+            {index !== array.length - 1 && <br />}
+        </Fragment>
+    ));
+    return (<span
+        style={{ marginLeft: margin }}
+        className={`leading-5 ${textWithLineBreaks.length === 1 ? 'inline-block ' : ''}${COLOURS[position % COLOURS.length]}`}>
+        {textWithLineBreaks}
+    </span>)
 }

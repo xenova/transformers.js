@@ -22,6 +22,7 @@ self.addEventListener('message', async (event) => {
                 // NOTE: We just remove the StripDecoder from the llama tokenizer
                 switch (tokenizer.constructor.name) {
                     case 'LlamaTokenizer':
+                    case 'Grok1Tokenizer':
                         // tokenizer.decoder.decoders.at(-1).constructor.name === 'StripDecoder'
                         tokenizer.decoder.decoders.pop();
                         break;

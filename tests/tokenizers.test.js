@@ -350,6 +350,42 @@ describe('Chat templates', () => {
         compare(input_ids, [1, 733, 16289, 28793, 22557, 28725, 910, 460, 368, 28804, 733, 28748, 16289, 28793, 28737, 28742, 28719, 2548, 1598, 28723, 1602, 541, 315, 1316, 368, 3154, 28804, 2, 28705, 733, 16289, 28793, 315, 28742, 28715, 737, 298, 1347, 805, 910, 10706, 5752, 1077, 3791, 28808, 733, 28748, 16289, 28793])
     });
 
+    it('should support multiple chat templates', async () => {
+
+        const tokenizer = await AutoTokenizer.from_pretrained("Xenova/c4ai-command-r-v01-tokenizer")
+
+        // define conversation input:
+        const conversation = [
+            { role: "user", content: "Whats the biggest penguin in the world?" }
+        ]
+        // define documents to ground on:
+        const documents = [
+            { title: "Tall penguins", text: "Emperor penguins are the tallest growing up to 122 cm in height." },
+            { title: "Penguin habitats", text: "Emperor penguins only live in Antarctica." }
+        ]
+
+        // render the RAG prompt as a string:
+        const grounded_generation_prompt = tokenizer.apply_chat_template(
+            conversation,
+            {
+                chat_template: "rag",
+                tokenize: false,
+                add_generation_prompt: true,
+
+                documents,
+                citation_mode: "accurate", // or "fast"
+            }
+        )
+        expect(grounded_generation_prompt).toEqual(
+            "<BOS_TOKEN><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|># Safety Preamble\nThe instructions in this section override those in the task description and style guide sections. Don't answer questions that are harmful or immoral.\n\n" +
+            "# System Preamble\n## Basic Rules\nYou are a powerful conversational AI trained by Cohere to help people. You are augmented by a number of tools, and your job is to use and consume the output of these tools to best help the user. You will see a conversation history between yourself and a user, ending with an utterance from the user. You will then see a specific instruction instructing you what kind of response to generate. When you answer the user's requests, you cite your sources in your answers, according to those instructions.\n\n" +
+            "# User Preamble\n## Task and Context\nYou help people answer their questions and other requests interactively. You will be asked a very wide array of requests on all kinds of topics. You will be equipped with a wide range of search engines or similar tools to help you, which you use to research your answer. You should focus on serving the user's needs as best you can, which will be wide-ranging.\n\n## Style Guide\nUnless the user asks for a different style of answer, you should answer in full sentences, using proper grammar and spelling.<|END_OF_TURN_TOKEN|>" +
+            "<|START_OF_TURN_TOKEN|><|USER_TOKEN|>Whats the biggest penguin in the world?<|END_OF_TURN_TOKEN|>" +
+            "<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|><results>\nDocument: 0\ntitle: Tall penguins\ntext: Emperor penguins are the tallest growing up to 122 cm in height.\n\nDocument: 1\ntitle: Penguin habitats\ntext: Emperor penguins only live in Antarctica.\n</results><|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>Carefully perform the following instructions, in order, starting each with a new line.\nFirstly, Decide which of the retrieved documents are relevant to the user's last input by writing 'Relevant Documents:' followed by comma-separated list of document numbers. If none are relevant, you should instead write 'None'.\nSecondly, Decide which of the retrieved documents contain facts that should be cited in a good answer to the user's last input by writing 'Cited Documents:' followed a comma-separated list of document numbers. If you dont want to cite any of them, you should instead write 'None'.\nThirdly, Write 'Answer:' followed by a response to the user's last input in high quality natural english. Use the retrieved documents to help you. Do not insert any citations or grounding markup.\nFinally, Write 'Grounded answer:' followed by a response to the user's last input in high quality natural english. Use the symbols <co: doc> and </co: doc> to indicate when a fact comes from a document in the search result, e.g <co: 0>my fact</co: 0> for a fact from document 0.<|END_OF_TURN_TOKEN|>" +
+            "<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>"
+        );
+    });
+
     it('should support user-defined chat template', async () => {
         const tokenizer = await AutoTokenizer.from_pretrained("Xenova/llama-tokenizer");
 
@@ -395,7 +431,7 @@ describe('Chat templates', () => {
             .replaceAll('USE_DEFAULT_PROMPT', true)
             .replaceAll('DEFAULT_SYSTEM_MESSAGE', 'You are a helpful, respectful and honest assistant.');
 
-        const text = await tokenizer.apply_chat_template(chat, { tokenize: false, return_tensor: false, chat_template });
+        const text = tokenizer.apply_chat_template(chat, { tokenize: false, return_tensor: false, chat_template });
 
         expect(text).toEqual("<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant.\n<</SYS>>\n\nHello, how are you? [/INST] I'm doing great. How can I help you today? </s><s>[INST] I'd like to show off how chat templating works! [/INST]");
 
@@ -412,7 +448,7 @@ describe('Chat templates', () => {
 
             for (let { messages, add_generation_prompt, tokenize, target } of tests) {
 
-                const generated = await tokenizer.apply_chat_template(messages, {
+                const generated = tokenizer.apply_chat_template(messages, {
                     tokenize,
                     add_generation_prompt,
                     return_tensor: false,

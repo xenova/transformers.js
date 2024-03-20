@@ -11,7 +11,7 @@ import { ONNX } from '../backends/onnx.js';
 
 import {
     interpolate_data,
-    transpose_data
+    permute_data
 } from './maths.js';
 
 
@@ -309,16 +309,18 @@ export class Tensor {
     }
 
     /**
-     * Return a transposed version of this Tensor, according to the provided dimensions.
-     * @param  {...number} dims Dimensions to transpose.
-     * @returns {Tensor} The transposed tensor.
+     * Return a permuted version of this Tensor, according to the provided dimensions.
+     * @param  {...number} dims Dimensions to permute.
+     * @returns {Tensor} The permuted tensor.
      */
-    transpose(...dims) {
-        return transpose(this, dims);
+    permute(...dims) {
+        return permute(this, dims);
     }
 
-    // TODO: rename transpose to permute
-    // TODO: implement transpose
+    // TODO: implement transpose. For now (backwards compatibility), it's just an alias for permute()
+    transpose(...dims) {
+        return this.permute(...dims);
+    }
 
     // TODO add .max() and .min() methods
 
@@ -680,14 +682,14 @@ function reshape(data, dimensions) {
 }
 
 /**
- * Transposes a tensor according to the provided axes.
- * @param {any} tensor The input tensor to transpose.
- * @param {Array} axes The axes to transpose the tensor along.
- * @returns {Tensor} The transposed tensor.
+ * Permutes a tensor according to the provided axes.
+ * @param {any} tensor The input tensor to permute.
+ * @param {Array} axes The axes to permute the tensor along.
+ * @returns {Tensor} The permuted tensor.
  */
-export function transpose(tensor, axes) {
-    const [transposedData, shape] = transpose_data(tensor.data, tensor.dims, axes);
-    return new Tensor(tensor.type, transposedData, shape);
+export function permute(tensor, axes) {
+    const [permutedData, shape] = permute_data(tensor.data, tensor.dims, axes);
+    return new Tensor(tensor.type, permutedData, shape);
 }
 
 
@@ -760,6 +762,42 @@ export function mean_pooling(last_hidden_state, attention_mask) {
         returnedData,
         shape
     )
+}
+
+/**
+ * Apply Layer Normalization for last certain number of dimensions.
+ * @param {Tensor} input The input tensor
+ * @param {number[]} normalized_shape input shape from an expected input of size
+ * @param {Object} options The options for the layer normalization
+ * @param {number} [options.eps=1e-5] A value added to the denominator for numerical stability.
+ * @returns {Tensor} The normalized tensor.
+ */
+export function layer_norm(input, normalized_shape, {
+    eps = 1e-5,
+} = {}) {
+    if (input.dims.length !== 2) {
+        throw new Error('`layer_norm` currently only supports 2D input.');
+    }
+
+    const [batchSize, featureDim] = input.dims;
+
+    if (normalized_shape.length !== 1 && normalized_shape[0] !== featureDim) {
+        throw new Error('`normalized_shape` must be a 1D array with shape `[input.dims[1]]`.');
+    }
+
+    const [std, mean] = std_mean(input, 1, 0, true);
+
+    // @ts-ignore
+    const returnedData = new input.data.constructor(input.data.length);
+
+    for (let i = 0; i < batchSize; ++i) {
+        const offset = i * featureDim;
+        for (let j = 0; j < featureDim; ++j) {
+            const offset2 = offset + j;
+            returnedData[offset2] = (input.data[offset2] - mean.data[i]) / (std.data[i] + eps);
+        }
+    }
+    return new Tensor(input.type, returnedData, input.dims);
 }
 
 /**
