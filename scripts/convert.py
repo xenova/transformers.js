@@ -26,7 +26,7 @@ from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 from onnxconverter_common import float16
 
 
-PER_CHANNEL_REDUCE_RANGE_MODELS = {
+NO_PER_CHANNEL_REDUCE_RANGE_MODELS = {
     # Decoder-only models
     'codegen',
     'gpt2',
@@ -433,7 +433,7 @@ def main():
         opset=conv_args.opset,
         device=conv_args.device,
         trust_remote_code=conv_args.trust_remote_code,
-        legacy=True,
+        legacy=True,  # TODO: remove this when transformers.js config is updated
         **custom_kwargs,
     )
 
@@ -575,7 +575,7 @@ def main():
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
         # Update quantize config with model specific defaults
-        use_per_channel_reduce_range = config.model_type in PER_CHANNEL_REDUCE_RANGE_MODELS
+        use_per_channel_reduce_range = config.model_type in NO_PER_CHANNEL_REDUCE_RANGE_MODELS
 
         quantize_config = {}
 
@@ -583,12 +583,12 @@ def main():
         if conv_args.per_channel is not None:
             quantize_config['per_channel'] = conv_args.per_channel
         elif use_per_channel_reduce_range:
-            quantize_config['per_channel'] = True
+            quantize_config['per_channel'] = False
 
         if conv_args.reduce_range is not None:
             quantize_config['reduce_range'] = conv_args.reduce_range
         elif use_per_channel_reduce_range:
-            quantize_config['reduce_range'] = True
+            quantize_config['reduce_range'] = False
 
         quantize_config['block_size'] = conv_args.block_size
         quantize_config['quant_type'] = conv_args.quant_type
