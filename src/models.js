@@ -3779,11 +3779,7 @@ export class VitMattePreTrainedModel extends PreTrainedModel { }
  * import { Tensor, cat } from '@xenova/transformers';
  * 
  * // Visualize predicted alpha matte
- * const imageTensor = new Tensor(
- *   'uint8',
- *   new Uint8Array(image.data),
- *   [image.height, image.width, image.channels]
- * ).transpose(2, 0, 1);
+ * const imageTensor = image.toTensor();
  * 
  * // Convert float (0-1) alpha matte to uint8 (0-255)
  * const alphaChannel = alphas

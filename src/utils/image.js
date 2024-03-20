@@ -10,6 +10,7 @@
 
 import { getFile } from './hub.js';
 import { env } from '../env.js';
+import { Tensor } from './tensor.js';
 
 // Will be empty (or not used) if running in browser or web-worker
 import sharp from 'sharp';
@@ -166,7 +167,7 @@ export class RawImage {
 
     /**
      * Helper method to create a new Image from a tensor
-     * @param {import('./tensor.js').Tensor} tensor 
+     * @param {Tensor} tensor 
      */
     static fromTensor(tensor, channel_format = 'CHW') {
         if (tensor.dims.length !== 3) {
@@ -584,6 +585,23 @@ export class RawImage {
 
         const canvas = this.toCanvas();
         return await canvas.convertToBlob({ type, quality });
+    }
+
+    toTensor(channel_format = 'CHW') {
+        let tensor = new Tensor(
+            'uint8',
+            new Uint8Array(this.data),
+            [this.height, this.width, this.channels]
+        );
+
+        if (channel_format === 'HWC') {
+            // Do nothing
+        } else if (channel_format === 'CHW') { // hwc -> chw
+            tensor = tensor.permute(2, 0, 1);
+        } else {
+            throw new Error(`Unsupported channel format: ${channel_format}`);
+        }
+        return tensor;
     }
 
     toCanvas() {
