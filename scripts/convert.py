@@ -165,9 +165,9 @@ class ConversionArguments:
     )
     quant_type: int = field(
         default=MatMulBnb4Quantizer.NF4,
-        choices=[MatMulBnb4Quantizer.FP4, MatMulBnb4Quantizer.NF4],
         metadata={
-            "help": "Quantization data type. 0: FP4, 1: NF4"
+            "help": "Quantization data type. 0: FP4, 1: NF4",
+            "choices": [MatMulBnb4Quantizer.FP4, MatMulBnb4Quantizer.NF4],
         }
     )
     symmetric: bool = field(
