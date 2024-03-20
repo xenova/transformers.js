@@ -3029,7 +3029,7 @@ export class PreTrainedTokenizer extends Callable {
         ) {
             const template_dict = this.chat_template ?? this.default_chat_template; // Guaranteed to be a non-null object
 
-            if (chat_template !== null && template_dict.hasOwnProperty(chat_template)) {
+            if (chat_template !== null && Object.hasOwn(template_dict, chat_template)) {
                 // The user can pass the name of a template to the chat template argument instead of an entire template
                 chat_template = template_dict[chat_template];
             } else if (chat_template === null && 'default' in template_dict) {
