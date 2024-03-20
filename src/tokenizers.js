@@ -3028,12 +3028,15 @@ export class PreTrainedTokenizer extends Callable {
             (this.chat_template === null && this.default_chat_template && typeof this.default_chat_template === 'object')
         ) {
             const template_dict = this.chat_template ?? this.default_chat_template;
+            if (typeof template_dict !== 'object') {
+                throw Error(`Expected chat_template to be an object, but got ${typeof template_dict}`);
+            }
 
-            if (chat_template !== null && chat_template in template_dict) {
+            if (chat_template !== null && template_dict.hasOwnProperty(chat_template)) {
                 // The user can pass the name of a template to the chat template argument instead of an entire template
                 chat_template = template_dict[chat_template];
-            } else if (chat_template === null && "default" in template_dict) {
-                chat_template = template_dict["default"];
+            } else if (chat_template === null && 'default' in template_dict) {
+                chat_template = template_dict['default'];
             } else if (chat_template === null) {
                 throw Error(
                     `This model has multiple chat templates with no default specified! Please either pass a chat ` +
@@ -3045,6 +3048,9 @@ export class PreTrainedTokenizer extends Callable {
             // These are the cases when the model has a single template
             // priority: `chat_template` argument > `tokenizer.chat_template` > `tokenizer.default_chat_template
             chat_template ??= this.chat_template ?? this.default_chat_template;
+        }
+        if (typeof chat_template !== 'string') {
+            throw Error(`chat_template must be a string, but got ${typeof chat_template}`);
         }
 
         // Compilation function uses a cache to avoid recompiling the same template
