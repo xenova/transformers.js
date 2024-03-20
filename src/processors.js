@@ -33,6 +33,7 @@ import {
     min,
     max,
     softmax,
+    bankers_round,
 } from './utils/maths.js';
 
 
@@ -174,14 +175,15 @@ function validate_audio_inputs(audio, feature_extractor) {
  * @private
  */
 function constraint_to_multiple_of(val, multiple, minVal = 0, maxVal = null) {
-    let x = Math.round(val / multiple) * multiple;
+    const a = val / multiple;
+    let x = bankers_round(a) * multiple;
 
     if (maxVal !== null && x > maxVal) {
-        x = Math.floor(val / multiple) * multiple;
+        x = Math.floor(a) * multiple;
     }
 
     if (x < minVal) {
-        x = Math.ceil(val / multiple) * multiple;
+        x = Math.ceil(a) * multiple;
     }
 
     return x;
@@ -513,8 +515,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             if (this.config.keep_aspect_ratio && this.config.ensure_multiple_of) {
 
                 // determine new height and width
-                let scale_height = size.height / srcHeight;
-                let scale_width = size.width / srcWidth;
+                let scale_height = newHeight / srcHeight;
+                let scale_width = newWidth / srcWidth;
 
                 // scale as little as possible
                 if (Math.abs(1 - scale_width) < Math.abs(1 - scale_height)) {
@@ -765,9 +767,9 @@ export class SegformerFeatureExtractor extends ImageFeatureExtractor {
         return toReturn;
     }
 }
-export class DPTImageProcessor extends ImageFeatureExtractor { }
-export class BitImageProcessor extends ImageFeatureExtractor { }
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
+export class DPTImageProcessor extends DPTFeatureExtractor { } // NOTE: extends DPTFeatureExtractor
+export class BitImageProcessor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }

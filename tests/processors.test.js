@@ -52,6 +52,7 @@ describe('Processors', () => {
             pattern_3x3: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/pattern_3x3.png',
             pattern_3x5: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/pattern_3x5.png',
             checkerboard_8x8: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/checkerboard_8x8.png',
+            checkerboard_64x32: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/checkerboard_64x32.png',
             receipt: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/receipt.png',
             tiger: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg',
             paper: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/nougat_paper.png',
@@ -433,6 +434,7 @@ describe('Processors', () => {
         // DPTImageProcessor
         //  - tests ensure_multiple_of
         //  - tests keep_aspect_ratio
+        //  - tests bankers rounding
         it(MODELS.dpt_2, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt_2))
 
@@ -445,6 +447,18 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[480, 640]]);
                 compare(reshaped_input_sizes, [[518, 686]]);
+            }
+
+            {
+                const image = await load_image(TEST_IMAGES.checkerboard_64x32);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                // NOTE: without bankers rounding, this would be [1, 3, 266, 518]
+                compare(pixel_values.dims, [1, 3, 252, 518]);
+                compare(avg(pixel_values.data), 0.2267402559518814);
+
+                compare(original_sizes, [[32, 64]]);
+                compare(reshaped_input_sizes, [[252, 518]]);
             }
         }, MAX_TEST_EXECUTION_TIME);
 

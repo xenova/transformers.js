@@ -952,3 +952,17 @@ export function round(num, decimals) {
     const pow = Math.pow(10, decimals);
     return Math.round(num * pow) / pow;
 }
+
+/**
+ * Helper function to round a number to the nearest integer, with ties rounded to the nearest even number.
+ * Also known as "bankers' rounding". This is the default rounding mode in python. For example:
+ * 1.5 rounds to 2 and 2.5 rounds to 2.
+ * 
+ * @param {number} x The number to round
+ * @returns {number} The rounded number
+ */
+export function bankers_round(x) {
+    const r = Math.round(x);
+    const br = Math.abs(x) % 1 === 0.5 ? (r % 2 === 0 ? r : r - 1) : r;
+    return br;
+}
