@@ -599,19 +599,22 @@ def main():
         quantize_modes = [x.value for x in QuantMode] \
             if conv_args.quantize_mode is None else [conv_args.quantize_mode]
         for quantize_mode in quantize_modes:
+            try:
+                final_quantize_config, quantized_paths = quantize(QuantMode(quantize_mode), [
+                    os.path.join(output_model_folder, x)
+                    for x in os.listdir(output_model_folder)
+                    if x.endswith('.onnx')
+                ], **quantize_config)
 
-            final_quantize_config, quantized_paths = quantize(QuantMode(quantize_mode), [
-                os.path.join(output_model_folder, x)
-                for x in os.listdir(output_model_folder)
-                if x.endswith('.onnx')
-            ], **quantize_config)
+                final_quantize_configs[quantize_mode] = final_quantize_config
 
-            final_quantize_configs[quantize_mode] = final_quantize_config
-
-            for path in quantized_paths:
-                file_name = os.path.basename(path)
-                shutil.move(path,
-                            os.path.join(output_model_folder, 'onnx', file_name))
+                for path in quantized_paths:
+                    file_name = os.path.basename(path)
+                    shutil.move(path,
+                                os.path.join(output_model_folder, 'onnx', file_name))
+            except Exception as e:
+                print(
+                    f'Failed to quantize model with mode {quantize_mode}: {e}')
 
         # Save quantization config
         with open(os.path.join(output_model_folder, 'quantize_config.json'), 'w') as fp:
