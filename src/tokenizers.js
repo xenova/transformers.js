@@ -2523,8 +2523,11 @@ export class PreTrainedTokenizer extends Callable {
             // Chat templates are stored as lists of dicts with fixed key names,
             // we reconstruct that into a single dict while loading them.
             const chat_template = Object.create(null);
-            for (const item of this.chat_template) {
-                chat_template[item['name']] = item['template'];
+            for (const { name, template } of this.chat_template) {
+                if (typeof name !== 'string' || typeof template !== 'string') {
+                    throw new Error('Chat template must be a list of objects with "name" and "template" properties');
+                }
+                chat_template[name] = template;
             }
             this.chat_template = chat_template;
         }
