@@ -848,6 +848,7 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * 
  * @typedef {Object} TextGenerationSpecificParams Parameters specific to text-generation pipelines.
  * @property {boolean} [add_special_tokens] Whether or not to add special tokens when tokenizing the sequences.
+ * @property {boolean} [return_full_text=true] If set to `false` only added text is returned, otherwise the full text is returned.
  * @typedef {import('./utils/generation.js').GenerationConfigType & TextGenerationSpecificParams} TextGenerationConfig
  * 
  * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
@@ -929,6 +930,9 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
         // By default, do not add special tokens
         const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
 
+        // By default, return full text
+        const return_full_text = generate_kwargs.return_full_text ?? true;
+
         this.tokenizer.padding_side = 'left';
         const { input_ids, attention_mask } = this.tokenizer(texts, {
             add_special_tokens,
@@ -940,15 +944,26 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
             inputs_attention_mask: attention_mask
         });
 
-        const decoded = this.tokenizer.batch_decode(outputTokenIds, {
+        let decoded = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
+
+
+        let promptLengths;
+        if (!return_full_text && input_ids.dims.at(-1) > 0) {
+            promptLengths = this.tokenizer.batch_decode(input_ids, {
+                skip_special_tokens: true,
+            }).map(x => x.length);
+        }
 
         /** @type {TextGenerationOutput[]} */
         const toReturn = Array.from({ length: texts.length }, _ => []);
         for (let i = 0; i < decoded.length; ++i) {
             const textIndex = Math.floor(i / outputTokenIds.length * texts.length);
 
+            if (promptLengths) {
+                decoded[i] = decoded[i].slice(promptLengths[textIndex]);
+            }
             toReturn[textIndex].push({
                 generated_text: decoded[i]
             });
