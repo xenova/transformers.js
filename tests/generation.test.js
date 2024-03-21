@@ -147,6 +147,8 @@ describe('Generation parameters', () => {
             'Suddenly,',
         ];
 
+        const generator = await pipeline('text-generation', m(models[2]));
+
         { // return_full_text=false
             const output = await generator(text, {
                 return_full_text: false,

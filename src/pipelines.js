@@ -960,7 +960,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
         const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
 
         // By default, return full text
-        const return_full_text = !isChatInput
+        const return_full_text = isChatInput
             ? false
             : generate_kwargs.return_full_text ?? true;
 
