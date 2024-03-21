@@ -840,8 +840,13 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
     }
 }
 
+function isChat(x) {
+    return Array.isArray(x) && x.every(x => 'role' in x && 'content' in x);
+}
 
 /**
+ * @typedef {import('./tokenizers.js').Message[]} Chat
+ * 
  * @typedef {Object} TextGenerationSingle
  * @property {string} generated_text The generated text.
  * @typedef {TextGenerationSingle[]} TextGenerationOutput
@@ -852,7 +857,7 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
  * @typedef {import('./utils/generation.js').GenerationConfigType & TextGenerationSpecificParams} TextGenerationConfig
  * 
  * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
- * @param {string|string[]} texts One or several prompts (or one list of prompts) to complete.
+ * @param {string|string[]|Chat|Chat[]} texts One or several prompts (or one list of prompts) to complete.
  * @param {TextGenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} An array or object containing the generated texts.
  * 
@@ -921,17 +926,41 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
 
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
+        let isBatched;
 
-        const isBatched = Array.isArray(texts);
-        if (!isBatched) {
-            texts = [/** @type {string}*/ (texts)];
+        let isChatInput = false;
+
+        // Normalize inputs
+        if (typeof texts === 'string') {
+            texts = [texts];
+        } else if (Array.isArray(texts) && texts.every(x => typeof x === 'string')) {
+            isBatched = true;
+        } else {
+            if (isChat(texts)) {
+                texts = [/** @type {Chat} */(texts)];
+            } else if (Array.isArray(texts) && texts.every(isChat)) {
+                isBatched = true;
+            } else {
+                throw new Error('Input must be a string, an array of strings, a Chat, or an array of Chats');
+            }
+            isChatInput = true;
+
+            // If the input is a chat, we need to apply the chat template
+            texts = /** @type {string[]} */(/** @type {Chat[]} */ (texts).map(
+                x => this.tokenizer.apply_chat_template(x, {
+                    tokenize: false,
+                    add_generation_prompt: true,
+                })
+            ));
         }
 
         // By default, do not add special tokens
         const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
 
         // By default, return full text
-        const return_full_text = generate_kwargs.return_full_text ?? true;
+        const return_full_text = !isChatInput
+            ? false
+            : generate_kwargs.return_full_text ?? true;
 
         this.tokenizer.padding_side = 'left';
         const { input_ids, attention_mask } = this.tokenizer(texts, {
