@@ -2600,7 +2600,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         // Load vocoder, if not provided
         if (!this.vocoder) {
             console.log('No vocoder specified, using default HifiGan vocoder.');
-            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { quantized: false });
+            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { dtype: 'fp32' });
         }
 
         // Load speaker embeddings as Float32Array from path/URL
@@ -3101,7 +3101,6 @@ export async function pipeline(
     task,
     model = null,
     {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -3131,7 +3130,6 @@ export async function pipeline(
     }
 
     const pretrainedOptions = {
-        quantized,
         progress_callback,
         config,
         cache_dir,
