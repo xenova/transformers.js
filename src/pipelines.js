@@ -848,7 +848,7 @@ function isChat(x) {
  * @typedef {import('./tokenizers.js').Message[]} Chat
  * 
  * @typedef {Object} TextGenerationSingle
- * @property {string} generated_text The generated text.
+ * @property {string|Chat} generated_text The generated text.
  * @typedef {TextGenerationSingle[]} TextGenerationOutput
  * 
  * @typedef {Object} TextGenerationSpecificParams Parameters specific to text-generation pipelines.
@@ -926,15 +926,17 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
 
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
-        let isBatched;
-
+        let isBatched = false;
         let isChatInput = false;
 
         // Normalize inputs
+        /** @type {string[]} */
+        let inputs;
         if (typeof texts === 'string') {
-            texts = [texts];
+            inputs = texts = [texts];
         } else if (Array.isArray(texts) && texts.every(x => typeof x === 'string')) {
             isBatched = true;
+            inputs = /** @type {string[]} */(texts);
         } else {
             if (isChat(texts)) {
                 texts = [/** @type {Chat} */(texts)];
@@ -946,7 +948,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
             isChatInput = true;
 
             // If the input is a chat, we need to apply the chat template
-            texts = /** @type {string[]} */(/** @type {Chat[]} */ (texts).map(
+            inputs = /** @type {string[]} */(/** @type {Chat[]} */ (texts).map(
                 x => this.tokenizer.apply_chat_template(x, {
                     tokenize: false,
                     add_generation_prompt: true,
@@ -963,7 +965,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
             : generate_kwargs.return_full_text ?? true;
 
         this.tokenizer.padding_side = 'left';
-        const { input_ids, attention_mask } = this.tokenizer(texts, {
+        const { input_ids, attention_mask } = this.tokenizer(inputs, {
             add_special_tokens,
             padding: true,
             truncation: true,
@@ -991,10 +993,16 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
             const textIndex = Math.floor(i / outputTokenIds.length * texts.length);
 
             if (promptLengths) {
+                // Trim the decoded text to only include the generated part
                 decoded[i] = decoded[i].slice(promptLengths[textIndex]);
             }
             toReturn[textIndex].push({
-                generated_text: decoded[i]
+                generated_text: isChatInput
+                    ? [
+                        ...((/** @type {Chat[]} */(texts)[textIndex])),
+                        { role: 'assistant', content: decoded[i] },
+                    ]
+                    : decoded[i]
             });
         }
         return (!isBatched && toReturn.length === 1) ? toReturn[0] : toReturn;
