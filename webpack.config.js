@@ -63,6 +63,7 @@ function buildConfig({
         },
         experiments: {
             outputModule,
+            topLevelAwait: true,
         },
         resolve: { alias },
 
