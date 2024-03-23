@@ -425,7 +425,7 @@ SUPPORTED_MODELS = {
             'google/electra-base-discriminator',
         ],
     },
-    'ernie': {
+    'ernie': {  # bert-like
         # Feature extraction
         'feature-extraction': [
             'hf-internal-testing/tiny-random-ErnieModel',
@@ -464,6 +464,33 @@ SUPPORTED_MODELS = {
         # Question answering
         'question-answering': [
             'hf-internal-testing/tiny-random-ErnieForQuestionAnswering',
+        ],
+    },
+    'ernie_m': {  # distilbert-like
+        # Feature extraction
+        'feature-extraction': [
+            'hf-internal-testing/tiny-random-ErnieMModel',
+        ],
+
+        # Text classification
+        'text-classification': [
+            'hf-internal-testing/tiny-random-ErnieMForSequenceClassification',
+        ],
+
+        # Zero-shot classification
+        'zero-shot-classification': [
+            'MoritzLaurer/ernie-m-base-mnli-xnli',
+            'MoritzLaurer/ernie-m-large-mnli-xnli',
+        ],
+
+        # Token classification
+        'token-classification': [
+            'hf-internal-testing/tiny-random-ErnieMForTokenClassification',
+        ],
+
+        # Question answering
+        'question-answering': [
+            'hf-tiny-model-private/tiny-random-ErnieMForQuestionAnswering',
         ],
     },
     'esm': {
