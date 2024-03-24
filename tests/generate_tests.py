@@ -328,7 +328,7 @@ def generate_tokenizer_tests():
 
             for data in TOKENIZER_TEXT_PAIR_TEST_DATA:
                 try:
-                    output = tokenizer(**data).data
+                    output = tokenizer(**data, return_attention_mask=True).data
                 except Exception:
                     # Ignore testing tokenizers which fail in the python library
                     continue
@@ -344,7 +344,7 @@ def generate_tokenizer_tests():
             # Run tokenizer on test cases
             for text in shared_texts + custom_texts + custom_by_model_type_texts:
                 try:
-                    encoded = tokenizer(text).data
+                    encoded = tokenizer(text, return_attention_mask=True).data
                 except Exception:
                     # Ignore testing tokenizers which fail in the python library
                     continue
