@@ -4,12 +4,16 @@ import { Token } from './components/Token'
 
 
 function App() {
+  // Allow user to set tokenizer and text via URL query parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const tokenizerParam = urlParams.get('tokenizer');
+  const textParam = urlParams.get('text');
 
   const [tokenIds, setTokenIds] = useState([])
   const [decodedTokens, setDecodedTokens] = useState([])
   const [margins, setMargins] = useState([])
   const [outputOption, setOutputOption] = useState('text');
-  const [tokenizer, setTokenizer] = useState('Xenova/gpt-4');
+  const [tokenizer, setTokenizer] = useState(tokenizerParam ?? 'Xenova/gpt-4');
 
   const textareaRef = useRef(null);
   const outputRef = useRef(null);
@@ -51,6 +55,12 @@ function App() {
     worker.current.postMessage({ model_id, text });
   }, [tokenizer]);
 
+  useEffect(() => {
+    if (textParam) {
+      onInputChange({ target: { value: textParam } });
+    }
+  }, [onInputChange, textParam]);
+
   const onTokenizerChange = useCallback((e) => {
     const model_id = e.target.value;
     setTokenizer(model_id);
@@ -70,10 +80,12 @@ function App() {
           <option value="Xenova/gpt-4">gpt-4 / gpt-3.5-turbo / text-embedding-ada-002</option>
           <option value="Xenova/text-davinci-003">text-davinci-003 / text-davinci-002</option>
           <option value="Xenova/gpt-3">gpt-3</option>
-          <option value="Xenova/claude-tokenizer">Claude 3</option>
+          <option value="Xenova/grok-1-tokenizer">Grok-1</option>
+          <option value="Xenova/claude-tokenizer">Claude</option>
           <option value="Xenova/mistral-tokenizer">Mistral</option>
           <option value="Xenova/gemma-tokenizer">Gemma</option>
           <option value="Xenova/llama-tokenizer">LLaMA / Llama 2</option>
+          <option value="Xenova/c4ai-command-r-v01-tokenizer">Cohere Command-R</option>
           <option value="Xenova/t5-small">T5</option>
           <option value="Xenova/bert-base-cased">bert-base-cased</option>
         </select>
@@ -86,6 +98,7 @@ function App() {
         rows="8"
         className="font-mono text-lg block w-full p-2.5 text-gray-900 bg-gray-50 rounded-lg border border-gray-200"
         placeholder="Enter some text"
+        defaultValue={textParam ?? textareaRef.current?.value ?? ''}
       ></textarea>
 
       <div className='flex justify-center gap-5'>
