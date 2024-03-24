@@ -33,10 +33,11 @@ import {
     min,
     max,
     softmax,
+    bankers_round,
 } from './utils/maths.js';
 
 
-import { Tensor, transpose, cat, interpolate, stack } from './utils/tensor.js';
+import { Tensor, permute, cat, interpolate, stack } from './utils/tensor.js';
 
 import { RawImage } from './utils/image.js';
 import {
@@ -174,14 +175,15 @@ function validate_audio_inputs(audio, feature_extractor) {
  * @private
  */
 function constraint_to_multiple_of(val, multiple, minVal = 0, maxVal = null) {
-    let x = Math.round(val / multiple) * multiple;
+    const a = val / multiple;
+    let x = bankers_round(a) * multiple;
 
     if (maxVal !== null && x > maxVal) {
-        x = Math.floor(val / multiple) * multiple;
+        x = Math.floor(a) * multiple;
     }
 
     if (x < minVal) {
-        x = Math.ceil(val / multiple) * multiple;
+        x = Math.ceil(a) * multiple;
     }
 
     return x;
@@ -195,8 +197,8 @@ function constraint_to_multiple_of(val, multiple, minVal = 0, maxVal = null) {
  */
 function enforce_size_divisibility([width, height], divisor) {
     return [
-        Math.floor(width / divisor) * divisor,
-        Math.floor(height / divisor) * divisor
+        Math.max(Math.floor(width / divisor), 1) * divisor,
+        Math.max(Math.floor(height / divisor), 1) * divisor
     ];
 }
 
@@ -348,7 +350,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
     /**
      * Pad the image by a certain amount.
      * @param {Float32Array} pixelData The pixel data to pad.
-     * @param {number[]} imgDims The dimensions of the image.
+     * @param {number[]} imgDims The dimensions of the image (height, width, channels).
      * @param {{width:number; height:number}|number} padSize The dimensions of the padded image.
      * @param {Object} options The options for padding.
      * @param {'constant'|'symmetric'} [options.mode='constant'] The type of padding to add.
@@ -361,7 +363,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         center = false,
         constant_values = 0,
     } = {}) {
-        const [imageWidth, imageHeight, imageChannels] = imgDims;
+        const [imageHeight, imageWidth, imageChannels] = imgDims;
 
         let paddedImageWidth, paddedImageHeight;
         if (typeof padSize === 'number') {
@@ -513,8 +515,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             if (this.config.keep_aspect_ratio && this.config.ensure_multiple_of) {
 
                 // determine new height and width
-                let scale_height = size.height / srcHeight;
-                let scale_width = size.width / srcWidth;
+                let scale_height = newHeight / srcHeight;
+                let scale_width = newWidth / srcWidth;
 
                 // scale as little as possible
                 if (Math.abs(1 - scale_width) < Math.abs(1 - scale_height)) {
@@ -616,6 +618,9 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         /** @type {HeightWidth} */
         const reshaped_input_size = [image.height, image.width];
 
+        // NOTE: All pixel-level manipulation (i.e., modifying `pixelData`)
+        // occurs with data in the hwc format (height, width, channels), 
+        // to emulate the behavior of the original Python code (w/ numpy).
         let pixelData = Float32Array.from(image.data);
         let imgDims = [image.height, image.width, image.channels];
 
@@ -640,27 +645,29 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
             for (let i = 0; i < pixelData.length; i += image.channels) {
                 for (let j = 0; j < image.channels; ++j) {
-                    pixelData[i + j] = (pixelData[i + j] - this.image_mean[j]) / this.image_std[j];
+                    pixelData[i + j] = (pixelData[i + j] - image_mean[j]) / image_std[j];
                 }
             }
         }
 
         // do padding after rescaling/normalizing
-        if (do_pad ?? (this.do_pad && this.pad_size)) {
-            const padded = this.pad_image(pixelData, [image.width, image.height, image.channels], this.pad_size);
-            [pixelData, imgDims] = padded; // Update pixel data and image dimensions
+        if (do_pad ?? this.do_pad) {
+            if (this.pad_size) {
+                const padded = this.pad_image(pixelData, [image.height, image.width, image.channels], this.pad_size);
+                [pixelData, imgDims] = padded; // Update pixel data and image dimensions
+            } else if (this.size_divisibility) {
+                const [paddedWidth, paddedHeight] = enforce_size_divisibility([imgDims[1], imgDims[0]], this.size_divisibility);
+                [pixelData, imgDims] = this.pad_image(pixelData, imgDims, { width: paddedWidth, height: paddedHeight });
+            }
         }
 
-        // Create HWC tensor
-        const img = new Tensor('float32', pixelData, imgDims);
-
-        // convert to channel dimension format:
-        const transposed = transpose(img, [2, 0, 1]); // hwc -> chw
+        const pixel_values = new Tensor('float32', pixelData, imgDims)
+            .permute(2, 0, 1); // convert to channel dimension format (hwc -> chw)
 
         return {
             original_size: [srcHeight, srcWidth],
             reshaped_input_size: reshaped_input_size,
-            pixel_values: transposed,
+            pixel_values: pixel_values,
         }
     }
 
@@ -760,9 +767,9 @@ export class SegformerFeatureExtractor extends ImageFeatureExtractor {
         return toReturn;
     }
 }
-export class DPTImageProcessor extends ImageFeatureExtractor { }
-export class BitImageProcessor extends ImageFeatureExtractor { }
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
+export class DPTImageProcessor extends DPTFeatureExtractor { } // NOTE: extends DPTFeatureExtractor
+export class BitImageProcessor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }
@@ -811,6 +818,17 @@ export class ConvNextImageProcessor extends ConvNextFeatureExtractor { }  // NOT
 export class ViTFeatureExtractor extends ImageFeatureExtractor { }
 export class ViTImageProcessor extends ImageFeatureExtractor { }
 
+export class EfficientNetImageProcessor extends ImageFeatureExtractor {
+    constructor(config) {
+        super(config);
+        this.include_top = this.config.include_top ?? true;
+        if (this.include_top) {
+            this.image_std = this.image_std.map(x => x * x);
+        }
+    }
+}
+
+
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
     /** @type {post_process_object_detection} */
@@ -824,7 +842,7 @@ export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
 export class DonutFeatureExtractor extends ImageFeatureExtractor {
     pad_image(pixelData, imgDims, padSize, options = {}) {
-        const [imageWidth, imageHeight, imageChannels] = imgDims;
+        const [imageHeight, imageWidth, imageChannels] = imgDims;
 
         let image_mean = this.image_mean;
         if (!Array.isArray(this.image_mean)) {
@@ -836,7 +854,7 @@ export class DonutFeatureExtractor extends ImageFeatureExtractor {
             image_std = new Array(imageChannels).fill(image_mean);
         }
 
-        const constant_values = image_mean.map((x, i) => - x / this.image_std[i]);
+        const constant_values = image_mean.map((x, i) => - x / image_std[i]);
 
         return super.pad_image(pixelData, imgDims, padSize, {
             center: true,
@@ -1371,7 +1389,7 @@ export class Swin2SRImageProcessor extends ImageFeatureExtractor {
     pad_image(pixelData, imgDims, padSize, options = {}) {
         // NOTE: In this case, `padSize` represents the size of the sliding window for the local attention.
         // In other words, the image is padded so that its width and height are multiples of `padSize`.
-        const [imageWidth, imageHeight, imageChannels] = imgDims;
+        const [imageHeight, imageWidth, imageChannels] = imgDims;
 
         return super.pad_image(pixelData, imgDims, {
             // NOTE: For Swin2SR models, the original python implementation adds padding even when the image's width/height is already
@@ -2132,6 +2150,7 @@ export class AutoProcessor {
         YolosFeatureExtractor,
         DonutFeatureExtractor,
         NougatImageProcessor,
+        EfficientNetImageProcessor,
 
         ViTImageProcessor,
         VitMatteImageProcessor,
