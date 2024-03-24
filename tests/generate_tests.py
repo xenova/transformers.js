@@ -39,6 +39,9 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
     'gemma': [
         'Xenova/gemma-tokenizer',
     ],
+    'ernie_m': [
+        'Xenova/tiny-random-ErnieMModel',
+    ]
 }
 
 MODELS_TO_IGNORE = [
@@ -61,6 +64,9 @@ MODELS_TO_IGNORE = [
     # - decoding with `skip_special_tokens=True`.
     # - interspersing the pad token is broken.
     'vits',
+
+    # TODO: remove when ErnieMTokenizerFast is implemented
+    'ernie_m',
 ]
 
 TOKENIZERS_TO_IGNORE = [
@@ -180,6 +186,16 @@ TOKENIZER_TEST_DATA = {
             #  - Old (incorrect): ['▁Hey', '▁', '</s>', '▁', '.', '▁how', '▁are', '▁you']
             #  - New (correct):   ['▁Hey', '▁', '</s>', '.', '▁how', '▁are', '▁you']
             "Hey </s>. how are you",
+        ],
+
+        "Xenova/tiny-random-ErnieMModel": [
+            'hello world',
+            '[UNK][SEP][PAD][CLS][MASK]',  # Special tokens
+            '1 2 3 123',  # Digit pretokenizer
+            'this,test',
+            'test 你好世界',  # Chinese characters
+            "A\n'll !!to?'d''d of, can't.",  # Punctuation
+            "test $1 R2 #3 €4 £5 ¥6 ₣7 ₹8 ₱9 test",  # Unknown tokens
         ],
     },
 }
