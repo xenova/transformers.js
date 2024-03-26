@@ -113,7 +113,6 @@ export const env = {
     localModelPath: localModelPath,
     useFS: FS_AVAILABLE,
 
-    allowFallback: !IS_REACT_NATIVE,
     rnUseCanvas: true,
 
     /////////////////// Cache settings ///////////////////

@@ -51,6 +51,7 @@ import {
 
 import {
     getModelFile,
+    getModelPath,
     getModelJSON,
 } from './utils/hub.js';
 
@@ -123,26 +124,22 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
     // TODO add option for user to force specify their desired execution provider
-    let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
-    let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
-    try {
+    if (IS_BROWSER || !env.useFS || !env.allowLocalModels || !env.useCustomCache) {
+        let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
+        let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
+
         return await InferenceSession.create(buffer, {
             executionProviders,
         });
-    } catch (err) {
-        // If the execution provided was only wasm, throw the error
-        if (!env.allowFallback || executionProviders.length === 1 && executionProviders[0] === 'wasm') {
-            throw err;
-        }
+    } else {
+        let modelFileName = `onnx/${fileName}.onnx`;
+        let modelPath = await getModelPath(pretrained_model_name_or_path, modelFileName, true, options);
+        // Download optional external data file
+        await getModelPath(pretrained_model_name_or_path, `${modelFileName}_data`, false, options);
 
-        console.warn(err);
-        console.warn(
-            'Something went wrong during model construction (most likely a missing operation). ' +
-            'Using `wasm` as a fallback. '
-        )
-        return await InferenceSession.create(buffer, {
-            executionProviders: ['wasm']
+        return await InferenceSession.create(modelPath, {
+            executionProviders,
         });
     }
 }

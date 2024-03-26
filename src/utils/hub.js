@@ -302,20 +302,46 @@ function isValidHttpUrl(string, validHosts = null) {
  * @returns {Promise}
  */
 export async function downloadFile(fromUrl, toFile, progress_callback) {
-    await fs.mkdir(path.dirname(toFile));
-    const { jobId, promise } = fs.downloadFile({
-        fromUrl,
-        toFile,
-        progressInterval: 200,
-        progress: ({ contentLength, bytesWritten }) => {
+    if (IS_REACT_NATIVE) {
+        await fs.mkdir(path.dirname(toFile));
+        const { promise } = fs.downloadFile({
+            fromUrl,
+            toFile,
+            progressInterval: 200,
+            progress: ({ contentLength, bytesWritten }) => {
+                progress_callback({
+                    progress: bytesWritten / contentLength,
+                    loaded: bytesWritten,
+                    total: contentLength,
+                });
+            },
+        });
+        await promise;
+    } else {
+        await fs.promises.mkdir(path.dirname(toFile), { recursive: true });
+        const response = await fetch(fromUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to download file: ${response.statusText}`);
+        }
+        const reader = response.body.getReader();
+        const writer = fs.createWriteStream(toFile);
+        let received = 0;
+        const contentLength = Number(response.headers.get('content-length'));
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                break;
+            }
+            writer.write(value);
+            received += value.length;
             progress_callback({
-                progress: bytesWritten / contentLength,
-                loaded: bytesWritten,
+                progress: contentLength ? received / contentLength : 0,
+                loaded: received,
                 total: contentLength,
             });
-        },
-    });
-    await promise;
+        }
+        writer.end();
+    }
 }
 
 /**
@@ -478,7 +504,7 @@ async function tryCache(cache, ...names) {
  * @param {PretrainedOptions} [options] An object containing optional parameters.
  * 
  * @throws Will throw an error if the file is not found and `fatal` is true.
- * @returns {Promise} A Promise that resolves with the file content as a buffer.
+ * @returns {Promise<Uint8Array>} A Promise that resolves with the file content as a buffer.
  */
 export async function getModelFile(path_or_repo_id, filename, fatal = true, options = {}) {
 
@@ -569,9 +595,6 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     /** @type {Response|FileResponse|undefined} */
     let response;
 
-    /** @type {boolean} */
-    let useDownloadAPI = false;
-
     if (cache) {
         // A caching system is available, so we try to get the file from it.
         //  1. We first try to get from cache using the local path. In some environments (like deno),
@@ -602,8 +625,6 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                 throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${requestURL}.`);
             } else if (!env.allowRemoteModels) {
                 throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${requestURL}.`);
-            } else if (IS_REACT_NATIVE && !cache) {
-                throw new Error(`ReactNative cannot load remote model binaries without a cache.`);
             }
         }
 
@@ -624,14 +645,10 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
                 }
             }
 
-            // File not found locally, so we try to download it from the remote server
-            if (IS_REACT_NATIVE && getMIME(filename) === 'application/octet-stream') {
-                useDownloadAPI = true;
-            } else {
-                response = await getFile(remoteURL);
-                if (response.status !== 200) {
-                    return handleError(response.status, remoteURL, fatal);
-                }
+            response = await getFile(remoteURL);
+
+            if (response.status !== 200) {
+                return handleError(response.status, remoteURL, fatal);
             }
 
             // Success! We use the proposed cache key from earlier
@@ -662,27 +679,10 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     /** @type {Uint8Array} */
     let buffer;
 
-    if (useDownloadAPI) {
-        const cachePath = path.join(options.cache_dir ?? env.cacheDir, cacheKey);
-        await downloadFile(remoteURL, cachePath, data => {
-            dispatchCallback(options.progress_callback, {
-                ...progressInfo,
-                ...data,
-            })
-        });
-        response = await getFile(cachePath);
-        if (response.status !== 200) {
-            return handleError(response.status, remoteURL, fatal);
-        }
-    } else if (!options.progress_callback) {
+    if (!options.progress_callback) {
         // If no progress callback is specified, we can use the `.arrayBuffer()`
         // method to read the response.
-        if (
-            !IS_REACT_NATIVE ||
-            response.headers.get('content-type') !== 'application/octet-stream' ||
-            !response.isLocal
-        )
-            buffer = new Uint8Array(await response.arrayBuffer());
+        buffer = new Uint8Array(await response.arrayBuffer());
 
     } else if (
         cacheHit // The item is being read from the cache
@@ -735,15 +735,161 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         file: filename
     });
 
-    // Return file URL if not need decode (e.g. .onnx file)
-    if (
-        IS_REACT_NATIVE &&
-        response.headers.get('content-type') === 'application/octet-stream'
-    ) {
-        return response.url;
-    } else {
-        return buffer;
+    return buffer;
+}
+
+/**
+ * 
+ * Retrieves a file from either a remote URL using the Fetch API or from the local file system using the FileSystem API.
+ * If the filesystem is available and `env.useCache = true`, the file will be downloaded and cached.
+ * 
+ * @param {string} path_or_repo_id This can be either:
+ * - a string, the *model id* of a model repo on huggingface.co.
+ * - a path to a *directory* potentially containing the file.
+ * @param {string} filename The name of the file to locate in `path_or_repo`.
+ * @param {boolean} [fatal=true] Whether to throw an error if the file is not found.
+ * @param {PretrainedOptions} [options] An object containing optional parameters.
+ * 
+ * @throws Will throw an error if the file is not found and `fatal` is true.
+ * @returns {Promise<string>} A Promise that resolves with the file content as a buffer.
+ */
+export async function getModelPath(path_or_repo_id, filename, fatal = true, options = {}) {
+
+    if (!env.allowLocalModels) {
+        // User has disabled local models, so we just make sure other settings are correct.
+
+        throw Error("Invalid configuration detected: local models are disabled (`env.allowLocalModels=false`) but you have requested to load a local model.")
     }
+
+    // Initiate file retrieval
+    dispatchCallback(options.progress_callback, {
+        status: 'initiate',
+        name: path_or_repo_id,
+        file: filename
+    })
+
+    // First, check if the a caching backend is available
+    // If no caching mechanism available, will download the file every time
+    let cache;
+
+    if (!cache && env.useFSCache) {
+        // TODO throw error if not available
+
+        // If `cache_dir` is not specified, use the default cache directory
+        cache = new FileCache(options.cache_dir ?? env.cacheDir);
+    }
+
+    if (!cache && env.useCustomCache) {
+        throw Error('Custom cache not supported for `getModelPath`.')
+    }
+
+    const revision = options.revision ?? 'main';
+
+    let requestURL = pathJoin(path_or_repo_id, filename);
+    let localPath = pathJoin(env.localModelPath, requestURL);
+
+    let remoteURL = pathJoin(
+        env.remoteHost,
+        env.remotePathTemplate
+            .replaceAll('{model}', path_or_repo_id)
+            .replaceAll('{revision}', encodeURIComponent(revision)),
+        filename
+    );
+
+    // Choose cache key for filesystem cache
+    // When using the main revision (default), we use the request URL as the cache key.
+    // If a specific revision is requested, we account for this in the cache key.
+    let fsCacheKey = revision === 'main' ? requestURL : pathJoin(path_or_repo_id, revision, filename);
+
+    /** @type {string} */
+    let cacheKey;
+    let proposedCacheKey = cache instanceof FileCache ? fsCacheKey : remoteURL;
+
+    /** @type {Response|FileResponse|undefined} */
+    let response;
+
+    if (cache) {
+        // A caching system is available, so we try to get the file from it.
+        //  1. We first try to get from cache using the local path. In some environments (like deno),
+        //     non-URL cache keys are not allowed. In these cases, `response` will be undefined.
+        //  2. If no response is found, we try to get from cache using the remote URL or file system cache.
+        response = await tryCache(cache, localPath, proposedCacheKey);
+    }
+
+    if (response === undefined) {
+        // Caching not available, or file is not cached, so we perform the request
+
+        // Accessing local models is enabled, so we try to get the file locally.
+        // If request is a valid HTTP URL, we skip the local file check. Otherwise, we try to get the file locally.
+        const isURL = isValidUrl(requestURL, ['http:', 'https:']);
+        if (!isURL) {
+            try {
+                response = await getFile(localPath);
+                cacheKey = localPath; // Update the cache key to be the local path
+            } catch (e) {
+                // Something went wrong while trying to get the file locally.
+                // NOTE: error handling is done in the next step (since `response` will be undefined)
+                console.warn(`Unable to load from local path "${localPath}": "${e}"`);
+            }
+        } else if (options.local_files_only) {
+            throw new Error(`\`local_files_only=true\`, but attempted to load a remote file from: ${requestURL}.`);
+        } else if (!env.allowRemoteModels) {
+            throw new Error(`\`env.allowRemoteModels=false\`, but attempted to load a remote file from: ${requestURL}.`);
+        }
+
+        if (response === undefined || response.status === 404) {
+            // File not found locally. This means either:
+            // - The user has disabled local file access (`env.allowLocalModels=false`)
+            // - the path is a valid HTTP url (`response === undefined`)
+            // - the path is not a valid HTTP url and the file is not present on the file system or local server (`response.status === 404`)
+
+            if (options.local_files_only || !env.allowRemoteModels) {
+                // User requested local files only, but the file is not found locally.
+                if (fatal) {
+                    throw Error(`\`local_files_only=true\` or \`env.allowRemoteModels=false\` and file was not found locally at "${localPath}".`);
+                } else {
+                    // File not found, but this file is optional.
+                    // TODO in future, cache the response?
+                    return null;
+                }
+            }
+
+            // Start downloading
+            dispatchCallback(options.progress_callback, {
+                status: 'download',
+                name: path_or_repo_id,
+                file: filename
+            })
+        
+            const progressInfo = {
+                status: 'progress',
+                name: path_or_repo_id,
+                file: filename
+            }
+
+            if (response === undefined) {
+                const cachePath = path.join(options.cache_dir ?? env.cacheDir, proposedCacheKey);
+                await downloadFile(remoteURL, cachePath, data => {
+                    dispatchCallback(options.progress_callback, {
+                        ...progressInfo,
+                        ...data,
+                    })
+                });
+                response = await getFile(cachePath);
+                if (response.status !== 200) {
+                    return handleError(response.status, remoteURL, fatal);
+                }
+            }
+
+            dispatchCallback(options.progress_callback, {
+                status: 'done',
+                name: path_or_repo_id,
+                file: filename
+            });
+        }
+    }
+
+    return response.url;
 }
 
 /**
@@ -779,13 +925,7 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
  */
 async function readResponse(response, progress_callback) {
     if (IS_REACT_NATIVE) {
-        if (
-            response.headers.get('content-type') !== 'application/octet-stream' ||
-            !response.isLocal
-        )
-            return await response.arrayBuffer();
-        else
-            return response.url;
+        return await response.arrayBuffer();
     }
 
     // Read and track progress when reading a Response object
