@@ -7,12 +7,17 @@ on:
   pull_request:
     branches:
       - main
-
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 env:
   TESTING_REMOTELY: true
 
 jobs:
   build:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
 
     strategy:

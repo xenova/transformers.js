@@ -7,16 +7,18 @@
  * @module utils/tensor
  */
 
-import { ONNX } from '../backends/onnx.js';
-
 import {
     interpolate_data,
     permute_data
 } from './maths.js';
 
+import {
+    Tensor as ONNXTensor, isONNXTensor,
+} from '../backends/onnx.js';
 
 const DataTypeMap = Object.freeze({
     float32: Float32Array,
+    float16: Uint16Array,
     float64: Float64Array,
     string: Array, // string[]
     int8: Int8Array,
@@ -35,37 +37,50 @@ const DataTypeMap = Object.freeze({
  * @typedef {import('./maths.js').AnyTypedArray | any[]} DataArray
  */
 
-const ONNXTensor = ONNX.Tensor;
 
 export class Tensor {
     /** @type {number[]} Dimensions of the tensor. */
-    dims;
+    get dims() {
+        // @ts-ignore
+        return this.ort_tensor.dims;
+    }
+    set dims(value) {
+        // FIXME: ONNXTensor declares dims as readonly so one needs to use the constructor() if dims change.
+        // @ts-ignore
+        this.ort_tensor.dims = value;
+    }
 
     /** @type {DataType} Type of the tensor. */
-    type;
+    get type() {
+        return this.ort_tensor.type;
+    };
 
     /** @type {DataArray} The data stored in the tensor. */
-    data;
+    get data() {
+        return this.ort_tensor.data;
+    }
 
     /** @type {number} The number of elements in the tensor. */
-    size;
+    get size() {
+        return this.ort_tensor.size;
+    };
+
+    ort_tensor;
 
     /**
      * Create a new Tensor or copy an existing Tensor.
-     * @param {[DataType, DataArray, number[]]|[import('onnxruntime-common').Tensor]} args
+     * @param {[DataType, DataArray, number[]]|[ONNXTensor]} args
      */
     constructor(...args) {
-        if (args[0] instanceof ONNXTensor) {
-            // Create shallow copy
-            Object.assign(this, args[0]);
-
+        if (isONNXTensor(args[0])) {
+            this.ort_tensor = /** @type {ONNXTensor} */ (args[0]);
         } else {
             // Create new tensor
-            Object.assign(this, new ONNXTensor(
+            this.ort_tensor = new ONNXTensor(
                 /** @type {DataType} */(args[0]),
                 /** @type {Exclude<import('./maths.js').AnyTypedArray, Uint8ClampedArray>} */(args[1]),
                 args[2]
-            ));
+            );
         }
 
         return new Proxy(this, {
@@ -87,6 +102,11 @@ export class Tensor {
                 return obj[key] = value;
             }
         });
+    }
+
+    dispose() {
+        this.ort_tensor.dispose();
+        // this.ort_tensor = undefined;
     }
 
     /**
@@ -219,7 +239,6 @@ export class Tensor {
         return this;
     }
 
-
     /**
      * Return a new Tensor with every element added by a constant.
      * @param {number} val The value to add by.
@@ -240,6 +259,7 @@ export class Tensor {
         }
         return this;
     }
+
     clone() {
         return new Tensor(this.type, this.data.slice(), this.dims.slice());
     }

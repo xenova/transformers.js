@@ -2600,7 +2600,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         // Load vocoder, if not provided
         if (!this.vocoder) {
             console.log('No vocoder specified, using default HifiGan vocoder.');
-            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { quantized: false });
+            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { dtype: 'fp32' });
         }
 
         // Load speaker embeddings as Float32Array from path/URL
@@ -3093,7 +3093,7 @@ const TASK_ALIASES = Object.freeze({
  *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
  *  - `"zero-shot-object-detection"`: will return a `ZeroShotObjectDetectionPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
- * @param {import('./utils/hub.js').PretrainedOptions} [options] Optional parameters for the pipeline.
+ * @param {import('./utils/hub.js').PretrainedModelOptions} [options] Optional parameters for the pipeline.
  * @returns {Promise<AllTasks[T]>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
  */
@@ -3101,12 +3101,14 @@ export async function pipeline(
     task,
     model = null,
     {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        device = null,
+        dtype = null,
+        session_options = {},
     } = {}
 ) {
     // Helper method to construct pipeline
@@ -3128,12 +3130,14 @@ export async function pipeline(
     }
 
     const pretrainedOptions = {
-        quantized,
         progress_callback,
         config,
         cache_dir,
         local_files_only,
         revision,
+        device,
+        dtype,
+        session_options,
     }
 
     const classes = new Map([
@@ -3189,7 +3193,15 @@ async function loadItems(mapping, model, pretrainedOptions) {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
                     } catch (err) {
-                        e = err;
+                        if (err.message?.includes('Unsupported model type')) {
+                            // If the error is due to an unsupported model type, we
+                            // save the error and try the next class.
+                            e = err;
+                        } else {
+                            reject(err);
+                            return;
+                        }
+
                     }
                 }
                 reject(e);

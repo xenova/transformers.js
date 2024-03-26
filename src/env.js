@@ -26,17 +26,15 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 
-import { ONNX } from './backends/onnx.js';
-const { env: onnx_env } = ONNX;
-
-const VERSION = '2.16.1';
+const VERSION = '3.0.0-alpha.0';
 
 // Check if various APIs are available (depends on environment)
-const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
+const BROWSER_ENV = typeof self !== 'undefined';
+const WEB_CACHE_AVAILABLE = BROWSER_ENV && 'caches' in self;
 const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
-const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
+export const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 
 const __dirname = RUNNING_LOCALLY
     ? path.dirname(path.dirname(url.fileURLToPath(import.meta.url)))
@@ -53,16 +51,6 @@ const localModelPath = RUNNING_LOCALLY
     ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
-if (onnx_env?.wasm) {
-    // Set path to wasm files. This is needed when running in a web worker.
-    // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
-    // We use remote wasm files by default to make it easier for newer users.
-    // In practice, users should probably self-host the necessary .wasm files.
-    onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
-        ? path.join(__dirname, '/dist/')
-        : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
-}
-
 /**
  * Global variable used to control execution. This provides users a simple way to configure Transformers.js.
  * @property {Object} backends Expose environment variables of different backends,
@@ -73,7 +61,7 @@ if (onnx_env?.wasm) {
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
  * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
  * @property {string} remotePathTemplate Path template to fill in and append to `remoteHost` when loading models.
- * @property {boolean} allowLocalModels Whether to allow loading of local files, defaults to `true`.
+ * @property {boolean} allowLocalModels Whether to allow loading of local files, defaults to `false` if running in-browser, and `true` otherwise.
  * If set to `false`, it will skip the local file check and try to load the model from the remote host.
  * @property {string} localModelPath Path to load local models from. Defaults to `/models/`.
  * @property {boolean} useFS Whether to use the file system to load files. By default, it is `true` if available.
@@ -84,11 +72,13 @@ if (onnx_env?.wasm) {
  * @property {Object} customCache The custom cache to use. Defaults to `null`. Note: this must be an object which
  * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache
  */
+
 export const env = {
     /////////////////// Backends settings ///////////////////
+    // NOTE: These will be populated later by the backends themselves.
     backends: {
         // onnxruntime-web/onnxruntime-node
-        onnx: onnx_env,
+        onnx: {},
 
         // TensorFlow.js
         tfjs: {},
@@ -102,7 +92,7 @@ export const env = {
     remoteHost: 'https://huggingface.co/',
     remotePathTemplate: '{model}/resolve/{revision}/',
 
-    allowLocalModels: true,
+    allowLocalModels: !BROWSER_ENV,
     localModelPath: localModelPath,
     useFS: FS_AVAILABLE,
 

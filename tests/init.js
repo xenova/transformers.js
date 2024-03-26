@@ -6,7 +6,7 @@ import * as types from "node:util/types";
 
 // Import onnxruntime-node's default backend
 import { onnxruntimeBackend } from "onnxruntime-node/dist/backend";
-import ONNX_COMMON from "onnxruntime-common";
+import * as ONNX_COMMON from "onnxruntime-common";
 
 export function init() {
     // In rare cases (specifically when running unit tests with GitHub actions), possibly due to

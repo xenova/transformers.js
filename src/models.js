@@ -6,10 +6,10 @@
  * 
  * ```javascript
  * import { AutoModel, AutoTokenizer } from '@xenova/transformers';
- *
+ * 
  * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
  * let model = await AutoModel.from_pretrained('Xenova/bert-base-uncased');
- *
+ * 
  * let inputs = await tokenizer('I love transformers!');
  * let { logits } = await model(inputs);
  * // Tensor {
@@ -28,7 +28,7 @@
  * 
  * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/t5-small');
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('Xenova/t5-small');
- *
+ * 
  * let { input_ids } = await tokenizer('translate English to German: I love transformers!');
  * let outputs = await model.generate(input_ids);
  * let decoded = tokenizer.decode(outputs[0], { skip_special_tokens: true });
@@ -41,6 +41,18 @@
 import {
     AutoConfig,
 } from './configs.js';
+
+import {
+    deviceToExecutionProviders,
+    createInferenceSession,
+    isONNXTensor,
+    isONNXProxy,
+} from './backends/onnx.js';
+import {
+    DATA_TYPES,
+    DEFAULT_DEVICE_DTYPE_MAPPING,
+    DEFAULT_DTYPE_SUFFIX_MAPPING, FP16_SUPPORTED,
+} from './utils/dtypes.js';
 
 import {
     Callable,
@@ -81,11 +93,7 @@ import {
     Tensor,
 } from './utils/tensor.js';
 
-import { executionProviders, ONNX } from './backends/onnx.js';
-import { medianFilter } from './transformers.js';
-const { InferenceSession, Tensor: ONNXTensor, env } = ONNX;
-
-/** @typedef {import('onnxruntime-web').InferenceSession} InferenceSession */
+import { medianFilter } from './utils/maths.js';
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -113,40 +121,62 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  * Constructs an InferenceSession using a model file located at the specified path.
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
  * @param {string} fileName The name of the model file.
- * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the model.
- * @returns {Promise<InferenceSession>} A Promise that resolves to an InferenceSession object.
+ * @param {import('./utils/hub.js').PretrainedModelOptions} options Additional options for loading the model.
+ * @returns {Promise<Object>} A Promise that resolves to an InferenceSession object.
  * @private
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
-    // TODO add option for user to force specify their desired execution provider
-    let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
-    let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
-    try {
-        return await InferenceSession.create(buffer, {
-            executionProviders,
-        });
-    } catch (err) {
-        // If the execution provided was only wasm, throw the error
-        if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
-            throw err;
-        }
+    // If the device is not specified, we use the default (supported) execution providers.
+    const executionProviders = deviceToExecutionProviders(options.device);
 
-        console.warn(err);
-        console.warn(
-            'Something went wrong during model construction (most likely a missing operation). ' +
-            'Using `wasm` as a fallback. '
-        )
-        return await InferenceSession.create(buffer, {
-            executionProviders: ['wasm']
-        });
+    // If options.dtype is specified, we use it to choose the suffix for the model file.
+    // Otherwise, we use the default dtype for the device.
+    const dtype = options.dtype ?? DEFAULT_DEVICE_DTYPE_MAPPING[executionProviders[0]];
+    if (!DEFAULT_DTYPE_SUFFIX_MAPPING.hasOwnProperty(dtype)) {
+        throw new Error(`Invalid dtype: ${dtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
+    } else if (dtype === DATA_TYPES.fp16 && !FP16_SUPPORTED) {
+        throw new Error(`The device does not support fp16.`);
     }
+
+    // Construct the model file name
+    const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[dtype];
+    const modelFileName = `onnx/${fileName}${suffix}.onnx`;
+
+    const buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
+
+    const session_options = options.session_options ?? {};
+
+    // Overwrite `executionProviders` if not specified
+    session_options.executionProviders ??= executionProviders;
+
+    // handle onnx external data files
+    if (session_options.externalData !== undefined) {
+        for (let i = 0; i < session_options.externalData.length; ++i) {
+            const ext = session_options.externalData[i];
+            // if the external data is a string, fetch the file and replace the string with its content
+            if (typeof ext.data === "string") {
+                const ext_buffer = await getModelFile(pretrained_model_name_or_path, ext.data, true, options);
+                ext.data = ext_buffer;
+            }
+        }
+    }
+
+    // TODO: Add support for preferredOutputLocation
+    // if (options.device == "webgpu") {
+    //     for (let i = 0; i < config.layers; ++i) {
+    //         options.session_options.preferredOutputLocation[`present.${i}.key`] = 'gpu-buffer';
+    //         options.session_options.preferredOutputLocation[`present.${i}.value`] = 'gpu-buffer';
+    //     }
+    // }
+
+    return await createInferenceSession(buffer, session_options);
 }
 
 /**
  * Validate model inputs
- * @param {InferenceSession} session The InferenceSession object that will be run.
- * @param {Record<string, Tensor>} inputs The inputs to check.
+ * @param {Object} session The InferenceSession object that will be run.
+ * @param {Object} inputs The inputs to check.
  * @returns {Record<string, Tensor>} The checked inputs.
  * @throws {Error} If any inputs are missing.
  * @private
@@ -170,7 +200,7 @@ function validateInputs(session, inputs) {
         // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
         // boundary, transferring ownership to the worker and invalidating the tensor.
         // So, in this case, we simply sacrifice a clone for it.
-        checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
+        checkedInputs[inputName] = isONNXProxy() ? tensor.clone() : tensor;
     }
     if (missingInputs.length > 0) {
         throw new Error(
@@ -195,7 +225,7 @@ function validateInputs(session, inputs) {
  *  - If additional inputs are passed, they will be ignored.
  *  - If inputs are missing, an error will be thrown.
  * 
- * @param {InferenceSession} session The InferenceSession object to run.
+ * @param {Object} session The InferenceSession object to run.
  * @param {Object} inputs An object that maps input names to input tensors.
  * @returns {Promise<Object>} A Promise that resolves to an object that maps output names to output tensors.
  * @private
@@ -203,9 +233,16 @@ function validateInputs(session, inputs) {
 async function sessionRun(session, inputs) {
     const checkedInputs = validateInputs(session, inputs);
     try {
-        // @ts-ignore
-        let output = await session.run(checkedInputs);
+        // pass the original ort tensor
+        const ortFeed = Object.fromEntries(Object.entries(checkedInputs).map(([k, v]) => [k, v.ort_tensor]));
+        let output = await session.run(ortFeed);
         output = replaceTensors(output);
+        for (const [name, t] of Object.entries(checkedInputs)) {
+            // if we use gpu buffers for kv_caches, we own them and need to dispose()
+            if (name.startsWith('past_key_values')) {
+                t.dispose();
+            };
+        }
         return output;
     } catch (e) {
         // This usually occurs when the inputs are of the wrong type.
@@ -223,7 +260,7 @@ async function sessionRun(session, inputs) {
  */
 function replaceTensors(obj) {
     for (let prop in obj) {
-        if (obj[prop] instanceof ONNXTensor) {
+        if (isONNXTensor(obj[prop])) {
             obj[prop] = new Tensor(obj[prop]);
         } else if (typeof obj[prop] === 'object') {
             replaceTensors(obj[prop]);
@@ -709,9 +746,9 @@ export class PreTrainedModel extends Callable {
     async dispose() {
         const promises = [];
         for (let key of Object.keys(this)) {
-            const item = this[key];
-            // @ts-ignore
-            if (item instanceof InferenceSession) {
+            let item = this[key];
+            // TODO improve check for ONNX session
+            if (item?.handler?.dispose !== undefined) {
                 promises.push(item.handler.dispose())
             }
         }
@@ -729,28 +766,32 @@ export class PreTrainedModel extends Callable {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing model weights, e.g., `./my_model_directory/`.
-     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the model.
+     * @param {import('./utils/hub.js').PretrainedModelOptions} options Additional options for loading the model.
      * 
      * @returns {Promise<PreTrainedModel>} A new instance of the `PreTrainedModel` class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        device = null,
+        dtype = null,
+        session_options = {},
     } = {}) {
 
         let options = {
-            quantized,
             progress_callback,
             config,
             cache_dir,
             local_files_only,
             revision,
             model_file_name,
+            device,
+            dtype,
+            session_options,
         }
 
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this);
@@ -1296,6 +1337,8 @@ export class PreTrainedModel extends Callable {
         } else {
             // TODO support batches (i.e., batch_size > 1)
             const batch_size = 1;
+            const dtype = this.config.precision || 'float32';
+            const empty = (dtype === 'float16') ? new Uint16Array() : [];
 
             // @ts-ignore
             if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
@@ -1305,10 +1348,10 @@ export class PreTrainedModel extends Callable {
                 let decoder_dims = [batch_size, this.num_decoder_heads, 0, this.decoder_dim_kv];
                 // @ts-ignore
                 for (let i = 0; i < this.num_decoder_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor('float32', [], encoder_dims)
-                    decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor('float32', [], encoder_dims)
-                    decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor('float32', [], decoder_dims)
-                    decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor('float32', [], decoder_dims)
+                    decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor(dtype, empty, encoder_dims)
+                    decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor(dtype, empty, encoder_dims)
+                    decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor(dtype, empty, decoder_dims)
+                    decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor(dtype, empty, decoder_dims)
                 }
             } else if (this.config.model_type === 'falcon') {
                 // NOTE: Custom implementation for Falcon
@@ -1316,15 +1359,15 @@ export class PreTrainedModel extends Callable {
                 let dims = [batch_size * this.num_heads, 0, this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, dims)
                 }
             } else if (this.config.multi_query) { // e.g., for `gpt_bigcode`
                 // @ts-ignore
                 let dims = [batch_size * this.num_heads, 0, 2 * this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor(dtype, empty, dims)
                 }
             } else if (this.config.model_type === 'bloom') {
                 // NOTE: Custom implementation for Bloom
@@ -1335,16 +1378,16 @@ export class PreTrainedModel extends Callable {
                 let valueDims = [batch_size * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], keyDims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], valueDims)
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, keyDims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, valueDims)
                 }
             } else { // Decoder-only
                 // @ts-ignore
                 let dims = [batch_size, this.num_heads, 0, this.dim_kv]
                 // @ts-ignore
                 for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor('float32', [], dims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor('float32', [], dims)
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, dims)
                 }
             }
         }
@@ -4300,6 +4343,8 @@ export class YolosObjectDetectionOutput extends ModelOutput {
 //////////////////////////////////////////////////
 
 
+
+
 //////////////////////////////////////////////////
 export class SamPreTrainedModel extends PreTrainedModel { }
 
@@ -4950,9 +4995,9 @@ export class SpeechT5Model extends SpeechT5PreTrainedModel { };
  * const processor = await AutoProcessor.from_pretrained('Xenova/speecht5_tts');
  * 
  * // Load the models
- * // NOTE: We use the unquantized versions as they are more accurate
- * const model = await SpeechT5ForTextToSpeech.from_pretrained('Xenova/speecht5_tts', { quantized: false });
- * const vocoder = await SpeechT5HifiGan.from_pretrained('Xenova/speecht5_hifigan', { quantized: false });
+ * // NOTE: We use the full-precision versions as they are more accurate
+ * const model = await SpeechT5ForTextToSpeech.from_pretrained('Xenova/speecht5_tts', { dtype: 'fp32' });
+ * const vocoder = await SpeechT5HifiGan.from_pretrained('Xenova/speecht5_hifigan', { dtype: 'fp32' });
  * 
  * // Load speaker embeddings from URL
  * const speaker_embeddings_data = new Float32Array(
@@ -5454,23 +5499,27 @@ export class PretrainedMixin {
 
     /** @type {PreTrainedModel.from_pretrained} */
     static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        device = null,
+        dtype = null,
+        session_options = {},
     } = {}) {
 
         let options = {
-            quantized,
             progress_callback,
             config,
             cache_dir,
             local_files_only,
             revision,
             model_file_name,
+            device,
+            dtype,
+            session_options,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
         if (!options.config) {
@@ -5552,7 +5601,6 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
     ['efficientnet', ['EfficientNetModel', EfficientNetModel]],
-
 ]);
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
@@ -5862,7 +5910,7 @@ for (const [name, model, type] of CUSTOM_MAPPING) {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModel.from_pretrained('bert-base-uncased');
+ * let model = await AutoModel.from_pretrained('Xenova/bert-base-uncased');
  */
 export class AutoModel extends PretrainedMixin {
     /** @type {Map<string, Object>[]} */
@@ -5876,7 +5924,7 @@ export class AutoModel extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased-finetuned-sst-2-english');
+ * let model = await AutoModelForSequenceClassification.from_pretrained('Xenova/distilbert-base-uncased-finetuned-sst-2-english');
  */
 export class AutoModelForSequenceClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES];
@@ -5887,7 +5935,7 @@ export class AutoModelForSequenceClassification extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForTokenClassification.from_pretrained('Davlan/distilbert-base-multilingual-cased-ner-hrl');
+ * let model = await AutoModelForTokenClassification.from_pretrained('Xenova/distilbert-base-multilingual-cased-ner-hrl');
  */
 export class AutoModelForTokenClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES];
@@ -5898,7 +5946,7 @@ export class AutoModelForTokenClassification extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForSeq2SeqLM.from_pretrained('t5-small');
+ * let model = await AutoModelForSeq2SeqLM.from_pretrained('Xenova/t5-small');
  */
 export class AutoModelForSeq2SeqLM extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES];
@@ -5942,7 +5990,7 @@ export class AutoModelForTextToWaveform extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForCausalLM.from_pretrained('gpt2');
+ * let model = await AutoModelForCausalLM.from_pretrained('Xenova/gpt2');
  */
 export class AutoModelForCausalLM extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_WITH_LM_HEAD_MAPPING_NAMES];
@@ -5953,7 +6001,7 @@ export class AutoModelForCausalLM extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForMaskedLM.from_pretrained('bert-base-uncased');
+ * let model = await AutoModelForMaskedLM.from_pretrained('Xenova/bert-base-uncased');
  */
 export class AutoModelForMaskedLM extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_MASKED_LM_MAPPING_NAMES];
@@ -5964,7 +6012,7 @@ export class AutoModelForMaskedLM extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad');
+ * let model = await AutoModelForQuestionAnswering.from_pretrained('Xenova/distilbert-base-cased-distilled-squad');
  */
 export class AutoModelForQuestionAnswering extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES];
@@ -5975,7 +6023,7 @@ export class AutoModelForQuestionAnswering extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForVision2Seq.from_pretrained('nlpconnect/vit-gpt2-image-captioning');
+ * let model = await AutoModelForVision2Seq.from_pretrained('Xenova/vit-gpt2-image-captioning');
  */
 export class AutoModelForVision2Seq extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES];
@@ -5986,7 +6034,7 @@ export class AutoModelForVision2Seq extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForImageClassification.from_pretrained('google/vit-base-patch16-224');
+ * let model = await AutoModelForImageClassification.from_pretrained('Xenova/vit-base-patch16-224');
  */
 export class AutoModelForImageClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES];
@@ -5997,7 +6045,7 @@ export class AutoModelForImageClassification extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForImageSegmentation.from_pretrained('facebook/detr-resnet-50-panoptic');
+ * let model = await AutoModelForImageSegmentation.from_pretrained('Xenova/detr-resnet-50-panoptic');
  */
 export class AutoModelForImageSegmentation extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES];
@@ -6019,7 +6067,7 @@ export class AutoModelForSemanticSegmentation extends PretrainedMixin {
  * The chosen model class is determined by the type specified in the model config.
  * 
  * @example
- * let model = await AutoModelForObjectDetection.from_pretrained('facebook/detr-resnet-50');
+ * let model = await AutoModelForObjectDetection.from_pretrained('Xenova/detr-resnet-50');
  */
 export class AutoModelForObjectDetection extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES];
