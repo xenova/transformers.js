@@ -1,6 +1,7 @@
 
 import { AutoProcessor } from '../src/transformers.js';
 import { mel_filter_bank } from '../src/utils/audio.js';
+import { isValidUrl } from '../src/utils/hub.js';
 
 import { MAX_TEST_EXECUTION_TIME } from './init.js';
 
@@ -40,6 +41,17 @@ describe('Utilities', () => {
             expect(maxdiff).toBeLessThan(1e-6);
 
         }, MAX_TEST_EXECUTION_TIME);
+
+    });
+
+    describe('Hub utilities', () => {
+            
+            it('should validate URL', async () => {
+                expect(isValidUrl('file:///path/to/file')).toBe(true);
+                expect(isValidUrl('https://example.com', ['http:', 'https:'])).toBe(true);
+                expect(isValidUrl('http://example.com', ['http:'], ['example.com'])).toBe(true);
+                expect(isValidUrl('http://should.failed', ['http:'], ['example.com'])).toBe(false);
+            });
 
     });
 });
