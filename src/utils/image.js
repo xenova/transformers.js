@@ -12,6 +12,7 @@ import fs from 'fs';
 import { getFile } from './hub.js';
 import { env } from '../env.js';
 import { transpose_data, interpolate_data } from './maths.js';
+import { Tensor } from './tensor.js';
 
 import * as codecs from 'image-codecs';
 import { Buffer } from 'buffer';
@@ -216,7 +217,7 @@ export class RawImage {
 
     /**
      * Helper method to create a new Image from a tensor
-     * @param {import('./tensor.js').Tensor} tensor 
+     * @param {Tensor} tensor 
      */
     static fromTensor(tensor, channel_format = 'CHW') {
         if (tensor.dims.length !== 3) {
@@ -740,6 +741,23 @@ export class RawImage {
 
         const canvas = this.toCanvas();
         return await canvas.convertToBlob({ type, quality });
+    }
+
+    toTensor(channel_format = 'CHW') {
+        let tensor = new Tensor(
+            'uint8',
+            new Uint8Array(this.data),
+            [this.height, this.width, this.channels]
+        );
+
+        if (channel_format === 'HWC') {
+            // Do nothing
+        } else if (channel_format === 'CHW') { // hwc -> chw
+            tensor = tensor.permute(2, 0, 1);
+        } else {
+            throw new Error(`Unsupported channel format: ${channel_format}`);
+        }
+        return tensor;
     }
 
     toCanvas() {

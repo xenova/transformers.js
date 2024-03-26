@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "2.16.0",
+  "version": "2.16.1",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
@@ -38,7 +38,7 @@
   },
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
-    "@huggingface/jinja": "^0.2.1",
+    "@huggingface/jinja": "^0.2.2",
     "image-codecs": "^0.1.0",
     "node-wav": "^0.0.2",
     "onnxruntime-web": "^1.17.0",
