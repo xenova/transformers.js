@@ -40,6 +40,7 @@ const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 
+
 let localPath = './';
 if (IS_REACT_NATIVE) {
     localPath = fs.DocumentDirectoryPath;
@@ -64,7 +65,7 @@ if (!IS_REACT_NATIVE && onnx_env?.wasm) {
     // We use remote wasm files by default to make it easier for newer users.
     // In practice, users should probably self-host the necessary .wasm files.
     onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
-        ? path.join(__dirname, '/dist/')
+        ? path.join(localPath, '/dist/')
         : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
 }
 
