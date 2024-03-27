@@ -69,6 +69,9 @@ import {
     interpolate,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
+import {
+    fetchBinary
+} from './utils/hub.js';
 
 
 /**
@@ -2607,7 +2610,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         if (typeof speaker_embeddings === 'string' || speaker_embeddings instanceof URL) {
             // Load from URL with fetch
             speaker_embeddings = new Float32Array(
-                await (await fetch(speaker_embeddings)).arrayBuffer()
+                await (await fetchBinary(speaker_embeddings)).arrayBuffer()
             );
         }
 
@@ -3178,7 +3181,9 @@ async function loadItems(mapping, model, pretrainedOptions) {
         if (Array.isArray(cls)) {
             promise = new Promise(async (resolve, reject) => {
                 let e;
-                for (let c of cls) {
+                for (let i in cls) {
+                    let isLast = i == cls.length - 1;
+                    let c = cls[i];
                     if (c === null) {
                         // If null, we resolve it immediately, meaning the relevant
                         // class was not found, but it is optional.
@@ -3189,7 +3194,9 @@ async function loadItems(mapping, model, pretrainedOptions) {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
                     } catch (err) {
-                        e = err;
+                        if (!isLast || !err?.message.startsWith('Unsupported model type')) {
+                            e = err;
+                        }
                     }
                 }
                 reject(e);

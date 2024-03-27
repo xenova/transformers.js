@@ -37,56 +37,54 @@ const DataTypeMap = Object.freeze({
 
 const ONNXTensor = ONNX.Tensor;
 
-export class Tensor {
-    /** @type {number[]} Dimensions of the tensor. */
-    dims;
+/**
+ * Warp index getter
+ * @param {ONNXTensor} tensor 
+ * @returns {ONNXTensor}
+ * @private
+ */
+function warpTensor(tensor) {
+    return new Proxy(tensor, {
+        get: (obj, key) => {
+            if (typeof key === 'string') {
+                let index = Number(key);
+                if (Number.isInteger(index)) {
+                    // key is an integer (i.e., index)
+                    return obj._getitem(index);
+                }
+            }
+            // @ts-ignore
+            return obj[key];
+        },
+        set: (obj, key, value) => {
+            // TODO allow setting of data
 
-    /** @type {DataType} Type of the tensor. */
-    type;
+            // @ts-ignore
+            return obj[key] = value;
+        }
+    });
+}
 
-    /** @type {DataArray} The data stored in the tensor. */
-    data;
-
-    /** @type {number} The number of elements in the tensor. */
-    size;
-
+export class Tensor extends ONNXTensor {
     /**
      * Create a new Tensor or copy an existing Tensor.
      * @param {[DataType, DataArray, number[]]|[import('onnxruntime-common').Tensor]} args
      */
     constructor(...args) {
-        if (args[0] instanceof ONNXTensor) {
-            // Create shallow copy
-            Object.assign(this, args[0]);
+        super(...args);
 
-        } else {
-            // Create new tensor
-            Object.assign(this, new ONNXTensor(
-                /** @type {DataType} */(args[0]),
-                /** @type {Exclude<import('./maths.js').AnyTypedArray, Uint8ClampedArray>} */(args[1]),
-                args[2]
-            ));
-        }
+        return warpTensor(this);
+    }
 
-        return new Proxy(this, {
-            get: (obj, key) => {
-                if (typeof key === 'string') {
-                    let index = Number(key);
-                    if (Number.isInteger(index)) {
-                        // key is an integer (i.e., index)
-                        return obj._getitem(index);
-                    }
-                }
-                // @ts-ignore
-                return obj[key];
-            },
-            set: (obj, key, value) => {
-                // TODO allow setting of data
-
-                // @ts-ignore
-                return obj[key] = value;
-            }
-        });
+    /**
+     * Create a new Tensor from an ONNX Tensor.
+     * @param {import('onnxruntime-common').Tensor} tensor The ONNX Tensor to convert.
+     * @returns {Tensor} The new Tensor.
+     * @static
+     */
+    static fromONNX(tensor) {
+        Object.setPrototypeOf(tensor, Tensor.prototype);
+        return warpTensor(tensor);
     }
 
     /**
@@ -151,10 +149,7 @@ export class Tensor {
         const o2 = (index + 1) * iterSize;
 
         // We use subarray if available (typed array), otherwise we use slice (normal array)
-        const data =
-            ('subarray' in this.data)
-                ? this.data.subarray(o1, o2)
-                : this.data.slice(o1, o2);
+        const data = this.data.subarray?.(o1, o2) ?? this.data.slice(o1, o2);
         return new Tensor(this.type, data, iterDims);
     }
 
