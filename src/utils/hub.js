@@ -230,7 +230,7 @@ function parseHeaders(rawHeaders) {
  * @param {RequestInit} [options]
  * @returns {Promise<Response>}
  */
-export function fetchBinary(url, options = {}) {
+function fetchBinaryImpl(url, options = {}) {
     return new Promise((resolve, reject) => {
         const request = new Request(url, options);
         const xhr = new XMLHttpRequest();
@@ -269,6 +269,8 @@ export function fetchBinary(url, options = {}) {
         xhr.send(request._bodyInit ?? null);
     });
 }
+
+export const fetchBinary = IS_REACT_NATIVE ? fetchBinaryImpl : fetch;
 
 /**
  * Determines whether the given string is a valid URL.
