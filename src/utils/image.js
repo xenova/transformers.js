@@ -11,7 +11,7 @@
 import fs from 'fs';
 import { getFile } from './hub.js';
 import { env } from '../env.js';
-import { transpose_data, interpolate_data } from './maths.js';
+import { permute_data, interpolate_data } from './maths.js';
 import { Tensor } from './tensor.js';
 
 import * as codecs from 'image-codecs';
@@ -370,7 +370,7 @@ export class RawImage {
             } else {
                 // Running in environment without canvas
                 // WHC -> CHW
-                const [trsnsposed] = transpose_data(
+                const [trsnsposed] = permute_data(
                     this.data,
                     [this.width, this.height, this.channels],
                     [2, 0, 1]
@@ -381,7 +381,7 @@ export class RawImage {
                     [height, width]
                 );
                 // CHW -> WHC
-                const [newData] = transpose_data(
+                const [newData] = permute_data(
                     resized,
                     [this.channels, height, width],
                     [1, 2, 0]
