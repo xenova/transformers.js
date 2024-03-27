@@ -335,13 +335,13 @@ export class TokenizerModel extends Callable {
      * @param {string[]} tokens The tokens to encode.
      * @returns {string[]} The encoded token IDs.
      */
-    _call(tokens) {
-        let ids = this.encode(tokens);
+    _call(tokens, return_off_sets = false) {
+        let { ids, off_sets } = this.encode(tokens, return_off_sets);
         if (this.fuse_unk) {
             // Fuse unknown tokens
             ids = fuse(ids, this.unk_token_id, this.tokens_to_ids);
         }
-        return ids;
+        return { ids, off_sets };
     }
 
     /**
@@ -350,7 +350,7 @@ export class TokenizerModel extends Callable {
      * @returns {string[]} The encoded tokens.
      * @throws Will throw an error if not implemented in a subclass.
      */
-    encode(tokens) {
+    encode(tokens,  returnOffsets = false) {
         throw Error("encode should be implemented in subclass.")
     }
 
@@ -426,12 +426,16 @@ class WordPieceTokenizer extends TokenizerModel {
      * @param {string[]} tokens The tokens to encode.
      * @returns {string[]} An array of encoded tokens.
      */
-    encode(tokens) {
+    encode(tokens, return_off_sets = false) {
         const outputTokens = [];
+        const offsets = [];
+        let charIndex = 0;
         for (const token of tokens) {
             const chars = [...token];
             if (chars.length > this.max_input_chars_per_word) {
                 outputTokens.push(this.unk_token);
+                offsets.push([charIndex, charIndex + token.length]);
+                charIndex += token.length;
                 continue;
             }
 
@@ -459,17 +463,22 @@ class WordPieceTokenizer extends TokenizerModel {
                     isUnknown = true;
                     break;
                 }
+                const len = currentSubstring.length;
                 subTokens.push(currentSubstring);
-                start = end;
+                offsets.push([charIndex, charIndex + len]);
+                start += len;
+                charIndex += len;
             }
             if (isUnknown) {
                 outputTokens.push(this.unk_token);
+                offsets.push([charIndex, charIndex + token.length]);
+                charIndex += token.length;
             } else {
                 outputTokens.push(...subTokens);
             }
         }
 
-        return outputTokens;
+        return {ids: outputTokens, offsets: return_off_sets ? offsets : undefined};
     }
 
 }
