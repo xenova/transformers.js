@@ -625,6 +625,10 @@ export class Tensor {
         return this.clone().round_();
     }
 
+    mean(dim = null, keepdim = false) {
+        return mean(this, dim, keepdim);
+    }
+
     /**
      * Performs Tensor dtype conversion.
      * @param {DataType} type The desired data type.
