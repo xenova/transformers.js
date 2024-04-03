@@ -127,7 +127,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 
     const sessionOptions = { executionProviders, ...options.session_options }
 
-    if (IS_BROWSER || !env.useFS || !env.allowLocalModels || !env.useCustomCache) {
+    if (IS_BROWSER || !env.useFS || !env.allowLocalModels || env.useCustomCache) {
         let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
         let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
