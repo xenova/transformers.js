@@ -19,9 +19,11 @@
  * 
  * @module tokenizers
  */
-
 import {
     Callable,
+} from './utils/generic.js';
+
+import {
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
@@ -2398,7 +2400,7 @@ const SPECIAL_TOKEN_ATTRIBUTES = [
  * @param {Record<string, any[]>} item The input object.
  * @param {number} length The length to pad to.
  * @param {(key: string) => any} value_fn Determine the value to fill the array, based on its key.
- * @param {'right'|'left'} side Which side to pad the array.
+ * @param {string} side Which side to pad the array.
  * @private
  */
 function padHelper(item, length, value_fn, side) {
@@ -2434,6 +2436,7 @@ export class PreTrainedTokenizer extends Callable {
 
     _default_chat_template = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`;
 
+    padding_side = 'right';
     /**
      * Create a new PreTrainedTokenizer instance.
      * @param {Object} tokenizerJSON The JSON of the tokenizer.
@@ -2512,9 +2515,9 @@ export class PreTrainedTokenizer extends Callable {
         this.clean_up_tokenization_spaces = tokenizerConfig.clean_up_tokenization_spaces ?? true;
         this.do_lowercase_and_remove_accent = tokenizerConfig.do_lowercase_and_remove_accent ?? false;
 
-        // TODO allow user to change this
-        /** @type {'right'|'left'} */
-        this.padding_side = 'right';
+        if (tokenizerConfig.padding_side) {
+            this.padding_side = tokenizerConfig.padding_side;
+        }
 
         this.legacy = false;
 
@@ -3191,6 +3194,8 @@ export class LlamaTokenizer extends PreTrainedTokenizer {
         "that your responses are socially unbiased and positive in nature.\n\n" +
         "If a question does not make any sense, or is not factually coherent, explain why instead of answering something not " +
         "correct. If you don't know the answer to a question, please don't share false information."
+
+    padding_side = 'left';
 
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);
@@ -4386,7 +4391,6 @@ export class AutoTokenizer {
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -4396,7 +4400,6 @@ export class AutoTokenizer {
     } = {}) {
 
         const [tokenizerJSON, tokenizerConfig] = await loadTokenizer(pretrained_model_name_or_path, {
-            quantized,
             progress_callback,
             config,
             cache_dir,

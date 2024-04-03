@@ -1196,24 +1196,73 @@ function dimsToStride(dims) {
     return stride;
 }
 
-/**
- * Returns a tensor filled with the scalar value 1, with the shape defined by the variable argument size.
- * @param {number[]} size A sequence of integers defining the shape of the output tensor.
- */
-export function ones(size) {
+function fullHelper(size, fill_value, dtype, cls) {
     const numElements = size.reduce((a, b) => a * b, 1);
     return new Tensor(
-        'int64',
-        new BigInt64Array(numElements).fill(1n),
+        dtype,
+        new cls(numElements).fill(fill_value),
         size
     )
 }
 
 /**
+ * Creates a tensor of size size filled with fill_value. The tensor's dtype is inferred from fill_value.
+ * @param {number[]} size A sequence of integers defining the shape of the output tensor.
+ * @param {number|bigint} fill_value The value to fill the output tensor with.
+ * @returns {Tensor} The filled tensor.
+ */
+export function full(size, fill_value) {
+    let dtype;
+    let typedArrayCls;
+    if (typeof fill_value === 'number') {
+        dtype = 'float32';
+        typedArrayCls = Float32Array;
+    } else if (typeof fill_value === 'bigint') {
+        dtype = 'int64';
+        typedArrayCls = BigInt64Array;
+    } else {
+        // TODO: support other dtypes
+        throw new Error(`Unsupported data type: ${typeof fill_value}`);
+    }
+    return fullHelper(size, fill_value, dtype, typedArrayCls);
+}
+
+export function full_like(tensor, fill_value) {
+    return full(tensor.dims, fill_value);
+}
+
+/**
+ * Returns a tensor filled with the scalar value 1, with the shape defined by the variable argument size.
+ * @param {number[]} size A sequence of integers defining the shape of the output tensor.
+ * @returns {Tensor} The ones tensor.
+ */
+export function ones(size) {
+    return fullHelper(size, 1n, 'int64', BigInt64Array);
+}
+
+/**
  * Returns a tensor filled with the scalar value 1, with the same size as input.
  * @param {Tensor} tensor The size of input will determine size of the output tensor.
- * @returns The ones tensor.
+ * @returns {Tensor} The ones tensor.
  */
 export function ones_like(tensor) {
     return ones(tensor.dims);
+}
+
+/**
+ * Returns a tensor filled with the scalar value 0, with the shape defined by the variable argument size.
+ * @param {number[]} size A sequence of integers defining the shape of the output tensor.
+ * @returns {Tensor} The zeros tensor.
+ */
+export function zeros(size) {
+    return fullHelper(size, 0n, 'int64', BigInt64Array);
+}
+
+/**
+ * Returns a tensor filled with the scalar value 0, with the same size as input.
+ * @param {Tensor} tensor The size of input will determine size of the output tensor.
+ * @returns {Tensor} The zeros tensor.
+ */
+export function zeros_like(tensor) {
+    return zeros(tensor.dims);
 }

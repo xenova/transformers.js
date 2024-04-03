@@ -21,6 +21,9 @@
  */
 import {
     Callable,
+} from './utils/generic.js';
+
+import {
     calculateDimensions,
     calculateReflectOffset,
 } from './utils/core.js';
@@ -775,6 +778,7 @@ export class DPTImageProcessor extends DPTFeatureExtractor { } // NOTE: extends 
 export class BitImageProcessor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
+export class CLIPImageProcessor extends CLIPFeatureExtractor { } // NOTE: extends CLIPFeatureExtractor
 export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class SiglipImageProcessor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor {
@@ -2162,6 +2166,7 @@ export class AutoProcessor {
         OwlViTFeatureExtractor,
         Owlv2ImageProcessor,
         CLIPFeatureExtractor,
+        CLIPImageProcessor,
         ChineseCLIPFeatureExtractor,
         SiglipImageProcessor,
         ConvNextFeatureExtractor,
