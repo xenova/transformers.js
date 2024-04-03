@@ -33,6 +33,7 @@ const IS_REACT_NATIVE = typeof navigator !== 'undefined' && navigator.product ==
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
  * NOTE: This setting is ignored for local requests.
  * @property {string} [model_file_name=null] If specified, load the model with this name (excluding the .onnx suffix). Currently only valid for encoder- or decoder-only models.
+ * @property {Object} [session_options={}] Options to pass to the backend session.
  */
 
 /**

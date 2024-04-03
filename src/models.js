@@ -131,6 +131,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 
         return await InferenceSession.create(buffer, {
             executionProviders,
+            ...options.session_options,
         });
     } else {
         let modelFileName = `onnx/${fileName}.onnx`;
