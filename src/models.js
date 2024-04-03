@@ -750,6 +750,7 @@ export class PreTrainedModel extends Callable {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        session_options = {},
     } = {}) {
 
         let options = {
@@ -760,6 +761,7 @@ export class PreTrainedModel extends Callable {
             local_files_only,
             revision,
             model_file_name,
+            session_options,
         }
 
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this);
