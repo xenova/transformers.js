@@ -5958,15 +5958,9 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
 
         // decoder
         const decoderConfig = config.decoder;
-        this.num_decoder_layers = decoderConfig.num_hidden_layers;
-        this.num_decoder_heads = decoderConfig.num_attention_heads;
-        this.decoder_dim_kv = decoderConfig.hidden_size / this.num_decoder_heads;
-
-        // text encoder
-        const textConfig = config.text_encoder;
-        this.num_encoder_layers = textConfig.num_layers;
-        this.num_encoder_heads = textConfig.num_heads;
-        this.encoder_dim_kv = textConfig.d_model / textConfig.num_heads; // Should be textConfig.d_kv;
+        this.num_encoder_layers = this.num_decoder_layers = decoderConfig.num_hidden_layers;
+        this.num_encoder_heads = this.num_decoder_heads = decoderConfig.num_attention_heads;
+        this.encoder_dim_kv = this.decoder_dim_kv = decoderConfig.hidden_size / this.num_decoder_heads;
     }
 
     /**
