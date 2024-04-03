@@ -48,6 +48,7 @@ NO_PER_CHANNEL_REDUCE_RANGE_MODELS = {
     # Encoder-decoder models
     'whisper',
     'vision-encoder-decoder',
+    'musicgen',
 
     # Encoder-only models
     'owlv2',
@@ -429,11 +430,14 @@ def main():
         if config.model_type not in MODELS_WITHOUT_TOKENIZERS:
             raise e
 
+    # TODO: remove this when transformers.js config is updated
+    use_legacy = config.model_type not in ('musicgen', )
+
     core_export_kwargs = dict(
         opset=conv_args.opset,
         device=conv_args.device,
         trust_remote_code=conv_args.trust_remote_code,
-        legacy=True,  # TODO: remove this when transformers.js config is updated
+        legacy=use_legacy,
         **custom_kwargs,
     )
 
