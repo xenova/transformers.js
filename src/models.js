@@ -378,25 +378,15 @@ async function seq2seqForward(self, model_inputs) {
         encoder_outputs = (await encoderForward(self, encoder_inputs)).last_hidden_state;
     }
 
-
     const { input_ids, decoder_input_ids, ...other_decoder_inputs } = model_inputs;
     other_decoder_inputs.input_ids = decoder_input_ids;
     other_decoder_inputs.encoder_hidden_states = encoder_outputs;
-    const use_cache_branch = !!past_key_values;
 
-    if (self.decoder_merged_session.inputNames.includes('use_cache_branch')) {
-        other_decoder_inputs.use_cache_branch = boolTensor(use_cache_branch);
-    }
     if (self.decoder_merged_session.inputNames.includes('encoder_attention_mask')) {
         other_decoder_inputs.encoder_attention_mask = model_inputs.attention_mask
     }
 
-    this.addPastKeyValues(other_decoder_inputs, past_key_values);
-
-    // Rename decoder inputs
-    const decoder_inputs = pick(other_decoder_inputs, self.decoder_merged_session.inputNames);
-
-    const decoderResults = await sessionRun(self.decoder_merged_session, decoder_inputs);
+    const decoderResults = await decoderForward(self, other_decoder_inputs, true);
 
     // Get cross attention and/or decoder attentions if they are present
     // const attns = self.getAttentions(decoderResults);
@@ -435,20 +425,24 @@ async function encoderForward(self, model_inputs) {
  * @returns {Promise<Object>} Promise that resolves with an object containing the logits and past key values.
  * @private
  */
-async function decoderForward(self, model_inputs) {
-    // TODO move addPastKeyValues from decoder_prepare_inputs_for_generation here
-    return await sessionRun(self.session, model_inputs);
+async function decoderForward(self, model_inputs, is_encoder_decoder = false) {
+    const { past_key_values, ...new_model_inputs } = model_inputs;
+
+    const session = is_encoder_decoder ? self.decoder_merged_session : self.session;
+
+    if (session.inputNames.includes('use_cache_branch')) {
+        new_model_inputs.use_cache_branch = boolTensor(!!past_key_values);
+    }
+
+    // Unpack the `past_key_values` object into model inputs
+    self.addPastKeyValues(new_model_inputs, past_key_values);
+    const fixed = pick(new_model_inputs, session.inputNames);
+    return await sessionRun(session, fixed);
 }
 
 function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs) {
 
-    const { past_key_values, ...new_model_inputs } = model_inputs;
-
-    self.addPastKeyValues(new_model_inputs, past_key_values);
-
-    const fixed = pick(new_model_inputs, self.session.inputNames);
-
-    if (self.session.inputNames.includes('position_ids') && fixed.attention_mask && !fixed.position_ids) {
+    if (self.session.inputNames.includes('position_ids') && model_inputs.attention_mask && !model_inputs.position_ids) {
         // If the model supports providing position_ids, we create position_ids on the fly for batch generation,
         // by computing the cumulative sum of the attention mask along the sequence length dimension.
         // 
@@ -457,30 +451,30 @@ function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs) {
         // position_ids.masked_fill_(attention_mask == 0, 1)
         // if past_key_values:
         //     position_ids = position_ids[:, -input_ids.shape[1] :]
-        const [bz, seq_len] = fixed.attention_mask.dims;
+        const [bz, seq_len] = model_inputs.attention_mask.dims;
 
-        const data = new BigInt64Array(fixed.attention_mask.data.length);
+        const data = new BigInt64Array(model_inputs.attention_mask.data.length);
         for (let i = 0; i < bz; ++i) {
             const start = i * seq_len;
             let sum = BigInt(0);
             for (let j = 0; j < seq_len; ++j) {
                 const index = start + j;
-                if (fixed.attention_mask.data[index] === 0n) {
+                if (model_inputs.attention_mask.data[index] === 0n) {
                     data[index] = BigInt(1);
                 } else { // === 1n
                     data[index] = sum;
-                    sum += fixed.attention_mask.data[index];
+                    sum += model_inputs.attention_mask.data[index];
                 }
             }
         }
 
-        fixed.position_ids = new Tensor('int64', data, fixed.attention_mask.dims);
-        if (past_key_values) {
-            fixed.position_ids = fixed.position_ids.slice(null, -1).unsqueeze_(-1);
+        model_inputs.position_ids = new Tensor('int64', data, model_inputs.attention_mask.dims);
+        if (model_inputs.past_key_values) {
+            model_inputs.position_ids = model_inputs.position_ids.slice(null, -1).unsqueeze_(-1);
         }
     }
 
-    return fixed;
+    return model_inputs;
 }
 
 function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_inputs) {
@@ -647,9 +641,9 @@ export class PreTrainedModel extends Callable {
         } else if (modelType === MODEL_TYPES.ImageTextToText) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
                 constructSession(pretrained_model_name_or_path, 'embed_tokens', options),
                 constructSession(pretrained_model_name_or_path, 'vision_encoder', options),
+                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
             ]);
 
@@ -1105,6 +1099,7 @@ export class PreTrainedModel extends Callable {
         } else {
             input_ids = model_inputs[model_input_name]
         }
+
         // 6. Prepare `max_length` depending on other stopping criteria.
         let input_ids_length = input_ids.dims.at(-1);
 
@@ -1191,8 +1186,8 @@ export class PreTrainedModel extends Callable {
                 const logs = logits[batch_idx];
 
                 prepared_logits_processor(all_input_ids[batch_idx], logs);
-                let sampledTokens = sampler(logs);
-                for (let [newTokenId, logProb] of sampledTokens) {
+                const sampledTokens = sampler(logs);
+                for (const [newTokenId, logProb] of sampledTokens) {
                     const bigint = BigInt(newTokenId);
                     // TODO: If branching, use previous beam as a starting point
                     // update generated ids, model inputs, and length for next step
@@ -3259,10 +3254,11 @@ export class LlavaPreTrainedModel extends PreTrainedModel {
         'attention_mask',
     ];
 
-    constructor(config, session, embed_tokens_session, vision_encoder_session, generation_config) {
-        super(config, session);
-        this.input_embeds_session = embed_tokens_session;
+    constructor(config, input_embeds_session, vision_encoder_session, decoder_merged_session, generation_config) {
+        super(config, input_embeds_session);
         this.vision_encoder_session = vision_encoder_session;
+        this.decoder_merged_session = decoder_merged_session;
+
         this.generation_config = generation_config;
 
         const decoderConfig = this.config.text_config;
@@ -3291,7 +3287,7 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 
     async encode_text({ input_ids }) {
         // text_inputs === { input_ids, attention_mask }
-        return (await sessionRun(this.input_embeds_session, { input_ids })).inputs_embeds;
+        return (await sessionRun(this.session, { input_ids })).inputs_embeds;
     }
 
     // async answer_question({
@@ -3353,57 +3349,60 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 
         const image_token_index = this.config.image_token_index;
 
-        // NOTE: we use .findIndex instead of .indexOf to perform weak comparison (==) between BigInt and Number
         const idsList = input_ids.tolist();
-        // TODO: validate at most 1 image token
+
+        // NOTE: we use .findIndex instead of .indexOf to perform weak comparison (==) between BigInt and Number
         const indexOfImage = idsList.map(x => x.findIndex(x => x == image_token_index));
 
-        if (!(indexOfImage.every(x => x === -1) || indexOfImage.every(x => x !== -1))) {
+        const noImages = indexOfImage.every(x => x === -1);
+        const allImages = indexOfImage.every(x => x !== -1);
+        if (!noImages && !allImages) {
             // Check for padding reasons
             throw new Error('Every input should contain either 0 or 1 image token.');
         }
 
+        if (noImages) {
+            return {
+                inputs_embeds,
+                attention_mask,
+                position_ids: null,
+            };
+        }
+
         let stacked = [];
+        let stacked_attention_mask = [];
         for (let i = 0; i < indexOfImage.length; ++i) {
             const index = indexOfImage[i];
 
             const e = inputs_embeds[i];
             const im = image_features[i];
-            if (index === -1) {
-                stacked.push(e);
-            } else {
-                const sliced = [
+            const am = attention_mask[i];
+            stacked.push(
+                cat([
                     e.slice([0, index]),
-                    e.slice([index + 1, e.dims[0]])
-                ];
-                stacked.push(
-                    cat([sliced[0], im, sliced[1]], 0)
-                );
-            }
+                    im,
+                    e.slice([index + 1, e.dims[0]]),
+                ], 0)
+            );
+
+            stacked_attention_mask.push(
+                cat([
+                    am.slice([0, index]),
+                    ones([im.dims[0]]),
+                    am.slice([index + 1, am.dims[0]])
+                ], 0)
+            )
         }
 
         return {
             inputs_embeds: stack(stacked, 0),
-            attention_mask,
+            attention_mask: stack(stacked_attention_mask, 0),
             position_ids: null,
         };
     }
 
-    prepare_inputs_for_generation({
-        input_ids,
-        past_key_values = null,
-        inputs_embeds = null,
-        pixel_values = null,
-        attention_mask = null,
-        ...kwargs
-    }) {
-        // if (input_ids.dims[0] !== 1) {
-        //     throw new Error('Only single input is supported for now');
-        // }
-        if (past_key_values) {
-
-        }
-
+    prepare_inputs_for_generation(input_ids, model_inputs) {
+        return model_inputs;
     }
 
 
@@ -3447,7 +3446,7 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
             if (pixel_values && input_ids.dims[1] !== 1) {
                 const image_features = await this.encode_image({ pixel_values });
 
-                ({ inputs_embeds, inputs_embeds, position_ids } = this._merge_input_ids_with_image_features({
+                ({ inputs_embeds, inputs_embeds, attention_mask, position_ids } = this._merge_input_ids_with_image_features({
                     image_features,
                     inputs_embeds,
                     input_ids,
@@ -3459,84 +3458,14 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
             }
         }
 
-        // TEMP: for now, just recreate attention mask
-        attention_mask = ones(inputs_embeds.dims.slice(0, 2));
-
         const outputs = await decoderForward(this, {
             inputs_embeds,
             past_key_values,
             attention_mask,
             generation_config,
             logits_processor,
-        })
-        // return super.generate({
-        //     inputs_embeds,
-
-        // })
+        }, true);
         return outputs;
-
-        // TODO generalize with decoderForward
-        // let { input_ids, image_embeds, pixel_values, past_key_values, attention_mask } = model_inputs;
-
-        // const inputs_embeds = await this.input_embeds({ prompt, image_embeds, tokenizer });
-        // console.log('inputs_embeds', inputs_embeds)
-
-        // const decoderFeeds = {
-        //     inputs_embeds: inputs_embeds,
-        //     attention_mask: ones_like(inputs_embeds),
-        // }
-        // let { input_ids, past_key_values, attention_mask } = model_inputs;
-        // let decoderFeeds = {
-        //     inputs_embeds,
-        //     attention_mask: ones(inputs_embeds.dims.slice(0, 2)),
-        // }
-
-        // const use_cache_branch = !!past_key_values;
-
-        // if (this.session.inputNames.includes('use_cache_branch')) {
-        //     decoderFeeds.use_cache_branch = boolTensor(use_cache_branch);
-        // }
-
-
-        // this.addPastKeyValues(decoderFeeds, past_key_values);
-
-        // let decoderResults = await sessionRun(this.session, decoderFeeds);
-
-        // let logits = decoderResults.logits;
-
-        // past_key_values = this.getPastKeyValues(decoderResults, past_key_values);
-        // const result = { logits, past_key_values };
-        // return result;
-
-        // Retrieve the input embeddings
-
-        // If an image is provided, compute the image embeddings
-        // if (!image_embeds && pixel_values) {
-        //     image_embeds = await this.encode_image({ pixel_values });
-        //     console.log('image_embeds', image_embeds)
-        // }
-
-        // let decoderFeeds = {
-        //     inputs_embeds: inputs_embeds,
-        //     attention_mask: attention_mask ?? ones_like(inputs_embeds),
-        //     // prepareAttentionMask(this, input_ids),
-        // }
-        // const use_cache_branch = !!past_key_values;
-
-        // if (this.session.inputNames.includes('use_cache_branch')) {
-        //     decoderFeeds.use_cache_branch = boolTensor(use_cache_branch);
-        // }
-
-
-        // this.addPastKeyValues(decoderFeeds, past_key_values);
-        // console.log('run', decoderFeeds)
-
-        // let decoderResults = await sessionRun(this.session, decoderFeeds);
-
-        // let logits = decoderResults.logits;
-
-        // past_key_values = this.getPastKeyValues(decoderResults, past_key_values);
-        // return { logits, past_key_values };
     }
 }
 
