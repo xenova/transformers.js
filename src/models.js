@@ -125,23 +125,20 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
     // TODO add option for user to force specify their desired execution provider
 
+    const sessionOptions = { executionProviders, ...options.session_options }
+
     if (IS_BROWSER || !env.useFS || !env.allowLocalModels || !env.useCustomCache) {
         let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
         let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
-        return await InferenceSession.create(buffer, {
-            executionProviders,
-            ...options.session_options,
-        });
+        return await InferenceSession.create(buffer, sessionOptions);
     } else {
         let modelFileName = `onnx/${fileName}.onnx`;
         let modelPath = await getModelPath(pretrained_model_name_or_path, modelFileName, true, options);
         // Download optional external data file
         await getModelPath(pretrained_model_name_or_path, `${modelFileName}_data`, false, options);
 
-        return await InferenceSession.create(modelPath, {
-            executionProviders,
-        });
+        return await InferenceSession.create(modelPath, sessionOptions);
     }
 }
 
