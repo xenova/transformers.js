@@ -3246,6 +3246,8 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
 //////////////////////////////////////////////////
 
 
+//////////////////////////////////////////////////
+// LLaVa Models
 export class LlavaPreTrainedModel extends PreTrainedModel {
     forward_params = [
         'input_ids',
@@ -3277,9 +3279,6 @@ export class LlavaPreTrainedModel extends PreTrainedModel {
  */
 export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 
-    /**
-     * 
-     */
     async encode_image({ pixel_values }) {
         // image_inputs === { pixel_values }
         return (await sessionRun(this.vision_encoder_session, { pixel_values })).image_features;
@@ -3288,55 +3287,6 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
     async encode_text({ input_ids }) {
         // text_inputs === { input_ids, attention_mask }
         return (await sessionRun(this.session, { input_ids })).inputs_embeds;
-    }
-
-    // async answer_question({
-    //     image_embeds,
-    //     question,
-    //     tokenizer,
-    //     chat_history = "",
-    // }) {
-    //     const prompt = `<image>\n\n${chat_history}Question: ${question}\n\nAnswer:`;
-    //     const answer = await this.generate({
-    //         image_embeds,
-    //         prompt,
-    //         tokenizer,
-    //         eos_text: "<END>",
-    //         max_new_tokens: 512,
-    //     })[0];
-    //     console.log('answer', answer)
-    //     return 'todo'
-    //     const cleaned_answer = answer.replace(/<$|<END$/, "").trim();
-    //     return cleaned_answer;
-    // }
-
-    async input_embeds({ prompt, image_embeds, tokenizer }) {
-        // const text_inputs = tokenizer(prompt);
-        console.log('prompt', prompt);
-        const e = (text) => {
-            const input_ids = tokenizer(text);
-            return this.encode_text(input_ids);
-        }
-
-        if (prompt.includes('<image>')) {
-            const splits = prompt.split('<image>');
-            if (splits.length !== 2) {
-                throw new Error('Prompt should contain only one <image> tag');
-            }
-            const [before, after] = splits;
-            const embeds = [];
-            if (before.length > 0) {
-                embeds.push(await e(before));
-            }
-            embeds.push(image_embeds);
-            if (after.length > 0) {
-                embeds.push(await e(after));
-            }
-            console.log('embeds', embeds)
-            return cat(embeds, 1);
-        } else {
-            return await e(prompt);
-        }
     }
 
     _merge_input_ids_with_image_features({
@@ -3405,7 +3355,6 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
         return model_inputs;
     }
 
-
     /**
      * 
      * @param {Object} params
@@ -3452,9 +3401,17 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
                     input_ids,
                     attention_mask,
                 }));
+
             } else if (past_key_values && pixel_values && input_ids.dims[1] === 1) {
                 // In case input_ids.shape[1] == 1 & pixel_values==None & past_key_values != None, we are in the case of
                 // generation with cache
+                const target_length = input_ids.dims[1]; // always 1
+                const past_length = Object.values(past_key_values)[0].dims.at(-2);
+
+                attention_mask = cat([
+                    ones([input_ids.dims[0], past_length]),
+                    attention_mask.slice(null, [attention_mask.dims[1] - target_length, attention_mask.dims[1]]),
+                ], 1);
             }
         }
 
@@ -3468,6 +3425,7 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
         return outputs;
     }
 }
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // CLIP models
@@ -6237,7 +6195,6 @@ const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING_NAMES = new Map([
     ['llava', ['LlavaForConditionalGeneration', LlavaForConditionalGeneration]],
-    // ['moondream1', ['Moondream1ForConditionalGeneration', Moondream1ForConditionalGeneration]],
 ]);
 
 const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
