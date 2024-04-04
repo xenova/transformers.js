@@ -665,3 +665,54 @@ export function window_function(window_length, name, {
 
     return window;
 }
+
+/**
+ * Save the audio to a wav file.
+ * @param {TypedArray} audio
+ * @param {number} sampling_rate
+ * @param {string} ?download_name
+ * @returns {<Uint8Array>}
+ */
+export function save_audio_to_wav(audio, sampling_rate, download_name = '') {
+    if (!(ArrayBuffer.isView(audio) && (typeof sampling_rate === 'number') && (typeof download_name === 'string')))
+        throw new TypeError();
+
+    let out, wav_header, buf_size, i, j
+
+    buf_size = audio.buffer.byteLength
+    wav_header = [
+        82, 73, 70, 70, // 'RIFF'
+        0, 0, 0, 0, // RIFF size (file size - 8)
+        87, 65, 86, 69, // 'WAVE'
+        102, 109, 116, 32, // 'fmt '
+        16, 0, 0, 0, // fmt chunksize
+        3, 0, // format tag
+        1, 0, // channels
+        0, 0, 0, 0, // sample per sec
+        0, 0, 0, 0, // byte per sec (byte per bloc * sample rate)
+        4, 0, // byte per bloc
+        32, 0, // bits per sample
+        100, 97, 116, 97, // 'data'
+        0, 0, 0, 0 // data size
+    ]
+    out = new Uint8Array(buf_size + wav_header.length)
+
+    for (i = 0, j = buf_size + wav_header.length - 8; i < 4; i++) wav_header[4 + i] = (j & 255), j >>= 8
+    for (i = 0, j = sampling_rate; i < 4; i++) wav_header[24 + i] = (j & 255), j >>= 8
+    for (i = 0, j = 4 * sampling_rate; i < 4; i++) wav_header[28 + i] = (j & 255), j >>= 8
+    for (i = 0, j = buf_size; i < 4; i++) wav_header[40 + i] = (j & 255), j >>= 8
+
+    out.set(wav_header)
+    out.set(new Uint8Array(audio.buffer), wav_header.length)
+
+    if (download_name && (typeof self !== 'undefined')) {
+        const dataURL = URL.createObjectURL(new Blob([out]));
+        const downloadLink = document.createElement('a');
+        downloadLink.href = dataURL;
+        downloadLink.download = download_name;
+        downloadLink.click();
+        downloadLink.remove();
+    }
+
+    return out
+}
