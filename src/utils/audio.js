@@ -14,6 +14,8 @@ import { FFT, max } from './maths.js';
 import {
     calculateReflectOffset,
 } from './core.js';
+import { env } from '../env.js';
+import fs from 'fs';
 
 
 /**
@@ -664,4 +666,79 @@ export function window_function(window_length, name, {
     }
 
     return window;
+}
+
+export class RawAudio {
+
+    /**
+     * Create a new `RawAudio` object.
+     * @param {Float32Array} audio
+     * @param {number} sampling_rate
+     */
+    constructor(audio, sampling_rate) {
+        this.audio = audio;
+        this.sampling_rate = sampling_rate;
+    }
+
+    /**
+     * Save the audio to a wav file.
+     * Wav file specs : https://fr.wikipedia.org/wiki/Waveform_Audio_File_Format
+     * @param {string} path
+     * @returns {any} if webworker return Uint8Array, else none
+     */
+    save(path) {
+        let audio, sampling_rate, out, wav_header, buf_size, nums
+
+        ({
+            audio,
+            sampling_rate
+        } = this)
+        buf_size = audio.buffer.byteLength
+        wav_header = [
+            82, 73, 70, 70, // 'RIFF'
+            null, 0, 0, 0, // RIFF size (file size - 8)
+            87, 65, 86, 69, // 'WAVE'
+            102, 109, 116, 32, // 'fmt '
+            16, 0, 0, 0, // fmt chunksize
+            3, 0, // format tag
+            1, 0, // channels
+            null, 0, 0, 0, // sample per sec
+            null, 0, 0, 0, // byte per sec (byte per bloc * sample rate)
+            4, 0, // byte per bloc
+            32, 0, // bits per sample
+            100, 97, 116, 97, // 'data'
+            null, 0, 0, 0 // data size
+        ]
+        out = new Uint8Array(buf_size + wav_header.length)
+        nums = [buf_size + wav_header.length - 8, sampling_rate, 4 * sampling_rate, buf_size]
+
+        nums.forEach((i, j) => {
+            j = wav_header.indexOf(null)
+            do {
+                wav_header[j++] = (i & 255), i >>= 8
+            } while (i > 0)
+        });
+
+        out.set(wav_header)
+        out.set(new Uint8Array(audio.buffer), wav_header.length)
+
+        if (env.isBrowserEnv) {
+            if (env.isWebworkerEnv) {
+                return out
+            }
+            const dataURL = URL.createObjectURL(new Blob([out]));
+            const downloadLink = document.createElement('a');
+            downloadLink.href = dataURL;
+            downloadLink.download = path;
+            downloadLink.click();
+            downloadLink.remove();
+        } else if (env.useFS) {
+            fs.appendFile(path, Buffer.from(out), (err) => {
+                throw new Error(err);
+            });
+        } else {
+            throw new Error('Unable to save because filesystem is disabled in this environment.')
+        }
+
+    }
 }
