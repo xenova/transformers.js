@@ -2653,8 +2653,8 @@ export class PreTrainedTokenizer extends Callable {
             }
 
         } else {
-            if (text === null) {
-                throw Error('text may not be null')
+            if (text === null || text === undefined) {
+                throw Error('text may not be null or undefined')
             }
 
             if (Array.isArray(text_pair)) {
