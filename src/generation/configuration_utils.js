@@ -1,3 +1,8 @@
+
+/**
+ * @module generation/configuration_utils
+ */
+
 import { pick } from "../utils/core.js";
 
 /**

@@ -1,4 +1,8 @@
 
+/**
+ * @module generation/logits_sampler
+ */
+
 import { Callable } from "../utils/generic.js";
 import { Tensor } from "../utils/tensor.js";
 

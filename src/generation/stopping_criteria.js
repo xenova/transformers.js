@@ -1,4 +1,8 @@
 
+/**
+ * @module generation/stopping_criteria
+ */
+
 import { Callable } from "../utils/generic.js";
 
 // NOTE:

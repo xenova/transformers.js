@@ -1,3 +1,8 @@
+
+/**
+ * @module generation/configuration_utils
+ */
+
 import { Callable } from "../utils/generic.js";
 import { Tensor } from "../utils/tensor.js";
 
