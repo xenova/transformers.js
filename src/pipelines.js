@@ -69,6 +69,7 @@ import {
     interpolate,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
+import { env } from './env.js';
 
 
 /**
@@ -3031,6 +3032,7 @@ const SUPPORTED_TASKS = Object.freeze({
         "type": "text",
     },
     "image-feature-extraction": {
+        // no tokenizer
         "processor": AutoProcessor,
         "pipeline": ImageFeatureExtractionPipeline,
         "model": [AutoModelForImageFeatureExtraction, AutoModel],
@@ -3116,7 +3118,7 @@ export async function pipeline(
     task = TASK_ALIASES[task] ?? task;
 
     // Get pipeline info
-    const pipelineInfo = SUPPORTED_TASKS[task.split('_', 1)[0]];
+    const pipelineInfo = SUPPORTED_TASKS[task.split('_', 1)[0]] ?? env.customTasks[task.split('_', 1)[0]];
     if (!pipelineInfo) {
         throw Error(`Unsupported pipeline: ${task}. Must be one of [${Object.keys(SUPPORTED_TASKS)}]`)
     }
@@ -3211,4 +3213,73 @@ async function loadItems(mapping, model, pretrainedOptions) {
     }
 
     return result;
+}
+
+/**
+ * Register a custom task pipeline.
+ * @param {string} task
+ *
+ * **Example:** Custom task: audio-feature-extraction.
+ * ```javascript
+ * import {
+ *   Pipeline,
+ *   read_audio,
+ *   register_pipeline,
+ *   ClapAudioModelWithProjection,
+ *   AutoProcessor,
+ *   pipeline
+ * } from '@xenova/transformers';
+ * 
+ * class AudioFeatureExtractionPipeline extends Pipeline {
+ *   constructor(options) {
+ *     super(options);
+ *   }
+ *   async _call(input, kwargs = {}) {
+ *     input = await read_audio(input)
+ *     input = await this.processor(input);
+ *     let { audio_embeds } = await this.model(input);
+ *     return audio_embeds
+ *   }
+ * }
+ * 
+ * register_pipeline('audio-feature-extraction', {
+ *   pipeline: AudioFeatureExtractionPipeline,
+ *   model: ClapAudioModelWithProjection,
+ *   processor: AutoProcessor,
+ *   model_name: 'Xenova/larger_clap_music_and_speech'
+ * })
+ * 
+ * let pipe = await pipeline('audio-feature-extraction');
+ * let out = await pipe('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav')
+ * console.log(out)
+ * ```
+ */
+export function register_pipeline(
+    task,
+    {
+        tokenizer = undefined,
+        pipeline = undefined,
+        model = undefined,
+        processor = undefined,
+        model_name = '',
+        type = ''
+    } = {}
+) {
+    if(!(
+        ('prototype' in pipeline) && 
+        (pipeline.prototype instanceof Pipeline) &&
+        ("_call" in pipeline.prototype)
+    )){
+        throw Error('pipeline class must inherits from Pipeline, and contains _call')
+    }
+
+    env.customTasks[task] = {
+        tokenizer,
+        pipeline,
+        model,
+        processor,
+        'default': {model: model_name},
+        type
+    }
+
 }
