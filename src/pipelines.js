@@ -3246,7 +3246,7 @@ async function loadItems(mapping, model, pretrainedOptions) {
  *   pipeline: AudioFeatureExtractionPipeline,
  *   model: ClapAudioModelWithProjection,
  *   processor: AutoProcessor,
- *   model_name: 'Xenova/larger_clap_music_and_speech'
+ *   default_model: 'Xenova/larger_clap_music_and_speech'
  * })
  * 
  * let pipe = await pipeline('audio-feature-extraction');
@@ -3261,7 +3261,7 @@ export function register_pipeline(
         pipeline = undefined,
         model = undefined,
         processor = undefined,
-        model_name = '',
+        default_model = '',
         type = ''
     } = {}
 ) {
@@ -3278,7 +3278,7 @@ export function register_pipeline(
         pipeline,
         model,
         processor,
-        'default': {model: model_name},
+        'default': {model: default_model},
         type
     }
 
