@@ -3390,7 +3390,7 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
      * @param {Tensor} [params.past_key_values=null]
      * @param {Object} [params.generation_config=null]
      * @param {Object} [params.logits_processor=null]
-     * @returns 
+     * @returns {Promise<Tensor>} The model's output tensor
      */
     async forward({
         // These are produced by the processors:
