@@ -1065,13 +1065,6 @@ export class PreTrainedModel extends Callable {
         const decoder_input_ids = decoder_input_ids_start;
         model_kwargs['decoder_attention_mask'] = ones_like(decoder_input_ids);
 
-        // if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
-        //     model_kwargs['decoder_attention_mask'] = cat([
-        //         model_kwargs['decoder_attention_mask'],
-        //         zeros_like(model_kwargs['decoder_attention_mask']),
-        //     ], 0)
-        // }
-
         return { input_ids: decoder_input_ids, model_inputs: model_kwargs };
     }
 
