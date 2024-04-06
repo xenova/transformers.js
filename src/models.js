@@ -5849,6 +5849,37 @@ export class MusicgenForCausalLM extends MusicgenPreTrainedModel { }
 /**
  * The composite MusicGen model with a text encoder, audio encoder and Musicgen decoder,
  * for music generation tasks with one or both of text and audio prompts.
+ * 
+ * **Example:** Generate music from text with `Xenova/musicgen-small`.
+ * ```javascript
+ * import { AutoTokenizer, MusicgenForConditionalGeneration } from '@xenova/transformers';
+ * 
+ * // Load tokenizer and model
+ * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/musicgen-small');
+ * const model = await MusicgenForConditionalGeneration.from_pretrained(
+ *   'Xenova/musicgen-small', { dtype: 'fp32' }
+ * );
+ * 
+ * // Prepare text input
+ * const prompt = '80s pop track with bassy drums and synth';
+ * const inputs = tokenizer(prompt);
+ * 
+ * // Generate audio
+ * const audio_values = await model.generate({
+ *   ...inputs,
+ *   max_new_tokens: 512,
+ *   do_sample: true,
+ *   guidance_scale: 3,
+ * });
+ * 
+ * // (Optional) Write the output to a WAV file
+ * import wavefile from 'wavefile';
+ * import fs from 'fs';
+ * 
+ * const wav = new wavefile.WaveFile();
+ * wav.fromScratch(1, model.config.audio_encoder.sampling_rate, '32f', audio_values.data);
+ * fs.writeFileSync('musicgen_out.wav', wav.toBuffer());
+ * ```
  */
 export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE: not MusicgenPreTrainedModel
     forward_params = ['input_ids', 'attention_mask', 'encoder_outputs', 'decoder_input_ids', 'decoder_attention_mask', 'past_key_values'];
