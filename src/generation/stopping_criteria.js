@@ -116,7 +116,7 @@ export class EosTokenCriteria extends StoppingCriteria {
      * 
      * @param {number[][]} input_ids 
      * @param {number[][]} scores 
-     * @returns 
+     * @returns {boolean[]}
      */
     _call(input_ids, scores) {
         return input_ids.map(ids => this.eos_token_id.includes(ids.at(-1)));
