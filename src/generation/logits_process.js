@@ -1,6 +1,6 @@
 
 /**
- * @module generation/configuration_utils
+ * @module generation/logits_process
  */
 
 import { Callable } from "../utils/generic.js";
