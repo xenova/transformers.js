@@ -60,7 +60,6 @@ import {
 
 import {
     isIntegralNumber,
-    isTypedArray,
     mergeArrays,
     pick,
 } from './utils/core.js';
@@ -85,6 +84,7 @@ import {
     TemperatureLogitsWarper,
     TopKLogitsWarper,
     TopPLogitsWarper,
+    ClassifierFreeGuidanceLogitsProcessor,
 } from './generation/logits_process.js';
 
 import {
@@ -94,12 +94,14 @@ import {
 import {
     cat,
     dynamicTimeWarping,
+    full_like,
     mean,
     ones,
     ones_like,
     stack,
     std_mean,
     Tensor,
+    zeros_like,
 } from './utils/tensor.js';
 
 import { medianFilter } from './utils/maths.js';
@@ -440,7 +442,7 @@ async function decoderForward(self, model_inputs, is_encoder_decoder = false) {
     return await sessionRun(session, fixed);
 }
 
-function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs) {
+function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
 
     if (self.session.inputNames.includes('position_ids') && model_inputs.attention_mask && !model_inputs.position_ids) {
         // If the model supports providing position_ids, we create position_ids on the fly for batch generation,
@@ -477,7 +479,7 @@ function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs) {
     return model_inputs;
 }
 
-function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_inputs) {
+function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
 
     // console.log('model_inputs', model_inputs)
     const { ...new_model_inputs } = model_inputs;
@@ -492,7 +494,7 @@ function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_in
         // input_ids;
     }
     new_model_inputs['decoder_input_ids'] = toI64Tensor(input_ids);
-    // throw new Error('Not implemented');
+
     return new_model_inputs;
 }
 //////////////////////////////////////////////////
@@ -833,6 +835,12 @@ export class PreTrainedModel extends Callable {
         //     processors.push(new ForceTokensLogitsProcessor(generation_config.forced_decoder_ids));
         // }
 
+
+        // 8. prepare batched CFG externally
+        if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
+            processors.push(new ClassifierFreeGuidanceLogitsProcessor(generation_config.guidance_scale));
+        }
+
         if (logits_processor !== null) {
             processors.extend(logits_processor)
         }
@@ -995,12 +1003,27 @@ export class PreTrainedModel extends Callable {
         return { inputs_tensor, model_inputs, model_input_name: input_name };
     }
 
-    async _prepare_encoder_decoder_kwargs_for_generation({ inputs_tensor, model_inputs, model_input_name }) {
+    async _prepare_encoder_decoder_kwargs_for_generation({ inputs_tensor, model_inputs, model_input_name, generation_config }) {
         const encoder_kwargs = pick(model_inputs, this.session.inputNames);
 
-        const encoder_outputs = await encoderForward(this, encoder_kwargs);
+        let { last_hidden_state } = await encoderForward(this, encoder_kwargs);
 
-        model_inputs['encoder_outputs'] = encoder_outputs.last_hidden_state;
+        // for classifier free guidance we need to add a 'null' input to our encoder hidden states
+        if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
+
+            last_hidden_state = cat([
+                last_hidden_state,
+                full_like(last_hidden_state, 0.0),
+            ], 0);
+
+            if ('attention_mask' in model_inputs) {
+                model_inputs['attention_mask'] = cat([
+                    model_inputs['attention_mask'],
+                    zeros_like(model_inputs['attention_mask']),
+                ], 0);
+            }
+        }
+        model_inputs['encoder_outputs'] = last_hidden_state;
 
         return model_inputs;
     }
@@ -1009,7 +1032,7 @@ export class PreTrainedModel extends Callable {
      * Prepares `decoder_input_ids` for generation with encoder-decoder models
      * @param {*} param0 
      */
-    _prepare_decoder_input_ids_for_generation({ batch_size, model_input_name, model_kwargs, decoder_start_token_id, bos_token_id }) {
+    _prepare_decoder_input_ids_for_generation({ batch_size, model_input_name, model_kwargs, decoder_start_token_id, bos_token_id, generation_config }) {
 
         decoder_start_token_id = decoder_start_token_id ?? bos_token_id;
 
@@ -1041,6 +1064,13 @@ export class PreTrainedModel extends Callable {
         // TODO add other functionality
         const decoder_input_ids = decoder_input_ids_start;
         model_kwargs['decoder_attention_mask'] = ones_like(decoder_input_ids);
+
+        // if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
+        //     model_kwargs['decoder_attention_mask'] = cat([
+        //         model_kwargs['decoder_attention_mask'],
+        //         zeros_like(model_kwargs['decoder_attention_mask']),
+        //     ], 0)
+        // }
 
         return { input_ids: decoder_input_ids, model_inputs: model_kwargs };
     }
@@ -1079,7 +1109,7 @@ export class PreTrainedModel extends Callable {
             // if model is encoder decoder encoder_outputs are created
             // and added to `model_kwargs`
             model_inputs = await this._prepare_encoder_decoder_kwargs_for_generation(
-                { inputs_tensor, model_inputs, model_input_name }
+                { inputs_tensor, model_inputs, model_input_name, generation_config }
             )
         }
 
@@ -1095,7 +1125,8 @@ export class PreTrainedModel extends Callable {
                 model_kwargs: model_inputs,
                 decoder_start_token_id: generation_config.decoder_start_token_id,
                 bos_token_id: generation_config.bos_token_id,
-            }))
+                generation_config,
+            }));
         } else {
             input_ids = model_inputs[model_input_name]
         }
@@ -1168,7 +1199,7 @@ export class PreTrainedModel extends Callable {
         ////////////////////////////////////////////////////
         while (true) {
             // prepare model inputs
-            model_inputs = this.prepare_inputs_for_generation(all_input_ids, model_inputs)
+            model_inputs = this.prepare_inputs_for_generation(all_input_ids, model_inputs, generation_config);
 
             const outputs = await this.forward(model_inputs);
 
@@ -1178,14 +1209,15 @@ export class PreTrainedModel extends Callable {
             // (equivalent to `logits = outputs.logits[:, -1, :]`)
             const logits = outputs.logits.slice(null, -1, null);
 
+            const next_tokens_scores = prepared_logits_processor(all_input_ids, logits);
+
             // only for this batch
             const generated_input_ids = [];
             // const new_kv_cache = [];// NOTE: Only used for beam search when concatenating new kv
             // Loop over each batch
-            for (let batch_idx = 0; batch_idx < logits.dims.at(0); ++batch_idx) {
-                const logs = logits[batch_idx];
+            for (let batch_idx = 0; batch_idx < next_tokens_scores.dims.at(0); ++batch_idx) {
+                const logs = next_tokens_scores[batch_idx];
 
-                prepared_logits_processor(all_input_ids[batch_idx], logs);
                 const sampledTokens = sampler(logs);
                 for (const [newTokenId, logProb] of sampledTokens) {
                     const bigint = BigInt(newTokenId);
@@ -3295,7 +3327,6 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
         input_ids,
         attention_mask,
     }) {
-        console.log('_merge_input_ids_with_image_features');
 
         const image_token_index = this.config.image_token_index;
 
@@ -3351,7 +3382,7 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
         };
     }
 
-    prepare_inputs_for_generation(input_ids, model_inputs) {
+    prepare_inputs_for_generation(input_ids, model_inputs, generation_config) {
         return model_inputs;
     }
 
@@ -5863,7 +5894,7 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
 
         let newDataSize = 0;
         for (let i = 0; i < outputs.size; ++i) {
-            if (outputs.data[i] === this.config.pad_token_id) {
+            if (outputs.data[i] === this.config.decoder.pad_token_id) {
                 continue;
             }
 
@@ -5881,7 +5912,31 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
         // TODO: assert `inferred` is an integer
         return new Tensor(
             outputs.type,
-            outputs.data.slice(0, newDataSize), [batch_size, num_codebooks, inferred]);
+            outputs.data.slice(0, newDataSize),
+            [batch_size, num_codebooks, inferred]
+        );
+    }
+
+
+    prepare_inputs_for_generation(input_ids, model_inputs, generation_config) {
+        // apply the delay pattern mask
+        let clonedInputIds = structuredClone(input_ids);
+        for (let i = 0; i < clonedInputIds.length; ++i) {
+            for (let j = 0; j < clonedInputIds[i].length; ++j) {
+                if ((i % this.config.decoder.num_codebooks) >= j) {
+                    clonedInputIds[i][j] = BigInt(this.config.decoder.pad_token_id);
+                }
+            }
+        }
+        // for classifier free guidance we need to replicate the decoder args across the batch dim
+        // (we'll split these before sampling)
+        if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
+            // [batch, seqLength] -> [2 * batch, seqLength]
+            clonedInputIds = clonedInputIds.concat(clonedInputIds);
+        }
+
+        const prepped = super.prepare_inputs_for_generation(clonedInputIds, model_inputs, generation_config);
+        return prepped;
     }
 
     /**
@@ -5890,19 +5945,18 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
      * @returns {Promise<ModelOutput|Tensor>} The output of the model, which can contain the generated token ids, attentions, and scores.
      */
     async generate(options) {
-        let output_ids = await super.generate(options);
+
+        const output_ids = await super.generate(options);
 
         // apply the pattern mask to the final ids
-        output_ids = this._apply_and_filter_by_delay_pattern_mask(
+        // tensor: int64[1,batch_size,4,chunk_length]
+        const audio_codes = this._apply_and_filter_by_delay_pattern_mask(
             /** @type {Tensor} */(output_ids)
         ).unsqueeze_(0); // append the frame dimension back to the audio codes
 
-        const output_values = await sessionRun(this.encodec_decode, {
-            // tensor: int64[1,batch_size,4,chunk_length]
-            audio_codes: output_ids,
-        })
+        const { audio_values } = await sessionRun(this.encodec_decode, { audio_codes })
 
-        return output_values.audio_values;
+        return audio_values;
     }
 }
 

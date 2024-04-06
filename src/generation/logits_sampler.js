@@ -62,11 +62,6 @@ export class LogitsSampler extends Callable {
             let startIndex = index * vocabSize;
             logs = logs.slice(startIndex, startIndex + vocabSize);
         }
-
-        // add temperature
-        // if (this.generation_config.temperature > 0) {
-        //     logs = logs.map(x => x / this.generation_config.temperature)
-        // }
         return logs;
     }
 

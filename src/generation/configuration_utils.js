@@ -270,6 +270,15 @@ export class GenerationConfig {
      */
     forced_decoder_ids = null;
 
+    /**
+     * The guidance scale for classifier free guidance (CFG). CFG is enabled by setting `guidance_scale > 1`.
+     * Higher guidance scale encourages the model to generate samples that are more closely linked to the input
+     * prompt, usually at the expense of poorer quality.
+     * @type {number}
+     * @default null
+     */
+    guidance_scale = null;
+
     // Parameters that define the output variables of `generate`
     /**
      * The number of independently computed returned sequences for each element in the batch.
