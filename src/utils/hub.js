@@ -659,3 +659,15 @@ function pathJoin(...parts) {
     })
     return parts.join('/');
 }
+
+/**
+ * Clear browser cache.
+ *
+ * @returns {Promise<boolean>} Successfully delete cache
+ */
+export async function clearBrowserCache(){
+    if (env.useBrowserCache && typeof caches === 'object') {
+        return await caches.delete('transformers-cache')
+    }
+    else return false
+}
