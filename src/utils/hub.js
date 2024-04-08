@@ -85,7 +85,7 @@ class FileResponse {
         this.ok = false;
         this.status = 0;
         this.statusText = '';
-        this.body = null;
+        this._body = null;
     }
 
     static async create(filePath) {
@@ -111,16 +111,6 @@ class FileResponse {
                 let stats = fs.statSync(response.filePath);
                 response.headers.set('content-length', stats.size.toString());
                 response.headers.set('content-type', getMIME(response.filePath));
-
-                let self = response;
-                response.body = new ReadableStream({
-                    start(controller) {
-                        self.arrayBuffer().then(buffer => {
-                            controller.enqueue(new Uint8Array(buffer));
-                            controller.close();
-                        })
-                    }
-                });
             } else {
                 response.status = 404;
                 response.statusText = 'Not Found';
@@ -139,8 +129,25 @@ class FileResponse {
         response.status = this.status;
         response.statusText = this.statusText;
         response.headers = new Headers(this.headers);
-        response.body = this.body;
         return response;
+    }
+
+    get bodyUsed() {
+        return this._body !== null;
+    }
+
+    get body() {
+        if (IS_REACT_NATIVE) throw new Error('`body` is not supported in React Native.');
+        const self = this;
+        this._body ??= new ReadableStream({
+            start(controller) {
+                self.arrayBuffer().then(buffer => {
+                    controller.enqueue(new Uint8Array(buffer));
+                    controller.close();
+                });
+            }
+        });
+        return this._body;
     }
 
     /**
