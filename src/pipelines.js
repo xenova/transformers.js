@@ -69,6 +69,7 @@ import {
     Tensor,
     mean_pooling,
     interpolate,
+    quantize_embeddings,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
 
@@ -1120,6 +1121,8 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * @typedef {Object} FeatureExtractionPipelineOptions Parameters specific to feature extraction pipelines.
  * @property {'none'|'mean'|'cls'} [pooling="none"] The pooling method to use.
  * @property {boolean} [normalize=false] Whether or not to normalize the embeddings in the last dimension.
+ * @property {boolean} [quantize=false] Whether or not to quantize the embeddings.
+ * @property {'binary'|'ubinary'} [precision='binary'] The precision to use for quantization. 
  * 
  * @callback FeatureExtractionPipelineCallback Extract the features of the input(s).
  * @param {string|string[]} texts One or several texts (or one list of texts) to get the features of.
@@ -1165,6 +1168,16 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * //   dims: [1, 384]
  * // }
  * ```
+ * **Example:** Calculating binary embeddings with `sentence-transformers` models.
+ * ```javascript
+ * const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+ * const output = await extractor('This is a simple test.', { pooling: 'mean', quantize: true, precision: 'binary' });
+ * // Tensor {
+ * //   type: 'int8',
+ * //   data: Int8Array [49, 108, 24, ...],
+ * //   dims: [1, 48]
+ * // }
+ * ```
  */
 export class FeatureExtractionPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FeatureExtractionPipelineType} */ (Pipeline)) {
     /**
@@ -1179,6 +1192,8 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
     async _call(texts, {
         pooling = /** @type {'none'} */('none'),
         normalize = false,
+        quantize = false,
+        precision = /** @type {'binary'} */('binary'),
     } = {}) {
 
         // Run tokenization
@@ -1209,6 +1224,10 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
 
         if (normalize) {
             result = result.normalize(2, -1);
+        }
+
+        if (quantize) {
+            result = quantize_embeddings(result, precision);
         }
 
         return result;
