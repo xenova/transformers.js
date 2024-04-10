@@ -2542,6 +2542,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {...string} keys One or more keys to search for in the tokenizer config object.
      * @returns {string|null} The value associated with the first matching key, or null if no match is found.
      * @throws {Error} If an object is found for a matching key and its __type property is not "AddedToken".
+     * @private
      */
     getToken(...keys) {
         for (const key of keys) {
@@ -2648,11 +2649,11 @@ export class PreTrainedTokenizer extends Callable {
                 }
 
                 encodedTokens = text.map(
-                    (t, i) => this._encode_plus(t, text_pair[i], { add_special_tokens })
+                    (t, i) => this._encode_plus(t, { text_pair: text_pair[i], add_special_tokens })
                 )
 
             } else {
-                encodedTokens = text.map(x => this._encode_plus(x, null, { add_special_tokens }));
+                encodedTokens = text.map(x => this._encode_plus(x, { add_special_tokens }));
             }
 
         } else {
@@ -2665,7 +2666,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             // For single input, we just wrap in an array, and then unwrap later.
-            encodedTokens = [this._encode_plus(text, text_pair, { add_special_tokens })];
+            encodedTokens = [this._encode_plus(text, { text_pair, add_special_tokens })];
         }
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
@@ -2820,51 +2821,83 @@ export class PreTrainedTokenizer extends Callable {
      * Encodes a single text or a pair of texts using the model's tokenizer.
      *
      * @param {string} text The text to encode.
-     * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.text_pair=null] The optional second text to encode.
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {EncodingSingle} An object containing the encoded text.
      * @private
      */
-    _encode_plus(text, text_pair = null, {
+    _encode_plus(text, {
+        text_pair = null,
         add_special_tokens = true,
     } = {}) {
-        // Function called by users to encode possibly multiple texts
-        const tokens = this._encode_text(text);
-        const tokens2 = this._encode_text(text_pair);
 
-        const combinedTokens = this.post_processor
-            ? this.post_processor(tokens, tokens2, { add_special_tokens })
-            : { tokens: mergeArrays(tokens ?? [], tokens2 ?? []) };
+        const { tokens, token_type_ids } = this._tokenize_helper(text, { pair: text_pair, add_special_tokens });
 
-        const input_ids = this.model.convert_tokens_to_ids(combinedTokens.tokens);
+        const input_ids = this.model.convert_tokens_to_ids(tokens);
 
         const result = {
             input_ids,
             attention_mask: new Array(input_ids.length).fill(1),
         }
-        if (this.return_token_type_ids && combinedTokens.token_type_ids) {
-            result.token_type_ids = combinedTokens.token_type_ids;
+        if (this.return_token_type_ids && token_type_ids) {
+            result.token_type_ids = token_type_ids;
         }
         return result;
+    }
+
+    /**
+     * Internal helper function to tokenize a text, and optionally a pair of texts.
+     * @param {string} text The text to tokenize.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.pair=null] The optional second text to tokenize.
+     * @param {boolean} [options.add_special_tokens=false] Whether or not to add the special tokens associated with the corresponding model.
+     * @returns {{tokens: string[], token_type_ids?: number[]}} An object containing the tokens and optionally the token type IDs.
+     */
+    _tokenize_helper(text, {
+        pair = null,
+        add_special_tokens = false,
+    } = {}) {
+        const tokens = this._encode_text(text);
+        const tokens2 = this._encode_text(pair);
+
+        return this.post_processor
+            ? this.post_processor(tokens, tokens2, { add_special_tokens })
+            : { tokens: mergeArrays(tokens ?? [], tokens2 ?? []) };
+    }
+
+    /**
+     * Converts a string into a sequence of tokens.
+     * @param {string} text The sequence to be encoded.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.pair] A second sequence to be encoded with the first.
+     * @param {boolean} [options.add_special_tokens=false] Whether or not to add the special tokens associated with the corresponding model.
+     * @returns {string[]} The list of tokens.
+     */
+    tokenize(text, {
+        pair = null,
+        add_special_tokens = false,
+    } = {}) {
+        return this._tokenize_helper(text, { pair, add_special_tokens }).tokens;
     }
 
     /**
      * Encodes a single text or a pair of texts using the model's tokenizer.
      *
      * @param {string} text The text to encode.
-     * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.text_pair=null] The optional second text to encode.
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
-    encode(text, text_pair = null, {
+    encode(text, {
+        text_pair = null,
         add_special_tokens = true,
     } = {}) {
-        const { input_ids } = this._encode_plus(text, text_pair, {
+        return this._encode_plus(text, {
+            text_pair,
             add_special_tokens,
-        });
-        return input_ids;
+        }).input_ids;
     }
 
     /**
