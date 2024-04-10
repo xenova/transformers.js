@@ -1198,7 +1198,7 @@ export function ones_like(tensor) {
  * Quantizes the embeddings tensor to binary or unsigned binary precision.
  * @param {Tensor} tensor The tensor to quantize.
  * @param {'binary'|'ubinary'} precision The precision to use for quantization.
- * @returns The quantized tensor.
+ * @returns {Tensor} The quantized tensor.
  */
 export function quantize_embeddings(tensor, precision) {
     if (tensor.dims.length !== 2) {
