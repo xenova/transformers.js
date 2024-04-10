@@ -1163,10 +1163,10 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * **Example:** Calculating binary embeddings with `sentence-transformers` models.
  * ```javascript
  * const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
- * const output = await extractor('This is a simple test.', { pooling: 'mean', normalize: true, quantize: true, precision: 'binary' });
+ * const output = await extractor('This is a simple test.', { pooling: 'mean', quantize: true, precision: 'binary' });
  * // Tensor {
  * //   type: 'int8',
- * //   data: Int8Array [-13, -78, 21, ...],
+ * //   data: Int8Array [49, 108, 24, ...],
  * //   dims: [1, 48]
  * // }
  * ```
