@@ -1210,12 +1210,13 @@ export function quantize_embeddings(tensor, precision) {
     if (!['binary', 'ubinary'].includes(precision)) {
         throw new Error("The precision must be either 'binary' or 'ubinary'");
     }
-    // Create a typed array to store the packed bits
     const inputData = tensor.data;
 
     const signed = precision === 'binary';
-    const cls = signed ? Int8Array : Uint8Array;
     const dtype = signed ? 'int8' : 'uint8';
+    const cls = signed ? Int8Array : Uint8Array;
+
+    // Create a typed array to store the packed bits
     const outputData = new cls(inputData.length / 8);
 
     // Iterate over each number in the array
