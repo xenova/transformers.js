@@ -60,7 +60,7 @@
   },
   "overrides": {
     "semver": "^7.5.4",
-    "protobufjs": "^7.2.4"
+    "protobufjs": "^7.2.6"
   },
   "files": [
     "src",
