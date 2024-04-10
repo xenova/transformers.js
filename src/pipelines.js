@@ -1185,7 +1185,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
         pooling = /** @type {'none'} */('none'),
         normalize = false,
         quantize = false,
-        precision = /** @type {'binary'|'ubinary'} */('binary'),
+        precision = /** @type {'binary'} */('binary'),
     } = {}) {
 
         // Run tokenization
