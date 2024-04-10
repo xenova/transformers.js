@@ -175,7 +175,7 @@ export function log_softmax(arr) {
  */
 export function dot(arr1, arr2) {
     let result = 0;
-    for (let i = 0; i < arr1.length; i++) {
+    for (let i = 0; i < arr1.length; ++i) {
         result += arr1[i] * arr2[i];
     }
     return result;
