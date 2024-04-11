@@ -160,7 +160,7 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
 
     const buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
-    const session_options = options.session_options ?? {};
+    const session_options = { ...options.session_options } ?? {};
 
     // Overwrite `executionProviders` if not specified
     session_options.executionProviders ??= executionProviders;
