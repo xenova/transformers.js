@@ -64,15 +64,6 @@ export function isIntegralNumber(x) {
 }
 
 /**
- * Check if a value is exists.
- * @param {*} x The value to check.
- * @returns {boolean} True if the value exists, false otherwise.
- */
-export function exists(x) {
-    return x !== undefined && x !== null;
-}
-
-/**
  * Calculates the dimensions of a nested array.
  *
  * @param {any[]} arr The nested array to calculate dimensions for.
