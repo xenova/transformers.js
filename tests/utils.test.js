@@ -50,7 +50,7 @@ describe('Utilities', () => {
             const blob = new Blob(['Hello, world!'], { type: 'text/plain' });
             const blobUrl = URL.createObjectURL(blob);
             const data = await getFile(blobUrl);
-            expect(data.body).toBe('Hello, world!');
+            expect(await data.text()).toBe('Hello, world!');
         });
 
     });
