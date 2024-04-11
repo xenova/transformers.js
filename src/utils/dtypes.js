@@ -1,17 +1,36 @@
+import { apis } from "../env.js";
+
 import { DEVICE_TYPES } from "./devices.js";
 
 // TODO: Use the adapter from `env.backends.onnx.webgpu.adapter` to check for `shader-f16` support,
 // when available in https://github.com/microsoft/onnxruntime/pull/19940.
 // For more information, see https://github.com/microsoft/onnxruntime/pull/19857#issuecomment-1999984753
-async function isFp16Supported() {
-    try {
-        const adapter = await navigator.gpu.requestAdapter();
-        return adapter.features.has('shader-f16');
-    } catch (e) {
-        return false
-    }
-}
-export const FP16_SUPPORTED = await isFp16Supported();
+
+/**
+ * Checks if fp16 support is available in the current environment.
+ */
+export const isFp16Supported = (function () {
+    /** @type {boolean} */
+    let cachedResult;
+
+    return async function () {
+        if (cachedResult === undefined) {
+            if (apis.IS_NODE_ENV) {
+                cachedResult = true;
+            } else if (!apis.IS_WEBGPU_AVAILABLE) {
+                cachedResult = false;
+            } else {
+                try {
+                    const adapter = await navigator.gpu.requestAdapter();
+                    cachedResult = adapter.features.has('shader-f16');
+                } catch (e) {
+                    cachedResult = false;
+                }
+            }
+        }
+        return cachedResult;
+    };
+})();
 
 export const DATA_TYPES = Object.freeze({
     fp32: 'fp32',
@@ -20,15 +39,13 @@ export const DATA_TYPES = Object.freeze({
     int8: 'int8',
     uint8: 'uint8',
 });
-
 /** @typedef {keyof typeof DATA_TYPES} DataType */
 
-const defaultGpuDtype = FP16_SUPPORTED ? DATA_TYPES.fp16 : DATA_TYPES.fp32;
 export const DEFAULT_DEVICE_DTYPE_MAPPING = Object.freeze({
     [DEVICE_TYPES.cpu]: DATA_TYPES.q8,
-    [DEVICE_TYPES.gpu]: defaultGpuDtype,
+    [DEVICE_TYPES.gpu]: DATA_TYPES.fp32,
     [DEVICE_TYPES.wasm]: DATA_TYPES.q8,
-    [DEVICE_TYPES.webgpu]: defaultGpuDtype,
+    [DEVICE_TYPES.webgpu]: DATA_TYPES.fp32,
 });
 
 /** @type {Record<DataType, string>} */

@@ -17,7 +17,7 @@
  */
 
 import path from 'path';
-import { env, RUNNING_LOCALLY } from '../env.js';
+import { env, apis } from '../env.js';
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
 // In either case, we select the default export if it exists, otherwise we use the named export.
@@ -26,22 +26,19 @@ import * as ONNX_WEB from 'onnxruntime-web/webgpu';
 
 export { Tensor } from 'onnxruntime-common';
 
-const WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
-const USE_ONNXRUNTIME_NODE = typeof process !== 'undefined' && process?.release?.name === 'node';
-
 /** @type {import('../utils/devices.js').DeviceType[]} */
 const supportedExecutionProviders = [];
 
 /** @type {import('../utils/devices.js').DeviceType[]} */
 let defaultExecutionProviders;
 let ONNX;
-if (USE_ONNXRUNTIME_NODE) {
+if (apis.IS_NODE_ENV) {
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
     supportedExecutionProviders.push('cpu');
     defaultExecutionProviders = ['cpu'];
 } else {
     ONNX = ONNX_WEB;
-    if (WEBGPU_AVAILABLE) {
+    if (apis.IS_WEBGPU_AVAILABLE) {
         supportedExecutionProviders.push('webgpu');
     }
     supportedExecutionProviders.push('wasm');
@@ -75,13 +72,7 @@ export function deviceToExecutionProviders(device) {
  * @returns {Promise<Object>} The ONNX inference session.
  */
 export async function createInferenceSession(buffer, session_options) {
-
-    // NOTE: Important to create a clone, since ORT modifies the object.
-    const options = {
-        ...session_options
-    }
-
-    return await InferenceSession.create(buffer, options);
+    return await InferenceSession.create(buffer, session_options);
 }
 
 /**
@@ -102,9 +93,6 @@ if (ONNX_ENV?.wasm) {
     // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
     // We use remote wasm files by default to make it easier for newer users.
     // In practice, users should probably self-host the necessary .wasm files.
-    // ONNX_ENV.wasm.wasmPaths = RUNNING_LOCALLY
-    //     ? path.join(env.__dirname, '/dist/')
-    //     : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${env.version}/dist/`;
     // TODO: update this before release
     ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
 

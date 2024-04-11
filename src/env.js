@@ -29,13 +29,42 @@ import url from 'url';
 const VERSION = '3.0.0-alpha.0';
 
 // Check if various APIs are available (depends on environment)
-const BROWSER_ENV = typeof self !== 'undefined';
-const WEB_CACHE_AVAILABLE = BROWSER_ENV && 'caches' in self;
-const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
-const PATH_AVAILABLE = !isEmpty(path); // check if path is available
+const IS_BROWSER_ENV = typeof self !== 'undefined';
+const IS_WEBWORKER_ENV = IS_BROWSER_ENV && self.constructor.name === 'DedicatedWorkerGlobalScope';
+const IS_WEB_CACHE_AVAILABLE = IS_BROWSER_ENV && 'caches' in self;
+const IS_WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
 
-export const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
+const IS_NODE_ENV = typeof process !== 'undefined' && process?.release?.name === 'node';
+const IS_FS_AVAILABLE = !isEmpty(fs);
+const IS_PATH_AVAILABLE = !isEmpty(path);
 
+/**
+ * A read-only object containing information about the APIs available in the current environment.
+ */
+export const apis = Object.freeze({
+    /** Whether we are running in a browser environment */
+    IS_BROWSER_ENV,
+
+    /** Whether we are running in a web worker environment */
+    IS_WEBWORKER_ENV,
+
+    /** Whether the Cache API is available */
+    IS_WEB_CACHE_AVAILABLE,
+
+    /** Whether the WebGPU API is available */
+    IS_WEBGPU_AVAILABLE,
+
+    /** Whether we are running in a Node.js environment */
+    IS_NODE_ENV,
+
+    /** Whether the filesystem API is available */
+    IS_FS_AVAILABLE,
+
+    /** Whether the path API is available */
+    IS_PATH_AVAILABLE,
+});
+
+const RUNNING_LOCALLY = IS_FS_AVAILABLE && IS_PATH_AVAILABLE;
 const __dirname = RUNNING_LOCALLY
     ? path.dirname(path.dirname(url.fileURLToPath(import.meta.url)))
     : './';
@@ -52,11 +81,11 @@ const localModelPath = RUNNING_LOCALLY
     : DEFAULT_LOCAL_MODEL_PATH;
 
 /**
- * Global variable used to control execution. This provides users a simple way to configure Transformers.js.
+ * Global variable given visible to users to control execution. This provides users a simple way to configure Transformers.js.
+ * @typedef {Object} TransformersEnvironment
+ * @property {string} version This version of Transformers.js.
  * @property {Object} backends Expose environment variables of different backends,
  * allowing users to set these variables if they want to.
- * @property {string} __dirname Directory name of module. Useful for resolving local paths.
- * @property {string} version This version of Transformers.js.
  * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
  * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
@@ -73,7 +102,10 @@ const localModelPath = RUNNING_LOCALLY
  * implements the `match` and `put` functions of the Web Cache API. For more information, see https://developer.mozilla.org/en-US/docs/Web/API/Cache
  */
 
+/** @type {TransformersEnvironment} */
 export const env = {
+    version: VERSION,
+
     /////////////////// Backends settings ///////////////////
     // NOTE: These will be populated later by the backends themselves.
     backends: {
@@ -84,22 +116,20 @@ export const env = {
         tfjs: {},
     },
 
-    __dirname,
-    version: VERSION,
 
     /////////////////// Model settings ///////////////////
     allowRemoteModels: true,
     remoteHost: 'https://huggingface.co/',
     remotePathTemplate: '{model}/resolve/{revision}/',
 
-    allowLocalModels: !BROWSER_ENV,
+    allowLocalModels: !IS_BROWSER_ENV,
     localModelPath: localModelPath,
-    useFS: FS_AVAILABLE,
+    useFS: IS_FS_AVAILABLE,
 
     /////////////////// Cache settings ///////////////////
-    useBrowserCache: WEB_CACHE_AVAILABLE,
+    useBrowserCache: IS_WEB_CACHE_AVAILABLE,
 
-    useFSCache: FS_AVAILABLE,
+    useFSCache: IS_FS_AVAILABLE,
     cacheDir: DEFAULT_CACHE_DIR,
 
     useCustomCache: false,
