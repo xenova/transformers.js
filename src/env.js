@@ -36,7 +36,7 @@ const BROWSER_ENV = typeof self !== 'undefined';
 const WEBWORKER_ENV = BROWSER_ENV && self.constructor.name === 'DedicatedWorkerGlobalScope';
 
 // Check if various APIs are available (depends on environment)
-const WEB_CACHE_AVAILABLE = typeof self !== 'undefined' && 'caches' in self;
+const WEB_CACHE_AVAILABLE = BROWSER_ENV && 'caches' in self;
 const FS_AVAILABLE = !isEmpty(fs); // check if file system is available
 const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 

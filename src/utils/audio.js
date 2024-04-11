@@ -682,7 +682,7 @@ export class RawAudio {
 
     /**
      * Save the audio to a wav file.
-     * Wav file specs : https://fr.wikipedia.org/wiki/Waveform_Audio_File_Format
+     * WAV file specs : https://en.wikipedia.org/wiki/Waveform_Audio_File_Format
      * @param {string} path
      * @returns {any} if webworker return Uint8Array, else none
      */

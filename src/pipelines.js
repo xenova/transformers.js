@@ -2590,7 +2590,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         const { waveform } = await this.model(inputs);
 
         const sampling_rate = this.model.config.sampling_rate;
-        return new RawAudio (
+        return new RawAudio(
             waveform.data,
             sampling_rate,
         )
@@ -2633,7 +2633,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         const { waveform } = await this.model.generate_speech(input_ids, speaker_embeddings, { vocoder: this.vocoder });
 
         const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
-        return new RawAudio (
+        return new RawAudio(
             waveform.data,
             sampling_rate,
         )
