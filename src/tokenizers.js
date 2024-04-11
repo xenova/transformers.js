@@ -2431,6 +2431,12 @@ function truncateHelper(item, length) {
 }
 
 
+/**
+ * @typedef {Object} Message
+ * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
+ * @property {string} content The content of the message.
+ */
+
 export class PreTrainedTokenizer extends Callable {
     return_token_type_ids = false;
 
@@ -2994,12 +3000,6 @@ export class PreTrainedTokenizer extends Callable {
 
         return this._default_chat_template;
     }
-
-    /**
-     * @typedef {Object} Message
-     * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
-     * @property {string} content The content of the message.
-     */
 
     /**
      * Converts a list of message objects with `"role"` and `"content"` keys to a list of token
