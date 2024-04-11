@@ -703,7 +703,7 @@ export class PreTrainedModel extends Callable {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSessions(pretrained_model_name_or_path, {
-                    model: 'embed_tokens',
+                    embed_tokens: 'embed_tokens',
                     vision_encoder: 'vision_encoder',
                     decoder_model_merged: 'decoder_model_merged',
                 }, options),
@@ -3354,7 +3354,7 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 
     async encode_text({ input_ids }) {
         // text_inputs === { input_ids, attention_mask }
-        return (await sessionRun(this.sessions['input_embeds'], { input_ids })).inputs_embeds;
+        return (await sessionRun(this.sessions['embed_tokens'], { input_ids })).inputs_embeds;
     }
 
     _merge_input_ids_with_image_features({
