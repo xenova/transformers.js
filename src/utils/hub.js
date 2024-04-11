@@ -157,7 +157,7 @@ class FileResponse {
  * @param {string[]} [validHosts=null] A list of valid hostnames. If specified, the URL's hostname must be in this list.
  * @returns {boolean} True if the string is a valid URL, false otherwise.
  */
-export function isValidUrl(string, protocols = null, validHosts = null) {
+function isValidUrl(string, protocols = null, validHosts = null) {
     let url;
     try {
         url = new URL(string);
