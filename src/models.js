@@ -217,6 +217,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
  * @param {Record<string, string>} names The names of the model files to load.
  * @param {import('./utils/hub.js').PretrainedModelOptions} options Additional options for loading the model.
  * @returns {Promise<Record<string, any>>} A Promise that resolves to a dictionary of InferenceSession objects.
+ * @private
  */
 async function constructSessions(pretrained_model_name_or_path, names, options) {
     const keys = Object.keys(names);
