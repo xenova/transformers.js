@@ -676,18 +676,20 @@ export class RawAudio {
      * @param {number} sampling_rate
      */
     constructor(audio, sampling_rate) {
+        if(!(ArrayBuffer.isView(audio) && typeof sampling_rate == 'number')){
+            throw Error('TypeError')
+        }
         this.audio = audio;
         this.sampling_rate = sampling_rate;
     }
 
     /**
-     * Save the audio to a wav file.
+     * Convert the audio to a wav blob.
      * WAV file specs : https://en.wikipedia.org/wiki/Waveform_Audio_File_Format
-     * @param {string} path
-     * @returns {any} if webworker return Uint8Array, else none
+     * @returns {Blob}
      */
-    save(path) {
-        let audio, sampling_rate, out, wav_header, buf_size, nums
+    toBlob() {
+        let audio, sampling_rate, wav_header, buf_size, nums
 
         ({
             audio,
@@ -709,7 +711,6 @@ export class RawAudio {
             100, 97, 116, 97, // 'data'
             null, 0, 0, 0 // data size
         ]
-        out = new Uint8Array(buf_size + wav_header.length)
         nums = [buf_size + wav_header.length - 8, sampling_rate, 4 * sampling_rate, buf_size]
 
         nums.forEach((i, j) => {
@@ -718,27 +719,47 @@ export class RawAudio {
                 wav_header[j++] = (i & 255), i >>= 8
             } while (i > 0)
         });
+        wav_header = new Uint8Array(wav_header)
 
-        out.set(wav_header)
-        out.set(new Uint8Array(audio.buffer), wav_header.length)
+        return new Blob([wav_header, audio])
+    }
+
+    /**
+     * Save the audio to a wav file.
+     * @param {string} path
+     */
+    async save(path = 'audio.wav'){
+        let fn
 
         if (env.isBrowserEnv) {
             if (env.isWebworkerEnv) {
-                return out
+                throw new Error('Unable to save a file from a Web Worker.')
             }
-            const dataURL = URL.createObjectURL(new Blob([out]));
-            const downloadLink = document.createElement('a');
-            downloadLink.href = dataURL;
-            downloadLink.download = path;
-            downloadLink.click();
-            downloadLink.remove();
+            fn = (path, blob) => {
+                const dataURL = URL.createObjectURL(blob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = dataURL;
+                downloadLink.download = path;
+                downloadLink.click();
+                downloadLink.remove();
+            }
         } else if (env.useFS) {
-            fs.appendFile(path, Buffer.from(out), (err) => {
-                throw new Error(err);
-            });
+            fn = async (path, blob) => {
+                let buf = await blob.arrayBuffer();
+                buf = new Uint8Array(buf)
+                fs.writeFile(path, buf, (err) => {
+                    throw new Error(err);
+                });
+            }
         } else {
             throw new Error('Unable to save because filesystem is disabled in this environment.')
         }
 
+        if(!(/\.wav$/.test(path))){
+            console.warn('change filename extension to .wav')
+            path = path.replace(/\.\w{0,4}$/, '') + '.wav'
+        }
+
+        await fn(path, this.toBlob())
     }
 }
