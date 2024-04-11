@@ -48,7 +48,6 @@ NO_PER_CHANNEL_REDUCE_RANGE_MODELS = {
     # Encoder-decoder models
     'whisper',
     'vision-encoder-decoder',
-    'musicgen',
 
     # Encoder-only models
     'owlv2',
