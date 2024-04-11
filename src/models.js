@@ -51,7 +51,8 @@ import {
 import {
     DATA_TYPES,
     DEFAULT_DEVICE_DTYPE_MAPPING,
-    DEFAULT_DTYPE_SUFFIX_MAPPING, FP16_SUPPORTED,
+    DEFAULT_DTYPE_SUFFIX_MAPPING,
+    isFp16Supported,
 } from './utils/dtypes.js';
 
 import {
@@ -137,20 +138,40 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
  * @param {string} fileName The name of the model file.
  * @param {import('./utils/hub.js').PretrainedModelOptions} options Additional options for loading the model.
- * @returns {Promise<Object>} A Promise that resolves to an InferenceSession object.
+ * @returns {Promise<{buffer: Uint8Array, session_options: Object}>} A Promise that resolves to the data needed to create an InferenceSession object.
  * @private
  */
-async function constructSession(pretrained_model_name_or_path, fileName, options) {
+async function getSession(pretrained_model_name_or_path, fileName, options) {
+    let device = options.device;
+    if (device && typeof device !== 'string') {
+        if (device.hasOwnProperty(fileName)) {
+            device = device[fileName];
+        } else {
+            console.warn(`Device not specified for ${fileName}. Using the default device.`);
+            device = null;
+        }
+    }
 
     // If the device is not specified, we use the default (supported) execution providers.
-    const executionProviders = deviceToExecutionProviders(options.device);
+    const executionProviders = deviceToExecutionProviders(
+        /** @type {import("./utils/devices.js").DeviceType|null} */(device)
+    );
 
     // If options.dtype is specified, we use it to choose the suffix for the model file.
     // Otherwise, we use the default dtype for the device.
-    const dtype = options.dtype ?? DEFAULT_DEVICE_DTYPE_MAPPING[executionProviders[0]];
+    let dtype = options.dtype;
+    if (typeof dtype !== 'string') {
+        if (dtype && dtype.hasOwnProperty(fileName)) {
+            dtype = dtype[fileName];
+        } else {
+            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[executionProviders[0]];
+            console.warn(`Dtype not specified for ${fileName}. Using the default dtype: ${dtype}.`);
+        }
+    }
+
     if (!DEFAULT_DTYPE_SUFFIX_MAPPING.hasOwnProperty(dtype)) {
         throw new Error(`Invalid dtype: ${dtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
-    } else if (dtype === DATA_TYPES.fp16 && !FP16_SUPPORTED) {
+    } else if (dtype === DATA_TYPES.fp16 && !(await isFp16Supported())) {
         throw new Error(`The device does not support fp16.`);
     }
 
@@ -184,8 +205,32 @@ async function constructSession(pretrained_model_name_or_path, fileName, options
     //         options.session_options.preferredOutputLocation[`present.${i}.value`] = 'gpu-buffer';
     //     }
     // }
+    return { buffer, session_options };
+}
 
-    return await createInferenceSession(buffer, session_options);
+/**
+ * Helper function to sequentially create multiple InferenceSession objects.
+ * NOTE: It is important to create the sessions sequentially, otherwise ORT will throw an error indicating
+ * that multiple calls to `initWasm` were made.
+ * 
+ * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
+ * @param {Record<string, string>} names The names of the model files to load.
+ * @param {import('./utils/hub.js').PretrainedModelOptions} options Additional options for loading the model.
+ * @returns {Promise<Record<string, any>>} A Promise that resolves to a dictionary of InferenceSession objects.
+ */
+async function constructSessions(pretrained_model_name_or_path, names, options) {
+    const keys = Object.keys(names);
+    const sessionData = await Promise.all(
+        keys.map(async (name) => getSession(pretrained_model_name_or_path, names[name], options))
+    );
+
+    const sessions = {};
+    for (let i = 0; i < keys.length; ++i) {
+        const { buffer, session_options } = sessionData[i];
+        const session = await createInferenceSession(buffer, session_options);
+        sessions[keys[i]] = session;
+    }
+    return sessions;
 }
 
 /**
@@ -375,7 +420,7 @@ async function seq2seqForward(self, model_inputs) {
 
     // Encode if needed
     if (!encoder_outputs) {
-        const encoder_inputs = pick(model_inputs, self.session.inputNames);
+        const encoder_inputs = pick(model_inputs, self.sessions['model'].inputNames);
         // Encoder outputs are not given, so we must compute them.
         encoder_outputs = (await encoderForward(self, encoder_inputs)).last_hidden_state;
     }
@@ -384,7 +429,7 @@ async function seq2seqForward(self, model_inputs) {
     other_decoder_inputs.input_ids = decoder_input_ids;
     other_decoder_inputs.encoder_hidden_states = encoder_outputs;
 
-    if (self.decoder_merged_session.inputNames.includes('encoder_attention_mask')) {
+    if (self.sessions['decoder_model_merged'].inputNames.includes('encoder_attention_mask')) {
         other_decoder_inputs.encoder_attention_mask = model_inputs.attention_mask
     }
 
@@ -404,11 +449,12 @@ async function seq2seqForward(self, model_inputs) {
  * @private
  */
 async function encoderForward(self, model_inputs) {
+    const session = self.sessions['model'];
     const encoderFeeds = Object.create(null);
-    for (const key of self.session.inputNames) {
+    for (const key of session.inputNames) {
         encoderFeeds[key] = model_inputs[key];
     }
-    if (self.session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
+    if (session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
         // Assign default `token_type_ids` (all zeroes) to the `encoderFeeds` if the model expects it,
         // but they weren't created by the tokenizer.
         encoderFeeds.token_type_ids = new Tensor(
@@ -417,7 +463,7 @@ async function encoderForward(self, model_inputs) {
             encoderFeeds.input_ids.dims
         )
     }
-    return await sessionRun(self.session, encoderFeeds);
+    return await sessionRun(session, encoderFeeds);
 }
 
 /**
@@ -428,9 +474,12 @@ async function encoderForward(self, model_inputs) {
  * @private
  */
 async function decoderForward(self, model_inputs, is_encoder_decoder = false) {
-    const { past_key_values, ...new_model_inputs } = model_inputs;
 
-    const session = is_encoder_decoder ? self.decoder_merged_session : self.session;
+    const session = self.sessions[
+        is_encoder_decoder ? 'decoder_model_merged' : 'model'
+    ]
+
+    const { past_key_values, ...new_model_inputs } = model_inputs;
 
     if (session.inputNames.includes('use_cache_branch')) {
         new_model_inputs.use_cache_branch = boolTensor(!!past_key_values);
@@ -443,8 +492,9 @@ async function decoderForward(self, model_inputs, is_encoder_decoder = false) {
 }
 
 function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
+    const session = self.sessions['model'];
 
-    if (self.session.inputNames.includes('position_ids') && model_inputs.attention_mask && !model_inputs.position_ids) {
+    if (session.inputNames.includes('position_ids') && model_inputs.attention_mask && !model_inputs.position_ids) {
         // If the model supports providing position_ids, we create position_ids on the fly for batch generation,
         // by computing the cumulative sum of the attention mask along the sequence length dimension.
         // 
@@ -509,13 +559,13 @@ export class PreTrainedModel extends Callable {
     /**
      * Creates a new instance of the `PreTrainedModel` class.
      * @param {Object} config The model configuration.
-     * @param {any} session session for the model.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      */
-    constructor(config, session) {
+    constructor(config, sessions) {
         super();
 
         this.config = config;
-        this.session = session;
+        this.sessions = sessions;
 
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this.constructor);
         const modelType = MODEL_TYPE_MAPPING.get(modelName);
@@ -614,47 +664,59 @@ export class PreTrainedModel extends Callable {
         if (modelType === MODEL_TYPES.DecoderOnly) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'model', options),
+                constructSessions(pretrained_model_name_or_path, {
+                    model: options.model_file_name ?? 'model',
+                }, options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
             ]);
 
         } else if (modelType === MODEL_TYPES.Seq2Seq || modelType === MODEL_TYPES.Vision2Seq) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'encoder_model', options),
-                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+                constructSessions(pretrained_model_name_or_path, {
+                    model: 'encoder_model',
+                    decoder_model_merged: 'decoder_model_merged',
+                }, options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
             ]);
 
         } else if (modelType === MODEL_TYPES.MaskGeneration) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'vision_encoder', options),
-                constructSession(pretrained_model_name_or_path, 'prompt_encoder_mask_decoder', options),
+                constructSessions(pretrained_model_name_or_path, {
+                    model: 'vision_encoder',
+                    prompt_encoder_mask_decoder: 'prompt_encoder_mask_decoder',
+                }, options),
             ]);
 
         } else if (modelType === MODEL_TYPES.EncoderDecoder) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'encoder_model', options),
-                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+                constructSessions(pretrained_model_name_or_path, {
+                    model: 'encoder_model',
+                    decoder_model_merged: 'decoder_model_merged',
+                }, options),
             ]);
 
         } else if (modelType === MODEL_TYPES.ImageTextToText) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'embed_tokens', options),
-                constructSession(pretrained_model_name_or_path, 'vision_encoder', options),
-                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
+                constructSessions(pretrained_model_name_or_path, {
+                    model: 'embed_tokens',
+                    vision_encoder: 'vision_encoder',
+                    decoder_model_merged: 'decoder_model_merged',
+                }, options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
             ]);
 
         } else if (modelType === MODEL_TYPES.Musicgen) {
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, 'text_encoder', options),
-                constructSession(pretrained_model_name_or_path, 'decoder_model_merged', options),
-                constructSession(pretrained_model_name_or_path, 'encodec_decode', options),
+                constructSessions(pretrained_model_name_or_path, {
+                    model: 'text_encoder',
+                    decoder_model_merged: 'decoder_model_merged',
+                    encodec_decode: 'encodec_decode',
+                }, options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
             ]);
 
@@ -664,7 +726,9 @@ export class PreTrainedModel extends Callable {
             }
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
-                constructSession(pretrained_model_name_or_path, options.model_file_name ?? 'model', options)
+                constructSessions(pretrained_model_name_or_path, {
+                    model: options.model_file_name ?? 'model',
+                }, options),
             ]);
         }
 
@@ -1004,7 +1068,7 @@ export class PreTrainedModel extends Callable {
     }
 
     async _prepare_encoder_decoder_kwargs_for_generation({ inputs_tensor, model_inputs, model_input_name, generation_config }) {
-        const encoder_kwargs = pick(model_inputs, this.session.inputNames);
+        const encoder_kwargs = pick(model_inputs, this.sessions['model'].inputNames);
 
         let { last_hidden_state } = await encoderForward(this, encoder_kwargs);
 
@@ -2391,13 +2455,11 @@ export class T5PreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `T5PreTrainedModel` class.
      * @param {Object} config The model configuration.
-     * @param {any} session session for the model.
-     * @param {any} decoder_merged_session session for the decoder.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.num_decoder_layers;
@@ -2428,13 +2490,11 @@ export class LongT5PreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `LongT5ForConditionalGeneration` class.
      * @param {Object} config The model configuration.
-     * @param {any} session session for the model.
-     * @param {any} decoder_merged_session session for the decoder.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.num_decoder_layers;
@@ -2465,14 +2525,12 @@ export class MT5PreTrainedModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `MT5ForConditionalGeneration` class.
-     * @param {any} config The model configuration.
-     * @param {any} session The ONNX session containing the encoder weights.
-     * @param {any} decoder_merged_session The ONNX session containing the merged decoder weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.num_decoder_layers;
@@ -2499,14 +2557,12 @@ export class BartPretrainedModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `BartForConditionalGeneration` class.
-     * @param {Object} config The configuration object for the Bart model.
-     * @param {Object} session The ONNX session used to execute the model.
-     * @param {Object} decoder_merged_session The ONNX session used to execute the decoder.
-     * @param {Object} generation_config The generation configuration object.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
@@ -2552,14 +2608,12 @@ export class MBartPreTrainedModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `MBartForConditionalGeneration` class.
-     * @param {Object} config The configuration object for the Bart model.
-     * @param {Object} session The ONNX session used to execute the model.
-     * @param {Object} decoder_merged_session The ONNX session used to execute the decoder.
-     * @param {Object} generation_config The generation configuration object.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
@@ -2601,13 +2655,12 @@ export class MBartForSequenceClassification extends MBartPreTrainedModel {
 export class MBartForCausalLM extends MBartPreTrainedModel {
     /**
      * Creates a new instance of the `MBartForCausalLM` class.
-     * @param {Object} config Configuration object for the model.
-     * @param {Object} decoder_merged_session ONNX Session object for the decoder.
-     * @param {Object} generation_config Configuration object for the generation process.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, decoder_merged_session, generation_config) {
-        super(config, decoder_merged_session);
-        this.generation_config = generation_config;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions, generation_config);
 
         this.num_decoder_layers = this.config.decoder_layers;
         this.num_decoder_heads = this.config.decoder_attention_heads;
@@ -2627,14 +2680,12 @@ export class BlenderbotPreTrainedModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `BlenderbotForConditionalGeneration` class.
-     * @param {any} config The model configuration.
-     * @param {any} session The ONNX session containing the encoder weights.
-     * @param {any} decoder_merged_session The ONNX session containing the merged decoder weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
@@ -2665,14 +2716,12 @@ export class BlenderbotSmallPreTrainedModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `BlenderbotForConditionalGeneration` class.
-     * @param {any} config The model configuration.
-     * @param {any} session The ONNX session containing the encoder weights.
-     * @param {any} decoder_merged_session The ONNX session containing the merged decoder weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
@@ -2929,14 +2978,12 @@ export class WhisperPreTrainedModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
-     * @param {Object} config Configuration object for the model.
-     * @param {Object} session ONNX Session object for the model.
-     * @param {Object} decoder_merged_session ONNX Session object for the decoder.
-     * @param {Object} generation_config Configuration object for the generation process.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
@@ -3215,14 +3262,12 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
-     * @param {Object} config The configuration object specifying the hyperparameters and other model settings.
-     * @param {Object} session The ONNX session containing the encoder model.
-     * @param {any} decoder_merged_session The ONNX session containing the merged decoder model.
-     * @param {Object} generation_config Configuration object for the generation process.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // Extract configs
@@ -3247,7 +3292,7 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
         // @ts-ignore
         const decoderModelClass = decoderModel[1];
         // @ts-ignore
-        const decoder = new decoderModelClass(decoderConfig, decoder_merged_session, generation_config);
+        const decoder = new decoderModelClass(decoderConfig, { /* No sessions */ }, generation_config);
 
         this.add_encoder_pkv = 'num_decoder_layers' in decoder;
         if (this.add_encoder_pkv) {
@@ -3281,11 +3326,8 @@ export class LlavaPreTrainedModel extends PreTrainedModel {
         'attention_mask',
     ];
 
-    constructor(config, input_embeds_session, vision_encoder_session, decoder_merged_session, generation_config) {
-        super(config, input_embeds_session);
-        this.vision_encoder_session = vision_encoder_session;
-        this.decoder_merged_session = decoder_merged_session;
-
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         const decoderConfig = this.config.text_config;
@@ -3306,12 +3348,12 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 
     async encode_image({ pixel_values }) {
         // image_inputs === { pixel_values }
-        return (await sessionRun(this.vision_encoder_session, { pixel_values })).image_features;
+        return (await sessionRun(this.sessions['vision_encoder'], { pixel_values })).image_features;
     }
 
     async encode_text({ input_ids }) {
         // text_inputs === { input_ids, attention_mask }
-        return (await sessionRun(this.session, { input_ids })).inputs_embeds;
+        return (await sessionRun(this.sessions['input_embeds'], { input_ids })).inputs_embeds;
     }
 
     _merge_input_ids_with_image_features({
@@ -4860,14 +4902,12 @@ export class MarianPreTrainedModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `MarianMTModel` class.
-    * @param {Object} config The model configuration object.
-    * @param {Object} session The ONNX session object.
-    * @param {any} decoder_merged_session 
-    * @param {any} generation_config 
-    */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
@@ -4891,14 +4931,12 @@ export class M2M100PreTrainedModel extends PreTrainedModel {
 
     /**
      * Creates a new instance of the `M2M100ForConditionalGeneration` class.
-    * @param {Object} config The model configuration object.
-    * @param {Object} session The ONNX session object.
-    * @param {any} decoder_merged_session 
-    * @param {any} generation_config 
-    */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
@@ -5338,13 +5376,11 @@ export class SpeechT5PreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `SpeechT5ForTextToSpeech` class.
      * @param {Object} config The model configuration.
-     * @param {any} session session for the model.
-     * @param {any} decoder_merged_session session for the decoder.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         this.num_decoder_layers = this.config.decoder_layers;
@@ -5478,7 +5514,7 @@ export class SpeechT5ForTextToSpeech extends SpeechT5PreTrainedModel {
             };
 
             this.addPastKeyValues(decoderFeeds, past_key_values);
-            decoder_outputs = await sessionRun(this.decoder_merged_session, decoderFeeds);
+            decoder_outputs = await sessionRun(this.sessions['decoder_model_merged'], decoderFeeds);
             past_key_values = this.getPastKeyValues(decoder_outputs, past_key_values);
 
             const { prob, spectrum } = decoder_outputs;
@@ -5493,7 +5529,7 @@ export class SpeechT5ForTextToSpeech extends SpeechT5PreTrainedModel {
         }
 
         const spectrogram = cat(spectrogramParts);
-        const { waveform } = await sessionRun(vocoder.session, { spectrogram });
+        const { waveform } = await sessionRun(vocoder.sessions['model'], { spectrogram });
 
         return {
             spectrogram,
@@ -5887,15 +5923,11 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
     /**
      * Creates a new instance of the `MusicgenForConditionalGeneration` class.
      * @param {Object} config The model configuration.
-     * @param {any} session session for the model.
-     * @param {any} decoder_merged_session session for the decoder.
-     * @param {any} encodec_decode session for the encodec.decode function.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, decoder_merged_session, encodec_decode, generation_config) {
-        super(config, session);
-        this.decoder_merged_session = decoder_merged_session;
-        this.encodec_decode = encodec_decode;
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // decoder
@@ -5978,7 +6010,7 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
             /** @type {Tensor} */(output_ids)
         ).unsqueeze_(0); // append the frame dimension back to the audio codes
 
-        const { audio_values } = await sessionRun(this.encodec_decode, { audio_codes })
+        const { audio_values } = await sessionRun(this.sessions['encodec_decode'], { audio_codes })
 
         return audio_values;
     }
