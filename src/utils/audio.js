@@ -12,7 +12,7 @@ import {
 } from './hub.js';
 import { FFT, max } from './maths.js';
 import {
-    calculateReflectOffset,
+    calculateReflectOffset, saveBlob,
 } from './core.js';
 import { env } from '../env.js';
 import fs from 'fs';
@@ -735,14 +735,7 @@ export class RawAudio {
             if (env.isWebworkerEnv) {
                 throw new Error('Unable to save a file from a Web Worker.')
             }
-            fn = (path, blob) => {
-                const dataURL = URL.createObjectURL(blob);
-                const downloadLink = document.createElement('a');
-                downloadLink.href = dataURL;
-                downloadLink.download = path;
-                downloadLink.click();
-                downloadLink.remove();
-            }
+            fn = saveBlob
         } else if (env.useFS) {
             fn = async (path, blob) => {
                 let buf = await blob.arrayBuffer();

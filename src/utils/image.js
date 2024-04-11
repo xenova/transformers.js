@@ -11,6 +11,7 @@
 import { getFile } from './hub.js';
 import { env } from '../env.js';
 import { Tensor } from './tensor.js';
+import { saveBlob } from './core.js';
 
 // Will be empty (or not used) if running in browser or web-worker
 import sharp from 'sharp';
@@ -690,21 +691,7 @@ export class RawImage {
             // Convert image to Blob
             const blob = await this.toBlob(mime);
 
-            // Convert the canvas content to a data URL
-            const dataURL = URL.createObjectURL(blob);
-
-            // Create an anchor element with the data URL as the href attribute
-            const downloadLink = document.createElement('a');
-            downloadLink.href = dataURL;
-
-            // Set the download attribute to specify the desired filename for the downloaded image
-            downloadLink.download = path;
-
-            // Trigger the download
-            downloadLink.click();
-
-            // Clean up: remove the anchor element from the DOM
-            downloadLink.remove();
+            saveBlob(path, blob)
 
         } else if (!env.useFS) {
             throw new Error('Unable to save the image because filesystem is disabled in this environment.')
