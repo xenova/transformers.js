@@ -1,7 +1,7 @@
 
 import { AutoProcessor } from '../src/transformers.js';
 import { mel_filter_bank } from '../src/utils/audio.js';
-import { isValidUrl } from '../src/utils/hub.js';
+import { getFile } from '../src/utils/hub.js';
 
 import { MAX_TEST_EXECUTION_TIME } from './init.js';
 
@@ -46,12 +46,12 @@ describe('Utilities', () => {
 
     describe('Hub utilities', () => {
             
-            it('should validate URL', async () => {
-                expect(isValidUrl('file:///path/to/file')).toBe(true);
-                expect(isValidUrl('https://example.com', ['http:', 'https:'])).toBe(true);
-                expect(isValidUrl('http://example.com', ['http:'], ['example.com'])).toBe(true);
-                expect(isValidUrl('http://should.failed', ['http:'], ['example.com'])).toBe(false);
-            });
+        it('Read data from blob', async () => {
+            const blob = new Blob(['Hello, world!'], { type: 'text/plain' });
+            const blobUrl = URL.createObjectURL(blob);
+            const data = await getFile(blobUrl);
+            expect(data.body).toBe('Hello, world!');
+        });
 
     });
 });
