@@ -679,8 +679,8 @@ export class RawAudio {
     constructor(audio, sampling_rate) {
         if (!(
                 typeof audio == 'object' &&
-                (audio.constructor.name == 'Array' && audio.length && audio.length <= 2 && typeof audio[0] == 'object' && audio[0].constructor.name == 'Float32Array' && audio[0].length == audio[1].length) ||
-                (audio.constructor.name == 'Float32Array') &&
+                ((audio.constructor.name == 'Array' && audio.length && audio.length <= 2 && typeof audio[0] == 'object' && audio[0].constructor.name == 'Float32Array') ||
+                (audio.constructor.name == 'Float32Array')) &&
                 typeof sampling_rate == 'number'
             )) {
             throw Error('TypeError. Expected audio as Float32Array or [Float32Array, Float32Array], and sampling_rate as number')
