@@ -1030,8 +1030,7 @@ export class PreTrainedModel extends Callable {
                 ], 1
             );
         } else if ('decoder_attention_mask' in model_inputs) {
-            // update decoder attention mask
-            console.warn('TODO: update decoder attention mask')
+            // TODO: update decoder attention mask if the model requires it
         }
 
         // force recreate position_ids in next iteration
