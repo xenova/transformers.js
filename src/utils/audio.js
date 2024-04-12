@@ -672,15 +672,72 @@ export class RawAudio {
 
     /**
      * Create a new `RawAudio` object.
-     * @param {Float32Array} audio
+     * Handles only Float32Array data, with 1 or 2 channels audio
+     * @param {Array|Float32Array} audio Float32Array or Array of Float32Array
      * @param {number} sampling_rate
      */
     constructor(audio, sampling_rate) {
-        if(!(ArrayBuffer.isView(audio) && typeof sampling_rate == 'number')){
-            throw Error('TypeError')
+        if (!(
+                typeof audio == 'object' &&
+                (audio.constructor.name == 'Array' && audio.length && audio.length <= 2 && typeof audio[0] == 'object' && audio[0].constructor.name == 'Float32Array' && audio[0].length == audio[1].length) ||
+                (audio.constructor.name == 'Float32Array') &&
+                typeof sampling_rate == 'number'
+            )) {
+            throw Error('TypeError. Expected audio as Float32Array or [Float32Array, Float32Array], and sampling_rate as number')
         }
-        this.audio = audio;
-        this.sampling_rate = sampling_rate;
+
+        if (audio.constructor.name != 'Array') audio = [audio]
+        this.audio = audio
+        this.sampling_rate = sampling_rate
+        this.interleaved = false
+    }
+
+    /**
+     * Combines multiple audio channels into one, alterning left / right audio input.
+     * @param {boolean} keepOriginalValues keep or not the original non-interleaved audio data
+     * @returns {Array} Array of Float32Array
+     */
+    interleave(keepOriginalValues = false) {
+        if (this.audio.length != 2 || this.interleaved == true) {
+            console.warn('Could not interleave audios data')
+            return
+        }
+
+        let audio, res, res2, len, i, offset
+
+        audio = this.audio
+        len = audio[0].length
+        res = new audio[0].constructor(len)
+        res2 = keepOriginalValues ? (new audio[0].constructor(len)) : audio[1]
+
+        for (i = 0; i < len;) {
+            res[i++] = audio[0][i >> 1]
+            res[i++] = audio[1][i >> 1]
+        }
+
+        if (len % 2) {
+            res[i - 1] = audio[0][i >> 1]
+            res2[0] = audio[1][i >> 1]
+            offset = i
+            i = 2
+        } else {
+            offset = i - 2
+            i = 1
+        }
+
+        for (; i < len; i += 2) {
+            res2[i - 1] = audio[0][(offset + i) >> 1]
+            res2[i] = audio[1][(offset + i) >> 1]
+        }
+
+        if (keepOriginalValues) {
+            return [res, res2]
+        } else {
+            this.interleaved = true
+            this.audio[0].set(res)
+            return this.audio
+        }
+
     }
 
     /**
@@ -695,40 +752,48 @@ export class RawAudio {
             audio,
             sampling_rate
         } = this)
-        buf_size = audio.buffer.byteLength
-        wav_header = [
-            82, 73, 70, 70, // 'RIFF'
-            null, 0, 0, 0, // RIFF size (file size - 8)
-            87, 65, 86, 69, // 'WAVE'
-            102, 109, 116, 32, // 'fmt '
-            16, 0, 0, 0, // fmt chunksize
-            3, 0, // format tag
-            1, 0, // channels
-            null, 0, 0, 0, // sample per sec
-            null, 0, 0, 0, // byte per sec (byte per bloc * sample rate)
-            4, 0, // byte per bloc
-            32, 0, // bits per sample
-            100, 97, 116, 97, // 'data'
-            null, 0, 0, 0 // data size
+        buf_size = audio[0].buffer.byteLength * audio.length
+        wav_header = new Uint8Array([
+            82, 73, 70, 70,    //  0: 'RIFF'
+            0, 0, 0, 0,        //  4: RIFF size (file size - 8)
+            87, 65, 86, 69,    //  8: 'WAVE'
+            102, 109, 116, 32, // 12: 'fmt '
+            16, 0, 0, 0,       // 16: fmt chunksize
+            3, 0,              // 20: format tag (1 int, 3 float)
+            audio.length, 0,   // 22: channels
+            0, 0, 0, 0,        // 24: sample per sec
+            0, 0, 0, 0,        // 28: byte per sec (byte per bloc * sample rate)
+            4, 0,              // 32: byte per bloc
+            32, 0,             // 34: bits per sample (16 bits int, 32 bits float)
+            100, 97, 116, 97,  // 38: 'data'
+            0, 0, 0, 0         // 42: data size
+        ])
+        nums = [
+            [4, buf_size + wav_header.length - 8],
+            [24, sampling_rate],
+            [28, 4 * sampling_rate],
+            [40, buf_size]
         ]
-        nums = [buf_size + wav_header.length - 8, sampling_rate, 4 * sampling_rate, buf_size]
 
-        nums.forEach((i, j) => {
-            j = wav_header.indexOf(null)
+        nums.forEach(([offset, num]) => {
             do {
-                wav_header[j++] = (i & 255), i >>= 8
-            } while (i > 0)
-        });
-        wav_header = new Uint8Array(wav_header)
+                wav_header[offset++] = (num & 255)
+                num >>= 8
+            } while (num > 0)
+        })
 
-        return new Blob([wav_header, audio])
+        if (audio.length == 2 && !this.interleaved) {
+            audio = this.interleave(true)
+        }
+
+        return new Blob([wav_header, ...audio])
     }
 
     /**
      * Save the audio to a wav file.
      * @param {string} path
      */
-    async save(path = 'audio.wav'){
+    async save(path = 'audio.wav') {
         let fn
 
         if (env.isBrowserEnv) {
@@ -748,8 +813,8 @@ export class RawAudio {
             throw new Error('Unable to save because filesystem is disabled in this environment.')
         }
 
-        if(!(/\.wav$/.test(path))){
-            console.warn('change filename extension to .wav')
+        if (!(/\.wav$/.test(path))) {
+            console.warn('Change filename extension to .wav')
             path = path.replace(/\.\w{0,4}$/, '') + '.wav'
         }
 
