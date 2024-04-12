@@ -1143,6 +1143,7 @@ export class PreTrainedModel extends Callable {
         generation_config = null,
         logits_processor = null,
         stopping_criteria = null,
+        streamer = null,
 
         // inputs_attention_mask = null,
         ...kwargs
@@ -1242,7 +1243,11 @@ export class PreTrainedModel extends Callable {
 
         // TODO make > numInputs
         const scores = new Array(numInputs).fill(0);
+        /** @type {bigint[][]} */
         const all_input_ids = input_ids.tolist();
+        if (streamer) {
+            streamer.put(all_input_ids);
+        }
         // const all_generated_input_ids = Array.from({ length: numInputs }, () => []);
 
         // NOTE: For now, we don't support spawning new beams
@@ -1286,9 +1291,9 @@ export class PreTrainedModel extends Callable {
                     generated_input_ids.push(bigint);
                 }
             }
-            // if(streamer) {
-            //     streamer.put(next_tokens.cpu())
-            // }
+            if (streamer) {
+                streamer.put(all_input_ids);
+            }
 
             const stop = prepared_stopping_criteria(all_input_ids);
             if (stop.every(x => x)) {
@@ -1298,6 +1303,10 @@ export class PreTrainedModel extends Callable {
             model_inputs = this._update_model_kwargs_for_generation({
                 generated_input_ids, outputs, model_inputs, is_encoder_decoder,
             })
+        }
+
+        if (streamer) {
+            streamer.end();
         }
 
         // TODO: ensure all_input_ids is padded correctly...

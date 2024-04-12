@@ -26,5 +26,8 @@
  * Custom stopping criteria that complements the default stopping criteria built from arguments and a
  * generation config. If a stopping criteria is passed that is already created with the arguments or a
  * generation config an error is thrown. This feature is intended for advanced users.
+ * @property {import('./streamers.js').BaseStreamer} [streamer=null] (`BaseStreamer`, *optional*):
+ * Streamer object that will be used to stream the generated sequences. Generated tokens are passed
+ * through `streamer.put(token_ids)` and the streamer is responsible for any further processing.
  * @param {any} [kwargs] (`Dict[str, any]`, *optional*):
  */

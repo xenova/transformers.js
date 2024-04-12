@@ -59,6 +59,8 @@
       title: Logits Samplers
     - local: api/generation/stopping_criteria
       title: Stopping Criteria
+    - local: api/generation/streamers
+      title: Streamers
     title: Generation
     isExpanded: false
   - sections:
