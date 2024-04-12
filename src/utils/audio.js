@@ -710,15 +710,15 @@ export class RawAudio {
         res = new audio[0].constructor(len)
         res2 = keepOriginalValues ? (new audio[0].constructor(len)) : audio[1]
 
-        for (i = 0; i < len;) {
-            res[i++] = audio[0][i >> 1]
-            res[i++] = audio[1][i >> 1]
+        for (i = 1; i < len; i += 2) {
+            res[i - 1] = audio[0][i >> 1]
+            res[i] = audio[1][i >> 1]
         }
 
         if (len % 2) {
             res[i - 1] = audio[0][i >> 1]
             res2[0] = audio[1][i >> 1]
-            offset = i
+            offset = i - 1
             i = 2
         } else {
             offset = i - 2
