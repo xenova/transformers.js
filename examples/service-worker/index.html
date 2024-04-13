@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+
+<head>
+    <meta charset="utf-8">
+    <title>sw-example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type="module">
+        window.module = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.0/dist/transformers.min.js")
+    </script>
+    <script>
+        window.addEventListener('load', start)
+
+        async function start(){
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.register("sw-transformers.js").then(
+                    (registration) => {
+                        document.querySelector('#pre1').innerHTML += "Service worker registration succeeded."
+                    },
+                    (error) => {
+                        document.querySelector('#pre1').innerHTML += (`Service worker registration failed: ${error}`);
+                    },
+                );
+            }
+            let cache = await caches.open('transformers-cache')
+            let keys = await cache.keys()
+            let txt = ''
+            for(let key of keys){
+                txt += key.url + '\n'
+            }
+            document.querySelector('#pre2').innerHTML += txt
+        }
+    </script>
+</head>
+
+<body>
+    
+<pre id="pre1">
+Transformers.js service worker example
+
+</pre>
+
+<pre id="pre2">
+Cached files:
+</pre>
+
+</body>
+</html>
+
+
+
