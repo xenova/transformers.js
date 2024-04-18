@@ -82,7 +82,8 @@ function App() {
           <option value="Xenova/gpt-3">gpt-3</option>
           <option value="Xenova/grok-1-tokenizer">Grok-1</option>
           <option value="Xenova/claude-tokenizer">Claude</option>
-          <option value="Xenova/mistral-tokenizer">Mistral</option>
+          <option value="Xenova/mistral-tokenizer-v3">Mistral v3</option>
+          <option value="Xenova/mistral-tokenizer-v1">Mistral v1</option>
           <option value="Xenova/gemma-tokenizer">Gemma</option>
           <option value="Xenova/llama-tokenizer">LLaMA / Llama 2</option>
           <option value="Xenova/c4ai-command-r-v01-tokenizer">Cohere Command-R</option>
