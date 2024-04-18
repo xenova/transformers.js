@@ -12,6 +12,7 @@ const TOKENIZER_OPTIONS = Object.freeze({
   'Xenova/mistral-tokenizer-v3': 'Mistral v3',
   'Xenova/mistral-tokenizer-v1': 'Mistral v1',
   'Xenova/gemma-tokenizer': 'Gemma',
+  'Xenova/llama-3-tokenizer': 'Llama 3',
   'Xenova/llama-tokenizer': 'LLaMA / Llama 2',
   'Xenova/c4ai-command-r-v01-tokenizer': 'Cohere Command-R',
   'Xenova/t5-small': 'T5',
