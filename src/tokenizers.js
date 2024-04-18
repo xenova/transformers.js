@@ -630,10 +630,12 @@ class BPE extends TokenizerModel {
      * Create a BPE instance.
      * @param {Object} config The configuration object for BPE.
      * @param {Object} config.vocab A mapping of tokens to ids.
+     * @param {string[]} config.merges An array of BPE merges as strings.
      * @param {string} config.unk_token The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
      * @param {string} [config.continuing_subword_suffix] The suffix to insert between words.
-     * @param {Array} config.merges An array of BPE merges as strings.
+     * @param {boolean} [config.byte_fallback=false] Whether to use spm byte-fallback trick (defaults to False)
+     * @param {boolean} [config.ignore_merges=false] Whether or not to match tokens with the vocab before using merges.
      */
     constructor(config) {
         super(config);
@@ -664,6 +666,8 @@ class BPE extends TokenizerModel {
         if (this.byte_fallback) {
             this.text_encoder = new TextEncoder();
         }
+
+        this.ignore_merges = this.config.ignore_merges ?? false;
 
         /** @type {Map<string, string[]>} */
         this.cache = new Map();
@@ -826,6 +830,10 @@ class BPE extends TokenizerModel {
         const outputTokens = [];
 
         for (const token of tokens) {
+            if (this.ignore_merges && this.tokens_to_ids.has(token)) {
+                outputTokens.push(token);
+                continue;
+            }
             const bpe_token_list = this.bpe(token);
 
             for (const t of bpe_token_list) {
