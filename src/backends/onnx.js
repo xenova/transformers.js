@@ -16,7 +16,6 @@
  * @module backends/onnx
  */
 
-import path from 'path';
 import { env, apis } from '../env.js';
 
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
