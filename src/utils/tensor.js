@@ -151,9 +151,10 @@ export class Tensor {
      * @returns {number} The index of the first occurrence of item in the tensor data.
      */
     indexOf(item) {
-        for (let index = 0; index < this.data.length; ++index) {
+        const this_data = this.data;
+        for (let index = 0; index < this_data.length; ++index) {
             // Note: == instead of === so we can match Ints with BigInts
-            if (this.data[index] == item) {
+            if (this_data[index] == item) {
                 return index;
             }
         }
@@ -185,10 +186,11 @@ export class Tensor {
      * @throws {Error} If the tensor has more than one element.
      */
     item() {
-        if (this.data.length !== 1) {
-            throw new Error(`a Tensor with ${this.data.length} elements cannot be converted to Scalar`);
+        const this_data = this.data;
+        if (this_data.length !== 1) {
+            throw new Error(`a Tensor with ${this_data.length} elements cannot be converted to Scalar`);
         }
-        return this.data[0];
+        return this_data[0];
     }
 
     /**
@@ -212,8 +214,9 @@ export class Tensor {
      * @returns {Tensor} Returns `this`.
      */
     sigmoid_() {
-        for (let i = 0; i < this.data.length; ++i) {
-            this.data[i] = 1 / (1 + Math.exp(-this.data[i]));
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] = 1 / (1 + Math.exp(-this_data[i]));
         }
         return this;
     }
@@ -233,8 +236,9 @@ export class Tensor {
      * @returns {Tensor} Returns `this`.
      */
     mul_(val) {
-        for (let i = 0; i < this.data.length; ++i) {
-            this.data[i] *= val;
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] *= val;
         }
         return this;
     }
@@ -254,8 +258,9 @@ export class Tensor {
      * @returns {Tensor} Returns `this`.
      */
     add_(val) {
-        for (let i = 0; i < this.data.length; ++i) {
-            this.data[i] += val;
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] += val;
         }
         return this;
     }
@@ -308,9 +313,10 @@ export class Tensor {
         let newDims = newOffsets.map(([start, end]) => end - start);
         let newBufferSize = newDims.reduce((a, b) => a * b);
 
+        const this_data = this.data;
         // Allocate memory
         // @ts-ignore
-        let data = new this.data.constructor(newBufferSize);
+        let data = new this_data.constructor(newBufferSize);
 
         // Precompute strides
         const stride = this.stride();
@@ -322,7 +328,7 @@ export class Tensor {
                 originalIndex += ((num % size) + newOffsets[j][0]) * stride[j];
                 num = Math.floor(num / size);
             }
-            data[i] = this.data[originalIndex];
+            data[i] = this_data[originalIndex];
         }
         return new Tensor(this.type, data, newTensorDims);
 
@@ -371,9 +377,11 @@ export class Tensor {
             throw Error(`Unsupported norm: ${p}`);
         }
 
+        const this_data = this.data;
+
         if (dim === null) {
             // @ts-ignore
-            let val = this.data.reduce((a, b) => a + (b ** p), 0) ** (1 / p);
+            let val = this_data.reduce((a, b) => a + (b ** p), 0) ** (1 / p);
             return new Tensor(this.type, [val], []);
         }
 
@@ -386,10 +394,10 @@ export class Tensor {
 
         // Create a new array to store the accumulated values
         // @ts-ignore
-        const result = new this.data.constructor(this.data.length / this.dims[dim]);
+        const result = new this_data.constructor(this_data.length / this.dims[dim]);
 
         // Iterate over the data array
-        for (let i = 0; i < this.data.length; ++i) {
+        for (let i = 0; i < this_data.length; ++i) {
 
             // Calculate the index in the resulting array
             let resultIndex = 0;
@@ -405,7 +413,7 @@ export class Tensor {
             }
 
             // Accumulate the value at the current index
-            result[resultIndex] += (this.data[i]) ** p;
+            result[resultIndex] += (this_data[i]) ** p;
         }
 
         if (p !== 1) {
@@ -432,7 +440,8 @@ export class Tensor {
 
         const norm = this.norm(p, dim, true);
 
-        for (let i = 0; i < this.data.length; ++i) {
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
 
             // Calculate the index in the resulting array
             let resultIndex = 0;
@@ -448,7 +457,7 @@ export class Tensor {
             }
 
             // Divide by normalized value
-            this.data[i] /= norm.data[resultIndex];
+            this_data[i] /= norm.data[resultIndex];
         }
 
         return this;
@@ -578,8 +587,9 @@ export class Tensor {
     }
 
     neg_() {
-        for (let i = 0; i < this.data.length; ++i) {
-            this.data[i] = -this.data[i];
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] = -this_data[i];
         }
         return this;
     }
@@ -591,8 +601,9 @@ export class Tensor {
      * In-place version of @see {@link Tensor.clamp}
      */
     clamp_(min, max) {
-        for (let i = 0; i < this.data.length; ++i) {
-            this.data[i] = Math.min(Math.max(this.data[i], min), max);
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] = Math.min(Math.max(this_data[i], min), max);
         }
         return this;
     }
@@ -611,8 +622,9 @@ export class Tensor {
      * In-place version of @see {@link Tensor.round}
      */
     round_() {
-        for (let i = 0; i < this.data.length; ++i) {
-            this.data[i] = Math.round(this.data[i]);
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] = Math.round(this_data[i]);
         }
         return this;
     }
