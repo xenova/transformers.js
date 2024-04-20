@@ -970,17 +970,16 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
             : generate_kwargs.return_full_text ?? true;
 
         this.tokenizer.padding_side = 'left';
-        const { input_ids, attention_mask } = this.tokenizer(inputs, {
+        const text_inputs = this.tokenizer(inputs, {
             add_special_tokens,
             padding: true,
             truncation: true,
         });
 
         const outputTokenIds = /** @type {Tensor} */(await this.model.generate({
-            inputs: input_ids,
-
-            // TODO: add back?
-            // inputs_attention_mask: attention_mask,
+            // inputs: input_ids,
+            // attention_mask,
+            ...text_inputs,
             ...generate_kwargs
         }));
 
@@ -3189,6 +3188,7 @@ export async function pipeline(
         revision = 'main',
         device = null,
         dtype = null,
+        model_file_name = null,
         session_options = {},
     } = {}
 ) {
@@ -3218,6 +3218,7 @@ export async function pipeline(
         revision,
         device,
         dtype,
+        model_file_name,
         session_options,
     }
 
