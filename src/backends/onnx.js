@@ -68,7 +68,7 @@ export function deviceToExecutionProviders(device) {
  * Create an ONNX inference session.
  * @param {Uint8Array} buffer The ONNX model buffer.
  * @param {Object} session_options ONNX inference session options.
- * @returns {Promise<Object>} The ONNX inference session.
+ * @returns {Promise<import('onnxruntime-common').InferenceSession>} The ONNX inference session.
  */
 export async function createInferenceSession(buffer, session_options) {
     return await InferenceSession.create(buffer, session_options);
@@ -96,7 +96,8 @@ if (ONNX_ENV?.wasm) {
     ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/';
 
     // Proxy the WASM backend to prevent the UI from freezing
-    ONNX_ENV.wasm.proxy = true;
+    // NOTE: This is only needed when running in a non-worker browser environment.
+    ONNX_ENV.wasm.proxy = !apis.IS_WEBWORKER_ENV;
 
     // https://developer.mozilla.org/en-US/docs/Web/API/crossOriginIsolated
     if (typeof crossOriginIsolated === 'undefined' || !crossOriginIsolated) {
