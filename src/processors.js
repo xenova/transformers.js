@@ -336,10 +336,11 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         const threshold = gray_threshold / 255;
 
         let x_min = gray_image.width, y_min = gray_image.height, x_max = 0, y_max = 0;
+        const gray_image_data = gray_image.data;
         for (let j = 0; j < gray_image.height; ++j) {
             const row = j * gray_image.width;
             for (let i = 0; i < gray_image.width; ++i) {
-                if ((gray_image.data[row + i] - minValue) / diff < threshold) {
+                if ((gray_image_data[row + i] - minValue) / diff < threshold) {
                     // We have a non-zero pixel, so we update the min/max values accordingly
                     x_min = Math.min(x_min, i);
                     y_min = Math.min(y_min, j);
@@ -673,7 +674,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         return {
             original_size: [srcHeight, srcWidth],
             reshaped_input_size: reshaped_input_size,
-            pixel_values: pixel_values,
+            pixel_values,
         }
     }
 
@@ -747,12 +748,13 @@ export class SegformerFeatureExtractor extends ImageFeatureExtractor {
 
             // Buffer to store current largest value
             const buffer = data[0].data;
+            const segmentation_data = segmentation.data;
             for (let j = 1; j < data.dims[0]; ++j) {
                 const row = data[j].data;
                 for (let k = 0; k < row.length; ++k) {
                     if (row[k] > buffer[k]) {
                         buffer[k] = row[k];
-                        segmentation.data[k] = j;
+                        segmentation_data[k] = j;
                     }
                 }
             }
@@ -980,6 +982,8 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         let mask_k_area = 0;
         let original_area = 0;
 
+        const mask_probs_k_data = mask_probs[k].data;
+
         // Compute the area of all the stuff in query k
         for (let i = 0; i < mask_labels.length; ++i) {
             if (mask_labels[i] === k) {
@@ -987,7 +991,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
                 ++mask_k_area;
             }
 
-            if (mask_probs[k].data[i] >= mask_threshold) {
+            if (mask_probs_k_data[i] >= mask_threshold) {
                 ++original_area;
             }
         }
@@ -1050,11 +1054,13 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         for (let i = 0; i < mask_probs.length; ++i) {
             let score = pred_scores[i];
 
-            for (let j = 0; j < mask_probs[i].data.length; ++j) {
-                mask_probs[i].data[j] *= score
-                if (mask_probs[i].data[j] > bestScores[j]) {
+            const mask_probs_i_data = mask_probs[i].data;
+
+            for (let j = 0; j < mask_probs_i_data.length; ++j) {
+                mask_probs_i_data[j] *= score
+                if (mask_probs_i_data[j] > bestScores[j]) {
                     mask_labels[j] = i;
-                    bestScores[j] = mask_probs[i].data[j];
+                    bestScores[j] = mask_probs_i_data[j];
                 }
             }
         }
@@ -1062,6 +1068,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         let current_segment_id = 0;
 
         // let stuff_memory_list = {}
+        const segmentation_data = segmentation.data;
         for (let k = 0; k < pred_labels.length; ++k) {
             let pred_class = pred_labels[k];
 
@@ -1093,7 +1100,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
 
             // Add current object segment to final segmentation map
             for (let index of mask_k) {
-                segmentation.data[index] = current_segment_id;
+                segmentation_data[index] = current_segment_id;
             }
 
             segments.push({
@@ -1369,9 +1376,10 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 interpolated_mask = interpolate(interpolated_mask, original_size, 'bilinear', false);
 
                 if (binarize) {
-                    const binarizedMaskData = new Uint8Array(interpolated_mask.data.length);
-                    for (let i = 0; i < interpolated_mask.data.length; ++i) {
-                        if (interpolated_mask.data[i] > mask_threshold) {
+                    const data = interpolated_mask.data;
+                    const binarizedMaskData = new Uint8Array(data.length);
+                    for (let i = 0; i < data.length; ++i) {
+                        if (data[i] > mask_threshold) {
                             binarizedMaskData[i] = 1;
                         }
                     }
@@ -1468,7 +1476,7 @@ export class VitMatteImageProcessor extends ImageFeatureExtractor {
         ), 0);
 
         return {
-            pixel_values: pixel_values,
+            pixel_values,
 
             // Original sizes of images
             original_sizes: imageData.map(x => x.original_size),
@@ -1685,27 +1693,28 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
         validate_audio_inputs(audio, 'SeamlessM4TFeatureExtractor');
 
         let features = this._extract_fbank_features(audio, this.config.max_length);
+        const features_data = features.data;
 
         if (do_normalize_per_mel_bins) {
             const [num_features, feature_size] = features.dims;
             for (let i = 0; i < feature_size; ++i) {
                 let sum = 0;
                 for (let j = 0; j < num_features; ++j) {
-                    sum += features.data[j * feature_size + i];
+                    sum += features_data[j * feature_size + i];
                 }
 
                 const mean = sum / num_features;
 
                 let variance = 0;
                 for (let j = 0; j < num_features; ++j) {
-                    variance += (features.data[j * feature_size + i] - mean) ** 2;
+                    variance += (features_data[j * feature_size + i] - mean) ** 2;
                 }
                 variance /= num_features - 1; // NOTE: We use ddof=1
 
                 const std = Math.sqrt(variance + 1e-7);
                 for (let j = 0; j < num_features; ++j) {
                     const index = j * feature_size + i;
-                    features.data[index] = (features.data[index] - mean) / std;
+                    features_data[index] = (features_data[index] - mean) / std;
                 }
             }
         }
@@ -1717,8 +1726,8 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
             const pad_size = num_frames % pad_to_multiple_of;
             if (pad_size > 0) {
                 const padded_data = new Float32Array(num_channels * (num_frames + pad_size));
-                padded_data.set(features.data)
-                padded_data.fill(this.config.padding_value, features.data.length)
+                padded_data.set(features_data)
+                padded_data.fill(this.config.padding_value, features_data.length)
 
                 const numPaddedFrames = num_frames + pad_size;
                 features = {
@@ -1746,7 +1755,7 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
         }
 
         const input_features = new Tensor('float32',
-            features.data,
+            features_data,
             features.dims,
         ).view(
             1,
@@ -1759,20 +1768,21 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
         if (return_attention_mask) {
             const reshapedNumFrames = input_features.dims[1];
 
-            const attention_mask = new Tensor(
-                'int64',
-                new BigInt64Array(reshapedNumFrames),
-                [1, reshapedNumFrames],
-            );
+            const attention_mask_data = new BigInt64Array(reshapedNumFrames);
+
             if (padded_attention_mask) {
+                const padded_attention_mask_data = padded_attention_mask.data;
                 for (let i = 1, j = 0; i < num_frames; i += stride, ++j) {
-                    attention_mask.data[j] = padded_attention_mask.data[i];
+                    attention_mask_data[j] = padded_attention_mask_data[i];
                 }
             } else {
-                attention_mask.data.fill(1n);
+                attention_mask_data.fill(1n);
             }
-
-            result.attention_mask = attention_mask;
+            result.attention_mask = new Tensor(
+                'int64',
+                attention_mask_data,
+                [1, reshapedNumFrames],
+            );
         }
 
         return result;
@@ -1854,8 +1864,9 @@ export class ASTFeatureExtractor extends FeatureExtractor {
         if (this.config.do_normalize) {
             // Normalize the input audio spectrogram to have mean=0, std=0.5
             const denom = this.std * 2;
-            for (let i = 0; i < features.data.length; ++i) {
-                features.data[i] = (features.data[i] - this.mean) / denom;
+            const features_data = features.data;
+            for (let i = 0; i < features_data.length; ++i) {
+                features_data[i] = (features_data[i] - this.mean) / denom;
             }
         }
 
