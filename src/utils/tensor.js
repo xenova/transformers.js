@@ -1188,3 +1188,47 @@ export function ones(size) {
 export function ones_like(tensor) {
     return ones(tensor.dims);
 }
+
+/**
+ * Quantizes the embeddings tensor to binary or unsigned binary precision.
+ * @param {Tensor} tensor The tensor to quantize.
+ * @param {'binary'|'ubinary'} precision The precision to use for quantization.
+ * @returns {Tensor} The quantized tensor.
+ */
+export function quantize_embeddings(tensor, precision) {
+    if (tensor.dims.length !== 2) {
+        throw new Error("The tensor must have 2 dimensions");
+    }
+    if (tensor.dims.at(-1) % 8 !== 0) {
+        throw new Error("The last dimension of the tensor must be a multiple of 8");
+    }
+    if (!['binary', 'ubinary'].includes(precision)) {
+        throw new Error("The precision must be either 'binary' or 'ubinary'");
+    }
+
+    const signed = precision === 'binary';
+    const dtype = signed ? 'int8' : 'uint8';
+
+    // Create a typed array to store the packed bits
+    const cls = signed ? Int8Array : Uint8Array;
+    const inputData = tensor.data;
+    const outputData = new cls(inputData.length / 8);
+
+    // Iterate over each number in the array
+    for (let i = 0; i < inputData.length; ++i) {
+        // Determine if the number is greater than 0
+        const bit = inputData[i] > 0 ? 1 : 0;
+
+        // Calculate the index in the typed array and the position within the byte
+        const arrayIndex = Math.floor(i / 8);
+        const bitPosition = i % 8;
+
+        // Pack the bit into the typed array
+        outputData[arrayIndex] |= bit << (7 - bitPosition);
+        if (signed && bitPosition === 0) {
+            outputData[arrayIndex] -= 128;
+        }
+    };
+
+    return new Tensor(dtype, outputData, [tensor.dims[0], tensor.dims[1] / 8]);
+}
