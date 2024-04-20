@@ -1,5 +1,5 @@
 {
-  "name": "webgpu-segment-anything-client",
+  "name": "segment-anything-client",
   "private": true,
   "version": "0.0.0",
   "type": "module",
