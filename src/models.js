@@ -3812,12 +3812,12 @@ export class CLIPSegForImageSegmentation extends CLIPSegPreTrainedModel { }
 export class GPT2PreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `GPT2PreTrainedModel` class.
-     * @param {Object} config The configuration of the model.
-     * @param {any} session The ONNX session containing the model weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -3845,12 +3845,12 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel { }
 export class GPTNeoPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `GPTNeoPreTrainedModel` class.
-     * @param {Object} config The configuration of the model.
-     * @param {any} session The ONNX session containing the model weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -3871,12 +3871,12 @@ export class GPTNeoForCausalLM extends GPTNeoPreTrainedModel { }
 export class GPTNeoXPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `GPTNeoXPreTrainedModel` class.
-     * @param {Object} config The configuration of the model.
-     * @param {any} session The ONNX session containing the model weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -3898,12 +3898,12 @@ export class GPTNeoXForCausalLM extends GPTNeoXPreTrainedModel { }
 export class GPTJPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `GPTJPreTrainedModel` class.
-     * @param {Object} config The configuration of the model.
-     * @param {any} session The ONNX session containing the model weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -3926,12 +3926,12 @@ export class GPTJForCausalLM extends GPTJPreTrainedModel { }
 export class GPTBigCodePreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `GPTBigCodePreTrainedModel` class.
-     * @param {Object} config The configuration of the model.
-     * @param {any} session The ONNX session containing the model weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -3953,12 +3953,12 @@ export class GPTBigCodeForCausalLM extends GPTBigCodePreTrainedModel { }
 export class CodeGenPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `CodeGenPreTrainedModel` class.
-     * @param {Object} config The model configuration object.
-     * @param {Object} session The ONNX session object.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -3990,12 +3990,12 @@ export class CodeGenForCausalLM extends CodeGenPreTrainedModel { }
 export class LlamaPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `LlamaPreTrainedModel` class.
-     * @param {Object} config The model configuration object.
-     * @param {Object} session The ONNX session object.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -4023,12 +4023,12 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel { }
 export class Qwen2PreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `Qwen2PreTrainedModel` class.
-     * @param {Object} config The model configuration object.
-     * @param {Object} session The ONNX session object.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -4050,16 +4050,15 @@ export class Qwen2ForCausalLM extends Qwen2PreTrainedModel { }
 
 //////////////////////////////////////////////////
 // Phi models
-
 export class PhiPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `PhiPreTrainedModel` class.
-     * @param {Object} config The model configuration object.
-     * @param {Object} session The ONNX session object.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -4087,12 +4086,12 @@ export class PhiForCausalLM extends PhiPreTrainedModel { }
 export class BloomPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `BloomPreTrainedModel` class.
-     * @param {Object} config The configuration of the model.
-     * @param {any} session The ONNX session containing the model weights.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -4120,12 +4119,12 @@ export class BloomForCausalLM extends BloomPreTrainedModel { }
 export class MptPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `MptPreTrainedModel` class.
-     * @param {Object} config The model configuration object.
-     * @param {Object} session The ONNX session object.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -4154,12 +4153,12 @@ export class MptForCausalLM extends MptPreTrainedModel { }
 export class OPTPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `OPTPreTrainedModel` class.
-     * @param {Object} config The model configuration object.
-     * @param {Object} session The ONNX session object.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
      */
-    constructor(config, session, generation_config) {
-        super(config, session);
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
         this.generation_config = generation_config;
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
@@ -4798,16 +4797,6 @@ export class SamPreTrainedModel extends PreTrainedModel { }
  * ```
  */
 export class SamModel extends SamPreTrainedModel {
-    /**
-     * Creates a new instance of the `SamModel` class.
-     * @param {Object} config The configuration object specifying the hyperparameters and other model settings.
-     * @param {Object} vision_encoder The ONNX session containing the vision encoder model.
-     * @param {any} prompt_encoder_mask_decoder The ONNX session containing the prompt encoder and mask decoder model.
-     */
-    constructor(config, vision_encoder, prompt_encoder_mask_decoder) {
-        super(config, vision_encoder);
-        this.prompt_encoder_mask_decoder = prompt_encoder_mask_decoder;
-    }
 
     /**
      * Compute image embeddings and positional image embeddings, given the pixel values of an image.
@@ -4868,7 +4857,7 @@ export class SamModel extends SamPreTrainedModel {
         // Returns:
         //  - iou_scores: tensor.float32[batch_size,point_batch_size,3]
         //  - pred_masks: tensor.float32[batch_size,point_batch_size,3,256,256]
-        return await sessionRun(this.prompt_encoder_mask_decoder, {
+        return await sessionRun(this.sessions['prompt_encoder_mask_decoder'], {
             input_points: model_inputs.input_points,
             input_labels: model_inputs.input_labels,
             image_embeddings: model_inputs.image_embeddings,
