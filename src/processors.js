@@ -1362,9 +1362,10 @@ export class SamImageProcessor extends ImageFeatureExtractor {
                 interpolated_mask = interpolate(interpolated_mask, original_size, 'bilinear', false);
 
                 if (binarize) {
-                    const binarizedMaskData = new Uint8Array(interpolated_mask.data.length);
-                    for (let i = 0; i < interpolated_mask.data.length; ++i) {
-                        if (interpolated_mask.data[i] > mask_threshold) {
+                    const data = interpolated_mask.data;
+                    const binarizedMaskData = new Uint8Array(data.length);
+                    for (let i = 0; i < data.length; ++i) {
+                        if (data[i] > mask_threshold) {
                             binarizedMaskData[i] = 1;
                         }
                     }
