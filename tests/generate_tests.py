@@ -229,7 +229,7 @@ TOKENIZERS_WITH_CHAT_TEMPLATES = {
         'basic',
     ],
 
-    'mistralai/Mistral-7B-Instruct-v0.1': [
+    'Xenova/mistral-tokenizer-v1': [
         'basic',
     ],
 
