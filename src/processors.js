@@ -40,7 +40,7 @@ import {
 } from './utils/maths.js';
 
 
-import { Tensor, permute, cat, interpolate, stack } from './utils/tensor.js';
+import { Tensor, permute, cat, interpolate, stack, interpolate_4d } from './utils/tensor.js';
 
 import { RawImage } from './utils/image.js';
 import {
@@ -1332,17 +1332,17 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     /**
      * Remove padding and upscale masks to the original image size.
      * @param {Tensor} masks Batched masks from the mask_decoder in (batch_size, num_channels, height, width) format.
-     * @param {number[][]} original_sizes The original sizes of each image before it was resized to the model's expected input shape, in (height, width) format.
-     * @param {number[][]} reshaped_input_sizes The size of each image as it is fed to the model, in (height, width) format. Used to remove padding.
+     * @param {[number, number][]} original_sizes The original sizes of each image before it was resized to the model's expected input shape, in (height, width) format.
+     * @param {[number, number][]} reshaped_input_sizes The size of each image as it is fed to the model, in (height, width) format. Used to remove padding.
      * @param {Object} options Optional parameters for post-processing.
      * @param {number} [options.mask_threshold] The threshold to use for binarizing the masks.
      * @param {boolean} [options.binarize] Whether to binarize the masks.
      * @param {Object} [options.pad_size] The target size the images were padded to before being passed to the model. If `null`, the target size is assumed to be the processor's `pad_size`.
      * @param {number} [options.pad_size.height] The height the images were padded to.
      * @param {number} [options.pad_size.width] The width the images were padded to.
-     * @returns {Tensor[]} Batched masks in batch_size, num_channels, height, width) format, where (height, width) is given by original_size.
+     * @returns {Promise<Tensor[]>} Batched masks in batch_size, num_channels, height, width) format, where (height, width) is given by original_size.
      */
-    post_process_masks(masks, original_sizes, reshaped_input_sizes, {
+    async post_process_masks(masks, original_sizes, reshaped_input_sizes, {
         mask_threshold = 0.0,
         binarize = true,
         pad_size = null,
@@ -1353,47 +1353,44 @@ export class SamImageProcessor extends ImageFeatureExtractor {
 
         pad_size = pad_size ?? this.pad_size;
 
+        /** @type {[number, number]} */
         const target_image_size = [pad_size.height, pad_size.width];
 
         for (let i = 0; i < original_sizes.length; ++i) {
             const original_size = original_sizes[i];
             const reshaped_input_size = reshaped_input_sizes[i];
 
-            const mask = masks[i]; // [b, c, h, w]
+            // Upscale mask to padded size
+            let interpolated_mask = (await interpolate_4d(
+                masks[i],
+                { mode: 'bilinear', size: target_image_size }
+            ));
 
-            // TODO: improve
-            const interpolated_masks = [];
-            for (let j = 0; j < mask.dims[0]; ++j) {
-                const m = mask[j]; // 3d tensor
+            // Crop mask
+            interpolated_mask = interpolated_mask.slice(null, null, [0, reshaped_input_size[0]], [0, reshaped_input_size[1]]);
 
-                // Upscale mask to padded size
-                let interpolated_mask = interpolate(m, target_image_size, 'bilinear', false);
+            // Downscale mask
+            interpolated_mask = (await interpolate_4d(
+                interpolated_mask,
+                { mode: 'bilinear', size: original_size }
+            ));
 
-                // Crop mask
-                interpolated_mask = interpolated_mask.slice(null, [0, reshaped_input_size[0]], [0, reshaped_input_size[1]]);
-
-                // Downscale mask
-                interpolated_mask = interpolate(interpolated_mask, original_size, 'bilinear', false);
-
-                if (binarize) {
-                    const data = interpolated_mask.data;
-                    const binarizedMaskData = new Uint8Array(data.length);
-                    for (let i = 0; i < data.length; ++i) {
-                        if (data[i] > mask_threshold) {
-                            binarizedMaskData[i] = 1;
-                        }
+            if (binarize) {
+                const data = interpolated_mask.data;
+                const binarizedMaskData = new Uint8Array(data.length);
+                for (let i = 0; i < data.length; ++i) {
+                    if (data[i] > mask_threshold) {
+                        binarizedMaskData[i] = 1;
                     }
-                    interpolated_mask = new Tensor(
-                        'bool',
-                        binarizedMaskData,
-                        interpolated_mask.dims
-                    )
                 }
-
-                interpolated_masks.push(interpolated_mask);
+                interpolated_mask = new Tensor(
+                    'bool',
+                    binarizedMaskData,
+                    interpolated_mask.dims
+                )
             }
 
-            output_masks.push(stack(interpolated_masks));
+            output_masks.push(interpolated_mask);
         }
 
         return output_masks;

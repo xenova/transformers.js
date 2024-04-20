@@ -16,6 +16,8 @@ import {
     Tensor as ONNXTensor, isONNXTensor,
 } from '../backends/onnx.js';
 
+import { TensorOpRegistry } from '../ops/registry.js';
+
 const DataTypeMap = Object.freeze({
     float32: Float32Array,
     float16: Uint16Array,
@@ -753,6 +755,56 @@ export function interpolate(input, [out_height, out_width], mode = 'bilinear', a
     );
     return new Tensor(input.type, output, [in_channels, out_height, out_width]);
 }
+
+
+/**
+ * Down/up samples the input.
+ * Inspired by https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html.
+ * @param {Tensor} input the input tensor
+ * @param {Object} options the options for the interpolation
+ * @param {[number, number]|[number, number, number]|[number, number, number, number]} [options.size=null] output spatial size.
+ * @param {"bilinear"|"bicubic"} [options.mode='bilinear'] algorithm used for upsampling
+ * @returns {Promise<Tensor>} The interpolated tensor.
+ */
+export async function interpolate_4d(input, {
+    size = null,
+    mode = 'bilinear',
+} = {}) {
+
+    // Error checking
+    if (input.dims.length !== 4) {
+        throw new Error('`interpolate_4d` currently only supports 4D input.');
+    }
+    if (!size) {
+        // TODO: support scale_factor
+        throw new Error('`interpolate_4d` requires a `size` argument.');
+    }
+
+    // Fill in missing dimensions
+    let targetDims;
+    if (size.length === 2) {
+        targetDims = [...input.dims.slice(0, 2), ...size];
+    } else if (size.length === 3) {
+        targetDims = [input.dims[0], ...size];
+    } else if (size.length === 4) {
+        targetDims = size;
+    } else {
+        throw new Error('`size` must be of length 2, 3, or 4.');
+    }
+
+    let op;
+    if (mode === 'bilinear') {
+        op = await TensorOpRegistry.bilinear_interpolate_4d;
+    } else if (mode === 'bicubic') {
+        op = await TensorOpRegistry.bicubic_interpolate_4d;
+    } else {
+        throw new Error(`Unsupported mode: ${mode}`);
+    }
+
+    const sizeTensor = new Tensor('int64', new BigInt64Array(targetDims.map(BigInt)), [targetDims.length]);
+    return await op({ x: input, s: sizeTensor });
+}
+
 
 /**
  * Perform mean pooling of the last hidden state followed by a normalization step.
