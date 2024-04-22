@@ -97,10 +97,10 @@ export class PretrainedConfig {
  * Helper class which is used to instantiate pretrained configs with the `from_pretrained` function.
  * 
  * @example
- * let config = await AutoConfig.from_pretrained('bert-base-uncased'); 
+ * const config = await AutoConfig.from_pretrained('Xenova/bert-base-uncased'); 
  */
 export class AutoConfig {
-    /** @type {PretrainedConfig.from_pretrained} */
+    /** @type {typeof PretrainedConfig.from_pretrained} */
     static async from_pretrained(...args) {
         return PretrainedConfig.from_pretrained(...args);
     }

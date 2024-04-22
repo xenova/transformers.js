@@ -19,9 +19,11 @@
  * 
  * @module tokenizers
  */
-
 import {
     Callable,
+} from './utils/generic.js';
+
+import {
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
@@ -2398,7 +2400,7 @@ const SPECIAL_TOKEN_ATTRIBUTES = [
  * @param {Record<string, any[]>} item The input object.
  * @param {number} length The length to pad to.
  * @param {(key: string) => any} value_fn Determine the value to fill the array, based on its key.
- * @param {'right'|'left'} side Which side to pad the array.
+ * @param {string} side Which side to pad the array.
  * @private
  */
 function padHelper(item, length, value_fn, side) {
@@ -2429,11 +2431,18 @@ function truncateHelper(item, length) {
 }
 
 
+/**
+ * @typedef {Object} Message
+ * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
+ * @property {string} content The content of the message.
+ */
+
 export class PreTrainedTokenizer extends Callable {
     return_token_type_ids = false;
 
     _default_chat_template = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`;
 
+    padding_side = 'right';
     /**
      * Create a new PreTrainedTokenizer instance.
      * @param {Object} tokenizerJSON The JSON of the tokenizer.
@@ -2512,9 +2521,9 @@ export class PreTrainedTokenizer extends Callable {
         this.clean_up_tokenization_spaces = tokenizerConfig.clean_up_tokenization_spaces ?? true;
         this.do_lowercase_and_remove_accent = tokenizerConfig.do_lowercase_and_remove_accent ?? false;
 
-        // TODO allow user to change this
-        /** @type {'right'|'left'} */
-        this.padding_side = 'right';
+        if (tokenizerConfig.padding_side) {
+            this.padding_side = tokenizerConfig.padding_side;
+        }
 
         this.legacy = false;
 
@@ -2539,6 +2548,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {...string} keys One or more keys to search for in the tokenizer config object.
      * @returns {string|null} The value associated with the first matching key, or null if no match is found.
      * @throws {Error} If an object is found for a matching key and its __type property is not "AddedToken".
+     * @private
      */
     getToken(...keys) {
         for (const key of keys) {
@@ -2645,16 +2655,16 @@ export class PreTrainedTokenizer extends Callable {
                 }
 
                 encodedTokens = text.map(
-                    (t, i) => this._encode_plus(t, text_pair[i], { add_special_tokens })
+                    (t, i) => this._encode_plus(t, { text_pair: text_pair[i], add_special_tokens })
                 )
 
             } else {
-                encodedTokens = text.map(x => this._encode_plus(x, null, { add_special_tokens }));
+                encodedTokens = text.map(x => this._encode_plus(x, { add_special_tokens }));
             }
 
         } else {
-            if (text === null) {
-                throw Error('text may not be null')
+            if (text === null || text === undefined) {
+                throw Error('text may not be null or undefined')
             }
 
             if (Array.isArray(text_pair)) {
@@ -2662,7 +2672,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             // For single input, we just wrap in an array, and then unwrap later.
-            encodedTokens = [this._encode_plus(text, text_pair, { add_special_tokens })];
+            encodedTokens = [this._encode_plus(text, { text_pair, add_special_tokens })];
         }
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
@@ -2817,51 +2827,83 @@ export class PreTrainedTokenizer extends Callable {
      * Encodes a single text or a pair of texts using the model's tokenizer.
      *
      * @param {string} text The text to encode.
-     * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.text_pair=null] The optional second text to encode.
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {EncodingSingle} An object containing the encoded text.
      * @private
      */
-    _encode_plus(text, text_pair = null, {
+    _encode_plus(text, {
+        text_pair = null,
         add_special_tokens = true,
     } = {}) {
-        // Function called by users to encode possibly multiple texts
-        const tokens = this._encode_text(text);
-        const tokens2 = this._encode_text(text_pair);
 
-        const combinedTokens = this.post_processor
-            ? this.post_processor(tokens, tokens2, { add_special_tokens })
-            : { tokens: mergeArrays(tokens ?? [], tokens2 ?? []) };
+        const { tokens, token_type_ids } = this._tokenize_helper(text, { pair: text_pair, add_special_tokens });
 
-        const input_ids = this.model.convert_tokens_to_ids(combinedTokens.tokens);
+        const input_ids = this.model.convert_tokens_to_ids(tokens);
 
         const result = {
             input_ids,
             attention_mask: new Array(input_ids.length).fill(1),
         }
-        if (this.return_token_type_ids && combinedTokens.token_type_ids) {
-            result.token_type_ids = combinedTokens.token_type_ids;
+        if (this.return_token_type_ids && token_type_ids) {
+            result.token_type_ids = token_type_ids;
         }
         return result;
+    }
+
+    /**
+     * Internal helper function to tokenize a text, and optionally a pair of texts.
+     * @param {string} text The text to tokenize.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.pair=null] The optional second text to tokenize.
+     * @param {boolean} [options.add_special_tokens=false] Whether or not to add the special tokens associated with the corresponding model.
+     * @returns {{tokens: string[], token_type_ids?: number[]}} An object containing the tokens and optionally the token type IDs.
+     */
+    _tokenize_helper(text, {
+        pair = null,
+        add_special_tokens = false,
+    } = {}) {
+        const tokens = this._encode_text(text);
+        const tokens2 = this._encode_text(pair);
+
+        return this.post_processor
+            ? this.post_processor(tokens, tokens2, { add_special_tokens })
+            : { tokens: mergeArrays(tokens ?? [], tokens2 ?? []) };
+    }
+
+    /**
+     * Converts a string into a sequence of tokens.
+     * @param {string} text The sequence to be encoded.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.pair] A second sequence to be encoded with the first.
+     * @param {boolean} [options.add_special_tokens=false] Whether or not to add the special tokens associated with the corresponding model.
+     * @returns {string[]} The list of tokens.
+     */
+    tokenize(text, {
+        pair = null,
+        add_special_tokens = false,
+    } = {}) {
+        return this._tokenize_helper(text, { pair, add_special_tokens }).tokens;
     }
 
     /**
      * Encodes a single text or a pair of texts using the model's tokenizer.
      *
      * @param {string} text The text to encode.
-     * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.text_pair=null] The optional second text to encode.
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
-    encode(text, text_pair = null, {
+    encode(text, {
+        text_pair = null,
         add_special_tokens = true,
     } = {}) {
-        const { input_ids } = this._encode_plus(text, text_pair, {
+        return this._encode_plus(text, {
+            text_pair,
             add_special_tokens,
-        });
-        return input_ids;
+        }).input_ids;
     }
 
     /**
@@ -2958,12 +3000,6 @@ export class PreTrainedTokenizer extends Callable {
 
         return this._default_chat_template;
     }
-
-    /**
-     * @typedef {Object} Message
-     * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
-     * @property {string} content The content of the message.
-     */
 
     /**
      * Converts a list of message objects with `"role"` and `"content"` keys to a list of token
@@ -3191,6 +3227,8 @@ export class LlamaTokenizer extends PreTrainedTokenizer {
         "that your responses are socially unbiased and positive in nature.\n\n" +
         "If a question does not make any sense, or is not factually coherent, explain why instead of answering something not " +
         "correct. If you don't know the answer to a question, please don't share false information."
+
+    padding_side = 'left';
 
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);
@@ -4386,7 +4424,6 @@ export class AutoTokenizer {
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -4396,7 +4433,6 @@ export class AutoTokenizer {
     } = {}) {
 
         const [tokenizerJSON, tokenizerConfig] = await loadTokenizer(pretrained_model_name_or_path, {
-            quantized,
             progress_callback,
             config,
             cache_dir,

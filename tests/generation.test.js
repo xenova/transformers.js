@@ -11,6 +11,8 @@ describe('Generation parameters', () => {
     const models = [
         'MBZUAI/LaMini-Flan-T5-77M', // encoder-decoder
         'MBZUAI/LaMini-GPT-124M', // decoder-only
+
+        'Xenova/llama2.c-stories15M', // decoder-only
     ];
 
     // encoder-decoder model
@@ -131,6 +133,39 @@ describe('Generation parameters', () => {
             expect(tokens.length).toBeGreaterThanOrEqual(promptTokens.length + MIN_NEW_TOKENS);
         }
 
+        await generator.dispose();
+
+    }, MAX_TEST_EXECUTION_TIME);
+
+    // decoder-only model
+    it(models[2], async () => {
+        const MAX_NEW_TOKENS = 1;
+
+        const text = [
+            'Once upon a time,',
+            'Lily',
+            'Suddenly,',
+        ];
+
+        const generator = await pipeline('text-generation', m(models[2]));
+
+        { // return_full_text=false
+            const output = await generator(text, {
+                return_full_text: false,
+                max_new_tokens: MAX_NEW_TOKENS,
+                num_beams: 2,
+                num_return_sequences: 2,
+            });
+            const lengths = output.flatMap(
+                x => x.flatMap(
+                    y => generator.tokenizer.encode(y.generated_text.trim(), null, {
+                        add_special_tokens: false,
+                    }).length
+                )
+            ).every(x => x === MAX_NEW_TOKENS);
+
+            expect(lengths).toBe(true);
+        }
         await generator.dispose();
 
     }, MAX_TEST_EXECUTION_TIME);
