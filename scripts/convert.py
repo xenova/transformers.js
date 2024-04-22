@@ -123,6 +123,12 @@ class ConversionArguments:
         }
     )
 
+    variant: Optional[str] = field(
+        default='default',
+        metadata={
+            "help": "The variant of the ONNX export to use."
+        }
+    )
     opset: int = field(
         default=None,
         metadata={
@@ -445,6 +451,7 @@ def main():
         output=output_model_folder,
         task=conv_args.task,
         do_validation=not conv_args.skip_validation,
+        _variant=conv_args.variant,
         library_name='transformers',
         **core_export_kwargs,
     )

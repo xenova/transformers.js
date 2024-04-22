@@ -120,6 +120,15 @@ describe('Processors', () => {
                 compare(input_points.tolist(), [[[[341.3333, 682.6667], [682.6667, 341.3333]]]]);
                 compare(input_labels.tolist(), [[[1n, 0n]]]);
             }
+            
+            { // with input boxes
+                const image = await load_image(TEST_IMAGES.pattern_3x3);
+                const { original_sizes, reshaped_input_sizes, input_boxes } = await processor(image, null, null, [[[0, 1, 2, 2]]]);
+
+                compare(original_sizes, [[3, 3]]);
+                compare(reshaped_input_sizes, [[1024, 1024]]);
+                compare(input_boxes.tolist(), [[[0, 341.3333, 682.6667, 682.6667]]]);
+            }
         }, MAX_TEST_EXECUTION_TIME);
 
         // DonutProcessor/DonutFeatureExtractor

@@ -4826,6 +4826,7 @@ export class SamModel extends SamPreTrainedModel {
      *  - `0`: the point is a point that does not contain the object of interest
      *  - `-1`: the point corresponds to the background
      *  - `-10`: the point is a padding point, thus should be ignored by the prompt encoder
+     * @property {Tensor} [input_boxes] Input bounding boxes with shape `(batch_size, num_boxes, 4)`.
      * @property {Tensor} [image_embeddings] Image embeddings used by the mask decoder.
      * @property {Tensor} [image_positional_embeddings] Image positional embeddings used by the mask decoder.
      */
@@ -4843,7 +4844,7 @@ export class SamModel extends SamPreTrainedModel {
             }
         }
 
-        if (!model_inputs.input_labels) {
+        if (!model_inputs.input_labels && model_inputs.input_points) {
             // Set default input labels if they are missing
             const shape = model_inputs.input_points.dims.slice(0, -1);
             const numElements = shape.reduce((a, b) => a * b, 1);
@@ -4854,15 +4855,24 @@ export class SamModel extends SamPreTrainedModel {
             );
         }
 
+        const decoder_inputs = {
+            image_embeddings: model_inputs.image_embeddings,
+            image_positional_embeddings: model_inputs.image_positional_embeddings,
+        };
+        if (model_inputs.input_points) {
+            decoder_inputs.input_points = model_inputs.input_points;
+        }
+        if (model_inputs.input_labels) {
+            decoder_inputs.input_labels = model_inputs.input_labels;
+        }
+        if (model_inputs.input_boxes) {
+            decoder_inputs.input_boxes = model_inputs.input_boxes;
+        }
+
         // Returns:
         //  - iou_scores: tensor.float32[batch_size,point_batch_size,3]
         //  - pred_masks: tensor.float32[batch_size,point_batch_size,3,256,256]
-        return await sessionRun(this.sessions['prompt_encoder_mask_decoder'], {
-            input_points: model_inputs.input_points,
-            input_labels: model_inputs.input_labels,
-            image_embeddings: model_inputs.image_embeddings,
-            image_positional_embeddings: model_inputs.image_positional_embeddings,
-        });
+        return await sessionRun(this.sessions['prompt_encoder_mask_decoder'], decoder_inputs);
     }
 
     /**
