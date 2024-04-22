@@ -88,15 +88,15 @@ export function interpolate_data(input, [in_channels, in_height, in_width], [out
 
 
 /**
- * Helper method to transpose a `AnyTypedArray` directly
+ * Helper method to permute a `AnyTypedArray` directly
  * @template {AnyTypedArray} T 
  * @param {T} array 
  * @param {number[]} dims 
  * @param {number[]} axes 
- * @returns {[T, number[]]} The transposed array and the new shape.
+ * @returns {[T, number[]]} The permuted array and the new shape.
  */
-export function transpose_data(array, dims, axes) {
-    // Calculate the new shape of the transposed array
+export function permute_data(array, dims, axes) {
+    // Calculate the new shape of the permuted array
     // and the stride of the original array
     const shape = new Array(axes.length);
     const stride = new Array(axes.length);
@@ -110,21 +110,21 @@ export function transpose_data(array, dims, axes) {
     // Precompute inverse mapping of stride
     const invStride = axes.map((_, i) => stride[axes.indexOf(i)]);
 
-    // Create the transposed array with the new shape
+    // Create the permuted array with the new shape
     // @ts-ignore
-    const transposedData = new array.constructor(array.length);
+    const permutedData = new array.constructor(array.length);
 
-    // Transpose the original array to the new array
+    // Permute the original array to the new array
     for (let i = 0; i < array.length; ++i) {
         let newIndex = 0;
         for (let j = dims.length - 1, k = i; j >= 0; --j) {
             newIndex += (k % dims[j]) * invStride[j];
             k = Math.floor(k / dims[j]);
         }
-        transposedData[newIndex] = array[i];
+        permutedData[newIndex] = array[i];
     }
 
-    return [transposedData, shape];
+    return [permutedData, shape];
 }
 
 
@@ -174,7 +174,11 @@ export function log_softmax(arr) {
  * @returns {number} The dot product of arr1 and arr2.
  */
 export function dot(arr1, arr2) {
-    return arr1.reduce((acc, val, i) => acc + val * arr2[i], 0);
+    let result = 0;
+    for (let i = 0; i < arr1.length; ++i) {
+        result += arr1[i] * arr2[i];
+    }
+    return result;
 }
 
 
@@ -951,4 +955,18 @@ export function medianFilter(data, windowSize) {
 export function round(num, decimals) {
     const pow = Math.pow(10, decimals);
     return Math.round(num * pow) / pow;
+}
+
+/**
+ * Helper function to round a number to the nearest integer, with ties rounded to the nearest even number.
+ * Also known as "bankers' rounding". This is the default rounding mode in python. For example:
+ * 1.5 rounds to 2 and 2.5 rounds to 2.
+ * 
+ * @param {number} x The number to round
+ * @returns {number} The rounded number
+ */
+export function bankers_round(x) {
+    const r = Math.round(x);
+    const br = Math.abs(x) % 1 === 0.5 ? (r % 2 === 0 ? r : r - 1) : r;
+    return br;
 }

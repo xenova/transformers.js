@@ -2,7 +2,7 @@
 import { compare } from './test_utils.js';
 
 import { getFile } from '../src/utils/hub.js';
-import { FFT, medianFilter } from '../src/utils/maths.js';
+import { FFT, medianFilter, bankers_round } from '../src/utils/maths.js';
 
 
 const fft = (arr, complex = false) => {
@@ -26,6 +26,19 @@ const fft = (arr, complex = false) => {
 const fftTestsData = await (await getFile('./tests/data/fft_tests.json')).json()
 
 describe('Mathematical operations', () => {
+
+    describe('bankers rounding', () => {
+        it('should round up to nearest even', () => {
+            expect(bankers_round(-0.5)).toBeCloseTo(0);
+            expect(bankers_round(1.5)).toBeCloseTo(2);
+            expect(bankers_round(19.5)).toBeCloseTo(20);
+        });
+        it('should round down to nearest even', () => {
+            expect(bankers_round(-1.5)).toBeCloseTo(-2);
+            expect(bankers_round(2.5)).toBeCloseTo(2);
+            expect(bankers_round(18.5)).toBeCloseTo(18);
+        });
+    });
 
     describe('median filtering', () => {
 
