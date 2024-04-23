@@ -4771,7 +4771,7 @@ export class SamPreTrainedModel extends PreTrainedModel { }
  * const raw_image = await RawImage.read(img_url);
  * const input_points = [[[450, 600]]] // 2D localization of a window
  * 
- * const inputs = await processor(raw_image, input_points);
+ * const inputs = await processor(raw_image, { input_points });
  * const outputs = await model(inputs);
  * 
  * const masks = await processor.post_process_masks(outputs.pred_masks, inputs.original_sizes, inputs.reshaped_input_sizes);
@@ -4818,7 +4818,7 @@ export class SamModel extends SamPreTrainedModel {
      * @typedef {Object} SamModelInputs Object containing the model inputs.
      * @property {Tensor} pixel_values Pixel values as a Tensor with shape `(batch_size, num_channels, height, width)`.
      * These can be obtained using a `SamProcessor`.
-     * @property {Tensor} input_points Input 2D spatial points with shape `(batch_size, num_points, 2)`.
+     * @property {Tensor} [input_points] Input 2D spatial points with shape `(batch_size, num_points, 2)`.
      * This is used by the prompt encoder to encode the prompt.
      * @property {Tensor} [input_labels] Input labels for the points, as a Tensor of shape `(batch_size, point_batch_size, num_points)`.
      * This is used by the prompt encoder to encode the prompt. There are 4 types of labels:

@@ -1303,13 +1303,14 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     }
     /**
      * @param {any[]} images The URL(s) of the image(s) to extract features from.
-     * @param {any} [input_points] A 3D or 4D array, representing the input points provided by the user.
+     * @param {Object} [options] Additional options for the processor.
+     * @param {any} [options.input_points=null] A 3D or 4D array, representing the input points provided by the user.
      * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
      * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
-     * @param {any} [input_labels] A 2D or 3D array, representing the input labels for the points, used by the prompt encoder to encode the prompt.
+     * @param {any} [options.input_labels=null] A 2D or 3D array, representing the input labels for the points, used by the prompt encoder to encode the prompt.
      * - 2D: `[point_batch_size, nb_points_per_image]`. In this case, `batch_size` is assumed to be 1.
      * - 3D: `[batch_size, point_batch_size, nb_points_per_image]`.
-     * @param {any} [input_boxes] A 3D array of shape `(batch_size, num_boxes, 4)`, representing the input boxes provided by the user.
+     * @param {number[][][]} [options.input_boxes=null] A 3D array of shape `(batch_size, num_boxes, 4)`, representing the input boxes provided by the user.
      * This is used by the prompt encoder to encode the prompt. Generally yields to much better generated masks.
      * The processor will generate a tensor, with each dimension corresponding respectively to the image batch size,
      * the number of boxes per image and the coordinates of the top left and botton right point of the box.
@@ -1320,7 +1321,11 @@ export class SamImageProcessor extends ImageFeatureExtractor {
      * - `y2`: the y coordinate of the bottom right point of the input box
      * @returns {Promise<SamImageProcessorResult>}
      */
-    async _call(images, input_points = null, input_labels = null, input_boxes = null) {
+    async _call(images, {
+        input_points = null,
+        input_labels = null,
+        input_boxes = null
+    } = {}) {
         // TODO allow user to use preprocessed images
         /** @type {SamImageProcessorResult} */
         const processed = await super._call(images);
