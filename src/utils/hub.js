@@ -507,37 +507,12 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
     }
 
     /** @type {Uint8Array} */
-    let buffer;
-
-    if (!options.progress_callback) {
-        // If no progress callback is specified, we can use the `.arrayBuffer()`
-        // method to read the response.
-        buffer = new Uint8Array(await response.arrayBuffer());
-
-    } else if (
-        cacheHit // The item is being read from the cache
-        &&
-        typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent) // We are in Firefox
-    ) {
-        // Due to bug in Firefox, we cannot display progress when loading from cache.
-        // Fortunately, since this should be instantaneous, this should not impact users too much.
-        buffer = new Uint8Array(await response.arrayBuffer());
-
-        // For completeness, we still fire the final progress callback
+    let buffer = await readResponse(response, data => {
         dispatchCallback(options.progress_callback, {
             ...progressInfo,
-            progress: 100,
-            loaded: buffer.length,
-            total: buffer.length,
+            ...data,
         })
-    } else {
-        buffer = await readResponse(response, data => {
-            dispatchCallback(options.progress_callback, {
-                ...progressInfo,
-                ...data,
-            })
-        })
-    }
+    })
 
     if (
         // Only cache web responses
@@ -548,15 +523,21 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         (await cache.match(cacheKey) === undefined)
     ) {
         // NOTE: We use `new Response(buffer, ...)` instead of `response.clone()` to handle LFS files
+      try {
         await cache.put(cacheKey, new Response(buffer, {
-            headers: response.headers
+          headers: response.headers
         }))
-            .catch(err => {
-                // Do not crash if unable to add to cache (e.g., QuotaExceededError).
-                // Rather, log a warning and proceed with execution.
-                console.warn(`Unable to add response to browser cache: ${err}.`);
-            });
-
+        .catch(err => {
+          // Do not crash if unable to add to cache (e.g., QuotaExceededError).
+          // Rather, log a warning and proceed with execution.
+          console.warn(`Unable to add response to browser cache: ${err}.`);
+        });
+      } catch (err) {
+        // catch all other errors
+        // Do not crash if unable to add to cache (e.g., QuotaExceededError).
+        // Rather, log a warning and proceed with execution.
+        console.warn(`Unable to add response to browser cache: ${err}.`);
+      }
     }
 
     dispatchCallback(options.progress_callback, {
@@ -602,49 +583,83 @@ async function readResponse(response, progress_callback) {
 
     const contentLength = response.headers.get('Content-Length');
     if (contentLength === null) {
-        console.warn('Unable to determine content-length from response headers. Will expand buffer when needed.')
+        console.warn(
+            'Unable to determine content-length from response headers. Will expand buffer when needed.')
     }
-    let total = parseInt(contentLength ?? '0');
-    let buffer = new Uint8Array(total);
-    let loaded = 0;
 
+    const fileSize = contentLength ? parseInt(contentLength, 10) : 0;
+
+    if (!response.body || fileSize === 0) {
+        throw new Error(
+            `failed to load external data file: ${file}, no response body.`
+        );
+    }
     const reader = response.body.getReader();
-    async function read() {
-        const { done, value } = await reader.read();
-        if (done) return;
+    const TWO_GB = 2197815296;
+    if (fileSize > TWO_GB) {
+        const PAGE_SIZE = 65536;
+        const pages = Math.ceil((fileSize) / PAGE_SIZE);
+        const buffer = new WebAssembly.Memory({initial: pages, maximum: pages})
+            .buffer;
 
-        let newLoaded = loaded + value.length;
-        if (newLoaded > total) {
-            total = newLoaded;
+        let offset = 0;
 
-            // Adding the new data will overflow buffer.
-            // In this case, we extend the buffer
-            let newBuffer = new Uint8Array(total);
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) {
+                break;
+            }
 
-            // copy contents
-            newBuffer.set(buffer);
+            const chunkSize = value.byteLength;
+            const chunk = new Uint8Array(buffer, offset, chunkSize);
+            chunk.set(value);
+            offset += chunkSize;
 
-            buffer = newBuffer;
+            if (progress_callback) {
+                progress_callback({
+                    progress: (offset / fileSize) * 100,
+                    loaded: offset,
+                    total: fileSize,
+                })
+            }
         }
-        buffer.set(value, loaded)
-        loaded = newLoaded;
 
-        const progress = (loaded / total) * 100;
+        return new Uint8Array(buffer, 0, fileSize);
+    } else {
+        let total = parseInt(contentLength ?? '0');
+        let buffer = new Uint8Array(total);
+        let loaded = 0;
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) {
+                break;
+            }
 
-        // Call your function here
-        progress_callback({
-            progress: progress,
-            loaded: loaded,
-            total: total,
-        })
+            let newLoaded = loaded + value.length;
+            if (newLoaded > total) {
+                total = newLoaded;
+                // Adding the new data will overflow buffer.
+                // In this case, we extend the buffer
+                let newBuffer = new Uint8Array(total);
 
-        return read();
+                // copy contents
+                newBuffer.set(buffer);
+
+                buffer = newBuffer;
+            }
+            buffer.set(value, loaded)
+            loaded = newLoaded;
+            if (progress_callback) {
+                progress_callback({
+                    progress: (loaded / total) * 100,
+                    loaded: loaded,
+                    total: total,
+                })
+            }
+        }
+
+        return buffer;
     }
-
-    // Actually read
-    await read();
-
-    return buffer;
 }
 
 /**
