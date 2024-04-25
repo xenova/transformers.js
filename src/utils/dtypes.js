@@ -38,6 +38,8 @@ export const DATA_TYPES = Object.freeze({
     q8: 'q8',
     int8: 'int8',
     uint8: 'uint8',
+    q4: 'q4',
+    bnb4: 'bnb4',
 });
 /** @typedef {keyof typeof DATA_TYPES} DataType */
 
@@ -55,4 +57,6 @@ export const DEFAULT_DTYPE_SUFFIX_MAPPING = Object.freeze({
     [DATA_TYPES.int8]: '_int8',
     [DATA_TYPES.uint8]: '_uint8',
     [DATA_TYPES.q8]: '_quantized',
+    [DATA_TYPES.q4]: '_q4',
+    [DATA_TYPES.bnb4]: '_bnb4',
 });
