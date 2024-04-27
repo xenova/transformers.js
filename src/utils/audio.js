@@ -679,7 +679,7 @@ export class RawAudio {
     constructor(audio, sampling_rate) {
         if (!(
                 typeof audio == 'object' &&
-                ((audio.constructor.name == 'Array' && audio.length && audio.length <= 2 && typeof audio[0] == 'object' && audio[0].constructor.name == 'Float32Array') ||
+                ((audio.constructor.name == 'Array' && audio[0]?.constructor.name == 'Float32Array') ||
                 (audio.constructor.name == 'Float32Array')) &&
                 typeof sampling_rate == 'number'
             )) {
