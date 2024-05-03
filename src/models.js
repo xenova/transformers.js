@@ -1591,6 +1591,15 @@ export class PreTrainedModel extends Callable {
                     decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, keyDims)
                     decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, valueDims)
                 }
+            } else if (this.config.model_type === 'openelm') {
+                // @ts-ignore
+                for (let i = 0; i < this.num_layers; ++i) {
+                    // @ts-ignore
+                    let dims = [batch_size, this.num_heads[i], 0, this.dim_kv]
+
+                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, dims)
+                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, dims)
+                }
             } else { // Decoder-only
                 // @ts-ignore
                 let dims = [batch_size, this.num_heads, 0, this.dim_kv]
@@ -4014,6 +4023,27 @@ export class LlamaModel extends LlamaPreTrainedModel { }
 export class LlamaForCausalLM extends LlamaPreTrainedModel { }
 //////////////////////////////////////////////////
 
+export class OpenELMPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `LlamaPreTrainedModel` class.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
+        this.generation_config = generation_config;
+
+        this.num_heads = this.config.num_kv_heads;
+        this.num_layers = this.config.num_transformer_layers
+        this.dim_kv = this.config.head_dim
+    }
+}
+export class OpenELMModel extends OpenELMPreTrainedModel { }
+
+export class OpenELMForCausalLM extends OpenELMPreTrainedModel { }
+
+
 //////////////////////////////////////////////////
 // Qwen2 models
 
@@ -6177,6 +6207,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['gpt_neox', ['GPTNeoXModel', GPTNeoXModel]],
     ['codegen', ['CodeGenModel', CodeGenModel]],
     ['llama', ['LlamaModel', LlamaModel]],
+    ['openelm', ['OpenELMModel', OpenELMModel]],
     ['qwen2', ['Qwen2Model', Qwen2Model]],
     ['phi', ['PhiModel', PhiModel]],
     ['mpt', ['MptModel', MptModel]],
@@ -6258,6 +6289,7 @@ const MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = new Map([
     ['gpt_neox', ['GPTNeoXForCausalLM', GPTNeoXForCausalLM]],
     ['codegen', ['CodeGenForCausalLM', CodeGenForCausalLM]],
     ['llama', ['LlamaForCausalLM', LlamaForCausalLM]],
+    ['openelm', ['OpenELMForCausalLM', OpenELMForCausalLM]],
     ['qwen2', ['Qwen2ForCausalLM', Qwen2ForCausalLM]],
     ['phi', ['PhiForCausalLM', PhiForCausalLM]],
     ['mpt', ['MptForCausalLM', MptForCausalLM]],

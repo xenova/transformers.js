@@ -44,6 +44,7 @@ NO_PER_CHANNEL_REDUCE_RANGE_MODELS = {
     'qwen2',
     'stablelm',
     'starcoder2',
+    'openelm',
 
     # Encoder-decoder models
     'whisper',
@@ -511,6 +512,26 @@ def main():
         # For more information, see https://github.com/huggingface/optimum/blob/e3b7efb1257c011db907ef40ab340e795cc5684c/optimum/exporters/onnx/model_configs.py#L1028-L1032
         export_kwargs['batch_size'] = 1
 
+    elif config.model_type == 'openelm':
+        from .extra.openelm import OpenElmOnnxConfig
+
+        config = AutoConfig.from_pretrained(
+            model_id, trust_remote_code=conv_args.trust_remote_code)
+
+        onnx_config = OpenElmOnnxConfig(
+            config=config,
+            task="text-generation",
+            use_past=True,
+            use_past_in_inputs=True,
+        )
+
+        custom_onnx_configs = {
+            "model": onnx_config,
+        }
+
+        export_kwargs['task'] = "text-generation-with-past"
+        export_kwargs['custom_onnx_configs'] = custom_onnx_configs
+
     else:
         pass  # TODO
 
@@ -575,7 +596,6 @@ def main():
         #         },
         #         **custom_export_kwargs,
         #     )
-
         else:
             raise Exception(
                 f'Unable to export {config.model_type} model with `--split_modalities`.')
