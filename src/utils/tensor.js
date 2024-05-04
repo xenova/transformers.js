@@ -67,6 +67,11 @@ export class Tensor {
         return this.ort_tensor.size;
     };
 
+    /** @type {string} The location of the tensor data. */
+    get location() {
+        return this.ort_tensor.location;
+    };
+
     ort_tensor;
 
     /**
