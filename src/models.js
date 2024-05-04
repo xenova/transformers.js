@@ -108,6 +108,7 @@ import {
 import { medianFilter } from './utils/maths.js';
 import { EosTokenCriteria, MaxLengthCriteria, StoppingCriteriaList } from './generation/stopping_criteria.js';
 import { LogitsSampler } from './generation/logits_sampler.js';
+import { apis } from './env.js';
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -188,6 +189,9 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
 
     // handle onnx external data files
     if (options.use_external_data_format) {
+        if (apis.IS_NODE_ENV) {
+            throw new Error('External data format is not yet supported in Node.js');
+        }
         const path = `${fileName}${suffix}.onnx_data`;
         const fullPath = `${options.subfolder ?? ''}/${path}`;
         const data = await getModelFile(pretrained_model_name_or_path, fullPath, true, options);
