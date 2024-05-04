@@ -41,6 +41,7 @@ NO_PER_CHANNEL_REDUCE_RANGE_MODELS = {
     'mistral',
     'falcon',
     'phi',
+    'phi3',
     'qwen2',
     'stablelm',
     'starcoder2',
@@ -411,7 +412,11 @@ def main():
         for key in custom_onnx_configs:
             onnx_configs = TasksManager._SUPPORTED_MODEL_TYPE[custom_onnx_configs[key]]['onnx']
             mapping = onnx_configs[conv_args.task]
-            custom_onnx_configs[key] = mapping.func(config, **mapping.keywords)
+            new_kwargs = {}
+            if conv_args.task.startswith('text-generation'):
+                new_kwargs['use_past_in_inputs'] = True
+            
+            custom_onnx_configs[key] = mapping.func(config, **mapping.keywords, **new_kwargs)
 
         custom_kwargs['custom_onnx_configs'] = custom_onnx_configs
 
