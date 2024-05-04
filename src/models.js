@@ -4107,6 +4107,36 @@ export class PhiModel extends PhiPreTrainedModel { }
 export class PhiForCausalLM extends PhiPreTrainedModel { }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// Phi3 models
+export class Phi3PreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `Phi3PreTrainedModel` class.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        // this.config.pad_token_id = this.config.eos_token_id;
+
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+
+/**
+ * The bare Phi3 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Phi3Model extends Phi3PreTrainedModel { }
+
+export class Phi3ForCausalLM extends Phi3PreTrainedModel { }
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // Bloom models
@@ -6210,6 +6240,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['openelm', ['OpenELMModel', OpenELMModel]],
     ['qwen2', ['Qwen2Model', Qwen2Model]],
     ['phi', ['PhiModel', PhiModel]],
+    ['phi3', ['Phi3Model', Phi3Model]],
     ['mpt', ['MptModel', MptModel]],
     ['opt', ['OPTModel', OPTModel]],
     ['mistral', ['MistralModel', MistralModel]],
@@ -6292,6 +6323,7 @@ const MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = new Map([
     ['openelm', ['OpenELMForCausalLM', OpenELMForCausalLM]],
     ['qwen2', ['Qwen2ForCausalLM', Qwen2ForCausalLM]],
     ['phi', ['PhiForCausalLM', PhiForCausalLM]],
+    ['phi3', ['Phi3ForCausalLM', Phi3ForCausalLM]],
     ['mpt', ['MptForCausalLM', MptForCausalLM]],
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
     ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
