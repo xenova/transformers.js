@@ -187,7 +187,12 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     session_options.executionProviders ??= executionProviders;
 
     // handle onnx external data files
-    if (session_options.externalData !== undefined) {
+    if (options.use_external_data_format) {
+        const path = `${fileName}${suffix}.onnx_data`;
+        const fullPath = `${options.subfolder ?? ''}/${path}`;
+        const data = await getModelFile(pretrained_model_name_or_path, fullPath, true, options);
+        session_options.externalData = [{ path, data }];
+    } else if (session_options.externalData !== undefined) {
         for (let i = 0; i < session_options.externalData.length; ++i) {
             const ext = session_options.externalData[i];
             // if the external data is a string, fetch the file and replace the string with its content
@@ -642,6 +647,7 @@ export class PreTrainedModel extends Callable {
         subfolder = 'onnx',
         device = null,
         dtype = null,
+        use_external_data_format = false,
         session_options = {},
     } = {}) {
 
@@ -655,6 +661,7 @@ export class PreTrainedModel extends Callable {
             subfolder,
             device,
             dtype,
+            use_external_data_format,
             session_options,
         }
 
@@ -6117,6 +6124,7 @@ export class PretrainedMixin {
         subfolder = 'onnx',
         device = null,
         dtype = null,
+        use_external_data_format = false,
         session_options = {},
     } = {}) {
 
@@ -6130,6 +6138,7 @@ export class PretrainedMixin {
             subfolder,
             device,
             dtype,
+            use_external_data_format,
             session_options,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
