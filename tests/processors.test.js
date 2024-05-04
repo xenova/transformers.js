@@ -542,7 +542,6 @@ describe('Processors', () => {
             const audio = await audioPromise;
             const processor = await AutoProcessor.from_pretrained('Xenova/wav2vec2-bert-CV16-en');
             { // normal
-                console.log({ audio })
                 const { input_features, attention_mask } = await processor(audio);
                 compare(input_features.dims, [1, 649, 160]);
                 compare(attention_mask.dims, [1, 649]);
