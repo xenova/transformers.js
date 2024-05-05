@@ -202,6 +202,34 @@ function lowercase_and_remove_accent(text) {
     return remove_accents(text.toLowerCase());
 }
 
+
+/**
+ * Checks whether the given Unicode codepoint represents a CJK (Chinese, Japanese, or Korean) character.
+ *
+ * A "chinese character" is defined as anything in the CJK Unicode block:
+ * https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
+ *
+ * Note that the CJK Unicode block is NOT all Japanese and Korean characters, despite its name.
+ * The modern Korean Hangul alphabet is a different block, as is Japanese Hiragana and Katakana.
+ * Those alphabets are used to write space-separated words, so they are not treated specially
+ * and are handled like all other languages.
+ *
+ * @param {number|bigint} cp The Unicode codepoint to check.
+ * @returns {boolean} True if the codepoint represents a CJK character, false otherwise.
+ */
+export function is_chinese_char(cp) {
+    return (
+        (cp >= 0x4E00 && cp <= 0x9FFF)
+        || (cp >= 0x3400 && cp <= 0x4DBF)
+        || (cp >= 0x20000 && cp <= 0x2A6DF)
+        || (cp >= 0x2A700 && cp <= 0x2B73F)
+        || (cp >= 0x2B740 && cp <= 0x2B81F)
+        || (cp >= 0x2B820 && cp <= 0x2CEAF)
+        || (cp >= 0xF900 && cp <= 0xFAFF)
+        || (cp >= 0x2F800 && cp <= 0x2FA1F)
+    )
+}
+
 /**
  * Helper function to fuse consecutive values in an array equal to the specified value.
  * @param {string[]} arr The input array
@@ -1148,7 +1176,7 @@ class BertNormalizer extends Normalizer {
         for (let i = 0; i < text.length; ++i) {
             const char = text[i];
             const cp = char.charCodeAt(0);
-            if (this._is_chinese_char(cp)) {
+            if (is_chinese_char(cp)) {
                 output.push(" ");
                 output.push(char);
                 output.push(" ");
@@ -1159,33 +1187,6 @@ class BertNormalizer extends Normalizer {
         return output.join("");
     }
 
-    /**
-     * Checks whether the given Unicode codepoint represents a CJK (Chinese, Japanese, or Korean) character.
-     *
-     * A "chinese character" is defined as anything in the CJK Unicode block:
-     * https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
-     *
-     * Note that the CJK Unicode block is NOT all Japanese and Korean characters, despite its name.
-     * The modern Korean Hangul alphabet is a different block, as is Japanese Hiragana and Katakana.
-     * Those alphabets are used to write space-separated words, so they are not treated specially
-     * and are handled like all other languages.
-     *
-     * @param {number} cp The Unicode codepoint to check.
-     * @returns {boolean} True if the codepoint represents a CJK character, false otherwise.
-     */
-    _is_chinese_char(cp) {
-        return (
-            (cp >= 0x4E00 && cp <= 0x9FFF)
-            || (cp >= 0x3400 && cp <= 0x4DBF)
-            || (cp >= 0x20000 && cp <= 0x2A6DF)
-            || (cp >= 0x2A700 && cp <= 0x2B73F)
-            || (cp >= 0x2B740 && cp <= 0x2B81F)
-            || (cp >= 0x2B820 && cp <= 0x2CEAF)
-            || (cp >= 0xF900 && cp <= 0xFAFF)
-            || (cp >= 0x2F800 && cp <= 0x2FA1F)
-        )
-    }
-    
     /**
      * Strips accents from the given text.
      * @param {string} text The text to strip accents from.
