@@ -208,11 +208,14 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     }
 
     // TODO: Add support for preferredOutputLocation
-    // if (options.device == "webgpu") {
-    //     for (let i = 0; i < config.layers; ++i) {
-    //         options.session_options.preferredOutputLocation[`present.${i}.key`] = 'gpu-buffer';
-    //         options.session_options.preferredOutputLocation[`present.${i}.value`] = 'gpu-buffer';
+    // if (device === 'webgpu') {
+    //     const num_layers = config.layers;
+    //     const preferredOutputLocation = {};
+    //     for (let i = 0; i < num_layers; ++i) {
+    //         preferredOutputLocation[`present.${i}.key`] = 'gpu-buffer';
+    //         preferredOutputLocation[`present.${i}.value`] = 'gpu-buffer';
     //     }
+    //     session_options.preferredOutputLocation = preferredOutputLocation;
     // }
     return { buffer, session_options };
 }
@@ -307,12 +310,6 @@ async function sessionRun(session, inputs) {
         const ortFeed = Object.fromEntries(Object.entries(checkedInputs).map(([k, v]) => [k, v.ort_tensor]));
         let output = await session.run(ortFeed);
         output = replaceTensors(output);
-        for (const [name, t] of Object.entries(checkedInputs)) {
-            // if we use gpu buffers for kv_caches, we own them and need to dispose()
-            if (name.startsWith('past_key_values')) {
-                t.dispose();
-            };
-        }
         return output;
     } catch (e) {
         // This usually occurs when the inputs are of the wrong type.
@@ -607,6 +604,14 @@ export class PreTrainedModel extends Callable {
         } else { // should be MODEL_TYPES.EncoderOnly
             this._forward = encoderForward;
         }
+
+        /**
+         * Transformers.js-specific configuration
+         * @typedef {Object} TransformersJSConfig
+         * @property {string} [kv_cache_dtype]
+         */
+        /** @type {TransformersJSConfig} */
+        this.custom_config = this.config['transformers.js_config'] ?? {};
     }
 
     /**
@@ -651,7 +656,7 @@ export class PreTrainedModel extends Callable {
         subfolder = 'onnx',
         device = null,
         dtype = null,
-        use_external_data_format = false,
+        use_external_data_format = null,
         session_options = {},
     } = {}) {
 
@@ -1025,12 +1030,21 @@ export class PreTrainedModel extends Callable {
         return this._prepare_inputs_for_generation(this, ...args);
     }
 
+    /**
+     * 
+     * @param {Object} inputs
+     * @param {bigint[][]} inputs.generated_input_ids
+     * @param {Object} inputs.outputs
+     * @param {Object} inputs.model_inputs
+     * @param {boolean} inputs.is_encoder_decoder
+     * @returns {Object} The updated model inputs for the next generation iteration.
+     */
     _update_model_kwargs_for_generation({ generated_input_ids, outputs, model_inputs, is_encoder_decoder }) {
         // update past_key_values
         model_inputs['past_key_values'] = this.getPastKeyValues(outputs, model_inputs.past_key_values);
 
         // update inputs for next run
-        model_inputs['input_ids'] = new Tensor('int64', generated_input_ids, [generated_input_ids.length, 1]);
+        model_inputs['input_ids'] = new Tensor('int64', generated_input_ids.flat(), [generated_input_ids.length, 1]);
 
         if (!is_encoder_decoder) {
             // update attention mask
@@ -1284,7 +1298,7 @@ export class PreTrainedModel extends Callable {
 
             const next_tokens_scores = prepared_logits_processor(all_input_ids, logits);
 
-            // only for this batch
+            /** @type {[bigint][]} */
             const generated_input_ids = [];
             // const new_kv_cache = [];// NOTE: Only used for beam search when concatenating new kv
             // Loop over each batch
@@ -1298,11 +1312,11 @@ export class PreTrainedModel extends Callable {
                     // update generated ids, model inputs, and length for next step
                     scores[batch_idx] += logProb;
                     all_input_ids[batch_idx].push(bigint);
-                    generated_input_ids.push(bigint);
+                    generated_input_ids.push([bigint]);
                 }
             }
             if (streamer) {
-                streamer.put(all_input_ids);
+                streamer.put(generated_input_ids);
             }
 
             const stop = prepared_stopping_criteria(all_input_ids);
@@ -1516,6 +1530,13 @@ export class PreTrainedModel extends Callable {
                     // https://github.com/huggingface/optimum/blob/0bf2c05fb7e1182b52d21b703cfc95fd9e4ea3dc/optimum/onnxruntime/base.py#L677-L704
                     pkvs[newName] = pastKeyValues[newName];
                 } else {
+                    if (pastKeyValues) {
+                        // Free old gpu buffer
+                        const t = pastKeyValues[newName];
+                        if (t.location === 'gpu-buffer') {
+                            t.dispose();
+                        }
+                    }
                     pkvs[newName] = decoderResults[name];
                 }
             }
@@ -1557,9 +1578,9 @@ export class PreTrainedModel extends Callable {
         } else {
             // TODO support batches (i.e., batch_size > 1)
             const batch_size = 1;
-            const dtype = 'float32'; // this.config.precision || 
-            const empty = [];
-            //  (dtype === 'float16') ? new Uint16Array() : [];
+
+            const dtype = this.custom_config.kv_cache_dtype ?? 'float32';
+            const empty = (dtype === 'float16') ? new Uint16Array() : [];
 
             // @ts-ignore
             if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
@@ -6128,7 +6149,7 @@ export class PretrainedMixin {
         subfolder = 'onnx',
         device = null,
         dtype = null,
-        use_external_data_format = false,
+        use_external_data_format = null,
         session_options = {},
     } = {}) {
 
