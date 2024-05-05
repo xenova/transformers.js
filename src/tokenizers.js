@@ -367,7 +367,7 @@ export class TokenizerModel extends Callable {
 
     /**
      * Converts a list of token IDs into a list of tokens.
-     * @param {number[]} ids The token IDs to convert.
+     * @param {number[]|bigint[]} ids The token IDs to convert.
      * @returns {string[]} The converted tokens.
      */
     convert_ids_to_tokens(ids) {
@@ -1185,6 +1185,7 @@ class BertNormalizer extends Normalizer {
             || (cp >= 0x2F800 && cp <= 0x2FA1F)
         )
     }
+    
     /**
      * Strips accents from the given text.
      * @param {string} text The text to strip accents from.
@@ -2922,7 +2923,7 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * Decodes a sequence of token IDs back to a string.
      *
-     * @param {number[]|Tensor} token_ids List/Tensor of token IDs to decode.
+     * @param {number[]|bigint[]|Tensor} token_ids List/Tensor of token IDs to decode.
      * @param {Object} [decode_args={}]
      * @param {boolean} [decode_args.skip_special_tokens=false] If true, special tokens are removed from the output string.
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] If true, spaces before punctuations and abbreviated forms are removed.
@@ -2947,7 +2948,7 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Decode a single list of token ids to a string.
-     * @param {number[]} token_ids List of token ids to decode
+     * @param {number[]|bigint[]} token_ids List of token ids to decode
      * @param {Object} decode_args Optional arguments for decoding
      * @param {boolean} [decode_args.skip_special_tokens=false] Whether to skip special tokens during decoding
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=null] Whether to clean up tokenization spaces during decoding.
@@ -3995,7 +3996,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     }
 
     /**
-     * @param {number[]} token_ids List of token IDs to decode.
+     * @param {number[]|bigint[]} token_ids List of token IDs to decode.
      * @param {Object} decode_args Optional arguments for decoding
      * @private
      */
@@ -4007,7 +4008,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         let outputs = [[]];
         for (const token of token_ids) {
             if (token >= timestamp_begin) {
-                const timestamp = round((token - timestamp_begin) * time_precision, 2);
+                const timestamp = round((Number(token) - timestamp_begin) * time_precision, 2);
                 outputs.push(`<|${timestamp}|>`);
                 outputs.push([]);
             } else {
