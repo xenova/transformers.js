@@ -34,7 +34,8 @@ const IS_WEBWORKER_ENV = IS_BROWSER_ENV && self.constructor.name === 'DedicatedW
 const IS_WEB_CACHE_AVAILABLE = IS_BROWSER_ENV && 'caches' in self;
 const IS_WEBGPU_AVAILABLE = typeof navigator !== 'undefined' && 'gpu' in navigator;
 
-const IS_NODE_ENV = typeof process !== 'undefined' && process?.release?.name === 'node';
+const IS_PROCESS_AVAILABLE = typeof process !== 'undefined';
+const IS_NODE_ENV = IS_PROCESS_AVAILABLE && process?.release?.name === 'node';
 const IS_FS_AVAILABLE = !isEmpty(fs);
 const IS_PATH_AVAILABLE = !isEmpty(path);
 
@@ -53,6 +54,9 @@ export const apis = Object.freeze({
 
     /** Whether the WebGPU API is available */
     IS_WEBGPU_AVAILABLE,
+
+    /** Whether the Node.js process API is available */
+    IS_PROCESS_AVAILABLE,
 
     /** Whether we are running in a Node.js environment */
     IS_NODE_ENV,
