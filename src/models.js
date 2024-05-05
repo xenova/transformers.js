@@ -621,11 +621,9 @@ export class PreTrainedModel extends Callable {
     */
     async dispose() {
         const promises = [];
-        for (let key of Object.keys(this)) {
-            let item = this[key];
-            // TODO improve check for ONNX session
-            if (item?.handler?.dispose !== undefined) {
-                promises.push(item.handler.dispose())
+        for (const session of Object.values(this.sessions)) {
+            if (session?.handler?.dispose) {
+                promises.push(session.handler.dispose())
             }
         }
         return await Promise.all(promises);
