@@ -40,6 +40,7 @@
 
 import {
     AutoConfig,
+    getKeyValueShapes,
 } from './configs.js';
 
 import {
@@ -207,16 +208,16 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         }
     }
 
-    // TODO: Add support for preferredOutputLocation
-    // if (device === 'webgpu') {
-    //     const num_layers = config.layers;
-    //     const preferredOutputLocation = {};
-    //     for (let i = 0; i < num_layers; ++i) {
-    //         preferredOutputLocation[`present.${i}.key`] = 'gpu-buffer';
-    //         preferredOutputLocation[`present.${i}.value`] = 'gpu-buffer';
-    //     }
-    //     session_options.preferredOutputLocation = preferredOutputLocation;
-    // }
+    if (device === 'webgpu') {
+        const shapes = getKeyValueShapes(options.config, {
+            prefix: 'present',
+        });
+        const preferredOutputLocation = {};
+        for (const key in shapes) {
+            preferredOutputLocation[key] = 'gpu-buffer';
+        }
+        session_options.preferredOutputLocation = preferredOutputLocation;
+    }
     return { buffer, session_options };
 }
 
@@ -565,7 +566,7 @@ export class PreTrainedModel extends Callable {
     forward_params = ['input_ids', 'attention_mask'];
     /**
      * Creates a new instance of the `PreTrainedModel` class.
-     * @param {Object} config The model configuration.
+     * @param {import('./configs.js').PretrainedConfig} config The model configuration.
      * @param {Record<string, any>} sessions The inference sessions for the model.
      */
     constructor(config, sessions) {
@@ -608,7 +609,7 @@ export class PreTrainedModel extends Callable {
         /**
          * Transformers.js-specific configuration
          * @typedef {Object} TransformersJSConfig
-         * @property {string} [kv_cache_dtype]
+         * @property {import('./transformers.js').DataType} [kv_cache_dtype]
          */
         /** @type {TransformersJSConfig} */
         this.custom_config = this.config['transformers.js_config'] ?? {};
@@ -675,10 +676,12 @@ export class PreTrainedModel extends Callable {
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this);
         const modelType = MODEL_TYPE_MAPPING.get(modelName);
 
+        const resolvedConfig = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
+        options.config ??= resolvedConfig;
+
         let info;
         if (modelType === MODEL_TYPES.DecoderOnly) {
             info = await Promise.all([
-                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSessions(pretrained_model_name_or_path, {
                     model: options.model_file_name ?? 'model',
                 }, options),
@@ -687,7 +690,6 @@ export class PreTrainedModel extends Callable {
 
         } else if (modelType === MODEL_TYPES.Seq2Seq || modelType === MODEL_TYPES.Vision2Seq) {
             info = await Promise.all([
-                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSessions(pretrained_model_name_or_path, {
                     model: 'encoder_model',
                     decoder_model_merged: 'decoder_model_merged',
@@ -697,7 +699,6 @@ export class PreTrainedModel extends Callable {
 
         } else if (modelType === MODEL_TYPES.MaskGeneration) {
             info = await Promise.all([
-                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSessions(pretrained_model_name_or_path, {
                     model: 'vision_encoder',
                     prompt_encoder_mask_decoder: 'prompt_encoder_mask_decoder',
@@ -706,7 +707,6 @@ export class PreTrainedModel extends Callable {
 
         } else if (modelType === MODEL_TYPES.EncoderDecoder) {
             info = await Promise.all([
-                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSessions(pretrained_model_name_or_path, {
                     model: 'encoder_model',
                     decoder_model_merged: 'decoder_model_merged',
@@ -715,7 +715,6 @@ export class PreTrainedModel extends Callable {
 
         } else if (modelType === MODEL_TYPES.ImageTextToText) {
             info = await Promise.all([
-                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSessions(pretrained_model_name_or_path, {
                     embed_tokens: 'embed_tokens',
                     vision_encoder: 'vision_encoder',
@@ -726,7 +725,6 @@ export class PreTrainedModel extends Callable {
 
         } else if (modelType === MODEL_TYPES.Musicgen) {
             info = await Promise.all([
-                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSessions(pretrained_model_name_or_path, {
                     model: 'text_encoder',
                     decoder_model_merged: 'decoder_model_merged',
@@ -740,7 +738,6 @@ export class PreTrainedModel extends Callable {
                 console.warn(`Model type for '${modelName ?? config?.model_type}' not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`)
             }
             info = await Promise.all([
-                AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
                 constructSessions(pretrained_model_name_or_path, {
                     model: options.model_file_name ?? 'model',
                 }, options),
@@ -748,7 +745,7 @@ export class PreTrainedModel extends Callable {
         }
 
         // @ts-ignore
-        return new this(...info);
+        return new this(resolvedConfig, ...info);
     }
 
     /**
@@ -1574,70 +1571,18 @@ export class PreTrainedModel extends Callable {
         if (pastKeyValues) {
             Object.assign(decoderFeeds, pastKeyValues)
         } else {
-            // TODO support batches (i.e., batch_size > 1)
-            const batch_size = 1;
 
+            /** @type {import('./transformers.js').DataType} */
             const dtype = this.custom_config.kv_cache_dtype ?? 'float32';
             const empty = (dtype === 'float16') ? new Uint16Array() : [];
 
-            // @ts-ignore
-            if (this.config.is_encoder_decoder && (this.add_encoder_pkv ?? true)) {
+            const shapes = getKeyValueShapes(this.config, {
                 // @ts-ignore
-                let encoder_dims = [batch_size, this.num_encoder_heads, 0, this.encoder_dim_kv];
-                // @ts-ignore
-                let decoder_dims = [batch_size, this.num_decoder_heads, 0, this.decoder_dim_kv];
-                // @ts-ignore
-                for (let i = 0; i < this.num_decoder_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.encoder.key`] = new Tensor(dtype, empty, encoder_dims)
-                    decoderFeeds[`past_key_values.${i}.encoder.value`] = new Tensor(dtype, empty, encoder_dims)
-                    decoderFeeds[`past_key_values.${i}.decoder.key`] = new Tensor(dtype, empty, decoder_dims)
-                    decoderFeeds[`past_key_values.${i}.decoder.value`] = new Tensor(dtype, empty, decoder_dims)
-                }
-            } else if (this.config.model_type === 'falcon') {
-                // NOTE: Custom implementation for Falcon
-                // @ts-ignore
-                let dims = [batch_size * this.num_heads, 0, this.dim_kv]
-                // @ts-ignore
-                for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, dims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, dims)
-                }
-            } else if (this.config.multi_query) { // e.g., for `gpt_bigcode`
-                // @ts-ignore
-                let dims = [batch_size * this.num_heads, 0, 2 * this.dim_kv]
-                // @ts-ignore
-                for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key_value`] = new Tensor(dtype, empty, dims)
-                }
-            } else if (this.config.model_type === 'bloom') {
-                // NOTE: Custom implementation for Bloom
+                encoder_add_pkv: this.add_encoder_pkv ?? true,
+            });
 
-                // @ts-ignore
-                let keyDims = [batch_size * this.num_heads, this.dim_kv, 0] // [batch_size x num_heads,64,past_sequence_length]
-                // @ts-ignore
-                let valueDims = [batch_size * this.num_heads, 0, this.dim_kv] // [batch_size x num_heads,past_sequence_length,64]
-                // @ts-ignore
-                for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, keyDims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, valueDims)
-                }
-            } else if (this.config.model_type === 'openelm') {
-                // @ts-ignore
-                for (let i = 0; i < this.num_layers; ++i) {
-                    // @ts-ignore
-                    let dims = [batch_size, this.num_heads[i], 0, this.dim_kv]
-
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, dims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, dims)
-                }
-            } else { // Decoder-only
-                // @ts-ignore
-                let dims = [batch_size, this.num_heads, 0, this.dim_kv]
-                // @ts-ignore
-                for (let i = 0; i < this.num_layers; ++i) {
-                    decoderFeeds[`past_key_values.${i}.key`] = new Tensor(dtype, empty, dims)
-                    decoderFeeds[`past_key_values.${i}.value`] = new Tensor(dtype, empty, dims)
-                }
+            for (const name in shapes) {
+                decoderFeeds[name] = new Tensor(dtype, empty, shapes[name]);
             }
         }
     }
@@ -2509,14 +2454,6 @@ export class T5PreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.num_decoder_layers;
-        this.num_decoder_heads = this.config.num_heads;
-        this.decoder_dim_kv = this.config.d_kv;
-
-        this.num_encoder_layers = this.config.num_layers;
-        this.num_encoder_heads = this.config.num_heads;
-        this.encoder_dim_kv = this.config.d_kv;
     }
 };
 
@@ -2544,14 +2481,6 @@ export class LongT5PreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.num_decoder_layers;
-        this.num_decoder_heads = this.config.num_heads;
-        this.decoder_dim_kv = this.config.d_kv;
-
-        this.num_encoder_layers = this.config.num_layers;
-        this.num_encoder_heads = this.config.num_heads;
-        this.encoder_dim_kv = this.config.d_kv;
     }
 };
 
@@ -2580,14 +2509,6 @@ export class MT5PreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.num_decoder_layers;
-        this.num_decoder_heads = this.config.num_heads;
-        this.decoder_dim_kv = this.config.d_kv;
-
-        this.num_encoder_layers = this.config.num_layers;
-        this.num_encoder_heads = this.config.num_heads;
-        this.encoder_dim_kv = this.config.d_kv;
     }
 };
 
@@ -2612,14 +2533,6 @@ export class BartPretrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 };
 
@@ -2663,14 +2576,6 @@ export class MBartPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 };
 
@@ -2700,25 +2605,7 @@ export class MBartForSequenceClassification extends MBartPreTrainedModel {
 }
 
 
-export class MBartForCausalLM extends MBartPreTrainedModel {
-    /**
-     * Creates a new instance of the `MBartForCausalLM` class.
-     * @param {Object} config The model configuration.
-     * @param {Record<string, any>} sessions The inference sessions for the model.
-     * @param {GenerationConfig} generation_config The generation configuration.
-     */
-    constructor(config, sessions, generation_config) {
-        super(config, sessions, generation_config);
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
-    }
-}
+export class MBartForCausalLM extends MBartPreTrainedModel { }
 //////////////////////////////////////////////////
 
 
@@ -2735,14 +2622,6 @@ export class BlenderbotPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 };
 
@@ -2771,14 +2650,6 @@ export class BlenderbotSmallPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 };
 
@@ -3033,14 +2904,6 @@ export class WhisperPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 };
 
@@ -3317,6 +3180,7 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
+        throw new Error("Not implemented yet")
 
         // Extract configs
         const encoderConfig = this.config.encoder;
@@ -3382,10 +3246,6 @@ export class LlavaPreTrainedModel extends PreTrainedModel {
 
         // config doesn't contain pad_token_id, so we assume it is the eos_token_id
         this.config.pad_token_id = decoderConfig.eos_token_id;
-
-        this.num_heads = decoderConfig.num_attention_heads;
-        this.num_layers = decoderConfig.num_hidden_layers;
-        this.dim_kv = decoderConfig.hidden_size / this.num_heads;
     }
 }
 
@@ -3858,13 +3718,6 @@ export class GPT2PreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd / this.num_heads;
     }
 }
 
@@ -3891,13 +3744,6 @@ export class GPTNeoPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_heads;
-        this.num_layers = this.config.num_layers;
-        this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
 export class GPTNeoModel extends GPTNeoPreTrainedModel { }
@@ -3917,13 +3763,6 @@ export class GPTNeoXPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_attention_heads;
-        this.num_layers = this.config.num_hidden_layers;
-        this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
 export class GPTNeoXModel extends GPTNeoXPreTrainedModel { }
@@ -3944,13 +3783,6 @@ export class GPTJPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd / this.num_heads;
     }
 }
 
@@ -3972,13 +3804,6 @@ export class GPTBigCodePreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd / this.num_heads;
     }
 }
 
@@ -3999,13 +3824,6 @@ export class CodeGenPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.n_embd / this.num_heads;
     }
 }
 /**
@@ -4036,13 +3854,6 @@ export class LlamaPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_key_value_heads ?? this.config.num_attention_heads
-        this.num_layers = this.config.num_hidden_layers
-        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads
     }
 }
 /**
@@ -4055,7 +3866,7 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel { }
 
 export class OpenELMPreTrainedModel extends PreTrainedModel {
     /**
-     * Creates a new instance of the `LlamaPreTrainedModel` class.
+     * Creates a new instance of the `OpenELMPreTrainedModel` class.
      * @param {Object} config The model configuration.
      * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
@@ -4063,10 +3874,6 @@ export class OpenELMPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_heads = this.config.num_kv_heads;
-        this.num_layers = this.config.num_transformer_layers
-        this.dim_kv = this.config.head_dim
     }
 }
 export class OpenELMModel extends OpenELMPreTrainedModel { }
@@ -4090,13 +3897,6 @@ export class Qwen2PreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_key_value_heads ?? this.config.num_attention_heads
-        this.num_layers = this.config.num_hidden_layers
-        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads
     }
 }
 /**
@@ -4120,13 +3920,6 @@ export class PhiPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id;
-
-        this.num_heads = this.config.num_attention_heads;
-        this.num_layers = this.config.num_hidden_layers;
-        this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
 /**
@@ -4149,13 +3942,6 @@ export class Phi3PreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id;
-
-        this.num_heads = this.config.num_attention_heads;
-        this.num_layers = this.config.num_hidden_layers;
-        this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
 
@@ -4183,13 +3969,6 @@ export class BloomPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_head
-        this.num_layers = this.config.n_layer
-        this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
 
@@ -4216,13 +3995,6 @@ export class MptPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.n_heads
-        this.num_layers = this.config.n_layers
-        this.dim_kv = this.config.d_model / this.num_heads;
     }
 }
 
@@ -4250,13 +4022,6 @@ export class OPTPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_attention_heads;
-        this.num_layers = this.config.num_hidden_layers;
-        this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
 
@@ -5007,14 +4772,6 @@ export class MarianPreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 };
 
@@ -5036,14 +4793,6 @@ export class M2M100PreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.d_model / this.num_encoder_heads;
     }
 };
 
@@ -5480,14 +5229,6 @@ export class SpeechT5PreTrainedModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        this.num_decoder_layers = this.config.decoder_layers;
-        this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.decoder_dim_kv = this.config.hidden_size / this.num_decoder_heads;
-
-        this.num_encoder_layers = this.config.encoder_layers;
-        this.num_encoder_heads = this.config.encoder_attention_heads;
-        this.encoder_dim_kv = this.config.hidden_size / this.num_encoder_heads;
     }
 };
 
@@ -5660,13 +5401,6 @@ export class TrOCRPreTrainedModel extends PreTrainedModel {
     constructor(config, session, generation_config) {
         super(config, session);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id;
-
-        this.num_encoder_layers = this.num_decoder_layers = this.config.decoder_layers;
-        this.num_encoder_heads = this.num_decoder_heads = this.config.decoder_attention_heads;
-        this.encoder_dim_kv = this.decoder_dim_kv = this.config.d_model / this.num_decoder_heads;
     }
 }
 
@@ -5693,13 +5427,6 @@ export class MistralPreTrainedModel extends PreTrainedModel {
     constructor(config, session, generation_config) {
         super(config, session);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_key_value_heads;
-        this.num_layers = this.config.num_hidden_layers;
-        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
     }
 }
 
@@ -5724,13 +5451,6 @@ export class Starcoder2PreTrainedModel extends PreTrainedModel {
     constructor(config, session, generation_config) {
         super(config, session);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_key_value_heads;
-        this.num_layers = this.config.num_hidden_layers;
-        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
     }
 }
 
@@ -5755,13 +5475,6 @@ export class FalconPreTrainedModel extends PreTrainedModel {
     constructor(config, session, generation_config) {
         super(config, session);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_attention_heads;
-        this.num_layers = this.config.num_hidden_layers;
-        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
     }
 }
 
@@ -5923,13 +5636,6 @@ export class StableLmPreTrainedModel extends PreTrainedModel {
     constructor(config, session, generation_config) {
         super(config, session);
         this.generation_config = generation_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        // this.config.pad_token_id = this.config.eos_token_id
-
-        this.num_heads = this.config.num_attention_heads;
-        this.num_layers = this.config.num_hidden_layers;
-        this.dim_kv = this.config.hidden_size / this.num_heads;
     }
 }
 
@@ -6027,12 +5733,6 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        // decoder
-        const decoderConfig = config.decoder;
-        this.num_encoder_layers = this.num_decoder_layers = decoderConfig.num_hidden_layers;
-        this.num_encoder_heads = this.num_decoder_heads = decoderConfig.num_attention_heads;
-        this.encoder_dim_kv = this.decoder_dim_kv = decoderConfig.hidden_size / this.num_decoder_heads;
     }
 
     /**
@@ -6278,6 +5978,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['mistral', ['MistralModel', MistralModel]],
     ['starcoder2', ['Starcoder2Model', Starcoder2Model]],
     ['falcon', ['FalconModel', FalconModel]],
+    ['stablelm', ['StableLmModel', StableLmModel]],
 ]);
 
 const MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES = new Map([
