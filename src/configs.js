@@ -312,3 +312,9 @@ export class AutoConfig {
         return PretrainedConfig.from_pretrained(...args);
     }
 }
+
+/**
+ * Transformers.js-specific configuration, possibly present in config.json under the key `transformers.js_config`.
+ * @typedef {Object} TransformersJSConfig
+ * @property {import('./transformers.js').DataType} [kv_cache_dtype]
+ */

@@ -606,12 +606,7 @@ export class PreTrainedModel extends Callable {
             this._forward = encoderForward;
         }
 
-        /**
-         * Transformers.js-specific configuration
-         * @typedef {Object} TransformersJSConfig
-         * @property {import('./transformers.js').DataType} [kv_cache_dtype]
-         */
-        /** @type {TransformersJSConfig} */
+        /** @type {import('./configs.js').TransformersJSConfig} */
         this.custom_config = this.config['transformers.js_config'] ?? {};
     }
 
