@@ -71,6 +71,12 @@ export function deviceToExecutionProviders(device) {
  * @returns {Promise<import('onnxruntime-common').InferenceSession>} The ONNX inference session.
  */
 export async function createInferenceSession(buffer, session_options) {
+    if(apis.IS_BROWSER_ENV){
+        let url = env.backends.onnx.wasm.wasmPaths;
+        if(!url.startsWith('http')){
+            env.backends.onnx.wasm.wasmPaths = url[0] == '/' ? location.origin + url : location.href.replace(/[^\/]+$/,'') + url;
+        }
+    }
     return await InferenceSession.create(buffer, session_options);
 }
 
