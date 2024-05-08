@@ -249,15 +249,23 @@ function App() {
             }}
             onInput={(e) => setInput(e.target.value)}
           />
-          {isRunning ?
-            (<div className="cursor-pointer" onClick={onInterrupt}>
+          {isRunning
+            ? (<div className="cursor-pointer" onClick={onInterrupt}>
               <StopIcon
-                className="h-8 w-8 p-1 rounded-md text-gray-800 absolute right-3 bottom-3"
+                className="h-8 w-8 p-1 rounded-md text-gray-800 dark:text-gray-100 absolute right-3 bottom-3"
               />
-            </div>) :
-            (<ArrowRightIcon
-              className={`h-8 w-8 p-1 ${input.length > 0 ? 'bg-gray-800 dark:bg-gray-100 text-white dark:text-black' : 'bg-gray-200 dark:bg-gray-600 text-gray-50 dark:text-gray-800'} rounded-md absolute right-3 bottom-3`}
-            />)
+            </div>)
+            : input.length > 0
+              ? (<div className="cursor-pointer" onClick={() => onEnter(input)}>
+                <ArrowRightIcon
+                  className={`h-8 w-8 p-1 bg-gray-800 dark:bg-gray-100 text-white dark:text-black rounded-md absolute right-3 bottom-3`}
+                />
+              </div>)
+              : (<div>
+                <ArrowRightIcon
+                  className={`h-8 w-8 p-1 bg-gray-200 dark:bg-gray-600 text-gray-50 dark:text-gray-800 rounded-md absolute right-3 bottom-3`}
+                />
+              </div>)
           }
         </div>
 
