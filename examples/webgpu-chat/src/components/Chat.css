@@ -31,6 +31,10 @@
         padding: 1rem 0.5rem;
     }
 
+    pre>code {
+        padding: 0;
+    }
+
     /* Headings */
     h1,
     h2,
