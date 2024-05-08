@@ -48,11 +48,13 @@ export class StoppingCriteriaList extends Callable {
     /**
      * Adds multiple stopping criteria to the list.
      *
-     * @param {StoppingCriteriaList|StoppingCriteria[]} items The stopping criteria to add.
+     * @param {StoppingCriteria|StoppingCriteriaList|StoppingCriteria[]} items The stopping criteria to add.
      */
     extend(items) {
         if (items instanceof StoppingCriteriaList) {
             items = items.criteria;
+        } else if (items instanceof StoppingCriteria) {
+            items = [items];
         }
         this.criteria.push(...items);
     }
