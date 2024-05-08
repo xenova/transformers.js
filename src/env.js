@@ -130,9 +130,6 @@ export const env = {
     localModelPath: localModelPath,
     useFS: IS_FS_AVAILABLE,
 
-    isBrowserEnv: BROWSER_ENV,
-    isWebworkerEnv: WEBWORKER_ENV,
-
     /////////////////// Cache settings ///////////////////
     useBrowserCache: IS_WEB_CACHE_AVAILABLE,
 
