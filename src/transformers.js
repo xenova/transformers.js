@@ -24,3 +24,5 @@ export * from './utils/tensor.js';
 export * from './utils/maths.js';
 
 export * from './generation/streamers.js';
+export * from './generation/stopping_criteria.js';
+
