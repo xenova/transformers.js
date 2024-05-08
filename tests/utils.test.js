@@ -1,6 +1,7 @@
 
 import { AutoProcessor } from '../src/transformers.js';
 import { mel_filter_bank } from '../src/utils/audio.js';
+import { getFile } from '../src/utils/hub.js';
 
 import { MAX_TEST_EXECUTION_TIME } from './init.js';
 
@@ -40,6 +41,17 @@ describe('Utilities', () => {
             expect(maxdiff).toBeLessThan(1e-6);
 
         }, MAX_TEST_EXECUTION_TIME);
+
+    });
+
+    describe('Hub utilities', () => {
+            
+        it('Read data from blob', async () => {
+            const blob = new Blob(['Hello, world!'], { type: 'text/plain' });
+            const blobUrl = URL.createObjectURL(blob);
+            const data = await getFile(blobUrl);
+            expect(await data.text()).toBe('Hello, world!');
+        });
 
     });
 });
