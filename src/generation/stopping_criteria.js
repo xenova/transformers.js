@@ -125,6 +125,10 @@ export class EosTokenCriteria extends StoppingCriteria {
      * @returns {boolean[]}
      */
     _call(input_ids, scores) {
-        return input_ids.map(ids => this.eos_token_id.includes(ids.at(-1)));
+        return input_ids.map(ids => {
+            const last = ids.at(-1);
+            // NOTE: We use == instead of === to allow for number/bigint comparison
+            return this.eos_token_id.some(eos_id => last == eos_id);
+        });
     }
 }
