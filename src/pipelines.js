@@ -69,7 +69,6 @@ import {
     interpolate,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
-import { env } from './env.js';
 
 
 /**
@@ -2758,7 +2757,7 @@ export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipe
     }
 }
 
-const SUPPORTED_TASKS = Object.freeze({
+const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
         "pipeline": TextClassificationPipeline,
@@ -3032,7 +3031,6 @@ const SUPPORTED_TASKS = Object.freeze({
         "type": "text",
     },
     "image-feature-extraction": {
-        // no tokenizer
         "processor": AutoProcessor,
         "pipeline": ImageFeatureExtractionPipeline,
         "model": [AutoModelForImageFeatureExtraction, AutoModel],
@@ -3043,7 +3041,7 @@ const SUPPORTED_TASKS = Object.freeze({
         },
         "type": "image",
     },
-})
+}
 
 
 // TODO: Add types for TASK_ALIASES
@@ -3118,7 +3116,7 @@ export async function pipeline(
     task = TASK_ALIASES[task] ?? task;
 
     // Get pipeline info
-    const pipelineInfo = SUPPORTED_TASKS[task.split('_', 1)[0]] ?? env.customTasks[task.split('_', 1)[0]];
+    const pipelineInfo = SUPPORTED_TASKS[task.split('_', 1)[0]];
     if (!pipelineInfo) {
         throw Error(`Unsupported pipeline: ${task}. Must be one of [${Object.keys(SUPPORTED_TASKS)}]`)
     }
@@ -3232,12 +3230,11 @@ async function loadItems(mapping, model, pretrainedOptions) {
  * 
  * class AudioFeatureExtractionPipeline extends Pipeline {
  *   constructor(options) {
- *     super(options);
+ *     super(options)
  *   }
  *   async _call(input, kwargs = {}) {
- *     input = await read_audio(input)
- *     input = await this.processor(input);
- *     let { audio_embeds } = await this.model(input);
+ *     input = await read_audio(input).then(input=>this.processor(input))
+ *     let { audio_embeds } = await this.model(input)
  *     return audio_embeds
  *   }
  * }
@@ -3257,10 +3254,10 @@ async function loadItems(mapping, model, pretrainedOptions) {
 export function register_pipeline(
     task,
     {
-        tokenizer = undefined,
-        pipeline = undefined,
-        model = undefined,
-        processor = undefined,
+        tokenizer,
+        pipeline,
+        model,
+        processor,
         default_model = '',
         type = ''
     } = {}
@@ -3270,10 +3267,10 @@ export function register_pipeline(
         (pipeline.prototype instanceof Pipeline) &&
         ("_call" in pipeline.prototype)
     )){
-        throw Error('pipeline class must inherits from Pipeline, and contains _call')
+        throw Error('pipeline class must inherit from Pipeline, and contains _call')
     }
 
-    env.customTasks[task] = {
+    SUPPORTED_TASKS[task] = {
         tokenizer,
         pipeline,
         model,

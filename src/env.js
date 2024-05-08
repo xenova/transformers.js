@@ -106,8 +106,6 @@ export const env = {
     localModelPath: localModelPath,
     useFS: FS_AVAILABLE,
 
-    customTasks: {},
-
     /////////////////// Cache settings ///////////////////
     useBrowserCache: WEB_CACHE_AVAILABLE,
 
