@@ -14,7 +14,7 @@ import { FFT, max } from './maths.js';
 import {
     calculateReflectOffset, saveBlob,
 } from './core.js';
-import { env } from '../env.js';
+import { apis } from '../env.js';
 import fs from 'fs';
 
 
@@ -710,24 +710,12 @@ export class RawAudio {
         res = new audio[0].constructor(len)
         res2 = keepOriginalValues ? (new audio[0].constructor(len)) : audio[1]
 
-        for (i = 1; i < len; i += 2) {
-            res[i - 1] = audio[0][i >> 1]
-            res[i] = audio[1][i >> 1]
+        for (i = 0; i < len; i++) {
+            res[i] = audio[i % 2][i >> 1]
         }
 
-        if (len % 2) {
-            res[i - 1] = audio[0][i >> 1]
-            res2[0] = audio[1][i >> 1]
-            offset = i - 1
-            i = 2
-        } else {
-            offset = i - 2
-            i = 1
-        }
-
-        for (; i < len; i += 2) {
-            res2[i - 1] = audio[0][(offset + i) >> 1]
-            res2[i] = audio[1][(offset + i) >> 1]
+        for (offset = i, i = 0; i < len; i++) {
+            res2[i] = audio[(offset + i) % 2][(offset + i) >> 1]
         }
 
         if (keepOriginalValues) {
@@ -796,18 +784,18 @@ export class RawAudio {
     async save(path = 'audio.wav') {
         let fn
 
-        if (env.isBrowserEnv) {
-            if (env.isWebworkerEnv) {
+        if (apis.IS_BROWSER_ENV) {
+            if (apis.IS_WEBWORKER_ENV) {
                 throw new Error('Unable to save a file from a Web Worker.')
             }
             fn = saveBlob
-        } else if (env.useFS) {
+        } else if (apis.IS_FS_AVAILABLE) {
             fn = async (path, blob) => {
-                let buf = await blob.arrayBuffer();
+                let buf = await blob.arrayBuffer()
                 buf = new Uint8Array(buf)
                 fs.writeFile(path, buf, (err) => {
-                    throw new Error(err);
-                });
+                    throw new Error(err)
+                })
             }
         } else {
             throw new Error('Unable to save because filesystem is disabled in this environment.')
