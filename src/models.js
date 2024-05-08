@@ -181,31 +181,41 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[dtype];
     const modelFileName = `${options.subfolder ?? ''}/${fileName}${suffix}.onnx`;
 
-    const buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
-
     const session_options = { ...options.session_options } ?? {};
 
     // Overwrite `executionProviders` if not specified
     session_options.executionProviders ??= executionProviders;
 
+
+    const bufferPromise = getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
+
     // handle onnx external data files
+    /** @type {Promise<{path: string, data: Uint8Array}>[]} */
+    let externalDataPromises = [];
     if (options.use_external_data_format) {
         if (apis.IS_NODE_ENV) {
             throw new Error('External data format is not yet supported in Node.js');
         }
         const path = `${fileName}${suffix}.onnx_data`;
         const fullPath = `${options.subfolder ?? ''}/${path}`;
-        const data = await getModelFile(pretrained_model_name_or_path, fullPath, true, options);
-        session_options.externalData = [{ path, data }];
+        externalDataPromises.push(new Promise(async (resolve, reject) => {
+            const data = await getModelFile(pretrained_model_name_or_path, fullPath, true, options);
+            resolve({ path, data })
+        }));
+
     } else if (session_options.externalData !== undefined) {
-        for (let i = 0; i < session_options.externalData.length; ++i) {
-            const ext = session_options.externalData[i];
+        externalDataPromises = session_options.externalData.map(async (ext) => {
             // if the external data is a string, fetch the file and replace the string with its content
             if (typeof ext.data === "string") {
                 const ext_buffer = await getModelFile(pretrained_model_name_or_path, ext.data, true, options);
-                ext.data = ext_buffer;
+                return { ...ext, data: ext_buffer };
             }
-        }
+            return ext;
+        });
+    }
+
+    if (externalDataPromises.length > 0) {
+        session_options.externalData = await Promise.all(externalDataPromises);
     }
 
     if (device === 'webgpu') {
@@ -218,6 +228,8 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         }
         session_options.preferredOutputLocation = preferredOutputLocation;
     }
+
+    const buffer = await bufferPromise;
     return { buffer, session_options };
 }
 
