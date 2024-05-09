@@ -177,13 +177,12 @@ function App() {
             </div>
 
             <div className="flex flex-col items-center px-4">
-              <p className="max-w-[500px] mb-4">
+              <p className="max-w-[514px] mb-4">
                 <br />
                 You are about to load <a href="https://huggingface.co/Xenova/Phi-3-mini-4k-instruct" target="_blank" rel="noreferrer" className="font-medium underline">Phi-3-mini-4k-instruct</a>,
                 a 3.82 billion parameter LLM that is optimized for inference on the web. Once downloaded, the model (2.3&nbsp;GB) will be cached and reused when you revisit the page.<br />
                 <br />
-                Everything runs directly in your browser using <a href="https://huggingface.co/docs/transformers.js" target="_blank" rel="noreferrer" className="underline">🤗&nbsp;Transformers.js</a>,
-                meaning your conversations are not sent to a server. You can even disconnect from the WiFi after the model has loaded.
+                Everything runs directly in your browser using <a href="https://huggingface.co/docs/transformers.js" target="_blank" rel="noreferrer" className="underline">🤗&nbsp;Transformers.js</a> and ONNX Runtime Web, meaning your conversations aren&#39;t sent to a server. You can even disconnect from the internet after the model has loaded!
               </p>
 
               <button
