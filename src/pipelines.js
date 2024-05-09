@@ -41,6 +41,7 @@ import {
     AutoModelForDepthEstimation,
     AutoModelForImageFeatureExtraction,
     PreTrainedModel,
+    getModelClassFromName,
 } from './models.js';
 import {
     AutoProcessor,
@@ -3317,8 +3318,6 @@ async function loadItems(mapping, model, pretrainedOptions) {
  *   Pipeline,
  *   read_audio,
  *   register_pipeline,
- *   ClapAudioModelWithProjection,
- *   AutoProcessor,
  *   pipeline
  * } from '@xenova/transformers';
  * 
@@ -3335,8 +3334,8 @@ async function loadItems(mapping, model, pretrainedOptions) {
  * 
  * register_pipeline('audio-feature-extraction', {
  *   pipeline: AudioFeatureExtractionPipeline,
- *   model: ClapAudioModelWithProjection,
- *   processor: AutoProcessor,
+ *   model: 'ClapAudioModelWithProjection',
+ *   processor: 'AutoProcessor',
  *   default_model: 'Xenova/larger_clap_music_and_speech'
  * })
  * 
@@ -3349,7 +3348,7 @@ export function register_pipeline(
     task,
     {
         tokenizer,
-        pipeline,
+        pipeline: pipelineClass,
         model,
         processor,
         default_model = '',
@@ -3357,18 +3356,18 @@ export function register_pipeline(
     } = {}
 ) {
     if(!(
-        ('prototype' in pipeline) && 
-        (pipeline.prototype instanceof Pipeline) &&
-        ("_call" in pipeline.prototype)
+        ('prototype' in pipelineClass) && 
+        (pipelineClass.prototype instanceof Pipeline) &&
+        ("_call" in pipelineClass.prototype)
     )){
         throw Error('pipeline class must inherit from Pipeline, and contains _call')
     }
 
     SUPPORTED_TASKS[task] = {
-        tokenizer,
-        pipeline,
-        model,
-        processor,
+        tokenizer: tokenizer == 'AutoTokenizer' ? AutoTokenizer : tokenizer,
+        pipeline: pipelineClass,
+        model: typeof model == 'string' ? getModelClassFromName(model) : model,
+        processor: processor == 'AutoProcessor' ? AutoProcessor : processor,
         'default': {model: default_model},
         type
     }
