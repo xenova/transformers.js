@@ -690,7 +690,7 @@ export class PreTrainedModel extends Callable {
         if (modelType === MODEL_TYPES.DecoderOnly) {
             info = await Promise.all([
                 constructSessions(pretrained_model_name_or_path, {
-                    model: options.model_file_name ?? 'model',
+                    model: options.model_file_name ?? 'decoder_model_merged',
                 }, options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
             ]);
