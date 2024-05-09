@@ -1027,7 +1027,8 @@ export class PreTrainedModel extends Callable {
             for (const model_mapping of generate_compatible_mappings) {
                 const supported_models = model_mapping.get(modelType);
                 if (supported_models) {
-                    generate_compatible_classes.add(supported_models[0]);
+                    const name = MODEL_CLASS_TO_NAME_MAPPING.get(supported_models);
+                    generate_compatible_classes.add(name);
                 }
             }
 
@@ -5897,7 +5898,7 @@ export class PretrainedMixin {
             if (!modelInfo) {
                 continue; // Item not found in this mapping
             }
-            return await modelInfo[1].from_pretrained(pretrained_model_name_or_path, options);
+            return await modelInfo.from_pretrained(pretrained_model_name_or_path, options);
         }
 
         if (this.BASE_IF_FAIL) {
