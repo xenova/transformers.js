@@ -590,6 +590,9 @@ export class PreTrainedModel extends Callable {
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this.constructor);
         const modelType = MODEL_TYPE_MAPPING.get(modelName);
 
+        this.modelRepoName = '';
+        this.modelClassName = '';
+
         this.can_generate = false;
         this._forward = null;
 
@@ -3522,6 +3525,8 @@ export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
 export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
     /** @type {PreTrainedModel.from_pretrained} */
     static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        if(!options.dtype || options.dtype[0] == 'q') console.warn('NOTE: vision model is sensitive to quantization.')
+
         // Update default model file name if not provided
         options.model_file_name ??= 'vision_model';
         return super.from_pretrained(pretrained_model_name_or_path, options);
@@ -5886,7 +5891,10 @@ export class PretrainedMixin {
             if (!modelInfo) {
                 continue; // Item not found in this mapping
             }
-            return await modelInfo[1].from_pretrained(pretrained_model_name_or_path, options);
+            const loadedModel = await modelInfo[1].from_pretrained(pretrained_model_name_or_path, options);
+            loadedModel.modelRepoName = pretrained_model_name_or_path;
+            loadedModel.modelClassName = modelInfo[0];
+            return loadedModel;
         }
 
         if (this.BASE_IF_FAIL) {
