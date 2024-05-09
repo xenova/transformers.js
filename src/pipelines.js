@@ -679,7 +679,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
 
     /** @type {Text2TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
         if (!Array.isArray(texts)) {
             texts = [texts];
         }
@@ -930,7 +930,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
 
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
         let isBatched = false;
         let isChatInput = false;
 
@@ -1676,7 +1676,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 
     /** @type {AutomaticSpeechRecognitionPipelineCallback} */
     async _call(audio, kwargs = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
         switch (this.model.config.model_type) {
             case 'whisper':
                 return this._call_whisper(audio, kwargs)
@@ -1898,7 +1898,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
 
     /** @type {ImageToTextPipelineCallback} */
     async _call(images, generate_kwargs = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
 
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
@@ -2533,7 +2533,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
 
     /** @type {DocumentQuestionAnsweringPipelineCallback} */
     async _call(image, question, generate_kwargs = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
 
         // NOTE: For now, we only support a batch size of 1
 
@@ -2647,7 +2647,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
     async _call(text_inputs, {
         speaker_embeddings = null,
     } = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
 
         // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
         if (this.processor) {

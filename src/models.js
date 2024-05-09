@@ -3000,7 +3000,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
 
         ...kwargs
     }) {
-        throw new Error("WhisperForConditionalGeneration.generate is not yet in Transformers.js v3.")
+        if(!globalThis.v3testing) throw new Error("WhisperForConditionalGeneration.generate is not yet in Transformers.js v3.")
 
         // console.log('inputs', inputs);
         // console.log('kwargs', kwargs);
