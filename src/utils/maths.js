@@ -174,7 +174,11 @@ export function log_softmax(arr) {
  * @returns {number} The dot product of arr1 and arr2.
  */
 export function dot(arr1, arr2) {
-    return arr1.reduce((acc, val, i) => acc + val * arr2[i], 0);
+    let result = 0;
+    for (let i = 0; i < arr1.length; ++i) {
+        result += arr1[i] * arr2[i];
+    }
+    return result;
 }
 
 

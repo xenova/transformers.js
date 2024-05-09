@@ -21,6 +21,9 @@
  */
 import {
     Callable,
+} from './utils/generic.js';
+
+import {
     calculateDimensions,
     calculateReflectOffset,
 } from './utils/core.js';
@@ -37,7 +40,7 @@ import {
 } from './utils/maths.js';
 
 
-import { Tensor, permute, cat, interpolate, stack } from './utils/tensor.js';
+import { Tensor, permute, cat, interpolate, stack, interpolate_4d } from './utils/tensor.js';
 
 import { RawImage } from './utils/image.js';
 import {
@@ -116,10 +119,13 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
                     // This is the background class, skip it
                     continue;
                 }
-                indices.push(maxIndex);
-
                 // Compute softmax over classes
                 probs = softmax(logit.data);
+
+                if (probs[maxIndex] < threshold) {
+                    continue;
+                }
+                indices.push(maxIndex);
             }
 
             for (const index of indices) {
@@ -330,10 +336,11 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         const threshold = gray_threshold / 255;
 
         let x_min = gray_image.width, y_min = gray_image.height, x_max = 0, y_max = 0;
+        const gray_image_data = gray_image.data;
         for (let j = 0; j < gray_image.height; ++j) {
             const row = j * gray_image.width;
             for (let i = 0; i < gray_image.width; ++i) {
-                if ((gray_image.data[row + i] - minValue) / diff < threshold) {
+                if ((gray_image_data[row + i] - minValue) / diff < threshold) {
                     // We have a non-zero pixel, so we update the min/max values accordingly
                     x_min = Math.min(x_min, i);
                     y_min = Math.min(y_min, j);
@@ -667,7 +674,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         return {
             original_size: [srcHeight, srcWidth],
             reshaped_input_size: reshaped_input_size,
-            pixel_values: pixel_values,
+            pixel_values,
         }
     }
 
@@ -690,7 +697,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         const pixel_values = stack(imageData.map(x => x.pixel_values), 0);
 
         return {
-            pixel_values: pixel_values,
+            pixel_values,
 
             // Original sizes of images
             original_sizes: imageData.map(x => x.original_size),
@@ -741,12 +748,13 @@ export class SegformerFeatureExtractor extends ImageFeatureExtractor {
 
             // Buffer to store current largest value
             const buffer = data[0].data;
+            const segmentation_data = segmentation.data;
             for (let j = 1; j < data.dims[0]; ++j) {
                 const row = data[j].data;
                 for (let k = 0; k < row.length; ++k) {
                     if (row[k] > buffer[k]) {
                         buffer[k] = row[k];
-                        segmentation.data[k] = j;
+                        segmentation_data[k] = j;
                     }
                 }
             }
@@ -772,6 +780,7 @@ export class DPTImageProcessor extends DPTFeatureExtractor { } // NOTE: extends 
 export class BitImageProcessor extends ImageFeatureExtractor { }
 export class GLPNFeatureExtractor extends ImageFeatureExtractor { }
 export class CLIPFeatureExtractor extends ImageFeatureExtractor { }
+export class CLIPImageProcessor extends CLIPFeatureExtractor { } // NOTE: extends CLIPFeatureExtractor
 export class ChineseCLIPFeatureExtractor extends ImageFeatureExtractor { }
 export class SiglipImageProcessor extends ImageFeatureExtractor { }
 export class ConvNextFeatureExtractor extends ImageFeatureExtractor {
@@ -973,6 +982,8 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         let mask_k_area = 0;
         let original_area = 0;
 
+        const mask_probs_k_data = mask_probs[k].data;
+
         // Compute the area of all the stuff in query k
         for (let i = 0; i < mask_labels.length; ++i) {
             if (mask_labels[i] === k) {
@@ -980,7 +991,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
                 ++mask_k_area;
             }
 
-            if (mask_probs[k].data[i] >= mask_threshold) {
+            if (mask_probs_k_data[i] >= mask_threshold) {
                 ++original_area;
             }
         }
@@ -1043,11 +1054,13 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         for (let i = 0; i < mask_probs.length; ++i) {
             let score = pred_scores[i];
 
-            for (let j = 0; j < mask_probs[i].data.length; ++j) {
-                mask_probs[i].data[j] *= score
-                if (mask_probs[i].data[j] > bestScores[j]) {
+            const mask_probs_i_data = mask_probs[i].data;
+
+            for (let j = 0; j < mask_probs_i_data.length; ++j) {
+                mask_probs_i_data[j] *= score
+                if (mask_probs_i_data[j] > bestScores[j]) {
                     mask_labels[j] = i;
-                    bestScores[j] = mask_probs[i].data[j];
+                    bestScores[j] = mask_probs_i_data[j];
                 }
             }
         }
@@ -1055,6 +1068,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
         let current_segment_id = 0;
 
         // let stuff_memory_list = {}
+        const segmentation_data = segmentation.data;
         for (let k = 0; k < pred_labels.length; ++k) {
             let pred_class = pred_labels[k];
 
@@ -1086,7 +1100,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
 
             // Add current object segment to final segmentation map
             for (let index of mask_k) {
-                segmentation.data[index] = current_segment_id;
+                segmentation_data[index] = current_segment_id;
             }
 
             segments.push({
@@ -1206,6 +1220,7 @@ export class YolosFeatureExtractor extends ImageFeatureExtractor {
  * @property {HeightWidth[]} reshaped_input_sizes
  * @property {Tensor} [input_points]
  * @property {Tensor} [input_labels]
+ * @property {Tensor} [input_boxes]
  */
 
 export class SamImageProcessor extends ImageFeatureExtractor {
@@ -1217,7 +1232,7 @@ export class SamImageProcessor extends ImageFeatureExtractor {
      * @param {HeightWidth[]} reshaped_input_sizes 
      * @returns {Tensor}
      */
-    reshape_input_points(input_points, original_sizes, reshaped_input_sizes) {
+    reshape_input_points(input_points, original_sizes, reshaped_input_sizes, is_bounding_box = false) {
 
         // Make deep copy to avoid altering user's input
         input_points = structuredClone(input_points);
@@ -1226,7 +1241,9 @@ export class SamImageProcessor extends ImageFeatureExtractor {
         // TODO: add support for 2D input_points
         if (shape.length === 3) {
             // Correct user's input
-            shape = [1, ...shape];
+            if (!is_bounding_box) {
+                shape = [1, ...shape];
+            }
             input_points = [input_points];
         } else if (shape.length !== 4) {
             throw Error("The input_points must be a 4D tensor of shape `batch_size`, `point_batch_size`, `nb_points_per_image`, `2`.")
@@ -1244,8 +1261,8 @@ export class SamImageProcessor extends ImageFeatureExtractor {
 
             for (let j = 0; j < input_points[i].length; ++j) { // point_batch_size
                 for (let k = 0; k < input_points[i][j].length; ++k) { // nb_points_per_image
-                    for (let w = 0; w < input_points[i][j][k].length; ++w) { // 2
-                        input_points[i][j][k][w] *= resizeFactors[w];
+                    for (let w = 0; w < input_points[i][j][k].length; ++w) { // 2 or 4
+                        input_points[i][j][k][w] *= resizeFactors[w % 2];
                     }
                 }
             }
@@ -1286,15 +1303,29 @@ export class SamImageProcessor extends ImageFeatureExtractor {
     }
     /**
      * @param {any[]} images The URL(s) of the image(s) to extract features from.
-     * @param {any} [input_points] A 3D or 4D array, representing the input points provided by the user.
+     * @param {Object} [options] Additional options for the processor.
+     * @param {any} [options.input_points=null] A 3D or 4D array, representing the input points provided by the user.
      * - 3D: `[point_batch_size, nb_points_per_image, 2]`. In this case, `batch_size` is assumed to be 1.
      * - 4D: `[batch_size, point_batch_size, nb_points_per_image, 2]`.
-     * @param {any} [input_labels] A 2D or 3D array, representing the input labels for the points, used by the prompt encoder to encode the prompt.
+     * @param {any} [options.input_labels=null] A 2D or 3D array, representing the input labels for the points, used by the prompt encoder to encode the prompt.
      * - 2D: `[point_batch_size, nb_points_per_image]`. In this case, `batch_size` is assumed to be 1.
      * - 3D: `[batch_size, point_batch_size, nb_points_per_image]`.
+     * @param {number[][][]} [options.input_boxes=null] A 3D array of shape `(batch_size, num_boxes, 4)`, representing the input boxes provided by the user.
+     * This is used by the prompt encoder to encode the prompt. Generally yields to much better generated masks.
+     * The processor will generate a tensor, with each dimension corresponding respectively to the image batch size,
+     * the number of boxes per image and the coordinates of the top left and botton right point of the box.
+     * In the order (`x1`, `y1`, `x2`, `y2`):
+     * - `x1`: the x coordinate of the top left point of the input box
+     * - `y1`: the y coordinate of the top left point of the input box
+     * - `x2`: the x coordinate of the bottom right point of the input box
+     * - `y2`: the y coordinate of the bottom right point of the input box
      * @returns {Promise<SamImageProcessorResult>}
      */
-    async _call(images, input_points = null, input_labels = null) {
+    async _call(images, {
+        input_points = null,
+        input_labels = null,
+        input_boxes = null
+    } = {}) {
         // TODO allow user to use preprocessed images
         /** @type {SamImageProcessorResult} */
         const processed = await super._call(images);
@@ -1312,23 +1343,29 @@ export class SamImageProcessor extends ImageFeatureExtractor {
             processed.input_labels = this.add_input_labels(input_labels, processed.input_points);
         }
 
+        if (input_boxes) {
+            processed.input_boxes = this.reshape_input_points(
+                input_boxes, processed.original_sizes, processed.reshaped_input_sizes, true,
+            );
+        }
+
         return processed;
     }
 
     /**
      * Remove padding and upscale masks to the original image size.
      * @param {Tensor} masks Batched masks from the mask_decoder in (batch_size, num_channels, height, width) format.
-     * @param {number[][]} original_sizes The original sizes of each image before it was resized to the model's expected input shape, in (height, width) format.
-     * @param {number[][]} reshaped_input_sizes The size of each image as it is fed to the model, in (height, width) format. Used to remove padding.
+     * @param {[number, number][]} original_sizes The original sizes of each image before it was resized to the model's expected input shape, in (height, width) format.
+     * @param {[number, number][]} reshaped_input_sizes The size of each image as it is fed to the model, in (height, width) format. Used to remove padding.
      * @param {Object} options Optional parameters for post-processing.
      * @param {number} [options.mask_threshold] The threshold to use for binarizing the masks.
      * @param {boolean} [options.binarize] Whether to binarize the masks.
      * @param {Object} [options.pad_size] The target size the images were padded to before being passed to the model. If `null`, the target size is assumed to be the processor's `pad_size`.
      * @param {number} [options.pad_size.height] The height the images were padded to.
      * @param {number} [options.pad_size.width] The width the images were padded to.
-     * @returns {Tensor[]} Batched masks in batch_size, num_channels, height, width) format, where (height, width) is given by original_size.
+     * @returns {Promise<Tensor[]>} Batched masks in batch_size, num_channels, height, width) format, where (height, width) is given by original_size.
      */
-    post_process_masks(masks, original_sizes, reshaped_input_sizes, {
+    async post_process_masks(masks, original_sizes, reshaped_input_sizes, {
         mask_threshold = 0.0,
         binarize = true,
         pad_size = null,
@@ -1339,49 +1376,71 @@ export class SamImageProcessor extends ImageFeatureExtractor {
 
         pad_size = pad_size ?? this.pad_size;
 
+        /** @type {[number, number]} */
         const target_image_size = [pad_size.height, pad_size.width];
 
         for (let i = 0; i < original_sizes.length; ++i) {
             const original_size = original_sizes[i];
             const reshaped_input_size = reshaped_input_sizes[i];
 
-            const mask = masks[i]; // [b, c, h, w]
+            // Upscale mask to padded size
+            let interpolated_mask = (await interpolate_4d(
+                masks[i],
+                { mode: 'bilinear', size: target_image_size }
+            ));
 
-            // TODO: improve
-            const interpolated_masks = [];
-            for (let j = 0; j < mask.dims[0]; ++j) {
-                const m = mask[j]; // 3d tensor
+            // Crop mask
+            interpolated_mask = interpolated_mask.slice(null, null, [0, reshaped_input_size[0]], [0, reshaped_input_size[1]]);
 
-                // Upscale mask to padded size
-                let interpolated_mask = interpolate(m, target_image_size, 'bilinear', false);
+            // Downscale mask
+            interpolated_mask = (await interpolate_4d(
+                interpolated_mask,
+                { mode: 'bilinear', size: original_size }
+            ));
 
-                // Crop mask
-                interpolated_mask = interpolated_mask.slice(null, [0, reshaped_input_size[0]], [0, reshaped_input_size[1]]);
-
-                // Downscale mask
-                interpolated_mask = interpolate(interpolated_mask, original_size, 'bilinear', false);
-
-                if (binarize) {
-                    const binarizedMaskData = new Uint8Array(interpolated_mask.data.length);
-                    for (let i = 0; i < interpolated_mask.data.length; ++i) {
-                        if (interpolated_mask.data[i] > mask_threshold) {
-                            binarizedMaskData[i] = 1;
-                        }
+            if (binarize) {
+                const data = interpolated_mask.data;
+                const binarizedMaskData = new Uint8Array(data.length);
+                for (let i = 0; i < data.length; ++i) {
+                    if (data[i] > mask_threshold) {
+                        binarizedMaskData[i] = 1;
                     }
-                    interpolated_mask = new Tensor(
-                        'bool',
-                        binarizedMaskData,
-                        interpolated_mask.dims
-                    )
                 }
-
-                interpolated_masks.push(interpolated_mask);
+                interpolated_mask = new Tensor(
+                    'bool',
+                    binarizedMaskData,
+                    interpolated_mask.dims
+                )
             }
 
-            output_masks.push(stack(interpolated_masks));
+            output_masks.push(interpolated_mask);
         }
 
         return output_masks;
+    }
+
+    /**
+     * Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
+     * @param {RawImage} image Input original image
+     * @param {number} target_size Target size of the resized image
+     * @param {Object} options Options for generating crop boxes 
+     * @param {number} [options.crop_n_layers] If >0, mask prediction will be run again on crops of the image.
+     * Sets the number of layers to run, where each layer has 2**i_layer number of image crops.
+     * @param {number} [options.overlap_ratio] Sets the degree to which crops overlap. In the first crop layer,
+     * crops will overlap by this fraction of the image length. Later layers with more crops scale down this overlap.
+     * @param {number} [options.points_per_crop] Number of points to sample from each crop.
+     * @param {number} [options.crop_n_points_downscale_factor] The number of points-per-side sampled in layer n is
+     * scaled down by crop_n_points_downscale_factor**n.
+     * @returns {Object} An object containing the crop boxes, number of points per crop, cropped images, and input labels.
+     */
+    generate_crop_boxes(image, target_size, {
+        crop_n_layers = 0,
+        overlap_ratio = 512 / 1500,
+        points_per_crop = 32,
+        crop_n_points_downscale_factor = 1,
+    } = {}) {
+        // TODO: Implement
+        // return { crop_boxes, points_per_crop, cropped_images, input_labels }
     }
 }
 
@@ -1437,7 +1496,7 @@ export class VitMatteImageProcessor extends ImageFeatureExtractor {
         ), 0);
 
         return {
-            pixel_values: pixel_values,
+            pixel_values,
 
             // Original sizes of images
             original_sizes: imageData.map(x => x.original_size),
@@ -1654,27 +1713,28 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
         validate_audio_inputs(audio, 'SeamlessM4TFeatureExtractor');
 
         let features = this._extract_fbank_features(audio, this.config.max_length);
+        const features_data = features.data;
 
         if (do_normalize_per_mel_bins) {
             const [num_features, feature_size] = features.dims;
             for (let i = 0; i < feature_size; ++i) {
                 let sum = 0;
                 for (let j = 0; j < num_features; ++j) {
-                    sum += features.data[j * feature_size + i];
+                    sum += features_data[j * feature_size + i];
                 }
 
                 const mean = sum / num_features;
 
                 let variance = 0;
                 for (let j = 0; j < num_features; ++j) {
-                    variance += (features.data[j * feature_size + i] - mean) ** 2;
+                    variance += (features_data[j * feature_size + i] - mean) ** 2;
                 }
                 variance /= num_features - 1; // NOTE: We use ddof=1
 
                 const std = Math.sqrt(variance + 1e-7);
                 for (let j = 0; j < num_features; ++j) {
                     const index = j * feature_size + i;
-                    features.data[index] = (features.data[index] - mean) / std;
+                    features_data[index] = (features_data[index] - mean) / std;
                 }
             }
         }
@@ -1686,8 +1746,8 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
             const pad_size = num_frames % pad_to_multiple_of;
             if (pad_size > 0) {
                 const padded_data = new Float32Array(num_channels * (num_frames + pad_size));
-                padded_data.set(features.data)
-                padded_data.fill(this.config.padding_value, features.data.length)
+                padded_data.set(features_data)
+                padded_data.fill(this.config.padding_value, features_data.length)
 
                 const numPaddedFrames = num_frames + pad_size;
                 features = {
@@ -1715,7 +1775,7 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
         }
 
         const input_features = new Tensor('float32',
-            features.data,
+            features_data,
             features.dims,
         ).view(
             1,
@@ -1728,20 +1788,21 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
         if (return_attention_mask) {
             const reshapedNumFrames = input_features.dims[1];
 
-            const attention_mask = new Tensor(
-                'int64',
-                new BigInt64Array(reshapedNumFrames),
-                [1, reshapedNumFrames],
-            );
+            const attention_mask_data = new BigInt64Array(reshapedNumFrames);
+
             if (padded_attention_mask) {
+                const padded_attention_mask_data = padded_attention_mask.data;
                 for (let i = 1, j = 0; i < num_frames; i += stride, ++j) {
-                    attention_mask.data[j] = padded_attention_mask.data[i];
+                    attention_mask_data[j] = padded_attention_mask_data[i];
                 }
             } else {
-                attention_mask.data.fill(1n);
+                attention_mask_data.fill(1n);
             }
-
-            result.attention_mask = attention_mask;
+            result.attention_mask = new Tensor(
+                'int64',
+                attention_mask_data,
+                [1, reshapedNumFrames],
+            );
         }
 
         return result;
@@ -1823,8 +1884,9 @@ export class ASTFeatureExtractor extends FeatureExtractor {
         if (this.config.do_normalize) {
             // Normalize the input audio spectrogram to have mean=0, std=0.5
             const denom = this.std * 2;
-            for (let i = 0; i < features.data.length; ++i) {
-                features.data[i] = (features.data[i] - this.mean) / denom;
+            const features_data = features.data;
+            for (let i = 0; i < features_data.length; ++i) {
+                features_data[i] = (features_data[i] - this.mean) / denom;
             }
         }
 
@@ -2135,6 +2197,7 @@ export class AutoProcessor {
         OwlViTFeatureExtractor,
         Owlv2ImageProcessor,
         CLIPFeatureExtractor,
+        CLIPImageProcessor,
         ChineseCLIPFeatureExtractor,
         SiglipImageProcessor,
         ConvNextFeatureExtractor,
