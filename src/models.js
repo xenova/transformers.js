@@ -3525,7 +3525,7 @@ export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
 export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
     /** @type {PreTrainedModel.from_pretrained} */
     static async from_pretrained(pretrained_model_name_or_path, options = {}) {
-        if(!options.dtype || options.dtype[0] == 'q') console.warn('NOTE: vision model is sensitive to quantization.')
+        if(!options.dtype || options.dtype[0] == 'q') console.warn('NOTE: vision model is sensitive to quantization.');
 
         // Update default model file name if not provided
         options.model_file_name ??= 'vision_model';
