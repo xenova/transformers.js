@@ -751,7 +751,7 @@ export class PreTrainedModel extends Callable {
         }
 
         // @ts-ignore
-        return new this(resolvedConfig, ...info);
+        return new this(options.config, ...info);
     }
 
     /**
