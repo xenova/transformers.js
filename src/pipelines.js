@@ -3362,15 +3362,22 @@ export function register_pipeline(
         throw Error('pipeline class must inherit from Pipeline, and contains _call')
     }
 
-    SUPPORTED_TASKS[task] = {
+    const custom = {
         tokenizer: tokenizer == 'AutoTokenizer' ? AutoTokenizer : tokenizer,
         pipeline: pipelineClass,
         model: typeof model == 'string' ? getModelClassFromName(model) : model,
         processor: processor == 'AutoProcessor' ? AutoProcessor : processor,
-        'default': {
+        'default': (!default_model ? {} : {
             model: default_model
-        },
+        }),
         type
+    };
+
+    if (task in SUPPORTED_TASKS) {
+        for (let key in custom) {
+            if (custom[key]) SUPPORTED_TASK[task][key] = custom[key];
+        }
     }
+    else SUPPORTED_TASK[task] = custom;
 
 }
