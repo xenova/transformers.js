@@ -683,8 +683,7 @@ export class PreTrainedModel extends Callable {
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this);
         const modelType = MODEL_TYPE_MAPPING.get(modelName);
 
-        const resolvedConfig = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
-        options.config ??= resolvedConfig;
+        options.config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
 
         let info;
         if (modelType === MODEL_TYPES.DecoderOnly) {
@@ -5871,18 +5870,14 @@ export class PretrainedMixin {
             use_external_data_format,
             session_options,
         }
-        config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
-        if (!options.config) {
-            // If no config was passed, reuse this config for future processing
-            options.config = config;
-        }
+        options.config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
 
         if (!this.MODEL_CLASS_MAPPINGS) {
             throw new Error("`MODEL_CLASS_MAPPINGS` not implemented for this type of `AutoClass`: " + this.name);
         }
 
         for (let MODEL_CLASS_MAPPING of this.MODEL_CLASS_MAPPINGS) {
-            const modelInfo = MODEL_CLASS_MAPPING.get(config.model_type);
+            const modelInfo = MODEL_CLASS_MAPPING.get(options.config.model_type);
             if (!modelInfo) {
                 continue; // Item not found in this mapping
             }
@@ -5890,10 +5885,10 @@ export class PretrainedMixin {
         }
 
         if (this.BASE_IF_FAIL) {
-            console.warn(`Unknown model class "${config.model_type}", attempting to construct from base class.`);
+            console.warn(`Unknown model class "${options.config.model_type}", attempting to construct from base class.`);
             return await PreTrainedModel.from_pretrained(pretrained_model_name_or_path, options);
         } else {
-            throw Error(`Unsupported model type: ${config.model_type}`)
+            throw Error(`Unsupported model type: ${options.config.model_type}`)
         }
     }
 }
