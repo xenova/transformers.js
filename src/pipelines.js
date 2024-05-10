@@ -1374,18 +1374,23 @@ export class ImageFeatureExtractionPipeline extends (/** @type {new (options: Im
      * @param {string|string[]} texts 
      * @returns 
      */
-    async get_text_embeddings(texts){
-        if(!this.textModel){
-            if(!['CLIPVisionModelWithProjection'].includes(this.model.modelClassName)){
+    async get_text_embeddings(texts) {
+        if (!this.textModel) {
+            if (!['CLIPVisionModelWithProjection'].includes(this.model.modelClassName)) {
                 throw new Error('modelText not supported for this model.');
             }
             this.textModel = await CLIPTextModelWithProjection.from_pretrained(this.model.modelRepoName);
             this.tokenizer = await AutoTokenizer.from_pretrained(this.model.modelRepoName);
         }
-  
-        const text_inputs = this.tokenizer(texts, { padding: 'max_length', truncation: true });
-        const {text_embeds} = await this.textModel(text_inputs);
-  
+
+        const text_inputs = this.tokenizer(texts, {
+            padding: 'max_length',
+            truncation: true
+        });
+        const {
+            text_embeds
+        } = await this.textModel(text_inputs);
+
         return text_embeds;
     }
 
@@ -1395,18 +1400,18 @@ export class ImageFeatureExtractionPipeline extends (/** @type {new (options: Im
      * @param {*} text_embeds 
      * @returns array of [percentage, index]
      */
-    get_similarities(object_embeds, text_embeds){
-        if(object_embeds.normalize) object_embeds = object_embeds.normalize().tolist();
-        if(text_embeds.normalize) text_embeds = text_embeds.normalize().tolist();
+    get_similarities(object_embeds, text_embeds) {
+        if (object_embeds.normalize) object_embeds = object_embeds.normalize().tolist();
+        if (text_embeds.normalize) text_embeds = text_embeds.normalize().tolist();
 
-        if(object_embeds.length > text_embeds.length){
+        if (object_embeds.length > text_embeds.length) {
             [object_embeds, text_embeds] = [text_embeds, object_embeds];
         }
 
         let similarities = text_embeds.map(
             x => object_embeds.map(y => 100 * dot(x, y));
         )
-        similarities = softmax(similarities).map((a,b)=>[a,b]).sort((a,b)=>b[0]-a[0]);
+        similarities = softmax(similarities).map((a, b) => [a, b]).sort((a, b) => b[0] - a[0]);
 
         return similarities;
     }
