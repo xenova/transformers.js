@@ -71,12 +71,20 @@ export function deviceToExecutionProviders(device) {
  * @returns {Promise<import('onnxruntime-common').InferenceSession>} The ONNX inference session.
  */
 export async function createInferenceSession(buffer, session_options) {
+    // fix wasm relative path
     if(apis.IS_BROWSER_ENV){
         let url = env.backends.onnx.wasm.wasmPaths;
         if(!url.startsWith('http')){
             env.backends.onnx.wasm.wasmPaths = url[0] == '/' ? location.origin + url : location.href.replace(/[^\/]+$/,'') + url;
         }
     }
+
+    // set log level
+    let logLevel = ['verbose', 'info', 'warning', 'error', 'fatal'].indexOf(env.backends.onnx.logLevel);
+    if(logLevel >= 0){
+        session_options.logVerbosityLevel = session_options.logSeverityLevel = logLevel;
+    }
+
     return await InferenceSession.create(buffer, session_options);
 }
 
@@ -119,6 +127,9 @@ if (ONNX_ENV?.wasm) {
     if (isIOS) {
         ONNX_ENV.wasm.simd = false;
     }
+
+    // Available logLevel: 'verbose', 'info', 'warning', 'error', 'fatal'
+    ONNX_ENV.logLevel = 'warning';
 }
 
 /**
