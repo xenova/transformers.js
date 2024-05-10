@@ -446,14 +446,14 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
 
         // aggregation_strategy
 
-        if(!['none', 'simple', 'first', 'max', 'average'].includes(aggregation_strategy)){
+        if (!['none', 'simple', 'first', 'max', 'average'].includes(aggregation_strategy)) {
             console.warn('Unknown aggregation_strategy.');
             aggregation_strategy = 'none';
         }
 
         let toReturn2 = [];
 
-        if(aggregation_strategy != 'none'){
+        if (aggregation_strategy != 'none') {
             toReturn2 = Array.from(toReturn);
             toReturn.length = 0;
         }
@@ -465,10 +465,10 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
             tokens.forEach((token, i) => {
                 tags += token.entity[0];
             })
-            if(tags.includes('E')){
+            if (tags.includes('E')) {
                 tags = tags.replaceAll(/I(I*)E/g, 'B$1I').replaceAll(/E/g, 'B');
             }
-            if(tags.includes('S')){
+            if (tags.includes('S')) {
                 tags = tags.replaceAll(/S/g, 'B');
             }
             tokens.forEach((token, i) => {
@@ -498,9 +498,9 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
 
                 if (
                     i == tokens.length - 1 ||
-                    (tokens[i+1].index - token.index > 1) ||
-                    (tokens[i+1].entity[0] != 'I' && tokens[i+1].entity[0] != token.entity[0]) ||
-                    (aggregation_strategy == 'simple' && tokens[i+1].entity[0] == 'B')
+                    (tokens[i + 1].index - token.index > 1) ||
+                    (tokens[i + 1].entity[0] != 'I' && tokens[i + 1].entity[0] != token.entity[0]) ||
+                    (aggregation_strategy == 'simple' && tokens[i + 1].entity[0] == 'B')
                 ) {
                     if (aggregation_strategy == 'simple' || aggregation_strategy == 'first') {
                         agg_token.entity = agg_token.entity[0].substring(2);
@@ -527,7 +527,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
             let text = isBatched ? texts[i] : texts;
             let idx = 0;
             let word;
-            tokens.forEach((token, j)=>{
+            tokens.forEach((token, j) => {
                 word = token.word.replaceAll('#', '');
                 idx = tokens[j].start = text.indexOf(word, idx);
                 idx = tokens[j].end = idx + word.length;
