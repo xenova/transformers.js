@@ -79,6 +79,12 @@ export async function createInferenceSession(buffer, session_options) {
         }
     }
 
+    // set log level
+    let logLevel = ['verbose', 'info', 'warning', 'error', 'fatal'].indexOf(env.backends.onnx.logLevel);
+    if(logLevel >= 0){
+        session_options.logVerbosityLevel = session_options.logSeverityLevel = logLevel;
+    }
+
     return await InferenceSession.create(buffer, session_options);
 }
 
