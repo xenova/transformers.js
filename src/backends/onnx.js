@@ -72,16 +72,16 @@ export function deviceToExecutionProviders(device) {
  */
 export async function createInferenceSession(buffer, session_options) {
     // fix wasm relative path
-    if(apis.IS_BROWSER_ENV){
+    if (apis.IS_BROWSER_ENV) {
         let url = env.backends.onnx.wasm.wasmPaths;
-        if(!url.startsWith('http')){
-            env.backends.onnx.wasm.wasmPaths = url[0] == '/' ? location.origin + url : location.href.replace(/[^\/]+$/,'') + url;
+        if (!url.startsWith('http')) {
+            env.backends.onnx.wasm.wasmPaths = url[0] == '/' ? location.origin + url : location.href.replace(/[^\/]+$/, '') + url;
         }
     }
 
     // set log level
     let logLevel = ['verbose', 'info', 'warning', 'error', 'fatal'].indexOf(env.backends.onnx.logLevel);
-    if(logLevel >= 0){
+    if (logLevel >= 0) {
         session_options.logVerbosityLevel = session_options.logSeverityLevel = logLevel;
     }
 
