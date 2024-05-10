@@ -3345,8 +3345,7 @@ async function loadItems(mapping, model, pretrainedOptions) {
  * ```
  */
 export function register_pipeline(
-    task,
-    {
+    task, {
         tokenizer,
         pipeline: pipelineClass,
         model,
@@ -3355,11 +3354,11 @@ export function register_pipeline(
         type = ''
     } = {}
 ) {
-    if(!(
-        ('prototype' in pipelineClass) && 
-        (pipelineClass.prototype instanceof Pipeline) &&
-        ("_call" in pipelineClass.prototype)
-    )){
+    if (!(
+            ('prototype' in pipelineClass) &&
+            (pipelineClass.prototype instanceof Pipeline) &&
+            ("_call" in pipelineClass.prototype)
+        )) {
         throw Error('pipeline class must inherit from Pipeline, and contains _call')
     }
 
@@ -3368,7 +3367,9 @@ export function register_pipeline(
         pipeline: pipelineClass,
         model: typeof model == 'string' ? getModelClassFromName(model) : model,
         processor: processor == 'AutoProcessor' ? AutoProcessor : processor,
-        'default': {model: default_model},
+        'default': {
+            model: default_model
+        },
         type
     }
 
