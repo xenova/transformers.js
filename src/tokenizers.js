@@ -2623,7 +2623,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
-     * @param {boolean} [options.return_offsets_mapping=false] Whether or not to return (char_start, char_end) for each token.
+     * @param {boolean} [options.return_offsets_mapping=false] Whether or not to return (char_start, char_end, token) for each token.
      * @returns {BatchEncoding} Object to be passed to the model.
      */
     _call(
