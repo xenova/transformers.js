@@ -2790,11 +2790,10 @@ export class PreTrainedTokenizer extends Callable {
                     if (idx < 0) {
                         idx = lastIdx;
                         len = 0;
-                    } else if (idx < lastIdx) {
-                        offset_mapping.at(-1).at(-1) = [idx, idx, ''];
-                    } else len = textToken.length;
+                    }
+                    else len = textToken.length;
                     offset_mapping.at(-1).push([idx, idx + len, textToken]);
-                    lastIdx = idx;
+                    lastIdx = idx + len;
                 })
             })
             result.offset_mapping = offset_mapping;
