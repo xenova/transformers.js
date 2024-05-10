@@ -2623,6 +2623,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
+     * @param {boolean} [options.return_offsets_mapping=false] Whether or not to return (char_start, char_end) for each token.
      * @returns {BatchEncoding} Object to be passed to the model.
      */
     _call(
@@ -2637,6 +2638,7 @@ export class PreTrainedTokenizer extends Callable {
             truncation = null,
             max_length = null,
             return_tensor = true, // Different to HF
+            return_offsets_mapping = false,
         } = {},
     ) {
 
@@ -2772,6 +2774,30 @@ export class PreTrainedTokenizer extends Callable {
                     result[key] = result[key][0];
                 }
             }
+        }
+
+        if (return_offsets_mapping) {
+            let offset_mapping = [],
+                textTokens, lastIdx, idx, len;
+
+            encodedTokens.forEach((encodedToken, i) => {
+                offset_mapping.push([]);
+                lastIdx = 0;
+                textTokens = this.model.convert_ids_to_tokens(encodedToken.input_ids);
+
+                textTokens.forEach(textToken => {
+                    idx = text[i].indexOf(textToken, lastIdx);
+                    if (idx < 0) {
+                        idx = lastIdx;
+                        len = 0;
+                    } else if (idx < lastIdx) {
+                        offset_mapping.at(-1).at(-1) = [idx, idx, ''];
+                    } else len = textToken.length;
+                    offset_mapping.at(-1).push([idx, idx + len, textToken]);
+                    lastIdx = idx;
+                })
+            })
+            result.offset_mapping = offset_mapping;
         }
 
         return /** @type {BatchEncoding} */(result);
