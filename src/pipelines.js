@@ -3375,9 +3375,9 @@ export function register_pipeline(
 
     if (task in SUPPORTED_TASKS) {
         for (let key in custom) {
-            if (custom[key]) SUPPORTED_TASK[task][key] = custom[key];
+            if (custom[key]) SUPPORTED_TASKS[task][key] = custom[key];
         }
     }
-    else SUPPORTED_TASK[task] = custom;
+    else SUPPORTED_TASKS[task] = custom;
 
 }
