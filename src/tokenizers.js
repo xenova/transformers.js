@@ -2623,6 +2623,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
+     * @param {boolean} [options.return_offsets_mapping=false] Whether or not to return (char_start, char_end, token) for each token.
      * @returns {BatchEncoding} Object to be passed to the model.
      */
     _call(
@@ -2637,6 +2638,7 @@ export class PreTrainedTokenizer extends Callable {
             truncation = null,
             max_length = null,
             return_tensor = true, // Different to HF
+            return_offsets_mapping = false,
         } = {},
     ) {
 
@@ -2772,6 +2774,10 @@ export class PreTrainedTokenizer extends Callable {
                     result[key] = result[key][0];
                 }
             }
+        }
+
+        if (return_offsets_mapping) {
+            result.offset_mapping = this.get_offsets_mapping(result, text);
         }
 
         return /** @type {BatchEncoding} */(result);
@@ -3093,6 +3099,72 @@ export class PreTrainedTokenizer extends Callable {
         }
 
         return rendered;
+    }
+
+    /**
+     * Get offsets mapping
+     * @param {BatchEncoding|string[][]} batchEncoding Object with input_ids from tokenizer, or array[][] of string tokens
+     * @param {string|string[]} texts 
+     * @param {string} strategy 'none' or 'closest'
+     * @returns {any[]} (char_start, char_end, token)
+     */
+    get_offsets_mapping(batchEncoding, texts, strategy = 'none') {
+        let toReturn = [],
+            idx, lastIdx, len;
+        if ('input_ids' in batchEncoding) batchEncoding = batchEncoding.input_ids.tolist();
+        if (typeof texts == 'string') texts = [texts];
+
+        batchEncoding.forEach((tokens, i) => {
+            toReturn.push([]);
+            lastIdx = 0;
+            if (typeof tokens[0] != 'string') {
+                if('input_ids' in tokens) tokens = tokens.input_ids
+                tokens = this.model.convert_ids_to_tokens(tokens);
+            }
+
+            tokens.forEach(token => {
+                idx = texts[i].indexOf(token, lastIdx);
+
+                // look behind and find closest match
+                if (strategy == 'closest' && idx >= 0) {
+                    let a, strStart, strSearch, strEncodings, strTokens, strIdx, lastIdx;
+
+                    lastIdx = idx;
+                    for (a = toReturn.at(-1).length - 1; a >= 0; a--) {
+                        strStart = a > 0 ? lastIdx - 1 - (toReturn[i][a][0] - toReturn[i][a - 1][0]) : 0;
+                        strSearch = texts[i].substring(strStart, idx);
+
+                        strTokens = [];
+                        strEncodings = this._call(strSearch, {
+                            return_offsets_mapping: true
+                        })
+                        strEncodings.offset_mapping[0].forEach(offset => {
+                            strTokens.push(offset[2]);
+                        })
+
+                        strIdx = strTokens.lastIndexOf(toReturn[i][a][2]);
+                        if (strIdx >= 0) {
+                            strIdx = strEncodings.offset_mapping[0][strIdx][0];
+                            lastIdx = strStart + strIdx;
+                            toReturn[i][a] = [lastIdx, lastIdx + toReturn[i][a][2].length, toReturn[i][a][2]];
+                        } else break;
+                    }
+
+                }
+
+                if (idx < 0) {
+                    idx = lastIdx;
+                    len = 0;
+                } else len = token.length;
+
+                toReturn.at(-1).push([idx, idx + len, token]);
+
+                lastIdx = idx + len;
+            })
+
+        })
+
+        return toReturn;
     }
 }
 
