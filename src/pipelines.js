@@ -438,8 +438,6 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
                     score: scores[topScoreIndex],
                     index: j,
                     word: word,
-
-                    // TODO: null for now, but will add
                     start: null,
                     end: null,
                 });
@@ -622,13 +620,21 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
                     skip_special_tokens: true,
                 });
 
-                // TODO add start and end?
-                // NOTE: HF returns character index
                 toReturn.push({
-                    answer, score
+                    answer,
+                    score,
+                    start: null,
+                    end: null,
+                    input_ids: answer_tokens,
                 });
             }
         }
+
+        this.tokenizer.get_offsets_mapping(toReturn, context, 'closest').forEach((offsets, i) => {
+            toReturn[i].start = offsets.at(0)[0];
+            toReturn[i].end = offsets.at(-1)[1];
+            delete toReturn[i].input_ids;
+        })
 
         // Mimic HF's return type based on topk
         return (topk === 1) ? toReturn[0] : toReturn;

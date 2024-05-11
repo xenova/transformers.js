@@ -3118,6 +3118,7 @@ export class PreTrainedTokenizer extends Callable {
             toReturn.push([]);
             lastIdx = 0;
             if (typeof tokens[0] != 'string') {
+                if('input_ids' in tokens) tokens = tokens.input_ids
                 tokens = this.model.convert_ids_to_tokens(tokens);
             }
 
