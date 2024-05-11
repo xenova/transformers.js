@@ -408,12 +408,10 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
         const logits = outputs.logits;
         const id2label = this.model.config.id2label;
 
-        const words = [];
         const toReturn = [];
         for (let i = 0; i < logits.dims[0]; ++i) {
             const ids = model_inputs.input_ids[i];
             const batch = logits[i];
-            words.push([]);
 
             // List of tokens that aren't ignored
             const tokens = [];
@@ -436,7 +434,6 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
 
                 const scores = softmax(tokenData.data);
 
-                words.at(-1).push(word);
                 tokens.push({
                     entity: entity,
                     score: scores[topScoreIndex],
@@ -528,7 +525,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
         })
 
         // start end tokens
-        this.tokenizer.get_offsets_mapping(words, texts).forEach((offsets, i) => {
+        this.tokenizer.get_offsets_mapping(toReturn.map(x=>x.map(x=>x.word)), texts).forEach((offsets, i) => {
             offsets.forEach((offset, j) => {
                 toReturn[i][j].start = offset[2].includes('#') ? toReturn[i][j-1].end : offset[0];
                 toReturn[i][j].end = offset[2].includes('#') ? toReturn[i][j-1].end + offset[2].replaceAll('#', '').length : offset[1];
