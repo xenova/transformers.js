@@ -3103,7 +3103,7 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Get offsets mapping
-     * @param {BatchEncoding|string[][]} batchEncoding Object with input_ids from tokenizer, or array[][] of string tokens
+     * @param {BatchEncoding|string|string[]|string[][]} batchEncoding Object with input_ids from tokenizer, array[][] tokens, or space delimited string tokens
      * @param {string|string[]} texts 
      * @param {string} strategy 'none' or 'closest'
      * @returns {any[]} (char_start, char_end, token)
@@ -3111,7 +3111,18 @@ export class PreTrainedTokenizer extends Callable {
     get_offsets_mapping(batchEncoding, texts, strategy = 'none') {
         let toReturn = [],
             idx, lastIdx, len;
-        if ('input_ids' in batchEncoding) batchEncoding = batchEncoding.input_ids.tolist();
+        
+        if (typeof batchEncoding == 'object' && 'input_ids' in batchEncoding) {
+            batchEncoding = batchEncoding.input_ids.tolist();
+        }
+        else {
+            if (!Array.isArray(batchEncoding)) batchEncoding = [batchEncoding];
+            if (!Array.isArray(batchEncoding[0])) {
+                batchEncoding.forEach((val, key) =>{
+                    batchEncoding[key] = val.split(' ');
+                })
+            }
+        }
         if (typeof texts == 'string') texts = [texts];
 
         batchEncoding.forEach((tokens, i) => {
