@@ -334,7 +334,7 @@ describe('Extra decoding tests', () => {
 
 describe('Chat templates', () => {
     it('should generate a chat template', async () => {
-        const tokenizer = await AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.1");
+        const tokenizer = await AutoTokenizer.from_pretrained("Xenova/mistral-tokenizer-v1");
 
         const chat = [
             { "role": "user", "content": "Hello, how are you?" },

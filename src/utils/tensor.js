@@ -810,6 +810,18 @@ export async function interpolate_4d(input, {
     return await op({ x: input, s: sizeTensor });
 }
 
+/**
+ * Matrix product of two tensors.
+ * Inspired by https://pytorch.org/docs/stable/generated/torch.matmul.html
+ * @param {Tensor} a the first tensor to be multiplied
+ * @param {Tensor} b the second tensor to be multiplied
+ * @returns {Promise<Tensor>} The matrix product of the two tensors.
+ */
+export async function matmul(a, b) {
+    const op = await TensorOpRegistry.matmul;
+    return await op({ a, b });
+}
+
 
 /**
  * Perform mean pooling of the last hidden state followed by a normalization step.

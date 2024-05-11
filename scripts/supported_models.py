@@ -625,6 +625,17 @@ SUPPORTED_MODELS = {
         #     'apple/deeplabv3-mobilevit-xx-small',
         # ],
     },
+    'mobilevitv2': {
+        # Image classification
+        'image-classification': [
+            'apple/mobilevitv2-1.0-imagenet1k-256',
+        ],
+
+        # TODO: Image segmentation
+        # 'image-segmentation': [
+        #     'apple/mobilevitv2-1.0-voc-deeplabv3',
+        # ],
+    },
     'mpt': {
         # Text generation
         'text-generation': [

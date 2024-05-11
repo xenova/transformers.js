@@ -41,4 +41,15 @@ export class TensorOpRegistry {
         }
         return this._bicubic_interpolate_4d;
     }
+
+    static get matmul() {
+        if (!this._matmul) {
+            this._matmul = wrap(
+                new Uint8Array([8, 9, 18, 0, 58, 55, 10, 17, 10, 1, 97, 10, 1, 98, 18, 1, 99, 34, 6, 77, 97, 116, 77, 117, 108, 18, 1, 114, 90, 9, 10, 1, 97, 18, 4, 10, 2, 8, 1, 90, 9, 10, 1, 98, 18, 4, 10, 2, 8, 1, 98, 9, 10, 1, 99, 18, 4, 10, 2, 8, 1, 66, 2, 16, 20]),
+                this.session_options,
+                'y',
+            );
+        }
+        return this._matmul;
+    }
 }
