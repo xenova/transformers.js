@@ -30,7 +30,7 @@ const supportedExecutionProviders = [];
 
 /** @type {import('../utils/devices.js').DeviceType[]} */
 let defaultExecutionProviders;
-export let ONNX;
+let ONNX;
 if (apis.IS_NODE_ENV) {
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
     supportedExecutionProviders.push('cpu');
