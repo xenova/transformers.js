@@ -41,6 +41,7 @@ import {
     AutoModelForDepthEstimation,
     AutoModelForImageFeatureExtraction,
     PreTrainedModel,
+    getModelClassFromName,
 } from './models.js';
 import {
     AutoProcessor,
@@ -2838,7 +2839,7 @@ export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipe
     }
 }
 
-const SUPPORTED_TASKS = Object.freeze({
+const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
         "pipeline": TextClassificationPipeline,
@@ -3122,7 +3123,7 @@ const SUPPORTED_TASKS = Object.freeze({
         },
         "type": "image",
     },
-})
+}
 
 
 // TODO: Add types for TASK_ALIASES
@@ -3306,4 +3307,78 @@ async function loadItems(mapping, model, pretrainedOptions) {
     }
 
     return result;
+}
+
+/**
+ * Register a custom task pipeline.
+ * @param {string} task
+ *
+ * **Example:** Custom task: audio-feature-extraction.
+ * ```javascript
+ * import {
+ *   Pipeline,
+ *   read_audio,
+ *   register_pipeline,
+ *   pipeline
+ * } from '@xenova/transformers';
+ * 
+ * class AudioFeatureExtractionPipeline extends Pipeline {
+ *   constructor(options) {
+ *     super(options)
+ *   }
+ *   async _call(input, kwargs = {}) {
+ *     input = await read_audio(input).then(input=>this.processor(input))
+ *     let { audio_embeds } = await this.model(input)
+ *     return audio_embeds
+ *   }
+ * }
+ * 
+ * register_pipeline('audio-feature-extraction', {
+ *   pipeline: AudioFeatureExtractionPipeline,
+ *   model: 'ClapAudioModelWithProjection',
+ *   processor: 'AutoProcessor',
+ *   default_model: 'Xenova/larger_clap_music_and_speech'
+ * })
+ * 
+ * let pipe = await pipeline('audio-feature-extraction');
+ * let out = await pipe('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav')
+ * console.log(out)
+ * ```
+ */
+export function register_pipeline(
+    task, {
+        tokenizer,
+        pipeline: pipelineClass,
+        model,
+        processor,
+        default_model = '',
+        type = ''
+    } = {}
+) {
+    if (!(
+            ('prototype' in pipelineClass) &&
+            (pipelineClass.prototype instanceof Pipeline) &&
+            ("_call" in pipelineClass.prototype)
+        )) {
+        throw Error('pipeline class must inherit from Pipeline, and contains _call')
+    }
+
+    const custom = {
+        tokenizer: tokenizer == 'AutoTokenizer' ? AutoTokenizer : tokenizer,
+        pipeline: pipelineClass,
+        model: typeof model == 'string' ? getModelClassFromName(model) : model,
+        processor: processor == 'AutoProcessor' ? AutoProcessor : processor,
+        'default': (!default_model ? {} : {
+            model: default_model
+        }),
+        type
+    };
+
+    if (task in SUPPORTED_TASKS) {
+        for (let key in custom) {
+            if (custom[key]) SUPPORTED_TASK[task][key] = custom[key];
+        }
+    }
+    else SUPPORTED_TASK[task] = custom;
+
 }
