@@ -4147,6 +4147,21 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class MobileViTV2PreTrainedModel extends PreTrainedModel { }
+export class MobileViTV2Model extends MobileViTV2PreTrainedModel { }
+export class MobileViTV2ForImageClassification extends MobileViTV2PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+// TODO: MobileViTV2ForSemanticSegmentation
+
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class OwlViTPreTrainedModel extends PreTrainedModel { }
 export class OwlViTModel extends OwlViTPreTrainedModel { }
 export class OwlViTForObjectDetection extends OwlViTPreTrainedModel { }
@@ -5941,6 +5956,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['table-transformer', TableTransformerModel],
     ['vit', ViTModel],
     ['mobilevit', MobileViTModel],
+    ['mobilevitv2',MobileViTV2Model],
     ['owlvit', OwlViTModel],
     ['owlv2', Owlv2Model],
     ['beit', BeitModel],
@@ -6135,6 +6151,7 @@ const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ViTForImageClassification],
     ['mobilevit', MobileViTForImageClassification],
+    ['mobilevitv2', MobileViTV2ForImageClassification],
     ['beit', BeitForImageClassification],
     ['deit', DeiTForImageClassification],
     ['convnext', ConvNextForImageClassification],

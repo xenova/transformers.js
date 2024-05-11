@@ -333,6 +333,7 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * 
  * @typedef {Object} TokenClassificationPipelineOptions Parameters specific to token classification pipelines.
  * @property {string[]} [ignore_labels] A list of labels to ignore.
+ * @property {string} [aggregation_strategy] Aggregation_strategy: 'none', 'simple', 'first', 'max', 'average'.
  * 
  * @callback TokenClassificationPipelineCallback Classify each token of the text(s) given as inputs.
  * @param {string|string[]} texts One or several texts (or one list of texts) for token classification.
@@ -369,6 +370,12 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
  * //   { entity: 'I-LOC', score: 0.9986724853515625, index: 7, word: 'of' },
  * //   { entity: 'I-LOC', score: 0.9975294470787048, index: 8, word: 'America' }
  * // ]
+ * 
+ * const output2 = await classifier('Sarah lives in the United States of America', { aggregation_strategy: 'average' });
+ * // [
+ * //   {"entity": "PER", "score": 0.983073890209198, "index": null, "word": "Sarah", "start": 0, "end": 5},
+ * //   {"entity": "LOC", "score": 0.9850180596113205, "index": null, "word": "United States of America", "start": 19, "end": 43}
+ * // ]
  * ```
  */
 export class TokenClassificationPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => TokenClassificationPipelineType} */ (Pipeline)) {
@@ -384,6 +391,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
     /** @type {TokenClassificationPipelineCallback} */
     async _call(texts, {
         ignore_labels = ['O'],
+        aggregation_strategy = 'none',
     } = {}) {
 
         const isBatched = Array.isArray(texts);
@@ -400,10 +408,12 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
         const logits = outputs.logits;
         const id2label = this.model.config.id2label;
 
+        const words = [];
         const toReturn = [];
         for (let i = 0; i < logits.dims[0]; ++i) {
             const ids = model_inputs.input_ids[i];
             const batch = logits[i];
+            words.push([]);
 
             // List of tokens that aren't ignored
             const tokens = [];
@@ -426,19 +436,105 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
 
                 const scores = softmax(tokenData.data);
 
+                words.at(-1).push(word);
                 tokens.push({
                     entity: entity,
                     score: scores[topScoreIndex],
                     index: j,
                     word: word,
-
-                    // TODO: null for now, but will add
                     start: null,
                     end: null,
                 });
             }
             toReturn.push(tokens);
         }
+
+        // aggregation_strategy
+        if (!['none', 'simple', 'first', 'max', 'average'].includes(aggregation_strategy)) {
+            console.warn('Unknown aggregation_strategy.');
+            aggregation_strategy = 'none';
+        }
+
+        let toReturn2 = [];
+
+        if (aggregation_strategy != 'none') {
+            toReturn2 = Array.from(toReturn);
+            toReturn.length = 0;
+        }
+
+        // Tagging schemes in NER
+        // I => “inside”, O => “outside”, B => “beginning”, E => “end”, S => “single token entity”.
+        // Convert to BIO
+        toReturn2.forEach(tokens => {
+            let tags = '';
+            tokens.forEach((token, i) => {
+                tags += token.entity[0];
+            })
+            if (tags.includes('E')) {
+                tags = tags.replaceAll(/I(I*)E/g, 'B$1I').replaceAll(/E/g, 'B');
+            }
+            if (tags.includes('S')) {
+                tags = tags.replaceAll(/S/g, 'B');
+            }
+            tokens.forEach((token, i) => {
+                tokens[i].entity = tags[i] + tokens[i].entity.substring(1);
+            })
+        })
+
+        // Aggregate
+        toReturn2.forEach(tokens => {
+            let agg_token = {};
+            toReturn.push([]);
+            tokens.forEach((token, i) => {
+                if (!agg_token.entity) {
+                    agg_token = {
+                        entity: [token.entity],
+                        score: [token.score],
+                        index: [token.index],
+                        word: token.word,
+                        start: null,
+                        end: null,
+                    };
+                } else {
+                    agg_token.entity.push(token.entity);
+                    agg_token.score.push(token.score);
+                    agg_token.index.push(token.index);
+                    agg_token.word += (token.word.includes('#') ? '' : ' ') + token.word.replaceAll('#', '');
+                }
+
+                if (
+                    i == tokens.length - 1 ||
+                    (tokens[i + 1].index - token.index > 1) ||
+                    (tokens[i + 1].entity[0] != 'I' && tokens[i + 1].entity[0] != token.entity[0]) ||
+                    (aggregation_strategy == 'simple' && tokens[i + 1].entity[0] == 'B')
+                ) {
+                    if (aggregation_strategy == 'simple' || aggregation_strategy == 'first') {
+                        agg_token.entity = agg_token.entity[0].substring(2);
+                        agg_token.score = agg_token.score[0];
+                    } else {
+                        const _max = Math.max(...agg_token.score);
+                        agg_token.entity = agg_token.entity[agg_token.score.indexOf(_max)].substring(2);
+                        if (aggregation_strategy == 'max') {
+                            agg_token.score = _max;
+                        } else if (aggregation_strategy == 'average') {
+                            agg_token.score = (arr => arr.reduce((a, b, c, d) => (a + b / d.length), 0))(agg_token.score);
+                        }
+                    }
+                    agg_token.index = null;
+                    toReturn.at(-1).push(agg_token);
+                    agg_token = {};
+                }
+            })
+        })
+
+        // start end tokens
+        this.tokenizer.get_offsets_mapping(words, texts).forEach((offsets, i) => {
+            offsets.forEach((offset, j) => {
+                toReturn[i][j].start = offset[2].includes('#') ? toReturn[i][j-1].end : offset[0];
+                toReturn[i][j].end = offset[2].includes('#') ? toReturn[i][j-1].end + offset[2].replaceAll('#', '').length : offset[1];
+            })
+        })
+
         return isBatched ? toReturn : toReturn[0];
     }
 }
@@ -528,13 +624,21 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
                     skip_special_tokens: true,
                 });
 
-                // TODO add start and end?
-                // NOTE: HF returns character index
                 toReturn.push({
-                    answer, score
+                    answer,
+                    score,
+                    start: null,
+                    end: null,
+                    input_ids: answer_tokens,
                 });
             }
         }
+
+        this.tokenizer.get_offsets_mapping(toReturn, context, 'closest').forEach((offsets, i) => {
+            toReturn[i].start = offsets.at(0)[0];
+            toReturn[i].end = offsets.at(-1)[1];
+            delete toReturn[i].input_ids;
+        })
 
         // Mimic HF's return type based on topk
         return (topk === 1) ? toReturn[0] : toReturn;

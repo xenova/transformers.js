@@ -26,6 +26,9 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 
+import { ONNX } from './backends/onnx.js';
+const { env: onnx_env } = ONNX;
+
 const VERSION = '3.0.0-alpha.0';
 
 // Check if various APIs are available (depends on environment)
