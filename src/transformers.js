@@ -26,3 +26,4 @@ export * from './utils/maths.js';
 export * from './generation/streamers.js';
 export * from './generation/stopping_criteria.js';
 
+export * from './custom-pipelines.js';
