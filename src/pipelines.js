@@ -41,15 +41,18 @@ import {
     AutoModelForDepthEstimation,
     AutoModelForImageFeatureExtraction,
     PreTrainedModel,
+    getModelClassFromName,
 } from './models.js';
 import {
     AutoProcessor,
     Processor
 } from './processors.js';
 
-
 import {
     Callable,
+} from './utils/generic.js';
+
+import {
     dispatchCallback,
     pop,
     product,
@@ -61,7 +64,8 @@ import {
     round,
 } from './utils/maths.js';
 import {
-    read_audio
+    read_audio,
+    RawAudio
 } from './utils/audio.js';
 import {
     Tensor,
@@ -749,7 +753,7 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
  * 
  * @callback Text2TextGenerationPipelineCallback Generate the output text(s) using text(s) given as inputs.
  * @param {string|string[]} texts Input text for the encoder.
- * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./generation/configuration_utils.js').GenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<Text2TextGenerationOutput|Text2TextGenerationOutput[]>}
  * 
  * @typedef {TextPipelineConstructorArgs & Text2TextGenerationPipelineCallback & Disposable} Text2TextGenerationPipelineType
@@ -781,6 +785,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
 
     /** @type {Text2TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
         if (!Array.isArray(texts)) {
             texts = [texts];
         }
@@ -818,9 +823,9 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
             input_ids = tokenizer(texts, tokenizer_options).input_ids;
         }
 
-        const outputTokenIds = await this.model.generate(input_ids, generate_kwargs);
+        const outputTokenIds = await this.model.generate({ inputs: input_ids, ...generate_kwargs });
 
-        return tokenizer.batch_decode(outputTokenIds, {
+        return tokenizer.batch_decode(/** @type {Tensor} */(outputTokenIds), {
             skip_special_tokens: true,
         }).map(text => ({ [this._key]: text }));
     }
@@ -834,7 +839,7 @@ export class Text2TextGenerationPipeline extends (/** @type {new (options: TextP
  * 
  * @callback SummarizationPipelineCallback Summarize the text(s) given as inputs.
  * @param {string|string[]} texts One or several articles (or one list of articles) to summarize.
- * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./generation/configuration_utils.js').GenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<SummarizationOutput|SummarizationOutput[]>}
  * 
  * @typedef {TextPipelineConstructorArgs & SummarizationPipelineCallback & Disposable} SummarizationPipelineType
@@ -881,7 +886,7 @@ export class SummarizationPipeline extends (/** @type {new (options: TextPipelin
  * 
  * @callback TranslationPipelineCallback Translate the text(s) given as inputs.
  * @param {string|string[]} texts Texts to be translated.
- * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./generation/configuration_utils.js').GenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TranslationOutput|TranslationOutput[]>}
  * 
  * @typedef {TextPipelineConstructorArgs & TranslationPipelineCallback & Disposable} TranslationPipelineType
@@ -959,7 +964,7 @@ function isChat(x) {
  * @typedef {Object} TextGenerationSpecificParams Parameters specific to text-generation pipelines.
  * @property {boolean} [add_special_tokens] Whether or not to add special tokens when tokenizing the sequences.
  * @property {boolean} [return_full_text=true] If set to `false` only added text is returned, otherwise the full text is returned.
- * @typedef {import('./utils/generation.js').GenerationConfigType & TextGenerationSpecificParams} TextGenerationConfig
+ * @typedef {import('./generation/configuration_utils.js').GenerationConfig & TextGenerationSpecificParams} TextGenerationConfig
  * 
  * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
  * @param {string|string[]|Chat|Chat[]} texts One or several prompts (or one list of prompts) to complete.
@@ -1031,6 +1036,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
 
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
         let isBatched = false;
         let isChatInput = false;
 
@@ -1070,15 +1076,18 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
             : generate_kwargs.return_full_text ?? true;
 
         this.tokenizer.padding_side = 'left';
-        const { input_ids, attention_mask } = this.tokenizer(inputs, {
+        const text_inputs = this.tokenizer(inputs, {
             add_special_tokens,
             padding: true,
             truncation: true,
         });
 
-        const outputTokenIds = await this.model.generate(input_ids, generate_kwargs, null, {
-            inputs_attention_mask: attention_mask
-        });
+        const outputTokenIds = /** @type {Tensor} */(await this.model.generate({
+            // inputs: input_ids,
+            // attention_mask,
+            ...text_inputs,
+            ...generate_kwargs
+        }));
 
         let decoded = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
@@ -1679,7 +1688,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * @property {number[][]} [kwargs.forced_decoder_ids] A list of pairs of integers which indicates a mapping from generation indices to token indices
  * that will be forced before sampling. For example, [[1, 123]] means the second generated token will always be a token of index 123.
  * @property {number} [num_frames] The number of frames in the input audio.
- * @typedef {import('./utils/generation.js').GenerationConfigType & AutomaticSpeechRecognitionSpecificParams} AutomaticSpeechRecognitionConfig
+ * @typedef {import('./generation/configuration_utils.js').GenerationConfig & AutomaticSpeechRecognitionSpecificParams} AutomaticSpeechRecognitionConfig
  * 
  * @callback AutomaticSpeechRecognitionPipelineCallback Transcribe the audio sequence(s) given as inputs to text.
  * @param {AudioPipelineInputs} audio The input audio file(s) to be transcribed. The input is either:
@@ -1773,6 +1782,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 
     /** @type {AutomaticSpeechRecognitionPipelineCallback} */
     async _call(audio, kwargs = {}) {
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
         switch (this.model.config.model_type) {
             case 'whisper':
                 return this._call_whisper(audio, kwargs)
@@ -1917,7 +1927,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
                 kwargs.num_frames = Math.floor(chunk.stride[0] / hop_length);
 
                 // NOTE: doing sequentially for now
-                const data = await this.model.generate(chunk.input_features, kwargs);
+                const data = await this.model.generate({ inputs: chunk.input_features, ...kwargs });
 
                 // TODO: Right now we only get top beam
                 if (return_timestamps === 'word') {
@@ -1957,7 +1967,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * 
  * @callback ImageToTextPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} texts The images to be captioned.
- * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./generation/configuration_utils.js').GenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<ImageToTextOutput|ImageToTextOutput[]>} An object (or array of objects) containing the generated text(s).
  * 
  * @typedef {TextImagePipelineConstructorArgs & ImageToTextPipelineCallback & Disposable} ImageToTextPipelineType
@@ -1994,6 +2004,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
 
     /** @type {ImageToTextPipelineCallback} */
     async _call(images, generate_kwargs = {}) {
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
 
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
@@ -2003,8 +2014,8 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
         const toReturn = [];
         for (const batch of pixel_values) {
             batch.dims = [1, ...batch.dims]
-            const output = await this.model.generate(batch, generate_kwargs);
-            const decoded = this.tokenizer.batch_decode(output, {
+            const output = await this.model.generate({ inputs: batch, ...generate_kwargs });
+            const decoded = this.tokenizer.batch_decode(/** @type {Tensor} */(output), {
                 skip_special_tokens: true,
             }).map(x => ({ generated_text: x.trim() }))
             toReturn.push(decoded);
@@ -2596,7 +2607,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * @callback DocumentQuestionAnsweringPipelineCallback Answer the question given as input by using the document.
  * @param {ImageInput} image The image of the document to use.
  * @param {string} question A question to ask of the document.
- * @param {import('./utils/generation.js').GenerationConfigType} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {import('./generation/configuration_utils.js').GenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<DocumentQuestionAnsweringOutput|DocumentQuestionAnsweringOutput[]>} An object (or array of objects) containing the answer(s).
  * 
  * @typedef {TextImagePipelineConstructorArgs & DocumentQuestionAnsweringPipelineCallback & Disposable} DocumentQuestionAnsweringPipelineType
@@ -2628,6 +2639,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
 
     /** @type {DocumentQuestionAnsweringPipelineCallback} */
     async _call(image, question, generate_kwargs = {}) {
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
 
         // NOTE: For now, we only support a batch size of 1
 
@@ -2644,17 +2656,15 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
         }).input_ids;
 
         // Run model
-        const output = await this.model.generate(
-            pixel_values,
-            {
-                ...generate_kwargs,
-                decoder_input_ids,
-                max_length: this.model.config.decoder.max_position_embeddings,
-            }
-        );
+        const output = await this.model.generate({
+            inputs: pixel_values,
+            max_length: this.model.config.decoder.max_position_embeddings,
+            decoder_input_ids,
+            ...generate_kwargs,
+        });
 
         // Decode output
-        const decoded = this.tokenizer.batch_decode(output)[0];
+        const decoded = this.tokenizer.batch_decode(/** @type {Tensor} */(output))[0];
 
         // Parse answer
         const match = decoded.match(/<s_answer>(.*?)<\/s_answer>/);
@@ -2698,7 +2708,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * const synthesizer = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false });
  * const speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
  * const out = await synthesizer('Hello, my dog is cute', { speaker_embeddings });
- * // {
+ * // RawAudio {
  * //   audio: Float32Array(26112) [-0.00005657337896991521, 0.00020583874720614403, ...],
  * //   sampling_rate: 16000
  * // }
@@ -2718,7 +2728,7 @@ export class DocumentQuestionAnsweringPipeline extends (/** @type {new (options:
  * ```javascript
  * const synthesizer = await pipeline('text-to-speech', 'Xenova/mms-tts-fra');
  * const out = await synthesizer('Bonjour');
- * // {
+ * // RawAudio {
  * //   audio: Float32Array(23808) [-0.00037693005288019776, 0.0003325853613205254, ...],
  * //   sampling_rate: 16000
  * // }
@@ -2743,6 +2753,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
     async _call(text_inputs, {
         speaker_embeddings = null,
     } = {}) {
+        if(!globalThis.v3testing) throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
 
         // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
         if (this.processor) {
@@ -2764,10 +2775,10 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         const { waveform } = await this.model(inputs);
 
         const sampling_rate = this.model.config.sampling_rate;
-        return {
-            audio: waveform.data,
+        return new RawAudio(
+            waveform.data,
             sampling_rate,
-        }
+        )
     }
 
     async _call_text_to_spectrogram(text_inputs, { speaker_embeddings }) {
@@ -2775,7 +2786,7 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         // Load vocoder, if not provided
         if (!this.vocoder) {
             console.log('No vocoder specified, using default HifiGan vocoder.');
-            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { quantized: false });
+            this.vocoder = await AutoModel.from_pretrained(this.DEFAULT_VOCODER_ID, { dtype: 'fp32' });
         }
 
         // Load speaker embeddings as Float32Array from path/URL
@@ -2807,10 +2818,10 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
         const { waveform } = await this.model.generate_speech(input_ids, speaker_embeddings, { vocoder: this.vocoder });
 
         const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
-        return {
-            audio: waveform.data,
+        return new RawAudio(
+            waveform.data,
             sampling_rate,
-        }
+        )
     }
 }
 
@@ -2932,7 +2943,7 @@ export class DepthEstimationPipeline extends (/** @type {new (options: ImagePipe
     }
 }
 
-const SUPPORTED_TASKS = Object.freeze({
+const SUPPORTED_TASKS = {
     "text-classification": {
         "tokenizer": AutoTokenizer,
         "pipeline": TextClassificationPipeline,
@@ -3216,7 +3227,7 @@ const SUPPORTED_TASKS = Object.freeze({
         },
         "type": "image",
     },
-})
+}
 
 
 // TODO: Add types for TASK_ALIASES
@@ -3268,7 +3279,7 @@ const TASK_ALIASES = Object.freeze({
  *  - `"zero-shot-image-classification"`: will return a `ZeroShotImageClassificationPipeline`.
  *  - `"zero-shot-object-detection"`: will return a `ZeroShotObjectDetectionPipeline`.
  * @param {string} [model=null] The name of the pre-trained model to use. If not specified, the default model for the task will be used.
- * @param {import('./utils/hub.js').PretrainedOptions} [options] Optional parameters for the pipeline.
+ * @param {import('./utils/hub.js').PretrainedModelOptions} [options] Optional parameters for the pipeline.
  * @returns {Promise<AllTasks[T]>} A Pipeline object for the specified task.
  * @throws {Error} If an unsupported pipeline is requested.
  */
@@ -3276,12 +3287,15 @@ export async function pipeline(
     task,
     model = null,
     {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        device = null,
+        dtype = null,
+        model_file_name = null,
+        session_options = {},
     } = {}
 ) {
     // Helper method to construct pipeline
@@ -3303,12 +3317,15 @@ export async function pipeline(
     }
 
     const pretrainedOptions = {
-        quantized,
         progress_callback,
         config,
         cache_dir,
         local_files_only,
         revision,
+        device,
+        dtype,
+        model_file_name,
+        session_options,
     }
 
     const classes = new Map([
@@ -3364,7 +3381,15 @@ async function loadItems(mapping, model, pretrainedOptions) {
                         resolve(await c.from_pretrained(model, pretrainedOptions));
                         return;
                     } catch (err) {
-                        e = err;
+                        if (err.message?.includes('Unsupported model type')) {
+                            // If the error is due to an unsupported model type, we
+                            // save the error and try the next class.
+                            e = err;
+                        } else {
+                            reject(err);
+                            return;
+                        }
+
                     }
                 }
                 reject(e);
@@ -3386,4 +3411,78 @@ async function loadItems(mapping, model, pretrainedOptions) {
     }
 
     return result;
+}
+
+/**
+ * Register a custom task pipeline.
+ * @param {string} task
+ *
+ * **Example:** Custom task: audio-feature-extraction.
+ * ```javascript
+ * import {
+ *   Pipeline,
+ *   read_audio,
+ *   register_pipeline,
+ *   pipeline
+ * } from '@xenova/transformers';
+ * 
+ * class AudioFeatureExtractionPipeline extends Pipeline {
+ *   constructor(options) {
+ *     super(options)
+ *   }
+ *   async _call(input, kwargs = {}) {
+ *     input = await read_audio(input).then(input=>this.processor(input))
+ *     let { audio_embeds } = await this.model(input)
+ *     return audio_embeds
+ *   }
+ * }
+ * 
+ * register_pipeline('audio-feature-extraction', {
+ *   pipeline: AudioFeatureExtractionPipeline,
+ *   model: 'ClapAudioModelWithProjection',
+ *   processor: 'AutoProcessor',
+ *   default_model: 'Xenova/larger_clap_music_and_speech'
+ * })
+ * 
+ * let pipe = await pipeline('audio-feature-extraction');
+ * let out = await pipe('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav')
+ * console.log(out)
+ * ```
+ */
+export function register_pipeline(
+    task, {
+        tokenizer,
+        pipeline: pipelineClass,
+        model,
+        processor,
+        default_model = '',
+        type = ''
+    } = {}
+) {
+    if (!(
+            ('prototype' in pipelineClass) &&
+            (pipelineClass.prototype instanceof Pipeline) &&
+            ("_call" in pipelineClass.prototype)
+        )) {
+        throw Error('pipeline class must inherit from Pipeline, and contains _call')
+    }
+
+    const custom = {
+        tokenizer: tokenizer == 'AutoTokenizer' ? AutoTokenizer : tokenizer,
+        pipeline: pipelineClass,
+        model: typeof model == 'string' ? getModelClassFromName(model) : model,
+        processor: processor == 'AutoProcessor' ? AutoProcessor : processor,
+        'default': (!default_model ? {} : {
+            model: default_model
+        }),
+        type
+    };
+
+    if (task in SUPPORTED_TASKS) {
+        for (let key in custom) {
+            if (custom[key]) SUPPORTED_TASK[task][key] = custom[key];
+        }
+    }
+    else SUPPORTED_TASK[task] = custom;
+
 }

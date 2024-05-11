@@ -16,35 +16,130 @@
  * @module backends/onnx
  */
 
+import { env, apis } from '../env.js';
+
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
 // In either case, we select the default export if it exists, otherwise we use the named export.
 import * as ONNX_NODE from 'onnxruntime-node';
-import * as ONNX_WEB from 'onnxruntime-web';
+import * as ONNX_WEB from 'onnxruntime-web/webgpu';
 
-/** @type {import('onnxruntime-web')} The ONNX runtime module. */
-export let ONNX;
+export { Tensor } from 'onnxruntime-common';
 
-export const executionProviders = [
-    // 'webgpu',
-    'wasm'
-];
+/** @type {import('../utils/devices.js').DeviceType[]} */
+const supportedExecutionProviders = [];
 
-if (typeof process !== 'undefined' && process?.release?.name === 'node') {
-    // Running in a node-like environment.
+/** @type {import('../utils/devices.js').DeviceType[]} */
+let defaultExecutionProviders;
+let ONNX;
+if (apis.IS_NODE_ENV) {
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
-
-    // Add `cpu` execution provider, with higher precedence that `wasm`.
-    executionProviders.unshift('cpu');
-
+    supportedExecutionProviders.push('cpu');
+    defaultExecutionProviders = ['cpu'];
 } else {
-    // Running in a browser-environment
-    ONNX = ONNX_WEB.default ?? ONNX_WEB;
+    ONNX = ONNX_WEB;
+    if (apis.IS_WEBGPU_AVAILABLE) {
+        supportedExecutionProviders.push('webgpu');
+    }
+    supportedExecutionProviders.push('wasm');
+    defaultExecutionProviders = ['wasm'];
+}
 
+// @ts-ignore
+const InferenceSession = ONNX.InferenceSession;
+
+/**
+ * Map a device to the execution providers to use for the given device.
+ * @param {import("../utils/devices.js").DeviceType} [device=null] (Optional) The device to run the inference on.
+ * @returns {import("../utils/devices.js").DeviceType[]} The execution providers to use for the given device.
+ */
+export function deviceToExecutionProviders(device) {
+    // TODO: Use mapping from device to execution providers for overloaded devices (e.g., 'gpu' or 'cpu').
+    let executionProviders = defaultExecutionProviders;
+    if (device) { // User has specified a device
+        if (!supportedExecutionProviders.includes(device)) {
+            throw new Error(`Unsupported device: "${device}". Should be one of: ${supportedExecutionProviders.join(', ')}.`)
+        }
+        executionProviders = [device];
+    }
+    return executionProviders;
+}
+
+/**
+ * Create an ONNX inference session.
+ * @param {Uint8Array} buffer The ONNX model buffer.
+ * @param {Object} session_options ONNX inference session options.
+ * @returns {Promise<import('onnxruntime-common').InferenceSession>} The ONNX inference session.
+ */
+export async function createInferenceSession(buffer, session_options) {
+    // fix wasm relative path
+    if (apis.IS_BROWSER_ENV) {
+        let url = env.backends.onnx.wasm.wasmPaths;
+        if (!url.startsWith('http')) {
+            env.backends.onnx.wasm.wasmPaths = url[0] == '/' ? location.origin + url : location.href.replace(/[^\/]+$/, '') + url;
+        }
+    }
+
+    // set log level
+    let logLevel = ['verbose', 'info', 'warning', 'error', 'fatal'].indexOf(env.backends.onnx.logLevel);
+    if (logLevel >= 0) {
+        session_options.logVerbosityLevel = session_options.logSeverityLevel = logLevel;
+    }
+
+    return await InferenceSession.create(buffer, session_options);
+}
+
+/**
+ * Check if an object is an ONNX tensor.
+ * @param {any} x The object to check
+ * @returns {boolean} Whether the object is an ONNX tensor.
+ */
+export function isONNXTensor(x) {
+    return x instanceof ONNX.Tensor;
+}
+
+// @ts-ignore
+const ONNX_ENV = ONNX?.env;
+if (ONNX_ENV?.wasm) {
+    // Initialize wasm backend with suitable default settings.
+
+    // Set path to wasm files. This is needed when running in a web worker.
+    // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
+    // We use remote wasm files by default to make it easier for newer users.
+    // In practice, users should probably self-host the necessary .wasm files.
+    // TODO: update this before release
+    ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0-dev.20240430-204f1f59b9/dist/';
+
+    // Proxy the WASM backend to prevent the UI from freezing
+    // NOTE: This is only needed when running in a non-worker browser environment.
+    ONNX_ENV.wasm.proxy = !apis.IS_WEBWORKER_ENV;
+
+    // https://developer.mozilla.org/en-US/docs/Web/API/crossOriginIsolated
+    if (typeof crossOriginIsolated === 'undefined' || !crossOriginIsolated) {
+        ONNX_ENV.wasm.numThreads = 1;
+    }
+
+    // Running in a browser-environment
+    // TODO: Check if 1.17.1 fixes this issue.
     // SIMD for WebAssembly does not operate correctly in some recent versions of iOS (16.4.x).
     // As a temporary fix, we disable it for now.
     // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
     const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad).+16_4.+AppleWebKit/.test(navigator.userAgent);
     if (isIOS) {
-        ONNX.env.wasm.simd = false;
+        ONNX_ENV.wasm.simd = false;
     }
+
+    // Available logLevel: 'verbose', 'info', 'warning', 'error', 'fatal'
+    ONNX_ENV.logLevel = 'warning';
 }
+
+/**
+ * Check if ONNX's WASM backend is being proxied.
+ * @returns {boolean} Whether ONNX's WASM backend is being proxied.
+ */
+export function isONNXProxy() {
+    // TODO: Update this when allowing non-WASM backends.
+    return ONNX_ENV?.wasm?.proxy;
+}
+
+// Expose ONNX environment variables to `env.backends.onnx`
+env.backends.onnx = ONNX_ENV;
