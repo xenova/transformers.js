@@ -12,8 +12,10 @@ import {
 } from './hub.js';
 import { FFT, max } from './maths.js';
 import {
-    calculateReflectOffset,
+    calculateReflectOffset, saveBlob,
 } from './core.js';
+import { apis } from '../env.js';
+import fs from 'fs';
 
 
 /**
@@ -664,4 +666,146 @@ export function window_function(window_length, name, {
     }
 
     return window;
+}
+
+export class RawAudio {
+
+    /**
+     * Create a new `RawAudio` object.
+     * Handles only Float32Array data, with 1 or 2 channels audio
+     * @param {Array|Float32Array} audio Float32Array or Array of Float32Array
+     * @param {number} sampling_rate
+     */
+    constructor(audio, sampling_rate) {
+        if (!(
+                typeof audio == 'object' &&
+                ((audio.constructor.name == 'Array' && audio[0]?.constructor.name == 'Float32Array') ||
+                (audio.constructor.name == 'Float32Array')) &&
+                typeof sampling_rate == 'number'
+            )) {
+            throw Error('TypeError. Expected audio as Float32Array or [Float32Array, Float32Array], and sampling_rate as number')
+        }
+
+        if (audio.constructor.name != 'Array') audio = [audio]
+        this.audio = audio
+        this.sampling_rate = sampling_rate
+        this.interleaved = false
+    }
+
+    /**
+     * Combines multiple audio channels into one, alterning left / right audio input.
+     * @param {boolean} keepOriginalValues keep or not the original non-interleaved audio data
+     * @returns {Array} Array of Float32Array
+     */
+    interleave(keepOriginalValues = false) {
+        if (this.audio.length != 2 || this.interleaved == true) {
+            console.warn('Could not interleave audios data')
+            return
+        }
+
+        let audio, res, res2, len, i, offset
+
+        audio = this.audio
+        len = audio[0].length
+        res = new audio[0].constructor(len)
+        res2 = keepOriginalValues ? (new audio[0].constructor(len)) : audio[1]
+
+        for (i = 0; i < len; i++) {
+            res[i] = audio[i % 2][i >> 1]
+        }
+
+        for (offset = i, i = 0; i < len; i++) {
+            res2[i] = audio[(offset + i) % 2][(offset + i) >> 1]
+        }
+
+        if (keepOriginalValues) {
+            return [res, res2]
+        } else {
+            this.interleaved = true
+            this.audio[0].set(res)
+            return this.audio
+        }
+
+    }
+
+    /**
+     * Convert the audio to a wav blob.
+     * WAV file specs : https://en.wikipedia.org/wiki/Waveform_Audio_File_Format
+     * @returns {Blob}
+     */
+    toBlob() {
+        let audio, sampling_rate, wav_header, buf_size, nums
+
+        ({
+            audio,
+            sampling_rate
+        } = this)
+        buf_size = audio[0].buffer.byteLength * audio.length
+        wav_header = new Uint8Array([
+            82, 73, 70, 70,    //  0: 'RIFF'
+            0, 0, 0, 0,        //  4: RIFF size (file size - 8)
+            87, 65, 86, 69,    //  8: 'WAVE'
+            102, 109, 116, 32, // 12: 'fmt '
+            16, 0, 0, 0,       // 16: fmt chunksize
+            3, 0,              // 20: format tag (1 int, 3 float)
+            audio.length, 0,   // 22: channels
+            0, 0, 0, 0,        // 24: sample per sec
+            0, 0, 0, 0,        // 28: byte per sec (byte per bloc * sample rate)
+            4, 0,              // 32: byte per bloc
+            32, 0,             // 34: bits per sample (16 bits int, 32 bits float)
+            100, 97, 116, 97,  // 38: 'data'
+            0, 0, 0, 0         // 42: data size
+        ])
+        nums = [
+            [4, buf_size + wav_header.length - 8],
+            [24, sampling_rate],
+            [28, 4 * sampling_rate],
+            [40, buf_size]
+        ]
+
+        nums.forEach(([offset, num]) => {
+            do {
+                wav_header[offset++] = (num & 255)
+                num >>= 8
+            } while (num > 0)
+        })
+
+        if (audio.length == 2 && !this.interleaved) {
+            audio = this.interleave(true)
+        }
+
+        return new Blob([wav_header, ...audio])
+    }
+
+    /**
+     * Save the audio to a wav file.
+     * @param {string} path
+     */
+    async save(path = 'audio.wav') {
+        let fn
+
+        if (apis.IS_BROWSER_ENV) {
+            if (apis.IS_WEBWORKER_ENV) {
+                throw new Error('Unable to save a file from a Web Worker.')
+            }
+            fn = saveBlob
+        } else if (apis.IS_FS_AVAILABLE) {
+            fn = async (path, blob) => {
+                let buf = await blob.arrayBuffer()
+                buf = new Uint8Array(buf)
+                fs.writeFile(path, buf, (err) => {
+                    throw new Error(err)
+                })
+            }
+        } else {
+            throw new Error('Unable to save because filesystem is disabled in this environment.')
+        }
+
+        if (!(/\.wav$/.test(path))) {
+            console.warn('Change filename extension to .wav')
+            path = path.replace(/\.\w{0,4}$/, '') + '.wav'
+        }
+
+        await fn(path, this.toBlob())
+    }
 }
