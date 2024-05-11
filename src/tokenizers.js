@@ -3117,7 +3117,7 @@ export class PreTrainedTokenizer extends Callable {
         }
         else {
             if (!Array.isArray(batchEncoding)) batchEncoding = [batchEncoding];
-            if (!Array.isArray(batchEncoding[0])) {
+            if (typeof batchEncoding[0] == 'string') {
                 batchEncoding.forEach((val, key) =>{
                     batchEncoding[key] = val.split(' ');
                 })
