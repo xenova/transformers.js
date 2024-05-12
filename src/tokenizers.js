@@ -3102,30 +3102,36 @@ export class PreTrainedTokenizer extends Callable {
     }
 
     /**
-     * Get offsets mapping
-     * @param {BatchEncoding|string|string[]|string[][]} batchEncoding Object with input_ids from tokenizer, array[][] tokens, or space delimited string tokens
-     * @param {string|string[]} texts 
+     * Estimate offsets mapping from original context string
+     * @param {BatchEncoding|string|string[]|string[][]} search Object with input_ids from tokenizer, array[][] tokens, or space delimited string tokens
+     * @param {string|string[]} context 
      * @param {string} strategy 'none' or 'closest'
+     * @param {boolean} caseSensitive
      * @returns {any[]} (char_start, char_end, token)
      */
-    get_offsets_mapping(batchEncoding, texts, strategy = 'none') {
+    get_offsets_mapping(search, context, strategy = 'none', caseSensitive = false) {
         let toReturn = [],
             idx, lastIdx, len;
         
-        if (typeof batchEncoding == 'object' && 'input_ids' in batchEncoding) {
-            batchEncoding = batchEncoding.input_ids.tolist();
+        if (typeof search == 'object' && 'input_ids' in search) {
+            search = search.input_ids.tolist();
         }
         else {
-            if (!Array.isArray(batchEncoding)) batchEncoding = [batchEncoding];
-            if (typeof batchEncoding[0] == 'string') {
-                batchEncoding.forEach((val, key) =>{
-                    batchEncoding[key] = val.split(' ');
+            if (!Array.isArray(search)) search = [search];
+            if (typeof search[0] == 'string') {
+                search.forEach((val, key) =>{
+                    search[key] = val.split(' ');
                 })
             }
         }
-        if (typeof texts == 'string') texts = [texts];
-
-        batchEncoding.forEach((tokens, i) => {
+        if (typeof context == 'string') context = [context];
+        if (!caseSensitive) {
+            context.forEach((val, key) => {
+                context[key] = val.toLowerCase();
+            })
+        }
+        
+        search.forEach((tokens, i) => {
             toReturn.push([]);
             lastIdx = 0;
             if (typeof tokens[0] != 'string') {
@@ -3134,7 +3140,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             tokens.forEach(token => {
-                idx = texts[i].indexOf(token, lastIdx);
+                idx = context[i].indexOf(token, lastIdx);
 
                 // look behind and find closest match
                 if (strategy == 'closest' && idx >= 0) {
@@ -3143,7 +3149,7 @@ export class PreTrainedTokenizer extends Callable {
                     lastIdx = idx;
                     for (a = toReturn.at(-1).length - 1; a >= 0; a--) {
                         strStart = a > 0 ? lastIdx - 1 - (toReturn[i][a][0] - toReturn[i][a - 1][0]) : 0;
-                        strSearch = texts[i].substring(strStart, idx);
+                        strSearch = context[i].substring(strStart, idx);
 
                         strTokens = [];
                         strEncodings = this._call(strSearch, {
