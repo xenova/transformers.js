@@ -465,7 +465,7 @@ async function seq2seqForward(self, model_inputs) {
  * Forward pass of an encoder model.
  * @param {Object} self The encoder model.
  * @param {Object} model_inputs The input data to be used for the forward pass.
- * @returns {Promise<Object>} Promise that resolves with an object containing the model's outputs.
+ * @returns {Promise<Object>} The model's outputs.
  * @private
  */
 async function encoderForward(self, model_inputs) {
@@ -490,7 +490,7 @@ async function encoderForward(self, model_inputs) {
  * Forward pass of a decoder model.
  * @param {Object} self The decoder model.
  * @param {Object} model_inputs The input data to be used for the forward pass.
- * @returns {Promise<Object>} Promise that resolves with an object containing the logits and past key values.
+ * @returns {Promise<Object>} The logits and past key values.
  * @private
  */
 async function decoderForward(self, model_inputs, is_encoder_decoder = false) {
@@ -504,48 +504,126 @@ async function decoderForward(self, model_inputs, is_encoder_decoder = false) {
     if (session.inputNames.includes('use_cache_branch')) {
         new_model_inputs.use_cache_branch = boolTensor(!!past_key_values);
     }
+    if (session.inputNames.includes('position_ids') && new_model_inputs.attention_mask && !new_model_inputs.position_ids) {
+        new_model_inputs.position_ids = createPositionIds(new_model_inputs.attention_mask, past_key_values);
+    }
 
     // Unpack the `past_key_values` object into model inputs
     self.addPastKeyValues(new_model_inputs, past_key_values);
+
+    // Select only the inputs that are needed for the current session
     const fixed = pick(new_model_inputs, session.inputNames);
     return await sessionRun(session, fixed);
 }
 
-function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
-    const session = self.sessions['model'];
 
-    if (session.inputNames.includes('position_ids') && model_inputs.attention_mask && !model_inputs.position_ids) {
-        // If the model supports providing position_ids, we create position_ids on the fly for batch generation,
-        // by computing the cumulative sum of the attention mask along the sequence length dimension.
-        // 
-        // Equivalent to:
-        // position_ids = attention_mask.long().cumsum(-1) - 1
-        // position_ids.masked_fill_(attention_mask == 0, 1)
-        // if past_key_values:
-        //     position_ids = position_ids[:, -input_ids.shape[1] :]
-        const [bz, seq_len] = model_inputs.attention_mask.dims;
+/**
+ * Forward pass of an image-text-to-text model.
+ * @param {Object} self The image-text-to-text model model.
+ * @param {Object} model_inputs The input data to be used for the forward pass.
+ * @param {Tensor} [model_inputs.input_ids=null]
+ * @param {Tensor} [model_inputs.attention_mask=null]
+ * @param {Tensor} [model_inputs.pixel_values=null]
+ * @param {Tensor} [model_inputs.position_ids=null]
+ * @param {Tensor} [model_inputs.inputs_embeds=null]
+ * @param {Tensor} [model_inputs.past_key_values=null]
+ * @param {Object} [model_inputs.generation_config=null]
+ * @param {Object} [model_inputs.logits_processor=null]
+ * @returns {Promise<Tensor>} The model's output tensor
+ * @private
+ */
+async function imageTextToTextForward(self, {
+    // Produced by the tokenizer/processor:
+    input_ids = null,
+    attention_mask = null,
+    pixel_values = null,
 
-        const data = new BigInt64Array(model_inputs.attention_mask.data.length);
-        for (let i = 0; i < bz; ++i) {
-            const start = i * seq_len;
-            let sum = BigInt(0);
-            for (let j = 0; j < seq_len; ++j) {
-                const index = start + j;
-                if (model_inputs.attention_mask.data[index] === 0n) {
-                    data[index] = BigInt(1);
-                } else { // === 1n
-                    data[index] = sum;
-                    sum += model_inputs.attention_mask.data[index];
-                }
-            }
-        }
+    // Used during generation:
+    position_ids = null,
+    inputs_embeds = null,
+    past_key_values = null,
 
-        model_inputs.position_ids = new Tensor('int64', data, model_inputs.attention_mask.dims);
-        if (model_inputs.past_key_values) {
-            model_inputs.position_ids = model_inputs.position_ids.slice(null, -1).unsqueeze_(-1);
+    // Generic generation parameters
+    generation_config = null,
+    logits_processor = null,
+
+    // TODO: needed?
+    ...kwargs
+}) {
+
+    if (!inputs_embeds) {
+        // 1. Extract the input embeddings
+        inputs_embeds = await self.encode_text({ input_ids });
+
+        // 2. Possibly, merge text and images
+        if (pixel_values && input_ids.dims[1] !== 1) {
+            const image_features = await self.encode_image({ pixel_values });
+
+            ({ inputs_embeds, inputs_embeds, attention_mask } = self._merge_input_ids_with_image_features({
+                image_features,
+                inputs_embeds,
+                input_ids,
+                attention_mask,
+            }));
+
+        } else if (past_key_values && pixel_values && input_ids.dims[1] === 1) {
+            // In case input_ids.shape[1] == 1 & pixel_values==None & past_key_values != None, we are in the case of
+            // generation with cache
+            const target_length = input_ids.dims[1]; // always 1
+            const past_length = Object.values(past_key_values)[0].dims.at(-2);
+
+            attention_mask = cat([
+                ones([input_ids.dims[0], past_length]),
+                attention_mask.slice(null, [attention_mask.dims[1] - target_length, attention_mask.dims[1]]),
+            ], 1);
         }
     }
 
+    const outputs = await decoderForward(self, {
+        inputs_embeds,
+        past_key_values,
+        attention_mask,
+        position_ids,
+        generation_config,
+        logits_processor,
+    }, true);
+    return outputs;
+}
+
+function createPositionIds(attention_mask, past_key_values = null) {
+    // If the model supports providing position_ids, we create position_ids on the fly for batch generation,
+    // by computing the cumulative sum of the attention mask along the sequence length dimension.
+    // 
+    // Equivalent to:
+    // position_ids = attention_mask.long().cumsum(-1) - 1
+    // position_ids.masked_fill_(attention_mask == 0, 1)
+    // if past_key_values:
+    //     position_ids = position_ids[:, -input_ids.shape[1] :]
+    const [bz, seq_len] = attention_mask.dims;
+
+    const data = new BigInt64Array(attention_mask.data.length);
+    for (let i = 0; i < bz; ++i) {
+        const start = i * seq_len;
+        let sum = BigInt(0);
+        for (let j = 0; j < seq_len; ++j) {
+            const index = start + j;
+            if (attention_mask.data[index] === 0n) {
+                data[index] = BigInt(1);
+            } else { // === 1n
+                data[index] = sum;
+                sum += attention_mask.data[index];
+            }
+        }
+    }
+
+    let position_ids = new Tensor('int64', data, attention_mask.dims);
+    if (past_key_values) {
+        position_ids = position_ids.slice(null, -1).unsqueeze_(-1);
+    }
+    return position_ids;
+}
+
+function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
     return model_inputs;
 }
 
@@ -607,13 +685,13 @@ export class PreTrainedModel extends Callable {
             this._prepare_inputs_for_generation = encoder_decoder_prepare_inputs_for_generation;
 
         } else if (modelType === MODEL_TYPES.EncoderDecoder) {
-            // console.warn('TODO: Implement EncoderDecoderForward')
             this._forward = seq2seqForward;
 
         } else if (modelType === MODEL_TYPES.ImageTextToText) {
             this.can_generate = true;
-            console.warn('TODO: Implement visionDecoderForward');
-            // this._forward = visionDecoderForward;
+            this._forward = imageTextToTextForward;
+            this._prepare_inputs_for_generation = decoder_prepare_inputs_for_generation;
+
         } else { // should be MODEL_TYPES.EncoderOnly
             this._forward = encoderForward;
         }
@@ -3242,16 +3320,12 @@ export class LlavaPreTrainedModel extends PreTrainedModel {
         'past_key_values',
         'pixel_values',
         'attention_mask',
+        'position_ids',
     ];
 
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-
-        const decoderConfig = this.config.text_config;
-
-        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
-        this.config.pad_token_id = decoderConfig.eos_token_id;
     }
 }
 
@@ -3295,12 +3369,11 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
             return {
                 inputs_embeds,
                 attention_mask,
-                position_ids: null,
-            };
+            }
         }
 
-        let stacked = [];
-        let stacked_attention_mask = [];
+        const stacked = [];
+        const stacked_attention_mask = [];
         for (let i = 0; i < indexOfImage.length; ++i) {
             const index = indexOfImage[i];
 
@@ -3327,88 +3400,11 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
         return {
             inputs_embeds: stack(stacked, 0),
             attention_mask: stack(stacked_attention_mask, 0),
-            position_ids: null,
-        };
-    }
-
-    prepare_inputs_for_generation(input_ids, model_inputs, generation_config) {
-        return model_inputs;
-    }
-
-    /**
-     * 
-     * @param {Object} params
-     * @param {Tensor} [params.input_ids=null]
-     * @param {Tensor} [params.attention_mask=null]
-     * @param {Tensor} [params.pixel_values=null]
-     * @param {Tensor} [params.position_ids=null]
-     * @param {Tensor} [params.inputs_embeds=null]
-     * @param {Tensor} [params.past_key_values=null]
-     * @param {Object} [params.generation_config=null]
-     * @param {Object} [params.logits_processor=null]
-     * @returns {Promise<Tensor>} The model's output tensor
-     */
-    async forward({
-        // These are produced by the processors:
-        input_ids = null,
-        attention_mask = null,
-        pixel_values = null,
-
-        // Used during generation:
-        position_ids = null,
-        inputs_embeds = null,
-        past_key_values = null,
-
-        // Generic generation parameters
-        generation_config = null,
-        logits_processor = null,
-
-        // TODO: needed?
-        ...kwargs
-    }) {
-
-        if (!inputs_embeds) {
-            // 1. Extract the input embeddings
-            inputs_embeds = await this.encode_text({ input_ids });
-
-            // 2. Possibly, merge text and images
-            if (pixel_values && input_ids.dims[1] !== 1) {
-                const image_features = await this.encode_image({ pixel_values });
-
-                ({ inputs_embeds, inputs_embeds, attention_mask, position_ids } = this._merge_input_ids_with_image_features({
-                    image_features,
-                    inputs_embeds,
-                    input_ids,
-                    attention_mask,
-                }));
-
-            } else if (past_key_values && pixel_values && input_ids.dims[1] === 1) {
-                // In case input_ids.shape[1] == 1 & pixel_values==None & past_key_values != None, we are in the case of
-                // generation with cache
-                const target_length = input_ids.dims[1]; // always 1
-                const past_length = Object.values(past_key_values)[0].dims.at(-2);
-
-                attention_mask = cat([
-                    ones([input_ids.dims[0], past_length]),
-                    attention_mask.slice(null, [attention_mask.dims[1] - target_length, attention_mask.dims[1]]),
-                ], 1);
-            }
         }
-
-        const outputs = await decoderForward(this, {
-            inputs_embeds,
-            past_key_values,
-            attention_mask,
-            generation_config,
-            logits_processor,
-        }, true);
-        return outputs;
     }
 }
 //////////////////////////////////////////////////
 
-//////////////////////////////////////////////////
-// CLIP models
 export class CLIPPreTrainedModel extends PreTrainedModel { }
 
 /**
