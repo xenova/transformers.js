@@ -3367,7 +3367,7 @@ export function register_pipeline(
         pipeline: pipelineClass,
         model: typeof model == 'string' ? getModelClassFromName(model) : model,
         processor: processor == 'AutoProcessor' ? AutoProcessor : processor,
-        'default': (!default_model ? {} : {
+        'default': (!default_model ? '' : {
             model: default_model
         }),
         type
