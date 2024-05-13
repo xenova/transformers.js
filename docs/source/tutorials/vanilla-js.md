@@ -38,7 +38,7 @@ We’re also adding an empty `<div>` container for displaying the image, plus an
 
 </details>
 
-Next, add the following CSS rules in a `style.css` file and and link it to the HTML:
+Next, add the following CSS rules in a `style.css` file and link it to the HTML:
 
 ```css
 html,

@@ -283,23 +283,34 @@ export const fetchBinary = IS_REACT_NATIVE ? fetchBinaryImpl : fetch;
 /**
  * Determines whether the given string is a valid URL.
  * @param {string|URL} string The string to test for validity as an URL.
+ * @param {string[]} [protocols=null] A list of valid protocols. If specified, the protocol must be in this list.
  * @param {string[]} [validHosts=null] A list of valid hostnames. If specified, the URL's hostname must be in this list.
  * @returns {boolean} True if the string is a valid URL, false otherwise.
  */
-function isValidHttpUrl(string, validHosts = null) {
-    // https://stackoverflow.com/a/43467144
-    let url;
-    try {
-        url = new URL(string);
-    } catch (_) {
-        return false;
+function isValidUrl(string, protocols = null, validHosts = null) {\
+    if (IS_REACT_NATIVE) {
+        if (protocols && !protocols.some((protocol) => string.startsWith(protocol)))
+            return false;
+        if (validHosts) {
+            const match = string.match(/^(\w+\:)\/\/(([^:\/?#]*)(?:\:([0-9]+))?)/);
+            if (!match || !validHosts.includes(match[3]))
+              return false;
+        }
+    } else {
+        let url;
+        try {
+            url = new URL(string);
+        } catch (_) {
+            return false;
+        }
+        if (protocols && !protocols.includes(url.protocol)) {
+            return false;
+        }
+        if (validHosts && !validHosts.includes(url.hostname)) {
+            return false;
+        }
     }
-    if (validHosts && !validHosts.includes(url.hostname)) {
-        return false;
-    }
-    return IS_REACT_NATIVE
-        ? /^https?:/.test(string)
-        : url.protocol === "http:" || url.protocol === "https:";
+    return true;
 }
 
 /**
@@ -308,7 +319,7 @@ function isValidHttpUrl(string, validHosts = null) {
  * @param {URL|string} fromUrl The URL/path of the file to download.
  * @param {string} toFile The path of the file to download to.
  * @param {function} progress_callback A callback function that is called with progress information.
- * @returns {Promise}
+ * @returns {Promise<void>}
  */
 export async function downloadFile(fromUrl, toFile, progress_callback) {
     if (IS_REACT_NATIVE) {
@@ -361,8 +372,9 @@ export async function downloadFile(fromUrl, toFile, progress_callback) {
  */
 export async function getFile(urlOrPath) {
 
-    if (env.useFS && !isValidHttpUrl(urlOrPath)) {
-        return await FileResponse.create(urlOrPath);
+
+    if (env.useFS && !isValidUrl(urlOrPath, ['http:', 'https:', 'blob:'])) {
+        return new FileResponse(urlOrPath);
 
     } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
         const IS_CI = !!process.env?.TESTING_REMOTELY;
@@ -372,7 +384,7 @@ export async function getFile(urlOrPath) {
         headers.set('User-Agent', `transformers.js/${version}; is_ci/${IS_CI};`);
 
         // Check whether we are making a request to the Hugging Face Hub.
-        const isHFURL = isValidHttpUrl(urlOrPath, ['huggingface.co', 'hf.co']);
+        const isHFURL = isValidUrl(urlOrPath, ['http:', 'https:'], ['huggingface.co', 'hf.co']);
         if (isHFURL) {
             // If an access token is present in the environment variables,
             // we add it to the request headers.
@@ -620,7 +632,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         if (env.allowLocalModels) {
             // Accessing local models is enabled, so we try to get the file locally.
             // If request is a valid HTTP URL, we skip the local file check. Otherwise, we try to get the file locally.
-            const isURL = isValidHttpUrl(requestURL);
+            const isURL = isValidUrl(requestURL, ['http:', 'https:']);
             if (!isURL) {
                 try {
                     response = await getFile(localPath);

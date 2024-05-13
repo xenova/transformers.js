@@ -2990,7 +2990,7 @@ export class PreTrainedTokenizer extends Callable {
      * ```javascript
      * import { AutoTokenizer } from "@xenova/transformers";
      * 
-     * const tokenizer = await AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.1");
+     * const tokenizer = await AutoTokenizer.from_pretrained("Xenova/mistral-tokenizer-v1");
      * 
      * const chat = [
      *   { "role": "user", "content": "Hello, how are you?" },
