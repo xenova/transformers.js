@@ -3405,6 +3405,8 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+export class Moondream1ForConditionalGeneration extends LlavaForConditionalGeneration { } // NOTE: extends LlavaForConditionalGeneration
+
 export class CLIPPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -6108,6 +6110,7 @@ const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING_NAMES = new Map([
     ['llava', ['LlavaForConditionalGeneration', LlavaForConditionalGeneration]],
+    ['moondream1', ['Moondream1ForConditionalGeneration', Moondream1ForConditionalGeneration]],
 ]);
 
 const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([

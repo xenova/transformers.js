@@ -365,12 +365,27 @@ def quantize(
             del quantizer
 
         elif mode == QuantMode.FP16:
-            model_fp16 = float16.convert_float_to_float16(
-                loaded_model,
-                keep_io_types=True,
-            )
-            onnx.save(model_fp16, save_path)
+            try:
+                model_fp16 = float16.convert_float_to_float16(
+                    loaded_model,
+                    keep_io_types=True,
+                )
+                onnx.save(model_fp16, save_path)
+            except Exception:
+                # Most likely due to size threshold exceeded (2GB)
+                model_fp16 = float16.convert_float_to_float16(
+                    loaded_model,
+                    keep_io_types=True,
+                    disable_shape_infer=True,
+                )
 
+                onnx.save(model_fp16, save_path,
+                          save_as_external_data=True,
+                          convert_attribute=False,
+                          location=os.path.basename(save_path) + '_data',
+                          all_tensors_to_one_file=True,
+                          size_threshold=10_000_000,
+                          )
         else:
             raise ValueError(f'Invalid quantization mode: {mode}')
 
@@ -415,8 +430,9 @@ def main():
             new_kwargs = {}
             if conv_args.task.startswith('text-generation'):
                 new_kwargs['use_past_in_inputs'] = True
-            
-            custom_onnx_configs[key] = mapping.func(config, **mapping.keywords, **new_kwargs)
+
+            custom_onnx_configs[key] = mapping.func(
+                config, **mapping.keywords, **new_kwargs)
 
         custom_kwargs['custom_onnx_configs'] = custom_onnx_configs
 

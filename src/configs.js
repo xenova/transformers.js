@@ -27,6 +27,7 @@
  * @module configs
  */
 
+import { pick } from './utils/core.js';
 import {
     getModelJSON,
 } from './utils/hub.js';
@@ -59,6 +60,9 @@ function getNormalizedConfig(config) {
         // Sub-configs
         case 'llava':
             init_normalized_config = getNormalizedConfig(config.text_config);
+            break;
+        case 'moondream1':
+            init_normalized_config = getNormalizedConfig(config.phi_config);
             break;
         case 'musicgen':
             init_normalized_config = getNormalizedConfig(config.decoder);
@@ -161,9 +165,7 @@ function getNormalizedConfig(config) {
     // NOTE: If `num_attention_heads` is not set, it is assumed to be equal to `num_heads`
     const normalized_config = {
         ...init_normalized_config,
-        model_type: config.model_type,
-        multi_query: config.multi_query,
-        is_encoder_decoder: config.is_encoder_decoder,
+        ...pick(config, ['model_type', 'multi_query', 'is_encoder_decoder']),
     };
     for (const key in mapping) {
         normalized_config[key] = config[mapping[key]];
