@@ -287,7 +287,7 @@ export const fetchBinary = IS_REACT_NATIVE ? fetchBinaryImpl : fetch;
  * @param {string[]} [validHosts=null] A list of valid hostnames. If specified, the URL's hostname must be in this list.
  * @returns {boolean} True if the string is a valid URL, false otherwise.
  */
-function isValidUrl(string, protocols = null, validHosts = null) {\
+function isValidUrl(string, protocols = null, validHosts = null) {
     if (IS_REACT_NATIVE) {
         if (protocols && !protocols.some((protocol) => string.startsWith(protocol)))
             return false;
