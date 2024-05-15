@@ -730,7 +730,7 @@ export class RawAudio {
 
     /**
      * Convert the audio to a wav blob.
-     * WAV file specs : https://en.wikipedia.org/wiki/Waveform_Audio_File_Format
+     * WAV file specs : https://en.wikipedia.org/wiki/WAV#WAV_File_header
      * @returns {Blob}
      */
     toBlob() {
@@ -748,18 +748,20 @@ export class RawAudio {
             102, 109, 116, 32, // 12: 'fmt '
             16, 0, 0, 0,       // 16: fmt chunksize
             3, 0,              // 20: format tag (1 int, 3 float)
-            audio.length, 0,   // 22: channels
-            0, 0, 0, 0,        // 24: sample per sec
-            0, 0, 0, 0,        // 28: byte per sec (byte per bloc * sample rate)
-            4, 0,              // 32: byte per bloc
-            32, 0,             // 34: bits per sample (16 bits int, 32 bits float)
-            100, 97, 116, 97,  // 38: 'data'
-            0, 0, 0, 0         // 42: data size
+            0, 0,              // 22: n channels
+            0, 0, 0, 0,        // 24: sample rate (in Hertz)
+            0, 0, 0, 0,        // 28: n bytes per sec (bytes per bloc * sample rate)
+            0, 0,              // 32: n bytes per bloc (number of channels * bits per sample / 8)
+            32, 0,             // 34: n bits per sample (16 bits int, 32 bits float)
+            100, 97, 116, 97,  // 36: 'data'
+            0, 0, 0, 0         // 40: data size
         ])
         nums = [
             [4, buf_size + wav_header.length - 8],
+            [22, audio.length],
             [24, sampling_rate],
-            [28, 4 * sampling_rate],
+            [28, (audio.length * 32 / 8) * sampling_rate],
+            [32, audio.length * 32 / 8],
             [40, buf_size]
         ]
 
