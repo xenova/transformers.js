@@ -25,4 +25,8 @@
   .animation-delay-400 {
     animation-delay: 400ms;
   }
+
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+  }
 }

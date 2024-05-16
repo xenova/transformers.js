@@ -6,7 +6,7 @@ import StopIcon from './components/icons/StopIcon';
 import Progress from './components/Progress';
 
 const IS_WEBGPU_AVAILABLE = !!navigator.gpu;
-const STICKY_SCROLL_THRESHOLD = 80;
+const STICKY_SCROLL_THRESHOLD = 120;
 
 function App() {
 
@@ -224,7 +224,10 @@ function App() {
               </>}
               {!isRunning && <>
                 <span className="mr-1">&#41;.</span>
-                <span className="underline cursor-pointer" onClick={() => setMessages([])}>Reset</span>
+                <span className="underline cursor-pointer" onClick={() => {
+                  worker.current.postMessage({ type: 'reset' });
+                  setMessages([]);
+                }}>Reset</span>
               </>}
             </>)}
           </p>
