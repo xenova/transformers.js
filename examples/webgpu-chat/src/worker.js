@@ -1,14 +1,11 @@
 
 import {
-    env,
     AutoTokenizer,
     AutoModelForCausalLM,
     TextStreamer,
     StoppingCriteria,
 } from '@xenova/transformers';
 
-// Set up environment variables
-env.backends.onnx.wasm.wasmPaths = '/';
 
 class CallbackTextStreamer extends TextStreamer {
     constructor(tokenizer, cb) {
@@ -94,36 +91,39 @@ async function generate(messages) {
         return_dict: true,
     });
 
-    { // run + time execution
-        let startTime;
-        let numTokens = 0;
-        const cb = (output) => {
-            startTime ??= performance.now();
+    let startTime;
+    let numTokens = 0;
+    const cb = (output) => {
+        startTime ??= performance.now();
 
-            let tps;
-            if (numTokens++ > 0) {
-                tps = numTokens / (performance.now() - startTime) * 1000;
-            }
-            self.postMessage({
-                status: 'update',
-                output, tps, numTokens,
-            });
+        let tps;
+        if (numTokens++ > 0) {
+            tps = numTokens / (performance.now() - startTime) * 1000;
         }
-
-        const streamer = new CallbackTextStreamer(tokenizer, cb);
-
-        // Tell the main thread we are starting
-        self.postMessage({ status: 'start' });
-
-        const outputs = await model.generate({ ...inputs, max_new_tokens: 512, streamer, stopping_criteria });
-        const outputText = tokenizer.batch_decode(outputs, { skip_special_tokens: false });
-
-        // Send the output back to the main thread
         self.postMessage({
-            status: 'complete',
-            output: outputText,
+            status: 'update',
+            output, tps, numTokens,
         });
     }
+
+    const streamer = new CallbackTextStreamer(tokenizer, cb);
+
+    // Tell the main thread we are starting
+    self.postMessage({ status: 'start' });
+
+    const outputs = await model.generate({
+        ...inputs,
+        max_new_tokens: 512,
+        streamer,
+        stopping_criteria,
+    });
+    const outputText = tokenizer.batch_decode(outputs, { skip_special_tokens: false });
+
+    // Send the output back to the main thread
+    self.postMessage({
+        status: 'complete',
+        output: outputText,
+    });
 }
 
 async function load() {
