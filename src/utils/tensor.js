@@ -299,14 +299,21 @@ export class Tensor {
 
             } else if (Array.isArray(slice) && slice.length === 2) {
                 // An array of length 2 means take a range of elements
+                let [start, end] = slice;
+                start = start === null
+                    ? 0
+                    : safeIndex(start, this.dims[sliceIndex], sliceIndex, false);
+                end = end === null
+                    ? this.dims[sliceIndex]
+                    : safeIndex(end, this.dims[sliceIndex], sliceIndex, false);
 
-                if (slice[0] > slice[1]) {
+                if (start > end) {
                     throw new Error(`Invalid slice: ${slice}`);
                 }
 
                 let offsets = [
-                    Math.max(slice[0], 0),
-                    Math.min(slice[1], this.dims[sliceIndex])
+                    Math.max(start, 0),
+                    Math.min(end, this.dims[sliceIndex])
                 ];
 
                 newOffsets.push(offsets);
@@ -955,8 +962,8 @@ function calc_unsqueeze_dims(dims, dim) {
  * @throws {Error} If the index is out of range.
  * @private
  */
-function safeIndex(index, size, dimension = null) {
-    if (index < -size || index >= size) {
+function safeIndex(index, size, dimension = null, boundsCheck = true) {
+    if (boundsCheck && (index < -size || index >= size)) {
         throw new Error(`IndexError: index ${index} is out of bounds for dimension${dimension === null ? '' : ' ' + dimension} with size ${size}`);
     }
 
