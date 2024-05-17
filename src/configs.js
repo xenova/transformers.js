@@ -88,6 +88,7 @@ function getNormalizedConfig(config) {
             mapping['hidden_size'] = 'hidden_size';
             break;
         case 'llama':
+        case 'gemma':
         case 'mistral':
         case 'starcoder2':
         case 'qwen2':
