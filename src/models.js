@@ -505,7 +505,7 @@ async function decoderForward(self, model_inputs, is_encoder_decoder = false) {
         new_model_inputs.use_cache_branch = boolTensor(!!past_key_values);
     }
     if (session.inputNames.includes('position_ids') && new_model_inputs.attention_mask && !new_model_inputs.position_ids) {
-        new_model_inputs.position_ids = createPositionIds(new_model_inputs.attention_mask, past_key_values);
+        new_model_inputs.position_ids = createPositionIds(new_model_inputs, past_key_values);
     }
 
     // Unpack the `past_key_values` object into model inputs
@@ -590,7 +590,7 @@ async function imageTextToTextForward(self, {
     return outputs;
 }
 
-function createPositionIds(attention_mask, past_key_values = null) {
+function createPositionIds(model_inputs, past_key_values = null) {
     // If the model supports providing position_ids, we create position_ids on the fly for batch generation,
     // by computing the cumulative sum of the attention mask along the sequence length dimension.
     // 
@@ -599,6 +599,7 @@ function createPositionIds(attention_mask, past_key_values = null) {
     // position_ids.masked_fill_(attention_mask == 0, 1)
     // if past_key_values:
     //     position_ids = position_ids[:, -input_ids.shape[1] :]
+    const { input_ids, inputs_embeds, attention_mask } = model_inputs;
     const [bz, seq_len] = attention_mask.dims;
 
     const data = new BigInt64Array(attention_mask.data.length);
@@ -618,12 +619,45 @@ function createPositionIds(attention_mask, past_key_values = null) {
 
     let position_ids = new Tensor('int64', data, attention_mask.dims);
     if (past_key_values) {
-        position_ids = position_ids.slice(null, -1).unsqueeze_(-1);
+        const offset = -(input_ids ?? inputs_embeds).dims.at(1);
+        position_ids = position_ids.slice(null, [offset, null]);
     }
     return position_ids;
 }
 
 function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
+    if (model_inputs.past_key_values) {
+        const past_length = Object.values(model_inputs.past_key_values)[0].dims.at(-2);
+        const { input_ids, attention_mask } = model_inputs;
+
+        // Keep only the unprocessed tokens:
+        // 1 - If the length of the attention_mask exceeds the length of input_ids, then we are in a setting where
+        // some of the inputs are exclusively passed as part of the cache (e.g. when passing input_embeds as
+        // input)
+        if (attention_mask && attention_mask.dims[1] > input_ids.dims[1]) {
+            // NOTE: not needed since we only pass the generated tokens to the next forward pass
+            // const offset = -(attention_mask.dims[1] - past_length);
+            // model_inputs.input_ids = input_ids.slice(null, [offset, null]);
+        }
+        // 2 - If the past_length is smaller than input_ids', then input_ids holds all input tokens.
+        // We can discard input_ids based on the past_length.
+        else if (past_length < input_ids.dims[1]) {
+            // NOTE: Required for phi models.
+            // See https://github.com/huggingface/transformers/issues/30809#issuecomment-2111918479 for more information.
+            model_inputs.input_ids = input_ids.slice(null, [past_length, null]);
+        }
+        // 3 - Otherwise (past_length >= input_ids.shape[1]), let's assume input_ids only has unprocessed tokens.
+        else {
+            // NOTE: Only used by VLMs (!= so that null matches undefined)
+            if (self.config.image_token_index != null) {
+                // Equivalent to `self.config.image_token_index in input_ids` (== so that int matches bigint)
+                if (input_ids.data.some(x => x == self.config.image_token_index)) {
+                    model_inputs.input_ids = input_ids.slice(null, [-1, null]);
+                }
+            }
+        }
+    }
+
     return model_inputs;
 }
 
@@ -694,6 +728,10 @@ export class PreTrainedModel extends Callable {
 
         } else { // should be MODEL_TYPES.EncoderOnly
             this._forward = encoderForward;
+        }
+
+        if (this.can_generate) {
+            this.forward_params.push('past_key_values');
         }
 
         /** @type {import('./configs.js').TransformersJSConfig} */
@@ -1153,7 +1191,6 @@ export class PreTrainedModel extends Callable {
      */
     _prepare_model_inputs({ inputs, bos_token_id, model_kwargs }) {
         const model_inputs = pick(model_kwargs, this.forward_params);
-        // console.log('model_inputs', model_inputs)
         const input_name = this.main_input_name;
         if (input_name in model_inputs) {
             if (inputs) {
@@ -1363,6 +1400,7 @@ export class PreTrainedModel extends Callable {
         // - GenerationMode.BEAM_SEARCH
         // - GenerationMode.BEAM_SAMPLE
         ////////////////////////////////////////////////////
+        let past_key_values = null;
         while (true) {
             // prepare model inputs
             model_inputs = this.prepare_inputs_for_generation(all_input_ids, model_inputs, generation_config);
@@ -1400,12 +1438,16 @@ export class PreTrainedModel extends Callable {
 
             const stop = prepared_stopping_criteria(all_input_ids);
             if (stop.every(x => x)) {
+                if (generation_config.return_dict_in_generate) {
+                    // Get past key values without disposing buffers
+                    past_key_values = this.getPastKeyValues(outputs, model_inputs.past_key_values, false);
+                }
                 break;
             }
 
             model_inputs = this._update_model_kwargs_for_generation({
                 generated_input_ids, outputs, model_inputs, is_encoder_decoder,
-            })
+            });
         }
 
         if (streamer) {
@@ -1413,7 +1455,20 @@ export class PreTrainedModel extends Callable {
         }
 
         // TODO: ensure all_input_ids is padded correctly...
-        return new Tensor('int64', all_input_ids.flat(), [all_input_ids.length, all_input_ids[0].length]);
+        const sequences = new Tensor('int64', all_input_ids.flat(), [all_input_ids.length, all_input_ids[0].length]);
+
+        if (generation_config.return_dict_in_generate) {
+            return {
+                sequences,
+                past_key_values,
+                // TODO:
+                // scores,
+                // logits,
+                // attentions,
+            }
+        } else {
+            return sequences;
+        }
 
         // TODO:
         // let numOutputTokens = 1;
@@ -1594,9 +1649,10 @@ export class PreTrainedModel extends Callable {
      *
      * @param {Object} decoderResults The decoder results object.
      * @param {Object} pastKeyValues The previous past key values.
+     * @param {boolean} [dispose=true] Whether to dispose of the old gpu buffer.
      * @returns {Object} An object containing past key values.
      */
-    getPastKeyValues(decoderResults, pastKeyValues) {
+    getPastKeyValues(decoderResults, pastKeyValues, dispose = true) {
         const pkvs = Object.create(null);
 
         for (const name in decoderResults) {
@@ -1609,7 +1665,7 @@ export class PreTrainedModel extends Callable {
                     // https://github.com/huggingface/optimum/blob/0bf2c05fb7e1182b52d21b703cfc95fd9e4ea3dc/optimum/onnxruntime/base.py#L677-L704
                     pkvs[newName] = pastKeyValues[newName];
                 } else {
-                    if (pastKeyValues) {
+                    if (dispose && pastKeyValues) {
                         // Free old gpu buffer
                         const t = pastKeyValues[newName];
                         if (t.location === 'gpu-buffer') {
@@ -2527,7 +2583,7 @@ export class AlbertForMaskedLM extends AlbertPreTrainedModel {
 //////////////////////////////////////////////////
 // T5 models
 export class T5PreTrainedModel extends PreTrainedModel {
-    forward_params = ['input_ids', 'attention_mask', 'encoder_outputs', 'decoder_input_ids', 'decoder_attention_mask', 'past_key_values'];
+    forward_params = ['input_ids', 'attention_mask', 'encoder_outputs', 'decoder_input_ids', 'decoder_attention_mask'];
 
     /**
      * Creates a new instance of the `T5PreTrainedModel` class.
@@ -2977,7 +3033,7 @@ export class WhisperPreTrainedModel extends PreTrainedModel {
 
     requires_attention_mask = false;
     main_input_name = 'input_features';
-    forward_params = ['input_features', 'attention_mask', 'decoder_input_ids', 'decoder_attention_mask', 'past_key_values'];
+    forward_params = ['input_features', 'attention_mask', 'decoder_input_ids', 'decoder_attention_mask'];
 
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
@@ -3317,7 +3373,6 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
 export class LlavaPreTrainedModel extends PreTrainedModel {
     forward_params = [
         'input_ids',
-        'past_key_values',
         'pixel_values',
         'attention_mask',
         'position_ids',
@@ -5726,7 +5781,7 @@ export class MusicgenForCausalLM extends MusicgenPreTrainedModel { }
  * ```
  */
 export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE: not MusicgenPreTrainedModel
-    forward_params = ['input_ids', 'attention_mask', 'encoder_outputs', 'decoder_input_ids', 'decoder_attention_mask', 'past_key_values'];
+    forward_params = ['input_ids', 'attention_mask', 'encoder_outputs', 'decoder_input_ids', 'decoder_attention_mask'];
 
     /**
      * Creates a new instance of the `MusicgenForConditionalGeneration` class.
