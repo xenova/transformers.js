@@ -59,6 +59,7 @@ function getNormalizedConfig(config) {
     switch (config.model_type) {
         // Sub-configs
         case 'llava':
+        case 'paligemma':
             init_normalized_config = getNormalizedConfig(config.text_config);
             break;
         case 'moondream1':
@@ -88,7 +89,6 @@ function getNormalizedConfig(config) {
             mapping['hidden_size'] = 'hidden_size';
             break;
         case 'llama':
-        case 'gemma':
         case 'mistral':
         case 'starcoder2':
         case 'qwen2':
@@ -96,6 +96,11 @@ function getNormalizedConfig(config) {
             mapping['num_layers'] = 'num_hidden_layers';
             mapping['hidden_size'] = 'hidden_size';
             mapping['num_attention_heads'] = 'num_attention_heads';
+            break;
+        case 'gemma':
+            mapping['num_heads'] = 'num_key_value_heads';
+            mapping['num_layers'] = 'num_hidden_layers';
+            mapping['dim_kv'] = 'head_dim';
             break;
         case 'openelm':
             mapping['num_heads'] = 'num_kv_heads';
