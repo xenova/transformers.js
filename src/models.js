@@ -559,7 +559,7 @@ async function imageTextToTextForward(self, {
         if (pixel_values && input_ids.dims[1] !== 1) {
             const image_features = await self.encode_image({ pixel_values });
 
-            ({ inputs_embeds, inputs_embeds, attention_mask } = self._merge_input_ids_with_image_features({
+            ({ inputs_embeds, attention_mask } = self._merge_input_ids_with_image_features({
                 image_features,
                 inputs_embeds,
                 input_ids,
@@ -567,8 +567,7 @@ async function imageTextToTextForward(self, {
             }));
 
         } else if (past_key_values && pixel_values && input_ids.dims[1] === 1) {
-            // In case input_ids.shape[1] == 1 & pixel_values==None & past_key_values != None, we are in the case of
-            // generation with cache
+            // This is the case when we are generating with cache
             const target_length = input_ids.dims[1]; // always 1
             const past_length = Object.values(past_key_values)[0].dims.at(-2);
 
@@ -648,12 +647,23 @@ function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, ge
         }
         // 3 - Otherwise (past_length >= input_ids.shape[1]), let's assume input_ids only has unprocessed tokens.
         else {
-            // NOTE: Only used by VLMs (!= so that null matches undefined)
-            if (self.config.image_token_index != null) {
+            if (
+                // NOTE: Only used by VLMs (!= so that null matches undefined)
+                self.config.image_token_index != null &&
                 // Equivalent to `self.config.image_token_index in input_ids` (== so that int matches bigint)
-                if (input_ids.data.some(x => x == self.config.image_token_index)) {
-                    model_inputs.input_ids = input_ids.slice(null, [-1, null]);
+                input_ids.data.some(x => x == self.config.image_token_index)
+            ) {
+                // TODO: Support multiple image tokens
+                const num_image_tokens = self.config.text_config?.num_image_tokens;
+                if (!num_image_tokens) {
+                    throw new Error('`num_image_tokens` is missing in the `text_config` field of the model configuration.');
                 }
+
+                const num_new_tokens = input_ids.dims[1] - (past_length - num_image_tokens);
+                model_inputs.input_ids = input_ids.slice(null, [-num_new_tokens, null]);
+
+                // TODO: The attention mask should be formed from the attention mask passed in model_inputs
+                model_inputs.attention_mask = ones([1, past_length + num_new_tokens]);
             }
         }
     }
@@ -2583,7 +2593,14 @@ export class AlbertForMaskedLM extends AlbertPreTrainedModel {
 //////////////////////////////////////////////////
 // T5 models
 export class T5PreTrainedModel extends PreTrainedModel {
-    forward_params = ['input_ids', 'attention_mask', 'encoder_outputs', 'decoder_input_ids', 'decoder_attention_mask'];
+    forward_params = [
+        'input_ids',
+        'attention_mask',
+        'encoder_outputs',
+        'decoder_input_ids',
+        'decoder_attention_mask',
+        'past_key_values',
+    ];
 
     /**
      * Creates a new instance of the `T5PreTrainedModel` class.
@@ -3033,7 +3050,13 @@ export class WhisperPreTrainedModel extends PreTrainedModel {
 
     requires_attention_mask = false;
     main_input_name = 'input_features';
-    forward_params = ['input_features', 'attention_mask', 'decoder_input_ids', 'decoder_attention_mask'];
+    forward_params = [
+        'input_features',
+        'attention_mask',
+        'decoder_input_ids',
+        'decoder_attention_mask',
+        'past_key_values',
+    ];
 
     /**
      * Creates a new instance of the `WhisperForConditionalGeneration` class.
@@ -3376,6 +3399,7 @@ export class LlavaPreTrainedModel extends PreTrainedModel {
         'pixel_values',
         'attention_mask',
         'position_ids',
+        'past_key_values',
     ];
 
     constructor(config, sessions, generation_config) {
@@ -5808,7 +5832,14 @@ export class MusicgenForCausalLM extends MusicgenPreTrainedModel { }
  * ```
  */
 export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE: not MusicgenPreTrainedModel
-    forward_params = ['input_ids', 'attention_mask', 'encoder_outputs', 'decoder_input_ids', 'decoder_attention_mask'];
+    forward_params = [
+        'input_ids',
+        'attention_mask',
+        'encoder_outputs',
+        'decoder_input_ids',
+        'decoder_attention_mask',
+        'past_key_values',
+    ];
 
     /**
      * Creates a new instance of the `MusicgenForConditionalGeneration` class.
