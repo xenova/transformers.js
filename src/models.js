@@ -654,9 +654,9 @@ function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, ge
                 input_ids.data.some(x => x == self.config.image_token_index)
             ) {
                 // TODO: Support multiple image tokens
-                const num_image_tokens = self.config.text_config?.num_image_tokens;
+                const num_image_tokens = self.config.num_image_tokens;
                 if (!num_image_tokens) {
-                    throw new Error('`num_image_tokens` is missing in the `text_config` field of the model configuration.');
+                    throw new Error('`num_image_tokens` is missing in the model configuration.');
                 }
 
                 const num_new_tokens = input_ids.dims[1] - (past_length - num_image_tokens);
@@ -3415,7 +3415,15 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 
     async encode_image({ pixel_values }) {
         // image_inputs === { pixel_values }
-        return (await sessionRun(this.sessions['vision_encoder'], { pixel_values })).image_features;
+        const features = (await sessionRun(this.sessions['vision_encoder'], { pixel_values })).image_features;
+        if (!this.config.num_image_tokens) {
+            console.warn(
+                'The number of image tokens was not set in the model configuration. ' +
+                'Setting it to the number of features detected by the vision encoder.'
+            )
+            this.config.num_image_tokens = features.dims[1];
+        }
+        return features;
     }
 
     async encode_text({ input_ids }) {
