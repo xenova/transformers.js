@@ -788,7 +788,7 @@ export class PreTrainedModel extends Callable {
 
         } else { // should be MODEL_TYPES.EncoderOnly
             if (modelType !== MODEL_TYPES.EncoderOnly) {
-                console.warn(`Model type for '${modelName}' not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`)
+                console.warn(`Model type for '${modelName ?? config?.model_type}' not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`)
             }
             info = await Promise.all([
                 AutoConfig.from_pretrained(pretrained_model_name_or_path, options),
@@ -1469,6 +1469,12 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
         return new QuestionAnsweringModelOutput(await super._call(model_inputs));
     }
 }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// NomicBert models
+export class NomicBertPreTrainedModel extends PreTrainedModel { }
+export class NomicBertModel extends NomicBertPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -3557,6 +3563,40 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// Qwen2 models
+
+/**
+ * The bare Qwen2 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Qwen2PreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `Qwen2PreTrainedModel` class.
+     * @param {Object} config The model configuration object.
+     * @param {Object} session The ONNX session object.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_key_value_heads ?? this.config.num_attention_heads
+        this.num_layers = this.config.num_hidden_layers
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads
+    }
+}
+/**
+ * The bare Qwen2 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Qwen2Model extends Qwen2PreTrainedModel { }
+
+export class Qwen2ForCausalLM extends Qwen2PreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // Phi models
 
 export class PhiPreTrainedModel extends PreTrainedModel {
@@ -3739,11 +3779,7 @@ export class VitMattePreTrainedModel extends PreTrainedModel { }
  * import { Tensor, cat } from '@xenova/transformers';
  * 
  * // Visualize predicted alpha matte
- * const imageTensor = new Tensor(
- *   'uint8',
- *   new Uint8Array(image.data),
- *   [image.height, image.width, image.channels]
- * ).transpose(2, 0, 1);
+ * const imageTensor = image.toTensor();
  * 
  * // Convert float (0-1) alpha matte to uint8 (0-255)
  * const alphaChannel = alphas
@@ -3787,9 +3823,30 @@ export class MobileViTForImageClassification extends MobileViTPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class MobileViTV2PreTrainedModel extends PreTrainedModel { }
+export class MobileViTV2Model extends MobileViTV2PreTrainedModel { }
+export class MobileViTV2ForImageClassification extends MobileViTV2PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+// TODO: MobileViTV2ForSemanticSegmentation
+
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class OwlViTPreTrainedModel extends PreTrainedModel { }
 export class OwlViTModel extends OwlViTPreTrainedModel { }
 export class OwlViTForObjectDetection extends OwlViTPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+export class Owlv2PreTrainedModel extends PreTrainedModel { }
+export class Owlv2Model extends Owlv2PreTrainedModel { }
+export class Owlv2ForObjectDetection extends Owlv2PreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -4525,6 +4582,148 @@ export class Wav2Vec2ForSequenceClassification extends Wav2Vec2PreTrainedModel {
         return new SequenceClassifierOutput(await super._call(model_inputs));
     }
 }
+
+/**
+ * Wav2Vec2 Model with a frame classification head on top for tasks like Speaker Diarization.
+ */
+export class Wav2Vec2ForAudioFrameClassification extends Wav2Vec2PreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// UniSpeech models
+export class UniSpeechPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare UniSpeech Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class UniSpeechModel extends UniSpeechPreTrainedModel { }
+
+/**
+ * UniSpeech Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class UniSpeechForCTC extends UniSpeechPreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_values Float values of input raw speech waveform.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * UniSpeech Model with a sequence classification head on top (a linear layer over the pooled output).
+ */
+export class UniSpeechForSequenceClassification extends UniSpeechPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// UniSpeechSat models
+export class UniSpeechSatPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare UniSpeechSat Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class UniSpeechSatModel extends UniSpeechSatPreTrainedModel { }
+
+/**
+ * UniSpeechSat Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class UniSpeechSatForCTC extends UniSpeechSatPreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_values Float values of input raw speech waveform.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * UniSpeechSat Model with a sequence classification head on top (a linear layer over the pooled output).
+ */
+export class UniSpeechSatForSequenceClassification extends UniSpeechSatPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * UniSpeechSat Model with a frame classification head on top for tasks like Speaker Diarization.
+ */
+export class UniSpeechSatForAudioFrameClassification extends UniSpeechSatPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Wav2Vec2Bert models
+export class Wav2Vec2BertPreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare Wav2Vec2Bert Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class Wav2Vec2BertModel extends Wav2Vec2BertPreTrainedModel { }
+
+/**
+ * Wav2Vec2Bert Model with a `language modeling` head on top for Connectionist Temporal Classification (CTC).
+ */
+export class Wav2Vec2BertForCTC extends Wav2Vec2BertPreTrainedModel {
+    /**
+     * @param {Object} model_inputs
+     * @param {Tensor} model_inputs.input_features Float values of input mel-spectrogram.
+     * @param {Tensor} model_inputs.attention_mask Mask to avoid performing convolution and attention on padding token indices. Mask values selected in [0, 1]
+     */
+    async _call(model_inputs) {
+        return new CausalLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Wav2Vec2Bert Model with a sequence classification head on top (a linear layer over the pooled output).
+ */
+export class Wav2Vec2BertForSequenceClassification extends Wav2Vec2BertPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -4648,6 +4847,97 @@ export class WavLMForSequenceClassification extends WavLMPreTrainedModel {
      */
     async _call(model_inputs) {
         return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * WavLM Model with an XVector feature extraction head on top for tasks like Speaker Verification.
+ * 
+ * **Example:** Extract speaker embeddings with `WavLMForXVector`.
+ * ```javascript
+ * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
+ * 
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base-plus-sv');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * const audio = await read_audio(url, 16000);
+ * const inputs = await processor(audio);
+ * 
+ * // Run model with inputs
+ * const model = await AutoModel.from_pretrained('Xenova/wavlm-base-plus-sv');
+ * const outputs = await model(inputs);
+ * // {
+ * //   logits: Tensor {
+ * //     dims: [ 1, 512 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(512) [0.5847219228744507, ...],
+ * //     size: 512
+ * //   },
+ * //   embeddings: Tensor {
+ * //     dims: [ 1, 512 ],
+ * //     type: 'float32',
+ * //     data: Float32Array(512) [-0.09079201519489288, ...],
+ * //     size: 512
+ * //   }
+ * // }
+ * ```
+ */
+export class WavLMForXVector extends WavLMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<XVectorOutput>} An object containing the model's output logits and speaker embeddings.
+     */
+    async _call(model_inputs) {
+        return new XVectorOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * WavLM Model with a frame classification head on top for tasks like Speaker Diarization.
+ * 
+ * **Example:** Perform speaker diarization with `WavLMForAudioFrameClassification`.
+ * ```javascript
+ * import { AutoProcessor, AutoModelForAudioFrameClassification, read_audio } from '@xenova/transformers';
+ * 
+ * // Read and preprocess audio
+ * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base-plus-sd');
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
+ * const audio = await read_audio(url, 16000);
+ * const inputs = await processor(audio);
+ * 
+ * // Run model with inputs
+ * const model = await AutoModelForAudioFrameClassification.from_pretrained('Xenova/wavlm-base-plus-sd');
+ * const { logits } = await model(inputs);
+ * // {
+ * //   logits: Tensor {
+ * //     dims: [ 1, 549, 2 ],  // [batch_size, num_frames, num_speakers]
+ * //     type: 'float32',
+ * //     data: Float32Array(1098) [-3.5301010608673096, ...],
+ * //     size: 1098
+ * //   }
+ * // }
+ * 
+ * const labels = logits[0].sigmoid().tolist().map(
+ *     frames => frames.map(speaker => speaker > 0.5 ? 1 : 0)
+ * );
+ * console.log(labels); // labels is a one-hot array of shape (num_frames, num_speakers)
+ * // [
+ * //     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
+ * //     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
+ * //     [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
+ * //     ...
+ * // ]
+ * ```
+ */
+export class WavLMForAudioFrameClassification extends WavLMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
     }
 }
 
@@ -4896,6 +5186,38 @@ export class MistralModel extends MistralPreTrainedModel { }
 export class MistralForCausalLM extends MistralPreTrainedModel { }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// Starcoder2 models
+/**
+ * The bare Starcoder2 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Starcoder2PreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `Starcoder2PreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_key_value_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.config.num_attention_heads;
+    }
+}
+
+export class Starcoder2Model extends Starcoder2PreTrainedModel { }
+
+export class Starcoder2ForCausalLM extends Starcoder2PreTrainedModel { }
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // Falcon models
 /**
@@ -5067,6 +5389,61 @@ export class SegformerForSemanticSegmentation extends SegformerPreTrainedModel {
 
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// StableLm models
+export class StableLmPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `StableLmPreTrainedModel` class.
+     * @param {Object} config The configuration of the model.
+     * @param {any} session The ONNX session containing the model weights.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, session, generation_config) {
+        super(config, session);
+        this.generation_config = generation_config;
+
+        // config doesn't contain pad_token_id, so we assume it is the eos_token_id
+        this.config.pad_token_id = this.config.eos_token_id
+
+        this.num_heads = this.config.num_attention_heads;
+        this.num_layers = this.config.num_hidden_layers;
+        this.dim_kv = this.config.hidden_size / this.num_heads;
+    }
+}
+
+/**
+ * The bare StableLm Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class StableLmModel extends StableLmPreTrainedModel { }
+
+/**
+ * StableLm Model with a `language modeling` head on top for Causal Language Modeling (with past).
+ */
+export class StableLmForCausalLM extends StableLmPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+export class EfficientNetPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare EfficientNet model outputting raw features without any specific head on top.
+ */
+export class EfficientNetModel extends EfficientNetPreTrainedModel { }
+
+/**
+ * EfficientNet Model with an image classification head on top (a linear layer on top of the pooled features).
+ */
+export class EfficientNetForImageClassification extends EfficientNetPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -5139,6 +5516,7 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['nomic_bert', ['NomicBertModel', NomicBertModel]],
     ['roformer', ['RoFormerModel', RoFormerModel]],
     ['electra', ['ElectraModel', ElectraModel]],
     ['esm', ['EsmModel', EsmModel]],
@@ -5160,6 +5538,9 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['mobilebert', ['MobileBertModel', MobileBertModel]],
     ['squeezebert', ['SqueezeBertModel', SqueezeBertModel]],
     ['wav2vec2', ['Wav2Vec2Model', Wav2Vec2Model]],
+    ['wav2vec2-bert', ['Wav2Vec2BertModel', Wav2Vec2BertModel]],
+    ['unispeech', ['UniSpeechModel', UniSpeechModel]],
+    ['unispeech-sat', ['UniSpeechSatModel', UniSpeechSatModel]],
     ['hubert', ['HubertModel', HubertModel]],
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
@@ -5169,7 +5550,9 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
+    ['mobilevitv2', ['MobileViTV2Model', MobileViTV2Model]],
     ['owlvit', ['OwlViTModel', OwlViTModel]],
+    ['owlv2', ['Owlv2Model', Owlv2Model]],
     ['beit', ['BeitModel', BeitModel]],
     ['deit', ['DeiTModel', DeiTModel]],
     ['convnext', ['ConvNextModel', ConvNextModel]],
@@ -5184,6 +5567,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['glpn', ['GLPNModel', GLPNModel]],
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
+    ['efficientnet', ['EfficientNetModel', EfficientNetModel]],
 
 ]);
 
@@ -5210,10 +5594,12 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['gpt_neox', ['GPTNeoXModel', GPTNeoXModel]],
     ['codegen', ['CodeGenModel', CodeGenModel]],
     ['llama', ['LlamaModel', LlamaModel]],
+    ['qwen2', ['Qwen2Model', Qwen2Model]],
     ['phi', ['PhiModel', PhiModel]],
     ['mpt', ['MptModel', MptModel]],
     ['opt', ['OPTModel', OPTModel]],
     ['mistral', ['MistralModel', MistralModel]],
+    ['starcoder2', ['Starcoder2Model', Starcoder2Model]],
     ['falcon', ['FalconModel', FalconModel]],
 ]);
 
@@ -5288,13 +5674,16 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
     ['gpt_neox', ['GPTNeoXForCausalLM', GPTNeoXForCausalLM]],
     ['codegen', ['CodeGenForCausalLM', CodeGenForCausalLM]],
     ['llama', ['LlamaForCausalLM', LlamaForCausalLM]],
+    ['qwen2', ['Qwen2ForCausalLM', Qwen2ForCausalLM]],
     ['phi', ['PhiForCausalLM', PhiForCausalLM]],
     ['mpt', ['MptForCausalLM', MptForCausalLM]],
     ['opt', ['OPTForCausalLM', OPTForCausalLM]],
     ['mbart', ['MBartForCausalLM', MBartForCausalLM]],
     ['mistral', ['MistralForCausalLM', MistralForCausalLM]],
+    ['starcoder2', ['Starcoder2ForCausalLM', Starcoder2ForCausalLM]],
     ['falcon', ['FalconForCausalLM', FalconForCausalLM]],
     ['trocr', ['TrOCRForCausalLM', TrOCRForCausalLM]],
+    ['stablelm', ['StableLmForCausalLM', StableLmForCausalLM]],
 ]);
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
@@ -5345,6 +5734,7 @@ const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ['ViTForImageClassification', ViTForImageClassification]],
     ['mobilevit', ['MobileViTForImageClassification', MobileViTForImageClassification]],
+    ['mobilevitv2', ['MobileViTV2ForImageClassification', MobileViTV2ForImageClassification]],
     ['beit', ['BeitForImageClassification', BeitForImageClassification]],
     ['deit', ['DeiTForImageClassification', DeiTForImageClassification]],
     ['convnext', ['ConvNextForImageClassification', ConvNextForImageClassification]],
@@ -5353,6 +5743,7 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['resnet', ['ResNetForImageClassification', ResNetForImageClassification]],
     ['swin', ['SwinForImageClassification', SwinForImageClassification]],
     ['segformer', ['SegformerForImageClassification', SegformerForImageClassification]],
+    ['efficientnet', ['EfficientNetForImageClassification', EfficientNetForImageClassification]],
 ]);
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
@@ -5363,6 +5754,7 @@ const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['owlvit', ['OwlViTForObjectDetection', OwlViTForObjectDetection]],
+    ['owlv2', ['Owlv2ForObjectDetection', Owlv2ForObjectDetection]],
 ]);
 
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
@@ -5380,15 +5772,31 @@ const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_CTC_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForCTC', Wav2Vec2ForCTC]],
+    ['wav2vec2-bert', ['Wav2Vec2BertForCTC', Wav2Vec2BertForCTC]],
+    ['unispeech', ['UniSpeechForCTC', UniSpeechForCTC]],
+    ['unispeech-sat', ['UniSpeechSatForCTC', UniSpeechSatForCTC]],
     ['wavlm', ['WavLMForCTC', WavLMForCTC]],
     ['hubert', ['HubertForCTC', HubertForCTC]],
 ]);
 
 const MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['wav2vec2', ['Wav2Vec2ForSequenceClassification', Wav2Vec2ForSequenceClassification]],
+    ['wav2vec2-bert', ['Wav2Vec2BertForSequenceClassification', Wav2Vec2BertForSequenceClassification]],
+    ['unispeech', ['UniSpeechForSequenceClassification', UniSpeechForSequenceClassification]],
+    ['unispeech-sat', ['UniSpeechSatForSequenceClassification', UniSpeechSatForSequenceClassification]],
     ['wavlm', ['WavLMForSequenceClassification', WavLMForSequenceClassification]],
     ['hubert', ['HubertForSequenceClassification', HubertForSequenceClassification]],
     ['audio-spectrogram-transformer', ['ASTForAudioClassification', ASTForAudioClassification]],
+]);
+
+const MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES = new Map([
+    ['wavlm', ['WavLMForXVector', WavLMForXVector]],
+]);
+
+const MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES = new Map([
+    ['unispeech-sat', ['UniSpeechSatForAudioFrameClassification', UniSpeechSatForAudioFrameClassification]],
+    ['wavlm', ['WavLMForAudioFrameClassification', WavLMForAudioFrameClassification]],
+    ['wav2vec2', ['Wav2Vec2ForAudioFrameClassification', Wav2Vec2ForAudioFrameClassification]],
 ]);
 
 const MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES = new Map([
@@ -5405,6 +5813,12 @@ const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
     ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
 ])
 
+// NOTE: This is custom to Transformers.js, and is necessary because certain models
+// (e.g., CLIP) are split into vision and text components
+const MODEL_FOR_IMAGE_FEATURE_EXTRACTION_MAPPING_NAMES = new Map([
+    ['clip', ['CLIPVisionModelWithProjection', CLIPVisionModelWithProjection]],
+    ['siglip', ['SiglipVisionModel', SiglipVisionModel]],
+])
 
 const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_MAPPING_NAMES_ENCODER_ONLY, MODEL_TYPES.EncoderOnly],
@@ -5431,6 +5845,11 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_TEXT_TO_SPECTROGRAM_MAPPING_NAMES, MODEL_TYPES.Seq2Seq],
     [MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+
+    // Custom:
+    [MODEL_FOR_IMAGE_FEATURE_EXTRACTION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
 ];
 
 for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
@@ -5444,9 +5863,7 @@ for (const [mappings, type] of MODEL_CLASS_TYPE_MAPPING) {
 
 const CUSTOM_MAPPING = [
     ['CLIPTextModelWithProjection', CLIPTextModelWithProjection, MODEL_TYPES.EncoderOnly],
-    ['CLIPVisionModelWithProjection', CLIPVisionModelWithProjection, MODEL_TYPES.EncoderOnly],
     ['SiglipTextModel', SiglipTextModel, MODEL_TYPES.EncoderOnly],
-    ['SiglipVisionModel', SiglipVisionModel, MODEL_TYPES.EncoderOnly],
     ['ClapTextModelWithProjection', ClapTextModelWithProjection, MODEL_TYPES.EncoderOnly],
     ['ClapAudioModelWithProjection', ClapAudioModelWithProjection, MODEL_TYPES.EncoderOnly],
 ]
@@ -5649,6 +6066,14 @@ export class AutoModelForAudioClassification extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING_NAMES];
 }
 
+export class AutoModelForXVector extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_XVECTOR_MAPPING_NAMES];
+}
+
+export class AutoModelForAudioFrameClassification extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES];
+}
+
 export class AutoModelForDocumentQuestionAnswering extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES];
 }
@@ -5663,6 +6088,10 @@ export class AutoModelForImageToImage extends PretrainedMixin {
 
 export class AutoModelForDepthEstimation extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES];
+}
+
+export class AutoModelForImageFeatureExtraction extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_IMAGE_FEATURE_EXTRACTION_MAPPING_NAMES];
 }
 
 //////////////////////////////////////////////////
@@ -5698,6 +6127,22 @@ export class SequenceClassifierOutput extends ModelOutput {
     constructor({ logits }) {
         super();
         this.logits = logits;
+    }
+}
+
+/**
+ * Base class for outputs of XVector models.
+ */
+export class XVectorOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Classification hidden states before AMSoftmax, of shape `(batch_size, config.xvector_output_dim)`.
+     * @param {Tensor} output.embeddings Utterance embeddings used for vector similarity-based retrieval, of shape `(batch_size, config.xvector_output_dim)`.
+     */
+    constructor({ logits, embeddings }) {
+        super();
+        this.logits = logits;
+        this.embeddings = embeddings;
     }
 }
 

@@ -39,6 +39,7 @@ import {
     AutoModelForDocumentQuestionAnswering,
     AutoModelForImageToImage,
     AutoModelForDepthEstimation,
+    AutoModelForImageFeatureExtraction,
     PreTrainedModel,
 } from './models.js';
 import {
@@ -66,6 +67,7 @@ import {
     Tensor,
     mean_pooling,
     interpolate,
+    quantize_embeddings,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
 
@@ -839,18 +841,24 @@ export class TranslationPipeline extends (/** @type {new (options: TextPipelineC
     }
 }
 
+function isChat(x) {
+    return Array.isArray(x) && x.every(x => 'role' in x && 'content' in x);
+}
 
 /**
+ * @typedef {import('./tokenizers.js').Message[]} Chat
+ * 
  * @typedef {Object} TextGenerationSingle
- * @property {string} generated_text The generated text.
+ * @property {string|Chat} generated_text The generated text.
  * @typedef {TextGenerationSingle[]} TextGenerationOutput
  * 
  * @typedef {Object} TextGenerationSpecificParams Parameters specific to text-generation pipelines.
  * @property {boolean} [add_special_tokens] Whether or not to add special tokens when tokenizing the sequences.
+ * @property {boolean} [return_full_text=true] If set to `false` only added text is returned, otherwise the full text is returned.
  * @typedef {import('./utils/generation.js').GenerationConfigType & TextGenerationSpecificParams} TextGenerationConfig
  * 
  * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
- * @param {string|string[]} texts One or several prompts (or one list of prompts) to complete.
+ * @param {string|string[]|Chat|Chat[]} texts One or several prompts (or one list of prompts) to complete.
  * @param {TextGenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} An array or object containing the generated texts.
  * 
@@ -919,17 +927,46 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
 
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
+        let isBatched = false;
+        let isChatInput = false;
 
-        const isBatched = Array.isArray(texts);
-        if (!isBatched) {
-            texts = [/** @type {string}*/ (texts)];
+        // Normalize inputs
+        /** @type {string[]} */
+        let inputs;
+        if (typeof texts === 'string') {
+            inputs = texts = [texts];
+        } else if (Array.isArray(texts) && texts.every(x => typeof x === 'string')) {
+            isBatched = true;
+            inputs = /** @type {string[]} */(texts);
+        } else {
+            if (isChat(texts)) {
+                texts = [/** @type {Chat} */(texts)];
+            } else if (Array.isArray(texts) && texts.every(isChat)) {
+                isBatched = true;
+            } else {
+                throw new Error('Input must be a string, an array of strings, a Chat, or an array of Chats');
+            }
+            isChatInput = true;
+
+            // If the input is a chat, we need to apply the chat template
+            inputs = /** @type {string[]} */(/** @type {Chat[]} */ (texts).map(
+                x => this.tokenizer.apply_chat_template(x, {
+                    tokenize: false,
+                    add_generation_prompt: true,
+                })
+            ));
         }
 
         // By default, do not add special tokens
         const add_special_tokens = generate_kwargs.add_special_tokens ?? false;
 
+        // By default, return full text
+        const return_full_text = isChatInput
+            ? false
+            : generate_kwargs.return_full_text ?? true;
+
         this.tokenizer.padding_side = 'left';
-        const { input_ids, attention_mask } = this.tokenizer(texts, {
+        const { input_ids, attention_mask } = this.tokenizer(inputs, {
             add_special_tokens,
             padding: true,
             truncation: true,
@@ -939,17 +976,34 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
             inputs_attention_mask: attention_mask
         });
 
-        const decoded = this.tokenizer.batch_decode(outputTokenIds, {
+        let decoded = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
+
+
+        let promptLengths;
+        if (!return_full_text && input_ids.dims.at(-1) > 0) {
+            promptLengths = this.tokenizer.batch_decode(input_ids, {
+                skip_special_tokens: true,
+            }).map(x => x.length);
+        }
 
         /** @type {TextGenerationOutput[]} */
         const toReturn = Array.from({ length: texts.length }, _ => []);
         for (let i = 0; i < decoded.length; ++i) {
             const textIndex = Math.floor(i / outputTokenIds.length * texts.length);
 
+            if (promptLengths) {
+                // Trim the decoded text to only include the generated part
+                decoded[i] = decoded[i].slice(promptLengths[textIndex]);
+            }
             toReturn[textIndex].push({
-                generated_text: decoded[i]
+                generated_text: isChatInput
+                    ? [
+                        ...((/** @type {Chat[]} */(texts)[textIndex])),
+                        { role: 'assistant', content: decoded[i] },
+                    ]
+                    : decoded[i]
             });
         }
         return (!isBatched && toReturn.length === 1) ? toReturn[0] : toReturn;
@@ -1111,6 +1165,8 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * @typedef {Object} FeatureExtractionPipelineOptions Parameters specific to feature extraction pipelines.
  * @property {'none'|'mean'|'cls'} [pooling="none"] The pooling method to use.
  * @property {boolean} [normalize=false] Whether or not to normalize the embeddings in the last dimension.
+ * @property {boolean} [quantize=false] Whether or not to quantize the embeddings.
+ * @property {'binary'|'ubinary'} [precision='binary'] The precision to use for quantization. 
  * 
  * @callback FeatureExtractionPipelineCallback Extract the features of the input(s).
  * @param {string|string[]} texts One or several texts (or one list of texts) to get the features of.
@@ -1156,6 +1212,16 @@ export class ZeroShotClassificationPipeline extends (/** @type {new (options: Te
  * //   dims: [1, 384]
  * // }
  * ```
+ * **Example:** Calculating binary embeddings with `sentence-transformers` models.
+ * ```javascript
+ * const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+ * const output = await extractor('This is a simple test.', { pooling: 'mean', quantize: true, precision: 'binary' });
+ * // Tensor {
+ * //   type: 'int8',
+ * //   data: Int8Array [49, 108, 24, ...],
+ * //   dims: [1, 48]
+ * // }
+ * ```
  */
 export class FeatureExtractionPipeline extends (/** @type {new (options: TextPipelineConstructorArgs) => FeatureExtractionPipelineType} */ (Pipeline)) {
     /**
@@ -1170,6 +1236,8 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
     async _call(texts, {
         pooling = /** @type {'none'} */('none'),
         normalize = false,
+        quantize = false,
+        precision = /** @type {'binary'} */('binary'),
     } = {}) {
 
         // Run tokenization
@@ -1202,6 +1270,86 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
             result = result.normalize(2, -1);
         }
 
+        if (quantize) {
+            result = quantize_embeddings(result, precision);
+        }
+
+        return result;
+    }
+}
+
+
+/**
+ * @typedef {Object} ImageFeatureExtractionPipelineOptions Parameters specific to image feature extraction pipelines.
+ * @property {boolean} [pool=null] Whether or not to return the pooled output. If set to `false`, the model will return the raw hidden states.
+ * 
+ * @callback ImageFeatureExtractionPipelineCallback Extract the features of the input(s).
+ * @param {ImagePipelineInputs} images One or several images (or one list of images) to get the features of.
+ * @param {ImageFeatureExtractionPipelineOptions} [options] The options to use for image feature extraction.
+ * @returns {Promise<Tensor>} The image features computed by the model.
+ * 
+ * @typedef {ImagePipelineConstructorArgs & ImageFeatureExtractionPipelineCallback & Disposable} ImageFeatureExtractionPipelineType
+ */
+
+/**
+ * Image feature extraction pipeline using no model head. This pipeline extracts the hidden
+ * states from the base transformer, which can be used as features in downstream tasks.
+ * 
+ * **Example:** Perform image feature extraction with `Xenova/vit-base-patch16-224-in21k`.
+ * ```javascript
+ * const image_feature_extractor = await pipeline('image-feature-extraction', 'Xenova/vit-base-patch16-224-in21k');
+ * const url = 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.png';
+ * const features = await image_feature_extractor(url);
+ * // Tensor {
+ * //   dims: [ 1, 197, 768 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(151296) [ ... ],
+ * //   size: 151296
+ * // }
+ * ```
+ * 
+ * **Example:** Compute image embeddings with `Xenova/clip-vit-base-patch32`.
+ * ```javascript
+ * const image_feature_extractor = await pipeline('image-feature-extraction', 'Xenova/clip-vit-base-patch32');
+ * const url = 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.png';
+ * const features = await image_feature_extractor(url);
+ * // Tensor {
+ * //   dims: [ 1, 512 ],
+ * //   type: 'float32',
+ * //   data: Float32Array(512) [ ... ],
+ * //   size: 512
+ * // }
+ * ```
+ */
+export class ImageFeatureExtractionPipeline extends (/** @type {new (options: ImagePipelineConstructorArgs) => ImageFeatureExtractionPipelineType} */ (Pipeline)) {
+    /**
+     * Create a new ImageFeatureExtractionPipeline.
+     * @param {ImagePipelineConstructorArgs} options An object used to instantiate the pipeline.
+     */
+    constructor(options) {
+        super(options);
+    }
+
+    /** @type {ImageFeatureExtractionPipelineCallback} */
+    async _call(images, {
+        pool = null,
+    } = {}) {
+
+        const preparedImages = await prepareImages(images);
+        const { pixel_values } = await this.processor(preparedImages);
+        const outputs = await this.model({ pixel_values });
+
+        /** @type {Tensor} */
+        let result;
+        if (pool) {
+            if (!('pooler_output' in outputs)) {
+                throw Error(`No pooled output was returned. Make sure the model has a 'pooler' layer when using the 'pool' option.`);
+            }
+            result = outputs.pooler_output;
+
+        } else {
+            result = outputs.last_hidden_state ?? outputs.logits ?? outputs.image_embeds;
+        }
         return result;
     }
 }
@@ -1525,6 +1673,9 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
             case 'whisper':
                 return this._call_whisper(audio, kwargs)
             case 'wav2vec2':
+            case 'wav2vec2-bert':
+            case 'unispeech':
+            case 'unispeech-sat':
             case 'hubert':
                 return this._call_wav2vec2(audio, kwargs)
             default:
@@ -2949,6 +3100,17 @@ const SUPPORTED_TASKS = Object.freeze({
             "model": "Xenova/all-MiniLM-L6-v2",
         },
         "type": "text",
+    },
+    "image-feature-extraction": {
+        "processor": AutoProcessor,
+        "pipeline": ImageFeatureExtractionPipeline,
+        "model": [AutoModelForImageFeatureExtraction, AutoModel],
+        "default": {
+            // TODO: replace with original
+            // "model": "google/vit-base-patch16-224",
+            "model": "Xenova/vit-base-patch16-224-in21k",
+        },
+        "type": "image",
     },
 })
 

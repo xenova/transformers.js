@@ -113,7 +113,13 @@ function createPattern(pattern, invert = true) {
         // This isn't an issue when creating the regex w/o the 'u' flag, but it is when the 'u' flag is used.
         // For this reason, it is necessary to remove these backslashes before creating the regex.
         // See https://stackoverflow.com/a/63007777/13989043 for more information
-        const regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+        let regex = pattern.Regex.replace(/\\([#&~])/g, '$1'); // TODO: add more characters to this list if necessary
+
+        // We also handle special cases where the regex contains invalid (non-JS compatible) syntax.
+        for (const [key, value] of PROBLEMATIC_REGEX_MAP) {
+            regex = regex.replaceAll(key, value);
+        }
+
         return new RegExp(regex, 'gu');
 
     } else if (pattern.String !== undefined) {
@@ -228,6 +234,14 @@ function whitespace_split(text) {
 }
 
 const PUNCTUATION_REGEX = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E';
+
+// A mapping of regex patterns to their equivalent (but longer) JS-compatible versions.
+const PROBLEMATIC_REGEX_MAP = new Map([
+    // This uses the case insensitive group modifier, which is not supported in JavaScript.
+    // When parsing the regex, an "Invalid group" error is thrown.
+    ["(?i:'s|'t|'re|'ve|'m|'ll|'d)", "(?:'([sS]|[tT]|[rR][eE]|[vV][eE]|[mM]|[lL][lL]|[dD]))"],
+])
+
 
 /**
  * Represent a token added by the user on top of the existing Model vocabulary.
@@ -616,10 +630,12 @@ class BPE extends TokenizerModel {
      * Create a BPE instance.
      * @param {Object} config The configuration object for BPE.
      * @param {Object} config.vocab A mapping of tokens to ids.
+     * @param {string[]} config.merges An array of BPE merges as strings.
      * @param {string} config.unk_token The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
      * @param {string} [config.continuing_subword_suffix] The suffix to insert between words.
-     * @param {Array} config.merges An array of BPE merges as strings.
+     * @param {boolean} [config.byte_fallback=false] Whether to use spm byte-fallback trick (defaults to False)
+     * @param {boolean} [config.ignore_merges=false] Whether or not to match tokens with the vocab before using merges.
      */
     constructor(config) {
         super(config);
@@ -650,6 +666,8 @@ class BPE extends TokenizerModel {
         if (this.byte_fallback) {
             this.text_encoder = new TextEncoder();
         }
+
+        this.ignore_merges = this.config.ignore_merges ?? false;
 
         /** @type {Map<string, string[]>} */
         this.cache = new Map();
@@ -812,6 +830,10 @@ class BPE extends TokenizerModel {
         const outputTokens = [];
 
         for (const token of tokens) {
+            if (this.ignore_merges && this.tokens_to_ids.has(token)) {
+                outputTokens.push(token);
+                continue;
+            }
             const bpe_token_list = this.bpe(token);
 
             for (const t of bpe_token_list) {
@@ -1274,6 +1296,8 @@ class PreTokenizer extends Callable {
                 return new BertPreTokenizer(config);
             case 'Sequence':
                 return new PreTokenizerSequence(config);
+            case 'Whitespace':
+                return new WhitespacePreTokenizer(config);
             case 'WhitespaceSplit':
                 return new WhitespaceSplit(config);
             case 'Metaspace':
@@ -2292,13 +2316,35 @@ class PreTokenizerSequence extends PreTokenizer {
 }
 
 /**
+ * Splits on word boundaries (using the following regular expression: `\w+|[^\w\s]+`).
+ */
+class WhitespacePreTokenizer extends PreTokenizer {
+    /**
+     * Creates an instance of WhitespacePreTokenizer.
+     * @param {Object} config The configuration object for the pre-tokenizer.
+     */
+    constructor(config) {
+        super();
+    }
+    /**
+     * Pre-tokenizes the input text by splitting it on word boundaries.
+     * @param {string} text The text to be pre-tokenized.
+     * @param {Object} [options] Additional options for the pre-tokenization logic.
+     * @returns {string[]} An array of tokens produced by splitting the input text on whitespace.
+     */
+    pre_tokenize_text(text, options) {
+        return text.match(/\w+|[^\w\s]+/g) || [];
+    }
+}
+
+/**
  * Splits a string of text by whitespace characters into individual tokens.
  * @extends PreTokenizer
  */
 class WhitespaceSplit extends PreTokenizer {
     /**
      * Creates an instance of WhitespaceSplit.
-     * @param {Object} config The configuration object for the pre-tokenizer sequence.
+     * @param {Object} config The configuration object for the pre-tokenizer.
      */
     constructor(config) {
         super();
@@ -2391,6 +2437,12 @@ function truncateHelper(item, length) {
 }
 
 
+/**
+ * @typedef {Object} Message
+ * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
+ * @property {string} content The content of the message.
+ */
+
 export class PreTrainedTokenizer extends Callable {
     return_token_type_ids = false;
 
@@ -2481,6 +2533,18 @@ export class PreTrainedTokenizer extends Callable {
         this.legacy = false;
 
         this.chat_template = tokenizerConfig.chat_template ?? null;
+        if (Array.isArray(this.chat_template)) {
+            // Chat templates are stored as lists of dicts with fixed key names,
+            // we reconstruct that into a single dict while loading them.
+            const chat_template = Object.create(null);
+            for (const { name, template } of this.chat_template) {
+                if (typeof name !== 'string' || typeof template !== 'string') {
+                    throw new Error('Chat template must be a list of objects with "name" and "template" properties');
+                }
+                chat_template[name] = template;
+            }
+            this.chat_template = chat_template;
+        }
         this._compiled_template_cache = new Map();
     }
 
@@ -2603,8 +2667,8 @@ export class PreTrainedTokenizer extends Callable {
             }
 
         } else {
-            if (text === null) {
-                throw Error('text may not be null')
+            if (text === null || text === undefined) {
+                throw Error('text may not be null or undefined')
             }
 
             if (Array.isArray(text_pair)) {
@@ -2910,12 +2974,6 @@ export class PreTrainedTokenizer extends Callable {
     }
 
     /**
-     * @typedef {Object} Message
-     * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
-     * @property {string} content The content of the message.
-     */
-
-    /**
      * Converts a list of message objects with `"role"` and `"content"` keys to a list of token
      * ids. This method is intended for use with chat models, and will read the tokenizer's chat_template attribute to
      * determine the format and control tokens to use when converting. When chat_template is None, it will fall back
@@ -2928,7 +2986,7 @@ export class PreTrainedTokenizer extends Callable {
      * ```javascript
      * import { AutoTokenizer } from "@xenova/transformers";
      * 
-     * const tokenizer = await AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.1");
+     * const tokenizer = await AutoTokenizer.from_pretrained("Xenova/mistral-tokenizer-v1");
      * 
      * const chat = [
      *   { "role": "user", "content": "Hello, how are you?" },
@@ -2957,6 +3015,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {number} [options.max_length=null] Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize is false.
      * If not specified, the tokenizer's `max_length` attribute will be used as a default.
      * @param {boolean} [options.return_tensor=true] Whether to return the output as a Tensor or an Array. Has no effect if tokenize is false.
+     * @param {Object} [options.tokenizer_kwargs={}] Additional options to pass to the tokenizer.
      * @returns {string | Tensor | number[]| number[][]} The tokenized output.
      */
     apply_chat_template(conversation, {
@@ -2967,9 +3026,37 @@ export class PreTrainedTokenizer extends Callable {
         truncation = false,
         max_length = null,
         return_tensor = true,
+        tokenizer_kwargs = {},
+        ...kwargs
     } = {}) {
 
-        chat_template ??= this.chat_template ?? this.default_chat_template;
+        // First, handle the cases when the model has a dict of multiple templates
+        if (
+            (this.chat_template && typeof this.chat_template === 'object') ||
+            (this.chat_template === null && this.default_chat_template && typeof this.default_chat_template === 'object')
+        ) {
+            const template_dict = this.chat_template ?? this.default_chat_template; // Guaranteed to be a non-null object
+
+            if (chat_template !== null && Object.hasOwn(template_dict, chat_template)) {
+                // The user can pass the name of a template to the chat template argument instead of an entire template
+                chat_template = template_dict[chat_template];
+            } else if (chat_template === null && 'default' in template_dict) {
+                chat_template = template_dict['default'];
+            } else if (chat_template === null) {
+                throw Error(
+                    `This model has multiple chat templates with no default specified! Please either pass a chat ` +
+                    `template or the name of the template you wish to use to the 'chat_template' argument. Available ` +
+                    `template names are ${Object.keys(template_dict).sort()}.`
+                )
+            }
+        } else {
+            // These are the cases when the model has a single template
+            // priority: `chat_template` argument > `tokenizer.chat_template` > `tokenizer.default_chat_template
+            chat_template ??= this.chat_template ?? this.default_chat_template;
+        }
+        if (typeof chat_template !== 'string') {
+            throw Error(`chat_template must be a string, but got ${typeof chat_template}`);
+        }
 
         // Compilation function uses a cache to avoid recompiling the same template
         let compiledTemplate = this._compiled_template_cache.get(chat_template);
@@ -2991,6 +3078,7 @@ export class PreTrainedTokenizer extends Callable {
             add_generation_prompt: add_generation_prompt,
 
             ...special_tokens_map,
+            ...kwargs,
         });
 
         if (tokenize) {
@@ -3000,6 +3088,7 @@ export class PreTrainedTokenizer extends Callable {
                 truncation,
                 max_length,
                 return_tensor,
+                ...tokenizer_kwargs,
             }).input_ids;
         }
 
@@ -3163,6 +3252,14 @@ export class FalconTokenizer extends PreTrainedTokenizer { }
 export class GPTNeoXTokenizer extends PreTrainedTokenizer { }
 
 export class EsmTokenizer extends PreTrainedTokenizer { }
+
+export class Qwen2Tokenizer extends PreTrainedTokenizer { }
+
+export class GemmaTokenizer extends PreTrainedTokenizer {
+    _default_chat_template = "{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}"
+}
+
+export class Grok1Tokenizer extends PreTrainedTokenizer { }
 
 /**
  * Helper function to build translation inputs for an `NllbTokenizer` or `M2M100Tokenizer`.
@@ -4219,6 +4316,9 @@ export class VitsTokenizer extends PreTrainedTokenizer {
         this.decoder = new VitsDecoder({});
     }
 }
+
+export class CohereTokenizer extends PreTrainedTokenizer { }
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -4268,6 +4368,10 @@ export class AutoTokenizer {
         SpeechT5Tokenizer,
         NougatTokenizer,
         VitsTokenizer,
+        Qwen2Tokenizer,
+        GemmaTokenizer,
+        Grok1Tokenizer,
+        CohereTokenizer,
 
         // Base case:
         PreTrainedTokenizer,

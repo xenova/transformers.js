@@ -7,9 +7,8 @@ import { compare } from './test_utils.js';
 env.allowLocalModels = false;
 env.useFSCache = false;
 
-const avg = (array) => {
-    return Number(array.reduce((a, b) => a + b, array instanceof BigInt64Array ? 0n : 0)) / array.length;
-}
+const sum = array => Number(array.reduce((a, b) => a + b, array instanceof BigInt64Array ? 0n : 0));
+const avg = array => sum(array) / array.length;
 
 describe('Processors', () => {
 
@@ -34,6 +33,7 @@ describe('Processors', () => {
             vit: 'google/vit-base-patch16-224',
             mobilevit: 'apple/mobilevit-small',
             mobilevit_2: 'Xenova/quickdraw-mobilevit-small',
+            mobilevit_3: 'apple/mobilevitv2-1.0-imagenet1k-256',
             deit: 'facebook/deit-tiny-distilled-patch16-224',
             beit: 'microsoft/beit-base-patch16-224-pt22k-ft22k',
             detr: 'facebook/detr-resnet-50',
@@ -46,11 +46,14 @@ describe('Processors', () => {
             clip: 'openai/clip-vit-base-patch16',
             vitmatte: 'hustvl/vitmatte-small-distinctions-646',
             dinov2: 'facebook/dinov2-small-imagenet1k-1-layer',
+            efficientnet: 'google/efficientnet-b0',
         }
 
         const TEST_IMAGES = {
             pattern_3x3: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/pattern_3x3.png',
+            pattern_3x5: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/pattern_3x5.png',
             checkerboard_8x8: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/checkerboard_8x8.png',
+            checkerboard_64x32: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/checkerboard_64x32.png',
             receipt: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/receipt.png',
             tiger: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg',
             paper: 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/nougat_paper.png',
@@ -200,6 +203,26 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[28, 28]]);
                 compare(reshaped_input_sizes, [[28, 28]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        // MobileViTImageProcessor
+        //  - tests converting RGB to BGR (do_flip_channel_order=true)
+        it(MODELS.mobilevit_3, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.mobilevit_3))
+
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 256, 256]);
+                compare(avg(pixel_values.data), 0.5215385556221008);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[256, 256]]);
+
+                // Ensure RGB to BGR conversion
+                compare(pixel_values.data.slice(0, 3), [0.24313725531101227, 0.250980406999588, 0.364705890417099]);
             }
         }, MAX_TEST_EXECUTION_TIME);
 
@@ -369,6 +392,7 @@ describe('Processors', () => {
         //  - tests custom overrides
         //  - tests multiple inputs
         //  - tests `size_divisibility` and no size (size_divisibility=32)
+        //  - tests do_pad and `size_divisibility`
         it(MODELS.vitmatte, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.vitmatte))
 
@@ -391,6 +415,25 @@ describe('Processors', () => {
                 compare(original_sizes, [[640, 960]]);
                 compare(reshaped_input_sizes, [[640, 960]]);
             }
+
+
+            {
+                const image = await load_image(TEST_IMAGES.pattern_3x5);
+                const image2 = await load_image(TEST_IMAGES.pattern_3x5);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image, image2);
+
+                compare(pixel_values.dims, [1, 4, 32, 32]);
+                expect(avg(pixel_values.data)).toBeCloseTo(-0.00867417361587286);
+                expect(pixel_values.data[0]).toBeCloseTo(-0.9921568632125854);
+                expect(pixel_values.data[1]).toBeCloseTo(-0.9686274528503418);
+                expect(pixel_values.data[5]).toBeCloseTo(0.0);
+                expect(pixel_values.data[32]).toBeCloseTo(-0.9215686321258545);
+                expect(pixel_values.data[33]).toBeCloseTo(-0.8980392217636108);
+                expect(pixel_values.data.at(-1)).toBeCloseTo(0.0);
+
+                compare(original_sizes, [[5, 3]]);
+                compare(reshaped_input_sizes, [[5, 3]]);
+            }
         }, MAX_TEST_EXECUTION_TIME);
 
         // BitImageProcessor
@@ -412,6 +455,7 @@ describe('Processors', () => {
         // DPTImageProcessor
         //  - tests ensure_multiple_of
         //  - tests keep_aspect_ratio
+        //  - tests bankers rounding
         it(MODELS.dpt_2, async () => {
             const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt_2))
 
@@ -425,8 +469,36 @@ describe('Processors', () => {
                 compare(original_sizes, [[480, 640]]);
                 compare(reshaped_input_sizes, [[518, 686]]);
             }
+
+            {
+                const image = await load_image(TEST_IMAGES.checkerboard_64x32);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                // NOTE: without bankers rounding, this would be [1, 3, 266, 518]
+                compare(pixel_values.dims, [1, 3, 252, 518]);
+                compare(avg(pixel_values.data), 0.2267402559518814);
+
+                compare(original_sizes, [[32, 64]]);
+                compare(reshaped_input_sizes, [[252, 518]]);
+            }
         }, MAX_TEST_EXECUTION_TIME);
 
+        // EfficientNetImageProcessor
+        //  - tests include_top
+        it(MODELS.efficientnet, async () => {
+            const processor = await AutoProcessor.from_pretrained(MODELS.efficientnet)
+
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 224, 224]);
+                compare(avg(pixel_values.data), 0.3015307230282871);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[224, 224]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Audio processors', () => {
@@ -475,6 +547,42 @@ describe('Processors', () => {
                 expect(input_values.data[1025]).toBeCloseTo(0.46703237295150757);
                 expect(input_values.data[2049]).toBeCloseTo(0.46703237295150757);
                 expect(input_values.data[10000]).toBeCloseTo(0.46703237295150757);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        it('SeamlessM4TFeatureExtractor', async () => {
+            const audio = await audioPromise;
+            const processor = await AutoProcessor.from_pretrained('Xenova/wav2vec2-bert-CV16-en');
+            { // normal
+                console.log({ audio })
+                const { input_features, attention_mask } = await processor(audio);
+                compare(input_features.dims, [1, 649, 160]);
+                compare(attention_mask.dims, [1, 649]);
+
+                expect(avg(input_features.data)).toBeCloseTo(-2.938903875815413e-08);
+                expect(input_features.data[0]).toBeCloseTo(1.1939343214035034);
+                expect(input_features.data[1]).toBeCloseTo(0.7874255180358887);
+                expect(input_features.data[160]).toBeCloseTo(-0.712975025177002);
+                expect(input_features.data[161]).toBeCloseTo(0.045802414417266846);
+                expect(input_features.data.at(-1)).toBeCloseTo(-1.3328346014022827);
+
+                expect(sum(attention_mask.data)).toEqual(649);
+            }
+            { // padding (pad_to_multiple_of=2)
+                const { input_features, attention_mask } = await processor(audio.slice(0, 10000));
+
+                // [1, 61, 80] -> [1, 62, 80] -> [1, 31, 160]
+                compare(input_features.dims, [1, 31, 160]);
+                compare(attention_mask.dims, [1, 31]);
+
+                expect(avg(input_features.data)).toBeCloseTo(0.01612919569015503);
+                expect(input_features.data[0]).toBeCloseTo(0.9657132029533386);
+                expect(input_features.data[1]).toBeCloseTo(0.12912897765636444);
+                expect(input_features.data[160]).toBeCloseTo(-1.2364212274551392);
+                expect(input_features.data[161]).toBeCloseTo(-0.9703778028488159);
+                expect(input_features.data.at(-1)).toBeCloseTo(1); // padding value
+
+                expect(sum(attention_mask.data)).toEqual(30);
             }
         }, MAX_TEST_EXECUTION_TIME);
 

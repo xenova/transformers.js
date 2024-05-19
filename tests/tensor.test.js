@@ -1,7 +1,7 @@
 
 import { Tensor } from '../src/transformers.js';
 import { compare } from './test_utils.js';
-import { cat, mean, stack } from '../src/utils/tensor.js';
+import { cat, mean, stack, layer_norm } from '../src/utils/tensor.js';
 
 describe('Tensor operations', () => {
 
@@ -103,6 +103,64 @@ describe('Tensor operations', () => {
         });
     });
 
+    describe('permute', () => {
+        it('should permute', async () => {
+            const x = new Tensor(
+                'float32',
+                [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                [2, 3, 4],
+            );
+            // Permute axes to (0, 1, 2) - No change
+            const permuted_1 = x.permute(0, 1, 2);
+            const target_1 = x;
+            compare(permuted_1, target_1, 1e-3);
+
+            // Permute axes to (0, 2, 1)
+            const permuted_2 = x.permute(0, 2, 1);
+            const target_2 = new Tensor(
+                'float32',
+                [0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11, 12, 16, 20, 13, 17, 21, 14, 18, 22, 15, 19, 23],
+                [2, 4, 3],
+            );
+            compare(permuted_2, target_2, 1e-3);
+
+            // Permute axes to (1, 0, 2)
+            const permuted_3 = x.permute(1, 0, 2);
+            const target_3 = new Tensor(
+                'float32',
+                [0, 1, 2, 3, 12, 13, 14, 15, 4, 5, 6, 7, 16, 17, 18, 19, 8, 9, 10, 11, 20, 21, 22, 23],
+                [3, 2, 4],
+            );
+            compare(permuted_3, target_3, 1e-3);
+
+            // Permute axes to (1, 2, 0)
+            const permuted_4 = x.permute(1, 2, 0);
+            const target_4 = new Tensor(
+                'float32',
+                [0, 12, 1, 13, 2, 14, 3, 15, 4, 16, 5, 17, 6, 18, 7, 19, 8, 20, 9, 21, 10, 22, 11, 23],
+                [3, 4, 2],
+            );
+            compare(permuted_4, target_4, 1e-3);
+
+            // Permute axes to (2, 0, 1)
+            const permuted_5 = x.permute(2, 0, 1);
+            const target_5 = new Tensor(
+                'float32',
+                [0, 4, 8, 12, 16, 20, 1, 5, 9, 13, 17, 21, 2, 6, 10, 14, 18, 22, 3, 7, 11, 15, 19, 23],
+                [4, 2, 3],
+            );
+            compare(permuted_5, target_5, 1e-3);
+
+            // Permute axes to (2, 1, 0)
+            const permuted_6 = x.permute(2, 1, 0);
+            const target_6 = new Tensor(
+                'float32',
+                [0, 12, 4, 16, 8, 20, 1, 13, 5, 17, 9, 21, 2, 14, 6, 18, 10, 22, 3, 15, 7, 19, 11, 23],
+                [4, 3, 2],
+            );
+            compare(permuted_6, target_6, 1e-3);
+        });
+    });
 
     describe('mean', () => {
         it('should calculate mean', async () => {
@@ -127,5 +185,19 @@ describe('Tensor operations', () => {
             compare(avg2, target2, 1e-3);
 
         })
+    });
+
+    describe('layer_norm', () => {
+        it('should calculate layer norm', async () => {
+            const t1 = new Tensor('float32', [1, 2, 3, 4, 5, 6], [2, 3]);
+
+            const target = new Tensor('float32', [
+                -1.2247356176376343, 0.0, 1.2247356176376343,
+                -1.2247357368469238, -1.1920928955078125e-07, 1.2247354984283447,
+            ], [2, 3]);
+
+            const norm = layer_norm(t1, [t1.dims.at(-1)]);
+            compare(norm, target, 1e-3);
+        });
     });
 });

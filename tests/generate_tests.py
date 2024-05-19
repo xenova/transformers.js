@@ -28,6 +28,17 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         # TODO: Add back when https://github.com/huggingface/transformers/issues/26318 is fixed
         # 'Xenova/t5-tokenizer-new',
     ],
+    'bert': [
+        # Uses `Whitespace` pretokenizer
+        'Xenova/jina-embeddings-v2-base-zh-tokenizer',
+    ],
+    'qwen2': [
+        # Uses a pretokenizer regex which is not compatible with JavaScript.
+        'Qwen/Qwen1.5-0.5B-Chat',
+    ],
+    'gemma': [
+        'Xenova/gemma-tokenizer',
+    ],
 }
 
 MODELS_TO_IGNORE = [
@@ -133,6 +144,10 @@ TOKENIZER_TEST_DATA = {
             # Special treatment of characters in certain language
             "ț ţ",
         ],
+
+        "qwen2": [
+            "i'm i'M i've i've i'Ve i'vE i'VE",
+        ],
     },
     "custom": {
         "facebook/blenderbot_small-90M": [
@@ -214,7 +229,7 @@ TOKENIZERS_WITH_CHAT_TEMPLATES = {
         'basic',
     ],
 
-    'mistralai/Mistral-7B-Instruct-v0.1': [
+    'Xenova/mistral-tokenizer-v1': [
         'basic',
     ],
 

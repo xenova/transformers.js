@@ -1,15 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import './App.css'
 import { Token } from './components/Token'
+import './App.css'
 
+// Define list of tokenizers and their corresponding human-readable names
+const TOKENIZER_OPTIONS = Object.freeze({
+  'Xenova/gpt-4': 'gpt-4 / gpt-3.5-turbo / text-embedding-ada-002',
+  'Xenova/text-davinci-003': 'text-davinci-003 / text-davinci-002',
+  'Xenova/gpt-3': 'gpt-3',
+  'Xenova/grok-1-tokenizer': 'Grok-1',
+  'Xenova/claude-tokenizer': 'Claude',
+  'Xenova/mistral-tokenizer-v3': 'Mistral v3',
+  'Xenova/mistral-tokenizer-v1': 'Mistral v1',
+  'Xenova/gemma-tokenizer': 'Gemma',
+  'Xenova/llama-3-tokenizer': 'Llama 3',
+  'Xenova/llama-tokenizer': 'LLaMA / Llama 2',
+  'Xenova/c4ai-command-r-v01-tokenizer': 'Cohere Command-R',
+  'Xenova/t5-small': 'T5',
+  'Xenova/bert-base-cased': 'bert-base-cased',
+  '': 'Custom',
+})
 
 function App() {
+  // Allow user to set tokenizer and text via URL query parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const tokenizerParam = urlParams.get('tokenizer');
+  const textParam = urlParams.get('text');
 
   const [tokenIds, setTokenIds] = useState([])
   const [decodedTokens, setDecodedTokens] = useState([])
   const [margins, setMargins] = useState([])
   const [outputOption, setOutputOption] = useState('text');
-  const [tokenizer, setTokenizer] = useState('Xenova/gpt-4');
+  const [tokenizer, setTokenizer] = useState(tokenizerParam ?? 'Xenova/gpt-4');
+  const [customTokenizer, setCustomTokenizer] = useState('');
 
   const textareaRef = useRef(null);
   const outputRef = useRef(null);
@@ -40,6 +62,13 @@ function App() {
     return () => worker.current.removeEventListener('message', onMessageReceived);
   }, []);
 
+  const resetOutput = useCallback(() => {
+    setOutputOption('text');
+    setTokenIds([]);
+    setDecodedTokens([]);
+    setMargins([]);
+  }, []);
+
   const onInputChange = useCallback((e) => {
     const model_id = tokenizer;
     const text = e.target.value;
@@ -51,11 +80,19 @@ function App() {
     worker.current.postMessage({ model_id, text });
   }, [tokenizer]);
 
+  useEffect(() => {
+    if (textParam) {
+      onInputChange({ target: { value: textParam } });
+    }
+  }, [onInputChange, textParam]);
+
   const onTokenizerChange = useCallback((e) => {
     const model_id = e.target.value;
     setTokenizer(model_id);
+    if (!model_id) return;
     worker.current.postMessage({ model_id, text: textareaRef.current.value });
   }, []);
+
   return (
     <div className='w-full max-w-[720px] flex flex-col gap-4 items-center'>
 
@@ -64,16 +101,28 @@ function App() {
         <h2 className='text-lg font-normal'>Experiment with different tokenizers (running <a className="text-gray-900 underline" href="https://github.com/xenova/transformers.js">locally</a> in your browser).</h2>
       </div>
 
-
       <div>
-        <select value={tokenizer} onChange={onTokenizerChange} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
-          <option value="Xenova/gpt-4">gpt-4 / gpt-3.5-turbo / text-embedding-ada-002</option>
-          <option value="Xenova/text-davinci-003">text-davinci-003 / text-davinci-002</option>
-          <option value="Xenova/gpt-3">gpt-3</option>
-          <option value="hf-internal-testing/llama-tokenizer">LLaMA / Llama 2</option>
-          <option value="Xenova/t5-small">T5</option>
-          <option value="Xenova/bert-base-cased">bert-base-cased</option>
+        <select value={(tokenizer in TOKENIZER_OPTIONS && !customTokenizer) ? tokenizer : ''} onChange={(e) => {
+          resetOutput();
+          setCustomTokenizer('');
+          onTokenizerChange(e);
+        }} className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
+          {Object.entries(TOKENIZER_OPTIONS).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
         </select>
+        {(!(tokenizer in TOKENIZER_OPTIONS) || customTokenizer || tokenizer === '') && (
+          <input
+            type="text"
+            placeholder="Custom tokenizer"
+            defaultValue={customTokenizer || tokenizer}
+            onChange={(e) => {
+              setCustomTokenizer(e.target.value);
+              onTokenizerChange(e);
+            }}
+            className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full py-1 px-2 mt-1"
+          />
+        )}
       </div>
 
 
@@ -83,6 +132,7 @@ function App() {
         rows="8"
         className="font-mono text-lg block w-full p-2.5 text-gray-900 bg-gray-50 rounded-lg border border-gray-200"
         placeholder="Enter some text"
+        defaultValue={textParam ?? textareaRef.current?.value ?? ''}
       ></textarea>
 
       <div className='flex justify-center gap-5'>
