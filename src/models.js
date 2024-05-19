@@ -3419,7 +3419,7 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
         if (!this.config.num_image_tokens) {
             console.warn(
                 'The number of image tokens was not set in the model configuration. ' +
-                'Setting it to the number of features detected by the vision encoder.'
+                `Setting it to the number of features detected by the vision encoder (${features.dims[1]}).`
             )
             this.config.num_image_tokens = features.dims[1];
         }
