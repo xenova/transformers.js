@@ -1255,7 +1255,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
         // console.log(outputs)
 
         /** @type {Tensor} */
-        let result = outputs.last_hidden_state ?? outputs.logits;
+        let result = outputs.last_hidden_state ?? outputs.logits ?? outputs.token_embeddings;
         if (pooling === 'none') {
             // Skip pooling
         } else if (pooling === 'mean') {
