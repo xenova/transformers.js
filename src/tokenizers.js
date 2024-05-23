@@ -2665,6 +2665,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
+     * @param {boolean} [options.return_token_type_ids=null] Whether to return the token type ids.
      * @returns {BatchEncoding} Object to be passed to the model.
      */
     _call(
@@ -2679,6 +2680,7 @@ export class PreTrainedTokenizer extends Callable {
             truncation = null,
             max_length = null,
             return_tensor = true, // Different to HF
+            return_token_type_ids = null,
         } = {},
     ) {
 
@@ -2701,11 +2703,11 @@ export class PreTrainedTokenizer extends Callable {
                 }
 
                 encodedTokens = text.map(
-                    (t, i) => this._encode_plus(t, text_pair[i], { add_special_tokens })
+                    (t, i) => this._encode_plus(t, text_pair[i], { add_special_tokens, return_token_type_ids })
                 )
 
             } else {
-                encodedTokens = text.map(x => this._encode_plus(x, null, { add_special_tokens }));
+                encodedTokens = text.map(x => this._encode_plus(x, null, { add_special_tokens, return_token_type_ids }));
             }
 
         } else {
@@ -2718,7 +2720,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             // For single input, we just wrap in an array, and then unwrap later.
-            encodedTokens = [this._encode_plus(text, text_pair, { add_special_tokens })];
+            encodedTokens = [this._encode_plus(text, text_pair, { add_special_tokens, return_token_type_ids })];
         }
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
@@ -2876,11 +2878,13 @@ export class PreTrainedTokenizer extends Callable {
      * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
+     * @param {boolean} [options.return_token_type_ids=null] Whether to return token_type_ids.
      * @returns {EncodingSingle} An object containing the encoded text.
      * @private
      */
     _encode_plus(text, text_pair = null, {
         add_special_tokens = true,
+        return_token_type_ids = null,
     } = {}) {
         // Function called by users to encode possibly multiple texts
         const tokens = this._encode_text(text);
@@ -2896,7 +2900,7 @@ export class PreTrainedTokenizer extends Callable {
             input_ids,
             attention_mask: new Array(input_ids.length).fill(1),
         }
-        if (this.return_token_type_ids && combinedTokens.token_type_ids) {
+        if ((return_token_type_ids ?? this.return_token_type_ids) && combinedTokens.token_type_ids) {
             result.token_type_ids = combinedTokens.token_type_ids;
         }
         return result;
@@ -2909,13 +2913,16 @@ export class PreTrainedTokenizer extends Callable {
      * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
+     * @param {boolean} [options.return_token_type_ids=null] Whether to return token_type_ids.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
     encode(text, text_pair = null, {
         add_special_tokens = true,
+        return_token_type_ids = null,
     } = {}) {
         const { input_ids } = this._encode_plus(text, text_pair, {
             add_special_tokens,
+            return_token_type_ids,
         });
         return input_ids;
     }
