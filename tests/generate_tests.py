@@ -20,6 +20,7 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         'Xenova/llama2-tokenizer',  # Special tokens: normalized=false
         'Xenova/llama2-chat-tokenizer',  # Special tokens: normalized=false
         'hf-internal-testing/llama-code-tokenizer',
+        'Xenova/llama3-tokenizer-new',  # PostProcessor type: Sequence
     ],
     'mpt': [
         'mosaicml/mpt-7b',
