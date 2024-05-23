@@ -1740,6 +1740,10 @@ class ByteLevelPostProcessor extends PostProcessor {
     }
 }
 
+
+/**
+ * A post-processor that applies multiple post-processors in sequence.
+ */
 class PostProcessorSequence extends PostProcessor {
 
     /**
