@@ -1592,6 +1592,8 @@ class PostProcessor extends Callable {
             case 'BertProcessing':
                 return new BertProcessing(config);
 
+            case 'Sequence':
+                return new PostProcessorSequence(config);
             default:
                 throw new Error(`Unknown PostProcessor type: ${config.type}`);
         }
@@ -1735,6 +1737,46 @@ class ByteLevelPostProcessor extends PostProcessor {
             tokens = mergeArrays(tokens, tokens_pair);
         }
         return { tokens };
+    }
+}
+
+class PostProcessorSequence extends PostProcessor {
+
+    /**
+     * Creates a new instance of PostProcessorSequence.
+     * @param {Object} config The configuration object.
+     * @param {Object[]} config.processors The list of post-processors to apply.
+     */
+    constructor(config) {
+        super(config);
+
+        this.processors = config.processors.map(x => PostProcessor.fromConfig(x));
+    }
+
+    /**
+     * Post process the given tokens.
+     * @param {string[]} tokens The list of tokens for the first sequence.
+     * @param {string[]} [tokens_pair=null] The list of tokens for the second sequence (optional).
+     * @returns {PostProcessedOutput} An object containing the post-processed tokens.
+     */
+    post_process(tokens, tokens_pair = null, options = {}) {
+        let token_type_ids;
+        for (const processor of this.processors) {
+            if (processor instanceof ByteLevelPostProcessor) {
+                // Special case where we need to pass the tokens_pair to the post-processor
+                const output = processor.post_process(tokens);
+                tokens = output.tokens;
+                if (tokens_pair) {
+                    const pair_output = processor.post_process(tokens_pair);
+                    tokens_pair = pair_output.tokens;
+                }
+            } else {
+                const output = processor.post_process(tokens, tokens_pair, options);
+                tokens = output.tokens;
+                token_type_ids = output.token_type_ids;
+            }
+        }
+        return { tokens, token_type_ids };
     }
 }
 
@@ -2100,7 +2142,7 @@ class DecoderSequence extends Decoder {
     /**
      * Creates a new instance of DecoderSequence.
      * @param {Object} config The configuration object.
-     * @param {Decoder[]} config.decoders The list of decoders to apply.
+     * @param {Object[]} config.decoders The list of decoders to apply.
      */
     constructor(config) {
         super(config);
