@@ -33,6 +33,7 @@ describe('Processors', () => {
             vit: 'google/vit-base-patch16-224',
             mobilevit: 'apple/mobilevit-small',
             mobilevit_2: 'Xenova/quickdraw-mobilevit-small',
+            mobilevit_3: 'apple/mobilevitv2-1.0-imagenet1k-256',
             deit: 'facebook/deit-tiny-distilled-patch16-224',
             beit: 'microsoft/beit-base-patch16-224-pt22k-ft22k',
             detr: 'facebook/detr-resnet-50',
@@ -202,6 +203,26 @@ describe('Processors', () => {
 
                 compare(original_sizes, [[28, 28]]);
                 compare(reshaped_input_sizes, [[28, 28]]);
+            }
+        }, MAX_TEST_EXECUTION_TIME);
+
+        // MobileViTImageProcessor
+        //  - tests converting RGB to BGR (do_flip_channel_order=true)
+        it(MODELS.mobilevit_3, async () => {
+            const processor = await AutoProcessor.from_pretrained(m(MODELS.mobilevit_3))
+
+            {
+                const image = await load_image(TEST_IMAGES.cats);
+                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+
+                compare(pixel_values.dims, [1, 3, 256, 256]);
+                compare(avg(pixel_values.data), 0.5215385556221008);
+
+                compare(original_sizes, [[480, 640]]);
+                compare(reshaped_input_sizes, [[256, 256]]);
+
+                // Ensure RGB to BGR conversion
+                compare(pixel_values.data.slice(0, 3), [0.24313725531101227, 0.250980406999588, 0.364705890417099]);
             }
         }, MAX_TEST_EXECUTION_TIME);
 

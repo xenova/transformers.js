@@ -630,10 +630,12 @@ class BPE extends TokenizerModel {
      * Create a BPE instance.
      * @param {Object} config The configuration object for BPE.
      * @param {Object} config.vocab A mapping of tokens to ids.
+     * @param {string[]} config.merges An array of BPE merges as strings.
      * @param {string} config.unk_token The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
      * @param {string} [config.continuing_subword_suffix] The suffix to insert between words.
-     * @param {Array} config.merges An array of BPE merges as strings.
+     * @param {boolean} [config.byte_fallback=false] Whether to use spm byte-fallback trick (defaults to False)
+     * @param {boolean} [config.ignore_merges=false] Whether or not to match tokens with the vocab before using merges.
      */
     constructor(config) {
         super(config);
@@ -664,6 +666,8 @@ class BPE extends TokenizerModel {
         if (this.byte_fallback) {
             this.text_encoder = new TextEncoder();
         }
+
+        this.ignore_merges = this.config.ignore_merges ?? false;
 
         /** @type {Map<string, string[]>} */
         this.cache = new Map();
@@ -826,6 +830,10 @@ class BPE extends TokenizerModel {
         const outputTokens = [];
 
         for (const token of tokens) {
+            if (this.ignore_merges && this.tokens_to_ids.has(token)) {
+                outputTokens.push(token);
+                continue;
+            }
             const bpe_token_list = this.bpe(token);
 
             for (const t of bpe_token_list) {
@@ -1584,6 +1592,8 @@ class PostProcessor extends Callable {
             case 'BertProcessing':
                 return new BertProcessing(config);
 
+            case 'Sequence':
+                return new PostProcessorSequence(config);
             default:
                 throw new Error(`Unknown PostProcessor type: ${config.type}`);
         }
@@ -1727,6 +1737,50 @@ class ByteLevelPostProcessor extends PostProcessor {
             tokens = mergeArrays(tokens, tokens_pair);
         }
         return { tokens };
+    }
+}
+
+
+/**
+ * A post-processor that applies multiple post-processors in sequence.
+ */
+class PostProcessorSequence extends PostProcessor {
+
+    /**
+     * Creates a new instance of PostProcessorSequence.
+     * @param {Object} config The configuration object.
+     * @param {Object[]} config.processors The list of post-processors to apply.
+     */
+    constructor(config) {
+        super(config);
+
+        this.processors = config.processors.map(x => PostProcessor.fromConfig(x));
+    }
+
+    /**
+     * Post process the given tokens.
+     * @param {string[]} tokens The list of tokens for the first sequence.
+     * @param {string[]} [tokens_pair=null] The list of tokens for the second sequence (optional).
+     * @returns {PostProcessedOutput} An object containing the post-processed tokens.
+     */
+    post_process(tokens, tokens_pair = null, options = {}) {
+        let token_type_ids;
+        for (const processor of this.processors) {
+            if (processor instanceof ByteLevelPostProcessor) {
+                // Special case where we need to pass the tokens_pair to the post-processor
+                const output = processor.post_process(tokens);
+                tokens = output.tokens;
+                if (tokens_pair) {
+                    const pair_output = processor.post_process(tokens_pair);
+                    tokens_pair = pair_output.tokens;
+                }
+            } else {
+                const output = processor.post_process(tokens, tokens_pair, options);
+                tokens = output.tokens;
+                token_type_ids = output.token_type_ids;
+            }
+        }
+        return { tokens, token_type_ids };
     }
 }
 
@@ -2092,7 +2146,7 @@ class DecoderSequence extends Decoder {
     /**
      * Creates a new instance of DecoderSequence.
      * @param {Object} config The configuration object.
-     * @param {Decoder[]} config.decoders The list of decoders to apply.
+     * @param {Object[]} config.decoders The list of decoders to apply.
      */
     constructor(config) {
         super(config);
@@ -2429,6 +2483,12 @@ function truncateHelper(item, length) {
 }
 
 
+/**
+ * @typedef {Object} Message
+ * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
+ * @property {string} content The content of the message.
+ */
+
 export class PreTrainedTokenizer extends Callable {
     return_token_type_ids = false;
 
@@ -2609,6 +2669,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {boolean} [options.truncation=null] Whether to truncate the input sequences.
      * @param {number} [options.max_length=null] Maximum length of the returned list and optionally padding length.
      * @param {boolean} [options.return_tensor=true] Whether to return the results as Tensors or arrays.
+     * @param {boolean} [options.return_token_type_ids=null] Whether to return the token type ids.
      * @returns {BatchEncoding} Object to be passed to the model.
      */
     _call(
@@ -2623,6 +2684,7 @@ export class PreTrainedTokenizer extends Callable {
             truncation = null,
             max_length = null,
             return_tensor = true, // Different to HF
+            return_token_type_ids = null,
         } = {},
     ) {
 
@@ -2645,16 +2707,16 @@ export class PreTrainedTokenizer extends Callable {
                 }
 
                 encodedTokens = text.map(
-                    (t, i) => this._encode_plus(t, text_pair[i], { add_special_tokens })
+                    (t, i) => this._encode_plus(t, text_pair[i], { add_special_tokens, return_token_type_ids })
                 )
 
             } else {
-                encodedTokens = text.map(x => this._encode_plus(x, null, { add_special_tokens }));
+                encodedTokens = text.map(x => this._encode_plus(x, null, { add_special_tokens, return_token_type_ids }));
             }
 
         } else {
-            if (text === null) {
-                throw Error('text may not be null')
+            if (text === null || text === undefined) {
+                throw Error('text may not be null or undefined')
             }
 
             if (Array.isArray(text_pair)) {
@@ -2662,7 +2724,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             // For single input, we just wrap in an array, and then unwrap later.
-            encodedTokens = [this._encode_plus(text, text_pair, { add_special_tokens })];
+            encodedTokens = [this._encode_plus(text, text_pair, { add_special_tokens, return_token_type_ids })];
         }
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
@@ -2820,11 +2882,13 @@ export class PreTrainedTokenizer extends Callable {
      * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
+     * @param {boolean} [options.return_token_type_ids=null] Whether to return token_type_ids.
      * @returns {EncodingSingle} An object containing the encoded text.
      * @private
      */
     _encode_plus(text, text_pair = null, {
         add_special_tokens = true,
+        return_token_type_ids = null,
     } = {}) {
         // Function called by users to encode possibly multiple texts
         const tokens = this._encode_text(text);
@@ -2840,7 +2904,7 @@ export class PreTrainedTokenizer extends Callable {
             input_ids,
             attention_mask: new Array(input_ids.length).fill(1),
         }
-        if (this.return_token_type_ids && combinedTokens.token_type_ids) {
+        if ((return_token_type_ids ?? this.return_token_type_ids) && combinedTokens.token_type_ids) {
             result.token_type_ids = combinedTokens.token_type_ids;
         }
         return result;
@@ -2853,13 +2917,16 @@ export class PreTrainedTokenizer extends Callable {
      * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
+     * @param {boolean} [options.return_token_type_ids=null] Whether to return token_type_ids.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
     encode(text, text_pair = null, {
         add_special_tokens = true,
+        return_token_type_ids = null,
     } = {}) {
         const { input_ids } = this._encode_plus(text, text_pair, {
             add_special_tokens,
+            return_token_type_ids,
         });
         return input_ids;
     }
@@ -2960,12 +3027,6 @@ export class PreTrainedTokenizer extends Callable {
     }
 
     /**
-     * @typedef {Object} Message
-     * @property {string} role The role of the message (e.g., "user" or "assistant" or "system").
-     * @property {string} content The content of the message.
-     */
-
-    /**
      * Converts a list of message objects with `"role"` and `"content"` keys to a list of token
      * ids. This method is intended for use with chat models, and will read the tokenizer's chat_template attribute to
      * determine the format and control tokens to use when converting. When chat_template is None, it will fall back
@@ -2978,7 +3039,7 @@ export class PreTrainedTokenizer extends Callable {
      * ```javascript
      * import { AutoTokenizer } from "@xenova/transformers";
      * 
-     * const tokenizer = await AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.1");
+     * const tokenizer = await AutoTokenizer.from_pretrained("Xenova/mistral-tokenizer-v1");
      * 
      * const chat = [
      *   { "role": "user", "content": "Hello, how are you?" },

@@ -246,6 +246,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
      * @param {boolean} config.do_resize Whether to resize the image.
      * @param {number} config.resample What method to use for resampling.
      * @param {number|Object} config.size The size to resize the image to.
+     * @param {boolean} [config.do_flip_channel_order=false] Whether to flip the color channels from RGB to BGR.
+     * Can be overridden by the `do_flip_channel_order` parameter in the `preprocess` method.
      */
     constructor(config) {
         super(config);
@@ -276,6 +278,8 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             // We infer the pad size from the resize size
             this.pad_size = this.size
         }
+
+        this.do_flip_channel_order = this.config.do_flip_channel_order ?? false;
     }
 
     /**
@@ -571,6 +575,7 @@ export class ImageFeatureExtractor extends FeatureExtractor {
         do_pad = null,
         do_convert_rgb = null,
         do_convert_grayscale = null,
+        do_flip_channel_order = null,
     } = {}) {
         if (this.do_crop_margin) {
             // NOTE: Specific to nougat processors. This is done before resizing,
@@ -658,6 +663,18 @@ export class ImageFeatureExtractor extends FeatureExtractor {
             } else if (this.size_divisibility) {
                 const [paddedWidth, paddedHeight] = enforce_size_divisibility([imgDims[1], imgDims[0]], this.size_divisibility);
                 [pixelData, imgDims] = this.pad_image(pixelData, imgDims, { width: paddedWidth, height: paddedHeight });
+            }
+        }
+
+        if (do_flip_channel_order ?? this.do_flip_channel_order) {
+            if (imgDims[2] !== 3) {
+                throw new Error('Flipping channel order is only supported for RGB images.');
+            }
+            // Convert RGB to BGR
+            for (let i = 0; i < pixelData.length; i += 3) {
+                const temp = pixelData[i];
+                pixelData[i] = pixelData[i + 2];
+                pixelData[i + 2] = temp;
             }
         }
 
@@ -830,6 +847,7 @@ export class EfficientNetImageProcessor extends ImageFeatureExtractor {
 
 
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
+export class MobileViTImageProcessor extends MobileViTFeatureExtractor { } // NOTE extends MobileViTFeatureExtractor
 export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
     /** @type {post_process_object_detection} */
     post_process_object_detection(...args) {
@@ -2132,6 +2150,7 @@ export class AutoProcessor {
         WhisperFeatureExtractor,
         ViTFeatureExtractor,
         MobileViTFeatureExtractor,
+        MobileViTImageProcessor,
         OwlViTFeatureExtractor,
         Owlv2ImageProcessor,
         CLIPFeatureExtractor,

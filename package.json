@@ -1,6 +1,6 @@
 {
   "name": "@xenova/transformers",
-  "version": "2.16.1",
+  "version": "2.17.1",
   "description": "State-of-the-art Machine Learning for the web. Run 🤗 Transformers directly in your browser, with no need for a server!",
   "main": "./src/transformers.js",
   "types": "./types/transformers.d.ts",
@@ -60,7 +60,7 @@
   },
   "overrides": {
     "semver": "^7.5.4",
-    "protobufjs": "^7.2.4"
+    "protobufjs": "^7.2.6"
   },
   "files": [
     "src",
@@ -74,8 +74,7 @@
     "path": false,
     "url": false,
     "sharp": false,
-    "onnxruntime-node": false,
-    "stream/web": false
+    "onnxruntime-node": false
   },
   "publishConfig": {
     "access": "public"

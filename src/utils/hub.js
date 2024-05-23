@@ -7,15 +7,9 @@
 
 import fs from 'fs';
 import path from 'path';
-import stream from 'stream/web';
 
 import { env } from '../env.js';
 import { dispatchCallback } from './core.js';
-
-if (!globalThis.ReadableStream) {
-    // @ts-ignore
-    globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16
-}
 
 /**
  * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     
@@ -151,23 +145,26 @@ class FileResponse {
 }
 
 /**
- * Determines whether the given string is a valid HTTP or HTTPS URL.
- * @param {string|URL} string The string to test for validity as an HTTP or HTTPS URL.
+ * Determines whether the given string is a valid URL.
+ * @param {string|URL} string The string to test for validity as an URL.
+ * @param {string[]} [protocols=null] A list of valid protocols. If specified, the protocol must be in this list.
  * @param {string[]} [validHosts=null] A list of valid hostnames. If specified, the URL's hostname must be in this list.
- * @returns {boolean} True if the string is a valid HTTP or HTTPS URL, false otherwise.
+ * @returns {boolean} True if the string is a valid URL, false otherwise.
  */
-function isValidHttpUrl(string, validHosts = null) {
-    // https://stackoverflow.com/a/43467144
+function isValidUrl(string, protocols = null, validHosts = null) {
     let url;
     try {
         url = new URL(string);
     } catch (_) {
         return false;
     }
+    if (protocols && !protocols.includes(url.protocol)) {
+        return false;
+    }
     if (validHosts && !validHosts.includes(url.hostname)) {
         return false;
     }
-    return url.protocol === "http:" || url.protocol === "https:";
+    return true;
 }
 
 /**
@@ -178,7 +175,7 @@ function isValidHttpUrl(string, validHosts = null) {
  */
 export async function getFile(urlOrPath) {
 
-    if (env.useFS && !isValidHttpUrl(urlOrPath)) {
+    if (env.useFS && !isValidUrl(urlOrPath, ['http:', 'https:', 'blob:'])) {
         return new FileResponse(urlOrPath);
 
     } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
@@ -189,7 +186,7 @@ export async function getFile(urlOrPath) {
         headers.set('User-Agent', `transformers.js/${version}; is_ci/${IS_CI};`);
 
         // Check whether we are making a request to the Hugging Face Hub.
-        const isHFURL = isValidHttpUrl(urlOrPath, ['huggingface.co', 'hf.co']);
+        const isHFURL = isValidUrl(urlOrPath, ['http:', 'https:'], ['huggingface.co', 'hf.co']);
         if (isHFURL) {
             // If an access token is present in the environment variables,
             // we add it to the request headers.
@@ -433,7 +430,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         if (env.allowLocalModels) {
             // Accessing local models is enabled, so we try to get the file locally.
             // If request is a valid HTTP URL, we skip the local file check. Otherwise, we try to get the file locally.
-            const isURL = isValidHttpUrl(requestURL);
+            const isURL = isValidUrl(requestURL, ['http:', 'https:']);
             if (!isURL) {
                 try {
                     response = await getFile(localPath);
