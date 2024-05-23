@@ -288,6 +288,44 @@ describe('Token type ids', () => {
         compare(model_inputs, expected);
 
     }, MAX_TEST_EXECUTION_TIME);
+
+    it('should add token type ids if user requests them', async () => {
+        const tokenizer = await AutoTokenizer.from_pretrained('Xenova/llama3-tokenizer-new');
+
+        { // Without text pair
+            const model_inputs = tokenizer(
+                'hello',
+                {
+                    return_tensor: false,
+                    return_token_type_ids: true,
+                }
+            );
+            const expected = {
+                input_ids: [128000, 15339],
+                attention_mask: [1, 1],
+                token_type_ids: [0, 0]
+            }
+            compare(model_inputs, expected);
+        }
+
+        { // With text pair
+            const model_inputs = tokenizer(
+                'hello',
+                {
+                    text_pair: 'world',
+                    return_tensor: false,
+                    return_token_type_ids: true,
+                }
+            );
+            const expected = {
+                input_ids: [128000, 15339, 128000, 14957],
+                attention_mask: [1, 1, 1, 1],
+                token_type_ids: [0, 0, 1, 1]
+            }
+            compare(model_inputs, expected);
+        }
+
+    }, MAX_TEST_EXECUTION_TIME);
 });
 
 describe('Edge cases', () => {
