@@ -148,8 +148,26 @@ Cheddar is my go-to for any occasion or mood;
 It adds depth and richness without being overpowering its taste buds alone
 ```
 
+
+### Cleaning up
+
+If you want to free up the memory that a model is using, or want to load another model instead, you can do so:
+
+```javascript
+// Disposing (destroying) the pipeline
+pipeline.dispose()
+.then(() => {
+    console.log("the pipeline has now been removed");
+})
+.catch(err => {
+    console.error("An error occured while trying to dispose of the pipeline: ", err);
+})
+```
+
+
 For more information on the available options for each pipeline, refer to the [API Reference](./api/pipelines).
 If you would like more control over the inference process, you can use the [`AutoModel`](./api/models), [`AutoTokenizer`](./api/tokenizers), or [`AutoProcessor`](./api/processors) classes instead.
+
 
 
 ## Available tasks
