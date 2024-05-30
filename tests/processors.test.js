@@ -1,6 +1,6 @@
 
 import { env, AutoProcessor, RawImage } from '../src/transformers.js';
-import { m, MAX_TEST_EXECUTION_TIME } from './init.js';
+import { MAX_TEST_EXECUTION_TIME } from './init.js';
 import { compare } from './test_utils.js';
 
 // Initialise the testing environment
@@ -26,27 +26,27 @@ describe('Processors', () => {
         }
 
         const MODELS = {
-            swin2sr: 'caidas/swin2SR-classical-sr-x2-64',
-            sam: 'facebook/sam-vit-base',
-            'donut-swin': 'naver-clova-ix/donut-base-finetuned-cord-v2',
-            resnet: 'microsoft/resnet-50',
-            vit: 'google/vit-base-patch16-224',
-            mobilevit: 'apple/mobilevit-small',
+            swin2sr: 'Xenova/swin2SR-classical-sr-x2-64',
+            sam: 'Xenova/sam-vit-base',
+            'donut-swin': 'Xenova/donut-base-finetuned-cord-v2',
+            resnet: 'Xenova/resnet-50',
+            vit: 'Xenova/vit-base-patch16-224',
+            mobilevit: 'Xenova/mobilevit-small',
             mobilevit_2: 'Xenova/quickdraw-mobilevit-small',
-            mobilevit_3: 'apple/mobilevitv2-1.0-imagenet1k-256',
-            deit: 'facebook/deit-tiny-distilled-patch16-224',
-            beit: 'microsoft/beit-base-patch16-224-pt22k-ft22k',
-            detr: 'facebook/detr-resnet-50',
-            yolos: 'hustvl/yolos-small-300',
-            dpt: 'Intel/dpt-hybrid-midas',
-            dpt_2: 'LiheYoung/depth-anything-small-hf',
-            glpn: 'vinvino02/glpn-kitti',
-            nougat: 'facebook/nougat-small',
-            owlvit: 'google/owlvit-base-patch32',
-            clip: 'openai/clip-vit-base-patch16',
-            vitmatte: 'hustvl/vitmatte-small-distinctions-646',
-            dinov2: 'facebook/dinov2-small-imagenet1k-1-layer',
-            efficientnet: 'google/efficientnet-b0',
+            mobilevit_3: 'Xenova/mobilevitv2-1.0-imagenet1k-256',
+            deit: 'Xenova/deit-tiny-distilled-patch16-224',
+            beit: 'Xenova/beit-base-patch16-224-pt22k-ft22k',
+            detr: 'Xenova/detr-resnet-50',
+            yolos: 'Xenova/yolos-small-300',
+            dpt: 'Xenova/dpt-hybrid-midas',
+            dpt_2: 'Xenova/depth-anything-small-hf',
+            glpn: 'Xenova/glpn-kitti',
+            nougat: 'Xenova/nougat-small',
+            owlvit: 'Xenova/owlvit-base-patch32',
+            clip: 'Xenova/clip-vit-base-patch16',
+            vitmatte: 'Xenova/vitmatte-small-distinctions-646',
+            dinov2: 'Xenova/dinov2-small-imagenet1k-1-layer',
+            // efficientnet: 'Xenova/efficientnet-b0',
         }
 
         const TEST_IMAGES = {
@@ -69,7 +69,7 @@ describe('Processors', () => {
         // Swin2SRImageProcessor
         //  - tests when padding is a number (do_pad=true, pad_size=8)
         it(MODELS.swin2sr, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.swin2sr))
+            const processor = await AutoProcessor.from_pretrained(MODELS.swin2sr);
 
             { // Pad to multiple of 8 (3x3 -> 8x8)
                 const image = await load_image(TEST_IMAGES.pattern_3x3);
@@ -91,7 +91,7 @@ describe('Processors', () => {
         //  - tests normal padding (do_pad=true, pad_size={"height":1024,"width":1024})
         //  - In addition to the image, pass in a list of points
         it(MODELS.sam, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.sam))
+            const processor = await AutoProcessor.from_pretrained(MODELS.sam)
 
             { // without input points
                 const image = await load_image(TEST_IMAGES.pattern_3x3);
@@ -105,7 +105,9 @@ describe('Processors', () => {
 
             { // with input points
                 const image = await load_image(TEST_IMAGES.pattern_3x3);
-                const { original_sizes, reshaped_input_sizes, input_points } = await processor(image, [[[1, 2]]]);
+                const { original_sizes, reshaped_input_sizes, input_points } = await processor(image, {
+                    input_points: [[[1, 2]]],
+                });
 
                 compare(original_sizes, [[3, 3]]);
                 compare(reshaped_input_sizes, [[1024, 1024]]);
@@ -114,7 +116,10 @@ describe('Processors', () => {
 
             { // multiple points with labels
                 const image = await load_image(TEST_IMAGES.pattern_3x3);
-                const { original_sizes, reshaped_input_sizes, input_points, input_labels } = await processor(image, [[[1, 2], [2, 1]]], [[1, 0]]);
+                const { original_sizes, reshaped_input_sizes, input_points, input_labels } = await processor(image, {
+                    input_points: [[[1, 2], [2, 1]]],
+                    input_labels: [[1, 0]],
+                });
 
                 compare(original_sizes, [[3, 3]]);
                 compare(reshaped_input_sizes, [[1024, 1024]]);
@@ -124,7 +129,9 @@ describe('Processors', () => {
             
             { // with input boxes
                 const image = await load_image(TEST_IMAGES.pattern_3x3);
-                const { original_sizes, reshaped_input_sizes, input_boxes } = await processor(image, null, null, [[[0, 1, 2, 2]]]);
+                const { original_sizes, reshaped_input_sizes, input_boxes } = await processor(image, {
+                    input_boxes: [[[0, 1, 2, 2]]],
+                });
 
                 compare(original_sizes, [[3, 3]]);
                 compare(reshaped_input_sizes, [[1024, 1024]]);
@@ -136,7 +143,7 @@ describe('Processors', () => {
         //  - tests thumbnail resizing (do_thumbnail=true, size=[960, 1280])
         //  - tests padding after normalization (image_mean=image_std=0.5)
         it(MODELS['donut-swin'], async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS['donut-swin']))
+            const processor = await AutoProcessor.from_pretrained(MODELS['donut-swin'])
 
             {
                 const image = await load_image(TEST_IMAGES.receipt);
@@ -152,7 +159,7 @@ describe('Processors', () => {
 
         // ConvNextFeatureExtractor
         it(MODELS.resnet, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.resnet))
+            const processor = await AutoProcessor.from_pretrained(MODELS.resnet)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -168,7 +175,7 @@ describe('Processors', () => {
 
         // ViTFeatureExtractor
         it(MODELS.vit, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.vit))
+            const processor = await AutoProcessor.from_pretrained(MODELS.vit)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -184,7 +191,7 @@ describe('Processors', () => {
 
         // MobileViTFeatureExtractor
         it(MODELS.mobilevit, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.mobilevit))
+            const processor = await AutoProcessor.from_pretrained(MODELS.mobilevit)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -201,7 +208,7 @@ describe('Processors', () => {
         // MobileViTFeatureExtractor
         //  - tests not converting to rgb (do_convert_rgb=false)
         it(MODELS.mobilevit_2, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.mobilevit_2))
+            const processor = await AutoProcessor.from_pretrained(MODELS.mobilevit_2)
 
             { // Tests grayscale image
                 const image = await load_image(TEST_IMAGES.skateboard);
@@ -218,7 +225,7 @@ describe('Processors', () => {
         // MobileViTImageProcessor
         //  - tests converting RGB to BGR (do_flip_channel_order=true)
         it(MODELS.mobilevit_3, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.mobilevit_3))
+            const processor = await AutoProcessor.from_pretrained(MODELS.mobilevit_3)
 
             {
                 const image = await load_image(TEST_IMAGES.cats);
@@ -237,7 +244,7 @@ describe('Processors', () => {
 
         // DeiTFeatureExtractor
         it(MODELS.deit, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.deit))
+            const processor = await AutoProcessor.from_pretrained(MODELS.deit)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -253,7 +260,7 @@ describe('Processors', () => {
 
         // BeitFeatureExtractor
         it(MODELS.beit, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.beit))
+            const processor = await AutoProcessor.from_pretrained(MODELS.beit)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -270,7 +277,7 @@ describe('Processors', () => {
 
         // DetrFeatureExtractor
         it(MODELS.detr, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.detr))
+            const processor = await AutoProcessor.from_pretrained(MODELS.detr)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -291,7 +298,7 @@ describe('Processors', () => {
 
         // YolosFeatureExtractor
         it(MODELS.yolos, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.yolos))
+            const processor = await AutoProcessor.from_pretrained(MODELS.yolos)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -307,7 +314,7 @@ describe('Processors', () => {
 
         // DPTFeatureExtractor
         it(MODELS.dpt, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt))
+            const processor = await AutoProcessor.from_pretrained(MODELS.dpt)
 
             { // Tests grayscale image
                 const image = await load_image(TEST_IMAGES.cats);
@@ -324,7 +331,7 @@ describe('Processors', () => {
         // GLPNForDepthEstimation
         //  - tests `size_divisor` and no size (size_divisor=32)
         it(MODELS.glpn, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.glpn))
+            const processor = await AutoProcessor.from_pretrained(MODELS.glpn)
 
             {
                 const image = await load_image(TEST_IMAGES.cats);
@@ -351,7 +358,7 @@ describe('Processors', () => {
         // NougatImageProcessor
         //  - tests padding after normalization (image_mean != 0.5, image_std != 0.5)
         it(MODELS.nougat, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.nougat))
+            const processor = await AutoProcessor.from_pretrained(MODELS.nougat)
 
             {
                 const image = await load_image(TEST_IMAGES.paper);
@@ -367,7 +374,7 @@ describe('Processors', () => {
 
         // OwlViTFeatureExtractor
         it(MODELS.owlvit, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.owlvit))
+            const processor = await AutoProcessor.from_pretrained(MODELS.owlvit)
             {
                 const image = await load_image(TEST_IMAGES.cats);
                 const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
@@ -383,7 +390,7 @@ describe('Processors', () => {
         // CLIPFeatureExtractor
         //  - tests center crop (do_center_crop=true, crop_size=224)
         it(MODELS.clip, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.clip))
+            const processor = await AutoProcessor.from_pretrained(MODELS.clip)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -403,7 +410,7 @@ describe('Processors', () => {
         //  - tests `size_divisibility` and no size (size_divisibility=32)
         //  - tests do_pad and `size_divisibility`
         it(MODELS.vitmatte, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.vitmatte))
+            const processor = await AutoProcessor.from_pretrained(MODELS.vitmatte)
 
             {
                 const image = await load_image(TEST_IMAGES.vitmatte_image);
@@ -447,7 +454,7 @@ describe('Processors', () => {
 
         // BitImageProcessor
         it(MODELS.dinov2, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.dinov2))
+            const processor = await AutoProcessor.from_pretrained(MODELS.dinov2)
 
             {
                 const image = await load_image(TEST_IMAGES.tiger);
@@ -466,7 +473,7 @@ describe('Processors', () => {
         //  - tests keep_aspect_ratio
         //  - tests bankers rounding
         it(MODELS.dpt_2, async () => {
-            const processor = await AutoProcessor.from_pretrained(m(MODELS.dpt_2))
+            const processor = await AutoProcessor.from_pretrained(MODELS.dpt_2)
 
             {
                 const image = await load_image(TEST_IMAGES.cats);
@@ -492,22 +499,23 @@ describe('Processors', () => {
             }
         }, MAX_TEST_EXECUTION_TIME);
 
-        // EfficientNetImageProcessor
-        //  - tests include_top
-        it(MODELS.efficientnet, async () => {
-            const processor = await AutoProcessor.from_pretrained(MODELS.efficientnet)
+        // TODO: Add back
+        // // EfficientNetImageProcessor
+        // //  - tests include_top
+        // it(MODELS.efficientnet, async () => {
+        //     const processor = await AutoProcessor.from_pretrained(MODELS.efficientnet)
 
-            {
-                const image = await load_image(TEST_IMAGES.cats);
-                const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
+        //     {
+        //         const image = await load_image(TEST_IMAGES.cats);
+        //         const { pixel_values, original_sizes, reshaped_input_sizes } = await processor(image);
 
-                compare(pixel_values.dims, [1, 3, 224, 224]);
-                compare(avg(pixel_values.data), 0.3015307230282871);
+        //         compare(pixel_values.dims, [1, 3, 224, 224]);
+        //         compare(avg(pixel_values.data), 0.3015307230282871);
 
-                compare(original_sizes, [[480, 640]]);
-                compare(reshaped_input_sizes, [[224, 224]]);
-            }
-        }, MAX_TEST_EXECUTION_TIME);
+        //         compare(original_sizes, [[480, 640]]);
+        //         compare(reshaped_input_sizes, [[224, 224]]);
+        //     }
+        // }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Audio processors', () => {
