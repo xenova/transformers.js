@@ -1730,48 +1730,45 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
     } = {}) {
         validate_audio_inputs(audio, 'SeamlessM4TFeatureExtractor');
 
-        let features = this._extract_fbank_features(audio, this.config.max_length);
-        const features_data = features.data;
+        let {data, dims} = this._extract_fbank_features(audio, this.config.max_length);
 
         if (do_normalize_per_mel_bins) {
-            const [num_features, feature_size] = features.dims;
+            const [num_features, feature_size] = dims;
             for (let i = 0; i < feature_size; ++i) {
                 let sum = 0;
                 for (let j = 0; j < num_features; ++j) {
-                    sum += features_data[j * feature_size + i];
+                    sum += data[j * feature_size + i];
                 }
 
                 const mean = sum / num_features;
 
                 let variance = 0;
                 for (let j = 0; j < num_features; ++j) {
-                    variance += (features_data[j * feature_size + i] - mean) ** 2;
+                    variance += (data[j * feature_size + i] - mean) ** 2;
                 }
                 variance /= num_features - 1; // NOTE: We use ddof=1
 
                 const std = Math.sqrt(variance + 1e-7);
                 for (let j = 0; j < num_features; ++j) {
                     const index = j * feature_size + i;
-                    features_data[index] = (features_data[index] - mean) / std;
+                    data[index] = (data[index] - mean) / std;
                 }
             }
         }
 
         let padded_attention_mask;
         if (padding) {
-            const [num_frames, num_channels] = features.dims;
+            const [num_frames, num_channels] = dims;
 
             const pad_size = num_frames % pad_to_multiple_of;
             if (pad_size > 0) {
                 const padded_data = new Float32Array(num_channels * (num_frames + pad_size));
-                padded_data.set(features_data)
-                padded_data.fill(this.config.padding_value, features_data.length)
+                padded_data.set(data)
+                padded_data.fill(this.config.padding_value, data.length)
 
                 const numPaddedFrames = num_frames + pad_size;
-                features = {
-                    data: padded_data,
-                    dims: [numPaddedFrames, num_channels],
-                }
+                data = padded_data;
+                dims = [numPaddedFrames, num_channels];
 
                 if (return_attention_mask) {
                     padded_attention_mask = new Tensor(
@@ -1784,7 +1781,7 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        const [num_frames, num_channels] = features.dims;
+        const [num_frames, num_channels] = dims;
 
         const stride = this.config.stride;
         const remainder = num_frames % stride;
@@ -1793,8 +1790,8 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
         }
 
         const input_features = new Tensor('float32',
-            features_data,
-            features.dims,
+            data,
+            dims,
         ).view(
             1,
             Math.floor(num_frames / stride),
