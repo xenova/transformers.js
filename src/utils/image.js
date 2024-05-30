@@ -39,7 +39,7 @@ if (BROWSER_ENV) {
         const metadata = await img.metadata();
         const rawChannels = metadata.channels;
 
-        const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
+        const { data, info } = await img.rotate().raw().toBuffer({ resolveWithObject: true });
 
         const newImage = new RawImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
         if (rawChannels !== undefined && rawChannels !== info.channels) {

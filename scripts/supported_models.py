@@ -456,6 +456,26 @@ SUPPORTED_MODELS = {
             'fxmarty/really-tiny-falcon-testing',
         ],
     },
+    'fastvit': {
+        # Image classification
+        'image-classification': [
+            # NOTE: Supported by timm, but not by transformers
+            # 'timm/fastvit_t8.apple_in1k',
+            # 'timm/fastvit_t8.apple_dist_in1k',
+            # 'timm/fastvit_t12.apple_in1k',
+            # 'timm/fastvit_t12.apple_dist_in1k',
+            # 'timm/fastvit_s12.apple_in1k',
+            # 'timm/fastvit_s12.apple_dist_in1k',
+            # 'timm/fastvit_sa12.apple_in1k',
+            # 'timm/fastvit_sa12.apple_dist_in1k',
+            # 'timm/fastvit_sa24.apple_in1k',
+            # 'timm/fastvit_sa24.apple_dist_in1k',
+            # 'timm/fastvit_sa36.apple_in1k',
+            # 'timm/fastvit_sa36.apple_dist_in1k',
+            # 'timm/fastvit_ma36.apple_in1k',
+            # 'timm/fastvit_ma36.apple_dist_in1k',
+        ],
+    },
     'glpn': {
         # Depth estimation
         'depth-estimation': [
@@ -623,6 +643,17 @@ SUPPORTED_MODELS = {
         #     'apple/deeplabv3-mobilevit-small',
         #     'apple/deeplabv3-mobilevit-x-small',
         #     'apple/deeplabv3-mobilevit-xx-small',
+        # ],
+    },
+    'mobilevitv2': {
+        # Image classification
+        'image-classification': [
+            'apple/mobilevitv2-1.0-imagenet1k-256',
+        ],
+
+        # TODO: Image segmentation
+        # 'image-segmentation': [
+        #     'apple/mobilevitv2-1.0-voc-deeplabv3',
         # ],
     },
     'mpt': {
