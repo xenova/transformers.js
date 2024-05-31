@@ -1676,7 +1676,6 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 
     /** @type {AutomaticSpeechRecognitionPipelineCallback} */
     async _call(audio, kwargs = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
         switch (this.model.config.model_type) {
             case 'whisper':
                 return this._call_whisper(audio, kwargs)
@@ -1825,13 +1824,13 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 
                 // TODO: Right now we only get top beam
                 if (return_timestamps === 'word') {
-                    chunk.tokens = data.sequences[0];
+                    chunk.tokens = data.sequences[0].tolist();
                     chunk.token_timestamps = data.token_timestamps.tolist()[0].map(
                         (/** @type {number} */ x) => round(x, 2)
                     );
 
                 } else {
-                    chunk.tokens = data[0];
+                    chunk.tokens = data[0].tolist();
                 }
 
                 // convert stride to seconds
