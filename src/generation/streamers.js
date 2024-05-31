@@ -114,7 +114,9 @@ export class TextStreamer extends BaseStreamer {
      * @param {boolean} stream_end 
      */
     on_finalized_text(text, stream_end) {
-        stdout_write(text);
+        if (text.length > 0) {
+            stdout_write(text);
+        }
         if (stream_end) {
             stdout_write('\n');
         }
