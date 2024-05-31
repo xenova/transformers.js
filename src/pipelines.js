@@ -3215,6 +3215,10 @@ export async function pipeline(
         cache_dir,
         local_files_only,
         revision,
+        device,
+        dtype,
+        model_file_name,
+        session_options,
     }
 
     const classes = new Map([
