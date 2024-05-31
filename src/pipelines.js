@@ -647,7 +647,7 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
  * 
  * @callback Text2TextGenerationPipelineCallback Generate the output text(s) using text(s) given as inputs.
  * @param {string|string[]} texts Input text for the encoder.
- * @param {import('./generation/configuration_utils.js').GenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {Partial<import('./generation/configuration_utils.js').GenerationConfig>} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<Text2TextGenerationOutput|Text2TextGenerationOutput[]>}
  * 
  * @typedef {TextPipelineConstructorArgs & Text2TextGenerationPipelineCallback & Disposable} Text2TextGenerationPipelineType
@@ -862,7 +862,7 @@ function isChat(x) {
  * 
  * @callback TextGenerationPipelineCallback Complete the prompt(s) given as inputs.
  * @param {string|string[]|Chat|Chat[]} texts One or several prompts (or one list of prompts) to complete.
- * @param {TextGenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {Partial<TextGenerationConfig>} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<TextGenerationOutput|TextGenerationOutput[]>} An array or object containing the generated texts.
  * 
  * @typedef {TextPipelineConstructorArgs & TextGenerationPipelineCallback & Disposable} TextGenerationPipelineType
@@ -1572,14 +1572,14 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * containing all the various text chunks identified by the model.
  * 
  * @typedef {Object} AutomaticSpeechRecognitionSpecificParams Parameters specific to automatic-speech-recognition pipelines.
- * @property {boolean|'word'} [kwargs.return_timestamps] Whether to return timestamps or not. Default is `false`.
- * @property {number} [kwargs.chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
- * @property {number} [kwargs.stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
- * @property {ChunkCallback} [kwargs.chunk_callback] Callback function to be called with each chunk processed.
- * @property {boolean} [kwargs.force_full_sequences] Whether to force outputting full sequences or not. Default is `false`.
- * @property {string} [kwargs.language] The source language. Default is `null`, meaning it should be auto-detected. Use this to potentially improve performance if the source language is known.
- * @property {string} [kwargs.task] The task to perform. Default is `null`, meaning it should be auto-detected.
- * @property {number[][]} [kwargs.forced_decoder_ids] A list of pairs of integers which indicates a mapping from generation indices to token indices
+ * @property {boolean|'word'} [return_timestamps] Whether to return timestamps or not. Default is `false`.
+ * @property {number} [chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
+ * @property {number} [stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
+ * @property {ChunkCallback} [chunk_callback] Callback function to be called with each chunk processed.
+ * @property {boolean} [force_full_sequences] Whether to force outputting full sequences or not. Default is `false`.
+ * @property {string} [language] The source language. Default is `null`, meaning it should be auto-detected. Use this to potentially improve performance if the source language is known.
+ * @property {string} [task] The task to perform. Default is `null`, meaning it should be auto-detected.
+ * @property {number[][]} [forced_decoder_ids] A list of pairs of integers which indicates a mapping from generation indices to token indices
  * that will be forced before sampling. For example, [[1, 123]] means the second generated token will always be a token of index 123.
  * @property {number} [num_frames] The number of frames in the input audio.
  * @typedef {import('./generation/configuration_utils.js').GenerationConfig & AutomaticSpeechRecognitionSpecificParams} AutomaticSpeechRecognitionConfig
@@ -1590,7 +1590,7 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * to get the waveform using the [`AudioContext`](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) API.
  * If `AudioContext` is not available, you should pass the raw waveform in as a Float32Array of shape `(n, )`.
  * - `Float32Array` or `Float64Array` of shape `(n, )`, representing the raw audio at the correct sampling rate (no further check will be done).
- * @param {AutomaticSpeechRecognitionConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {Partial<AutomaticSpeechRecognitionConfig>} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<AutomaticSpeechRecognitionOutput|AutomaticSpeechRecognitionOutput[]>} An object containing the transcription text and optionally timestamps if `return_timestamps` is `true`.
  * 
  * @typedef {TextAudioPipelineConstructorArgs & AutomaticSpeechRecognitionPipelineCallback & Disposable} AutomaticSpeechRecognitionPipelineType
@@ -1694,7 +1694,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
      * @type {AutomaticSpeechRecognitionPipelineCallback}
      * @private
      */
-    async _call_wav2vec2(audio, kwargs = {}) {
+    async _call_wav2vec2(audio, kwargs) {
         // TODO use kwargs
 
         if (kwargs.language) {
@@ -1732,8 +1732,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
      * @type {AutomaticSpeechRecognitionPipelineCallback}
      * @private
      */
-    async _call_whisper(audio, kwargs = {}) {
-
+    async _call_whisper(audio, kwargs) {
         const return_timestamps = kwargs.return_timestamps ?? false;
         const chunk_length_s = kwargs.chunk_length_s ?? 0;
         const chunk_callback = kwargs.chunk_callback ?? null;
@@ -1860,7 +1859,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
  * 
  * @callback ImageToTextPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} texts The images to be captioned.
- * @param {import('./generation/configuration_utils.js').GenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {Partial<import('./generation/configuration_utils.js').GenerationConfig>} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<ImageToTextOutput|ImageToTextOutput[]>} An object (or array of objects) containing the generated text(s).
  * 
  * @typedef {TextImagePipelineConstructorArgs & ImageToTextPipelineCallback & Disposable} ImageToTextPipelineType
@@ -2500,7 +2499,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
  * @callback DocumentQuestionAnsweringPipelineCallback Answer the question given as input by using the document.
  * @param {ImageInput} image The image of the document to use.
  * @param {string} question A question to ask of the document.
- * @param {import('./generation/configuration_utils.js').GenerationConfig} [options] Additional keyword arguments to pass along to the generate method of the model.
+ * @param {Partial<import('./generation/configuration_utils.js').GenerationConfig>} [options] Additional keyword arguments to pass along to the generate method of the model.
  * @returns {Promise<DocumentQuestionAnsweringOutput|DocumentQuestionAnsweringOutput[]>} An object (or array of objects) containing the answer(s).
  * 
  * @typedef {TextImagePipelineConstructorArgs & DocumentQuestionAnsweringPipelineCallback & Disposable} DocumentQuestionAnsweringPipelineType
