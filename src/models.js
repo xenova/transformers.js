@@ -111,6 +111,9 @@ import { EosTokenCriteria, MaxLengthCriteria, StoppingCriteriaList } from './gen
 import { LogitsSampler } from './generation/logits_sampler.js';
 import { apis } from './env.js';
 
+import { WhisperGenerationConfig } from './models/whisper/generation_whisper.js';
+import { whisper_language_to_code } from './models/whisper/common_whisper.js';
+
 //////////////////////////////////////////////////
 // Model types: used internally
 const MODEL_TYPES = {
@@ -1026,17 +1029,18 @@ export class PreTrainedModel extends Callable {
         //     processors.push(new SuppressTokensLogitsProcessor(generation_config.suppress_tokens));
         // }
 
-        if (generation_config.begin_suppress_tokens !== null) {
-            let begin_index = (input_ids_seq_length > 1 || generation_config.forced_bos_token_id === null)
-                ? input_ids_seq_length
-                : input_ids_seq_length + 1;
-
-            if (generation_config.forced_decoder_ids !== null) {
-                // generation starts after the last token that is forced
-                begin_index += generation_config.forced_decoder_ids[generation_config.forced_decoder_ids.length - 1][0];
-            }
-            processors.push(new SuppressTokensAtBeginLogitsProcessor(generation_config.begin_suppress_tokens, begin_index));
-        }
+        // TODO: Add back
+        // if (generation_config.begin_suppress_tokens !== null) {
+        //     let begin_index = (input_ids_seq_length > 1 || generation_config.forced_bos_token_id === null)
+        //         ? input_ids_seq_length
+        //         : input_ids_seq_length + 1;
+        //
+        //     if (generation_config.forced_decoder_ids !== null) {
+        //         // generation starts after the last token that is forced
+        //         begin_index += generation_config.forced_decoder_ids[generation_config.forced_decoder_ids.length - 1][0];
+        //     }
+        //     processors.push(new SuppressTokensAtBeginLogitsProcessor(generation_config.begin_suppress_tokens, begin_index));
+        // }
 
         // DEPRECATED: https://github.com/huggingface/transformers/pull/29485
         // if (generation_config.forced_decoder_ids !== null) {
@@ -1064,14 +1068,14 @@ export class PreTrainedModel extends Callable {
     /**
      * This function merges multiple generation configs together to form a final generation config to be used by the model for text generation.
      * It first creates an empty `GenerationConfig` object, then it applies the model's own `generation_config` property to it. Finally, if a `generation_config` object was passed in the arguments, it overwrites the corresponding properties in the final config with those of the passed config object.
-     * @param {GenerationConfig} generation_config A `GenerationConfig` object containing generation parameters.
+     * @param {GenerationConfig|null} generation_config A `GenerationConfig` object containing generation parameters.
      * @param {Object} kwargs Additional generation parameters to be used in place of those in the `generation_config` object.
      * @returns {GenerationConfig} The final generation config object to be used by the model for text generation.
      */
-    _prepare_generation_config(generation_config, kwargs) {
+    _prepare_generation_config(generation_config, kwargs, cls = GenerationConfig) {
         // Create empty generation config (contains defaults)
         // We pass `this.config` so that if `eos_token_id` or `bos_token_id` exist in the model's config, we will use them
-        const gen_config = new GenerationConfig(this.config);
+        const gen_config = new cls(this.config);
 
         // Apply model's generation config, if it exists
         if ('generation_config' in this) {
@@ -1248,39 +1252,36 @@ export class PreTrainedModel extends Callable {
      * @param {*} param0 
      */
     _prepare_decoder_input_ids_for_generation({ batch_size, model_input_name, model_kwargs, decoder_start_token_id, bos_token_id, generation_config }) {
+        let { decoder_input_ids, ...model_inputs } = model_kwargs;
 
-        decoder_start_token_id = decoder_start_token_id ?? bos_token_id;
+        // Prepare input ids if the user has not defined `decoder_input_ids` manually.
+        if (!decoder_input_ids) {
+            decoder_start_token_id ??= bos_token_id;
 
-        let decoder_input_ids_start_data;
-        if (this.config.model_type === 'musicgen') {
-            // Custom logic
-            // TODO: move to Musicgen class
-            decoder_input_ids_start_data =
-                new Array(batch_size * this.config.decoder.num_codebooks)
-                    .fill(decoder_start_token_id);
+            if (this.config.model_type === 'musicgen') {
+                // Custom logic (TODO: move to Musicgen class)
+                decoder_input_ids = Array.from({
+                    length: batch_size * this.config.decoder.num_codebooks
+                }, () => [decoder_start_token_id]);
 
-        } else if (Array.isArray(decoder_start_token_id)) {
-            if (decoder_start_token_id.length !== batch_size) {
-                throw new Error(
-                    `\`decoder_start_token_id\` expcted to have length ${batch_size} but got ${decoder_start_token_id.length}`
-                )
+            } else if (Array.isArray(decoder_start_token_id)) {
+                if (decoder_start_token_id.length !== batch_size) {
+                    throw new Error(
+                        `\`decoder_start_token_id\` expcted to have length ${batch_size} but got ${decoder_start_token_id.length}`
+                    )
+                }
+                decoder_input_ids = decoder_start_token_id;
+            } else {
+                decoder_input_ids = Array.from({
+                    length: batch_size,
+                }, () => [decoder_start_token_id]);
             }
-            // TODO: support list of start tokens?
-            decoder_input_ids_start_data = decoder_start_token_id;
-        } else {
-            decoder_input_ids_start_data = new Array(batch_size).fill(decoder_start_token_id);
         }
-        const decoder_input_ids_start = new Tensor(
-            'int64',
-            decoder_input_ids_start_data,
-            [decoder_input_ids_start_data.length, 1],
-        );
 
-        // TODO add other functionality
-        const decoder_input_ids = decoder_input_ids_start;
+        decoder_input_ids = toI64Tensor(decoder_input_ids);
         model_kwargs['decoder_attention_mask'] = ones_like(decoder_input_ids);
 
-        return { input_ids: decoder_input_ids, model_inputs: model_kwargs };
+        return { input_ids: decoder_input_ids, model_inputs };
     }
 
     /**
@@ -3059,7 +3060,7 @@ export class WhisperPreTrainedModel extends PreTrainedModel {
     ];
 
     /**
-     * Creates a new instance of the `WhisperForConditionalGeneration` class.
+     * Creates a new instance of the `WhisperPreTrainedModel` class.
      * @param {Object} config The model configuration.
      * @param {Record<string, any>} sessions The inference sessions for the model.
      * @param {GenerationConfig} generation_config The generation configuration.
@@ -3076,72 +3077,75 @@ export class WhisperPreTrainedModel extends PreTrainedModel {
 export class WhisperModel extends WhisperPreTrainedModel { }
 
 
-class WhisperGenerationConfig extends GenerationConfig {
-
-    /**
-     * Whether to return the timestamps with the text. This enables the `WhisperTimestampsLogitsProcessor`.
-     * @type {boolean}
-     */
-    return_timestamps = null;
-
-    /**
-     * Whether to return token-level timestamps
-     * with the text. This can be used with or without the `return_timestamps` option. To get word-level
-     * timestamps, use the tokenizer to group the tokens into words.
-     * @type {boolean}
-     */
-    return_token_timestamps = null;
-
-    /**
-     * The number of audio frames available in this chunk. This is only used generating word-level timestamps.
-     * @type {number}
-     */
-    num_frames = null;
-
-    /**
-     * Alignment heads to predict word-level timestamps. This is a list of [layer, head] pairs that
-     * select the cross-attention heads that are highly correlated to word-level timing.
-     * @type {[number, number][]}
-     */
-    alignment_heads = null;
-
-    /**
-     * Task to use for generation, either "translate" or "transcribe".
-     * @type {string}
-     */
-    task = null;
-
-    /**
-     * Language token to use for generation, can be either in the form of `<|en|>`, `en` or `english`.
-     * You can find all the possible language tokens in the `model.generation_config.lang_to_id` dictionary.
-     * @type {string}
-     */
-    language = null;
-}
-
 /**
  * WhisperForConditionalGeneration class for generating conditional outputs from Whisper models.
  */
 export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
+
+    _prepare_generation_config(generation_config, kwargs) {
+        return /** @type {WhisperGenerationConfig} */ (super._prepare_generation_config(generation_config, kwargs, WhisperGenerationConfig));
+    }
 
     /**
      * 
      * @param {WhisperGenerationConfig} generation_config 
      */
     _retrieve_init_tokens(generation_config) {
-        const init_tokens = [generation_config.decoder_start_token_id]
+        // prefix tokens are of the form: 
+        //  - Multilingual: <|startoftranscript|> <|lang_id|> <|task|> [<|notimestamps|>]
+        //  - English-only: <|startoftranscript|> [<|notimestamps|>]
 
-        throw new Error("Not implemented yet")
+        // 1. Handle <|startoftranscript|> token
+        const init_tokens = [generation_config.decoder_start_token_id];
+
+        // 2. Handle <|lang_id|> and <|task> tokens
+        let language = generation_config.language;
+        const task = generation_config.task;
+        if (generation_config.is_multilingual) {
+            if (!language) {
+                // TODO: Implement language detection
+                console.warn('No language specified - defaulting to English (en).');
+                language = 'en';
+            }
+
+            // Add language token
+            const language_code = whisper_language_to_code(language);
+            const language_token = `<|${language_code}|>`;
+            init_tokens.push(generation_config.lang_to_id[language_token])
+
+            // Add task token
+            // NOTE: Defaults to 'transcribe' if no task is specified
+            init_tokens.push(generation_config.task_to_id[task ?? 'transcribe']);
+
+        } else if (language || task) {
+            throw new Error(
+                "Cannot specify `task` or `language` for an English-only model. If the model is intended to be multilingual, pass `is_multilingual=true` to generate, or update the generation config."
+            )
+        }
+
+        // 3. Handle <|notimestamps|> token
+        if (
+            !generation_config.return_timestamps
+            && generation_config.no_timestamps_token_id
+            && init_tokens.at(-1) !== generation_config.no_timestamps_token_id
+        ) {
+            init_tokens.push(generation_config.no_timestamps_token_id);
+        } else if (
+            generation_config.return_timestamps
+            &&
+            init_tokens.at(-1) === generation_config.no_timestamps_token_id
+        ) {
+            console.warn("<|notimestamps|> prompt token is removed from generation_config since `return_timestamps` is set to `true`.");
+            init_tokens.pop();
+        }
+
+        // let's make sure we don't pass `null` tokens as prompt tokens
+        return init_tokens.filter(token => token != null);
     }
 
     /**
-     * @typedef {Object} WhisperGenerationSpecificParams
-     * @property {WhisperGenerationConfig} generation_config
-     */
-
-    /**
      * Transcribes or translates log-mel input features to a sequence of auto-regressively generated token ids.
-     * @param {import('./generation/parameters.js').GenerationFunctionParameters & {generation_config: WhisperGenerationConfig} & WhisperGenerationConfig} options
+     * @param {import('./models/whisper/generation_whisper.js').WhisperGenerationFunctionParameters} options
      * @returns {Promise<ModelOutput|Tensor>} The output of the model, which can contain the generated token ids, attentions, and scores.
      */
     async generate({
@@ -3150,76 +3154,33 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         logits_processor = null,
         stopping_criteria = null,
 
-        // Whisper-specific options
-        language = null,
-        task = null,
+        // Whisper-specific options (passed to kwargs)
+        // prompt_ids = null,
+        // language = null,
+        // task = null,
 
         ...kwargs
     }) {
-        throw new Error("WhisperForConditionalGeneration.generate is not yet in Transformers.js v3.")
+        generation_config = this._prepare_generation_config(generation_config, kwargs);
 
-        // console.log('inputs', inputs);
-        // console.log('kwargs', kwargs);
-        // async generate({
-        //     inputs,
-        // },
-        //     generation_config = null,
-        //     logits_processor = null,
-        //     // {
-        //     //     return_timestamps = null,
-        //     //     return_token_timestamps = null,
-        //     //     language = null,
-        //     //     task = null,
-        //     // } = {},
-        // ) {
-        // Create generation config object
-        // TODO: this doesn't create a WhisperGenerationConfig, it makes a GenerationConfig
-        generation_config = this._prepare_generation_config(generation_config);
-
-
-        // Whisper has additional options for returning timestamps
-        generation_config.return_timestamps ??= false;
-
-        // TODO add language and task
+        const init_tokens = this._retrieve_init_tokens(generation_config);
 
         if (generation_config.return_timestamps) {
-            throw new Error("Not implemented yet")
-            // logits_processor = [new WhisperTimeStampLogitsProcessor(generation_config)]
+            logits_processor ??= new LogitsProcessorList();
+            logits_processor.push(
+                new WhisperTimeStampLogitsProcessor(generation_config, init_tokens)
+            );
         }
-
-        if (generation_config.return_token_timestamps) {
-            generation_config.output_attentions = true;
-            generation_config.return_dict_in_generate = true;
-
-            if (generation_config.task === 'translate') {
-                console.warn("Token-level timestamps may not be reliable for task 'translate'.")
-            }
-
-            if (!generation_config.alignment_heads) {
-                throw new Error(
-                    "Model generation config has no `alignment_heads`, token-level timestamps not available. " +
-                    "See https://gist.github.com/hollance/42e32852f24243b748ae6bc1f985b13a on how to add this property to the generation config."
-                )
-            }
-        }
-
-        const init_tokens = this._retrieve_init_tokens(generation_config)
-
-        // https://github.com/huggingface/transformers/pull/28687/files
 
         const outputs = await super.generate({
-            inputs, generation_config, logits_processor, ...kwargs
+            inputs,
+            generation_config,
+            logits_processor,
+            decoder_input_ids: init_tokens,
+            ...kwargs
         });
 
-        if (generation_config.return_token_timestamps && generation_config.alignment_heads) {
-            outputs["token_timestamps"] = this._extract_token_timestamps(
-                outputs,
-                generation_config.alignment_heads,
-                generation_config.num_frames,
-            )
-        }
-
-        return outputs
+        return outputs;
     }
 
     /**

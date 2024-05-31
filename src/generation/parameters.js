@@ -29,5 +29,7 @@
  * @property {import('./streamers.js').BaseStreamer} [streamer=null] (`BaseStreamer`, *optional*):
  * Streamer object that will be used to stream the generated sequences. Generated tokens are passed
  * through `streamer.put(token_ids)` and the streamer is responsible for any further processing.
+ * @property {number[]} [decoder_input_ids=null] (`number[]`, *optional*):
+ * If the model is an encoder-decoder model, this argument is used to pass the `decoder_input_ids`.
  * @param {any} [kwargs] (`Dict[str, any]`, *optional*):
  */

@@ -234,24 +234,24 @@ export class SuppressTokensAtBeginLogitsProcessor extends LogitsProcessor {
 export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
     /**
      * Constructs a new WhisperTimeStampLogitsProcessor.
-     * @param {Object} generate_config The config object passed to the `generate()` method of a transformer model.
-     * @param {number} generate_config.eos_token_id The ID of the end-of-sequence token.
-     * @param {number} generate_config.no_timestamps_token_id The ID of the token used to indicate that a token should not have a timestamp.
-     * @param {[number, number][]} [generate_config.forced_decoder_ids] An array of two-element arrays representing decoder IDs that are forced to appear in the output. The second element of each array indicates whether the token is a timestamp.
-     * @param {number} [generate_config.max_initial_timestamp_index] The maximum index at which an initial timestamp can appear.
+     * @param {import('../models/whisper/generation_whisper.js').WhisperGenerationConfig} generate_config The config object passed to the `generate()` method of a transformer model.
+     * @param {number[]} init_tokens The initial tokens of the input sequence.
      */
-    constructor(generate_config) {
+    constructor(generate_config, init_tokens) {
         super();
-        this.eos_token_id = generate_config.eos_token_id;
+        this.eos_token_id =
+            Array.isArray(generate_config.eos_token_id)
+                ? generate_config.eos_token_id[0]
+                : generate_config.eos_token_id;
+
         this.no_timestamps_token_id = generate_config.no_timestamps_token_id;
         this.timestamp_begin = this.no_timestamps_token_id + 1;
 
-        this.begin_index = (generate_config.forced_decoder_ids || []).length + 2;
-        if (generate_config.forced_decoder_ids.slice(-1)[0][1] === this.no_timestamps_token_id) {
+        this.begin_index = init_tokens.length;
+        if (init_tokens.at(-1) === this.no_timestamps_token_id) {
             this.begin_index -= 1;
         }
         this.max_initial_timestamp_index = generate_config.max_initial_timestamp_index;
-
     }
 
     /**
