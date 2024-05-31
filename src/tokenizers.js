@@ -3490,7 +3490,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
     /**
      * Decodes automatic speech recognition (ASR) sequences.
-     * @param {Array<{tokens: number[], token_timestamps?: number[], stride: number[]}>} sequences The sequences to decode.
+     * @param {Array<{tokens: bigint[], token_timestamps?: number[], stride: number[]}>} sequences The sequences to decode.
      * @param {Object} options The options to use for decoding.
      * @returns {Array<string|{chunks?: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} The decoded sequences.
      */
@@ -3576,7 +3576,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                         if (token >= timestamp_begin) {
                             // There can be several token in the right stride
                             // But the last one is ALWAYS going to be skipped
-                            if (last_timestamp !== null && (token - timestamp_begin) * time_precision < right_stride_start) {
+                            if (last_timestamp !== null && (Number(token) - timestamp_begin) * time_precision < right_stride_start) {
                                 break;
                             }
                             last_timestamp = token;
@@ -3590,7 +3590,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
             // - all tokens within output
             for (let i = 0; i < token_ids.length; ++i) {
-                const token = token_ids[i];
+                const token = Number(token_ids[i]);
                 // 4 possible states for each token
                 // - 1/ Language code
                 // - 2/ all other special tokens (which we ignore)
