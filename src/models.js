@@ -1029,18 +1029,13 @@ export class PreTrainedModel extends Callable {
         //     processors.push(new SuppressTokensLogitsProcessor(generation_config.suppress_tokens));
         // }
 
-        // TODO: Add back
-        // if (generation_config.begin_suppress_tokens !== null) {
-        //     let begin_index = (input_ids_seq_length > 1 || generation_config.forced_bos_token_id === null)
-        //         ? input_ids_seq_length
-        //         : input_ids_seq_length + 1;
-        //
-        //     if (generation_config.forced_decoder_ids !== null) {
-        //         // generation starts after the last token that is forced
-        //         begin_index += generation_config.forced_decoder_ids[generation_config.forced_decoder_ids.length - 1][0];
-        //     }
-        //     processors.push(new SuppressTokensAtBeginLogitsProcessor(generation_config.begin_suppress_tokens, begin_index));
-        // }
+        if (generation_config.begin_suppress_tokens !== null) {
+            const begin_index = (input_ids_seq_length > 1 || generation_config.forced_bos_token_id === null)
+                ? input_ids_seq_length
+                : input_ids_seq_length + 1;
+
+            processors.push(new SuppressTokensAtBeginLogitsProcessor(generation_config.begin_suppress_tokens, begin_index));
+        }
 
         // DEPRECATED: https://github.com/huggingface/transformers/pull/29485
         // if (generation_config.forced_decoder_ids !== null) {
