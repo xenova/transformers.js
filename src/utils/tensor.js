@@ -251,6 +251,27 @@ export class Tensor {
     }
 
     /**
+     * Return a new Tensor with every element divided by a constant.
+     * @param {number} val The value to divide by.
+     * @returns {Tensor} The new tensor.
+     */
+    div(val) {
+        return this.clone().div_(val);
+    }
+
+    /**
+     * Divide the tensor by a constant in place.
+     * @param {number} val The value to divide by.
+     * @returns {Tensor} Returns `this`.
+     */
+    div_(val) {
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] /= val;
+        }
+        return this;
+    }
+    /**
      * Return a new Tensor with every element added by a constant.
      * @param {number} val The value to add by.
      * @returns {Tensor} The new tensor.
