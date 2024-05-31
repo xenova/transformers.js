@@ -31,6 +31,8 @@ import {
     MusicgenForConditionalGeneration,
     LlavaForConditionalGeneration,
     CLIPImageProcessor,
+    WhisperTokenizer,
+    WhisperForConditionalGeneration,
     AutoProcessor,
     RawImage,
     full,
@@ -74,6 +76,7 @@ describe('Tiny random models', () => {
                 expect(last_hidden_state.mean().item()).toBeCloseTo(0.0, 5);
 
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const { last_hidden_state } = await model(inputs);
@@ -113,6 +116,7 @@ describe('Tiny random models', () => {
                 expect(logits.mean().item()).toBeCloseTo(0.0016587056452408433, 5);
 
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(texts, { padding: true });
                 const { logits } = await model(inputs);
@@ -151,6 +155,7 @@ describe('Tiny random models', () => {
                     expect(item).toBeCloseTo(target[i], 5);
                 });
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const { logits } = await model(inputs);
@@ -191,6 +196,7 @@ describe('Tiny random models', () => {
                 expect(logits.mean().item()).toBeCloseTo(0.07089076191186905, 5);
 
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const { logits } = await model(inputs);
@@ -227,6 +233,7 @@ describe('Tiny random models', () => {
                 expect(end_logits.mean().item()).toBeCloseTo(0.11811424791812897, 5);
 
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const { start_logits, end_logits } = await model(inputs);
@@ -318,6 +325,7 @@ describe('Tiny random models', () => {
                     [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -384,6 +392,115 @@ describe('Tiny random models', () => {
                 expect(audio_values.dims).toEqual([2, 1, 1920]);
                 expect(audio_values.mean().item()).toBeCloseTo(0.16644206643104553, 5);
             }, MAX_TEST_EXECUTION_TIME);
+
+            afterAll(async () => {
+                await model?.dispose();
+            }, MAX_MODEL_DISPOSE_TIME);
+        });
+    });
+
+    describe('whisper', () => {
+
+        describe('WhisperForConditionalGeneration', () => {
+            const model_id = 'Xenova/tiny-random-WhisperForConditionalGeneration';
+
+            /** @type {WhisperForConditionalGeneration} */
+            let model;
+            /** @type {WhisperTokenizer} */
+            let tokenizer;
+            beforeAll(async () => {
+                model = await WhisperForConditionalGeneration.from_pretrained(model_id, {
+                    // TODO move to config
+                    ...DEFAULT_MODEL_OPTIONS,
+                });
+                tokenizer = await WhisperTokenizer.from_pretrained(model_id);
+            }, MAX_MODEL_LOAD_TIME);
+
+            describe('prefix tokens', () => {
+                const input_features = full([1, 80, 3000], 0.0);
+
+                describe('English-only', () => {
+                    it('default', async () => {
+                        const outputs = await model.generate({
+                            input_features,
+                            is_multilingual: false,
+                            max_new_tokens: 1,
+                        });
+
+                        expect(outputs.tolist()).toEqual([[
+                        /* Prefix */ 50258n, 50363n, /* Generated */ 45084n,
+                        ]]);
+                    });
+                    it('return_timestamps=true', async () => {
+                        const outputs = await model.generate({
+                            input_features,
+                            is_multilingual: false,
+                            max_new_tokens: 1,
+                            return_timestamps: true,
+                        });
+
+                        expect(outputs.tolist()).toEqual([[
+                        /* Prefix */ 50258n, /* Generated */ 50366n,
+                        ]]);
+                    });
+                });
+
+                describe('multilingual', () => {
+                    it('language unset; task unset', async () => {
+                        // language defaults to 'en'
+                        // task defaults to 'transcribe'
+
+                        const outputs = await model.generate({
+                            input_features,
+                            max_new_tokens: 1,
+                        });
+
+                        expect(outputs.tolist()).toEqual([[
+                        /* Prefix */ 50258n, 50259n, 50359n, 50363n, /* Generated */ 45084n,
+                        ]]);
+                    });
+
+                    it('language set; task unset', async () => {
+                        // task defaults to 'transcribe'
+                        const outputs = await model.generate({
+                            input_features,
+                            max_new_tokens: 1,
+                            language: 'af',
+                        });
+
+                        expect(outputs.tolist()).toEqual([[
+                        /* Prefix */ 50258n, 50327n, 50359n, 50363n, /* Generated */ 45084n,
+                        ]]);
+                    });
+
+                    it('language set; task set', async () => {
+                        const outputs = await model.generate({
+                            input_features,
+                            max_new_tokens: 1,
+                            language: 'zh',
+                            task: 'translate',
+                        });
+
+                        expect(outputs.tolist()).toEqual([[
+                        /* Prefix */ 50258n, 50260n, 50358n, 50363n, /* Generated */ 45084n,
+                        ]]);
+                    });
+
+                    it('return_timestamps=true', async () => {
+                        const outputs = await model.generate({
+                            input_features,
+                            max_new_tokens: 1,
+                            language: 'en',
+                            task: 'transcribe',
+                            return_timestamps: true,
+                        });
+
+                        expect(outputs.tolist()).toEqual([[
+                        /* Prefix */ 50258n, 50259n, 50359n, /* Generated */ 50400n,
+                        ]]);
+                    });
+                });
+            });
 
             afterAll(async () => {
                 await model?.dispose();
@@ -491,6 +608,7 @@ describe('Tiny random models', () => {
                     [2n, 42891n, 39144n, 39144n, 39144n, 39144n, 39144n, 39144n, 39144n, 39144n],
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -534,6 +652,7 @@ describe('Tiny random models', () => {
                     [1n, 22172n, 18547n, 8143n, 22202n, 9456n, 17213n, 15330n, 26591n, 15721n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -578,6 +697,7 @@ describe('Tiny random models', () => {
                     [2n, 17534n, 254059n, 254059n, 254059n, 254059n, 254059n, 254059n, 254059n, 254059n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -622,6 +742,7 @@ describe('Tiny random models', () => {
                     [258n, 863n, 79n, 79n, 79n, 949n, 949n, 949n, 949n, 949n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -666,6 +787,7 @@ describe('Tiny random models', () => {
                     [259n, 864n, 80n, 881n, 502n, 895n, 938n, 668n, 502n, 895n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -710,6 +832,7 @@ describe('Tiny random models', () => {
                     [258n, 863n, 79n, 102n, 401n, 773n, 889n, 159n, 957n, 869n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -753,6 +876,7 @@ describe('Tiny random models', () => {
                     [198n, 803n, 82n, 82n, 82n, 82n, 82n, 82n, 82n, 82n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -797,6 +921,7 @@ describe('Tiny random models', () => {
                     [258n, 863n, 79n, 79n, 79n, 79n, 79n, 79n, 79n, 79n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -841,6 +966,7 @@ describe('Tiny random models', () => {
                     [258n, 863n, 79n, 79n, 79n, 79n, 79n, 79n, 79n, 243n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -885,6 +1011,7 @@ describe('Tiny random models', () => {
                     [259n, 864n, 80n, 80n, 80n, 80n, 80n, 80n, 80n, 80n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -929,6 +1056,7 @@ describe('Tiny random models', () => {
                     [258n, 863n, 79n, 437n, 334n, 450n, 294n, 621n, 375n, 385n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
@@ -972,6 +1100,7 @@ describe('Tiny random models', () => {
                     [1n, 6312n, 28709n, 24704n, 8732n, 1310n, 9808n, 13771n, 27309n, 4779n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
+
             it('batch_size>1', async () => {
                 const inputs = tokenizer(['hello', 'hello world'], { padding: true });
                 const outputs = await model.generate({
