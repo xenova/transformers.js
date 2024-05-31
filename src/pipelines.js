@@ -1554,12 +1554,6 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
 }
 
 /**
- * @typedef {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: number[], token_timestamps?: number[]}} ChunkCallbackItem
- * @callback ChunkCallback
- * @param {ChunkCallbackItem} chunk The chunk to process.
- */
-
-/**
  * @typedef {Object} Chunk
  * @property {[number, number]} timestamp The start and end timestamp of the chunk in seconds.
  * @property {string} text The recognized text.
@@ -1575,7 +1569,6 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * @property {boolean|'word'} [return_timestamps] Whether to return timestamps or not. Default is `false`.
  * @property {number} [chunk_length_s] The length of audio chunks to process in seconds. Default is 0 (no chunking).
  * @property {number} [stride_length_s] The length of overlap between consecutive audio chunks in seconds. If not provided, defaults to `chunk_length_s / 6`.
- * @property {ChunkCallback} [chunk_callback] Callback function to be called with each chunk processed.
  * @property {boolean} [force_full_sequences] Whether to force outputting full sequences or not. Default is `false`.
  * @property {string} [language] The source language. Default is `null`, meaning it should be auto-detected. Use this to potentially improve performance if the source language is known.
  * @property {string} [task] The task to perform. Default is `null`, meaning it should be auto-detected.
@@ -1735,7 +1728,6 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
     async _call_whisper(audio, kwargs) {
         const return_timestamps = kwargs.return_timestamps ?? false;
         const chunk_length_s = kwargs.chunk_length_s ?? 0;
-        const chunk_callback = kwargs.chunk_callback ?? null;
         const force_full_sequences = kwargs.force_full_sequences ?? false;
         let stride_length_s = kwargs.stride_length_s ?? null;
 
@@ -1770,7 +1762,7 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 
         const toReturn = [];
         for (const aud of preparedAudios) {
-            /** @type {ChunkCallbackItem[]} */
+            /** @type {{stride: number[], input_features: Tensor, is_last: boolean, tokens?: bigint[], token_timestamps?: number[]}[]} */
             let chunks = [];
             if (chunk_length_s > 0) {
                 if (stride_length_s === null) {
@@ -1834,10 +1826,6 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 
                 // convert stride to seconds
                 chunk.stride = chunk.stride.map(x => x / sampling_rate);
-
-                if (chunk_callback !== null) {
-                    chunk_callback(chunk)
-                }
             }
 
             // Merge text chunks
