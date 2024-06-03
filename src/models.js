@@ -675,8 +675,6 @@ function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, ge
 }
 
 function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
-
-    // console.log('model_inputs', model_inputs)
     const { ...new_model_inputs } = model_inputs;
 
     const past_key_values = model_inputs.past_key_values;
@@ -1070,7 +1068,16 @@ export class PreTrainedModel extends Callable {
     _prepare_generation_config(generation_config, kwargs, cls = GenerationConfig) {
         // Create empty generation config (contains defaults)
         // We pass `this.config` so that if `eos_token_id` or `bos_token_id` exist in the model's config, we will use them
-        const gen_config = new cls(this.config);
+        const config = { ...this.config };
+        for (const key of ["decoder", "generator", "text_config"]) {
+            // Special case: some models have generation attributes set in the decoder.
+            // Use them if still unset in the generation config.
+            if (key in config) {
+                Object.assign(config, config[key]);
+            }
+        }
+
+        const gen_config = new cls(config);
 
         // Apply model's generation config, if it exists
         if ('generation_config' in this) {
@@ -1195,7 +1202,7 @@ export class PreTrainedModel extends Callable {
      * @param {Object} params
      * @param {Tensor} [params.inputs=null]
      * @param {number} [params.bos_token_id=null]
-     * @param {Record<string, Tensor>} [params.model_kwargs]
+     * @param {Record<string, Tensor|number[]>} [params.model_kwargs]
      * @returns {{inputs_tensor: Tensor, model_inputs: Record<string, Tensor>, model_input_name: string}} The model-specific inputs for generation.
      */
     _prepare_model_inputs({ inputs, bos_token_id, model_kwargs }) {
@@ -1323,7 +1330,6 @@ export class PreTrainedModel extends Callable {
         let input_ids;
         if (is_encoder_decoder) {
             // Generating from the encoder outputs
-
             ({ input_ids, model_inputs } = this._prepare_decoder_input_ids_for_generation({
                 batch_size: model_inputs[model_input_name].dims.at(0),
                 model_input_name,
@@ -1722,10 +1728,7 @@ export class PreTrainedModel extends Callable {
             const dtype = this.custom_config.kv_cache_dtype ?? 'float32';
             const empty = (dtype === 'float16') ? new Uint16Array() : [];
 
-            const shapes = getKeyValueShapes(this.config, {
-                // @ts-ignore
-                encoder_add_pkv: this.add_encoder_pkv ?? true,
-            });
+            const shapes = getKeyValueShapes(this.config);
 
             for (const name in shapes) {
                 decoderFeeds[name] = new Tensor(dtype, empty, shapes[name]);
@@ -3289,7 +3292,12 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
  */
 export class VisionEncoderDecoderModel extends PreTrainedModel {
     main_input_name = 'pixel_values';
-
+    forward_params = [
+        'pixel_values',
+        'input_ids',
+        'encoder_hidden_states',
+        'past_key_values',
+    ];
     /**
      * Creates a new instance of the `VisionEncoderDecoderModel` class.
      * @param {Object} config The model configuration.
@@ -3299,49 +3307,6 @@ export class VisionEncoderDecoderModel extends PreTrainedModel {
     constructor(config, sessions, generation_config) {
         super(config, sessions);
         this.generation_config = generation_config;
-        throw new Error("Not implemented yet")
-
-        // Extract configs
-        const encoderConfig = this.config.encoder;
-        const decoderConfig = this.config.decoder;
-
-        // Validate encoder
-        const encoderModelType = encoderConfig.model_type;
-        const encoderModel =
-            MODEL_MAPPING_NAMES_ENCODER_ONLY.get(encoderModelType)
-            ?? MODEL_MAPPING_NAMES_ENCODER_DECODER.get(encoderModelType);
-        if (!encoderModel) {
-            console.warn(`Model type for encoder '${encoderModelType}' not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`);
-        }
-
-        // Validate decoder
-        const decoderModel = MODEL_FOR_CAUSAL_LM_MAPPING_NAMES.get(decoderConfig.model_type);
-        if (!decoderModel) {
-            throw new Error(`Unable to construct \`VisionEncoderDecoder\` due to unsupported decoder: "${this.config.decoder.model_type}"`);
-        }
-
-        // @ts-ignore
-        const decoderModelClass = decoderModel[1];
-        // @ts-ignore
-        const decoder = new decoderModelClass(decoderConfig, { /* No sessions */ }, generation_config);
-
-        this.add_encoder_pkv = 'num_decoder_layers' in decoder;
-        if (this.add_encoder_pkv) {
-            // Decoder is part of an encoder-decoder model
-            this.num_decoder_layers = decoder.num_decoder_layers;
-            this.num_decoder_heads = decoder.num_decoder_heads;
-            this.decoder_dim_kv = decoder.decoder_dim_kv;
-
-            this.num_encoder_layers = decoder.num_encoder_layers;
-            this.num_encoder_heads = decoder.num_encoder_heads;
-            this.encoder_dim_kv = decoder.encoder_dim_kv;
-
-        } else {
-            // Decoder is a decoder-only model
-            this.num_layers = decoder.num_layers;
-            this.num_heads = decoder.num_heads;
-            this.dim_kv = decoder.dim_kv;
-        }
     }
 }
 //////////////////////////////////////////////////

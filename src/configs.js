@@ -166,6 +166,30 @@ function getNormalizedConfig(config) {
             mapping['num_encoder_heads'] = mapping['num_decoder_heads'] = 'num_attention_heads';
             mapping['encoder_hidden_size'] = mapping['decoder_hidden_size'] = 'hidden_size';
             break;
+
+        case 'vision-encoder-decoder':
+            const encoderConfig = getNormalizedConfig(config.encoder);
+            const decoderConfig = getNormalizedConfig(config.decoder);
+
+            const add_encoder_pkv = 'num_decoder_layers' in decoderConfig;
+            const result = {}
+            if (add_encoder_pkv) {
+                // Decoder is part of an encoder-decoder model
+                result.num_decoder_layers = decoderConfig.num_layers;
+                result.num_decoder_heads = decoderConfig.num_heads;
+                result.decoder_hidden_size = decoderConfig.hidden_size;
+
+                result.num_encoder_layers = encoderConfig.num_layers;
+                result.num_encoder_heads = encoderConfig.num_heads;
+                result.encoder_hidden_size = encoderConfig.hidden_size;
+            } else {
+                // Decoder is a decoder-only model
+                result.num_layers = decoderConfig.num_layers;
+                result.num_heads = decoderConfig.num_heads;
+                result.hidden_size = decoderConfig.hidden_size;
+            }
+            return result;
+
     }
 
     // NOTE: If `num_attention_heads` is not set, it is assumed to be equal to `num_heads`
