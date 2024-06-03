@@ -1884,7 +1884,6 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
 
     /** @type {ImageToTextPipelineCallback} */
     async _call(images, generate_kwargs = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
 
         const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
