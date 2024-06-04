@@ -225,11 +225,14 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         const shapes = getKeyValueShapes(options.config, {
             prefix: 'present',
         });
-        const preferredOutputLocation = {};
-        for (const key in shapes) {
-            preferredOutputLocation[key] = 'gpu-buffer';
+        if (Object.keys(shapes).length > 0) {
+            // Only set preferredOutputLocation if shapes are present
+            const preferredOutputLocation = {};
+            for (const key in shapes) {
+                preferredOutputLocation[key] = 'gpu-buffer';
+            }
+            session_options.preferredOutputLocation = preferredOutputLocation;
         }
-        session_options.preferredOutputLocation = preferredOutputLocation;
     }
 
     const buffer = await bufferPromise;
