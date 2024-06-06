@@ -2754,7 +2754,7 @@ export class PreTrainedTokenizer extends Callable {
         }
 
         // Ensure it is less than model max length
-        max_length = Math.min(max_length, this.model_max_length)
+        max_length = Math.min(max_length, this.model_max_length ?? Infinity);
 
         if (padding || truncation) {
 
