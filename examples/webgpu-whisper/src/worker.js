@@ -50,20 +50,6 @@ async function generate({ audio, language }) {
     // Tell the main thread we are starting
     self.postMessage({ status: 'start' });
 
-    // console.log('GENERATE START', audio.length)
-    // self.postMessage({ status: 'start' });
-
-    // setTimeout(() => {
-    //     self.postMessage({
-    //         status: 'complete',
-    //         output: 'hello',
-    //     });
-    //     console.log('GENERATE END')
-    //     //  Math.random() * 2000
-    //     console.log('==========================')
-    // }, 1000)
-
-    // return;
     // Retrieve the text-generation pipeline.
     const [tokenizer, processor, model] = await AutomaticSpeechRecognitionPipeline.getInstance();
 
