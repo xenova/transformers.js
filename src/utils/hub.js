@@ -191,7 +191,7 @@ export async function getFile(urlOrPath) {
     if (env.useFS && !isValidUrl(urlOrPath, ['http:', 'https:', 'blob:'])) {
         return new FileResponse(urlOrPath);
 
-    } else if (typeof process !== 'undefined' && process?.release?.name === 'node') {
+    } else if (typeof process !== 'undefined' && (process?.release?.name === 'node' || env.allowClientSideRemoteGatedModels)) {
         const IS_CI = !!process.env?.TESTING_REMOTELY;
         const version = env.version;
 
@@ -204,7 +204,7 @@ export async function getFile(urlOrPath) {
             // If an access token is present in the environment variables,
             // we add it to the request headers.
             // NOTE: We keep `HF_ACCESS_TOKEN` for backwards compatibility (as a fallback).
-            const token = process.env?.HF_TOKEN ?? process.env?.HF_ACCESS_TOKEN;
+            const token = (process?.release?.name === 'node') ? (process?.env?.HF_TOKEN ?? process.env?.HF_ACCESS_TOKEN) : (env.allowClientSideRemoteGatedModels ? env.userHFToken : undefined);
             if (token) {
                 headers.set('Authorization', `Bearer ${token}`);
             }
