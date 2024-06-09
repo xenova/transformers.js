@@ -1570,8 +1570,6 @@ export class ZeroShotAudioClassificationPipeline extends (/** @type {new (option
  * @property {boolean} [force_full_sequences] Whether to force outputting full sequences or not. Default is `false`.
  * @property {string} [language] The source language. Default is `null`, meaning it should be auto-detected. Use this to potentially improve performance if the source language is known.
  * @property {string} [task] The task to perform. Default is `null`, meaning it should be auto-detected.
- * @property {number[][]} [forced_decoder_ids] A list of pairs of integers which indicates a mapping from generation indices to token indices
- * that will be forced before sampling. For example, [[1, 123]] means the second generated token will always be a token of index 123.
  * @property {number} [num_frames] The number of frames in the input audio.
  * @typedef {import('./generation/configuration_utils.js').GenerationConfig & AutomaticSpeechRecognitionSpecificParams} AutomaticSpeechRecognitionConfig
  * 
@@ -1733,20 +1731,6 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
             kwargs['return_token_timestamps'] = true;
         }
 
-        const language = pop(kwargs, 'language', null);
-        const task = pop(kwargs, 'task', null);
-
-        if (language || task || return_timestamps) {
-            if (kwargs.forced_decoder_ids) {
-                throw new Error("Cannot specify `language`/`task`/`return_timestamps` and `forced_decoder_ids` at the same time.")
-            }
-            // @ts-ignore
-            const decoder_prompt_ids = this.tokenizer.get_decoder_prompt_ids({ language, task, no_timestamps: !return_timestamps })
-            if (decoder_prompt_ids.length > 0) {
-                kwargs.forced_decoder_ids = decoder_prompt_ids;
-            }
-        }
-
         const single = !Array.isArray(audio);
         if (single) {
             audio = [/** @type {AudioInput} */ (audio)];
@@ -1809,7 +1793,10 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
                 kwargs.num_frames = Math.floor(chunk.stride[0] / hop_length);
 
                 // NOTE: doing sequentially for now
-                const data = await this.model.generate({ inputs: chunk.input_features, ...kwargs });
+                const data = await this.model.generate({
+                    inputs: chunk.input_features,
+                    ...kwargs
+                });
 
                 // TODO: Right now we only get top beam
                 if (return_timestamps === 'word') {
