@@ -39,6 +39,7 @@ export class TextStreamer extends BaseStreamer {
     constructor(tokenizer, {
         skip_prompt = false,
         callback_function = null,
+        token_callback_function = null,
         decode_kwargs = {},
         ...kwargs
     } = {}) {
@@ -46,6 +47,7 @@ export class TextStreamer extends BaseStreamer {
         this.tokenizer = tokenizer;
         this.skip_prompt = skip_prompt;
         this.callback_function = callback_function ?? stdout_write;
+        this.token_callback_function = token_callback_function;
         this.decode_kwargs = { ...decode_kwargs, ...kwargs };
 
         // variables used in the streaming process
@@ -64,6 +66,7 @@ export class TextStreamer extends BaseStreamer {
         }
 
         const tokens = value[0];
+        this.token_callback_function?.(tokens)
 
         if (this.skip_prompt && this.next_tokens_are_prompt) {
             this.next_tokens_are_prompt = false;
@@ -118,10 +121,10 @@ export class TextStreamer extends BaseStreamer {
      */
     on_finalized_text(text, stream_end) {
         if (text.length > 0) {
-            this.callback_function(text);
+            this.callback_function?.(text);
         }
         if (stream_end) {
-            this.callback_function('\n');
+            this.callback_function?.('\n');
         }
     }
 }
@@ -139,7 +142,8 @@ export class WhisperTextStreamer extends TextStreamer {
      * @param {import('../tokenizers.js').WhisperTokenizer} tokenizer
      * @param {Object} options
      * @param {boolean} [options.skip_prompt=false] Whether to skip the prompt tokens
-     * @param {function(string): void} [options.callback_function=null] Function to call when a new token is generated
+     * @param {function(string): void} [options.callback_function=null] Function to call when a piece of text is ready to display
+     * @param {function(string): void} [options.token_callback_function=null] Function to call when a new token is generated
      * @param {function(number): void} [options.on_chunk_start=null] Function to call when a new chunk starts
      * @param {function(number): void} [options.on_chunk_end=null] Function to call when a chunk ends
      * @param {function(): void} [options.on_finalize=null] Function to call when the stream is finalized
@@ -150,6 +154,7 @@ export class WhisperTextStreamer extends TextStreamer {
     constructor(tokenizer, {
         skip_prompt = false,
         callback_function = null,
+        token_callback_function = null,
         on_chunk_start = null,
         on_chunk_end = null,
         on_finalize = null,
@@ -160,6 +165,7 @@ export class WhisperTextStreamer extends TextStreamer {
         super(tokenizer, {
             skip_prompt,
             callback_function,
+            token_callback_function,
             decode_kwargs: { skip_special_tokens, ...decode_kwargs },
         });
         this.timestamp_begin = tokenizer.timestamp_begin;
