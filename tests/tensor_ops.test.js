@@ -1,4 +1,4 @@
-import { Tensor, interpolate_4d } from '../src/utils/tensor.js';
+import { Tensor, interpolate_4d, matmul } from '../src/utils/tensor.js';
 import { init } from './init.js';
 
 // Initialise the testing environment
@@ -7,6 +7,19 @@ init();
 function expectToBeCloseToArray(actual, expected) {
     expect(actual.length).toEqual(expected.length)
     actual.forEach((x, i) => expect(x).toBeCloseTo(expected[i]))
+}
+
+function range(start, stop = undefined, step = 1) {
+    if (stop === undefined) {
+        stop = start;
+        start = 0;
+    }
+
+    const result = [];
+    for (let i = start; i < stop; i += step) {
+        result.push(i);
+    }
+    return result;
 }
 
 describe('Tensor operations', () => {
@@ -104,6 +117,23 @@ describe('Tensor operations', () => {
             ].flat(Infinity));
 
             expectToBeCloseToArray(target, resized.data);
+        });
+    });
+
+    describe('matmul', () => {
+
+        it('(2, 5) @ (5, 4) -> (2, 4)', async () => {
+            const a = new Tensor('float32', range(10), [2, 5]);
+            const b = new Tensor('float32', range(20), [5, 4]);
+
+            const result = await matmul(a, b);
+
+            const target = new Float32Array([
+                [120.0, 130.0, 140.0, 150.0],
+                [320.0, 355.0, 390.0, 425.0],
+            ].flat());
+
+            expectToBeCloseToArray(target, result.data);
         });
     });
 });

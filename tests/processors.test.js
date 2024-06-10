@@ -1,9 +1,10 @@
 
 import { env, AutoProcessor, RawImage } from '../src/transformers.js';
-import { MAX_TEST_EXECUTION_TIME } from './init.js';
+import { init, MAX_TEST_EXECUTION_TIME } from './init.js';
 import { compare } from './test_utils.js';
 
 // Initialise the testing environment
+init();
 env.allowLocalModels = false;
 env.useFSCache = false;
 

@@ -1547,10 +1547,10 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
     /**
      * Computes the log-Mel spectrogram of the provided audio waveform.
      * @param {Float32Array|Float64Array} waveform The audio waveform to process.
-     * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     * @returns {Promise<Tensor>} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
-    _extract_fbank_features(waveform) {
-        const { data, dims } = spectrogram(
+    async _extract_fbank_features(waveform) {
+        const features = await spectrogram(
             waveform,
             this.window, // window
             this.config.n_fft, // frame_length
@@ -1565,13 +1565,14 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
             }
         )
 
+        const data = features.data;
         const maxValue = max(data)[0];
 
         for (let i = 0; i < data.length; ++i) {
             data[i] = (Math.max(data[i], maxValue - 8.0) + 4.0) / 4.0;
         }
 
-        return { data, dims };
+        return features;
     }
 
     /**
@@ -1596,13 +1597,10 @@ export class WhisperFeatureExtractor extends FeatureExtractor {
             waveform.set(audio);
         }
 
-        const { data, dims } = this._extract_fbank_features(waveform);
+        const features = await this._extract_fbank_features(waveform);
 
         return {
-            input_features: new Tensor('float32',
-                data,
-                [1, ...dims]
-            )
+            input_features: features.unsqueeze_(0)
         };
     }
 }
@@ -1681,9 +1679,9 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
      * Computes the log-Mel spectrogram of the provided audio waveform.
      * @param {Float32Array|Float64Array} waveform The audio waveform to process.
      * @param {number} max_length The maximum number of frames to return.
-     * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     * @returns {Promise<Tensor>} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
-    _extract_fbank_features(waveform, max_length) {
+    async _extract_fbank_features(waveform, max_length) {
         // NOTE: We don't pad/truncate since that is passed in as `max_num_frames`
 
         // Kaldi compliance: 16-bit signed integers
@@ -1730,10 +1728,11 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
     } = {}) {
         validate_audio_inputs(audio, 'SeamlessM4TFeatureExtractor');
 
-        let { data, dims } = this._extract_fbank_features(audio, this.config.max_length);
+        let features = await this._extract_fbank_features(audio, this.config.max_length);
 
         if (do_normalize_per_mel_bins) {
-            const [num_features, feature_size] = dims;
+            const [num_features, feature_size] = features.dims;
+            const data = features.data;
             for (let i = 0; i < feature_size; ++i) {
                 let sum = 0;
                 for (let j = 0; j < num_features; ++j) {
@@ -1758,7 +1757,8 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
 
         let padded_attention_mask;
         if (padding) {
-            const [num_frames, num_channels] = dims;
+            const [num_frames, num_channels] = features.dims;
+            const data = /** @type {Float32Array} */(features.data);
 
             const pad_size = num_frames % pad_to_multiple_of;
             if (pad_size > 0) {
@@ -1767,8 +1767,11 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
                 padded_data.fill(this.config.padding_value, data.length)
 
                 const numPaddedFrames = num_frames + pad_size;
-                data = padded_data;
-                dims = [numPaddedFrames, num_channels];
+                features = new Tensor(
+                    features.type,
+                    padded_data,
+                    [numPaddedFrames, num_channels],
+                )
 
                 if (return_attention_mask) {
                     padded_attention_mask = new Tensor(
@@ -1781,7 +1784,7 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
             }
         }
 
-        const [num_frames, num_channels] = dims;
+        const [num_frames, num_channels] = features.dims;
 
         const stride = this.config.stride;
         const remainder = num_frames % stride;
@@ -1789,10 +1792,7 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
             throw new Error(`The number of frames (${num_frames}) must be a multiple of the stride (${stride}).`)
         }
 
-        const input_features = new Tensor('float32',
-            data,
-            dims,
-        ).view(
+        const input_features = features.view(
             1,
             Math.floor(num_frames / stride),
             num_channels * stride,
@@ -1860,9 +1860,9 @@ export class ASTFeatureExtractor extends FeatureExtractor {
      * Computes the log-Mel spectrogram of the provided audio waveform.
      * @param {Float32Array|Float64Array} waveform The audio waveform to process.
      * @param {number} max_length The maximum number of frames to return.
-     * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     * @returns {Promise<Tensor>} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
-    _extract_fbank_features(waveform, max_length) {
+    async _extract_fbank_features(waveform, max_length) {
         // NOTE: We don't pad/truncate since that is passed in as `max_num_frames`
         return spectrogram(
             waveform,
@@ -1895,7 +1895,7 @@ export class ASTFeatureExtractor extends FeatureExtractor {
     async _call(audio) {
         validate_audio_inputs(audio, 'ASTFeatureExtractor');
 
-        const features = this._extract_fbank_features(audio, this.config.max_length);
+        const features = await this._extract_fbank_features(audio, this.config.max_length);
         if (this.config.do_normalize) {
             // Normalize the input audio spectrogram to have mean=0, std=0.5
             const denom = this.std * 2;
@@ -1906,10 +1906,7 @@ export class ASTFeatureExtractor extends FeatureExtractor {
         }
 
         return {
-            input_values: new Tensor('float32',
-                features.data,
-                [1, ...features.dims]
-            )
+            input_values: features.unsqueeze_(0)
         };
     }
 }
@@ -1962,11 +1959,12 @@ export class ClapFeatureExtractor extends FeatureExtractor {
      * @param {number} max_length The maximum length of the waveform.
      * @param {string} truncation The truncation strategy to use.
      * @param {string} padding The padding strategy to use.
-     * @returns {{ data: Float32Array; dims: number[]; longer: boolean; }} An object containing the mel spectrogram data as a Float32Array, its dimensions as an array of numbers, and a boolean indicating whether the waveform was longer than the max length.
+     * @returns {Promise<Tensor>} An object containing the mel spectrogram data as a Float32Array, its dimensions as an array of numbers, and a boolean indicating whether the waveform was longer than the max length.
+     * @private
      */
-    _get_input_mel(waveform, max_length, truncation, padding) {
+    async _get_input_mel(waveform, max_length, truncation, padding) {
 
-        /** @type {{ data: Float32Array; dims: number[]}} */
+        /** @type {Tensor} */
         let input_mel;
         let longer = false;
         const diff = waveform.length - max_length;
@@ -1976,8 +1974,7 @@ export class ClapFeatureExtractor extends FeatureExtractor {
                 const idx = Math.floor(Math.random() * (diff + 1));
                 waveform = waveform.subarray(idx, idx + max_length);
 
-                input_mel = this._extract_fbank_features(waveform, this.mel_filters_slaney, this.config.nb_max_samples);
-                input_mel.dims = [1, ...input_mel.dims]; // "unsqueeze"
+                input_mel = await this._extract_fbank_features(waveform, this.mel_filters_slaney, this.config.nb_max_samples);
             } else {
                 // TODO implement fusion strategy
                 throw new Error(`Truncation strategy "${truncation}" not implemented`)
@@ -2003,14 +2000,10 @@ export class ClapFeatureExtractor extends FeatureExtractor {
                 throw new Error(`Truncation strategy "${truncation}" not implemented`)
             }
 
-            input_mel = this._extract_fbank_features(waveform, this.mel_filters_slaney, this.config.nb_max_samples);
-            input_mel.dims = [1, ...input_mel.dims]; // "unsqueeze"
+            input_mel = await this._extract_fbank_features(waveform, this.mel_filters_slaney, this.config.nb_max_samples);
         }
 
-        return {
-            ...input_mel,
-            longer,
-        }
+        return input_mel.unsqueeze_(0);
     }
 
     /**
@@ -2026,9 +2019,9 @@ export class ClapFeatureExtractor extends FeatureExtractor {
      * @param {Float32Array|Float64Array} waveform The audio waveform to process.
      * @param {number[][]} mel_filters The mel filters to use.
      * @param {number} [max_length=null] The maximum number of frames to return.
-     * @returns {{data: Float32Array, dims: number[]}} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     * @returns {Promise<Tensor>} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
      */
-    _extract_fbank_features(waveform, mel_filters, max_length = null) {
+    async _extract_fbank_features(waveform, mel_filters, max_length = null) {
         // NOTE: We don't pad/truncate since that is passed in as `max_num_frames`
         return spectrogram(
             waveform,
@@ -2060,20 +2053,16 @@ export class ClapFeatureExtractor extends FeatureExtractor {
         validate_audio_inputs(audio, 'ClapFeatureExtractor');
 
         // convert to mel spectrogram, truncate and pad if needed.
-        const padded_inputs = this._get_input_mel(
+        const padded_inputs = await this._get_input_mel(
             audio,
             max_length ?? this.config.nb_max_samples,
             this.config.truncation,
             this.config.padding,
         );
 
-
         return {
-            input_features: new Tensor('float32',
-                padded_inputs.data,
-                [1, ...padded_inputs.dims]
-            )
-        };
+            input_features: padded_inputs.unsqueeze_(0),
+        }
     }
 }
 
