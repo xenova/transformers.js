@@ -3750,6 +3750,20 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+export class FastViTPreTrainedModel extends PreTrainedModel { }
+export class FastViTModel extends FastViTPreTrainedModel { }
+export class FastViTForImageClassification extends FastViTPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
 //////////////////////////////////////////////////
 export class VitMattePreTrainedModel extends PreTrainedModel { }
 
@@ -5558,6 +5572,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['detr', ['DetrModel', DetrModel]],
     ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
     ['vit', ['ViTModel', ViTModel]],
+    ['fastvit', ['FastViTModel', FastViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
     ['mobilevitv2', ['MobileViTV2Model', MobileViTV2Model]],
     ['owlvit', ['OwlViTModel', OwlViTModel]],
@@ -5742,6 +5757,7 @@ const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ['ViTForImageClassification', ViTForImageClassification]],
+    ['fastvit', ['FastViTForImageClassification', FastViTForImageClassification]],
     ['mobilevit', ['MobileViTForImageClassification', MobileViTForImageClassification]],
     ['mobilevitv2', ['MobileViTV2ForImageClassification', MobileViTV2ForImageClassification]],
     ['beit', ['BeitForImageClassification', BeitForImageClassification]],

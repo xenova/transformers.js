@@ -7,18 +7,14 @@
 
 import fs from 'fs';
 import path from 'path';
-import stream from 'stream/web';
 import { Buffer } from 'buffer';
 
 import { env } from '../env.js';
 import { dispatchCallback } from './core.js';
 
-if (!globalThis.ReadableStream) {
-    // @ts-ignore
-    globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16
-}
 
 const IS_REACT_NATIVE = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+
 
 /**
  * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     

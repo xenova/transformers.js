@@ -76,7 +76,7 @@ if (IS_REACT_NATIVE) {
         const metadata = await img.metadata();
         const rawChannels = metadata.channels;
 
-        let { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
+        let { data, info } = await img.rotate().raw().toBuffer({ resolveWithObject: true });
 
         const newImage = new RawImage(new Uint8ClampedArray(data), info.width, info.height, info.channels);
         if (rawChannels !== undefined && rawChannels !== info.channels) {

@@ -20,6 +20,9 @@ ADDITIONAL_TOKENIZERS_TO_TEST = {
         'Xenova/llama2-tokenizer',  # Special tokens: normalized=false
         'Xenova/llama2-chat-tokenizer',  # Special tokens: normalized=false
         'hf-internal-testing/llama-code-tokenizer',
+
+        # TODO: add back when llama tests are fixed
+        # 'Xenova/llama3-tokenizer-new',  # PostProcessor type: Sequence
     ],
     'mpt': [
         'mosaicml/mpt-7b',
@@ -289,7 +292,7 @@ def generate_tokenizer_tests():
                 # Load tokenizer
                 if model_type == 'llama':
                     # As of 17/12/2023, there are a few issues with the Llama tokenizers in transformers.
-                    # (1) Encoding with fast tokenizer adds whitespace after speical tokens:
+                    # (1) Encoding with fast tokenizer adds whitespace after special tokens:
                     #   - https://github.com/huggingface/transformers/issues/25881
                     #   - https://github.com/huggingface/transformers/issues/26318
                     #   - https://github.com/huggingface/transformers/issues/26455

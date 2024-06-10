@@ -1258,7 +1258,7 @@ export class FeatureExtractionPipeline extends (/** @type {new (options: TextPip
         // console.log(outputs)
 
         /** @type {Tensor} */
-        let result = outputs.last_hidden_state ?? outputs.logits;
+        let result = outputs.last_hidden_state ?? outputs.logits ?? outputs.token_embeddings;
         if (pooling === 'none') {
             // Skip pooling
         } else if (pooling === 'mean') {
@@ -3182,6 +3182,7 @@ export async function pipeline(
         local_files_only = false,
         revision = 'main',
         session_options = {},
+        model_file_name = null,
     } = {}
 ) {
     // Helper method to construct pipeline
@@ -3210,6 +3211,7 @@ export async function pipeline(
         local_files_only,
         revision,
         session_options,
+        model_file_name,
     }
 
     const classes = new Map([

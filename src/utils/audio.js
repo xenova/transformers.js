@@ -489,6 +489,13 @@ export function spectrogram(
         throw new Error("hop_length must be greater than zero");
     }
 
+    if (power === null && mel_filters !== null) {
+        throw new Error(
+            "You have provided `mel_filters` but `power` is `None`. Mel spectrogram computation is not yet supported for complex-valued spectrogram. " +
+            "Specify `power` to fix this issue."
+        );
+    }
+
     if (center) {
         if (pad_mode !== 'reflect') {
             throw new Error(`pad_mode="${pad_mode}" not implemented yet.`)
@@ -563,8 +570,6 @@ export function spectrogram(
         magnitudes[i] = row;
     }
 
-    // TODO what should happen if power is None?
-    // https://github.com/huggingface/transformers/issues/27772
     if (power !== null && power !== 2) {
         // slight optimization to not sqrt
         const pow = 2 / power; // we use 2 since we already squared
