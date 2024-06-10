@@ -1730,7 +1730,7 @@ export class SeamlessM4TFeatureExtractor extends FeatureExtractor {
     } = {}) {
         validate_audio_inputs(audio, 'SeamlessM4TFeatureExtractor');
 
-        let {data, dims} = this._extract_fbank_features(audio, this.config.max_length);
+        let { data, dims } = this._extract_fbank_features(audio, this.config.max_length);
 
         if (do_normalize_per_mel_bins) {
             const [num_features, feature_size] = dims;
