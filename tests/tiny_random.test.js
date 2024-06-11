@@ -1320,6 +1320,28 @@ describe('Tiny random pipelines', () => {
                 ];
                 compare(output, target, 1e-5);
             });
+
+            it('multi_label_classification', async () => {
+
+                const problem_type = pipe.model.config.problem_type;
+                pipe.model.config.problem_type = 'multi_label_classification';
+
+                const output = await pipe(['a', 'b c'], { top_k: 2 });
+                const target = [
+                    [
+                        { 'label': 'LABEL_0', 'score': 0.5001373887062073 },
+                        { 'label': 'LABEL_1', 'score': 0.49243971705436707 }
+                    ],
+                    [
+                        { 'label': 'LABEL_0', 'score': 0.5001326203346252 },
+                        { 'label': 'LABEL_1', 'score': 0.492380291223526 }
+                    ]
+                ];
+                compare(output, target, 1e-5);
+
+                // Reset problem type
+                pipe.model.config.problem_type = problem_type;
+            });
         });
 
         afterAll(async () => {
