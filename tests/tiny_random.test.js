@@ -40,9 +40,11 @@ import {
     AutoTokenizer,
     Processor,
     VisionEncoderDecoderModel,
+    pipeline,
 } from '../src/transformers.js';
 
 import { init } from './init.js';
+import { compare } from './test_utils.js';
 init();
 
 const MAX_MODEL_LOAD_TIME = 10_000; // 10 seconds
@@ -1171,6 +1173,91 @@ describe('Tiny random models', () => {
         });
     });
 });
+
+describe('Tiny random pipelines', () => {
+    describe('fill-mask', () => {
+        const model_id = 'hf-internal-testing/tiny-random-BertForMaskedLM';
+
+        /** @type {FillMaskPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('fill-mask', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+            it('default (top_k=5)', async () => {
+                const output = await pipe('a [MASK] c');
+                const target = [
+                    { score: 0.0013377574505284429, token: 854, token_str: '##ο', sequence: 'aο c' },
+                    { score: 0.001248967950232327, token: 962, token_str: '##ち', sequence: 'aち c' },
+                    { score: 0.0012304208939895034, token: 933, token_str: '##ع', sequence: 'aع c' },
+                    { score: 0.0012301815440878272, token: 313, token_str: 'ფ', sequence: 'a ფ c' },
+                    { score: 0.001222139224410057, token: 624, token_str: '未', sequence: 'a 未 c' },
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=2)', async () => {
+                const output = await pipe('a [MASK] c', { top_k: 2 });
+                const target = [
+                    { score: 0.0013377574505284429, token: 854, token_str: '##ο', sequence: 'aο c' },
+                    { score: 0.001248967950232327, token: 962, token_str: '##ち', sequence: 'aち c' },
+                ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        describe('batch_size>1', () => {
+            it('default (top_k=5)', async () => {
+                const output = await pipe([
+                    'a [MASK] c',
+                    'a b [MASK] c',
+                ]);
+                const target = [
+                    [
+                        { score: 0.0013377574505284429, token: 854, token_str: '##ο', sequence: 'aο c' },
+                        { score: 0.001248967950232327, token: 962, token_str: '##ち', sequence: 'aち c' },
+                        { score: 0.0012304208939895034, token: 933, token_str: '##ع', sequence: 'aع c' },
+                        { score: 0.0012301815440878272, token: 313, token_str: 'ფ', sequence: 'a ფ c' },
+                        { score: 0.001222139224410057, token: 624, token_str: '未', sequence: 'a 未 c' }
+                    ],
+                    [
+                        { score: 0.0013287801994010806, token: 962, token_str: '##ち', sequence: 'a bち c' },
+                        { score: 0.0012486606137827039, token: 823, token_str: '##ن', sequence: 'a bن c' },
+                        { score: 0.0012320734094828367, token: 1032, token_str: '##ც', sequence: 'a bც c' },
+                        { score: 0.0012295148335397243, token: 854, token_str: '##ο', sequence: 'a bο c' },
+                        { score: 0.0012277684872969985, token: 624, token_str: '未', sequence: 'a b 未 c' }
+                    ]
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=2)', async () => {
+                const output = await pipe([
+                    'a [MASK] c',
+                    'a b [MASK] c',
+                ], { top_k: 2 });
+                const target = [
+                    [
+                        { score: 0.0013377574505284429, token: 854, token_str: '##ο', sequence: 'aο c' },
+                        { score: 0.001248967950232327, token: 962, token_str: '##ち', sequence: 'aち c' }
+                    ],
+                    [
+                        { score: 0.0013287801994010806, token: 962, token_str: '##ち', sequence: 'a bち c' },
+                        { score: 0.0012486606137827039, token: 823, token_str: '##ن', sequence: 'a bن c' },
+                    ]
+                ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
+});
+
 
 describe('PKV caching', () => {
     describe('LlamaForCausalLM', () => {
