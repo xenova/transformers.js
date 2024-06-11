@@ -2237,10 +2237,6 @@ export class Processor extends Callable {
 }
 
 export class SamProcessor extends Processor {
-    static ATTRIBUTES = {
-        feature_extractor: AutoFeatureExtractor,
-    }
-
     /**
      * @borrows SamImageProcessor#_call as _call
      */
@@ -2269,10 +2265,6 @@ export class SamProcessor extends Processor {
  * @extends Processor
  */
 export class WhisperProcessor extends Processor {
-    static ATTRIBUTES = {
-        feature_extractor: AutoFeatureExtractor,
-    }
-
     /**
      * Calls the feature_extractor function with the given audio input.
      * @param {any} audio The audio input to extract features from.
@@ -2285,10 +2277,6 @@ export class WhisperProcessor extends Processor {
 
 
 export class Wav2Vec2ProcessorWithLM extends Processor {
-    static ATTRIBUTES = {
-        feature_extractor: AutoFeatureExtractor,
-    }
-
     /**
      * Calls the feature_extractor function with the given audio input.
      * @param {any} audio The audio input to extract features from.
@@ -2300,10 +2288,6 @@ export class Wav2Vec2ProcessorWithLM extends Processor {
 }
 
 export class SpeechT5Processor extends Processor {
-    static ATTRIBUTES = {
-        feature_extractor: AutoFeatureExtractor,
-    }
-
     /**
      * Calls the feature_extractor function with the given input.
      * @param {any} input The input to extract features from.
@@ -2395,51 +2379,49 @@ export class AutoProcessor {
         let {
             processor_class,
             feature_extractor_type,
-            image_processor_class,
+            image_processor_type,
         } = preprocessorConfig;
 
-        if (!processor_class) {
-            const init_options = {
-                progress_callback,
-                config: preprocessorConfig,
-                cache_dir,
-                local_files_only,
-                revision,
-            }
-            let feature_extractor
-            if (feature_extractor_type) {
-                feature_extractor = await AutoFeatureExtractor.from_pretrained(pretrained_model_name_or_path, init_options);
-            } else if (image_processor_class) {
-                feature_extractor = await AutoImageProcessor.from_pretrained(pretrained_model_name_or_path, init_options);
-            } else {
-                throw new Error(`Missing required 'feature_extractor_type' or 'image_processor_class' or 'processor_class' in config.`);
-            }
-            return new Processor({ config: preprocessorConfig, feature_extractor });
-        } else {
-            let cls = this.PROCESSOR_CLASS_MAPPING[processor_class];
-            if (!cls) {
-                throw new Error(`Unknown processor class: ${processor_class}`);
-            }
-            if (cls.ATTRIBUTES) {
-                let promises = Object.entries(cls.ATTRIBUTES)
-                    .map(([key, attr_cls]) =>
-                        [
-                            key,
-                            attr_cls.from_pretrained(pretrained_model_name_or_path, {
-                                progress_callback,
-                                config,
-                                cache_dir,
-                                local_files_only,
-                                revision,
-                            })
-                        ]
-                    );
-                let args = Object.fromEntries(await Promise.all(promises));
-                return new cls({ config: preprocessorConfig, ...args });
-            } else {
-                return new cls({ config: preprocessorConfig });
-            }
+        /**
+         * @type {ProcessorArgs}
+         */
+        let args = {
+            config: preprocessorConfig,
+        };
+
+        let options = {
+            progress_callback,
+            config: preprocessorConfig,
+            cache_dir,
+            local_files_only,
+            revision,
         }
+        if (feature_extractor_type) {
+            args.feature_extractor = await AutoFeatureExtractor.from_pretrained(pretrained_model_name_or_path, options);
+        } else if (image_processor_type) {
+            args.feature_extractor = await AutoImageProcessor.from_pretrained(pretrained_model_name_or_path, options);
+        } else if (!processor_class) {
+            throw new Error(`Missing required 'feature_extractor_type' or 'image_processor_type' or 'processor_class' in config.`);
+        }
+
+        let cls = this.PROCESSOR_CLASS_MAPPING[processor_class] ?? Processor;
+        if (cls.ATTRIBUTES) {
+            let promises = Object.entries(cls.ATTRIBUTES)
+                .map(([key, attr_cls]) =>
+                    [
+                        key,
+                        attr_cls.from_pretrained(pretrained_model_name_or_path, {
+                            progress_callback,
+                            config,
+                            cache_dir,
+                            local_files_only,
+                            revision,
+                        })
+                    ]
+                );
+            Object.assign(args, Object.fromEntries(await Promise.all(promises)));
+        }
+        return new cls(args);
     }
 }
 //////////////////////////////////////////////////
