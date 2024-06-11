@@ -3610,7 +3610,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         let chunk = new_chunk();
         let time_offset = 0.0;
         const timestamp_begin = this.model.convert_tokens_to_ids(["<|notimestamps|>"])[0] + 1;
-        const timestamp_end = this.model.convert_tokens_to_ids(["<|30.00|>"]);
+        const timestamp_end = this.model.convert_tokens_to_ids(["<|30.00|>"])[0];
 
         let previous_tokens = [];
         let previous_token_timestamps = [];
