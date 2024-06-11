@@ -850,6 +850,18 @@ export async function matmul(a, b) {
     return await op({ a, b });
 }
 
+/**
+ * Computes the one dimensional Fourier transform of real-valued input.
+ * Inspired by https://pytorch.org/docs/stable/generated/torch.fft.rfft.html
+ * @param {Tensor} x the real input tensor
+ * @param {Tensor} a The dimension along which to take the one dimensional real FFT.
+ * @returns {Promise<Tensor>} the output tensor.
+ */
+export async function rfft(x, a) {
+    const op = await TensorOpRegistry.rfft;
+    return await op({ x, a });
+}
+
 
 /**
  * Perform mean pooling of the last hidden state followed by a normalization step.

@@ -1,4 +1,4 @@
-import { Tensor, interpolate_4d, matmul } from '../src/utils/tensor.js';
+import { Tensor, interpolate_4d, matmul, rfft } from '../src/utils/tensor.js';
 import { init } from './init.js';
 
 // Initialise the testing environment
@@ -121,7 +121,6 @@ describe('Tensor operations', () => {
     });
 
     describe('matmul', () => {
-
         it('(2, 5) @ (5, 4) -> (2, 4)', async () => {
             const a = new Tensor('float32', range(10), [2, 5]);
             const b = new Tensor('float32', range(20), [5, 4]);
@@ -132,6 +131,52 @@ describe('Tensor operations', () => {
                 [120.0, 130.0, 140.0, 150.0],
                 [320.0, 355.0, 390.0, 425.0],
             ].flat());
+
+            expectToBeCloseToArray(target, result.data);
+        });
+    });
+
+    describe('rfft', () => {
+        it('non-power of 2', async () => {
+            const rows = 2;
+            const cols = 3;
+            const input = new Tensor('float32', range(rows * cols), [rows, cols]);
+            const dim = new Tensor('int64', [-1n], []);
+            const result = await rfft(input, dim);
+
+            const target = new Float32Array([
+                [
+                    [3, 0],
+                    [-1.5, 0.8660262823104858],
+                ],
+                [
+                    [12, 0],
+                    [-1.5, 0.866027295589447],
+                ],
+            ].flat(Infinity));
+
+            expectToBeCloseToArray(target, result.data);
+        });
+
+        it('power of 2', async () => {
+            const rows = 2;
+            const cols = 4;
+            const input = new Tensor('float32', range(rows * cols), [rows, cols]);
+            const dim = new Tensor('int64', [-1n], []);
+
+            const result = await rfft(input, dim);
+            const target = new Float32Array([
+                [
+                    [6, 0],
+                    [-2, 2],
+                    [-2, 0],
+                ],
+                [
+                    [22, 0],
+                    [-2, 2],
+                    [-2, 0],
+                ],
+            ].flat(Infinity));
 
             expectToBeCloseToArray(target, result.data);
         });
