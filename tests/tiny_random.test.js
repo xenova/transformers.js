@@ -1,46 +1,57 @@
 
 
 import {
+    // Tokenizers
     CodeGenTokenizer,
-    LlamaForCausalLM,
     LlamaTokenizer,
-    GemmaForCausalLM,
     GemmaTokenizer,
-    OPTForCausalLM,
     GPT2Tokenizer,
-    GPTNeoXForCausalLM,
     GPTNeoXTokenizer,
+    BloomTokenizer,
+    BertTokenizer,
+    T5Tokenizer,
+    WhisperTokenizer,
+    PreTrainedTokenizer,
+    AutoTokenizer,
+
+    // Processors
+    CLIPImageProcessor,
+    AutoProcessor,
+    Processor,
+
+    // Models
+    LlamaForCausalLM,
+    GemmaForCausalLM,
+    OPTForCausalLM,
+    GPTNeoXForCausalLM,
     GPTJForCausalLM,
     BloomForCausalLM,
-    BloomTokenizer,
     GPTBigCodeForCausalLM,
     GPT2LMHeadModel,
     MptForCausalLM,
     CodeGenForCausalLM,
     MistralForCausalLM,
     GPTNeoForCausalLM,
-    BertTokenizer,
     BertForMaskedLM,
     BertForSequenceClassification,
     T5ForConditionalGeneration,
-    T5Tokenizer,
     T5Model,
     BertModel,
     BertForTokenClassification,
     BertForQuestionAnswering,
     MusicgenForConditionalGeneration,
     LlavaForConditionalGeneration,
-    CLIPImageProcessor,
-    WhisperTokenizer,
     WhisperForConditionalGeneration,
-    AutoProcessor,
-    RawImage,
-    full,
-    PreTrainedTokenizer,
-    AutoTokenizer,
-    Processor,
     VisionEncoderDecoderModel,
+
+    // Pipelines
     pipeline,
+    FillMaskPipeline,
+    TextClassificationPipeline,
+
+    // Other
+    full,
+    RawImage,
 } from '../src/transformers.js';
 
 import { init } from './init.js';
@@ -1248,6 +1259,65 @@ describe('Tiny random pipelines', () => {
                         { score: 0.0012486606137827039, token: 823, token_str: '##ن', sequence: 'a bن c' },
                     ]
                 ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
+    describe('text-classification', () => {
+        const model_id = 'hf-internal-testing/tiny-random-BertForSequenceClassification';
+
+        /** @type {TextClassificationPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('text-classification', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+            it('default (top_k=1)', async () => {
+                const output = await pipe('a');
+                const target = [
+                    { 'label': 'LABEL_0', 'score': 0.5076976418495178 }
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=2)', async () => {
+                const output = await pipe('a', { top_k: 2 });
+                const target = [
+                    { 'label': 'LABEL_0', 'score': 0.5076976418495178 },
+                    { 'label': 'LABEL_1', 'score': 0.49230238795280457 }
+                ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        describe('batch_size>1', () => {
+            it('default (top_k=1)', async () => {
+                const output = await pipe(['a', 'b c']);
+                const target = [
+                    { 'label': 'LABEL_0', 'score': 0.5076976418495178 },
+                    { 'label': 'LABEL_0', 'score': 0.5077522993087769 },
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=2)', async () => {
+                const output = await pipe(['a', 'b c'], { top_k: 2 });
+                const target = [
+                    [
+                        { 'label': 'LABEL_0', 'score': 0.5076976418495178 },
+                        { 'label': 'LABEL_1', 'score': 0.49230238795280457 }
+                    ],
+                    [
+                        { 'label': 'LABEL_0', 'score': 0.5077522993087769 },
+                        { 'label': 'LABEL_1', 'score': 0.49224773049354553 }
+                    ]
+                ];
                 compare(output, target, 1e-5);
             });
         });
