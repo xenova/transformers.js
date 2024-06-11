@@ -1437,7 +1437,7 @@ export class PreTrainedModel extends Callable {
             for (let batch_idx = 0; batch_idx < next_tokens_scores.dims.at(0); ++batch_idx) {
                 const logs = next_tokens_scores[batch_idx];
 
-                const sampledTokens = sampler(logs);
+                const sampledTokens = await sampler(logs);
                 for (const [newTokenId, logProb] of sampledTokens) {
                     const bigint = BigInt(newTokenId);
                     // TODO: If branching, use previous beam as a starting point

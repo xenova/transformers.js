@@ -1,14 +1,19 @@
 import { createInferenceSession } from "../backends/onnx.js";
 import { Tensor } from "../utils/tensor.js";
 
-const wrap = async (session_bytes, session_options, name) => {
+const wrap = async (session_bytes, session_options, names) => {
     const session = await createInferenceSession(
         new Uint8Array(session_bytes), session_options,
     );
     return async (inputs) => {
         const ortFeed = Object.fromEntries(Object.entries(inputs).map(([k, v]) => [k, v.ort_tensor]));
         const outputs = await session.run(ortFeed);
-        return new Tensor(outputs[name]);
+
+        if (Array.isArray(names)) {
+            return names.map((n) => new Tensor(outputs[n]));
+        } else {
+            return new Tensor(outputs[names]);
+        }
     }
 }
 
@@ -72,5 +77,16 @@ export class TensorOpRegistry {
             )
         }
         return this._rfft;
+    }
+
+    static get top_k() {
+        if (!this._top_k) {
+            this._top_k = wrap(
+                [8, 10, 18, 0, 58, 73, 10, 18, 10, 1, 120, 10, 1, 107, 18, 1, 118, 18, 1, 105, 34, 4, 84, 111, 112, 75, 18, 1, 116, 90, 9, 10, 1, 120, 18, 4, 10, 2, 8, 1, 90, 15, 10, 1, 107, 18, 10, 10, 8, 8, 7, 18, 4, 10, 2, 8, 1, 98, 9, 10, 1, 118, 18, 4, 10, 2, 8, 1, 98, 9, 10, 1, 105, 18, 4, 10, 2, 8, 7, 66, 2, 16, 21],
+                this.session_options,
+                [ /* Values */ 'v', /* Indices */ 'i']
+            )
+        }
+        return this._top_k;
     }
 }
