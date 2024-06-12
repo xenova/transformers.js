@@ -22,6 +22,7 @@ import {
 
     // Models
     LlamaForCausalLM,
+    CohereModel,
     CohereForCausalLM,
     GemmaForCausalLM,
     OPTForCausalLM,
@@ -740,6 +741,40 @@ describe('Tiny random models', () => {
     });
 
     describe('cohere', () => {
+        describe('CohereModel', () => {
+            const model_id = 'hf-internal-testing/tiny-random-CohereModel';
+            /** @type {CohereModel} */
+            let model;
+            /** @type {CohereTokenizer} */
+            let tokenizer;
+            beforeAll(async () => {
+                model = await CohereModel.from_pretrained(model_id, {
+                    // TODO move to config
+                    ...DEFAULT_MODEL_OPTIONS,
+                });
+                tokenizer = await CohereTokenizer.from_pretrained(model_id);
+                tokenizer.padding_side = 'left';
+            }, MAX_MODEL_LOAD_TIME);
+
+            it('batch_size=1', async () => {
+                const inputs = tokenizer('hello');
+                const { last_hidden_state } = await model(inputs);
+                expect(last_hidden_state.dims).toEqual([1, 4, 32]);
+                expect(last_hidden_state.mean().item()).toBeCloseTo(0.0, 5);
+            }, MAX_TEST_EXECUTION_TIME);
+
+            it('batch_size>1', async () => {
+                const inputs = tokenizer(['hello', 'hello world'], { padding: true });
+                const { last_hidden_state } = await model(inputs);
+                expect(last_hidden_state.dims).toEqual([2, 6, 32]);
+                expect(last_hidden_state.mean().item()).toBeCloseTo(9.934107758624577e-09, 5);
+            }, MAX_TEST_EXECUTION_TIME);
+
+            afterAll(async () => {
+                await model?.dispose();
+            }, MAX_MODEL_DISPOSE_TIME);
+        });
+
         describe('CohereForCausalLM', () => {
             const model_id = 'hf-internal-testing/tiny-random-CohereForCausalLM';
             /** @type {CohereForCausalLM} */
