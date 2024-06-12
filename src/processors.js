@@ -2208,7 +2208,11 @@ export class AutoImageProcessor {
 
 
 /**
- * @typedef {Object.<string, FeatureExtractor | import('./tokenizers.js').TokenizerModel>} ProcessorArgs
+ * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
+ * @typedef {import('./tokenizers.js').TokenizerModel} TokenizerModel
+ * @typedef {Object.<string, FeatureExtractor | TokenizerModel>} ProcessorArgs
+ * @typedef {{ from_pretrained: (name_or_path: string, options: PretrainedOptions) => Promise<FeatureExtractor |TokenizerModel>}} AttributeLoader
+ * @typedef {Object.<string, AttributeLoader>} ProcessorAttributes
  */
 
 /**
@@ -2216,6 +2220,12 @@ export class AutoImageProcessor {
  * @extends Callable
  */
 export class Processor extends Callable {
+    /**
+     * The attributes of the Processor.
+     * @type {ProcessorAttributes | null}
+     */
+    static ATTRIBUTES = null;
+
     /**
      * Creates a new Processor with the given feature extractor.
      * @param {ProcessorArgs & { config: Object }} args The config or function used to extract features from the input.
@@ -2234,9 +2244,68 @@ export class Processor extends Callable {
     async _call(input, ...args) {
         return await this.feature_extractor(input, ...args);
     }
+
+    /**
+     * Instantiate one of the processor classes of the library from a pretrained model.
+     * 
+     * The processor class to instantiate is selected based on the `feature_extractor_type` property of the config object
+     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
+     * 
+     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
+     * - A string, the *model id* of a pretrained processor hosted inside a model repo on huggingface.co.
+     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+     *   user or organization name, like `dbmdz/bert-base-german-cased`.
+     * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
+     * @param {PretrainedOptions} options Additional options for loading the processor.
+     * 
+     * @returns {Promise<Processor>} A new instance of the Processor class.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, {
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let preprocessorConfig = config ?? await getModelJSON(pretrained_model_name_or_path, 'preprocessor_config.json', true, {
+            progress_callback,
+            config,
+            cache_dir,
+            local_files_only,
+            revision,
+        })
+
+        /**
+         * @type {ProcessorArgs}
+         */
+        let args = {
+            config: preprocessorConfig,
+        };
+
+        if (this.ATTRIBUTES) {
+            let promises = Object.entries(this.ATTRIBUTES)
+                .map(([key, attr_cls]) =>
+                    [
+                        key,
+                        attr_cls.from_pretrained(pretrained_model_name_or_path, {
+                            progress_callback,
+                            cache_dir,
+                            local_files_only,
+                            revision,
+                        })
+                    ]
+                );
+            Object.assign(args, Object.fromEntries(await Promise.all(promises)));
+        }
+        return new this({ config: preprocessorConfig });
+    }
 }
 
 export class SamProcessor extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+
     /**
      * @borrows SamImageProcessor#_call as _call
      */
@@ -2265,6 +2334,10 @@ export class SamProcessor extends Processor {
  * @extends Processor
  */
 export class WhisperProcessor extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+
     /**
      * Calls the feature_extractor function with the given audio input.
      * @param {any} audio The audio input to extract features from.
@@ -2277,6 +2350,11 @@ export class WhisperProcessor extends Processor {
 
 
 export class Wav2Vec2ProcessorWithLM extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+
+
     /**
      * Calls the feature_extractor function with the given audio input.
      * @param {any} audio The audio input to extract features from.
@@ -2288,6 +2366,10 @@ export class Wav2Vec2ProcessorWithLM extends Processor {
 }
 
 export class SpeechT5Processor extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+
     /**
      * Calls the feature_extractor function with the given input.
      * @param {any} input The input to extract features from.
@@ -2356,7 +2438,7 @@ export class AutoProcessor {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
-     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the processor.
+     * @param {PretrainedOptions} options Additional options for loading the processor.
      * 
      * @returns {Promise<Processor>} A new instance of the Processor class.
      */
@@ -2407,6 +2489,7 @@ export class AutoProcessor {
         let cls = this.PROCESSOR_CLASS_MAPPING[processor_class] ?? Processor;
         if (cls.ATTRIBUTES) {
             let promises = Object.entries(cls.ATTRIBUTES)
+                .filter(([key]) => !(key in args))
                 .map(([key, attr_cls]) =>
                     [
                         key,
