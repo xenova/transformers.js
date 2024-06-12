@@ -51,12 +51,13 @@ import {
     pipeline,
     FillMaskPipeline,
     TextClassificationPipeline,
+    ImageClassificationPipeline,
+    TokenClassificationPipeline,
+    QuestionAnsweringPipeline,
 
     // Other
     full,
     RawImage,
-    ImageClassificationPipeline,
-    TokenClassificationPipeline,
 } from '../src/transformers.js';
 
 import { init } from './init.js';
@@ -1526,6 +1527,41 @@ describe('Tiny random pipelines', () => {
                             // 'start': 2, 'end': 3
                         }
                     ]
+                ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
+
+    describe('question-answering', () => {
+        const model_id = 'hf-internal-testing/tiny-random-BertForQuestionAnswering';
+
+        /** @type {QuestionAnsweringPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('question-answering', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+            it('default (top_k=1)', async () => {
+                const output = await pipe('a', 'b c');
+                console.log('output', output)
+                const target = { score: 0.11395696550607681, /* start: 0, end: 1, */ answer: 'b' };
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=3)', async () => {
+                const output = await pipe('a', 'b c', { top_k: 3 });
+                const target = [
+                    { score: 0.11395696550607681, /* start: 0, end: 1, */ answer: 'b' },
+                    { score: 0.11300431191921234, /* start: 2, end: 3, */ answer: 'c' },
+                    { score: 0.10732574015855789, /* start: 0, end: 3, */ answer: 'b c' }
                 ]
                 compare(output, target, 1e-5);
             });
