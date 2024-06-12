@@ -2412,7 +2412,6 @@ export class AutoProcessor {
                         key,
                         attr_cls.from_pretrained(pretrained_model_name_or_path, {
                             progress_callback,
-                            config,
                             cache_dir,
                             local_files_only,
                             revision,
