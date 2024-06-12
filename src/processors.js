@@ -2098,6 +2098,7 @@ export class AutoFeatureExtractor {
         progress_callback = null,
         config = null,
         cache_dir = null,
+        subfolder = null,
         local_files_only = false,
         revision = 'main',
     } = {}) {
@@ -2106,6 +2107,7 @@ export class AutoFeatureExtractor {
             progress_callback,
             config,
             cache_dir,
+            subfolder,
             local_files_only,
             revision,
         })
@@ -2174,6 +2176,7 @@ export class AutoImageProcessor {
         progress_callback = null,
         config = null,
         cache_dir = null,
+        subfolder = null,
         local_files_only = false,
         revision = 'main',
     } = {}) {
@@ -2182,6 +2185,7 @@ export class AutoImageProcessor {
             progress_callback,
             config,
             cache_dir,
+            subfolder,
             local_files_only,
             revision,
         })
@@ -2264,6 +2268,7 @@ export class Processor extends Callable {
         progress_callback = null,
         config = null,
         cache_dir = null,
+        subfolder = null,
         local_files_only = false,
         revision = 'main',
     } = {}) {
@@ -2271,6 +2276,7 @@ export class Processor extends Callable {
             progress_callback,
             config,
             cache_dir,
+            subfolder,
             local_files_only,
             revision,
         })
@@ -2446,6 +2452,7 @@ export class AutoProcessor {
         progress_callback = null,
         config = null,
         cache_dir = null,
+        subfolder = null,
         local_files_only = false,
         revision = 'main',
     } = {}) {
@@ -2454,6 +2461,7 @@ export class AutoProcessor {
             progress_callback,
             config,
             cache_dir,
+            subfolder,
             local_files_only,
             revision,
         })

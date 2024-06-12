@@ -78,6 +78,7 @@ export class PretrainedConfig {
         progress_callback = null,
         config = null,
         cache_dir = null,
+        subfolder = null,
         local_files_only = false,
         revision = 'main',
     } = {}) {
@@ -86,6 +87,7 @@ export class PretrainedConfig {
             progress_callback,
             config,
             cache_dir,
+            subfolder,
             local_files_only,
             revision,
         })
