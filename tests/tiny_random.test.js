@@ -52,6 +52,7 @@ import {
     // Other
     full,
     RawImage,
+    ImageClassificationPipeline,
 } from '../src/transformers.js';
 
 import { init } from './init.js';
@@ -1267,6 +1268,7 @@ describe('Tiny random pipelines', () => {
             await pipe?.dispose();
         }, MAX_MODEL_DISPOSE_TIME);
     });
+
     describe('text-classification', () => {
         const model_id = 'hf-internal-testing/tiny-random-BertForSequenceClassification';
 
@@ -1283,15 +1285,15 @@ describe('Tiny random pipelines', () => {
             it('default (top_k=1)', async () => {
                 const output = await pipe('a');
                 const target = [
-                    { 'label': 'LABEL_0', 'score': 0.5076976418495178 }
+                    { label: 'LABEL_0', score: 0.5076976418495178 }
                 ]
                 compare(output, target, 1e-5);
             });
             it('custom (top_k=2)', async () => {
                 const output = await pipe('a', { top_k: 2 });
                 const target = [
-                    { 'label': 'LABEL_0', 'score': 0.5076976418495178 },
-                    { 'label': 'LABEL_1', 'score': 0.49230238795280457 }
+                    { label: 'LABEL_0', score: 0.5076976418495178 },
+                    { label: 'LABEL_1', score: 0.49230238795280457 }
                 ]
                 compare(output, target, 1e-5);
             });
@@ -1301,8 +1303,8 @@ describe('Tiny random pipelines', () => {
             it('default (top_k=1)', async () => {
                 const output = await pipe(['a', 'b c']);
                 const target = [
-                    { 'label': 'LABEL_0', 'score': 0.5076976418495178 },
-                    { 'label': 'LABEL_0', 'score': 0.5077522993087769 },
+                    { label: 'LABEL_0', score: 0.5076976418495178 },
+                    { label: 'LABEL_0', score: 0.5077522993087769 },
                 ]
                 compare(output, target, 1e-5);
             });
@@ -1310,12 +1312,12 @@ describe('Tiny random pipelines', () => {
                 const output = await pipe(['a', 'b c'], { top_k: 2 });
                 const target = [
                     [
-                        { 'label': 'LABEL_0', 'score': 0.5076976418495178 },
-                        { 'label': 'LABEL_1', 'score': 0.49230238795280457 }
+                        { label: 'LABEL_0', score: 0.5076976418495178 },
+                        { label: 'LABEL_1', score: 0.49230238795280457 }
                     ],
                     [
-                        { 'label': 'LABEL_0', 'score': 0.5077522993087769 },
-                        { 'label': 'LABEL_1', 'score': 0.49224773049354553 }
+                        { label: 'LABEL_0', score: 0.5077522993087769 },
+                        { label: 'LABEL_1', score: 0.49224773049354553 }
                     ]
                 ];
                 compare(output, target, 1e-5);
@@ -1329,18 +1331,81 @@ describe('Tiny random pipelines', () => {
                 const output = await pipe(['a', 'b c'], { top_k: 2 });
                 const target = [
                     [
-                        { 'label': 'LABEL_0', 'score': 0.5001373887062073 },
-                        { 'label': 'LABEL_1', 'score': 0.49243971705436707 }
+                        { label: 'LABEL_0', score: 0.5001373887062073 },
+                        { label: 'LABEL_1', score: 0.49243971705436707 }
                     ],
                     [
-                        { 'label': 'LABEL_0', 'score': 0.5001326203346252 },
-                        { 'label': 'LABEL_1', 'score': 0.492380291223526 }
+                        { label: 'LABEL_0', score: 0.5001326203346252 },
+                        { label: 'LABEL_1', score: 0.492380291223526 }
                     ]
                 ];
                 compare(output, target, 1e-5);
 
                 // Reset problem type
                 pipe.model.config.problem_type = problem_type;
+            });
+        });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
+
+    describe('image-classification', () => {
+        const model_id = 'hf-internal-testing/tiny-random-vit';
+        const urls = [
+            'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/white-image.png',
+            'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/blue-image.png',
+        ];
+
+        /** @type {ImageClassificationPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('image-classification', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+
+            it('default (top_k=5)', async () => {
+                const output = await pipe(urls[0]);
+                const target = [
+                    { label: 'LABEL_1', score: 0.5020533800125122 },
+                    { label: 'LABEL_0', score: 0.4979466497898102 }
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=1)', async () => {
+                const output = await pipe(urls[0], { top_k: 1 });
+                const target = [{ label: 'LABEL_1', score: 0.5020533800125122 }]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        describe('batch_size>1', () => {
+            it('default (top_k=5)', async () => {
+                const output = await pipe(urls);
+                const target = [
+                    [
+                        { label: 'LABEL_1', score: 0.5020533800125122 },
+                        { label: 'LABEL_0', score: 0.4979466497898102 }
+                    ],
+                    [
+                        { label: 'LABEL_1', score: 0.519227921962738 },
+                        { label: 'LABEL_0', score: 0.4807720482349396 }
+                    ]
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=1)', async () => {
+                const output = await pipe(urls, { top_k: 1 });
+                const target = [
+                    [{ label: 'LABEL_1', score: 0.5020533800125122 }],
+                    [{ label: 'LABEL_1', score: 0.519227921962738 }]
+                ]
+                compare(output, target, 1e-5);
             });
         });
 
