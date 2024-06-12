@@ -1413,6 +1413,69 @@ describe('Tiny random pipelines', () => {
             await pipe?.dispose();
         }, MAX_MODEL_DISPOSE_TIME);
     });
+
+    describe('audio-classification', () => {
+        const model_id = 'hf-internal-testing/tiny-random-unispeech';
+        const audios = [
+            new Float32Array(16000).fill(0),
+            Float32Array.from({ length: 16000 }, (_, i) => i),
+        ]
+
+        /** @type {ImageClassificationPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('audio-classification', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+
+            it('default (top_k=5)', async () => {
+                const output = await pipe(audios[0]);
+                const target = [
+                    { score: 0.5043687224388123, label: 'LABEL_0' },
+                    { score: 0.4956313371658325, label: 'LABEL_1' }
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=1)', async () => {
+                const output = await pipe(audios[0], { top_k: 1 });
+                const target = [{ score: 0.5043687224388123, label: 'LABEL_0' }]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        describe('batch_size>1', () => {
+            it('default (top_k=5)', async () => {
+                const output = await pipe(audios);
+                const target = [
+                    [
+                        { score: 0.5043687224388123, label: 'LABEL_0' },
+                        { score: 0.4956313371658325, label: 'LABEL_1' }
+                    ],
+                    [
+                        { score: 0.5187293887138367, label: 'LABEL_0' },
+                        { score: 0.4812707006931305, label: 'LABEL_1' }
+                    ]
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (top_k=1)', async () => {
+                const output = await pipe(audios, { top_k: 1 });
+                const target = [
+                    [{ score: 0.5043687224388123, label: 'LABEL_0' }],
+                    [{ score: 0.5187293887138367, label: 'LABEL_0' }]
+                ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
 });
 
 

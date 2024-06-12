@@ -872,7 +872,20 @@ export async function rfft(x, a) {
  */
 export async function topk(x, k) {
     const op = await TensorOpRegistry.top_k;
-    return await op({ x, k: new Tensor('int64', [BigInt(Math.min(k, x.dims.at(-1)))], [1]) });
+
+    if (k === null) {
+        k = x.dims.at(-1);
+    } else {
+        k = Math.min(k, x.dims.at(-1));
+    }
+    return await op({
+        x,
+        k: new Tensor(
+            'int64',
+            [BigInt(k)],
+            [1]
+        )
+    });
 }
 
 /**
