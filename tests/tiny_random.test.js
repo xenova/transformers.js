@@ -4,6 +4,7 @@ import {
     // Tokenizers
     CodeGenTokenizer,
     LlamaTokenizer,
+    CohereTokenizer,
     GemmaTokenizer,
     GPT2Tokenizer,
     GPTNeoXTokenizer,
@@ -21,6 +22,7 @@ import {
 
     // Models
     LlamaForCausalLM,
+    CohereForCausalLM,
     GemmaForCausalLM,
     OPTForCausalLM,
     GPTNeoXForCausalLM,
@@ -736,6 +738,52 @@ describe('Tiny random models', () => {
             }, MAX_MODEL_DISPOSE_TIME);
         });
     });
+
+    describe('cohere', () => {
+        describe('CohereForCausalLM', () => {
+            const model_id = 'hf-internal-testing/tiny-random-CohereForCausalLM';
+            /** @type {CohereForCausalLM} */
+            let model;
+            /** @type {CohereTokenizer} */
+            let tokenizer;
+            beforeAll(async () => {
+                model = await CohereForCausalLM.from_pretrained(model_id, {
+                    // TODO move to config
+                    ...DEFAULT_MODEL_OPTIONS,
+                });
+                tokenizer = await CohereTokenizer.from_pretrained(model_id);
+                tokenizer.padding_side = 'left';
+            }, MAX_MODEL_LOAD_TIME);
+
+            it('batch_size=1', async () => {
+                const inputs = tokenizer('hello');
+                const outputs = await model.generate({
+                    ...inputs,
+                    max_length: 10,
+                });
+                expect(outputs.tolist()).toEqual([
+                    [5n, 203n, 790n, 87n, 87n, 87n, 87n, 87n, 87n, 87n]
+                ]);
+            }, MAX_TEST_EXECUTION_TIME);
+
+            it('batch_size>1', async () => {
+                const inputs = tokenizer(['hello', 'hello world'], { padding: true });
+                const outputs = await model.generate({
+                    ...inputs,
+                    max_length: 10,
+                });
+                expect(outputs.tolist()).toEqual([
+                    [0n, 0n, 5n, 203n, 790n, 87n, 87n, 87n, 87n, 87n],
+                    [5n, 203n, 790n, 87n, 214n, 741n, 741n, 741n, 741n, 741n]
+                ]);
+            }, MAX_TEST_EXECUTION_TIME);
+
+            afterAll(async () => {
+                await model?.dispose();
+            }, MAX_MODEL_DISPOSE_TIME);
+        });
+    });
+
 
     describe('gemma', () => {
         describe('GemmaForCausalLM', () => {

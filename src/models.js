@@ -3880,6 +3880,29 @@ export class LlamaForCausalLM extends LlamaPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// Cohere models
+
+/**
+ * The bare Cohere Model outputting raw hidden-states without any specific head on top.
+ */
+export class CoherePreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `CoherePreTrainedModel` class.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
+        this.generation_config = generation_config;
+    }
+}
+export class CohereModel extends CoherePreTrainedModel { }
+
+export class CohereForCausalLM extends CoherePreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // Gemma models
 
 /**
@@ -6045,6 +6068,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['gpt_neox', ['GPTNeoXModel', GPTNeoXModel]],
     ['codegen', ['CodeGenModel', CodeGenModel]],
     ['llama', ['LlamaModel', LlamaModel]],
+    ['cohere', ['CohereModel', CohereModel]],
     ['gemma', ['GemmaModel', GemmaModel]],
     ['openelm', ['OpenELMModel', OpenELMModel]],
     ['qwen2', ['Qwen2Model', Qwen2Model]],
@@ -6130,6 +6154,7 @@ const MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = new Map([
     ['gpt_neox', ['GPTNeoXForCausalLM', GPTNeoXForCausalLM]],
     ['codegen', ['CodeGenForCausalLM', CodeGenForCausalLM]],
     ['llama', ['LlamaForCausalLM', LlamaForCausalLM]],
+    ['cohere', ['CohereForCausalLM', CohereForCausalLM]],
     ['gemma', ['GemmaForCausalLM', GemmaForCausalLM]],
     ['openelm', ['OpenELMForCausalLM', OpenELMForCausalLM]],
     ['qwen2', ['Qwen2ForCausalLM', Qwen2ForCausalLM]],
