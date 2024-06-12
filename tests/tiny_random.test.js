@@ -56,6 +56,7 @@ import {
     full,
     RawImage,
     ImageClassificationPipeline,
+    TokenClassificationPipeline,
 } from '../src/transformers.js';
 
 import { init } from './init.js';
@@ -1426,6 +1427,107 @@ describe('Tiny random pipelines', () => {
 
                 // Reset problem type
                 pipe.model.config.problem_type = problem_type;
+            });
+        });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
+
+    describe('token-classification', () => {
+        const model_id = 'hf-internal-testing/tiny-random-BertForTokenClassification';
+
+        /** @type {TokenClassificationPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('token-classification', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+            it('default', async () => {
+                const output = await pipe('1 2 3');
+
+                // TODO: Add start/end to target
+                const target = [
+                    {
+                        entity: 'LABEL_0', score: 0.5292708, index: 1, word: '1',
+                        // 'start': 0, 'end': 1
+                    },
+                    {
+                        entity: 'LABEL_0', score: 0.5353687, index: 2, word: '2',
+                        // 'start': 2, 'end': 3
+                    },
+                    {
+                        entity: 'LABEL_1', score: 0.51381934, index: 3, word: '3',
+                        // 'start': 4, 'end': 5
+                    }
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (ignore_labels set)', async () => {
+                const output = await pipe('1 2 3', { ignore_labels: ['LABEL_0'] });
+                const target = [
+                    {
+                        entity: 'LABEL_1', score: 0.51381934, index: 3, word: '3',
+                        // 'start': 4, 'end': 5
+                    }
+                ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        describe('batch_size>1', () => {
+            it('default', async () => {
+                const output = await pipe(['1 2 3', '4 5']);
+                const target = [
+                    [
+                        {
+                            entity: 'LABEL_0', score: 0.5292708, index: 1, word: '1',
+                            // 'start': 0, 'end': 1
+                        },
+                        {
+                            entity: 'LABEL_0', score: 0.5353687, index: 2, word: '2',
+                            // 'start': 2, 'end': 3
+                        },
+                        {
+                            entity: 'LABEL_1', score: 0.51381934, index: 3, word: '3',
+                            // 'start': 4, 'end': 5
+                        }
+                    ],
+                    [
+                        {
+                            entity: 'LABEL_0', score: 0.5432807, index: 1, word: '4',
+                            // 'start': 0, 'end': 1
+                        },
+                        {
+                            entity: 'LABEL_1', score: 0.5007693, index: 2, word: '5',
+                            // 'start': 2, 'end': 3
+                        }
+                    ]
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (ignore_labels set)', async () => {
+                const output = await pipe(['1 2 3', '4 5'], { ignore_labels: ['LABEL_0'] });
+                const target = [
+                    [
+                        {
+                            entity: 'LABEL_1', score: 0.51381934, index: 3, word: '3',
+                            // 'start': 4, 'end': 5
+                        }
+                    ],
+                    [
+                        {
+                            entity: 'LABEL_1', score: 0.5007693, index: 2, word: '5',
+                            // 'start': 2, 'end': 3
+                        }
+                    ]
+                ]
+                compare(output, target, 1e-5);
             });
         });
 
