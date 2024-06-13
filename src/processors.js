@@ -2115,19 +2115,19 @@ export class AutoFeatureExtractor {
         // Determine feature extractor class
         // TODO: Ensure backwards compatibility with old configs
         let key = preprocessorConfig.feature_extractor_type;
-        let feature_extractor_class = this.FEATURE_EXTRACTOR_CLASS_MAPPING[key];
+        let cls = this.FEATURE_EXTRACTOR_CLASS_MAPPING[key];
 
-        if (!feature_extractor_class) {
+        if (!cls) {
             if (preprocessorConfig.size !== undefined) {
                 // Assume ImageFeatureExtractor
                 console.warn(`Feature extractor type "${key}" not found, assuming ImageFeatureExtractor due to size parameter in config.`);
-                feature_extractor_class = ImageFeatureExtractor;
+                cls = ImageFeatureExtractor;
             } else {
                 throw new Error(`Unknown Feature Extractor type: ${key}`);
             }
         }
 
-        return new feature_extractor_class(preprocessorConfig);
+        return new cls(preprocessorConfig);
     }
 }
 
@@ -2193,19 +2193,19 @@ export class AutoImageProcessor {
         // Determine feature extractor class
         // TODO: Ensure backwards compatibility with old configs
         let key = preprocessorConfig.image_processor_type;
-        let image_processor_class = this.IMAGE_PROCESSOR_CLASS_MAPPING[key];
+        let cls = this.IMAGE_PROCESSOR_CLASS_MAPPING[key];
 
-        if (!image_processor_class) {
+        if (!cls) {
             if (preprocessorConfig.size !== undefined) {
                 // Assume ImageFeatureExtractor
                 console.warn(`Image processor type "${key}" not found, assuming ImageFeatureExtractor due to size parameter in config.`);
-                image_processor_class = ImageFeatureExtractor;
+                cls = ImageFeatureExtractor;
             } else {
                 throw new Error(`Unknown image processor type: ${key}`);
             }
         }
 
-        return new image_processor_class(preprocessorConfig);
+        return new cls(preprocessorConfig);
     }
 }
 //////////////////////////////////////////////////
@@ -2466,7 +2466,11 @@ export class AutoProcessor {
             revision,
         })
 
-        let { processor_class } = preprocessorConfig;
+        let {
+            processor_class,
+            feature_extractor_type,
+            image_processor_type,
+        } = preprocessorConfig;
 
         let cls = this.PROCESSOR_CLASS_MAPPING[processor_class];
 
@@ -2478,11 +2482,25 @@ export class AutoProcessor {
             revision,
         }
 
+        let attributes = cls?.ATTRIBUTES ?? {}
+
         // Check if the processor class is a feature extractor only
-        if (cls?.ATTRIBUTES && Object.keys(cls.ATTRIBUTES).length === 1 && cls.ATTRIBUTES.feature_extractor) {
+        if (
+            (!cls && (feature_extractor_type || image_processor_type)) ||
+            (Object.keys(attributes).length === 1 && attributes.feature_extractor)
+        ) {
+            let feature_extractor_loader = attributes.feature_extractor;
+            if (!cls) {
+                cls = Processor;
+                if (feature_extractor_type) {
+                    feature_extractor_loader = AutoFeatureExtractor;
+                } else {
+                    feature_extractor_loader = AutoImageProcessor;
+                }
+            }
             return new cls({
                 config: preprocessorConfig,
-                feature_extractor: cls.ATTRIBUTES.feature_extractor.from_pretrained(pretrained_model_name_or_path, options),
+                feature_extractor: await feature_extractor_loader.from_pretrained(pretrained_model_name_or_path, options),
             });
         } else if (!cls) {
             throw new Error(`Unknown Processor class: ${processor_class}`);
