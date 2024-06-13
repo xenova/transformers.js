@@ -1445,6 +1445,9 @@ export class PreTrainedModel extends Callable {
                     scores[batch_idx] += logProb;
                     all_input_ids[batch_idx].push(bigint);
                     generated_input_ids.push([bigint]);
+
+                    // TODO: Support beam search
+                    break;
                 }
             }
             if (streamer) {
