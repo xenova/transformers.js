@@ -166,18 +166,18 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
 }
 
 /**
- * A logits processor that forces end-of-sequence token probability to 1.
+ * A logits processor that enforces the specified token as the last generated token when `max_length` is reached.
  */
 export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     /**
      * Create a ForcedEOSTokenLogitsProcessor.
-     * @param {number} max_length Max length of the sequence.
-     * @param {number|number[]} forced_eos_token_id The ID of the end-of-sequence token to be forced.
+     * @param {number} max_length The maximum length of the sequence to be generated.
+     * @param {number|number[]} eos_token_id The id(s) of the *end-of-sequence* token.
      */
-    constructor(max_length, forced_eos_token_id) {
+    constructor(max_length, eos_token_id) {
         super();
         this.max_length = max_length;
-        this.forced_eos_token_id = forced_eos_token_id;
+        this.eos_token_id = Array.isArray(eos_token_id) ? eos_token_id : [eos_token_id];
     }
 
     /**
@@ -187,8 +187,17 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
      * @param {Tensor} logits The logits tensor.
      */
     _call(input_ids, logits) {
-        // console.log('call ForcedEOSTokenLogitsProcessor')
-        // TODO
+        for (let i = 0; i < input_ids.length; ++i) {
+            if (input_ids[i].length === this.max_length - 1) {
+                const batch_logits = logits[i];
+                batch_logits.data.fill(-Infinity);
+
+                for (const eos_token of this.eos_token_id) {
+                    batch_logits.data[eos_token] = 0;
+                }
+            }
+        }
+        return logits;
     }
 }
 
