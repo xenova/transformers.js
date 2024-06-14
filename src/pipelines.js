@@ -59,7 +59,6 @@ import {
 import {
     softmax,
     max,
-    getTopItems,
     round,
 } from './utils/maths.js';
 import {
@@ -70,6 +69,7 @@ import {
     mean_pooling,
     interpolate,
     quantize_embeddings,
+    topk,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
 
@@ -220,7 +220,7 @@ export class Pipeline extends Callable {
  * @typedef {TextClassificationSingle[]} TextClassificationOutput
  * 
  * @typedef {Object} TextClassificationPipelineOptions Parameters specific to text classification pipelines.
- * @property {number} [topk=1] The number of top predictions to be returned.
+ * @property {number} [top_k=1] The number of top predictions to be returned.
  * 
  * @callback TextClassificationPipelineCallback Classify the text(s) given as inputs.
  * @param {string|string[]} texts The input text(s) to be classified.
@@ -243,7 +243,7 @@ export class Pipeline extends Callable {
  * **Example:** Multilingual sentiment-analysis w/ `Xenova/bert-base-multilingual-uncased-sentiment` (and return top 5 classes).
  * ```javascript
  * const classifier = await pipeline('sentiment-analysis', 'Xenova/bert-base-multilingual-uncased-sentiment');
- * const output = await classifier('Le meilleur film de tous les temps.', { topk: 5 });
+ * const output = await classifier('Le meilleur film de tous les temps.', { top_k: 5 });
  * // [
  * //   { label: '5 stars', score: 0.9610759615898132 },
  * //   { label: '4 stars', score: 0.03323351591825485 },
@@ -256,7 +256,7 @@ export class Pipeline extends Callable {
  * **Example:** Toxic comment classification w/ `Xenova/toxic-bert` (and return all classes).
  * ```javascript
  * const classifier = await pipeline('text-classification', 'Xenova/toxic-bert');
- * const output = await classifier('I hate you!', { topk: null });
+ * const output = await classifier('I hate you!', { top_k: null });
  * // [
  * //   { label: 'toxic', score: 0.9593140482902527 },
  * //   { label: 'insult', score: 0.16187334060668945 },
@@ -279,7 +279,7 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
 
     /** @type {TextClassificationPipelineCallback} */
     async _call(texts, {
-        topk = 1
+        top_k = 1
     } = {}) {
 
         // Run tokenization
@@ -294,28 +294,35 @@ export class TextClassificationPipeline extends (/** @type {new (options: TextPi
         // TODO: Use softmax tensor function
         const function_to_apply =
             this.model.config.problem_type === 'multi_label_classification'
-                ? batch => batch.sigmoid().data
-                : batch => softmax(batch.data); // single_label_classification (default)
+                ? batch => batch.sigmoid()
+                : batch => new Tensor(
+                    'float32',
+                    softmax(batch.data),
+                    batch.dims,
+                ); // single_label_classification (default)
 
         const id2label = this.model.config.id2label;
 
         const toReturn = [];
         for (const batch of outputs.logits) {
             const output = function_to_apply(batch);
-            const scores = getTopItems(output, topk);
 
-            const vals = scores.map(x => ({
-                label: id2label[x[0]],
-                score: x[1],
+            const scores = await topk(output, top_k);
+
+            const values = scores[0].tolist();
+            const indices = scores[1].tolist();
+            const vals = indices.map((x, i) => ({
+                label: id2label ? id2label[x] : `LABEL_${x}`,
+                score: values[i],
             }));
-            if (topk === 1) {
+            if (top_k === 1) {
                 toReturn.push(...vals);
             } else {
                 toReturn.push(vals);
             }
         }
 
-        return Array.isArray(texts) || topk === 1 ? /** @type {TextClassificationOutput} */ (toReturn) : /** @type {TextClassificationOutput[]} */ (toReturn)[0];
+        return Array.isArray(texts) || top_k === 1 ? /** @type {TextClassificationOutput} */ (toReturn) : /** @type {TextClassificationOutput[]} */ (toReturn)[0];
     }
 }
 
@@ -430,9 +437,9 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
                     index: j,
                     word: word,
 
-                    // TODO: null for now, but will add
-                    start: null,
-                    end: null,
+                    // TODO: Add support for start and end
+                    // start: null,
+                    // end: null,
                 });
             }
             toReturn.push(tokens);
@@ -449,7 +456,7 @@ export class TokenClassificationPipeline extends (/** @type {new (options: TextP
  * @property {string} answer The answer to the question.
  * 
  * @typedef {Object} QuestionAnsweringPipelineOptions Parameters specific to question answering pipelines.
- * @property {number} [topk=1] The number of top answer predictions to be returned.
+ * @property {number} [top_k=1] The number of top answer predictions to be returned.
  * 
  * @callback QuestionAnsweringPipelineCallback Answer the question(s) given as inputs by using the context(s).
  * @param {string|string[]} question One or several question(s) (must be used in conjunction with the `context` argument).
@@ -487,7 +494,7 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
 
     /** @type {QuestionAnsweringPipelineCallback} */
     async _call(question, context, {
-        topk = 1
+        top_k = 1
     } = {}) {
 
         // Run tokenization
@@ -497,30 +504,70 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
             truncation: true,
         });
 
-        const output = await this.model(inputs);
+        const { start_logits, end_logits } = await this.model(inputs);
+        const input_ids = inputs.input_ids.tolist();
+        const attention_mask = inputs.attention_mask.tolist();
+
+        // TODO: add support for `return_special_tokens_mask`
+        const special_tokens = this.tokenizer.all_special_ids;
 
         /** @type {QuestionAnsweringOutput[]} */
         const toReturn = [];
-        for (let j = 0; j < output.start_logits.dims[0]; ++j) {
-            const ids = inputs.input_ids[j];
-            const sepIndex = ids.indexOf(this.tokenizer.sep_token_id);
+        for (let j = 0; j < start_logits.dims[0]; ++j) {
+            const ids = input_ids[j];
+            const sepIndex = ids.findIndex(x =>
+                // We use == to match bigint with number
+                // @ts-ignore
+                x == this.tokenizer.sep_token_id
+            );
 
-            const s1 = Array.from(softmax(output.start_logits[j].data))
-                .map((x, i) => [x, i])
-                .filter(x => x[1] > sepIndex);
-            const e1 = Array.from(softmax(output.end_logits[j].data))
-                .map((x, i) => [x, i])
-                .filter(x => x[1] > sepIndex);
 
-            const options = product(s1, e1)
+            const valid_mask = attention_mask[j].map((y, ix) => (
+                y == 1
+                && (
+                    ix === 0 // is cls_token
+                    || (
+                        ix > sepIndex
+                        && special_tokens.findIndex(x => x == ids[ix]) === -1 // token is not a special token (special_tokens_mask == 0)
+                    )
+                )
+            ));
+
+            const start = start_logits[j].tolist();
+            const end = end_logits[j].tolist();
+
+            // Now, we mask out values that can't be in the answer
+            // NOTE: We keep the cls_token unmasked (some models use it to indicate unanswerable questions)
+            for (let i = 1; i < start.length; ++i) {
+                if (
+                    attention_mask[j] == 0 // is part of padding
+                    || i <= sepIndex // is before the sep_token
+                    || special_tokens.findIndex(x => x == ids[i]) !== -1 // Is a special token
+                ) {
+                    // Make sure non-context indexes in the tensor cannot contribute to the softmax
+                    start[i] = -Infinity;
+                    end[i] = -Infinity;
+                }
+            }
+
+            // Normalize logits and spans to retrieve the answer
+            const start_scores = softmax(start).map((x, i) => [x, i]);
+            const end_scores = softmax(end).map((x, i) => [x, i]);
+
+            // Mask CLS
+            start_scores[0][0] = 0;
+            end_scores[0][0] = 0;
+
+            // Generate all valid spans and select best ones
+            const options = product(start_scores, end_scores)
                 .filter(x => x[0][1] <= x[1][1])
                 .map(x => [x[0][1], x[1][1], x[0][0] * x[1][0]])
                 .sort((a, b) => b[2] - a[2]);
 
-            for (let k = 0; k < Math.min(options.length, topk); ++k) {
+            for (let k = 0; k < Math.min(options.length, top_k); ++k) {
                 const [start, end, score] = options[k];
 
-                const answer_tokens = [...ids].slice(start, end + 1)
+                const answer_tokens = ids.slice(start, end + 1)
 
                 const answer = this.tokenizer.decode(answer_tokens, {
                     skip_special_tokens: true,
@@ -534,8 +581,8 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
             }
         }
 
-        // Mimic HF's return type based on topk
-        return (topk === 1) ? toReturn[0] : toReturn;
+        // Mimic HF's return type based on top_k
+        return (top_k === 1) ? toReturn[0] : toReturn;
     }
 }
 
@@ -549,7 +596,7 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
  * @typedef {FillMaskSingle[]} FillMaskOutput
  * 
  * @typedef {Object} FillMaskPipelineOptions Parameters specific to fill mask pipelines.
- * @property {number} [topk=5] When passed, overrides the number of predictions to return.
+ * @property {number} [top_k=5] When passed, overrides the number of predictions to return.
  * 
  * @callback FillMaskPipelineCallback Fill the masked token in the text(s) given as inputs.
  * @param {string|string[]} texts One or several texts (or one list of prompts) with masked tokens.
@@ -581,7 +628,7 @@ export class QuestionAnsweringPipeline extends (/** @type {new (options: TextPip
  * **Example:** Perform masked language modelling (a.k.a. "fill-mask") with `Xenova/bert-base-cased` (and return top result).
  * ```javascript
  * const unmasker = await pipeline('fill-mask', 'Xenova/bert-base-cased');
- * const output = await unmasker('The Milky Way is a [MASK] galaxy.', { topk: 1 });
+ * const output = await unmasker('The Milky Way is a [MASK] galaxy.', { top_k: 1 });
  * // [{ token_str: 'spiral', score: 0.6299987435340881, token: 14061, sequence: 'The Milky Way is a spiral galaxy.' }]
  * ```
  */
@@ -597,7 +644,7 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
 
     /** @type {FillMaskPipelineCallback} */
     async _call(texts, {
-        topk = 5
+        top_k = 5
     } = {}) {
 
         // Run tokenization
@@ -607,30 +654,40 @@ export class FillMaskPipeline extends (/** @type {new (options: TextPipelineCons
         });
 
         // Run model
-        const outputs = await this.model(model_inputs)
+        const { logits } = await this.model(model_inputs)
 
         const toReturn = [];
 
-        for (let i = 0; i < model_inputs.input_ids.dims[0]; ++i) {
-            const ids = model_inputs.input_ids[i];
-            const mask_token_index = ids.indexOf(this.tokenizer.mask_token_id)
-
+        /** @type {bigint[][]} */
+        const input_ids = model_inputs.input_ids.tolist();
+        for (let i = 0; i < input_ids.length; ++i) {
+            const ids = input_ids[i];
+            const mask_token_index = ids.findIndex(x =>
+                // We use == to match bigint with number
+                // @ts-ignore
+                x == this.tokenizer.mask_token_id
+            );
             if (mask_token_index === -1) {
                 throw Error(`Mask token (${this.tokenizer.mask_token}) not found in text.`)
             }
-            const logits = outputs.logits[i];
-            const itemLogits = logits[mask_token_index];
+            const itemLogits = logits[i][mask_token_index];
 
-            const scores = getTopItems(softmax(itemLogits.data), topk);
+            const scores = await topk(new Tensor(
+                'float32',
+                softmax(itemLogits.data),
+                itemLogits.dims,
+            ), top_k);
+            const values = scores[0].tolist();
+            const indices = scores[1].tolist();
 
-            toReturn.push(scores.map(x => {
-                const sequence = [...ids];
-                sequence[mask_token_index] = x[0];
+            toReturn.push(indices.map((x, i) => {
+                const sequence = ids.slice();
+                sequence[mask_token_index] = x;
 
                 return {
-                    score: x[1],
-                    token: x[0],
-                    token_str: this.tokenizer.model.vocab[x[0]],
+                    score: values[i],
+                    token: Number(x),
+                    token_str: this.tokenizer.model.vocab[x],
                     sequence: this.tokenizer.decode(sequence, { skip_special_tokens: true }),
                 }
             }));
@@ -1370,7 +1427,7 @@ export class ImageFeatureExtractionPipeline extends (/** @type {new (options: Im
  * @typedef {AudioClassificationSingle[]} AudioClassificationOutput
  * 
  * @typedef {Object} AudioClassificationPipelineOptions Parameters specific to audio classification pipelines.
- * @property {number} [topk=null] The number of top labels that will be returned by the pipeline.
+ * @property {number} [top_k=5] The number of top labels that will be returned by the pipeline.
  * If the provided number is `null` or higher than the number of labels available in the model configuration,
  * it will default to the number of labels.
  * 
@@ -1405,7 +1462,7 @@ export class ImageFeatureExtractionPipeline extends (/** @type {new (options: Im
  * ```javascript
  * const classifier = await pipeline('audio-classification', 'Xenova/ast-finetuned-audioset-10-10-0.4593');
  * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cat_meow.wav';
- * const output = await classifier(url, { topk: 4 });
+ * const output = await classifier(url, { top_k: 4 });
  * // [
  * //   { label: 'Meow', score: 0.5617874264717102 },
  * //   { label: 'Cat', score: 0.22365376353263855 },
@@ -1426,10 +1483,8 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
 
     /** @type {AudioClassificationPipelineCallback} */
     async _call(audio, {
-        topk = null
+        top_k = 5
     } = {}) {
-
-        const single = !Array.isArray(audio);
 
         const sampling_rate = this.processor.feature_extractor.config.sampling_rate;
         const preparedAudios = await prepareAudios(audio, sampling_rate);
@@ -1442,20 +1497,23 @@ export class AudioClassificationPipeline extends (/** @type {new (options: Audio
             const output = await this.model(inputs);
             const logits = output.logits[0];
 
-            const scores = getTopItems(softmax(logits.data), topk);
+            const scores = await topk(new Tensor(
+                'float32',
+                softmax(logits.data),
+                logits.dims,
+            ), top_k);
 
-            const vals = scores.map(x => ({
-                label: /** @type {string} */ (id2label[x[0]]),
-                score: /** @type {number} */ (x[1]),
+            const values = scores[0].tolist();
+            const indices = scores[1].tolist();
+
+            const vals = indices.map((x, i) => ({
+                label: /** @type {string} */ (id2label ? id2label[x] : `LABEL_${x}`),
+                score: /** @type {number} */ (values[i]),
             }));
 
-            if (topk === 1) {
-                toReturn.push(...vals);
-            } else {
-                toReturn.push(vals);
-            }
-        }
-        return !single || topk === 1 ? /** @type {AudioClassificationOutput} */ (toReturn) : /** @type {AudioClassificationOutput[]} */ (toReturn)[0];
+            toReturn.push(vals);
+        };
+        return Array.isArray(audio) ? toReturn : toReturn[0];
     }
 }
 
@@ -1896,7 +1954,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * @typedef {ImageClassificationSingle[]} ImageClassificationOutput
  * 
  * @typedef {Object} ImageClassificationPipelineOptions Parameters specific to image classification pipelines.
- * @property {number} [topk=1] The number of top labels that will be returned by the pipeline. 
+ * @property {number} [top_k=1] The number of top labels that will be returned by the pipeline. 
  * 
  * @callback ImageClassificationPipelineCallback Assign labels to the image(s) passed as inputs.
  * @param {ImagePipelineInputs} images The input images(s) to be classified.
@@ -1924,7 +1982,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * ```javascript
  * const classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
  * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * const output = await classifier(url, { topk: 3 });
+ * const output = await classifier(url, { top_k: 3 });
  * // [
  * //   { label: 'tiger, Panthera tigris', score: 0.632695734500885 },
  * //   { label: 'tiger cat', score: 0.3634825646877289 },
@@ -1936,7 +1994,7 @@ export class ImageToTextPipeline extends (/** @type {new (options: TextImagePipe
  * ```javascript
  * const classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224');
  * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg';
- * const output = await classifier(url, { topk: 0 });
+ * const output = await classifier(url, { top_k: 0 });
  * // [
  * //   { label: 'tiger, Panthera tigris', score: 0.632695734500885 },
  * //   { label: 'tiger cat', score: 0.3634825646877289 },
@@ -1958,32 +2016,36 @@ export class ImageClassificationPipeline extends (/** @type {new (options: Image
 
     /** @type {ImageClassificationPipelineCallback} */
     async _call(images, {
-        topk = 1
+        top_k = 5
     } = {}) {
 
-        const isBatched = Array.isArray(images);
         const preparedImages = await prepareImages(images);
 
         const { pixel_values } = await this.processor(preparedImages);
         const output = await this.model({ pixel_values });
 
         const id2label = this.model.config.id2label;
+
+        /** @type {ImageClassificationOutput[]} */
         const toReturn = [];
         for (const batch of output.logits) {
-            const scores = getTopItems(softmax(batch.data), topk);
+            const scores = await topk(new Tensor(
+                'float32',
+                softmax(batch.data),
+                batch.dims,
+            ), top_k);
 
-            const vals = scores.map(x => ({
-                label: id2label[x[0]],
-                score: x[1],
+            const values = scores[0].tolist();
+            const indices = scores[1].tolist();
+
+            const vals = indices.map((x, i) => ({
+                label: /** @type {string} */ (id2label ? id2label[x] : `LABEL_${x}`),
+                score: /** @type {number} */ (values[i]),
             }));
-            if (topk === 1) {
-                toReturn.push(...vals);
-            } else {
-                toReturn.push(vals);
-            }
+            toReturn.push(vals);
         }
 
-        return isBatched || topk === 1 ? /** @type {ImageClassificationOutput} */ (toReturn) : /** @type {ImageClassificationOutput[]} */ (toReturn)[0];
+        return Array.isArray(images) ? toReturn : toReturn[0];
     }
 
 }
@@ -2327,7 +2389,7 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * 
  * @typedef {Object} ZeroShotObjectDetectionPipelineOptions Parameters specific to zero-shot object detection pipelines.
  * @property {number} [threshold=0.1] The probability necessary to make a prediction.
- * @property {number} [topk=null] The number of top predictions that will be returned by the pipeline.
+ * @property {number} [top_k=null] The number of top predictions that will be returned by the pipeline.
  * If the provided number is `null` or higher than the number of predictions available, it will default
  * to the number of predictions.
  * @property {boolean} [percentage=false] Whether to return the boxes coordinates in percentage (true) or in pixels (false).
@@ -2380,7 +2442,7 @@ export class ObjectDetectionPipeline extends (/** @type {new (options: ImagePipe
  * const detector = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
  * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png';
  * const candidate_labels = ['hat', 'book', 'sunglasses', 'camera'];
- * const output = await detector(url, candidate_labels, { topk: 4, threshold: 0.05 });
+ * const output = await detector(url, candidate_labels, { top_k: 4, threshold: 0.05 });
  * // [
  * //   {
  * //     score: 0.1606510728597641,
@@ -2418,7 +2480,7 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
     /** @type {ZeroShotObjectDetectionPipelineCallback} */
     async _call(images, candidate_labels, {
         threshold = 0.1,
-        topk = null,
+        top_k = null,
         percentage = false,
     } = {}) {
 
@@ -2453,8 +2515,8 @@ export class ZeroShotObjectDetectionPipeline extends (/** @type {new (options: T
                 label: candidate_labels[processed.classes[i]],
                 box: get_bounding_box(box, !percentage),
             })).sort((a, b) => b.score - a.score);
-            if (topk !== null) {
-                result = result.slice(0, topk);
+            if (top_k !== null) {
+                result = result.slice(0, top_k);
             }
             toReturn.push(result)
         }
