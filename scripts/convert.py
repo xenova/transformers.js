@@ -14,6 +14,7 @@ from transformers import (
 )
 
 import onnx
+import onnxslim
 from optimum.exporters.onnx import main_export, export_models
 from optimum.onnx.graph_transformations import check_and_save_model
 from optimum.exporters.tasks import TasksManager
@@ -221,6 +222,12 @@ class ConversionArguments:
         metadata={
             "help": "Experimental usage: override the default ONNX config used for the given model. This argument may be useful for advanced users "
             "that desire a finer-grained control on the export."
+        }
+    )
+    skip_onnxslim: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether or not to skip onnxslim."
         }
     )
 
@@ -619,6 +626,13 @@ def main():
                 f'Unable to export {config.model_type} model with `--split_modalities`.')
 
     os.makedirs(os.path.join(output_model_folder, 'onnx'), exist_ok=True)
+
+    if not conv_args.skip_onnxslim:
+        onnx_models = [os.path.join(output_model_folder, x)
+                    for x in os.listdir(output_model_folder) if x.endswith('.onnx')]
+
+        for model in onnx_models:
+            onnxslim.slim(model, model)
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
