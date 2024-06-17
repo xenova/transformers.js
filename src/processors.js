@@ -2290,10 +2290,10 @@ export class Processor extends Callable {
 
         if (this.ATTRIBUTES) {
             let promises = Object.entries(this.ATTRIBUTES)
-                .map(([key, attr_cls]) =>
+                .map(async ([key, attr_cls]) =>
                     [
                         key,
-                        attr_cls.from_pretrained(pretrained_model_name_or_path, {
+                        await attr_cls.from_pretrained(pretrained_model_name_or_path, {
                             progress_callback,
                             cache_dir,
                             local_files_only,
