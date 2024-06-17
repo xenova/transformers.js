@@ -2303,7 +2303,7 @@ export class Processor extends Callable {
                 );
             Object.assign(args, Object.fromEntries(await Promise.all(promises)));
         }
-        return new this({ config: preprocessorConfig });
+        return new this(args);
     }
 }
 
