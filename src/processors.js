@@ -854,6 +854,10 @@ export class EfficientNetImageProcessor extends ImageFeatureExtractor {
     }
 }
 
+export class MobileNetV1FeatureExtractor extends ImageFeatureExtractor { }
+export class MobileNetV2FeatureExtractor extends ImageFeatureExtractor { }
+export class MobileNetV3FeatureExtractor extends ImageFeatureExtractor { }
+export class MobileNetV4FeatureExtractor extends ImageFeatureExtractor { }
 
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTImageProcessor extends MobileViTFeatureExtractor { } // NOTE extends MobileViTFeatureExtractor
@@ -2199,6 +2203,10 @@ export class AutoProcessor {
         ViTFeatureExtractor,
         MobileViTFeatureExtractor,
         MobileViTImageProcessor,
+        MobileNetV1FeatureExtractor,
+        MobileNetV2FeatureExtractor,
+        MobileNetV3FeatureExtractor,
+        MobileNetV4FeatureExtractor,
         OwlViTFeatureExtractor,
         Owlv2ImageProcessor,
         CLIPFeatureExtractor,

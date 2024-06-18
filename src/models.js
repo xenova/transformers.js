@@ -5919,6 +5919,99 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
 }
 
 //////////////////////////////////////////////////
+// MobileNetV1 models
+export class MobileNetV1PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare MobileNetV1 model outputting raw hidden-states without any specific head on top.
+ */
+export class MobileNetV1Model extends MobileNetV1PreTrainedModel { }
+
+/**
+ * MobileNetV1 model with an image classification head on top (a linear layer on top of the pooled features),
+ * e.g. for ImageNet.
+ */
+export class MobileNetV1ForImageClassification extends MobileNetV1PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// MobileNetV2 models
+export class MobileNetV2PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare MobileNetV2 model outputting raw hidden-states without any specific head on top.
+ */
+export class MobileNetV2Model extends MobileNetV2PreTrainedModel { }
+
+/**
+ * MobileNetV2 model with an image classification head on top (a linear layer on top of the pooled features),
+ * e.g. for ImageNet.
+ */
+export class MobileNetV2ForImageClassification extends MobileNetV2PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// MobileNetV3 models
+export class MobileNetV3PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare MobileNetV3 model outputting raw hidden-states without any specific head on top.
+ */
+export class MobileNetV3Model extends MobileNetV3PreTrainedModel { }
+
+/**
+ * MobileNetV3 model with an image classification head on top (a linear layer on top of the pooled features),
+ * e.g. for ImageNet.
+ */
+export class MobileNetV3ForImageClassification extends MobileNetV3PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// MobileNetV4 models
+export class MobileNetV4PreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare MobileNetV4 model outputting raw hidden-states without any specific head on top.
+ */
+export class MobileNetV4Model extends MobileNetV4PreTrainedModel { }
+
+/**
+ * MobileNetV4 model with an image classification head on top (a linear layer on top of the pooled features),
+ * e.g. for ImageNet.
+ */
+export class MobileNetV4ForImageClassification extends MobileNetV4PreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
 // (uses config to instantiate correct class)
 
@@ -6046,6 +6139,11 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
     ['efficientnet', ['EfficientNetModel', EfficientNetModel]],
+
+    ['mobilenet_v1', ['MobileNetV1Model', MobileNetV1Model]],
+    ['mobilenet_v2', ['MobileNetV2Model', MobileNetV2Model]],
+    ['mobilenet_v3', ['MobileNetV3Model', MobileNetV3Model]],
+    ['mobilenet_v4', ['MobileNetV4Model', MobileNetV4Model]],
 ]);
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
@@ -6237,6 +6335,10 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['swin', ['SwinForImageClassification', SwinForImageClassification]],
     ['segformer', ['SegformerForImageClassification', SegformerForImageClassification]],
     ['efficientnet', ['EfficientNetForImageClassification', EfficientNetForImageClassification]],
+    ['mobilenet_v1', ['MobileNetV1ForImageClassification', MobileNetV1ForImageClassification]],
+    ['mobilenet_v2', ['MobileNetV2ForImageClassification', MobileNetV2ForImageClassification]],
+    ['mobilenet_v3', ['MobileNetV3ForImageClassification', MobileNetV3ForImageClassification]],
+    ['mobilenet_v4', ['MobileNetV4ForImageClassification', MobileNetV4ForImageClassification]],
 ]);
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
