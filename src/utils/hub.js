@@ -884,18 +884,16 @@ export async function getModelPath(path_or_repo_id, filename, fatal = true, opti
                 file: filename
             }
 
-            if (response === undefined) {
-                const cachePath = path.join(options.cache_dir ?? env.cacheDir, proposedCacheKey);
-                await downloadFile(remoteURL, cachePath, data => {
-                    dispatchCallback(options.progress_callback, {
-                        ...progressInfo,
-                        ...data,
-                    })
-                });
-                response = await getFile(cachePath);
-                if (response.status !== 200) {
-                    return handleError(response.status, remoteURL, fatal);
-                }
+            const cachePath = path.join(options.cache_dir ?? env.cacheDir, proposedCacheKey);
+            await downloadFile(remoteURL, cachePath, data => {
+                dispatchCallback(options.progress_callback, {
+                    ...progressInfo,
+                    ...data,
+                })
+            });
+            response = await getFile(cachePath);
+            if (response.status !== 200) {
+                return handleError(response.status, remoteURL, fatal);
             }
 
             dispatchCallback(options.progress_callback, {
