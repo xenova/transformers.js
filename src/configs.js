@@ -109,6 +109,7 @@ function getNormalizedConfig(config) {
             mapping['dim_kv'] = 'head_dim';
             break;
         case 'gpt_neo':
+        case 'donut-swin':
             mapping['num_heads'] = 'num_heads';
             mapping['num_layers'] = 'num_layers';
             mapping['hidden_size'] = 'hidden_size';
@@ -169,20 +170,19 @@ function getNormalizedConfig(config) {
             break;
 
         case 'vision-encoder-decoder':
-            const encoderConfig = getNormalizedConfig(config.encoder);
             const decoderConfig = getNormalizedConfig(config.decoder);
 
             const add_encoder_pkv = 'num_decoder_layers' in decoderConfig;
-            const result = {}
+            const result = pick(config, ['model_type', 'is_encoder_decoder']);
             if (add_encoder_pkv) {
                 // Decoder is part of an encoder-decoder model
-                result.num_decoder_layers = decoderConfig.num_layers;
-                result.num_decoder_heads = decoderConfig.num_heads;
-                result.decoder_hidden_size = decoderConfig.hidden_size;
+                result.num_decoder_layers = decoderConfig.num_decoder_layers;
+                result.num_decoder_heads = decoderConfig.num_decoder_heads;
+                result.decoder_hidden_size = decoderConfig.decoder_hidden_size;
 
-                result.num_encoder_layers = encoderConfig.num_layers;
-                result.num_encoder_heads = encoderConfig.num_heads;
-                result.encoder_hidden_size = encoderConfig.hidden_size;
+                result.num_encoder_layers = decoderConfig.num_encoder_layers;
+                result.num_encoder_heads = decoderConfig.num_encoder_heads;
+                result.encoder_hidden_size = decoderConfig.encoder_hidden_size;
             } else {
                 // Decoder is a decoder-only model
                 result.num_layers = decoderConfig.num_layers;
@@ -211,7 +211,6 @@ function getNormalizedConfig(config) {
  */
 export function getKeyValueShapes(config, {
     prefix = 'past_key_values',
-    encoder_add_pkv = true,
 } = {}) {
     /** @type {Record<string, number[]>} */
     const decoderFeeds = {};
@@ -220,7 +219,9 @@ export function getKeyValueShapes(config, {
     // TODO support batches (i.e., batch_size > 1)
     const batch_size = 1;
 
-    if (normalized_config.is_encoder_decoder && encoder_add_pkv) {
+    if (normalized_config.is_encoder_decoder && (
+        'num_encoder_heads' in normalized_config && 'num_decoder_heads' in normalized_config
+    )) {
         const encoder_dim_kv = normalized_config.encoder_dim_kv ?? (
             normalized_config.encoder_hidden_size / normalized_config.num_encoder_heads
         );
