@@ -720,28 +720,35 @@ export class PreTrainedModel extends Callable {
         this._forward = null;
 
         this._prepare_inputs_for_generation = null;
-        if (modelType === MODEL_TYPES.DecoderOnly) {
-            this.can_generate = true;
+        switch (modelType) {
+            case MODEL_TYPES.DecoderOnly:
+                this.can_generate = true;
+                this._forward = decoderForward;
+                this._prepare_inputs_for_generation = decoder_prepare_inputs_for_generation;
+                break;
+            case MODEL_TYPES.Seq2Seq:
+            case MODEL_TYPES.Vision2Seq:
+            case MODEL_TYPES.Musicgen:
+            case MODEL_TYPES.Florence2:
+                this.can_generate = true;
 
-            this._forward = decoderForward;
-            this._prepare_inputs_for_generation = decoder_prepare_inputs_for_generation;
+                this._forward = seq2seqForward;
+                this._prepare_inputs_for_generation = encoder_decoder_prepare_inputs_for_generation;
+                break;
 
-        } else if (modelType === MODEL_TYPES.Seq2Seq || modelType === MODEL_TYPES.Vision2Seq || modelType === MODEL_TYPES.Musicgen) {
-            this.can_generate = true;
+            case MODEL_TYPES.EncoderDecoder:
+                this._forward = seq2seqForward;
+                break;
+            case MODEL_TYPES.ImageTextToText:
+                this.can_generate = true;
+                this._forward = imageTextToTextForward;
+                this._prepare_inputs_for_generation = decoder_prepare_inputs_for_generation;
+                break;
 
-            this._forward = seq2seqForward;
-            this._prepare_inputs_for_generation = encoder_decoder_prepare_inputs_for_generation;
-
-        } else if (modelType === MODEL_TYPES.EncoderDecoder) {
-            this._forward = seq2seqForward;
-
-        } else if (modelType === MODEL_TYPES.ImageTextToText) {
-            this.can_generate = true;
-            this._forward = imageTextToTextForward;
-            this._prepare_inputs_for_generation = decoder_prepare_inputs_for_generation;
-
-        } else { // should be MODEL_TYPES.EncoderOnly
-            this._forward = encoderForward;
+            default:
+                // should be MODEL_TYPES.EncoderOnly
+                this._forward = encoderForward;
+                break;
         }
 
         if (this.can_generate) {
