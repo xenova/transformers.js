@@ -2164,6 +2164,60 @@ export class SpeechT5Processor extends Processor {
 
 export class OwlViTProcessor extends Processor { }
 
+export class Florence2Processor extends Processor {
+    constructor(feature_extractor) {
+        super(feature_extractor);
+
+        const {
+            tasks_answer_post_processing_type,
+            task_prompts_without_inputs,
+            task_prompts_with_input,
+        } = feature_extractor.config;
+
+        /** @type {Map<string, string>} */
+        this.tasks_answer_post_processing_type = new Map(Object.entries(tasks_answer_post_processing_type ?? {}));
+
+        /** @type {Map<string, string>} */
+        this.task_prompts_without_inputs = new Map(Object.entries(task_prompts_without_inputs ?? {}));
+
+        /** @type {Map<string, string>} */
+        this.task_prompts_with_input = new Map(Object.entries(task_prompts_with_input ?? {}));
+    }
+
+    /**
+     * Helper function to construct prompts from input texts
+     * @param {string|string[]} text
+     * @returns {string[]}
+     */
+    _construct_prompts(text) {
+        if (typeof text === 'string') {
+            text = [text];
+        }
+
+        const prompts = [];
+        for (const t of text) {
+            // 1. fixed task prompts without additional inputs
+            if (this.task_prompts_without_inputs.has(t)) {
+                prompts.push(this.task_prompts_without_inputs.get(t));
+            }
+            // 2. task prompts with additional inputs 
+            else {
+                for (const [task, prompt] of this.task_prompts_with_input) {
+                    if (t.includes(task)) {
+                        prompts.push(prompt.replaceAll('{input}', t).replaceAll(task, ''));
+                        break;
+                    }
+                }
+
+                // 3. default prompt
+                if (prompts.length !== text.length) {
+                    prompts.push(t);
+                }
+            }
+        }
+        return prompts;
+    }
+}
 
 //////////////////////////////////////////////////
 /**
@@ -2211,6 +2265,7 @@ export class AutoProcessor {
         Owlv2ImageProcessor,
         CLIPFeatureExtractor,
         CLIPImageProcessor,
+        Florence2Processor,
         ChineseCLIPFeatureExtractor,
         SiglipImageProcessor,
         ConvNextFeatureExtractor,
@@ -2245,6 +2300,7 @@ export class AutoProcessor {
         SamProcessor,
         SpeechT5Processor,
         OwlViTProcessor,
+        Florence2Processor,
     }
 
     /**
