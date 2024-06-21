@@ -7,15 +7,9 @@
 
 import fs from 'fs';
 import path from 'path';
-import stream from 'stream/web';
 
 import { env } from '../env.js';
 import { dispatchCallback } from './core.js';
-
-if (!globalThis.ReadableStream) {
-    // @ts-ignore
-    globalThis.ReadableStream = stream.ReadableStream; // ReadableStream is not a global with Node 16
-}
 
 /**
  * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     
