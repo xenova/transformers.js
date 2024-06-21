@@ -3487,14 +3487,15 @@ export class Florence2ForConditionalGeneration extends Florence2PreTrainedModel 
         input_ids,
         attention_mask,
     }) {
-        const inputs_embeds2 = cat([
-            image_features,
-            inputs_embeds,
-        ], 1);
-        // TODO: concatenate attention_mask
         return {
-            inputs_embeds: inputs_embeds2,
-            attention_mask: ones(inputs_embeds2.dims.slice(0, 2)),
+            inputs_embeds: cat([
+                image_features,
+                inputs_embeds,
+            ], 1),
+            attention_mask: cat([
+                ones(image_features.dims.slice(0, 2)),
+                attention_mask,
+            ], 1),
         }
     }
 
