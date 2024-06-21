@@ -12,6 +12,7 @@ import {
     BertTokenizer,
     T5Tokenizer,
     WhisperTokenizer,
+    BartTokenizer,
     PreTrainedTokenizer,
     AutoTokenizer,
 
@@ -19,6 +20,7 @@ import {
     CLIPImageProcessor,
     AutoProcessor,
     Processor,
+    Florence2Processor,
 
     // Models
     LlamaForCausalLM,
@@ -46,6 +48,7 @@ import {
     LlavaForConditionalGeneration,
     WhisperForConditionalGeneration,
     VisionEncoderDecoderModel,
+    Florence2ForConditionalGeneration,
 
     // Pipelines
     pipeline,
@@ -598,6 +601,95 @@ describe('Tiny random models', () => {
         });
     });
 
+
+    describe('florence2', () => {
+
+        const texts = [
+            'Describe with a paragraph what is shown in the image.',
+            'Locate the objects with category name in the image.',
+        ]
+
+        // Empty white image
+        const dims = [224, 224, 3];
+        const image = new RawImage(new Uint8ClampedArray(dims[0] * dims[1] * dims[2]).fill(255), ...dims);
+
+        describe('Florence2ForConditionalGeneration', () => {
+            const model_id = 'Xenova/tiny-random-Florence2ForConditionalGeneration';
+
+            /** @type {Florence2ForConditionalGeneration} */
+            let model;
+            /** @type {BartTokenizer} */
+            let tokenizer;
+            /** @type {Florence2Processor} */
+            let processor;
+            beforeAll(async () => {
+                model = await Florence2ForConditionalGeneration.from_pretrained(model_id, {
+                    // TODO move to config
+                    ...DEFAULT_MODEL_OPTIONS,
+                });
+                tokenizer = await BartTokenizer.from_pretrained(model_id);
+                processor = await AutoProcessor.from_pretrained(model_id);
+            }, MAX_MODEL_LOAD_TIME);
+
+            it('forward', async () => {
+                const text_inputs = tokenizer(texts[0]);
+                const vision_inputs = await processor(image);
+                const inputs = {
+                    ...text_inputs,
+                    ...vision_inputs,
+                    decoder_input_ids: full([1, 1], 2n),
+                };
+
+                const { logits } = await model(inputs);
+                expect(logits.dims).toEqual([1, 1, 51289]);
+            });
+
+            it('batch_size=1', async () => {
+                const text_inputs = tokenizer(texts[0]);
+                {
+                    const generate_ids = await model.generate({ ...text_inputs, max_new_tokens: 10 });
+                    expect(generate_ids.tolist()).toEqual([
+                        [2n, 0n, 0n, 0n, 1n, 0n, 0n, 2n]
+                    ]);
+                }
+                {
+                    const vision_inputs = await processor(image);
+                    const inputs = { ...text_inputs, ...vision_inputs };
+
+                    const generate_ids = await model.generate({ ...inputs, max_new_tokens: 10 });
+                    expect(generate_ids.tolist()).toEqual([
+                        [2n, 0n, 48n, 48n, 48n, 48n, 48n, 48n, 48n, 48n, 2n]
+                    ]);
+                }
+            }, MAX_TEST_EXECUTION_TIME);
+
+            it('batch_size>1', async () => {
+                const text_inputs = tokenizer(texts, { padding: true });
+                {
+                    const generate_ids = await model.generate({ ...text_inputs, max_new_tokens: 10 });
+                    expect(generate_ids.tolist()).toEqual([
+                        [2n, 0n, 0n, 0n, 1n, 0n, 0n, 2n],
+                        [2n, 0n, 0n, 0n, 1n, 0n, 0n, 2n]
+                    ]);
+                }
+                {
+                    const vision_inputs = await processor([image, image]);
+                    const inputs = { ...text_inputs, ...vision_inputs };
+
+                    const generate_ids = await model.generate({ ...inputs, max_new_tokens: 10 });
+                    expect(generate_ids.tolist()).toEqual([
+                        [2n, 0n, 48n, 48n, 48n, 48n, 48n, 48n, 48n, 48n, 2n],
+                        [2n, 0n, 48n, 48n, 48n, 48n, 48n, 48n, 48n, 48n, 2n]
+                    ]);
+                }
+
+            }, MAX_TEST_EXECUTION_TIME);
+
+            afterAll(async () => {
+                await model?.dispose();
+            }, MAX_MODEL_DISPOSE_TIME);
+        });
+    });
 
     describe('vision-encoder-decoder', () => {
 

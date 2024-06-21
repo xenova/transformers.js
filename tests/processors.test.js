@@ -48,6 +48,7 @@ describe('Processors', () => {
             vitmatte: 'Xenova/vitmatte-small-distinctions-646',
             dinov2: 'Xenova/dinov2-small-imagenet1k-1-layer',
             // efficientnet: 'Xenova/efficientnet-b0',
+            florence2: 'Xenova/tiny-random-Florence2ForConditionalGeneration',
         }
 
         const TEST_IMAGES = {
@@ -127,7 +128,7 @@ describe('Processors', () => {
                 compare(input_points.tolist(), [[[[341.3333, 682.6667], [682.6667, 341.3333]]]]);
                 compare(input_labels.tolist(), [[[1n, 0n]]]);
             }
-            
+
             { // with input boxes
                 const image = await load_image(TEST_IMAGES.pattern_3x3);
                 const { original_sizes, reshaped_input_sizes, input_boxes } = await processor(image, {
@@ -650,6 +651,36 @@ describe('Processors', () => {
             }
 
 
+        }, MAX_TEST_EXECUTION_TIME);
+    });
+
+    describe('Other processors', () => {
+        // Florence2Processor
+        it(MODELS.florence2, async () => {
+            const processor = await AutoProcessor.from_pretrained(MODELS.swin2sr);
+
+            { // Construct prompt
+                const text = "<OD>";
+                const prompts = await processor._construct_prompts(text);
+                const target = [
+                    'Locate the objects with category name in the image.'
+                ]
+                compare(prompts, target);
+            }
+            { // Construct prompts
+                const texts = [
+                    "<MORE_DETAILED_CAPTION>",
+                    "Locate the objects with category name in the image.",
+                    "<OPEN_VOCABULARY_DETECTION>cat"
+                ];
+                const prompts = await processor._construct_prompts(texts);
+                const target = [
+                    'Describe with a paragraph what is shown in the image.',
+                    'Locate the objects with category name in the image.',
+                    'Locate cat in the image.'
+                ]
+                compare(prompts, target);
+            }
         }, MAX_TEST_EXECUTION_TIME);
     });
 });
