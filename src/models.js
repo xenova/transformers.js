@@ -3550,6 +3550,9 @@ export class Florence2ForConditionalGeneration extends Florence2PreTrainedModel 
         }
 
         if (!decoder_inputs_embeds) {
+            if (!decoder_input_ids) {
+                throw new Error('Either `decoder_input_ids` or `decoder_inputs_embeds` should be provided.');
+            }
             decoder_inputs_embeds = await this.encode_text({ input_ids: decoder_input_ids });
         }
 
