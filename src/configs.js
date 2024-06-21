@@ -60,6 +60,7 @@ function getNormalizedConfig(config) {
         // Sub-configs
         case 'llava':
         case 'paligemma':
+        case 'florence2':
             init_normalized_config = getNormalizedConfig(config.text_config);
             break;
         case 'moondream1':
@@ -143,6 +144,7 @@ function getNormalizedConfig(config) {
         case 'm2m_100':
         case 'blenderbot':
         case 'blenderbot-small':
+        case 'florence2_language':
             mapping['num_decoder_layers'] = 'decoder_layers';
             mapping['num_decoder_heads'] = 'decoder_attention_heads';
             mapping['decoder_hidden_size'] = 'd_model';
