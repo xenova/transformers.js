@@ -2679,7 +2679,6 @@ export class TextToAudioPipeline extends (/** @type {new (options: TextToAudioPi
     async _call(text_inputs, {
         speaker_embeddings = null,
     } = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
 
         // If this.processor is not set, we are using a `AutoModelForTextToWaveform` model
         if (this.processor) {
