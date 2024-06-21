@@ -476,9 +476,13 @@ async function seq2seqForward(self, model_inputs) {
  */
 async function encoderForward(self, model_inputs) {
     const session = self.sessions['model'];
-    const encoderFeeds = Object.create(null);
-    for (const key of session.inputNames) {
-        encoderFeeds[key] = model_inputs[key];
+    const encoderFeeds = pick(model_inputs, session.inputNames);
+
+    if (session.inputNames.includes('inputs_embeds') && !encoderFeeds.inputs_embeds) {
+        if (!model_inputs.input_ids) {
+            throw new Error('Both `input_ids` and `inputs_embeds` are missing in the model inputs.');
+        }
+        encoderFeeds.inputs_embeds = await self.encode_text({ input_ids: model_inputs.input_ids });
     }
     if (session.inputNames.includes('token_type_ids') && !encoderFeeds.token_type_ids) {
         // Assign default `token_type_ids` (all zeroes) to the `encoderFeeds` if the model expects it,
@@ -693,6 +697,15 @@ function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_in
 
     return new_model_inputs;
 }
+
+function image_text_to_text_prepare_inputs_for_generation(self, ...args) {
+    if (self.config.is_encoder_decoder) {
+        return encoder_decoder_prepare_inputs_for_generation(self, ...args);
+    } else {
+        return decoder_prepare_inputs_for_generation(self, ...args);
+    }
+
+}
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -729,7 +742,6 @@ export class PreTrainedModel extends Callable {
             case MODEL_TYPES.Seq2Seq:
             case MODEL_TYPES.Vision2Seq:
             case MODEL_TYPES.Musicgen:
-            case MODEL_TYPES.Florence2:
                 this.can_generate = true;
 
                 this._forward = seq2seqForward;
@@ -742,7 +754,7 @@ export class PreTrainedModel extends Callable {
             case MODEL_TYPES.ImageTextToText:
                 this.can_generate = true;
                 this._forward = imageTextToTextForward;
-                this._prepare_inputs_for_generation = decoder_prepare_inputs_for_generation;
+                this._prepare_inputs_for_generation = image_text_to_text_prepare_inputs_for_generation;
                 break;
 
             default:
@@ -820,7 +832,7 @@ export class PreTrainedModel extends Callable {
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this);
         const modelType = MODEL_TYPE_MAPPING.get(modelName);
 
-        options.config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
+        config = options.config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
 
         let info;
         if (modelType === MODEL_TYPES.DecoderOnly) {
@@ -857,12 +869,16 @@ export class PreTrainedModel extends Callable {
             ]);
 
         } else if (modelType === MODEL_TYPES.ImageTextToText) {
+            const sessions = {
+                embed_tokens: 'embed_tokens',
+                vision_encoder: 'vision_encoder',
+                decoder_model_merged: 'decoder_model_merged',
+            }
+            if (config.is_encoder_decoder) {
+                sessions['model'] = 'encoder_model';
+            }
             info = await Promise.all([
-                constructSessions(pretrained_model_name_or_path, {
-                    embed_tokens: 'embed_tokens',
-                    vision_encoder: 'vision_encoder',
-                    decoder_model_merged: 'decoder_model_merged',
-                }, options),
+                constructSessions(pretrained_model_name_or_path, sessions, options),
                 getModelJSON(pretrained_model_name_or_path, 'generation_config.json', false, options),
             ]);
 
@@ -888,7 +904,7 @@ export class PreTrainedModel extends Callable {
         }
 
         // @ts-ignore
-        return new this(options.config, ...info);
+        return new this(config, ...info);
     }
 
     /**
@@ -1235,9 +1251,21 @@ export class PreTrainedModel extends Callable {
     }
 
     async _prepare_encoder_decoder_kwargs_for_generation({ inputs_tensor, model_inputs, model_input_name, generation_config }) {
-        const encoder_kwargs = pick(model_inputs, this.sessions['model'].inputNames);
-
-        let { last_hidden_state } = await encoderForward(this, encoder_kwargs);
+        if (
+            this.sessions['model'].inputNames.includes('inputs_embeds')
+            && !model_inputs.inputs_embeds
+            && '_prepare_inputs_embeds' in this
+        ) {
+            // Encoder expects `inputs_embeds` instead of `input_ids`
+            const { input_ids, pixel_values, attention_mask, ...kwargs } = model_inputs;
+            // @ts-ignore
+            const prepared_inputs = await this._prepare_inputs_embeds(model_inputs);
+            model_inputs = {
+                ...kwargs,
+                ...pick(prepared_inputs, ['inputs_embeds', 'attention_mask']),
+            };
+        }
+        let { last_hidden_state } = await encoderForward(this, model_inputs);
 
         // for classifier free guidance we need to add a 'null' input to our encoder hidden states
         if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
@@ -1747,6 +1775,24 @@ export class PreTrainedModel extends Callable {
                 decoderFeeds[name] = new Tensor(dtype, empty, shapes[name]);
             }
         }
+    }
+
+    async encode_image({ pixel_values }) {
+        // image_inputs === { pixel_values }
+        const features = (await sessionRun(this.sessions['vision_encoder'], { pixel_values })).image_features;
+        if (!this.config.num_image_tokens) {
+            console.warn(
+                'The number of image tokens was not set in the model configuration. ' +
+                `Setting it to the number of features detected by the vision encoder (${features.dims[1]}).`
+            )
+            this.config.num_image_tokens = features.dims[1];
+        }
+        return features;
+    }
+
+    async encode_text({ input_ids }) {
+        // text_inputs === { input_ids, attention_mask }
+        return (await sessionRun(this.sessions['embed_tokens'], { input_ids })).inputs_embeds;
     }
 }
 
@@ -3347,24 +3393,6 @@ export class LlavaPreTrainedModel extends PreTrainedModel {
  */
 export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 
-    async encode_image({ pixel_values }) {
-        // image_inputs === { pixel_values }
-        const features = (await sessionRun(this.sessions['vision_encoder'], { pixel_values })).image_features;
-        if (!this.config.num_image_tokens) {
-            console.warn(
-                'The number of image tokens was not set in the model configuration. ' +
-                `Setting it to the number of features detected by the vision encoder (${features.dims[1]}).`
-            )
-            this.config.num_image_tokens = features.dims[1];
-        }
-        return features;
-    }
-
-    async encode_text({ input_ids }) {
-        // text_inputs === { input_ids, attention_mask }
-        return (await sessionRun(this.sessions['embed_tokens'], { input_ids })).inputs_embeds;
-    }
-
     _merge_input_ids_with_image_features({
         inputs_embeds,
         image_features,
@@ -3428,6 +3456,115 @@ export class LlavaForConditionalGeneration extends LlavaPreTrainedModel {
 
 export class Moondream1ForConditionalGeneration extends LlavaForConditionalGeneration { } // NOTE: extends LlavaForConditionalGeneration
 
+export class Florence2PreTrainedModel extends PreTrainedModel {
+    forward_params = [
+        // Encoder inputs
+        'input_ids',
+        'inputs_embeds',
+        'attention_mask',
+        'pixel_values',
+
+        // Decoder inputs
+        'encoder_outputs',
+        'decoder_input_ids',
+        'decoder_inputs_embeds',
+        'decoder_attention_mask',
+        'past_key_values',
+    ];
+    main_input_name = 'inputs_embeds';
+
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
+        this.generation_config = generation_config;
+    }
+}
+
+export class Florence2ForConditionalGeneration extends Florence2PreTrainedModel {
+
+    _merge_input_ids_with_image_features({
+        inputs_embeds,
+        image_features,
+        input_ids,
+        attention_mask,
+    }) {
+        const inputs_embeds2 = cat([
+            image_features,
+            inputs_embeds,
+        ], 1);
+        // TODO: concatenate attention_mask
+        return {
+            inputs_embeds: inputs_embeds2,
+            attention_mask: ones(inputs_embeds2.dims.slice(0, 2)),
+        }
+    }
+
+    async _prepare_inputs_embeds({ input_ids, pixel_values, inputs_embeds, attention_mask }) {
+        if (!input_ids && !pixel_values) {
+            throw new Error('Either `input_ids` or `pixel_values` should be provided.');
+        }
+
+        // 1. Possibly, extract the input embeddings
+        let text_features, image_features;
+        if (input_ids) {
+            text_features = await this.encode_text({ input_ids });
+        }
+        if (pixel_values) {
+            image_features = await this.encode_image({ pixel_values });
+        }
+
+        // 2. Possibly, merge text and images
+        if (text_features && image_features) {
+            ({ inputs_embeds, attention_mask } = this._merge_input_ids_with_image_features({
+                inputs_embeds: text_features,
+                image_features,
+                input_ids,
+                attention_mask,
+            }));
+        } else {
+            inputs_embeds = text_features || image_features;
+        }
+
+        return { inputs_embeds, attention_mask };
+    }
+
+    async forward({
+        input_ids,
+        pixel_values,
+        attention_mask,
+        decoder_input_ids,
+        decoder_attention_mask,
+        encoder_outputs,
+        past_key_values,
+
+        inputs_embeds,
+        decoder_inputs_embeds,
+    }) {
+        if (!inputs_embeds) {
+            ({ inputs_embeds, attention_mask } = await this._prepare_inputs_embeds({ input_ids, pixel_values, inputs_embeds, attention_mask }));
+        }
+
+        if (!encoder_outputs) {
+            // Must compute encoder outputs
+            let { last_hidden_state } = await encoderForward(this, { inputs_embeds, attention_mask });
+            encoder_outputs = last_hidden_state;
+        }
+
+        if (!decoder_inputs_embeds) {
+            decoder_inputs_embeds = await this.encode_text({ input_ids: decoder_input_ids });
+        }
+
+        const decoderFeeds = {
+            // input_ids: decoder_input_ids,
+            inputs_embeds: decoder_inputs_embeds,
+            attention_mask: decoder_attention_mask,
+            encoder_attention_mask: attention_mask,
+            encoder_hidden_states: encoder_outputs,
+            past_key_values,
+        };
+        const decoder_outputs = await decoderForward(this, decoderFeeds, true);
+        return decoder_outputs;
+    }
+}
 export class CLIPPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -6322,6 +6459,7 @@ const MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = new Map([
 const MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING_NAMES = new Map([
     ['llava', ['LlavaForConditionalGeneration', LlavaForConditionalGeneration]],
     ['moondream1', ['Moondream1ForConditionalGeneration', Moondream1ForConditionalGeneration]],
+    ['florence2', ['Florence2ForConditionalGeneration', Florence2ForConditionalGeneration]],
 ]);
 
 const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
