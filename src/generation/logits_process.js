@@ -351,7 +351,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
         const generatedNgram = new Map();
         for (const ngram of ngrams) {
             const prevNgram = ngram.slice(0, ngram.length - 1);
-            const prevNgramKey = JSON.stringify(prevNgram);
+            const prevNgramKey = JSON.stringify(prevNgram.map(Number));
             const prevNgramValue = generatedNgram.get(prevNgramKey) ?? [];
             prevNgramValue.push(ngram[ngram.length - 1]);
             generatedNgram.set(prevNgramKey, prevNgramValue);
@@ -367,7 +367,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
      */
     getGeneratedNgrams(bannedNgrams, prevInputIds) {
         const ngramIdx = prevInputIds.slice(prevInputIds.length + 1 - this.no_repeat_ngram_size, prevInputIds.length);
-        const banned = bannedNgrams.get(JSON.stringify(ngramIdx)) ?? [];
+        const banned = bannedNgrams.get(JSON.stringify(ngramIdx.map(Number))) ?? [];
         return banned;
     }
 
