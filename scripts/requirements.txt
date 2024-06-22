@@ -4,3 +4,4 @@ optimum==1.17.1
 onnx==1.15.0
 onnxconverter-common==1.14.0
 tqdm
+onnxslim==0.1.29.1
