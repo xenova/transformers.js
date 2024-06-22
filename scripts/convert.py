@@ -37,6 +37,7 @@ NO_PER_CHANNEL_REDUCE_RANGE_MODELS = {
     'mpt',
     'bloom',
     'llama',
+    'gemma',
     'opt',
     'mistral',
     'falcon',
@@ -366,6 +367,7 @@ def quantize(
             del quantizer
 
         elif mode == QuantMode.FP16:
+            # TODO: https://github.com/huggingface/optimum/blob/02c6ed5f413384d543bcf83a3a9094be2c0429a5/optimum/onnx/graph_transformations.py#L138
             try:
                 model_fp16 = float16.convert_float_to_float16(
                     loaded_model,
@@ -387,6 +389,8 @@ def quantize(
                           all_tensors_to_one_file=True,
                           size_threshold=10_000_000,
                           )
+                outputs.append(save_path + '_data')
+
         else:
             raise ValueError(f'Invalid quantization mode: {mode}')
 
@@ -471,7 +475,6 @@ def main():
         task=conv_args.task,
         do_validation=not conv_args.skip_validation,
         _variant=conv_args.variant,
-        library_name='transformers',
         **core_export_kwargs,
     )
 
