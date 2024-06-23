@@ -162,8 +162,10 @@ export function log_softmax(arr) {
     const maxVal = max(arr)[0];
 
     // Compute the sum of the exponentials
-    // @ts-ignore
-    const sumExps = arr.reduce((acc, val) => acc + Math.exp(val - maxVal), 0);
+    let sumExps = 0;
+    for(let i = 0; i < arr.length; ++i) {
+        sumExps += Math.exp(arr[i] - maxVal);
+    }
 
     // Compute the log of the sum
     const logSum = Math.log(sumExps);
