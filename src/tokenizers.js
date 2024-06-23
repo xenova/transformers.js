@@ -35,6 +35,8 @@ import {
 import { max, min, round } from './utils/maths.js';
 import { Tensor } from './utils/tensor.js';
 
+import { env } from './env.js';
+
 import {
     PriorityQueue,
     TokenLattice,
@@ -42,6 +44,8 @@ import {
 } from './utils/data-structures.js';
 
 import { Template } from '@huggingface/jinja';
+
+const { backends: { Uint8Array } } = env;
 
 
 /**
@@ -2047,7 +2051,7 @@ class ByteLevelDecoder extends Decoder {
      */
     convert_tokens_to_string(tokens) {
         const text = tokens.join('');
-        const byteArray = new Uint8Array([...text].map(c => this.byte_decoder[c]));
+        const byteArray = Uint8Array.from([...text].map(c => this.byte_decoder[c]));
         const decoded_text = this.text_decoder.decode(byteArray);
         return decoded_text;
     }
