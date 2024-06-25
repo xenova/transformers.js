@@ -2182,6 +2182,12 @@ export class Florence2Processor extends Processor {
 
         /** @type {Map<string, string>} */
         this.task_prompts_with_input = new Map(Object.entries(task_prompts_with_input ?? {}));
+
+        this.regexes = {
+            quad_boxes: /(.+?)<loc_(\d+)><loc_(\d+)><loc_(\d+)><loc_(\d+)><loc_(\d+)><loc_(\d+)><loc_(\d+)><loc_(\d+)>/gm,
+            bboxes: /([^<]+)?<loc_(\d+)><loc_(\d+)><loc_(\d+)><loc_(\d+)>/gm,
+        }
+        this.size_per_bin = 1000;
     }
 
     /**
@@ -2216,6 +2222,50 @@ export class Florence2Processor extends Processor {
             }
         }
         return prompts;
+    }
+
+    /**
+     * Post-process the output of the model to each of the task outputs.
+     * @param {string} text The text to post-process.
+     * @param {string} task The task to post-process the text for.
+     * @param {[number, number]} image_size The size of the image. height x width.
+     */
+    post_process_generation(text, task, image_size) {
+        const task_answer_post_processing_type = this.tasks_answer_post_processing_type.get(task) ?? 'pure_text';
+
+        // remove the special tokens
+        text = text.replaceAll('<s>', '').replaceAll('</s>', '');
+
+        let final_answer;
+        switch (task_answer_post_processing_type) {
+            case 'pure_text':
+                final_answer = text;
+                break;
+
+            case 'description_with_bboxes':
+            case 'bboxes':
+            case 'phrase_grounding':
+            case 'ocr':
+                const key = task_answer_post_processing_type === 'ocr' ? 'quad_boxes' : 'bboxes';
+                const matches = text.matchAll(this.regexes[key]);
+                const labels = [];
+                const items = [];
+                for (const [_, label, ...locations] of matches) {
+                    // Push new label, or duplicate the last label
+                    labels.push(label ? label.trim() : labels.at(-1) ?? '');
+                    items.push(locations.map((x, i) =>
+                        // NOTE: Add 0.5 to use the center position of the bin as the coordinate.
+                        (Number(x) + 0.5) / this.size_per_bin * image_size[i % 2])
+                    );
+                }
+                final_answer = { labels, [key]: items };
+                break;
+
+            default:
+                throw new Error(`Task "${task}" (of type "${task_answer_post_processing_type}") not yet implemented.`);
+        }
+
+        return { [task]: final_answer }
     }
 }
 
