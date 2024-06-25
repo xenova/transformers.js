@@ -1644,7 +1644,6 @@ describe('Tiny random pipelines', () => {
         describe('batch_size=1', () => {
             it('default (top_k=1)', async () => {
                 const output = await pipe('a', 'b c');
-                console.log('output', output)
                 const target = { score: 0.11395696550607681, /* start: 0, end: 1, */ answer: 'b' };
                 compare(output, target, 1e-5);
             });
