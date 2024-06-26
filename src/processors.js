@@ -2195,7 +2195,7 @@ export class Florence2Processor extends Processor {
      * @param {string|string[]} text
      * @returns {string[]}
      */
-    _construct_prompts(text) {
+    construct_prompts(text) {
         if (typeof text === 'string') {
             text = [text];
         }

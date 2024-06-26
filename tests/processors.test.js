@@ -675,7 +675,7 @@ describe('Processors', () => {
             describe('Prompt construction', () => {
                 it('Construct prompt', async () => {
                     const text = "<OD>";
-                    const prompts = processor._construct_prompts(text);
+                    const prompts = processor.construct_prompts(text);
                     const target = [
                         'Locate the objects with category name in the image.'
                     ]
@@ -688,7 +688,7 @@ describe('Processors', () => {
                         "Locate the objects with category name in the image.",
                         "<OPEN_VOCABULARY_DETECTION>cat"
                     ];
-                    const prompts = processor._construct_prompts(texts);
+                    const prompts = processor.construct_prompts(texts);
                     const target = [
                         'Describe with a paragraph what is shown in the image.',
                         'Locate the objects with category name in the image.',
