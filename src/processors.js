@@ -869,6 +869,13 @@ export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
 }
 export class Owlv2ImageProcessor extends OwlViTFeatureExtractor { } // NOTE extends OwlViTFeatureExtractor
 
+export class RTDetrImageProcessor extends ImageFeatureExtractor {
+    /** @type {post_process_object_detection} */
+    post_process_object_detection(...args) {
+        return post_process_object_detection(...args);
+    }
+}
+
 export class DeiTFeatureExtractor extends ImageFeatureExtractor { }
 export class BeitFeatureExtractor extends ImageFeatureExtractor { }
 export class DonutFeatureExtractor extends ImageFeatureExtractor {
@@ -2328,6 +2335,7 @@ export class AutoProcessor {
         BeitFeatureExtractor,
         DeiTFeatureExtractor,
         DetrFeatureExtractor,
+        RTDetrImageProcessor,
         YolosFeatureExtractor,
         DonutFeatureExtractor,
         NougatImageProcessor,

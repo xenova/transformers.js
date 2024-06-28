@@ -4453,6 +4453,33 @@ export class DetrSegmentationOutput extends ModelOutput {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class RTDetrPreTrainedModel extends PreTrainedModel { }
+export class RTDetrModel extends RTDetrPreTrainedModel { }
+export class RTDetrForObjectDetection extends RTDetrPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new RTDetrObjectDetectionOutput(await super._call(model_inputs));
+    }
+}
+
+export class RTDetrObjectDetectionOutput extends ModelOutput {
+    /**
+     * @param {Object} output The output of the model.
+     * @param {Tensor} output.logits Classification logits (including no-object) for all queries.
+     * @param {Tensor} output.pred_boxes Normalized boxes coordinates for all queries, represented as (center_x, center_y, width, height).
+     * These values are normalized in [0, 1], relative to the size of each individual image in the batch (disregarding possible padding).
+     */
+    constructor({ logits, pred_boxes }) {
+        super();
+        this.logits = logits;
+        this.pred_boxes = pred_boxes;
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class TableTransformerPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -6264,6 +6291,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['vits', ['VitsModel', VitsModel]],
 
     ['detr', ['DetrModel', DetrModel]],
+    ['rt_detr', ['RTDetrModel', RTDetrModel]],
     ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['fastvit', ['FastViTModel', FastViTModel]],
@@ -6491,6 +6519,7 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = new Map([
     ['detr', ['DetrForObjectDetection', DetrForObjectDetection]],
+    ['rt_detr', ['RTDetrForObjectDetection', RTDetrForObjectDetection]],
     ['table-transformer', ['TableTransformerForObjectDetection', TableTransformerForObjectDetection]],
     ['yolos', ['YolosForObjectDetection', YolosForObjectDetection]],
 ]);
