@@ -195,13 +195,14 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     // handle onnx external data files
     /** @type {Promise<{path: string, data: Uint8Array}>[]} */
     let externalDataPromises = [];
-    if (options.use_external_data_format === true ||
+    if (options.use_external_data_format && (
+        options.use_external_data_format === true ||
         (
             typeof options.use_external_data_format === 'object' &&
             options.use_external_data_format.hasOwnProperty(fileName) &&
             options.use_external_data_format[fileName] === true
         )
-    ) {
+    )) {
         if (apis.IS_NODE_ENV) {
             throw new Error('External data format is not yet supported in Node.js');
         }
