@@ -170,7 +170,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
             dtype = dtype[fileName];
         } else {
             dtype = DEFAULT_DEVICE_DTYPE_MAPPING[executionProviders[0]];
-            console.warn(`Dtype not specified for ${fileName}. Using the default dtype: ${dtype}.`);
+            console.warn(`dtype not specified for ${fileName}. Using the default dtype: ${dtype}.`);
         }
     }
 
@@ -195,7 +195,13 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     // handle onnx external data files
     /** @type {Promise<{path: string, data: Uint8Array}>[]} */
     let externalDataPromises = [];
-    if (options.use_external_data_format) {
+    if (options.use_external_data_format === true ||
+        (
+            typeof options.use_external_data_format === 'object' &&
+            options.use_external_data_format.hasOwnProperty(fileName) &&
+            options.use_external_data_format[fileName] === true
+        )
+    ) {
         if (apis.IS_NODE_ENV) {
             throw new Error('External data format is not yet supported in Node.js');
         }
