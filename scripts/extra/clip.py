@@ -8,6 +8,13 @@ from typing import Dict
 class CLIPVisionOnnxConfig(ViTOnnxConfig):
     pass
 
+class CLIPVisionModelOnnxConfig(CLIPVisionOnnxConfig):
+    @property
+    def outputs(self) -> Dict[str, Dict[int, str]]:
+        outputs = {"pooler_output": {0: "batch_size"},}
+        for i in range(self._normalized_config.num_hidden_layers + 1):
+            outputs[f"hidden_states.{i}"] = {0: "batch_size", 1: "sequence_length"}
+        return outputs
 
 class CLIPTextModelWithProjectionOnnxConfig(CLIPTextOnnxConfig):
     @property
