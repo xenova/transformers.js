@@ -3169,6 +3169,15 @@ export class CLIPVisionModelWithProjection extends CLIPPreTrainedModel {
         return super.from_pretrained(pretrained_model_name_or_path, options);
     }
 }
+
+export class CLIPVisionModel extends CLIPPreTrainedModel {
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'vision_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
+}
 //////////////////////////////////////////////////
 
 
