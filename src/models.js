@@ -3558,7 +3558,6 @@ export class Florence2ForConditionalGeneration extends Florence2PreTrainedModel 
         }
 
         const decoderFeeds = {
-            // input_ids: decoder_input_ids,
             inputs_embeds: decoder_inputs_embeds,
             attention_mask: decoder_attention_mask,
             encoder_attention_mask: attention_mask,
