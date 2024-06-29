@@ -3100,6 +3100,18 @@ export class CLIPPreTrainedModel extends PreTrainedModel { }
 export class CLIPModel extends CLIPPreTrainedModel { }
 
 /**
+ * The text model from CLIP without any head or projection on top.
+ */
+export class CLIPTextModel extends CLIPPreTrainedModel {
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'text_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
+}
+
+/**
  * CLIP Text Model with a projection layer on top (a linear layer on top of the pooled output)
  * 
  * **Example:** Compute text embeddings with `CLIPTextModelWithProjection`.
@@ -3126,11 +3138,22 @@ export class CLIPModel extends CLIPPreTrainedModel { }
  * ```
  */
 export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
-
     /** @type {PreTrainedModel.from_pretrained} */
     static async from_pretrained(pretrained_model_name_or_path, options = {}) {
         // Update default model file name if not provided
         options.model_file_name ??= 'text_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
+}
+
+/**
+ * The vision model from CLIP without any head or projection on top.
+ */
+export class CLIPVisionModel extends CLIPPreTrainedModel {
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'vision_model';
         return super.from_pretrained(pretrained_model_name_or_path, options);
     }
 }
