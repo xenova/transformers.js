@@ -108,8 +108,9 @@ const App = () => {
     );
 
     // Create a streamer to update progress
+    let num_tokens = 0;
     const streamer = new CallbackStreamer((value) => {
-      const percent = value === undefined ? 1 : value[0].length / max_length;
+      const percent = value === undefined ? 1 : ++num_tokens / max_length;
       setStatusText(`Generating (${(percent * 100).toFixed()}%)...`);
       setProgress(percent);
     });
