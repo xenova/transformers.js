@@ -140,7 +140,7 @@ describe('Tokenizers (hard-coded)', () => {
                 const tokenizer = await AutoTokenizer.from_pretrained(m(tokenizerName), { legacy });
 
                 for (const [text, expected] of Object.entries(data)) {
-                    const token_ids = tokenizer.encode(text, null, { add_special_tokens: false });
+                    const token_ids = tokenizer.encode(text, { add_special_tokens: false });
                     expect(token_ids).toEqual(expected);
 
                     // If reversible, test that decoding produces the original text

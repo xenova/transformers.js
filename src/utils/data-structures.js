@@ -22,11 +22,12 @@ export class PriorityQueue {
 
     /**
      * Create a new PriorityQueue.
-     * @param {Function} comparator Comparator function to determine priority. Defaults to a MaxHeap.
+     * @param {function(any, any): boolean} comparator Comparator function to determine priority. Defaults to a MaxHeap.
      */
-    constructor(comparator = (a, b) => a > b) {
+    constructor(comparator = (a, b) => a > b, maxSize = Infinity) {
         this._heap = [];
         this._comparator = comparator;
+        this._maxSize = maxSize;
     }
 
     /**
@@ -68,8 +69,20 @@ export class PriorityQueue {
      */
     extend(values) {
         for (const value of values) {
-            this._heap.push(value);
-            this._siftUp();
+            if (this.size < this._maxSize) {
+                this._heap.push(value);
+                this._siftUp();
+            } else {
+                // Get index of value with the lowest priority
+                const smallest = this._smallest();
+
+                // If the new value has higher priority than the smallest value in the heap
+                // then replace the smallest value with the new value and update the heap
+                if (this._comparator(value, this._heap[smallest])) {
+                    this._heap[smallest] = value;
+                    this._siftUpFrom(smallest);
+                }
+            }
         }
         return this.size;
     }
@@ -160,12 +173,20 @@ export class PriorityQueue {
      * @private
      */
     _siftUp() {
-        let node = this.size - 1;
+        this._siftUpFrom(this.size - 1);
+    }
+
+    /**
+     * Helper function to sift up from a given node.
+     * @param {number} node The index of the node to start sifting up from.
+     */
+    _siftUpFrom(node) {
         while (node > 0 && this._greater(node, this._parent(node))) {
             this._swap(node, this._parent(node));
             node = this._parent(node);
         }
     }
+
     /**
      * Maintain the heap property by updating positions in the heap,
      * starting at the first element and moving down the heap.
@@ -183,6 +204,15 @@ export class PriorityQueue {
             this._swap(node, maxChild);
             node = maxChild;
         }
+    }
+
+    /**
+     * Get the index of the smallest element in the heap. Since we use an array-based heap,
+     * the index can be computed without needing to traverse the heap.
+     * @private
+     */
+    _smallest() {
+        return (2 ** (Math.floor(Math.log2(this.size))) - 1);
     }
 }
 

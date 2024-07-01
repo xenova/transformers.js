@@ -1,5 +1,7 @@
-transformers[torch]==4.33.2
-onnxruntime<1.16.0
-optimum==1.13.2
+transformers[torch]==4.38.2
+onnxruntime==1.17.1
+optimum==1.17.1
+onnx==1.15.0
+onnxconverter-common==1.14.0
 tqdm
-onnx==1.13.1
+onnxslim==0.1.31

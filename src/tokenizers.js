@@ -19,9 +19,11 @@
  * 
  * @module tokenizers
  */
-
 import {
     Callable,
+} from './utils/generic.js';
+
+import {
     reverseDictionary,
     escapeRegExp,
     isIntegralNumber,
@@ -43,6 +45,11 @@ import {
 
 import { Template } from '@huggingface/jinja';
 
+import {
+    WHISPER_LANGUAGE_MAPPING,
+    whisper_language_to_code,
+} from './models/whisper/common_whisper.js';
+import { GITHUB_ISSUE_URL } from './utils/constants.js';
 
 /**
  * @typedef {Object} TokenizerProperties Additional tokenizer-specific properties.
@@ -198,6 +205,34 @@ function remove_accents(text) {
  */
 function lowercase_and_remove_accent(text) {
     return remove_accents(text.toLowerCase());
+}
+
+
+/**
+ * Checks whether the given Unicode codepoint represents a CJK (Chinese, Japanese, or Korean) character.
+ *
+ * A "chinese character" is defined as anything in the CJK Unicode block:
+ * https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
+ *
+ * Note that the CJK Unicode block is NOT all Japanese and Korean characters, despite its name.
+ * The modern Korean Hangul alphabet is a different block, as is Japanese Hiragana and Katakana.
+ * Those alphabets are used to write space-separated words, so they are not treated specially
+ * and are handled like all other languages.
+ *
+ * @param {number|bigint} cp The Unicode codepoint to check.
+ * @returns {boolean} True if the codepoint represents a CJK character, false otherwise.
+ */
+export function is_chinese_char(cp) {
+    return (
+        (cp >= 0x4E00 && cp <= 0x9FFF)
+        || (cp >= 0x3400 && cp <= 0x4DBF)
+        || (cp >= 0x20000 && cp <= 0x2A6DF)
+        || (cp >= 0x2A700 && cp <= 0x2B73F)
+        || (cp >= 0x2B740 && cp <= 0x2B81F)
+        || (cp >= 0x2B820 && cp <= 0x2CEAF)
+        || (cp >= 0xF900 && cp <= 0xFAFF)
+        || (cp >= 0x2F800 && cp <= 0x2FA1F)
+    )
 }
 
 /**
@@ -365,7 +400,7 @@ export class TokenizerModel extends Callable {
 
     /**
      * Converts a list of token IDs into a list of tokens.
-     * @param {number[]} ids The token IDs to convert.
+     * @param {number[]|bigint[]} ids The token IDs to convert.
      * @returns {string[]} The converted tokens.
      */
     convert_ids_to_tokens(ids) {
@@ -1154,7 +1189,7 @@ class BertNormalizer extends Normalizer {
         for (let i = 0; i < text.length; ++i) {
             const char = text[i];
             const cp = char.charCodeAt(0);
-            if (this._is_chinese_char(cp)) {
+            if (is_chinese_char(cp)) {
                 output.push(" ");
                 output.push(char);
                 output.push(" ");
@@ -1165,32 +1200,6 @@ class BertNormalizer extends Normalizer {
         return output.join("");
     }
 
-    /**
-     * Checks whether the given Unicode codepoint represents a CJK (Chinese, Japanese, or Korean) character.
-     *
-     * A "chinese character" is defined as anything in the CJK Unicode block:
-     * https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
-     *
-     * Note that the CJK Unicode block is NOT all Japanese and Korean characters, despite its name.
-     * The modern Korean Hangul alphabet is a different block, as is Japanese Hiragana and Katakana.
-     * Those alphabets are used to write space-separated words, so they are not treated specially
-     * and are handled like all other languages.
-     *
-     * @param {number} cp The Unicode codepoint to check.
-     * @returns {boolean} True if the codepoint represents a CJK character, false otherwise.
-     */
-    _is_chinese_char(cp) {
-        return (
-            (cp >= 0x4E00 && cp <= 0x9FFF)
-            || (cp >= 0x3400 && cp <= 0x4DBF)
-            || (cp >= 0x20000 && cp <= 0x2A6DF)
-            || (cp >= 0x2A700 && cp <= 0x2B73F)
-            || (cp >= 0x2B740 && cp <= 0x2B81F)
-            || (cp >= 0x2B820 && cp <= 0x2CEAF)
-            || (cp >= 0xF900 && cp <= 0xFAFF)
-            || (cp >= 0x2F800 && cp <= 0x2FA1F)
-        )
-    }
     /**
      * Strips accents from the given text.
      * @param {string} text The text to strip accents from.
@@ -2452,7 +2461,7 @@ const SPECIAL_TOKEN_ATTRIBUTES = [
  * @param {Record<string, any[]>} item The input object.
  * @param {number} length The length to pad to.
  * @param {(key: string) => any} value_fn Determine the value to fill the array, based on its key.
- * @param {'right'|'left'} side Which side to pad the array.
+ * @param {string} side Which side to pad the array.
  * @private
  */
 function padHelper(item, length, value_fn, side) {
@@ -2494,6 +2503,7 @@ export class PreTrainedTokenizer extends Callable {
 
     _default_chat_template = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`;
 
+    padding_side = 'right';
     /**
      * Create a new PreTrainedTokenizer instance.
      * @param {Object} tokenizerJSON The JSON of the tokenizer.
@@ -2572,9 +2582,9 @@ export class PreTrainedTokenizer extends Callable {
         this.clean_up_tokenization_spaces = tokenizerConfig.clean_up_tokenization_spaces ?? true;
         this.do_lowercase_and_remove_accent = tokenizerConfig.do_lowercase_and_remove_accent ?? false;
 
-        // TODO allow user to change this
-        /** @type {'right'|'left'} */
-        this.padding_side = 'right';
+        if (tokenizerConfig.padding_side) {
+            this.padding_side = tokenizerConfig.padding_side;
+        }
 
         this.legacy = false;
 
@@ -2599,6 +2609,7 @@ export class PreTrainedTokenizer extends Callable {
      * @param {...string} keys One or more keys to search for in the tokenizer config object.
      * @returns {string|null} The value associated with the first matching key, or null if no match is found.
      * @throws {Error} If an object is found for a matching key and its __type property is not "AddedToken".
+     * @private
      */
     getToken(...keys) {
         for (const key of keys) {
@@ -2707,11 +2718,11 @@ export class PreTrainedTokenizer extends Callable {
                 }
 
                 encodedTokens = text.map(
-                    (t, i) => this._encode_plus(t, text_pair[i], { add_special_tokens, return_token_type_ids })
+                    (t, i) => this._encode_plus(t, { text_pair: text_pair[i], add_special_tokens, return_token_type_ids })
                 )
 
             } else {
-                encodedTokens = text.map(x => this._encode_plus(x, null, { add_special_tokens, return_token_type_ids }));
+                encodedTokens = text.map(x => this._encode_plus(x, { add_special_tokens, return_token_type_ids }));
             }
 
         } else {
@@ -2724,7 +2735,7 @@ export class PreTrainedTokenizer extends Callable {
             }
 
             // For single input, we just wrap in an array, and then unwrap later.
-            encodedTokens = [this._encode_plus(text, text_pair, { add_special_tokens, return_token_type_ids })];
+            encodedTokens = [this._encode_plus(text, { text_pair, add_special_tokens, return_token_type_ids })];
         }
         // At this point, tokens is batched: [batch_size, tokens]
         // However, array may be jagged. So, we pad to max_length
@@ -2743,7 +2754,7 @@ export class PreTrainedTokenizer extends Callable {
         }
 
         // Ensure it is less than model max length
-        max_length = Math.min(max_length, this.model_max_length)
+        max_length = Math.min(max_length, this.model_max_length ?? Infinity);
 
         if (padding || truncation) {
 
@@ -2879,56 +2890,88 @@ export class PreTrainedTokenizer extends Callable {
      * Encodes a single text or a pair of texts using the model's tokenizer.
      *
      * @param {string} text The text to encode.
-     * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.text_pair=null] The optional second text to encode.
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @param {boolean} [options.return_token_type_ids=null] Whether to return token_type_ids.
      * @returns {EncodingSingle} An object containing the encoded text.
      * @private
      */
-    _encode_plus(text, text_pair = null, {
+    _encode_plus(text, {
+        text_pair = null,
         add_special_tokens = true,
         return_token_type_ids = null,
     } = {}) {
-        // Function called by users to encode possibly multiple texts
-        const tokens = this._encode_text(text);
-        const tokens2 = this._encode_text(text_pair);
 
-        const combinedTokens = this.post_processor
-            ? this.post_processor(tokens, tokens2, { add_special_tokens })
-            : { tokens: mergeArrays(tokens ?? [], tokens2 ?? []) };
+        const { tokens, token_type_ids } = this._tokenize_helper(text, { pair: text_pair, add_special_tokens });
 
-        const input_ids = this.model.convert_tokens_to_ids(combinedTokens.tokens);
+        const input_ids = this.model.convert_tokens_to_ids(tokens);
 
         const result = {
             input_ids,
             attention_mask: new Array(input_ids.length).fill(1),
         }
-        if ((return_token_type_ids ?? this.return_token_type_ids) && combinedTokens.token_type_ids) {
-            result.token_type_ids = combinedTokens.token_type_ids;
+        if ((return_token_type_ids ?? this.return_token_type_ids) && token_type_ids) {
+            result.token_type_ids = token_type_ids;
         }
         return result;
+    }
+
+    /**
+     * Internal helper function to tokenize a text, and optionally a pair of texts.
+     * @param {string} text The text to tokenize.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.pair=null] The optional second text to tokenize.
+     * @param {boolean} [options.add_special_tokens=false] Whether or not to add the special tokens associated with the corresponding model.
+     * @returns {{tokens: string[], token_type_ids?: number[]}} An object containing the tokens and optionally the token type IDs.
+     */
+    _tokenize_helper(text, {
+        pair = null,
+        add_special_tokens = false,
+    } = {}) {
+        const tokens = this._encode_text(text);
+        const tokens2 = this._encode_text(pair);
+
+        return this.post_processor
+            ? this.post_processor(tokens, tokens2, { add_special_tokens })
+            : { tokens: mergeArrays(tokens ?? [], tokens2 ?? []) };
+    }
+
+    /**
+     * Converts a string into a sequence of tokens.
+     * @param {string} text The sequence to be encoded.
+     * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.pair] A second sequence to be encoded with the first.
+     * @param {boolean} [options.add_special_tokens=false] Whether or not to add the special tokens associated with the corresponding model.
+     * @returns {string[]} The list of tokens.
+     */
+    tokenize(text, {
+        pair = null,
+        add_special_tokens = false,
+    } = {}) {
+        return this._tokenize_helper(text, { pair, add_special_tokens }).tokens;
     }
 
     /**
      * Encodes a single text or a pair of texts using the model's tokenizer.
      *
      * @param {string} text The text to encode.
-     * @param {string|null} text_pair The optional second text to encode.
      * @param {Object} options An optional object containing the following properties:
+     * @param {string} [options.text_pair=null] The optional second text to encode.
      * @param {boolean} [options.add_special_tokens=true] Whether or not to add the special tokens associated with the corresponding model.
      * @param {boolean} [options.return_token_type_ids=null] Whether to return token_type_ids.
      * @returns {number[]} An array of token IDs representing the encoded text(s).
      */
-    encode(text, text_pair = null, {
+    encode(text, {
+        text_pair = null,
         add_special_tokens = true,
         return_token_type_ids = null,
     } = {}) {
-        const { input_ids } = this._encode_plus(text, text_pair, {
+        return this._encode_plus(text, {
+            text_pair,
             add_special_tokens,
             return_token_type_ids,
-        });
-        return input_ids;
+        }).input_ids;
     }
 
     /**
@@ -2947,7 +2990,7 @@ export class PreTrainedTokenizer extends Callable {
     /**
      * Decodes a sequence of token IDs back to a string.
      *
-     * @param {number[]|Tensor} token_ids List/Tensor of token IDs to decode.
+     * @param {number[]|bigint[]|Tensor} token_ids List/Tensor of token IDs to decode.
      * @param {Object} [decode_args={}]
      * @param {boolean} [decode_args.skip_special_tokens=false] If true, special tokens are removed from the output string.
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=true] If true, spaces before punctuations and abbreviated forms are removed.
@@ -2972,7 +3015,7 @@ export class PreTrainedTokenizer extends Callable {
 
     /**
      * Decode a single list of token ids to a string.
-     * @param {number[]} token_ids List of token ids to decode
+     * @param {number[]|bigint[]} token_ids List of token ids to decode
      * @param {Object} decode_args Optional arguments for decoding
      * @param {boolean} [decode_args.skip_special_tokens=false] Whether to skip special tokens during decoding
      * @param {boolean} [decode_args.clean_up_tokenization_spaces=null] Whether to clean up tokenization spaces during decoding.
@@ -3068,8 +3111,9 @@ export class PreTrainedTokenizer extends Callable {
      * @param {number} [options.max_length=null] Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize is false.
      * If not specified, the tokenizer's `max_length` attribute will be used as a default.
      * @param {boolean} [options.return_tensor=true] Whether to return the output as a Tensor or an Array. Has no effect if tokenize is false.
+     * @param {boolean} [options.return_dict=true] Whether to return a dictionary with named outputs. Has no effect if tokenize is false.
      * @param {Object} [options.tokenizer_kwargs={}] Additional options to pass to the tokenizer.
-     * @returns {string | Tensor | number[]| number[][]} The tokenized output.
+     * @returns {string | Tensor | number[]| number[][]|BatchEncoding} The tokenized output.
      */
     apply_chat_template(conversation, {
         chat_template = null,
@@ -3079,6 +3123,7 @@ export class PreTrainedTokenizer extends Callable {
         truncation = false,
         max_length = null,
         return_tensor = true,
+        return_dict = false,
         tokenizer_kwargs = {},
         ...kwargs
     } = {}) {
@@ -3135,14 +3180,15 @@ export class PreTrainedTokenizer extends Callable {
         });
 
         if (tokenize) {
-            return this._call(rendered, {
+            const out = this._call(rendered, {
                 add_special_tokens: false,
                 padding,
                 truncation,
                 max_length,
                 return_tensor,
                 ...tokenizer_kwargs,
-            }).input_ids;
+            });
+            return return_dict ? out : out.input_ids;
         }
 
         return rendered;
@@ -3252,6 +3298,8 @@ export class LlamaTokenizer extends PreTrainedTokenizer {
         "that your responses are socially unbiased and positive in nature.\n\n" +
         "If a question does not make any sense, or is not factually coherent, explain why instead of answering something not " +
         "correct. If you don't know the answer to a question, please don't share false information."
+
+    padding_side = 'left';
 
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);
@@ -3433,129 +3481,6 @@ export class M2M100Tokenizer extends PreTrainedTokenizer {
     }
 }
 
-
-const WHISPER_LANGUAGES = [
-    ["en", "english"],
-    ["zh", "chinese"],
-    ["de", "german"],
-    ["es", "spanish"],
-    ["ru", "russian"],
-    ["ko", "korean"],
-    ["fr", "french"],
-    ["ja", "japanese"],
-    ["pt", "portuguese"],
-    ["tr", "turkish"],
-    ["pl", "polish"],
-    ["ca", "catalan"],
-    ["nl", "dutch"],
-    ["ar", "arabic"],
-    ["sv", "swedish"],
-    ["it", "italian"],
-    ["id", "indonesian"],
-    ["hi", "hindi"],
-    ["fi", "finnish"],
-    ["vi", "vietnamese"],
-    ["he", "hebrew"],
-    ["uk", "ukrainian"],
-    ["el", "greek"],
-    ["ms", "malay"],
-    ["cs", "czech"],
-    ["ro", "romanian"],
-    ["da", "danish"],
-    ["hu", "hungarian"],
-    ["ta", "tamil"],
-    ["no", "norwegian"],
-    ["th", "thai"],
-    ["ur", "urdu"],
-    ["hr", "croatian"],
-    ["bg", "bulgarian"],
-    ["lt", "lithuanian"],
-    ["la", "latin"],
-    ["mi", "maori"],
-    ["ml", "malayalam"],
-    ["cy", "welsh"],
-    ["sk", "slovak"],
-    ["te", "telugu"],
-    ["fa", "persian"],
-    ["lv", "latvian"],
-    ["bn", "bengali"],
-    ["sr", "serbian"],
-    ["az", "azerbaijani"],
-    ["sl", "slovenian"],
-    ["kn", "kannada"],
-    ["et", "estonian"],
-    ["mk", "macedonian"],
-    ["br", "breton"],
-    ["eu", "basque"],
-    ["is", "icelandic"],
-    ["hy", "armenian"],
-    ["ne", "nepali"],
-    ["mn", "mongolian"],
-    ["bs", "bosnian"],
-    ["kk", "kazakh"],
-    ["sq", "albanian"],
-    ["sw", "swahili"],
-    ["gl", "galician"],
-    ["mr", "marathi"],
-    ["pa", "punjabi"],
-    ["si", "sinhala"],
-    ["km", "khmer"],
-    ["sn", "shona"],
-    ["yo", "yoruba"],
-    ["so", "somali"],
-    ["af", "afrikaans"],
-    ["oc", "occitan"],
-    ["ka", "georgian"],
-    ["be", "belarusian"],
-    ["tg", "tajik"],
-    ["sd", "sindhi"],
-    ["gu", "gujarati"],
-    ["am", "amharic"],
-    ["yi", "yiddish"],
-    ["lo", "lao"],
-    ["uz", "uzbek"],
-    ["fo", "faroese"],
-    ["ht", "haitian creole"],
-    ["ps", "pashto"],
-    ["tk", "turkmen"],
-    ["nn", "nynorsk"],
-    ["mt", "maltese"],
-    ["sa", "sanskrit"],
-    ["lb", "luxembourgish"],
-    ["my", "myanmar"],
-    ["bo", "tibetan"],
-    ["tl", "tagalog"],
-    ["mg", "malagasy"],
-    ["as", "assamese"],
-    ["tt", "tatar"],
-    ["haw", "hawaiian"],
-    ["ln", "lingala"],
-    ["ha", "hausa"],
-    ["ba", "bashkir"],
-    ["jw", "javanese"],
-    ["su", "sundanese"],
-]
-
-// @ts-ignore
-const WHISPER_LANGUAGE_MAPPING = new Map(WHISPER_LANGUAGES);
-// @ts-ignore
-const WHISPER_TO_LANGUAGE_CODE_MAPPING = new Map([
-    ...WHISPER_LANGUAGES.map(([k, v]) => [v, k]),
-    ...[
-        ["burmese", "my"],
-        ["valencian", "ca"],
-        ["flemish", "nl"],
-        ["haitian", "ht"],
-        ["letzeburgesch", "lb"],
-        ["pushto", "ps"],
-        ["panjabi", "pa"],
-        ["moldavian", "ro"],
-        ["moldovan", "ro"],
-        ["sinhalese", "si"],
-        ["castilian", "es"],
-    ]
-]);
-
 /**
  * WhisperTokenizer tokenizer
  * @extends PreTrainedTokenizer
@@ -3563,9 +3488,13 @@ const WHISPER_TO_LANGUAGE_CODE_MAPPING = new Map([
 export class WhisperTokenizer extends PreTrainedTokenizer {
     _default_chat_template = `{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}`;
 
+    get timestamp_begin() {
+        return this.model.convert_tokens_to_ids(["<|notimestamps|>"])[0] + 1;
+    }
+
     /**
      * Decodes automatic speech recognition (ASR) sequences.
-     * @param {Array<{tokens: number[], token_timestamps?: number[], stride: number[]}>} sequences The sequences to decode.
+     * @param {Array<{tokens: bigint[], token_timestamps?: number[], stride: number[]}>} sequences The sequences to decode.
      * @param {Object} options The options to use for decoding.
      * @returns {Array<string|{chunks?: undefined|Array<{language: string|null, timestamp: Array<number|null>, text: string}>}>} The decoded sequences.
      */
@@ -3609,7 +3538,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         const chunks = [];
         let chunk = new_chunk();
         let time_offset = 0.0;
-        const timestamp_begin = this.model.convert_tokens_to_ids(["<|notimestamps|>"])[0] + 1;
+        const timestamp_begin = this.timestamp_begin;
 
         let previous_tokens = [];
         let previous_token_timestamps = [];
@@ -3647,7 +3576,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
                 if (stride_right) {
                     for (let i = token_ids.length - 1; i >= 0; --i) {
-                        const token = token_ids[i];
+                        const token = Number(token_ids[i]);
                         if (token >= timestamp_begin) {
                             // There can be several token in the right stride
                             // But the last one is ALWAYS going to be skipped
@@ -3665,7 +3594,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
             // - all tokens within output
             for (let i = 0; i < token_ids.length; ++i) {
-                const token = token_ids[i];
+                const token = Number(token_ids[i]);
                 // 4 possible states for each token
                 // - 1/ Language code
                 // - 2/ all other special tokens (which we ignore)
@@ -3999,7 +3928,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     ) {
         let text;
         // @ts-ignore
-        if (decode_args && decode_args.decode_with_timestamps) {
+        if (decode_args?.decode_with_timestamps) {
             if (token_ids instanceof Tensor) {
                 token_ids = prepareTensorForDecode(token_ids);
             }
@@ -4015,7 +3944,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
     }
 
     /**
-     * @param {number[]} token_ids List of token IDs to decode.
+     * @param {number[]|bigint[]} token_ids List of token IDs to decode.
      * @param {Object} decode_args Optional arguments for decoding
      * @private
      */
@@ -4025,9 +3954,10 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         const timestamp_begin = Array.from(this.all_special_ids).at(-1) + 1;
         /**@type {Array} */
         let outputs = [[]];
-        for (const token of token_ids) {
+        for (let token of token_ids) {
+            token = Number(token);
             if (token >= timestamp_begin) {
-                const timestamp = round((token - timestamp_begin) * time_precision, 2);
+                const timestamp = ((token - timestamp_begin) * time_precision).toFixed(2);
                 outputs.push(`<|${timestamp}|>`);
                 outputs.push([]);
             } else {
@@ -4035,13 +3965,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
             }
         }
         outputs = outputs.map(
-            s => {
-                if (typeof s === 'string') {
-                    return s;
-                } else {
-                    return super.decode(s, decode_args);
-                }
-            }
+            s => typeof s === 'string' ? s : super.decode(s, decode_args)
         )
 
         return outputs.join('');
@@ -4230,30 +4154,10 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
         if (language) {
             // User wishes to specify the language
-            language = language.toLowerCase();
-
-            // Map to code from user-friendly name (e.g., "english" -> "en")
-            let language_code = WHISPER_TO_LANGUAGE_CODE_MAPPING.get(language);
-
-            if (language_code === undefined) {
-                // User provided something that is not a language name
-
-                if (WHISPER_LANGUAGE_MAPPING.has(language)) {
-                    // User provided the language code directly (e.g., "en")
-                    language_code = language;
-
-                } else {
-                    // User provided something that is not a language code or name
-                    const is_language_code = language.length === 2;
-                    const langs = is_language_code ? WHISPER_LANGUAGE_MAPPING.keys() : WHISPER_LANGUAGE_MAPPING.values();
-
-                    throw new Error(`Language "${language}" is not supported. Must be one of: ${JSON.stringify(langs)}`);
-                }
-            }
-
+            const language_code = whisper_language_to_code(language);
             const language_token_id = this.model.tokens_to_ids.get(`<|${language_code}|>`);
             if (language_token_id === undefined) {
-                throw new Error(`Unable to find language "${language_code}" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.`)
+                throw new Error(`Unable to find language "${language_code}" in model vocabulary. Please report this issue at ${GITHUB_ISSUE_URL}.`)
             }
 
             forced_decoder_ids.push(language_token_id);
@@ -4270,7 +4174,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
             const task_token_id = this.model.tokens_to_ids.get(`<|${task}|>`);
             if (task_token_id === undefined) {
-                throw new Error(`Unable to find task "${task}" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.`)
+                throw new Error(`Unable to find task "${task}" in model vocabulary. Please report this issue at ${GITHUB_ISSUE_URL}.`)
             }
 
             forced_decoder_ids.push(task_token_id);
@@ -4282,7 +4186,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         if (no_timestamps) {
             const no_timestamps_id = this.model.tokens_to_ids.get(`<|notimestamps|>`);
             if (no_timestamps_id === undefined) {
-                throw new Error('Unable to find "<|notimestamps|>" in model vocabulary. Please report this issue at https://github.com/xenova/transformers.js/issues/new/choose.')
+                throw new Error(`Unable to find "<|notimestamps|>" in model vocabulary. Please report this issue at ${GITHUB_ISSUE_URL}.`);
             }
 
             forced_decoder_ids.push(no_timestamps_id);
@@ -4447,7 +4351,6 @@ export class AutoTokenizer {
      * @returns {Promise<PreTrainedTokenizer>} A new instance of the PreTrainedTokenizer class.
      */
     static async from_pretrained(pretrained_model_name_or_path, {
-        quantized = true,
         progress_callback = null,
         config = null,
         cache_dir = null,
@@ -4457,7 +4360,6 @@ export class AutoTokenizer {
     } = {}) {
 
         const [tokenizerJSON, tokenizerConfig] = await loadTokenizer(pretrained_model_name_or_path, {
-            quantized,
             progress_callback,
             config,
             cache_dir,

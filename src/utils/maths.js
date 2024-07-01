@@ -181,27 +181,6 @@ export function dot(arr1, arr2) {
     return result;
 }
 
-
-/**
- * Get the top k items from an iterable, sorted by descending order
- * @param {any[]|TypedArray} items The items to be sorted
- * @param {number|null} [top_k=0] The number of top items to return (default: 0 = return all)
- * @returns {[number, any][]} The top k items, sorted by descending order
- */
-export function getTopItems(items, top_k = 0) {
-    // if top == 0, return all
-
-    items = Array.from(items)
-        .map((x, i) => [i, x])            // Get indices ([index, score])
-        .sort((a, b) => b[1] - a[1])      // Sort by log probabilities
-
-    if (top_k !== null && top_k > 0) {
-        items = items.slice(0, top_k);    // Get top k items
-    }
-
-    return items
-}
-
 /**
  * Computes the cosine similarity between two arrays.
  *
