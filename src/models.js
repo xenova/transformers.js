@@ -5481,6 +5481,17 @@ export class EfficientNetForImageClassification extends EfficientNetPreTrainedMo
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// Decision Transformer models
+export class DecisionTransformerPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The model builds upon the GPT2 architecture to perform autoregressive prediction of actions in an offline RL setting.
+ * Refer to the paper for more details: https://arxiv.org/abs/2106.01345
+ */
+export class DecisionTransformerModel extends DecisionTransformerPreTrainedModel { }
+
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -5607,6 +5618,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
     ['efficientnet', ['EfficientNetModel', EfficientNetModel]],
 
+    ['decision_transformer', ['DecisionTransformerModel', DecisionTransformerModel]],
 ]);
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
