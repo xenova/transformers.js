@@ -3159,15 +3159,14 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             (_, i) => cat(batch.map(x => x[i]), 2)
         );
 
-        let weights = stack(alignment_heads.map(([l, h]) => {
+        const weights = stack(alignment_heads.map(([l, h]) => {
             if (l >= cross_attentions.length) {
                 throw new Error(`Layer index ${l} is out of bounds for cross attentions (length ${cross_attentions.length}).`)
             }
             return num_frames
                 ? cross_attentions[l].slice(null, h, null, [0, num_frames])
                 : cross_attentions[l].slice(null, h);
-        }));
-        weights = weights.transpose(1, 0, 2, 3)
+        })).transpose(1, 0, 2, 3);
 
         const [std, calculatedMean] = std_mean(weights, -2, 0, true);
 
@@ -3195,8 +3194,6 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                 }
             }
         }
-
-
 
         // Average the different cross-attention heads.
         const batchedMatrices = [mean(smoothedWeights, 1)];
