@@ -16,7 +16,7 @@ export class LogitsProcessor extends Callable {
      * Apply the processor to the input logits.
      *
      * @abstract
-     * @param {number[][]} input_ids The input ids.
+     * @param {bigint[][]} input_ids The input ids.
      * @param {Tensor} logits The logits to process.
      * @throws {Error} Throws an error if `_call` is not implemented in the subclass.
      */
@@ -34,7 +34,7 @@ export class LogitsWarper extends Callable {
      * Apply the processor to the input logits.
      *
      * @abstract
-     * @param {number[][]} input_ids The input ids.
+     * @param {bigint[][]} input_ids The input ids.
      * @param {Tensor} logits The logits to process.
      * @throws {Error} Throws an error if `_call` is not implemented in the subclass.
      */
@@ -79,7 +79,7 @@ export class LogitsProcessorList extends Callable {
     /**
      * Applies all logits processors in the list to a batch of logits, modifying them in-place.
      *
-     * @param {number[][]} input_ids The input IDs for the language model.
+     * @param {bigint[][]} input_ids The input IDs for the language model.
      * @param {Tensor} logits
      */
     _call(input_ids, logits) {
@@ -115,7 +115,7 @@ export class LogitsProcessorList extends Callable {
 //     /**
 //      * Apply the processor to the input logits.
 //      *
-//      * @param {number[][]} input_ids The input ids.
+//      * @param {bigint[][]} input_ids The input ids.
 //      * @param {Tensor} logits The logits to process.
 //      * @returns {Tensor} The processed logits.
 //      */
@@ -149,7 +149,7 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply the BOS token forcing to the logits.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The logits with BOS token forcing.
      */
@@ -183,7 +183,7 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     /**
      * Apply the processor to input_ids and logits.
      * 
-     * @param {number[][]} input_ids The input ids.
+     * @param {bigint[][]} input_ids The input ids.
      * @param {Tensor} logits The logits tensor.
      */
     _call(input_ids, logits) {
@@ -220,7 +220,7 @@ export class SuppressTokensAtBeginLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply the BOS token forcing to the logits.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The logits with BOS token forcing.
      */
@@ -265,7 +265,7 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 
     /**
      * Modify the logits to handle timestamp tokens.
-     * @param {number[][]} input_ids The input sequence of tokens.
+     * @param {bigint[][]} input_ids The input sequence of tokens.
      * @param {Tensor} logits The logits output by the model.
      * @returns {Tensor} The modified logits.
      */
@@ -331,7 +331,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
 
     /**
      * Generate n-grams from a sequence of token ids.
-     * @param {number[]} prevInputIds List of previous input ids
+     * @param {bigint[]} prevInputIds List of previous input ids
      * @returns {Map<string, number[]>} Map of generated n-grams
      */
     getNgrams(prevInputIds) {
@@ -344,14 +344,14 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
             for (let k = 0; k < this.no_repeat_ngram_size; ++k) {
                 ngram.push(prevInputIds[j + k]);
             }
-            ngrams.push(ngram);
+            ngrams.push(ngram.map(Number));
         }
 
         /** @type {Map<string, number[]>} */
         const generatedNgram = new Map();
         for (const ngram of ngrams) {
             const prevNgram = ngram.slice(0, ngram.length - 1);
-            const prevNgramKey = JSON.stringify(prevNgram.map(Number));
+            const prevNgramKey = JSON.stringify(prevNgram);
             const prevNgramValue = generatedNgram.get(prevNgramKey) ?? [];
             prevNgramValue.push(ngram[ngram.length - 1]);
             generatedNgram.set(prevNgramKey, prevNgramValue);
@@ -362,7 +362,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
     /**
      * Generate n-grams from a sequence of token ids.
      * @param {Map<string, number[]>} bannedNgrams Map of banned n-grams
-     * @param {number[]} prevInputIds List of previous input ids
+     * @param {bigint[]} prevInputIds List of previous input ids
      * @returns {number[]} Map of generated n-grams
      */
     getGeneratedNgrams(bannedNgrams, prevInputIds) {
@@ -373,7 +373,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
 
     /**
      * Calculate banned n-gram tokens
-     * @param {number[]} prevInputIds List of previous input ids
+     * @param {bigint[]} prevInputIds List of previous input ids
      * @returns {number[]} Map of generated n-grams
      */
     calcBannedNgramTokens(prevInputIds) {
@@ -391,7 +391,7 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply the no-repeat-ngram processor to the logits.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The logits with no-repeat-ngram processing.
      */
@@ -422,7 +422,7 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply the repetition penalty to the logits.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The logits with repetition penalty processing.
      */
@@ -464,7 +464,7 @@ export class MinLengthLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply logit processor.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The processed logits.
      */
@@ -501,7 +501,7 @@ export class MinNewTokensLengthLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply logit processor.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The processed logits.
      */
@@ -533,7 +533,7 @@ export class NoBadWordsLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply logit processor.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The processed logits.
      */
@@ -548,7 +548,7 @@ export class NoBadWordsLogitsProcessor extends LogitsProcessor {
                 // then we set the logits of the last bad word id to -Infinity.
                 for (let i = 1; i <= bad_word_ids.length - 1 && bad_word_ids.length < input_ids[i].length; ++i) {
 
-                    if (bad_word_ids.at(-i - 1) !== input_ids[i].at(-i)) {
+                    if (bad_word_ids.at(-i - 1) !== Number(input_ids[i].at(-i))) {
                         // We have found a mismatch
                         mark = false;
                         break;
@@ -591,7 +591,7 @@ export class ClassifierFreeGuidanceLogitsProcessor extends LogitsProcessor {
 
     /**
      * Apply logit processor.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The processed logits.
      */
@@ -645,7 +645,7 @@ export class TemperatureLogitsWarper extends LogitsWarper {
 
     /**
      * Apply logit warper.
-     * @param {number[][]} input_ids The input IDs.
+     * @param {bigint[][]} input_ids The input IDs.
      * @param {Tensor} logits The logits.
      * @returns {Object} The processed logits.
      */

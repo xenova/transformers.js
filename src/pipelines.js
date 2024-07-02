@@ -1785,8 +1785,11 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
         const force_full_sequences = kwargs.force_full_sequences ?? false;
         let stride_length_s = kwargs.stride_length_s ?? null;
 
+        const generation_config = { ...kwargs }
+
         if (return_timestamps === 'word') {
-            kwargs['return_token_timestamps'] = true;
+            generation_config['return_token_timestamps'] = true;
+            generation_config['return_timestamps'] = false; // Do not predict timestamp tokens
         }
 
         const single = !Array.isArray(audio);
@@ -1848,23 +1851,23 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
 
             // Generate for each set of input features
             for (const chunk of chunks) {
-                kwargs.num_frames = Math.floor(chunk.stride[0] / hop_length);
+                generation_config.num_frames = Math.floor(chunk.stride[0] / hop_length);
 
                 // NOTE: doing sequentially for now
                 const data = await this.model.generate({
                     inputs: chunk.input_features,
-                    ...kwargs
+                    ...generation_config
                 });
 
                 // TODO: Right now we only get top beam
                 if (return_timestamps === 'word') {
-                    chunk.tokens = data.sequences[0].tolist();
+                    chunk.tokens = data.sequences.tolist()[0];
                     chunk.token_timestamps = data.token_timestamps.tolist()[0].map(
                         (/** @type {number} */ x) => round(x, 2)
                     );
 
                 } else {
-                    chunk.tokens = data[0].tolist();
+                    chunk.tokens = (/** @type {Tensor} */(data))[0].tolist();
                 }
 
                 // convert stride to seconds
