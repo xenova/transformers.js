@@ -3610,6 +3610,11 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
         let chunk = new_chunk();
         let time_offset = 0.0;
         const timestamp_begin = this.model.convert_tokens_to_ids(["<|notimestamps|>"])[0] + 1;
+	// Whisper timestamp tokens start from 0.00 and go to timestamp 30.00 in 0.02 increments. 
+	// We can calculate the last time stamp token as timestamp_begin plus the number of tokens 
+	// tokens from 0.00 to 30.00 which is 1500. 
+	const total_timestamp_tokens = (30.00 - 0.00) / 0.02;
+	const timestamp_end = timestamp_begin + total_timestamp_tokens;
 
         let previous_tokens = [];
         let previous_token_timestamps = [];
@@ -3697,7 +3702,7 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                     } else {
                         // 2/ This is a regular special token, ignoring it
                     }
-                } else if (token >= timestamp_begin) {
+                } else if (token >= timestamp_begin && token <= timestamp_end) {
                     // 3/ Timestamp token
                     const time = (token - timestamp_begin) * time_precision + time_offset;
                     const rounded_time = round(time, 2);
