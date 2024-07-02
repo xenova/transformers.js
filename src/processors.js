@@ -2022,19 +2022,221 @@ export class ClapFeatureExtractor extends FeatureExtractor {
 
 export class SpeechT5FeatureExtractor extends FeatureExtractor { }
 
+
+//////////////////////////////////////////////////
+/**
+ * Helper class which is used to instantiate pretrained feature extractor with the `from_pretrained` function.
+ * The chosen feature extractor class is determined by the type specified in the feature extractor config.
+ * 
+ * **Example:** Load a feature extractor using `from_pretrained`.
+ * ```javascript
+ * let feature_extractor = await AutoFeatureExtractor.from_pretrained('openai/whisper-tiny.en');
+ * ```
+ * 
+ * **Example:** Run an image through a processor.
+ * ```javascript
+ * let feature_extractor = await AutoFeatureExtractor.from_pretrained('Xenova/clip-vit-base-patch16');
+ * let image = await RawImage.read('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/football-match.jpg');
+ * let image_inputs = await feature_extractor(image);
+ * // {
+ * //   "pixel_values": {
+ * //     "dims": [ 1, 3, 224, 224 ],
+ * //     "type": "float32",
+ * //     "data": Float32Array [ -1.558687686920166, -1.558687686920166, -1.5440893173217773, ... ],
+ * //     "size": 150528
+ * //   },
+ * //   "original_sizes": [
+ * //     [ 533, 800 ]
+ * //   ],
+ * //   "reshaped_input_sizes": [
+ * //     [ 224, 224 ]
+ * //   ]
+ * // }
+ * ```
+ */
+export class AutoFeatureExtractor {
+    static FEATURE_EXTRACTOR_CLASS_MAPPING = {
+        ImageFeatureExtractor,
+        WhisperFeatureExtractor,
+        ViTFeatureExtractor,
+        MobileViTFeatureExtractor,
+        OwlViTFeatureExtractor,
+        CLIPFeatureExtractor,
+        ChineseCLIPFeatureExtractor,
+        ConvNextFeatureExtractor,
+        SegformerFeatureExtractor,
+        DPTFeatureExtractor,
+        GLPNFeatureExtractor,
+        BeitFeatureExtractor,
+        DeiTFeatureExtractor,
+        DetrFeatureExtractor,
+        YolosFeatureExtractor,
+        DonutFeatureExtractor,
+        Wav2Vec2FeatureExtractor,
+        SeamlessM4TFeatureExtractor,
+        SpeechT5FeatureExtractor,
+        ASTFeatureExtractor,
+        ClapFeatureExtractor,
+    }
+
+    /**
+     * Instantiate one of the processor classes of the library from a pretrained model.
+     * 
+     * The processor class to instantiate is selected based on the `feature_extractor_type` property of the config object
+     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
+     * 
+     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
+     * - A string, the *model id* of a pretrained processor hosted inside a model repo on huggingface.co.
+     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+     *   user or organization name, like `dbmdz/bert-base-german-cased`.
+     * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
+     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the processor.
+     * 
+     * @returns {Promise<FeatureExtractor>} A new instance of the Processor class.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, {
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        subfolder = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+
+        let preprocessorConfig = config ?? await getModelJSON(pretrained_model_name_or_path, 'preprocessor_config.json', true, {
+            progress_callback,
+            config,
+            cache_dir,
+            subfolder,
+            local_files_only,
+            revision,
+        })
+
+        // Determine feature extractor class
+        // TODO: Ensure backwards compatibility with old configs
+        let key = preprocessorConfig.feature_extractor_type;
+        let cls = this.FEATURE_EXTRACTOR_CLASS_MAPPING[key];
+
+        if (!cls) {
+            if (preprocessorConfig.size !== undefined) {
+                // Assume ImageFeatureExtractor
+                console.warn(`Feature extractor type "${key}" not found, assuming ImageFeatureExtractor due to size parameter in config.`);
+                cls = ImageFeatureExtractor;
+            } else {
+                throw new Error(`Unknown Feature Extractor type: ${key}`);
+            }
+        }
+
+        return new cls(preprocessorConfig);
+    }
+}
+
+
+/**
+ * Helper class which is used to instantiate pretrained image processors with the `from_pretrained` function.
+ * The chosen image processor class is determined by the type specified in the image processor config.
+ * 
+ * **Example:** Load a processor using `from_pretrained`.
+ * ```javascript
+ * let processor = await AutoImageProcessor.from_pretrained('Xenova/swin2SR-compressed-sr-x4-48');
+ * ```
+ */
+export class AutoImageProcessor {
+    static IMAGE_PROCESSOR_CLASS_MAPPING = {
+        MobileViTImageProcessor,
+        Owlv2ImageProcessor,
+        SiglipImageProcessor,
+        ConvNextImageProcessor,
+        BitImageProcessor,
+        DPTImageProcessor,
+        NougatImageProcessor,
+        EfficientNetImageProcessor,
+        ViTImageProcessor,
+        VitMatteImageProcessor,
+        SamImageProcessor,
+        Swin2SRImageProcessor,
+    }
+
+    /**
+     * Instantiate one of the processor classes of the library from a pretrained model.
+     * 
+     * The processor class to instantiate is selected based on the `feature_extractor_type` property of the config object
+     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
+     * 
+     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
+     * - A string, the *model id* of a pretrained processor hosted inside a model repo on huggingface.co.
+     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+     *   user or organization name, like `dbmdz/bert-base-german-cased`.
+     * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
+     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the processor.
+     * 
+     * @returns {Promise<ImageFeatureExtractor>} A new instance of the Processor class.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, {
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        subfolder = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+
+        let preprocessorConfig = config ?? await getModelJSON(pretrained_model_name_or_path, 'preprocessor_config.json', true, {
+            progress_callback,
+            config,
+            cache_dir,
+            subfolder,
+            local_files_only,
+            revision,
+        })
+
+        // Determine feature extractor class
+        // TODO: Ensure backwards compatibility with old configs
+        let key = preprocessorConfig.image_processor_type;
+        let cls = this.IMAGE_PROCESSOR_CLASS_MAPPING[key];
+
+        if (!cls) {
+            if (preprocessorConfig.size !== undefined) {
+                // Assume ImageFeatureExtractor
+                console.warn(`Image processor type "${key}" not found, assuming ImageFeatureExtractor due to size parameter in config.`);
+                cls = ImageFeatureExtractor;
+            } else {
+                throw new Error(`Unknown image processor type: ${key}`);
+            }
+        }
+
+        return new cls(preprocessorConfig);
+    }
+}
+//////////////////////////////////////////////////
+
+
+/**
+ * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
+ * @typedef {import('./tokenizers.js').TokenizerModel} TokenizerModel
+ * @typedef {Object.<string, FeatureExtractor | TokenizerModel> & { config: Object }} ProcessorArgs
+ * @typedef {{ from_pretrained: (name_or_path: string, options: PretrainedOptions) => Promise<FeatureExtractor |TokenizerModel>}} AttributeLoader
+ * @typedef {Object.<string, AttributeLoader>} ProcessorAttributes
+ */
+
 /**
  * Represents a Processor that extracts features from an input.
  * @extends Callable
  */
 export class Processor extends Callable {
     /**
-     * Creates a new Processor with the given feature extractor.
-     * @param {FeatureExtractor} feature_extractor The function used to extract features from the input.
+     * The attributes of the Processor.
+     * @type {ProcessorAttributes | null}
      */
-    constructor(feature_extractor) {
+    static ATTRIBUTES = null;
+
+    /**
+     * Creates a new Processor with the given feature extractor.
+     * @param {ProcessorArgs} args The config or function used to extract features from the input.
+     */
+    constructor(args) {
         super();
-        this.feature_extractor = feature_extractor;
-        // TODO use tokenizer here?
+        Object.assign(this, args);
     }
 
     /**
@@ -2046,9 +2248,70 @@ export class Processor extends Callable {
     async _call(input, ...args) {
         return await this.feature_extractor(input, ...args);
     }
+
+    /**
+     * Instantiate one of the processor classes of the library from a pretrained model.
+     * 
+     * The processor class to instantiate is selected based on the `feature_extractor_type` property of the config object
+     * (either passed as an argument or loaded from `pretrained_model_name_or_path` if possible)
+     * 
+     * @param {string} pretrained_model_name_or_path The name or path of the pretrained model. Can be either:
+     * - A string, the *model id* of a pretrained processor hosted inside a model repo on huggingface.co.
+     *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+     *   user or organization name, like `dbmdz/bert-base-german-cased`.
+     * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
+     * @param {PretrainedOptions} options Additional options for loading the processor.
+     * 
+     * @returns {Promise<Processor>} A new instance of the Processor class.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, {
+        progress_callback = null,
+        config = null,
+        cache_dir = null,
+        subfolder = null,
+        local_files_only = false,
+        revision = 'main',
+    } = {}) {
+        let preprocessorConfig = config ?? await getModelJSON(pretrained_model_name_or_path, 'preprocessor_config.json', true, {
+            progress_callback,
+            config,
+            cache_dir,
+            subfolder,
+            local_files_only,
+            revision,
+        })
+
+        /**
+         * @type {ProcessorArgs}
+         */
+        let args = {
+            config: preprocessorConfig,
+        };
+
+        if (this.ATTRIBUTES) {
+            let promises = Object.entries(this.ATTRIBUTES)
+                .map(async ([key, attr_cls]) =>
+                    [
+                        key,
+                        await attr_cls.from_pretrained(pretrained_model_name_or_path, {
+                            progress_callback,
+                            cache_dir,
+                            local_files_only,
+                            revision,
+                        })
+                    ]
+                );
+            Object.assign(args, Object.fromEntries(await Promise.all(promises)));
+        }
+        return new this(args);
+    }
 }
 
 export class SamProcessor extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+
     /**
      * @borrows SamImageProcessor#_call as _call
      */
@@ -2077,6 +2340,10 @@ export class SamProcessor extends Processor {
  * @extends Processor
  */
 export class WhisperProcessor extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+
     /**
      * Calls the feature_extractor function with the given audio input.
      * @param {any} audio The audio input to extract features from.
@@ -2089,6 +2356,11 @@ export class WhisperProcessor extends Processor {
 
 
 export class Wav2Vec2ProcessorWithLM extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+
+
     /**
      * Calls the feature_extractor function with the given audio input.
      * @param {any} audio The audio input to extract features from.
@@ -2100,6 +2372,10 @@ export class Wav2Vec2ProcessorWithLM extends Processor {
 }
 
 export class SpeechT5Processor extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+
     /**
      * Calls the feature_extractor function with the given input.
      * @param {any} input The input to extract features from.
@@ -2110,7 +2386,11 @@ export class SpeechT5Processor extends Processor {
     }
 }
 
-export class OwlViTProcessor extends Processor { }
+export class OwlViTProcessor extends Processor {
+    static ATTRIBUTES = {
+        feature_extractor: AutoFeatureExtractor,
+    }
+}
 
 
 //////////////////////////////////////////////////
@@ -2145,43 +2425,6 @@ export class OwlViTProcessor extends Processor { }
  * ```
  */
 export class AutoProcessor {
-    static FEATURE_EXTRACTOR_CLASS_MAPPING = {
-        ImageFeatureExtractor,
-        WhisperFeatureExtractor,
-        ViTFeatureExtractor,
-        MobileViTFeatureExtractor,
-        MobileViTImageProcessor,
-        OwlViTFeatureExtractor,
-        Owlv2ImageProcessor,
-        CLIPFeatureExtractor,
-        ChineseCLIPFeatureExtractor,
-        SiglipImageProcessor,
-        ConvNextFeatureExtractor,
-        ConvNextImageProcessor,
-        SegformerFeatureExtractor,
-        BitImageProcessor,
-        DPTImageProcessor,
-        DPTFeatureExtractor,
-        GLPNFeatureExtractor,
-        BeitFeatureExtractor,
-        DeiTFeatureExtractor,
-        DetrFeatureExtractor,
-        YolosFeatureExtractor,
-        DonutFeatureExtractor,
-        NougatImageProcessor,
-        EfficientNetImageProcessor,
-
-        ViTImageProcessor,
-        VitMatteImageProcessor,
-        SamImageProcessor,
-        Swin2SRImageProcessor,
-        Wav2Vec2FeatureExtractor,
-        SeamlessM4TFeatureExtractor,
-        SpeechT5FeatureExtractor,
-        ASTFeatureExtractor,
-        ClapFeatureExtractor,
-    }
-
     static PROCESSOR_CLASS_MAPPING = {
         WhisperProcessor,
         Wav2Vec2ProcessorWithLM,
@@ -2201,7 +2444,7 @@ export class AutoProcessor {
      *   Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
      *   user or organization name, like `dbmdz/bert-base-german-cased`.
      * - A path to a *directory* containing processor files, e.g., `./my_model_directory/`.
-     * @param {import('./utils/hub.js').PretrainedOptions} options Additional options for loading the processor.
+     * @param {PretrainedOptions} options Additional options for loading the processor.
      * 
      * @returns {Promise<Processor>} A new instance of the Processor class.
      */
@@ -2209,6 +2452,7 @@ export class AutoProcessor {
         progress_callback = null,
         config = null,
         cache_dir = null,
+        subfolder = null,
         local_files_only = false,
         revision = 'main',
     } = {}) {
@@ -2217,32 +2461,52 @@ export class AutoProcessor {
             progress_callback,
             config,
             cache_dir,
+            subfolder,
             local_files_only,
             revision,
         })
 
-        // Determine feature extractor class
-        // TODO: Ensure backwards compatibility with old configs
-        let key = preprocessorConfig.feature_extractor_type ?? preprocessorConfig.image_processor_type;
-        let feature_extractor_class = this.FEATURE_EXTRACTOR_CLASS_MAPPING[key];
+        let {
+            processor_class,
+            feature_extractor_type,
+            image_processor_type,
+        } = preprocessorConfig;
 
-        if (!feature_extractor_class) {
-            if (preprocessorConfig.size !== undefined) {
-                // Assume ImageFeatureExtractor
-                console.warn(`Feature extractor type "${key}" not found, assuming ImageFeatureExtractor due to size parameter in config.`);
-                feature_extractor_class = ImageFeatureExtractor;
-            } else {
-                throw new Error(`Unknown Feature Extractor type: ${key}`);
-            }
+        let cls = this.PROCESSOR_CLASS_MAPPING[processor_class];
+
+        let options = {
+            progress_callback,
+            config: preprocessorConfig,
+            cache_dir,
+            local_files_only,
+            revision,
         }
 
-        // If no associated processor class, use default
-        let processor_class = this.PROCESSOR_CLASS_MAPPING[preprocessorConfig.processor_class] ?? Processor;
+        let attributes = cls?.ATTRIBUTES ?? {}
 
-        // Instantiate processor and feature extractor
-        let feature_extractor = new feature_extractor_class(preprocessorConfig);
-        return new processor_class(feature_extractor);
+        // Check if the processor class is a feature extractor only
+        if (
+            (!cls && (feature_extractor_type || image_processor_type)) ||
+            (Object.keys(attributes).length === 1 && attributes.feature_extractor)
+        ) {
+            let feature_extractor_loader = attributes.feature_extractor;
+            if (!cls) {
+                cls = Processor;
+                if (feature_extractor_type) {
+                    feature_extractor_loader = AutoFeatureExtractor;
+                } else {
+                    feature_extractor_loader = AutoImageProcessor;
+                }
+            }
+            return new cls({
+                config: preprocessorConfig,
+                feature_extractor: await feature_extractor_loader.from_pretrained(pretrained_model_name_or_path, options),
+            });
+        } else if (!cls) {
+            throw new Error(`Unknown Processor class: ${processor_class}`);
+        } else {
+            return await cls.from_pretrained(pretrained_model_name_or_path, options);
+        }
     }
 }
 //////////////////////////////////////////////////
-
