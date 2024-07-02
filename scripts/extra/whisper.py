@@ -59,9 +59,8 @@ def get_main_export_kwargs(config, task):
 
     custom_onnx_configs = dict(
         encoder_model=custom_config.with_behavior("encoder"),
-        decoder_model=custom_config.with_behavior("decoder", use_past=False),
-        decoder_with_past_model=custom_config.with_behavior(
-            "decoder", use_past=True),
+        decoder_model=custom_config.with_behavior("decoder", use_past=True, use_past_in_inputs=False),
+        decoder_with_past_model=custom_config.with_behavior("decoder", use_past=True, use_past_in_inputs=True),
     )
 
     return dict(
