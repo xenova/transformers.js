@@ -261,7 +261,7 @@ def quantize_fp16(
         keep_io_types=True,
         disable_shape_infer=disable_shape_infer,
     )
-    onnx.save(model_fp16, save_path)
+    check_and_save_model(model_fp16, save_path)
 
 def quantize_q4(
     model: onnx.ModelProto,
