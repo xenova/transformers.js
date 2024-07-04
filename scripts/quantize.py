@@ -252,10 +252,14 @@ def quantize_fp16(
     Quantize the weights of the model from float32 to float16
     """
 
-    # TODO: https://github.com/huggingface/optimum/blob/02c6ed5f413384d543bcf83a3a9094be2c0429a5/optimum/onnx/graph_transformations.py#L138
+    # Check whether we should disable shape infer:
+    # ValueError: Message onnx.ModelProto exceeds maximum protobuf size of 2GB: 2338583841
+    disable_shape_infer = model.ByteSize() >= onnx.checker.MAXIMUM_PROTOBUF
+
     model_fp16 = float16.convert_float_to_float16(
         model,
         keep_io_types=True,
+        disable_shape_infer=disable_shape_infer,
     )
     onnx.save(model_fp16, save_path)
 
