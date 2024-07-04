@@ -269,6 +269,7 @@ function whitespace_split(text) {
 }
 
 const PUNCTUATION_REGEX = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E';
+const PUNCTUATION_ONLY_REGEX = new RegExp(`^[${PUNCTUATION_REGEX}]+$`, 'gu');
 
 // A mapping of regex patterns to their equivalent (but longer) JS-compatible versions.
 const PROBLEMATIC_REGEX_MAP = new Map([
@@ -3695,6 +3696,14 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                         let end_time;
                         if (i + 1 < token_timestamps.length) {
                             end_time = round(token_timestamps[i + 1] + time_offset, 2);
+
+                            // Do not allow punctuation-only tokens to have a duration.
+                            // This prevents long pauses from messing up the timestamps.
+                            const decoded_text = this.decode([token]);
+                            if (PUNCTUATION_ONLY_REGEX.test(decoded_text)) {
+                                // Add `time_precision` to avoid overlapping timestamps
+                                end_time = round(Math.min(start_time + time_precision, end_time), 2);
+                            }
                         } else {
                             // should never happen
                             end_time = null;
