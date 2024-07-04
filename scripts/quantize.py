@@ -1,47 +1,44 @@
-
 from enum import Enum
 
 from tqdm import tqdm
-from typing import Optional, Set
+from typing import Set
 import onnx
 import os
 
 from dataclasses import dataclass, field
 
-from transformers import (
-    AutoConfig,
-    AutoTokenizer,
-    HfArgumentParser
-)
-from onnxruntime.quantization import (
-    quantize_dynamic,
-    QuantType
-)
+from transformers import HfArgumentParser
+from optimum.onnx.graph_transformations import check_and_save_model
+
+from onnxruntime.quantization import quantize_dynamic, QuantType
 from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 from onnxconverter_common import float16
-from optimum.onnx.graph_transformations import check_and_save_model
 
 
 class QuantMode(Enum):
     # F32 = 'fp32'
-    FP16 = 'fp16'
-    Q8 = 'q8'
-    QI8 = 'int8'
-    QU8 = 'uint8'
-    Q4 = 'q4'
-    Q4F16 = 'q4f16'
-    BNB4 = 'bnb4'
+    FP16 = "fp16"
+    Q8 = "q8"
+    QI8 = "int8"
+    QU8 = "uint8"
+    Q4 = "q4"
+    Q4F16 = "q4f16"
+    BNB4 = "bnb4"
+
 
 QUANTIZE_SUFFIX_MAPPING = {
-    QuantMode.Q8: 'quantized',
+    QuantMode.Q8: "quantized",
 }
 
-QUANTIZE_OPTIONS = [x.value for x in QuantMode]
+QUANTIZE_OPTIONS = tuple(x.value for x in QuantMode)
+
 
 @dataclass
 class QuantizationArguments:
-    """Arguments for quantizing ONNX models"""
+    """
+    Arguments for quantizing ONNX models
+    """
 
     input_folder: str = field(
         metadata={
@@ -54,26 +51,23 @@ class QuantizationArguments:
         }
     )
     modes: QuantMode = field(
-        default=tuple(QUANTIZE_OPTIONS),
+        default=QUANTIZE_OPTIONS,
         metadata={
             "help": "Quantization mode to use.",
             "choices": QUANTIZE_OPTIONS,
             "nargs": "+",
-        }
+        },
     )
 
     # 8-bit quantization
     per_channel: bool = field(
-        default=None,
-        metadata={
-            "help": "Whether to quantize weights per channel"
-        }
+        default=None, metadata={"help": "Whether to quantize weights per channel"}
     )
     reduce_range: bool = field(
         default=None,
         metadata={
             "help": "Whether to quantize weights with 7-bits. It may improve the accuracy for some models running on non-VNNI machine, especially for per-channel mode"
-        }
+        },
     )
 
     # 4-bit quantization
@@ -81,15 +75,13 @@ class QuantizationArguments:
         default=None,
         metadata={
             "help": "Block size for blockwise quantization. Note: bnb.nn.Linear4bit only uses block_size=64"
-        }
+        },
     )
 
     # MatMul4BitsQuantizer
     is_symmetric: bool = field(
         default=True,
-        metadata={
-            "help": "Indicate whether to quantize the model symmetrically"
-        }
+        metadata={"help": "Indicate whether to quantize the model symmetrically"},
     )
     accuracy_level: int = field(
         default=None,
@@ -97,7 +89,7 @@ class QuantizationArguments:
             "help": "Accuracy level of the 4-bit quantized MatMul computation. "
             "Refer to the MatMulNBits contrib op's 'accuracy_level' attribute for details "
             "(https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits)."
-        }
+        },
     )
 
     # MatMulBnb4Quantizer
@@ -106,7 +98,7 @@ class QuantizationArguments:
         metadata={
             "help": "Quantization data type. 0: FP4, 1: NF4",
             "choices": [MatMulBnb4Quantizer.FP4, MatMulBnb4Quantizer.NF4],
-        }
+        },
     )
 
 
@@ -122,7 +114,7 @@ def get_operators(model: onnx.ModelProto) -> Set[str]:
 
     traverse_graph(model.graph)
     return operators
-                
+
 
 def quantize_q8(
     model: onnx.ModelProto,
@@ -144,9 +136,7 @@ def quantize_q8(
         weight_type=weight_type,
         per_channel=per_channel,
         reduce_range=reduce_range,
-        extra_options=dict(
-            EnableSubgraph=True
-        ),
+        extra_options=dict(EnableSubgraph=True),
     )
 
 
@@ -216,36 +206,35 @@ def quantize_bnb4(
 def main():
 
     parser = HfArgumentParser(QuantizationArguments)
-    quantization_args, = parser.parse_args_into_dataclasses()
-    print(f'{quantization_args=}')
+    (quantization_args,) = parser.parse_args_into_dataclasses()
+    print(f"{quantization_args=}")
 
     # (Step 1) Validate the arguments
     if not quantization_args.modes:
-        raise ValueError('At least one quantization mode must be specified')
+        raise ValueError("At least one quantization mode must be specified")
 
     model_names_or_paths = [
         os.path.join(quantization_args.input_folder, file)
         for file in os.listdir(quantization_args.input_folder)
-        if file.endswith('.onnx')
+        if file.endswith(".onnx")
     ]
     if not model_names_or_paths:
-        raise ValueError(f'No .onnx models found in {quantization_args.input_folder}')
-
+        raise ValueError(f"No .onnx models found in {quantization_args.input_folder}")
 
     # (Step 2) Quantize the models
     for model_path in (progress_models := tqdm(model_names_or_paths)):
-        progress_models.set_description(f'Processing {model_path}')
+        progress_models.set_description(f"Processing {model_path}")
         model = onnx.load_model(model_path)
 
         file_name_without_extension = os.path.splitext(os.path.basename(model_path))[0]
 
         for mode in (progress := tqdm(quantization_args.modes)):
-            progress.set_description(f' - Quantizing to {mode}')
+            progress.set_description(f" - Quantizing to {mode}")
             mode = QuantMode(mode)
             suffix = QUANTIZE_SUFFIX_MAPPING.get(mode, mode.value)
             save_path = os.path.join(
-              quantization_args.output_folder,
-              f'{file_name_without_extension}_{suffix}.onnx',
+                quantization_args.output_folder,
+                f"{file_name_without_extension}_{suffix}.onnx",
             )
 
             if mode == QuantMode.FP16:
@@ -275,7 +264,11 @@ def main():
                     model,
                     save_path,
                     block_size=quantization_args.block_size or 64,
-                    quant_type=quantization_args.quant_type if quantization_args.quant_type is not None else MatMulBnb4Quantizer.NF4,
+                    quant_type=(
+                        quantization_args.quant_type
+                        if quantization_args.quant_type is not None
+                        else MatMulBnb4Quantizer.NF4
+                    ),
                 )
 
             elif mode in (QuantMode.Q8, QuantMode.QI8, QuantMode.QU8):
@@ -292,7 +285,9 @@ def main():
                     #  - https://github.com/microsoft/onnxruntime/issues/3130#issuecomment-1105200621
                     #  - https://github.com/microsoft/onnxruntime/issues/2339
                     op_types = get_operators(model)
-                    weight_type = QuantType.QUInt8 if 'Conv' in op_types else QuantType.QInt8
+                    weight_type = (
+                        QuantType.QUInt8 if "Conv" in op_types else QuantType.QInt8
+                    )
 
                 elif mode == QuantMode.QI8:
                     weight_type = QuantType.QInt8
@@ -309,5 +304,5 @@ def main():
                 )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
