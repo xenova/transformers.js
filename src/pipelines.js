@@ -985,7 +985,6 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
 
     /** @type {TextGenerationPipelineCallback} */
     async _call(texts, generate_kwargs = {}) {
-        throw new Error('This pipeline is not yet supported in Transformers.js v3.'); // TODO: Remove when implemented
         let isBatched = false;
         let isChatInput = false;
 
@@ -1032,20 +1031,17 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
         });
 
         const outputTokenIds = /** @type {Tensor} */(await this.model.generate({
-            // inputs: input_ids,
-            // attention_mask,
             ...text_inputs,
             ...generate_kwargs
         }));
 
-        let decoded = this.tokenizer.batch_decode(outputTokenIds, {
+        const decoded = this.tokenizer.batch_decode(outputTokenIds, {
             skip_special_tokens: true,
         });
 
-
         let promptLengths;
-        if (!return_full_text && input_ids.dims.at(-1) > 0) {
-            promptLengths = this.tokenizer.batch_decode(input_ids, {
+        if (!return_full_text && text_inputs.input_ids.dims.at(-1) > 0) {
+            promptLengths = this.tokenizer.batch_decode(text_inputs.input_ids, {
                 skip_special_tokens: true,
             }).map(x => x.length);
         }
@@ -1053,7 +1049,7 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
         /** @type {TextGenerationOutput[]} */
         const toReturn = Array.from({ length: texts.length }, _ => []);
         for (let i = 0; i < decoded.length; ++i) {
-            const textIndex = Math.floor(i / outputTokenIds.length * texts.length);
+            const textIndex = Math.floor(i / outputTokenIds.dims[0] * texts.length);
 
             if (promptLengths) {
                 // Trim the decoded text to only include the generated part

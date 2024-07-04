@@ -54,6 +54,7 @@ import {
     pipeline,
     FillMaskPipeline,
     TextClassificationPipeline,
+    TextGenerationPipeline,
     ImageClassificationPipeline,
     TokenClassificationPipeline,
     QuestionAnsweringPipeline,
@@ -1783,6 +1784,81 @@ describe('Tiny random pipelines', () => {
                 compare(output, target, 1e-5);
             });
         });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
+
+    describe('text-generation', () => {
+        const model_id = 'hf-internal-testing/tiny-random-LlamaForCausalLM';
+
+        /** @type {TextGenerationPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('text-generation', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+            const text_input = 'hello';
+            const generated_text_target = 'erdingsAndroid Load';
+            const text_target = [{ generated_text: text_input + generated_text_target }]
+            const new_text_target = [{ generated_text: generated_text_target }]
+
+            const chat_input = [
+                { role: 'system', content: 'a' },
+                { role: 'user', content: 'b' },
+            ]
+            const chat_target = [{
+                generated_text: [
+                    { role: 'system', 'content': 'a' },
+                    { role: 'user', 'content': 'b' },
+                    { role: 'assistant', 'content': ' Southern abund Load' },
+                ],
+            }]
+
+            it('text input (single)', async () => {
+                const output = await pipe(text_input, { max_new_tokens: 3 });
+                compare(output, text_target);
+            });
+            it('text input (list)', async () => {
+                const output = await pipe([text_input], { max_new_tokens: 3 });
+                compare(output, [text_target]);
+            });
+
+            it('text input (single) - return_full_text=false', async () => {
+                const output = await pipe(text_input, { max_new_tokens: 3, return_full_text: false });
+                compare(output, new_text_target);
+            });
+            it('text input (list) - return_full_text=false', async () => {
+                const output = await pipe([text_input], { max_new_tokens: 3, return_full_text: false });
+                compare(output, [new_text_target]);
+            });
+
+            it('chat input (single)', async () => {
+                const output = await pipe(chat_input, { max_new_tokens: 3 });
+                compare(output, chat_target);
+            });
+            it('chat input (list)', async () => {
+                const output = await pipe([chat_input], { max_new_tokens: 3 });
+                compare(output, [chat_target]);
+            });
+        });
+
+        // TODO: Fix batch_size>1
+        // describe('batch_size>1', () => {
+        //     it('default', async () => {
+        //         const output = await pipe(['hello', 'hello world']);
+        //         const target = [
+        //            [{generated_text: 'helloerdingsAndroid Load'}],
+        //            [{generated_text: 'hello world zerosMillнал'}],
+        //         ];
+        //         compare(output, target);
+        //     });
+        // });
 
         afterAll(async () => {
             await pipe?.dispose();
