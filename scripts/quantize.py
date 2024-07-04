@@ -152,7 +152,7 @@ def quantize_q8(
     )
 
     quantizer.quantize_model()
-    check_and_save_model(quantizer.model, save_path)
+    check_and_save_model(quantizer.model.model, save_path)
 
 
 def quantize_fp16(
