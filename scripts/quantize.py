@@ -207,7 +207,6 @@ def main():
 
     parser = HfArgumentParser(QuantizationArguments)
     (quantization_args,) = parser.parse_args_into_dataclasses()
-    print(f"{quantization_args=}")
 
     # (Step 1) Validate the arguments
     if not quantization_args.modes:
