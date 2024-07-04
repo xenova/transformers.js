@@ -109,6 +109,7 @@ class QuantizationArguments:
         }
     )
 
+
 def get_operators(model: onnx.ModelProto) -> Set[str]:
     operators = set()
 
@@ -121,6 +122,95 @@ def get_operators(model: onnx.ModelProto) -> Set[str]:
 
     traverse_graph(model.graph)
     return operators
+                
+
+def quantize_q8(
+    model: onnx.ModelProto,
+    save_path: str,
+    per_channel: bool,
+    reduce_range: bool,
+    weight_type: QuantType,
+):
+    """
+    Quantize the weights of the model from float32 to int8/uint8
+    """
+
+    # Uses unsigned ints for activation values, signed ints for weights, per
+    # https://onnxruntime.ai/docs/performance/quantization.html#data-type-selection
+    # it is faster on most CPU architectures
+    quantize_dynamic(
+        model_input=model,
+        model_output=save_path,
+        weight_type=weight_type,
+        per_channel=per_channel,
+        reduce_range=reduce_range,
+        extra_options=dict(
+            EnableSubgraph=True
+        ),
+    )
+
+
+def quantize_fp16(
+    model: onnx.ModelProto,
+    save_path: str,
+):
+    """
+    Quantize the weights of the model from float32 to float16
+    """
+
+    # Check whether we should disable shape infer:
+    # ValueError: Message onnx.ModelProto exceeds maximum protobuf size of 2GB: 2338583841
+    disable_shape_infer = model.ByteSize() >= onnx.checker.MAXIMUM_PROTOBUF
+
+    model_fp16 = float16.convert_float_to_float16(
+        model,
+        keep_io_types=True,
+        disable_shape_infer=disable_shape_infer,
+    )
+    check_and_save_model(model_fp16, save_path)
+
+
+def quantize_q4(
+    model: onnx.ModelProto,
+    save_path: str | None,
+    block_size: int,
+    is_symmetric: bool,
+    accuracy_level: int,
+):
+    """
+    Quantize the weights of the model from float32 to 4-bit int
+    """
+
+    quantizer = MatMul4BitsQuantizer(
+        model=model,
+        block_size=block_size,
+        is_symmetric=is_symmetric,
+        accuracy_level=accuracy_level,
+    )
+    quantizer.process()
+    if save_path:
+        check_and_save_model(quantizer.model.model, save_path)
+    return quantizer.model.model
+
+
+def quantize_bnb4(
+    model: onnx.ModelProto,
+    save_path: str,
+    block_size: int,
+    quant_type: int,
+):
+    """
+    Quantize the weights of the model from float32 to 4-bit int using MatMulBnb4Quantizer
+    """
+
+    quantizer = MatMulBnb4Quantizer(
+        model=model,
+        block_size=block_size,
+        quant_type=quant_type,
+    )
+    quantizer.process()
+    check_and_save_model(quantizer.model.model, save_path)
+    return quantizer.model.model
 
 
 def main():
@@ -217,92 +307,7 @@ def main():
                     reduce_range=quantization_args.reduce_range,
                     weight_type=weight_type,
                 )
-                
 
-def quantize_q8(
-    model: onnx.ModelProto,
-    save_path: str,
-    per_channel: bool,
-    reduce_range: bool,
-    weight_type: QuantType,
-):
-    """
-    Quantize the weights of the model from float32 to int8/uint8
-    """
-
-    # Uses unsigned ints for activation values, signed ints for weights, per
-    # https://onnxruntime.ai/docs/performance/quantization.html#data-type-selection
-    # it is faster on most CPU architectures
-    quantize_dynamic(
-        model_input=model,
-        model_output=save_path,
-        weight_type=weight_type,
-        per_channel=per_channel,
-        reduce_range=reduce_range,
-        extra_options=dict(
-            EnableSubgraph=True
-        ),
-    )
-
-def quantize_fp16(
-    model: onnx.ModelProto,
-    save_path: str,
-):
-    """
-    Quantize the weights of the model from float32 to float16
-    """
-
-    # Check whether we should disable shape infer:
-    # ValueError: Message onnx.ModelProto exceeds maximum protobuf size of 2GB: 2338583841
-    disable_shape_infer = model.ByteSize() >= onnx.checker.MAXIMUM_PROTOBUF
-
-    model_fp16 = float16.convert_float_to_float16(
-        model,
-        keep_io_types=True,
-        disable_shape_infer=disable_shape_infer,
-    )
-    check_and_save_model(model_fp16, save_path)
-
-def quantize_q4(
-    model: onnx.ModelProto,
-    save_path: str | None,
-    block_size: int,
-    is_symmetric: bool,
-    accuracy_level: int,
-):
-    """
-    Quantize the weights of the model from float32 to 4-bit int
-    """
-
-    quantizer = MatMul4BitsQuantizer(
-        model=model,
-        block_size=block_size,
-        is_symmetric=is_symmetric,
-        accuracy_level=accuracy_level,
-    )
-    quantizer.process()
-    if save_path:
-        check_and_save_model(quantizer.model.model, save_path)
-    return quantizer.model.model
-
-def quantize_bnb4(
-    model: onnx.ModelProto,
-    save_path: str,
-    block_size: int,
-    quant_type: int,
-):
-    """
-    Quantize the weights of the model from float32 to 4-bit int using MatMulBnb4Quantizer
-    """
-
-    quantizer = MatMulBnb4Quantizer(
-        model=model,
-        block_size=block_size,
-        quant_type=quant_type,
-    )
-    quantizer.process()
-    check_and_save_model(quantizer.model.model, save_path)
-    return quantizer.model.model
 
 if __name__ == '__main__':
     main()
