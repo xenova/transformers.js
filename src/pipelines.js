@@ -1822,22 +1822,23 @@ export class AutomaticSpeechRecognitionPipeline extends (/** @type {new (options
                 let offset = 0;
 
                 // Create subarrays of audio with overlaps
-
-                while (offset < aud.length) {
-                    const subarr = aud.subarray(offset, offset + window);
+                while (true) {
+                    const offset_end = offset + window;
+                    const subarr = aud.subarray(offset, offset_end);
                     const feature = await this.processor(subarr);
 
-                    const isFirst = offset === 0;
-                    const isLast = offset + jump >= aud.length;
+                    const is_first = offset === 0;
+                    const is_last = offset_end >= aud.length;
                     chunks.push({
                         stride: [
                             subarr.length,
-                            isFirst ? 0 : stride,
-                            isLast ? 0 : stride
+                            is_first ? 0 : stride,
+                            is_last ? 0 : stride
                         ],
                         input_features: feature.input_features,
-                        is_last: isLast
+                        is_last,
                     })
+                    if (is_last) break;
                     offset += jump;
                 }
 
