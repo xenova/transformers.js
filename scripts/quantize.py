@@ -169,7 +169,7 @@ def main():
 
                 q4_model = quantize_q4(
                     model,
-                    save_path=None,
+                    save_path=None if mode == QuantMode.Q4F16 else save_path,
                     block_size=block_size,
                     is_symmetric=quantization_args.is_symmetric,
                     accuracy_level=quantization_args.accuracy_level,
