@@ -2559,7 +2559,11 @@ export class PreTrainedTokenizer extends Callable {
 
 
         this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
-            this.added_tokens.map(x => `${x.lstrip ? '\\s*' : ''}(${escapeRegExp(x.content)})${x.rstrip ? '\\s*' : ''}`).join('|')
+            this.added_tokens
+                // Sort by length (desc) to avoid early partial matches
+                .toSorted((a, b) => b.content.length - a.content.length)
+                .map(x => `${x.lstrip ? '\\s*' : ''}(${escapeRegExp(x.content)})${x.rstrip ? '\\s*' : ''}`)
+                .join('|')
         ) : null;
 
         // Set mask token if present (otherwise will be undefined, which is fine)
