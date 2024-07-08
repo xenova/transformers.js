@@ -123,7 +123,7 @@ export class TextStreamer extends BaseStreamer {
         if (text.length > 0) {
             this.callback_function?.(text);
         }
-        if (stream_end) {
+        if (stream_end && this.callback_function === stdout_write && apis.IS_PROCESS_AVAILABLE) {
             this.callback_function?.('\n');
         }
     }
