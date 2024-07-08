@@ -355,5 +355,7 @@ export class AutoConfig {
 /**
  * Transformers.js-specific configuration, possibly present in config.json under the key `transformers.js_config`.
  * @typedef {Object} TransformersJSConfig
- * @property {import('./transformers.js').DataType} [kv_cache_dtype]
+ * @property {import('./transformers.js').DataType} [kv_cache_dtype] The data type of the key-value cache
+ * @property {boolean} [use_built_in_ai] Whether to use the built-in AI API
+ * @property {boolean} [load_tokenizer] Whether to load the tokenizer
  */

@@ -132,3 +132,25 @@ export class EosTokenCriteria extends StoppingCriteria {
         });
     }
 }
+
+/**
+ * This class can be used to stop generation whenever the user interrupts the process.
+ */
+export class InterruptableStoppingCriteria extends StoppingCriteria {
+    constructor() {
+        super();
+        this.interrupted = false;
+    }
+
+    interrupt() {
+        this.interrupted = true;
+    }
+
+    reset() {
+        this.interrupted = false;
+    }
+
+    _call(input_ids, scores) {
+        return new Array(input_ids.length).fill(this.interrupted);
+    }
+}
