@@ -344,6 +344,18 @@ describe('Edge cases', () => {
         let token_ids = tokenizer.encode(text);
         compare(token_ids, [101, 100, 102])
     }, 5000); // NOTE: 5 seconds
+
+    it('Special/added tokens with earlier partial matches', async () => {
+        let tokenizer = await AutoTokenizer.from_pretrained('Xenova/gemini-nano');
+        {
+            let token_ids = tokenizer.encode('\n', { add_special_tokens: false });
+            compare(token_ids, [108])
+        }
+        {
+            let token_ids = tokenizer.encode('\n\n', { add_special_tokens: false });
+            compare(token_ids, [109]) // Should not be [108, 108]
+        }
+    }, MAX_TEST_EXECUTION_TIME);
 });
 
 describe('Extra decoding tests', () => {
