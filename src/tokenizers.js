@@ -3851,7 +3851,9 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
 
             const rightLength = rightSequence.length;
             for (let j = 1; j < leftLength + rightLength; ++j) {
-                const eps = j / 10000.0;
+                // Slightly convoluted because we don't want out of bound indices
+                // This will be necessary for a small conflict resolution optimization
+                // later
                 const leftStart = Math.max(0, leftLength - j);
                 const leftStop = Math.min(leftLength, leftLength + rightLength - j);
                 const left = leftSequence.slice(leftStart, leftStop);
@@ -3861,7 +3863,21 @@ export class WhisperTokenizer extends PreTrainedTokenizer {
                 if (left.length !== right.length) {
                     throw new Error("There is a bug within whisper `decode_asr` function, please report it. Dropping to prevent bad inference.");
                 }
-                const matches = left.filter((elem, idx) => elem === right[idx]).length;
+
+                let matches;
+                if (use_token_timestamp_sequences) {
+                    // Get length of longest subsequence of tokens that match
+                    // and have timestamps that are in order
+                    matches = left.filter((elem, idx) => (
+                        elem === right[idx]
+                        && left_token_timestamp_sequence[leftStart + idx] <= token_timestamp_sequences[i][rightStart + idx]
+                    )).length;
+                } else {
+                    matches = left.filter((elem, idx) => elem === right[idx]).length;
+                }
+
+                // epsilon to favor long perfect matches
+                const eps = j / 10000.0;
                 const matching = matches / j + eps;
                 if (matches > 1 && matching > max) {
                     max = matching;

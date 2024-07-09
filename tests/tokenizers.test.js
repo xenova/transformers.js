@@ -634,5 +634,128 @@ describe('Decode ASR', () => {
         }), target, 1e-2);
 
     }, MAX_TEST_EXECUTION_TIME);
+
+    it('should handle overlapping edge case', async () => {
+        const tokenizer = await WhisperTokenizer.from_pretrained('onnx-community/whisper-tiny.en_timestamped');
+
+        const model_outputs = [
+            {
+                stride: [30, 0, 5],
+                tokens: [50257n, 50362n, 8410n, 7283n, 0n, 2329n, 8410n, 7283n, 0n, 2094n, 470n, 1309n, 534n, 10625n, 307n, 10625n, 13n, 34668n, 11n, 345n, 531n, 9439n, 11n, 523n, 655n, 8410n, 7283n, 0n, 39134n, 16592n, 10560n, 3955n, 50n, 0n, 7102n, 5446n, 46n, 0n, 25848n, 8410n, 7283n, 0n, 2773n, 661n, 4320n, 1943n, 981n, 345n, 821n, 8066n, 7765n, 510n, 290n, 670n, 1327n, 379n, 340n, 13n, 10528n, 318n, 5340n, 13n, 50256n],
+                token_timestamps: [0, 0, 0, 3.78, 4.22, 5.26, 6.04, 6.54, 7, 7.94, 8.58, 8.58, 8.88, 9.16, 9.54, 9.94, 10.6, 11.38, 11.88, 12.38, 12.44, 12.62, 13, 13.36, 13.64, 14.24, 14.74, 15.12, 15.4, 15.74, 16.1, 16.54, 16.54, 16.78, 17.08, 17.2, 17.36, 17.56, 18.08, 18.58, 19.38, 19.88, 22.54, 22.9, 23.24, 23.5, 24.14, 24.56, 24.7, 24.94, 24.94, 25.18, 25.54, 25.72, 26.04, 26.34, 26.46, 26.84, 27.04, 27.14, 27.54, 28.06, 29.92]
+            },
+            {
+                stride: [30, 5, 5],
+                tokens: [50257n, 50362n, 2773n, 661n, 4320n, 1943n, 981n, 345n, 821n, 8066n, 7765n, 510n, 290n, 670n, 1327n, 379n, 340n, 13n, 10528n, 318n, 5340n, 13n, 921n, 815n, 651n, 284n, 262n, 966n, 810n, 2687n, 2073n, 561n, 11238n, 290n, 345n, 821n, 407n, 8066n, 2245n, 612n, 13n, 1400n, 11n, 644n, 389n, 345n, 4953n, 329n, 30n, 2141n, 340n, 0n, 2329n, 466n, 340n, 0n, 3363n, 11n, 345n, 460n, 0n, 2329n, 466n, 340n, 0n, 50256n],
+                token_timestamps: [0, 0, 0, 2.92, 3.24, 3.5, 4.14, 4.56, 4.7, 4.74, 4.92, 5.18, 5.54, 5.74, 6.04, 6.34, 6.46, 6.84, 7.04, 7.18, 7.56, 8.12, 9.68, 10.7, 10.88, 11.1, 11.24, 11.48, 11.82, 12.46, 12.82, 13.2, 13.46, 13.72, 14.08, 14.28, 14.34, 14.56, 14.82, 15.16, 15.72, 16.42, 16.82, 16.86, 17, 17.1, 17.2, 17.56, 18.06, 19.28, 19.6, 20.28, 21.96, 22.64, 24.28, 24.76, 25.18, 25.56, 25.56, 25.84, 26.36, 27.12, 27.54, 27.82, 28.16, 29.48]
+            },
+            {
+                stride: [23.7728125, 5, 0],
+                tokens: [50257n, 50362n, 2329n, 466n, 340n, 0n, 3363n, 345n, 460n, 0n, 2329n, 466n, 340n, 0n, 1002n, 534n, 15867n, 318n, 3599n, 625n, 11n, 2245n, 3501n, 510n, 13n, 50256n],
+                token_timestamps: [0, 0, 0, 2.44, 4.3, 5.04, 5.06, 5.56, 5.8, 6.32, 7.12, 7.56, 7.8, 8.72, 10.04, 12.96, 13.3, 13.44, 13.72, 13.98, 14.86, 15.5, 16, 16.88, 17.76, 20.9]
+            }
+        ];
+
+        const target = [
+            " DO IT! Just DO IT! Don't let your dreams be dreams. Yesterday, you said tomorrow, so just DO IT! MAKE YOUR DRIMS! CONTRO! JUST DO IT! Some people dream success while you're gonna wake up and work hard at it. Nothing is impossible. You should get to the point where anyone else would quit and you're not gonna stop there. No, what are you waiting for? Do it! Just do it! Yes, you can! Just do it! If your tire is starting over, stop giving up.",
+            {
+                chunks: [
+                    { text: " DO", timestamp: [0, 3.78] },
+                    { text: " IT!", timestamp: [3.78, 4.24] },
+                    { text: " Just", timestamp: [5.26, 6.04] },
+                    { text: " DO", timestamp: [6.04, 6.54] },
+                    { text: " IT!", timestamp: [6.54, 7.02] },
+                    { text: " Don't", timestamp: [7.94, 8.58] },
+                    { text: " let", timestamp: [8.58, 8.88] },
+                    { text: " your", timestamp: [8.88, 9.16] },
+                    { text: " dreams", timestamp: [9.16, 9.54] },
+                    { text: " be", timestamp: [9.54, 9.94] },
+                    { text: " dreams.", timestamp: [9.94, 10.62] },
+                    { text: " Yesterday,", timestamp: [11.38, 11.9] },
+                    { text: " you", timestamp: [12.38, 12.44] },
+                    { text: " said", timestamp: [12.44, 12.62] },
+                    { text: " tomorrow,", timestamp: [12.62, 13.02] },
+                    { text: " so", timestamp: [13.36, 13.64] },
+                    { text: " just", timestamp: [13.64, 14.24] },
+                    { text: " DO", timestamp: [14.24, 14.74] },
+                    { text: " IT!", timestamp: [14.74, 15.14] },
+                    { text: " MAKE", timestamp: [15.4, 15.74] },
+                    { text: " YOUR", timestamp: [15.74, 16.1] },
+                    { text: " DRIMS!", timestamp: [16.1, 16.8] },
+                    { text: " CONTRO!", timestamp: [17.08, 17.58] },
+                    { text: " JUST", timestamp: [18.08, 18.58] },
+                    { text: " DO", timestamp: [18.58, 19.38] },
+                    { text: " IT!", timestamp: [19.38, 19.9] },
+                    { text: " Some", timestamp: [22.54, 22.9] },
+                    { text: " people", timestamp: [22.9, 23.24] },
+                    { text: " dream", timestamp: [23.24, 23.5] },
+                    { text: " success", timestamp: [23.5, 24.14] },
+                    { text: " while", timestamp: [24.14, 24.56] },
+                    { text: " you're", timestamp: [24.56, 24.94] },
+                    { text: " gonna", timestamp: [24.94, 24.94] },
+                    { text: " wake", timestamp: [24.94, 25.18] },
+                    { text: " up", timestamp: [25.18, 25.54] },
+                    { text: " and", timestamp: [25.54, 25.74] },
+                    { text: " work", timestamp: [25.74, 26.04] },
+                    { text: " hard", timestamp: [26.04, 26.34] },
+                    { text: " at", timestamp: [26.34, 26.46] },
+                    { text: " it.", timestamp: [26.46, 26.86] },
+                    { text: " Nothing", timestamp: [27.04, 27.18] },
+                    { text: " is", timestamp: [27.18, 27.56] },
+                    { text: " impossible.", timestamp: [27.56, 28.14] },
+                    { text: " You", timestamp: [29.68, 30.7] },
+                    { text: " should", timestamp: [30.7, 30.88] },
+                    { text: " get", timestamp: [30.88, 31.1] },
+                    { text: " to", timestamp: [31.1, 31.24] },
+                    { text: " the", timestamp: [31.24, 31.48] },
+                    { text: " point", timestamp: [31.48, 31.82] },
+                    { text: " where", timestamp: [31.82, 32.46] },
+                    { text: " anyone", timestamp: [32.46, 32.82] },
+                    { text: " else", timestamp: [32.82, 33.2] },
+                    { text: " would", timestamp: [33.2, 33.46] },
+                    { text: " quit", timestamp: [33.46, 33.72] },
+                    { text: " and", timestamp: [33.72, 34.08] },
+                    { text: " you're", timestamp: [34.08, 34.34] },
+                    { text: " not", timestamp: [34.34, 34.56] },
+                    { text: " gonna", timestamp: [34.56, 34.82] },
+                    { text: " stop", timestamp: [34.82, 35.16] },
+                    { text: " there.", timestamp: [35.16, 35.74] },
+                    { text: " No,", timestamp: [36.42, 36.84] },
+                    { text: " what", timestamp: [36.86, 37] },
+                    { text: " are", timestamp: [37, 37.1] },
+                    { text: " you", timestamp: [37.1, 37.2] },
+                    { text: " waiting", timestamp: [37.2, 37.56] },
+                    { text: " for?", timestamp: [37.56, 38.08] },
+                    { text: " Do", timestamp: [39.28, 39.6] },
+                    { text: " it!", timestamp: [39.6, 40.3] },
+                    { text: " Just", timestamp: [41.96, 42.64] },
+                    { text: " do", timestamp: [42.64, 44.28] },
+                    { text: " it!", timestamp: [44.28, 44.78] },
+                    { text: " Yes,", timestamp: [45.18, 45.56] },
+                    { text: " you", timestamp: [45.56, 45.84] },
+                    { text: " can!", timestamp: [45.8, 46.34] },
+                    { text: " Just", timestamp: [47.12, 47.56] },
+                    { text: " do", timestamp: [47.56, 47.8] },
+                    { text: " it!", timestamp: [47.8, 48.74] },
+                    { text: " If", timestamp: [50.04, 52.96] },
+                    { text: " your", timestamp: [52.96, 53.3] },
+                    { text: " tire", timestamp: [53.3, 53.44] },
+                    { text: " is", timestamp: [53.44, 53.72] },
+                    { text: " starting", timestamp: [53.72, 53.98] },
+                    { text: " over,", timestamp: [53.98, 54.88] },
+                    { text: " stop", timestamp: [55.5, 56] },
+                    { text: " giving", timestamp: [56, 56.88] },
+                    { text: " up.", timestamp: [56.88, 57.78] },
+                ]
+            }
+        ]
+
+        compare(tokenizer._decode_asr(model_outputs, {
+            return_timestamps: 'word',
+            time_precision: 0.02,
+            force_full_sequences: false,
+        }), target, 1e-2);
+
+    }, MAX_TEST_EXECUTION_TIME);
 });
 
