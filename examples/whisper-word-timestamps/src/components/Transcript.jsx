@@ -14,10 +14,8 @@ const Chunk = ({ chunk, currentTime, onClick, ...props }) => {
                 className="text-md text-gray-600 cursor-pointer hover:text-red-600"
                 title={timestamp.map(x => x.toFixed(2)).join(' → ')}
                 style={{
-                    // fontWeight: bolded ? 'bold' : 'normal',
                     textDecoration: bolded ? 'underline' : 'none',
                     textShadow: bolded ? '0 0 1px #000' : 'none',
-                    // letterSpacing: bolded ? '-0.25px' : '0px',
                 }}
             >{text.trim()}</span>
         </span>
