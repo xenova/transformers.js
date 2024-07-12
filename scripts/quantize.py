@@ -238,7 +238,6 @@ def main():
     # (Step 2) Quantize the models
     for model_path in (progress_models := tqdm(model_names_or_paths)):
         progress_models.set_description(f"Processing {model_path}")
-        model = onnx.load_model(model_path)
 
         file_name_without_extension = os.path.splitext(os.path.basename(model_path))[0]
 
@@ -250,6 +249,11 @@ def main():
                 quantization_args.output_folder,
                 f"{file_name_without_extension}_{suffix}.onnx",
             )
+
+            # NOTE: Unfortunately, we need to reload the model for each quantization mode,
+            # which is memory inefficient. This is because the quantization functions
+            # modify the model in-place, and we need to keep the original model for each mode.
+            model = onnx.load_model(model_path)
 
             if mode == QuantMode.FP16:
                 quantize_fp16(
