@@ -299,8 +299,8 @@ export class Tensor {
 
     slice(...slices) {
         // This allows for slicing with ranges and numbers
-        let newTensorDims = [];
-        let newOffsets = [];
+        const newTensorDims = [];
+        const newOffsets = [];
 
         // slices is an array of numbers or arrays of numbers
         // e.g., slices = [0, [1, 3], null, [0, 3]]
@@ -332,7 +332,7 @@ export class Tensor {
                     throw new Error(`Invalid slice: ${slice}`);
                 }
 
-                let offsets = [
+                const offsets = [
                     Math.max(start, 0),
                     Math.min(end, this.dims[sliceIndex])
                 ];
@@ -345,13 +345,13 @@ export class Tensor {
             }
         }
 
-        let newDims = newOffsets.map(([start, end]) => end - start);
-        let newBufferSize = newDims.reduce((a, b) => a * b);
+        const newDims = newOffsets.map(([start, end]) => end - start);
+        const newBufferSize = newDims.reduce((a, b) => a * b);
 
         const this_data = this.data;
         // Allocate memory
         // @ts-ignore
-        let data = new this_data.constructor(newBufferSize);
+        const data = new this_data.constructor(newBufferSize);
 
         // Precompute strides
         const stride = this.stride();
