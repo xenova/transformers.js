@@ -5,7 +5,7 @@
  * **Example:** Create an `AutoTokenizer` and use it to tokenize a sentence.
  * This will automatically detect the tokenizer type based on the tokenizer class defined in `tokenizer.json`.
  * ```javascript
- * import { AutoTokenizer } from '@xenova/transformers';
+ * import { AutoTokenizer } from '@huggingface/transformers';
  * 
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
  * const { input_ids } = await tokenizer('I love transformers!');
@@ -3085,7 +3085,7 @@ export class PreTrainedTokenizer extends Callable {
      * **Example:** Applying a chat template to a conversation.
      * 
      * ```javascript
-     * import { AutoTokenizer } from "@xenova/transformers";
+     * import { AutoTokenizer } from "@huggingface/transformers";
      * 
      * const tokenizer = await AutoTokenizer.from_pretrained("Xenova/mistral-tokenizer-v1");
      * 

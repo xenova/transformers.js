@@ -3,19 +3,19 @@
  * 
  * **Example:** Disable remote models.
  * ```javascript
- * import { env } from '@xenova/transformers';
+ * import { env } from '@huggingface/transformers';
  * env.allowRemoteModels = false;
  * ```
  * 
  * **Example:** Set local model path.
  * ```javascript
- * import { env } from '@xenova/transformers';
+ * import { env } from '@huggingface/transformers';
  * env.localModelPath = '/path/to/local/models/';
  * ```
  * 
  * **Example:** Set cache directory.
  * ```javascript
- * import { env } from '@xenova/transformers';
+ * import { env } from '@huggingface/transformers';
  * env.cacheDir = '/path/to/cache/directory/';
  * ```
  * 

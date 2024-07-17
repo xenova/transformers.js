@@ -13,14 +13,14 @@ README_TEMPLATE = """
 </p>
 
 <p align="center">
-    <a href="https://www.npmjs.com/package/@xenova/transformers">
-        <img alt="NPM" src="https://img.shields.io/npm/v/@xenova/transformers">
+    <a href="https://www.npmjs.com/package/@huggingface/transformers">
+        <img alt="NPM" src="https://img.shields.io/npm/v/@huggingface/transformers">
     </a>
-    <a href="https://www.npmjs.com/package/@xenova/transformers">
-        <img alt="NPM Downloads" src="https://img.shields.io/npm/dw/@xenova/transformers">
+    <a href="https://www.npmjs.com/package/@huggingface/transformers">
+        <img alt="NPM Downloads" src="https://img.shields.io/npm/dw/@huggingface/transformers">
     </a>
-    <a href="https://www.jsdelivr.com/package/npm/@xenova/transformers">
-        <img alt="jsDelivr Hits" src="https://img.shields.io/jsdelivr/npm/hw/@xenova/transformers">
+    <a href="https://www.jsdelivr.com/package/npm/@huggingface/transformers">
+        <img alt="jsDelivr Hits" src="https://img.shields.io/jsdelivr/npm/hw/@huggingface/transformers">
     </a>
     <a href="https://github.com/xenova/transformers.js/blob/main/LICENSE">
         <img alt="License" src="https://img.shields.io/github/license/xenova/transformers.js?color=blue">

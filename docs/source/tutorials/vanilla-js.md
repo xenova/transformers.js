@@ -105,7 +105,7 @@ The `type="module"` attribute is important, as it turns our file into a [JavaScr
 Moving into `index.js`, let's import Transformers.js by adding the following line to the top of the file:
 
 ```js
-import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0";
+import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers";
 ```
 
 Since we will be downloading the model from the Hugging Face Hub, we can skip the local model check by setting:

@@ -4,7 +4,7 @@
  * 
  * **Example:** Using a `WhisperProcessor` to prepare an audio input for a model.
  * ```javascript
- * import { AutoProcessor, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, read_audio } from '@huggingface/transformers';
  *
  * let processor = await AutoProcessor.from_pretrained('openai/whisper-tiny.en');
  * let audio = await read_audio('https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/mlk.flac', 16000);

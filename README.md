@@ -11,14 +11,14 @@
 </p>
 
 <p align="center">
-    <a href="https://www.npmjs.com/package/@xenova/transformers">
-        <img alt="NPM" src="https://img.shields.io/npm/v/@xenova/transformers">
+    <a href="https://www.npmjs.com/package/@huggingface/transformers">
+        <img alt="NPM" src="https://img.shields.io/npm/v/@huggingface/transformers">
     </a>
-    <a href="https://www.npmjs.com/package/@xenova/transformers">
-        <img alt="NPM Downloads" src="https://img.shields.io/npm/dw/@xenova/transformers">
+    <a href="https://www.npmjs.com/package/@huggingface/transformers">
+        <img alt="NPM Downloads" src="https://img.shields.io/npm/dw/@huggingface/transformers">
     </a>
-    <a href="https://www.jsdelivr.com/package/npm/@xenova/transformers">
-        <img alt="jsDelivr Hits" src="https://img.shields.io/jsdelivr/npm/hw/@xenova/transformers">
+    <a href="https://www.jsdelivr.com/package/npm/@huggingface/transformers">
+        <img alt="jsDelivr Hits" src="https://img.shields.io/jsdelivr/npm/hw/@huggingface/transformers">
     </a>
     <a href="https://github.com/xenova/transformers.js/blob/main/LICENSE">
         <img alt="License" src="https://img.shields.io/github/license/xenova/transformers.js?color=blue">
@@ -69,7 +69,7 @@ out = pipe('I love transformers!')
 <td>
 
 ```javascript
-import { pipeline } from '@xenova/transformers';
+import { pipeline } from '@huggingface/transformers';
 
 // Allocate a pipeline for sentiment-analysis
 let pipe = await pipeline('sentiment-analysis');
@@ -93,15 +93,15 @@ let pipe = await pipeline('sentiment-analysis', 'Xenova/bert-base-multilingual-u
 ## Installation
 
 
-To install via [NPM](https://www.npmjs.com/package/@xenova/transformers), run:
+To install via [NPM](https://www.npmjs.com/package/@huggingface/transformers), run:
 ```bash
-npm i @xenova/transformers
+npm i @huggingface/transformers
 ```
 
 Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN or static hosting. For example, using [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules), you can import the library with:
 ```html
 <script type="module">
-    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@3.0.0-alpha.0';
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.0';
 </script>
 ```
 
@@ -134,12 +134,12 @@ Check out the Transformers.js [template](https://huggingface.co/new-space?templa
 
 
 
-By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models?library=transformers.js) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@xenova/transformers@3.0.0-alpha.0/dist/), which should work out-of-the-box. You can customize this as follows:
+By default, Transformers.js uses [hosted pretrained models](https://huggingface.co/models?library=transformers.js) and [precompiled WASM binaries](https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.0/dist/), which should work out-of-the-box. You can customize this as follows:
 
 ### Settings
 
 ```javascript
-import { env } from '@xenova/transformers';
+import { env } from '@huggingface/transformers';
 
 // Specify a custom location for models (defaults to '/models/').
 env.localModelPath = '/path/to/models/';

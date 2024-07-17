@@ -5,7 +5,7 @@
  * **Example:** Load and run an `AutoModel`.
  * 
  * ```javascript
- * import { AutoModel, AutoTokenizer } from '@xenova/transformers';
+ * import { AutoModel, AutoTokenizer } from '@huggingface/transformers';
  * 
  * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/bert-base-uncased');
  * let model = await AutoModel.from_pretrained('Xenova/bert-base-uncased');
@@ -24,7 +24,7 @@
  * 
  * **Example:** Load and run an `AutoModelForSeq2SeqLM`.
  * ```javascript
- * import { AutoModelForSeq2SeqLM, AutoTokenizer } from '@xenova/transformers';
+ * import { AutoModelForSeq2SeqLM, AutoTokenizer } from '@huggingface/transformers';
  * 
  * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/t5-small');
  * let model = await AutoModelForSeq2SeqLM.from_pretrained('Xenova/t5-small');
@@ -3462,7 +3462,7 @@ export class CLIPPreTrainedModel extends PreTrainedModel { }
  * **Example:** Perform zero-shot image classification with a `CLIPModel`.
  * 
  * ```javascript
- * import { AutoTokenizer, AutoProcessor, CLIPModel, RawImage } from '@xenova/transformers';
+ * import { AutoTokenizer, AutoProcessor, CLIPModel, RawImage } from '@huggingface/transformers';
  * 
  * // Load tokenizer, processor, and model
  * let tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch16');
@@ -3507,7 +3507,7 @@ export class CLIPModel extends CLIPPreTrainedModel { }
  * **Example:** Compute text embeddings with `CLIPTextModelWithProjection`.
  * 
  * ```javascript
- * import { AutoTokenizer, CLIPTextModelWithProjection } from '@xenova/transformers';
+ * import { AutoTokenizer, CLIPTextModelWithProjection } from '@huggingface/transformers';
  * 
  * // Load tokenizer and text model
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch16');
@@ -3543,7 +3543,7 @@ export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
  * **Example:** Compute vision embeddings with `CLIPVisionModelWithProjection`.
  * 
  * ```javascript
- * import { AutoProcessor, CLIPVisionModelWithProjection, RawImage} from '@xenova/transformers';
+ * import { AutoProcessor, CLIPVisionModelWithProjection, RawImage} from '@huggingface/transformers';
  * 
  * // Load processor and vision model
  * const processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch16');
@@ -3584,7 +3584,7 @@ export class SiglipPreTrainedModel extends PreTrainedModel { }
  * **Example:** Perform zero-shot image classification with a `SiglipModel`.
  * 
  * ```javascript
- * import { AutoTokenizer, AutoProcessor, SiglipModel, RawImage } from '@xenova/transformers';
+ * import { AutoTokenizer, AutoProcessor, SiglipModel, RawImage } from '@huggingface/transformers';
  * 
  * // Load tokenizer, processor, and model
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/siglip-base-patch16-224');
@@ -3629,7 +3629,7 @@ export class SiglipModel extends SiglipPreTrainedModel { }
  * **Example:** Compute text embeddings with `SiglipTextModel`.
  * 
  * ```javascript
- * import { AutoTokenizer, SiglipTextModel } from '@xenova/transformers';
+ * import { AutoTokenizer, SiglipTextModel } from '@huggingface/transformers';
  * 
  * // Load tokenizer and text model
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/siglip-base-patch16-224');
@@ -3665,7 +3665,7 @@ export class SiglipTextModel extends SiglipPreTrainedModel {
  * **Example:** Compute vision embeddings with `SiglipVisionModel`.
  * 
  * ```javascript
- * import { AutoProcessor, SiglipVisionModel, RawImage} from '@xenova/transformers';
+ * import { AutoProcessor, SiglipVisionModel, RawImage} from '@huggingface/transformers';
  * 
  * // Load processor and vision model
  * const processor = await AutoProcessor.from_pretrained('Xenova/siglip-base-patch16-224');
@@ -3713,7 +3713,7 @@ export class CLIPSegModel extends CLIPSegPreTrainedModel { }
  * **Example:** Perform zero-shot image segmentation with a `CLIPSegForImageSegmentation` model.
  * 
  * ```javascript
- * import { AutoTokenizer, AutoProcessor, CLIPSegForImageSegmentation, RawImage } from '@xenova/transformers';
+ * import { AutoTokenizer, AutoProcessor, CLIPSegForImageSegmentation, RawImage } from '@huggingface/transformers';
  * 
  * // Load tokenizer, processor, and model
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/clipseg-rd64-refined');
@@ -4172,7 +4172,7 @@ export class VitMattePreTrainedModel extends PreTrainedModel { }
  * 
  * **Example:** Perform image matting with a `VitMatteForImageMatting` model.
  * ```javascript
- * import { AutoProcessor, VitMatteForImageMatting, RawImage } from '@xenova/transformers';
+ * import { AutoProcessor, VitMatteForImageMatting, RawImage } from '@huggingface/transformers';
  * 
  * // Load processor and model
  * const processor = await AutoProcessor.from_pretrained('Xenova/vitmatte-small-distinctions-646');
@@ -4197,7 +4197,7 @@ export class VitMattePreTrainedModel extends PreTrainedModel { }
  * 
  * You can visualize the alpha matte as follows:
  * ```javascript
- * import { Tensor, cat } from '@xenova/transformers';
+ * import { Tensor, cat } from '@huggingface/transformers';
  * 
  * // Visualize predicted alpha matte
  * const imageTensor = image.toTensor();
@@ -4456,7 +4456,7 @@ export class Swin2SRModel extends Swin2SRPreTrainedModel { }
  * **Example:** Super-resolution w/ `Xenova/swin2SR-classical-sr-x2-64`.
  * 
  * ```javascript
- * import { AutoProcessor, Swin2SRForImageSuperResolution, RawImage } from '@xenova/transformers';
+ * import { AutoProcessor, Swin2SRForImageSuperResolution, RawImage } from '@huggingface/transformers';
  * 
  * // Load processor and model
  * const model_id = 'Xenova/swin2SR-classical-sr-x2-64';
@@ -4498,7 +4498,7 @@ export class DPTModel extends DPTPreTrainedModel { }
  * 
  * **Example:** Depth estimation w/ `Xenova/dpt-hybrid-midas`.
  * ```javascript
- * import { DPTForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * import { DPTForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@huggingface/transformers';
  * 
  * // Load model and processor
  * const model_id = 'Xenova/dpt-hybrid-midas';
@@ -4555,7 +4555,7 @@ export class GLPNModel extends GLPNPreTrainedModel { }
  * 
  * **Example:** Depth estimation w/ `Xenova/glpn-kitti`.
  * ```javascript
- * import { GLPNForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@xenova/transformers';
+ * import { GLPNForDepthEstimation, AutoProcessor, RawImage, interpolate, max } from '@huggingface/transformers';
  * 
  * // Load model and processor
  * const model_id = 'Xenova/glpn-kitti';
@@ -4598,7 +4598,7 @@ export class DonutSwinPreTrainedModel extends PreTrainedModel { }
  * **Example:** Step-by-step Document Parsing.
  * 
  * ```javascript
- * import { AutoProcessor, AutoTokenizer, AutoModelForVision2Seq, RawImage } from '@xenova/transformers';
+ * import { AutoProcessor, AutoTokenizer, AutoModelForVision2Seq, RawImage } from '@huggingface/transformers';
  * 
  * // Choose model to use
  * const model_id = 'Xenova/donut-base-finetuned-cord-v2';
@@ -4633,7 +4633,7 @@ export class DonutSwinPreTrainedModel extends PreTrainedModel { }
  * **Example:** Step-by-step Document Visual Question Answering (DocVQA)
  * 
  * ```javascript
- * import { AutoProcessor, AutoTokenizer, AutoModelForVision2Seq, RawImage } from '@xenova/transformers';
+ * import { AutoProcessor, AutoTokenizer, AutoModelForVision2Seq, RawImage } from '@huggingface/transformers';
  * 
  * // Choose model to use
  * const model_id = 'Xenova/donut-base-finetuned-docvqa';
@@ -4774,7 +4774,7 @@ export class SamPreTrainedModel extends PreTrainedModel { }
  * 
  * **Example:** Perform mask generation w/ `Xenova/sam-vit-base`.
  * ```javascript
- * import { SamModel, AutoProcessor, RawImage } from '@xenova/transformers';
+ * import { SamModel, AutoProcessor, RawImage } from '@huggingface/transformers';
  * 
  * const model = await SamModel.from_pretrained('Xenova/sam-vit-base');
  * const processor = await AutoProcessor.from_pretrained('Xenova/sam-vit-base');
@@ -4968,7 +4968,7 @@ export class Wav2Vec2PreTrainedModel extends PreTrainedModel { };
  * **Example:** Load and run a `Wav2Vec2Model` for feature extraction.
  * 
  * ```javascript
- * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, AutoModel, read_audio } from '@huggingface/transformers';
  * 
  * // Read and preprocess audio
  * const processor = await AutoProcessor.from_pretrained('Xenova/mms-300m');
@@ -5165,7 +5165,7 @@ export class HubertPreTrainedModel extends PreTrainedModel { }
  * **Example:** Load and run a `HubertModel` for feature extraction.
  * 
  * ```javascript
- * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, AutoModel, read_audio } from '@huggingface/transformers';
  * 
  * // Read and preprocess audio
  * const processor = await AutoProcessor.from_pretrained('Xenova/hubert-base-ls960');
@@ -5229,7 +5229,7 @@ export class WavLMPreTrainedModel extends PreTrainedModel { };
  * **Example:** Load and run a `WavLMModel` for feature extraction.
  * 
  * ```javascript
- * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, AutoModel, read_audio } from '@huggingface/transformers';
  * 
  * // Read and preprocess audio
  * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base');
@@ -5284,7 +5284,7 @@ export class WavLMForSequenceClassification extends WavLMPreTrainedModel {
  * 
  * **Example:** Extract speaker embeddings with `WavLMForXVector`.
  * ```javascript
- * import { AutoProcessor, AutoModel, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, AutoModel, read_audio } from '@huggingface/transformers';
  * 
  * // Read and preprocess audio
  * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base-plus-sv');
@@ -5327,7 +5327,7 @@ export class WavLMForXVector extends WavLMPreTrainedModel {
  * 
  * **Example:** Perform speaker diarization with `WavLMForAudioFrameClassification`.
  * ```javascript
- * import { AutoProcessor, AutoModelForAudioFrameClassification, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, AutoModelForAudioFrameClassification, read_audio } from '@huggingface/transformers';
  * 
  * // Read and preprocess audio
  * const processor = await AutoProcessor.from_pretrained('Xenova/wavlm-base-plus-sd');
@@ -5399,7 +5399,7 @@ export class SpeechT5Model extends SpeechT5PreTrainedModel { };
  * 
  * **Example:** Generate speech from text with `SpeechT5ForSpeechToText`.
  * ```javascript
- * import { AutoTokenizer, AutoProcessor, SpeechT5ForTextToSpeech, SpeechT5HifiGan, Tensor } from '@xenova/transformers';
+ * import { AutoTokenizer, AutoProcessor, SpeechT5ForTextToSpeech, SpeechT5HifiGan, Tensor } from '@huggingface/transformers';
  * 
  * // Load the tokenizer and processor
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/speecht5_tts');
@@ -5653,7 +5653,7 @@ export class ClapModel extends ClapPreTrainedModel { }
  * **Example:** Compute text embeddings with `ClapTextModelWithProjection`.
  * 
  * ```javascript
- * import { AutoTokenizer, ClapTextModelWithProjection } from '@xenova/transformers';
+ * import { AutoTokenizer, ClapTextModelWithProjection } from '@huggingface/transformers';
  * 
  * // Load tokenizer and text model
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/clap-htsat-unfused');
@@ -5689,7 +5689,7 @@ export class ClapTextModelWithProjection extends ClapPreTrainedModel {
  * **Example:** Compute audio embeddings with `ClapAudioModelWithProjection`.
  * 
  * ```javascript
- * import { AutoProcessor, ClapAudioModelWithProjection, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, ClapAudioModelWithProjection, read_audio } from '@huggingface/transformers';
  * 
  * // Load processor and audio model
  * const processor = await AutoProcessor.from_pretrained('Xenova/clap-htsat-unfused');
@@ -5729,7 +5729,7 @@ export class VitsPreTrainedModel extends PreTrainedModel { }
  * 
  * **Example:** Generate speech from text with `VitsModel`.
  * ```javascript
- * import { AutoTokenizer, VitsModel } from '@xenova/transformers';
+ * import { AutoTokenizer, VitsModel } from '@huggingface/transformers';
  * 
  * // Load the tokenizer and model
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/mms-tts-eng');
@@ -5849,7 +5849,7 @@ export class MusicgenForCausalLM extends MusicgenPreTrainedModel { }
  * 
  * **Example:** Generate music from text with `Xenova/musicgen-small`.
  * ```javascript
- * import { AutoTokenizer, MusicgenForConditionalGeneration } from '@xenova/transformers';
+ * import { AutoTokenizer, MusicgenForConditionalGeneration } from '@huggingface/transformers';
  * 
  * // Load tokenizer and model
  * const tokenizer = await AutoTokenizer.from_pretrained('Xenova/musicgen-small');
