@@ -657,10 +657,10 @@ describe('Processors', () => {
         }, MAX_TEST_EXECUTION_TIME);
 
         it('WeSpeakerFeatureExtractor', async () => {
-            const audio = new Float32Array(16000).map((_, i) => Math.sin(i / 100));
 
             const processor = await AutoProcessor.from_pretrained('onnx-community/wespeaker-voxceleb-resnet34-LM');
             { // default
+                const audio = new Float32Array(16000).map((_, i) => Math.sin(i / 100));
                 const { input_features } = await processor(audio);
                 compare(input_features.dims, [1, 98, 80]);
 
@@ -672,6 +672,21 @@ describe('Processors', () => {
                 expect(input_features.data[80]).toBeCloseTo(0.19062232971191406);
                 expect(input_features.data.at(-2)).toBeCloseTo(-0.43694400787353516);
                 expect(input_features.data.at(-1)).toBeCloseTo(-0.4266204833984375);
+            }
+
+            { // pad to `min_num_frames`
+                const audio = new Float32Array(3).map((_, i) => Math.sin(i / 100));
+                const { input_features } = await processor(audio);
+                compare(input_features.dims, [1, 9, 80]);
+
+                expect(avg(input_features.data)).toBeCloseTo(-0.0000010093053181966146);
+                expect(input_features.data[0]).toBeCloseTo(20.761859893798828);
+                expect(input_features.data[1]).toBeCloseTo(21.02924346923828);
+                expect(input_features.data[78]).toBeCloseTo(19.083993911743164);
+                expect(input_features.data[79]).toBeCloseTo(18.003454208374023);
+                expect(input_features.data[80]).toBeCloseTo(-2.595233917236328);
+                expect(input_features.data.at(-2)).toBeCloseTo(-2.385499954223633);
+                expect(input_features.data.at(-1)).toBeCloseTo(-2.2504329681396484);
             }
 
         }, MAX_TEST_EXECUTION_TIME);

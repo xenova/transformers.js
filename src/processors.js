@@ -2184,6 +2184,7 @@ export class WeSpeakerFeatureExtractor extends FeatureExtractor {
         this.window = window_function(400, 'hamming', {
             periodic: false,
         })
+        this.min_num_frames = this.config.min_num_frames;
     }
 
     /**
@@ -2213,6 +2214,7 @@ export class WeSpeakerFeatureExtractor extends FeatureExtractor {
 
                 // Custom
                 transpose: true,
+                min_num_frames: this.min_num_frames,
             }
         )
     }

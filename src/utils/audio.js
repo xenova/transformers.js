@@ -454,6 +454,7 @@ function power_to_db(spectrogram, reference = 1.0, min_value = 1e-10, db_range =
  * @param {boolean} [options.remove_dc_offset=null] Subtract mean from waveform on each frame, applied before pre-emphasis. This should be set to `true` in
  * order to get the same results as `torchaudio.compliance.kaldi.fbank` when computing mel filters.
  * @param {number} [options.max_num_frames=null] If provided, limits the number of frames to compute to this value.
+ * @param {number} [options.min_num_frames=null] If provided, ensures the number of frames to compute is at least this value.
  * @param {boolean} [options.do_pad=true] If `true`, pads the output spectrogram to have `max_num_frames` frames.
  * @param {boolean} [options.transpose=false] If `true`, the returned spectrogram will have shape `(num_frames, num_frequency_bins/num_mel_filters)`. If `false`, the returned spectrogram will have shape `(num_frequency_bins/num_mel_filters, num_frames)`.
  * @returns {Promise<Tensor>} Spectrogram of shape `(num_frequency_bins, length)` (regular spectrogram) or shape `(num_mel_filters, length)` (mel spectrogram).
@@ -479,6 +480,7 @@ export async function spectrogram(
         remove_dc_offset = null,
 
         // Custom parameters for efficiency reasons
+        min_num_frames = null,
         max_num_frames = null,
         do_pad = true,
         transpose = false,
@@ -516,8 +518,10 @@ export async function spectrogram(
     }
 
     // split waveform into frames of frame_length size
-    const num_frames = Math.floor(1 + Math.floor((waveform.length - frame_length) / hop_length))
-
+    let num_frames = Math.floor(1 + Math.floor((waveform.length - frame_length) / hop_length))
+    if (min_num_frames !== null && num_frames < min_num_frames) {
+        num_frames = min_num_frames
+    }
     const num_frequency_bins = onesided ? Math.floor(fft_length / 2) + 1 : fft_length
 
     let d1 = num_frames;
@@ -543,24 +547,32 @@ export async function spectrogram(
     for (let i = 0; i < d1; ++i) {
         // Populate buffer with waveform data
         const offset = i * hop_length;
-        for (let j = 0; j < frame_length; ++j) {
+        const buffer_size = Math.min(waveform.length - offset, frame_length);
+        if (buffer_size !== frame_length) {
+            // The full buffer is not needed, so we need to reset it (avoid overflow from previous iterations)
+            // NOTE: We don't need to reset the buffer if it's full since we overwrite the first
+            // `frame_length` values and the rest (`fft_length - frame_length`) remains zero.
+            inputBuffer.fill(0, 0, frame_length);
+        }
+
+        for (let j = 0; j < buffer_size; ++j) {
             inputBuffer[j] = waveform[offset + j];
         }
 
         if (remove_dc_offset) {
             let sum = 0;
-            for (let j = 0; j < frame_length; ++j) {
+            for (let j = 0; j < buffer_size; ++j) {
                 sum += inputBuffer[j];
             }
-            const mean = sum / frame_length;
-            for (let j = 0; j < frame_length; ++j) {
+            const mean = sum / buffer_size;
+            for (let j = 0; j < buffer_size; ++j) {
                 inputBuffer[j] -= mean;
             }
         }
 
         if (preemphasis !== null) {
             // Done in reverse to avoid copies and distructive modification
-            for (let j = frame_length - 1; j >= 1; --j) {
+            for (let j = buffer_size - 1; j >= 1; --j) {
                 inputBuffer[j] -= preemphasis * inputBuffer[j - 1];
             }
             inputBuffer[0] *= 1 - preemphasis;
