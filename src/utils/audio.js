@@ -79,27 +79,53 @@ export async function read_audio(url, sampling_rate) {
 }
 
 /**
- * Generates a Hanning window of length M.
- *
- * @param {number} M The length of the Hanning window to generate.
- * @returns {Float64Array} The generated Hanning window.
+ * Helper function to generate windows that are special cases of the generalized cosine window.
+ * See https://www.mathworks.com/help/signal/ug/generalized-cosine-windows.html for more information.
+ * @param {number} M Number of points in the output window. If zero or less, an empty array is returned.
+ * @param {number} a_0 Offset for the generalized cosine window.
+ * @returns {Float64Array} The generated window.
  */
-export function hanning(M) {
+function generalized_cosine_window(M, a_0) {
     if (M < 1) {
         return new Float64Array();
     }
     if (M === 1) {
         return new Float64Array([1]);
     }
-    const denom = M - 1;
-    const factor = Math.PI / denom;
+
+    const a_1 = 1 - a_0;
+    const factor = 2 * Math.PI / (M - 1);
+
     const cos_vals = new Float64Array(M);
     for (let i = 0; i < M; ++i) {
-        const n = 2 * i - denom;
-        cos_vals[i] = 0.5 + 0.5 * Math.cos(factor * n);
+        cos_vals[i] = a_0 - a_1 * Math.cos(i * factor);
     }
     return cos_vals;
 }
+
+/**
+ * Generates a Hanning window of length M.
+ * See https://numpy.org/doc/stable/reference/generated/numpy.hanning.html for more information.
+ *
+ * @param {number} M The length of the Hanning window to generate.
+ * @returns {Float64Array} The generated Hanning window.
+ */
+export function hanning(M) {
+    return generalized_cosine_window(M, 0.5);
+}
+
+
+/**
+ * Generates a Hamming window of length M.
+ * See https://numpy.org/doc/stable/reference/generated/numpy.hamming.html for more information.
+ *
+ * @param {number} M The length of the Hamming window to generate.
+ * @returns {Float64Array} The generated Hamming window.
+ */
+export function hamming(M) {
+    return generalized_cosine_window(M, 0.54);
+}
+
 
 const HERTZ_TO_MEL_MAPPING = {
     "htk": (/** @type {number} */ freq) => 2595.0 * Math.log10(1.0 + (freq / 700.0)),
@@ -540,6 +566,7 @@ export async function spectrogram(
             inputBuffer[0] *= 1 - preemphasis;
         }
 
+        // Apply window function
         for (let j = 0; j < window.length; ++j) {
             inputBuffer[j] *= window[j];
         }
@@ -641,6 +668,9 @@ export function window_function(window_length, name, {
         case 'hann':
         case 'hann_window':
             window = hanning(length);
+            break;
+        case 'hamming':
+            window = hamming(length);
             break;
         case 'povey':
             window = hanning(length).map(x => Math.pow(x, 0.85));

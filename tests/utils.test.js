@@ -1,9 +1,10 @@
 
 import { AutoProcessor } from '../src/transformers.js';
-import { mel_filter_bank } from '../src/utils/audio.js';
+import { hamming, hanning, mel_filter_bank, window_function } from '../src/utils/audio.js';
 import { getFile } from '../src/utils/hub.js';
 
 import { MAX_TEST_EXECUTION_TIME } from './init.js';
+import { compare } from './test_utils.js';
 
 describe('Utilities', () => {
 
@@ -42,10 +43,25 @@ describe('Utilities', () => {
 
         }, MAX_TEST_EXECUTION_TIME);
 
+        it('should calculate window', async () => {
+            compare(
+                hanning(10),
+                new Float64Array(
+                    [0.0, 0.11697777844051105, 0.41317591116653485, 0.75, 0.9698463103929542, 0.9698463103929542, 0.75, 0.41317591116653485, 0.11697777844051105, 0.0]
+                )
+            );
+            compare(
+                hamming(10),
+                new Float64Array(
+                    [0.08000000000000002, 0.1876195561652702, 0.46012183827321207, 0.7700000000000001, 0.9722586055615179, 0.9722586055615179, 0.7700000000000001, 0.46012183827321207, 0.1876195561652702, 0.08000000000000002],
+                )
+            );
+
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Hub utilities', () => {
-            
+
         it('Read data from blob', async () => {
             const blob = new Blob(['Hello, world!'], { type: 'text/plain' });
             const blobUrl = URL.createObjectURL(blob);

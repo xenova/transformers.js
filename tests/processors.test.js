@@ -655,6 +655,26 @@ describe('Processors', () => {
 
 
         }, MAX_TEST_EXECUTION_TIME);
+
+        it('WeSpeakerFeatureExtractor', async () => {
+            const audio = new Float32Array(16000).map((_, i) => Math.sin(i / 100));
+
+            const processor = await AutoProcessor.from_pretrained('onnx-community/wespeaker-voxceleb-resnet34-LM');
+            { // default
+                const { input_features } = await processor(audio);
+                compare(input_features.dims, [1, 98, 80]);
+
+                expect(avg(input_features.data)).toBeCloseTo(5.461731689138105e-08);
+                expect(input_features.data[0]).toBeCloseTo(-0.19300270080566406);
+                expect(input_features.data[1]).toBeCloseTo(-0.05825042724609375);
+                expect(input_features.data[78]).toBeCloseTo(0.2683420181274414);
+                expect(input_features.data[79]).toBeCloseTo(0.26250171661376953);
+                expect(input_features.data[80]).toBeCloseTo(0.19062232971191406);
+                expect(input_features.data.at(-2)).toBeCloseTo(-0.43694400787353516);
+                expect(input_features.data.at(-1)).toBeCloseTo(-0.4266204833984375);
+            }
+
+        }, MAX_TEST_EXECUTION_TIME);
     });
 
     describe('Other processors', () => {

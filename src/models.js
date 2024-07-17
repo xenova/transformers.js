@@ -5027,6 +5027,38 @@ export class Wav2Vec2ForAudioFrameClassification extends Wav2Vec2PreTrainedModel
 }
 //////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////
+// PyAnnote models
+export class PyAnnotePreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare PyAnnote Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class PyAnnoteModel extends PyAnnotePreTrainedModel { }
+
+/**
+ * PyAnnote Model with a frame classification head on top for tasks like Speaker Diarization.
+ */
+export class PyAnnoteForAudioFrameClassification extends PyAnnotePreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// WeSpeakerResNet models
+export class WeSpeakerResNetPreTrainedModel extends PreTrainedModel { };
+export class WeSpeakerResNetModel extends WeSpeakerResNetPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////
 // UniSpeech models
 export class UniSpeechPreTrainedModel extends PreTrainedModel { };
@@ -6175,6 +6207,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
     ['vits', ['VitsModel', VitsModel]],
+    ['pyannote', ['PyAnnoteModel', PyAnnoteModel]],
+    ['wespeaker-resnet', ['WeSpeakerResNetModel', WeSpeakerResNetModel]],
 
     ['detr', ['DetrModel', DetrModel]],
     ['rt_detr', ['RTDetrModel', RTDetrModel]],
@@ -6455,6 +6489,7 @@ const MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['unispeech-sat', ['UniSpeechSatForAudioFrameClassification', UniSpeechSatForAudioFrameClassification]],
     ['wavlm', ['WavLMForAudioFrameClassification', WavLMForAudioFrameClassification]],
     ['wav2vec2', ['Wav2Vec2ForAudioFrameClassification', Wav2Vec2ForAudioFrameClassification]],
+    ['pyannote', ['PyAnnoteForAudioFrameClassification', PyAnnoteForAudioFrameClassification]],
 ]);
 
 const MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES = new Map([
