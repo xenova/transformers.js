@@ -51,7 +51,6 @@
     "jest": "^29.5.0",
     "jest-environment-node": "^29.5.0",
     "jsdoc-to-markdown": "^8.0.1",
-    "semver": "^7.6.3",
     "typescript": "^5.2.2",
     "wavefile": "^11.0.0",
     "webpack": "^5.80.0",
@@ -59,6 +58,7 @@
     "webpack-dev-server": "^4.13.3"
   },
   "overrides": {
+    "semver": "^7.6.3",
     "protobufjs": "^7.2.6"
   },
   "files": [
