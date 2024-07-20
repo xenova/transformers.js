@@ -246,9 +246,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
 }
 
 /**
- * Helper function to sequentially create multiple InferenceSession objects.
- * NOTE: It is important to create the sessions sequentially, otherwise ORT will throw an error indicating
- * that multiple calls to `initWasm` were made.
+ * Helper function to create multiple InferenceSession objects.
  * 
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
  * @param {Record<string, string>} names The names of the model files to load.
@@ -257,18 +255,13 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
  * @private
  */
 async function constructSessions(pretrained_model_name_or_path, names, options) {
-    const keys = Object.keys(names);
-    const sessionData = await Promise.all(
-        keys.map(async (name) => getSession(pretrained_model_name_or_path, names[name], options))
-    );
-
-    const sessions = {};
-    for (let i = 0; i < keys.length; ++i) {
-        const { buffer, session_options } = sessionData[i];
-        const session = await createInferenceSession(buffer, session_options);
-        sessions[keys[i]] = session;
-    }
-    return sessions;
+    return Object.fromEntries(await Promise.all(
+        Object.keys(names).map(async (name) => {
+            const { buffer, session_options } = await getSession(pretrained_model_name_or_path, names[name], options);
+            const session = await createInferenceSession(buffer, session_options);
+            return [name, session];
+        })
+    ));
 }
 
 /**
