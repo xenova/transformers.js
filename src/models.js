@@ -51,6 +51,7 @@ import {
 
 import {
     getModelFile,
+    getModelPath,
     getModelJSON,
 } from './utils/hub.js';
 
@@ -81,11 +82,15 @@ import {
     Tensor,
 } from './utils/tensor.js';
 
+import { env } from './env.js';
+
 import { executionProviders, ONNX } from './backends/onnx.js';
 import { medianFilter } from './transformers.js';
-const { InferenceSession, Tensor: ONNXTensor, env } = ONNX;
+const { InferenceSession, Tensor: ONNXTensor, env: onnx_env } = ONNX;
 
 /** @typedef {import('onnxruntime-web').InferenceSession} InferenceSession */
+
+const IS_BROWSER = typeof navigator !== 'undefined' && navigator.product !== 'ReactNative';
 
 //////////////////////////////////////////////////
 // Model types: used internally
@@ -119,27 +124,20 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  */
 async function constructSession(pretrained_model_name_or_path, fileName, options) {
     // TODO add option for user to force specify their desired execution provider
-    let modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
-    let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
-    try {
-        return await InferenceSession.create(buffer, {
-            executionProviders,
-        });
-    } catch (err) {
-        // If the execution provided was only wasm, throw the error
-        if (executionProviders.length === 1 && executionProviders[0] === 'wasm') {
-            throw err;
-        }
+    const sessionOptions = { executionProviders, ...options.session_options };
+    const modelFileName = `onnx/${fileName}${options.quantized ? '_quantized' : ''}.onnx`;
 
-        console.warn(err);
-        console.warn(
-            'Something went wrong during model construction (most likely a missing operation). ' +
-            'Using `wasm` as a fallback. '
-        )
-        return await InferenceSession.create(buffer, {
-            executionProviders: ['wasm']
-        });
+    if (IS_BROWSER || !env.useFS || !env.allowLocalModels || env.useCustomCache) {
+        let buffer = await getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
+
+        return await InferenceSession.create(buffer, sessionOptions);
+    } else {
+        let modelPath = await getModelPath(pretrained_model_name_or_path, modelFileName, true, options);
+        // Download optional external data file
+        await getModelPath(pretrained_model_name_or_path, `${modelFileName}_data`, false, options);
+
+        return await InferenceSession.create(modelPath, sessionOptions);
     }
 }
 
@@ -167,10 +165,10 @@ function validateInputs(session, inputs) {
             missingInputs.push(inputName);
             continue;
         }
-        // NOTE: When `env.wasm.proxy is true` the tensor is moved across the Worker
+        // NOTE: When `onnx_env.wasm.proxy is true` the tensor is moved across the Worker
         // boundary, transferring ownership to the worker and invalidating the tensor.
         // So, in this case, we simply sacrifice a clone for it.
-        checkedInputs[inputName] = env.wasm.proxy ? tensor.clone() : tensor;
+        checkedInputs[inputName] = onnx_env.wasm.proxy ? tensor.clone() : tensor;
     }
     if (missingInputs.length > 0) {
         throw new Error(
@@ -210,7 +208,14 @@ async function sessionRun(session, inputs) {
     } catch (e) {
         // This usually occurs when the inputs are of the wrong type.
         console.error(`An error occurred during model execution: "${e}".`);
-        console.error('Inputs given to model:', checkedInputs);
+        // Not log full data, it may cause crash in React Native
+        console.error(
+            'Inputs given to model:',
+            IS_BROWSER ? checkedInputs : Object.fromEntries(
+                Object.entries(checkedInputs)
+                    .map(([key, tensor]) => [key, { dims: tensor.dims, type: tensor.type }])
+            )
+        );
         throw e;
     }
 }
@@ -224,7 +229,7 @@ async function sessionRun(session, inputs) {
 function replaceTensors(obj) {
     for (let prop in obj) {
         if (obj[prop] instanceof ONNXTensor) {
-            obj[prop] = new Tensor(obj[prop]);
+            obj[prop] = Tensor.fromONNX(obj[prop]);
         } else if (typeof obj[prop] === 'object') {
             replaceTensors(obj[prop]);
         }
@@ -741,6 +746,7 @@ export class PreTrainedModel extends Callable {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        session_options = {},
     } = {}) {
 
         let options = {
@@ -751,6 +757,7 @@ export class PreTrainedModel extends Callable {
             local_files_only,
             revision,
             model_file_name,
+            session_options,
         }
 
         const modelName = MODEL_CLASS_TO_NAME_MAPPING.get(this);
@@ -5524,6 +5531,7 @@ export class PretrainedMixin {
         local_files_only = false,
         revision = 'main',
         model_file_name = null,
+        session_options = {},
     } = {}) {
 
         let options = {
@@ -5534,6 +5542,7 @@ export class PretrainedMixin {
             local_files_only,
             revision,
             model_file_name,
+            session_options,
         }
         config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
         if (!options.config) {

@@ -38,12 +38,18 @@
   },
   "homepage": "https://github.com/xenova/transformers.js#readme",
   "dependencies": {
-    "onnxruntime-web": "1.14.0",
-    "sharp": "^0.32.0",
-    "@huggingface/jinja": "^0.2.2"
+    "@huggingface/jinja": "^0.2.2",
+    "image-codecs": "^0.1.0",
+    "node-wav": "^0.0.2",
+    "onnxruntime-web": "^1.17.0",
+    "sharp": "^0.32.0"
   },
   "optionalDependencies": {
-    "onnxruntime-node": "1.14.0"
+    "browserify-zlib": "^0.2.0",
+    "onnxruntime-node": "^1.17.0",
+    "onnxruntime-react-native": "^1.17.0",
+    "path-browserify": "^1.0.1",
+    "react-native-fs": "^2.20.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
@@ -59,6 +65,7 @@
     "webpack-dev-server": "^4.13.3"
   },
   "overrides": {
+    "jpeg-js": "^0.4.4",
     "semver": "^7.5.4",
     "protobufjs": "^7.2.6"
   },
@@ -69,8 +76,18 @@
     "README.md",
     "LICENSE"
   ],
+  "react-native": {
+    "fs": "react-native-fs",
+    "onnxruntime-web": false,
+    "onnxruntime-node": "onnxruntime-react-native",
+    "image-codecs": "image-codecs",
+    "path": "path-browserify",
+    "stream/web": false,
+    "zlib": "browserify-zlib"
+  },
   "browser": {
     "fs": false,
+    "image-codecs": false,
     "path": false,
     "url": false,
     "sharp": false,
