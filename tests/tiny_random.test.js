@@ -541,10 +541,10 @@ describe('Tiny random models', () => {
                             [decoder_start_token_id, lang_to_id['<|fr|>'], task_to_id['transcribe'], no_timestamps_token_id],
                         ],
                     });
-                    expect(outputs.tolist()).toEqual([[
-                    /* Prefix */ 50258n, 50259n, 50358n, 50363n, /* Generated */ 45084n,
-                    /* Prefix */ 50258n, 50265n, 50359n, 50363n, /* Generated */ 45084n,
-                    ]]);
+                    expect(outputs.tolist()).toEqual([
+                        [/* Prefix */ 50258n, 50259n, 50358n, 50363n, /* Generated */ 45084n],
+                        [/* Prefix */ 50258n, 50265n, 50359n, 50363n, /* Generated */ 45084n],
+                    ]);
                 });
             });
 
