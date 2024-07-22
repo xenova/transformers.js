@@ -440,9 +440,7 @@ function boolTensor(value) {
  * @private
  */
 async function seq2seqForward(self, model_inputs) {
-
-    let { encoder_outputs, past_key_values } = model_inputs;
-
+    let { encoder_outputs, input_ids, decoder_input_ids, ...other_decoder_inputs } = model_inputs;
     // Encode if needed
     if (!encoder_outputs) {
         const encoder_inputs = pick(model_inputs, self.sessions['model'].inputNames);
@@ -450,7 +448,6 @@ async function seq2seqForward(self, model_inputs) {
         encoder_outputs = (await encoderForward(self, encoder_inputs)).last_hidden_state;
     }
 
-    const { input_ids, decoder_input_ids, ...other_decoder_inputs } = model_inputs;
     other_decoder_inputs.input_ids = decoder_input_ids;
     other_decoder_inputs.encoder_hidden_states = encoder_outputs;
 
@@ -678,20 +675,14 @@ function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, ge
 }
 
 function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
-    const { ...new_model_inputs } = model_inputs;
-
-    const past_key_values = model_inputs.past_key_values;
-    // self.addPastKeyValues(new_model_inputs, past_key_values);
-
-    if (past_key_values) {
-        // keep only final IDs:
+    if (model_inputs.past_key_values) {
         input_ids = input_ids.map(x => [x.at(-1)]);
-    } else {
-        // input_ids;
     }
-    new_model_inputs['decoder_input_ids'] = toI64Tensor(input_ids);
 
-    return new_model_inputs;
+    return {
+        ...model_inputs,
+        decoder_input_ids: toI64Tensor(input_ids),
+    };
 }
 
 function image_text_to_text_prepare_inputs_for_generation(self, ...args) {
@@ -1276,6 +1267,19 @@ export class PreTrainedModel extends Callable {
                     model_inputs['attention_mask'],
                     zeros_like(model_inputs['attention_mask']),
                 ], 0);
+            }
+
+        } else if (model_inputs.decoder_input_ids) {
+            // Ensure that the encoder outputs have the same batch size as the decoder inputs,
+            // allowing for more efficient batched generation for single inputs
+            const decoder_input_ids_batch_size = toI64Tensor(model_inputs.decoder_input_ids).dims[0];
+            if (decoder_input_ids_batch_size !== last_hidden_state.dims[0]) {
+                if (last_hidden_state.dims[0] !== 1) {
+                    throw new Error(
+                        `The encoder outputs have a different batch size (${last_hidden_state.dims[0]}) than the decoder inputs (${decoder_input_ids_batch_size}).`
+                    )
+                }
+                last_hidden_state = cat(Array.from({ length: decoder_input_ids_batch_size }, () => last_hidden_state), 0);
             }
         }
         model_inputs['encoder_outputs'] = last_hidden_state;
@@ -3060,7 +3064,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     }) {
         generation_config = this._prepare_generation_config(generation_config, kwargs);
 
-        const init_tokens = this._retrieve_init_tokens(generation_config);
+        const init_tokens = kwargs.decoder_input_ids ?? this._retrieve_init_tokens(generation_config);
 
         if (generation_config.return_timestamps) {
             logits_processor ??= new LogitsProcessorList();

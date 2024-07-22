@@ -526,6 +526,28 @@ describe('Tiny random models', () => {
                 });
             });
 
+            describe('decoder_start_ids', () => {
+                const input_features = full([1, 80, 3000], 0.0);
+
+                it('broadcast inputs', async () => {
+                    const { decoder_start_token_id, lang_to_id, task_to_id, no_timestamps_token_id } = model.generation_config;
+
+                    const outputs = await model.generate({
+                        input_features, // batch size 1
+                        max_new_tokens: 1,
+                        decoder_input_ids: [ // batch size 2
+                            // <|startoftranscript|> <|lang_id|> <|task|> [<|notimestamps|>]
+                            [decoder_start_token_id, lang_to_id['<|en|>'], task_to_id['translate'], no_timestamps_token_id],
+                            [decoder_start_token_id, lang_to_id['<|fr|>'], task_to_id['transcribe'], no_timestamps_token_id],
+                        ],
+                    });
+                    expect(outputs.tolist()).toEqual([[
+                    /* Prefix */ 50258n, 50259n, 50358n, 50363n, /* Generated */ 45084n,
+                    /* Prefix */ 50258n, 50265n, 50359n, 50363n, /* Generated */ 45084n,
+                    ]]);
+                });
+            });
+
             afterAll(async () => {
                 await model?.dispose();
             }, MAX_MODEL_DISPOSE_TIME);
