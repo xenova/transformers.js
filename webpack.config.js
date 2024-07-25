@@ -31,29 +31,25 @@ function buildConfig({
         mode: 'development',
         devtool: 'source-map',
         entry: {
-            // include dist in entry point so that when running dev server,
-            // we can access the files with /dist/...
-            [`dist/transformers${name}`]: './src/transformers.js',
-            [`dist/transformers${name}.min`]: './src/transformers.js',
+            [`transformers${name}`]: './src/transformers.js',
+            [`transformers${name}.min`]: './src/transformers.js',
         },
         output: {
             filename: `[name]${suffix}`,
-            path: __dirname,
+            path: path.join(__dirname, 'dist'),
             library: {
                 type,
             },
+            assetModuleFilename: '[name][ext]',
+            chunkFormat: 'module',
         },
-        plugins: [
-            // Copy .wasm files to dist folder
-            new CopyWebpackPlugin({
-                patterns: [
-                    {
-                        from: 'node_modules/onnxruntime-web/dist/*.wasm',
-                        to: 'dist/[name][ext]'
-                    },
-                ],
-            }),
-        ],
+        module: {
+            parser: {
+                javascript: {
+                    importMeta: false
+                }
+            }
+        },
         optimization: {
             minimize: true,
             minimizer: [new TerserPlugin({
