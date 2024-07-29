@@ -53,7 +53,7 @@ import {
     DATA_TYPES,
     DEFAULT_DEVICE_DTYPE_MAPPING,
     DEFAULT_DTYPE_SUFFIX_MAPPING,
-    isFp16Supported,
+    isWebGpuFp16Supported,
 } from './utils/dtypes.js';
 
 import {
@@ -175,8 +175,8 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
 
     if (!DEFAULT_DTYPE_SUFFIX_MAPPING.hasOwnProperty(dtype)) {
         throw new Error(`Invalid dtype: ${dtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
-    } else if (dtype === DATA_TYPES.fp16 && !(await isFp16Supported())) {
-        throw new Error(`The device does not support fp16.`);
+    } else if (dtype === DATA_TYPES.fp16 && device === 'webgpu' && !(await isWebGpuFp16Supported())) {
+        throw new Error(`The device (${device}) does not support fp16.`);
     }
 
     // Construct the model file name

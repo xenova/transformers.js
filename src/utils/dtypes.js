@@ -7,17 +7,15 @@ import { DEVICE_TYPES } from "./devices.js";
 // For more information, see https://github.com/microsoft/onnxruntime/pull/19857#issuecomment-1999984753
 
 /**
- * Checks if fp16 support is available in the current environment.
+ * Checks if WebGPU fp16 support is available in the current environment.
  */
-export const isFp16Supported = (function () {
+export const isWebGpuFp16Supported = (function () {
     /** @type {boolean} */
     let cachedResult;
 
     return async function () {
         if (cachedResult === undefined) {
-            if (apis.IS_NODE_ENV) {
-                cachedResult = true;
-            } else if (!apis.IS_WEBGPU_AVAILABLE) {
+            if (!apis.IS_WEBGPU_AVAILABLE) {
                 cachedResult = false;
             } else {
                 try {
