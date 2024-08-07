@@ -231,8 +231,8 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         const shapes = getKeyValueShapes(options.config, {
             prefix: 'present',
         });
-        if (Object.keys(shapes).length > 0) {
-            // Only set preferredOutputLocation if shapes are present
+        if (Object.keys(shapes).length > 0 && !isONNXProxy()) {
+            // Only set preferredOutputLocation if shapes are present and we aren't proxying ONNX
             const preferredOutputLocation = {};
             for (const key in shapes) {
                 preferredOutputLocation[key] = 'gpu-buffer';
