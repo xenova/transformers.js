@@ -109,11 +109,7 @@ if (ONNX_ENV?.wasm) {
     // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
     // We use remote wasm files by default to make it easier for newer users.
     // In practice, users should probably self-host the necessary .wasm files.
-    // TODO: update this before release
-    
-    // It is also OK not to set this path when using latest onnxruntime-web version. Bundlers should be able to copy
-    // the necessary files to distribution folder.
-    // ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+    ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0-dev.20240804-ee2fe87e2d/dist/';
 
     // Proxy the WASM backend to prevent the UI from freezing
     // NOTE: This is only needed when running in a non-worker browser environment.
