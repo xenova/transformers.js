@@ -1,4 +1,3 @@
-import CopyWebpackPlugin from "copy-webpack-plugin";
 import TerserPlugin from "terser-webpack-plugin";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -45,17 +44,6 @@ function buildConfig({
       assetModuleFilename: '[name][ext]',
       chunkFormat: 'module',
     },
-    plugins: [
-      // Copy .wasm files to dist folder
-      new CopyWebpackPlugin({
-        patterns: [
-          {
-            from: "node_modules/onnxruntime-web/dist/*.wasm",
-            to: "[name][ext]",
-          },
-        ],
-      }),
-    ],
     module: {
       parser: {
         javascript: {
