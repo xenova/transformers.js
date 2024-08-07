@@ -29,46 +29,40 @@ function buildConfig({
     }),
   );
 
-  return {
-    mode: "development",
-    devtool: "source-map",
-    entry: {
-      // include dist in entry point so that when running dev server,
-      // we can access the files with /dist/...
-      [`dist/transformers${name}`]: "./src/transformers.js",
-      [`dist/transformers${name}.min`]: "./src/transformers.js",
-    },
-    output: {
-      filename: `[name]${suffix}`,
-      path: __dirname,
-      library: {
-        type,
-      },
-    },
-    plugins: [
-      // Copy .wasm files to dist folder
-      new CopyWebpackPlugin({
-        patterns: [
-          {
-            from: "node_modules/onnxruntime-web/dist/*.wasm",
-            to: "dist/[name][ext]",
-          },
-        ],
-      }),
-    ],
-    optimization: {
-      minimize: true,
-      minimizer: [
-        new TerserPlugin({
-          test: new RegExp(`\\.min\\${suffix}$`),
-          extractComments: false,
-        }),
-      ],
-    },
-    experiments: {
-      outputModule,
-    },
-    resolve: { alias },
+    return {
+        mode: 'development',
+        devtool: 'source-map',
+        entry: {
+            [`transformers${name}`]: './src/transformers.js',
+            [`transformers${name}.min`]: './src/transformers.js',
+        },
+        output: {
+            filename: `[name]${suffix}`,
+            path: path.join(__dirname, 'dist'),
+            library: {
+                type,
+            },
+            assetModuleFilename: '[name][ext]',
+            chunkFormat: 'module',
+        },
+        module: {
+            parser: {
+                javascript: {
+                    importMeta: false
+                }
+            }
+        },
+        optimization: {
+            minimize: true,
+            minimizer: [new TerserPlugin({
+                test: new RegExp(`\\.min\\${suffix}$`),
+                extractComments: false,
+            })],
+        },
+        experiments: {
+            outputModule,
+        },
+        resolve: { alias },
 
     // Development server
     devServer: {

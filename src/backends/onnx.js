@@ -110,7 +110,10 @@ if (ONNX_ENV?.wasm) {
     // We use remote wasm files by default to make it easier for newer users.
     // In practice, users should probably self-host the necessary .wasm files.
     // TODO: update this before release
-    ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+    
+    // It is also OK not to set this path when using latest onnxruntime-web version. Bundlers should be able to copy
+    // the necessary files to distribution folder.
+    // ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
 
     // Proxy the WASM backend to prevent the UI from freezing
     // NOTE: This is only needed when running in a non-worker browser environment.
