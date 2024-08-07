@@ -3084,10 +3084,23 @@ export class PreTrainedTokenizer extends Callable {
      * // [1, 733, 16289, 28793, 22557, 28725, 910, 460, 368, 28804, 733, 28748, 16289, 28793, 28737, 28742, 28719, 2548, 1598, 28723, 1602, 541, 315, 1316, 368, 3154, 28804, 2, 28705, 733, 16289, 28793, 315, 28742, 28715, 737, 298, 1347, 805, 910, 10706, 5752, 1077, 3791, 28808, 733, 28748, 16289, 28793]
      * ```
      * 
-     * @param {Message[]} conversation A list of message objects with `"role"` and `"content"` keys.
+     * @param {Message[]} conversation A list of message objects with `"role"` and `"content"` keys,
+     * representing the chat history so far.
      * @param {Object} options An optional object containing the following properties:
      * @param {string} [options.chat_template=null] A Jinja template to use for this conversion. If
      * this is not passed, the model's chat template will be used instead.
+     * @param {Object[]} [options.tools=null]
+     * A list of tools (callable functions) that will be accessible to the model. If the template does not
+     * support function calling, this argument will have no effect. Each tool should be passed as a JSON Schema,
+     * giving the name, description and argument types for the tool. See our
+     * [chat templating guide](https://huggingface.co/docs/transformers/main/en/chat_templating#automated-function-conversion-for-tool-use)
+     * for more information.
+     * @param {Record<string, string>[]} [options.documents=null]
+     * A list of dicts representing documents that will be accessible to the model if it is performing RAG
+     * (retrieval-augmented generation). If the template does not support RAG, this argument will have no
+     * effect. We recommend that each document should be a dict containing "title" and "text" keys. Please
+     * see the RAG section of the [chat templating guide](https://huggingface.co/docs/transformers/main/en/chat_templating#arguments-for-RAG)
+     * for examples of passing documents with chat templates.
      * @param {boolean} [options.add_generation_prompt=false] Whether to end the prompt with the token(s) that indicate
      * the start of an assistant message. This is useful when you want to generate a response from the model.
      * Note that this argument will be passed to the chat template, and so it must be supported in the
@@ -3103,6 +3116,8 @@ export class PreTrainedTokenizer extends Callable {
      * @returns {string | Tensor | number[]| number[][]|BatchEncoding} The tokenized output.
      */
     apply_chat_template(conversation, {
+        tools = null,
+        documents = null,
         chat_template = null,
         add_generation_prompt = false,
         tokenize = true,
@@ -3169,8 +3184,9 @@ export class PreTrainedTokenizer extends Callable {
 
         const rendered = compiledTemplate.render({
             messages: conversation,
-            add_generation_prompt: add_generation_prompt,
-
+            add_generation_prompt,
+            tools,
+            documents,
             ...special_tokens_map,
             ...kwargs,
         });
