@@ -1,4 +1,4 @@
-import { SamModel, AutoProcessor, RawImage, Tensor } from '@xenova/transformers';
+import { SamModel, AutoProcessor, RawImage, Tensor } from '@huggingface/transformers';
 
 // We adopt the singleton pattern to enable lazy-loading of the model and processor.
 export class SegmentAnythingSingleton {
@@ -9,14 +9,8 @@ export class SegmentAnythingSingleton {
     static getInstance() {
         if (!this.model) {
             this.model = SamModel.from_pretrained(this.model_id, {
-                dtype: {
-                    vision_encoder: 'fp16',
-                    prompt_encoder_mask_decoder: 'q8',
-                },
-                device: {
-                    vision_encoder: 'webgpu',
-                    prompt_encoder_mask_decoder: 'wasm',
-                }
+                dtype: 'fp16',
+                device: 'webgpu',
             });
         }
         if (!this.processor) {
