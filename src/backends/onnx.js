@@ -132,6 +132,10 @@ if (ONNX_ENV?.wasm) {
     }
 }
 
+if (ONNX_ENV?.webgpu) {
+    ONNX_ENV.webgpu.powerPreference = 'high-performance';
+}
+
 /**
  * Check if ONNX's WASM backend is being proxied.
  * @returns {boolean} Whether ONNX's WASM backend is being proxied.
