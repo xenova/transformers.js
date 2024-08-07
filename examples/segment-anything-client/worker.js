@@ -7,15 +7,11 @@ export class SegmentAnythingSingleton {
     static processor;
 
     static getInstance() {
-        if (!this.model) {
-            this.model = SamModel.from_pretrained(this.model_id, {
-                dtype: 'fp16',
-                device: 'webgpu',
-            });
-        }
-        if (!this.processor) {
-            this.processor = AutoProcessor.from_pretrained(this.model_id);
-        }
+        this.model ??= SamModel.from_pretrained(this.model_id, {
+            dtype: 'fp16',
+            device: 'webgpu',
+        });
+        this.processor ??= AutoProcessor.from_pretrained(this.model_id);
 
         return Promise.all([this.model, this.processor]);
     }
