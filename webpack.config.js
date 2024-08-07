@@ -19,7 +19,7 @@ function buildConfig({
   name = "",
   suffix = ".js",
   type = "module", // 'module' | 'commonjs'
-  ignoreModules = [], // 'eager' | undefined
+  ignoreModules = [],
 } = {}) {
   const outputModule = type === "module";
 
