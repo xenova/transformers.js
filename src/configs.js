@@ -100,6 +100,7 @@ function getNormalizedConfig(config) {
             mapping['num_attention_heads'] = 'num_attention_heads';
             break;
         case 'gemma':
+        case 'gemma2':
             mapping['num_heads'] = 'num_key_value_heads';
             mapping['num_layers'] = 'num_hidden_layers';
             mapping['dim_kv'] = 'head_dim';

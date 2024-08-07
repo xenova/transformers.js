@@ -53,7 +53,7 @@ import {
     DATA_TYPES,
     DEFAULT_DEVICE_DTYPE_MAPPING,
     DEFAULT_DTYPE_SUFFIX_MAPPING,
-    isFp16Supported,
+    isWebGpuFp16Supported,
 } from './utils/dtypes.js';
 
 import {
@@ -175,8 +175,8 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
 
     if (!DEFAULT_DTYPE_SUFFIX_MAPPING.hasOwnProperty(dtype)) {
         throw new Error(`Invalid dtype: ${dtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
-    } else if (dtype === DATA_TYPES.fp16 && !(await isFp16Supported())) {
-        throw new Error(`The device does not support fp16.`);
+    } else if (dtype === DATA_TYPES.fp16 && device === 'webgpu' && !(await isWebGpuFp16Supported())) {
+        throw new Error(`The device (${device}) does not support fp16.`);
     }
 
     // Construct the model file name
@@ -246,9 +246,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
 }
 
 /**
- * Helper function to sequentially create multiple InferenceSession objects.
- * NOTE: It is important to create the sessions sequentially, otherwise ORT will throw an error indicating
- * that multiple calls to `initWasm` were made.
+ * Helper function to create multiple InferenceSession objects.
  * 
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
  * @param {Record<string, string>} names The names of the model files to load.
@@ -257,18 +255,13 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
  * @private
  */
 async function constructSessions(pretrained_model_name_or_path, names, options) {
-    const keys = Object.keys(names);
-    const sessionData = await Promise.all(
-        keys.map(async (name) => getSession(pretrained_model_name_or_path, names[name], options))
-    );
-
-    const sessions = {};
-    for (let i = 0; i < keys.length; ++i) {
-        const { buffer, session_options } = sessionData[i];
-        const session = await createInferenceSession(buffer, session_options);
-        sessions[keys[i]] = session;
-    }
-    return sessions;
+    return Object.fromEntries(await Promise.all(
+        Object.keys(names).map(async (name) => {
+            const { buffer, session_options } = await getSession(pretrained_model_name_or_path, names[name], options);
+            const session = await createInferenceSession(buffer, session_options);
+            return [name, session];
+        })
+    ));
 }
 
 /**
@@ -447,9 +440,7 @@ function boolTensor(value) {
  * @private
  */
 async function seq2seqForward(self, model_inputs) {
-
-    let { encoder_outputs, past_key_values } = model_inputs;
-
+    let { encoder_outputs, input_ids, decoder_input_ids, ...other_decoder_inputs } = model_inputs;
     // Encode if needed
     if (!encoder_outputs) {
         const encoder_inputs = pick(model_inputs, self.sessions['model'].inputNames);
@@ -457,7 +448,6 @@ async function seq2seqForward(self, model_inputs) {
         encoder_outputs = (await encoderForward(self, encoder_inputs)).last_hidden_state;
     }
 
-    const { input_ids, decoder_input_ids, ...other_decoder_inputs } = model_inputs;
     other_decoder_inputs.input_ids = decoder_input_ids;
     other_decoder_inputs.encoder_hidden_states = encoder_outputs;
 
@@ -685,20 +675,14 @@ function decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, ge
 }
 
 function encoder_decoder_prepare_inputs_for_generation(self, input_ids, model_inputs, generation_config) {
-    const { ...new_model_inputs } = model_inputs;
-
-    const past_key_values = model_inputs.past_key_values;
-    // self.addPastKeyValues(new_model_inputs, past_key_values);
-
-    if (past_key_values) {
-        // keep only final IDs:
+    if (model_inputs.past_key_values) {
         input_ids = input_ids.map(x => [x.at(-1)]);
-    } else {
-        // input_ids;
     }
-    new_model_inputs['decoder_input_ids'] = toI64Tensor(input_ids);
 
-    return new_model_inputs;
+    return {
+        ...model_inputs,
+        decoder_input_ids: toI64Tensor(input_ids),
+    };
 }
 
 function image_text_to_text_prepare_inputs_for_generation(self, ...args) {
@@ -1283,6 +1267,19 @@ export class PreTrainedModel extends Callable {
                     model_inputs['attention_mask'],
                     zeros_like(model_inputs['attention_mask']),
                 ], 0);
+            }
+
+        } else if (model_inputs.decoder_input_ids) {
+            // Ensure that the encoder outputs have the same batch size as the decoder inputs,
+            // allowing for more efficient batched generation for single inputs
+            const decoder_input_ids_batch_size = toI64Tensor(model_inputs.decoder_input_ids).dims[0];
+            if (decoder_input_ids_batch_size !== last_hidden_state.dims[0]) {
+                if (last_hidden_state.dims[0] !== 1) {
+                    throw new Error(
+                        `The encoder outputs have a different batch size (${last_hidden_state.dims[0]}) than the decoder inputs (${decoder_input_ids_batch_size}).`
+                    )
+                }
+                last_hidden_state = cat(Array.from({ length: decoder_input_ids_batch_size }, () => last_hidden_state), 0);
             }
         }
         model_inputs['encoder_outputs'] = last_hidden_state;
@@ -3067,7 +3064,7 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
     }) {
         generation_config = this._prepare_generation_config(generation_config, kwargs);
 
-        const init_tokens = this._retrieve_init_tokens(generation_config);
+        const init_tokens = kwargs.decoder_input_ids ?? this._retrieve_init_tokens(generation_config);
 
         if (generation_config.return_timestamps) {
             logits_processor ??= new LogitsProcessorList();
@@ -3962,6 +3959,32 @@ export class GemmaPreTrainedModel extends PreTrainedModel {
 export class GemmaModel extends GemmaPreTrainedModel { }
 
 export class GemmaForCausalLM extends GemmaPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Gemma2 models
+
+/**
+ * The bare Gemma2 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Gemma2PreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `Gemma2PreTrainedModel` class.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
+        this.generation_config = generation_config;
+    }
+}
+/**
+ * The bare Gemma2 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Gemma2Model extends Gemma2PreTrainedModel { }
+
+export class Gemma2ForCausalLM extends Gemma2PreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -5026,6 +5049,92 @@ export class Wav2Vec2ForAudioFrameClassification extends Wav2Vec2PreTrainedModel
     }
 }
 //////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// PyAnnote models
+export class PyAnnotePreTrainedModel extends PreTrainedModel { };
+
+/**
+ * The bare PyAnnote Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class PyAnnoteModel extends PyAnnotePreTrainedModel { }
+
+/**
+ * PyAnnote Model with a frame classification head on top for tasks like Speaker Diarization.
+ * 
+ * **Example:** Load and run a `PyAnnoteForAudioFrameClassification` for speaker diarization.
+ * 
+ * ```javascript
+ * import { AutoProcessor, AutoModelForAudioFrameClassification, read_audio } from '@xenova/transformers';
+ * 
+ * // Load model and processor
+ * const model_id = 'onnx-community/pyannote-segmentation-3.0';
+ * const model = await AutoModelForAudioFrameClassification.from_pretrained(model_id);
+ * const processor = await AutoProcessor.from_pretrained(model_id);
+ * 
+ * // Read and preprocess audio
+ * const url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/mlk.wav';
+ * const audio = await read_audio(url, processor.feature_extractor.config.sampling_rate);
+ * const inputs = await processor(audio);
+ * 
+ * // Run model with inputs
+ * const { logits } = await model(inputs);
+ * // {
+ * //   logits: Tensor {
+ * //     dims: [ 1, 767, 7 ],  // [batch_size, num_frames, num_classes]
+ * //     type: 'float32',
+ * //     data: Float32Array(5369) [ ... ],
+ * //     size: 5369
+ * //   }
+ * // }
+ * 
+ * const result = processor.post_process_speaker_diarization(logits, audio.length);
+ * // [
+ * //   [
+ * //     { id: 0, start: 0, end: 1.0512535626298245, confidence: 0.8220156481664611 },
+ * //     { id: 2, start: 1.0512535626298245, end: 2.3398869619825127, confidence: 0.9008811707860472 },
+ * //     ...
+ * //   ]
+ * // ]
+ * 
+ * // Display result
+ * console.table(result[0], ['start', 'end', 'id', 'confidence']);
+ * // ┌─────────┬────────────────────┬────────────────────┬────┬─────────────────────┐
+ * // │ (index) │ start              │ end                │ id │ confidence          │
+ * // ├─────────┼────────────────────┼────────────────────┼────┼─────────────────────┤
+ * // │ 0       │ 0                  │ 1.0512535626298245 │ 0  │ 0.8220156481664611  │
+ * // │ 1       │ 1.0512535626298245 │ 2.3398869619825127 │ 2  │ 0.9008811707860472  │
+ * // │ 2       │ 2.3398869619825127 │ 3.5946089560890773 │ 0  │ 0.7521651315796233  │
+ * // │ 3       │ 3.5946089560890773 │ 4.578039708226655  │ 2  │ 0.8491978128022479  │
+ * // │ 4       │ 4.578039708226655  │ 4.594995410849717  │ 0  │ 0.2935352600416393  │
+ * // │ 5       │ 4.594995410849717  │ 6.121008646925269  │ 3  │ 0.6788051309866024  │
+ * // │ 6       │ 6.121008646925269  │ 6.256654267909762  │ 0  │ 0.37125512393851134 │
+ * // │ 7       │ 6.256654267909762  │ 8.630452635138397  │ 2  │ 0.7467035186353542  │
+ * // │ 8       │ 8.630452635138397  │ 10.088643060721703 │ 0  │ 0.7689364814666032  │
+ * // │ 9       │ 10.088643060721703 │ 12.58113134631177  │ 2  │ 0.9123324509131324  │
+ * // │ 10      │ 12.58113134631177  │ 13.005023911888312 │ 0  │ 0.4828358177572041  │
+ * // └─────────┴────────────────────┴────────────────────┴────┴─────────────────────┘
+ * ```
+ */
+export class PyAnnoteForAudioFrameClassification extends PyAnnotePreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// WeSpeakerResNet models
+export class WeSpeakerResNetPreTrainedModel extends PreTrainedModel { };
+export class WeSpeakerResNetModel extends WeSpeakerResNetPreTrainedModel { }
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // UniSpeech models
@@ -6175,6 +6284,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['wavlm', ['WavLMModel', WavLMModel]],
     ['audio-spectrogram-transformer', ['ASTModel', ASTModel]],
     ['vits', ['VitsModel', VitsModel]],
+    ['pyannote', ['PyAnnoteModel', PyAnnoteModel]],
+    ['wespeaker-resnet', ['WeSpeakerResNetModel', WeSpeakerResNetModel]],
 
     ['detr', ['DetrModel', DetrModel]],
     ['rt_detr', ['RTDetrModel', RTDetrModel]],
@@ -6232,6 +6343,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['llama', ['LlamaModel', LlamaModel]],
     ['cohere', ['CohereModel', CohereModel]],
     ['gemma', ['GemmaModel', GemmaModel]],
+    ['gemma2', ['Gemma2Model', Gemma2Model]],
     ['openelm', ['OpenELMModel', OpenELMModel]],
     ['qwen2', ['Qwen2Model', Qwen2Model]],
     ['phi', ['PhiModel', PhiModel]],
@@ -6318,6 +6430,7 @@ const MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = new Map([
     ['llama', ['LlamaForCausalLM', LlamaForCausalLM]],
     ['cohere', ['CohereForCausalLM', CohereForCausalLM]],
     ['gemma', ['GemmaForCausalLM', GemmaForCausalLM]],
+    ['gemma2', ['Gemma2ForCausalLM', Gemma2ForCausalLM]],
     ['openelm', ['OpenELMForCausalLM', OpenELMForCausalLM]],
     ['qwen2', ['Qwen2ForCausalLM', Qwen2ForCausalLM]],
     ['phi', ['PhiForCausalLM', PhiForCausalLM]],
@@ -6455,6 +6568,7 @@ const MODEL_FOR_AUDIO_FRAME_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['unispeech-sat', ['UniSpeechSatForAudioFrameClassification', UniSpeechSatForAudioFrameClassification]],
     ['wavlm', ['WavLMForAudioFrameClassification', WavLMForAudioFrameClassification]],
     ['wav2vec2', ['Wav2Vec2ForAudioFrameClassification', Wav2Vec2ForAudioFrameClassification]],
+    ['pyannote', ['PyAnnoteForAudioFrameClassification', PyAnnoteForAudioFrameClassification]],
 ]);
 
 const MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES = new Map([

@@ -27,6 +27,7 @@ import {
     CohereModel,
     CohereForCausalLM,
     GemmaForCausalLM,
+    Gemma2ForCausalLM,
     OPTForCausalLM,
     GPTNeoXForCausalLM,
     GPTJForCausalLM,
@@ -526,6 +527,28 @@ describe('Tiny random models', () => {
                 });
             });
 
+            describe('decoder_start_ids', () => {
+                const input_features = full([1, 80, 3000], 0.0);
+
+                it('broadcast inputs', async () => {
+                    const { decoder_start_token_id, lang_to_id, task_to_id, no_timestamps_token_id } = model.generation_config;
+
+                    const outputs = await model.generate({
+                        input_features, // batch size 1
+                        max_new_tokens: 1,
+                        decoder_input_ids: [ // batch size 2
+                            // <|startoftranscript|> <|lang_id|> <|task|> [<|notimestamps|>]
+                            [decoder_start_token_id, lang_to_id['<|en|>'], task_to_id['translate'], no_timestamps_token_id],
+                            [decoder_start_token_id, lang_to_id['<|fr|>'], task_to_id['transcribe'], no_timestamps_token_id],
+                        ],
+                    });
+                    expect(outputs.tolist()).toEqual([
+                        [/* Prefix */ 50258n, 50259n, 50358n, 50363n, /* Generated */ 45084n],
+                        [/* Prefix */ 50258n, 50265n, 50359n, 50363n, /* Generated */ 45084n],
+                    ]);
+                });
+            });
+
             afterAll(async () => {
                 await model?.dispose();
             }, MAX_MODEL_DISPOSE_TIME);
@@ -951,6 +974,51 @@ describe('Tiny random models', () => {
                 expect(outputs.tolist()).toEqual([
                     [0n, 2n, 17534n, 254059n, 254059n, 254059n, 254059n, 254059n, 254059n, 254059n],
                     [2n, 17534n, 2134n, 71055n, 71055n, 71055n, 71055n, 71055n, 71055n, 71055n]
+                ]);
+            }, MAX_TEST_EXECUTION_TIME);
+
+            afterAll(async () => {
+                await model?.dispose();
+            }, MAX_MODEL_DISPOSE_TIME);
+        });
+    });
+
+    describe('gemma', () => {
+        describe('Gemma2ForCausalLM', () => {
+            const model_id = 'hf-internal-testing/tiny-random-Gemma2ForCausalLM';
+            /** @type {Gemma2ForCausalLM} */
+            let model;
+            /** @type {GemmaTokenizer} */
+            let tokenizer;
+            beforeAll(async () => {
+                model = await Gemma2ForCausalLM.from_pretrained(model_id, {
+                    // TODO move to config
+                    ...DEFAULT_MODEL_OPTIONS,
+                });
+                tokenizer = await GemmaTokenizer.from_pretrained(model_id);
+                tokenizer.padding_side = 'left';
+            }, MAX_MODEL_LOAD_TIME);
+
+            it('batch_size=1', async () => {
+                const inputs = tokenizer('hello');
+                const outputs = await model.generate({
+                    ...inputs,
+                    max_length: 10,
+                });
+                expect(outputs.tolist()).toEqual([
+                    [2n, 17534n, 127534n, 160055n, 160055n, 160055n, 160055n, 160055n, 160055n, 160055n]
+                ]);
+            }, MAX_TEST_EXECUTION_TIME);
+
+            it('batch_size>1', async () => {
+                const inputs = tokenizer(['hello', 'hello world'], { padding: true });
+                const outputs = await model.generate({
+                    ...inputs,
+                    max_length: 10,
+                });
+                expect(outputs.tolist()).toEqual([
+                    [0n, 2n, 17534n, 127534n, 127534n, 215341n, 215341n, 215341n, 215341n, 215341n],
+                    [2n, 17534n, 2134n, 107508n, 160055n, 160055n, 160055n, 160055n, 160055n, 160055n]
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
 

@@ -2502,8 +2502,6 @@ function truncateHelper(item, length) {
 export class PreTrainedTokenizer extends Callable {
     return_token_type_ids = false;
 
-    _default_chat_template = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`;
-
     padding_side = 'right';
     /**
      * Create a new PreTrainedTokenizer instance.
@@ -3059,26 +3057,10 @@ export class PreTrainedTokenizer extends Callable {
 
         return decoded;
     }
-
-    get default_chat_template() {
-        if (!this._warned_about_chat_template) {
-            console.warn(
-                "No chat template is defined for this tokenizer - using a default chat template " +
-                "that implements the ChatML format. If the default is not appropriate for " +
-                "your model, please set `tokenizer.chat_template` to an appropriate template. " +
-                "See https://huggingface.co/docs/transformers/main/chat_templating for more information."
-            )
-            this._warned_about_chat_template = true; // TODO move to logger.warning_once()
-        }
-
-        return this._default_chat_template;
-    }
-
     /**
      * Converts a list of message objects with `"role"` and `"content"` keys to a list of token
      * ids. This method is intended for use with chat models, and will read the tokenizer's chat_template attribute to
-     * determine the format and control tokens to use when converting. When chat_template is None, it will fall back
-     * to the default_chat_template specified at the class level.
+     * determine the format and control tokens to use when converting.
      * 
      * See [here](https://huggingface.co/docs/transformers/chat_templating) for more information.
      * 
@@ -3102,10 +3084,23 @@ export class PreTrainedTokenizer extends Callable {
      * // [1, 733, 16289, 28793, 22557, 28725, 910, 460, 368, 28804, 733, 28748, 16289, 28793, 28737, 28742, 28719, 2548, 1598, 28723, 1602, 541, 315, 1316, 368, 3154, 28804, 2, 28705, 733, 16289, 28793, 315, 28742, 28715, 737, 298, 1347, 805, 910, 10706, 5752, 1077, 3791, 28808, 733, 28748, 16289, 28793]
      * ```
      * 
-     * @param {Message[]} conversation A list of message objects with `"role"` and `"content"` keys.
+     * @param {Message[]} conversation A list of message objects with `"role"` and `"content"` keys,
+     * representing the chat history so far.
      * @param {Object} options An optional object containing the following properties:
      * @param {string} [options.chat_template=null] A Jinja template to use for this conversion. If
-     * this is not passed, the model's default chat template will be used instead.
+     * this is not passed, the model's chat template will be used instead.
+     * @param {Object[]} [options.tools=null]
+     * A list of tools (callable functions) that will be accessible to the model. If the template does not
+     * support function calling, this argument will have no effect. Each tool should be passed as a JSON Schema,
+     * giving the name, description and argument types for the tool. See our
+     * [chat templating guide](https://huggingface.co/docs/transformers/main/en/chat_templating#automated-function-conversion-for-tool-use)
+     * for more information.
+     * @param {Record<string, string>[]} [options.documents=null]
+     * A list of dicts representing documents that will be accessible to the model if it is performing RAG
+     * (retrieval-augmented generation). If the template does not support RAG, this argument will have no
+     * effect. We recommend that each document should be a dict containing "title" and "text" keys. Please
+     * see the RAG section of the [chat templating guide](https://huggingface.co/docs/transformers/main/en/chat_templating#arguments-for-RAG)
+     * for examples of passing documents with chat templates.
      * @param {boolean} [options.add_generation_prompt=false] Whether to end the prompt with the token(s) that indicate
      * the start of an assistant message. This is useful when you want to generate a response from the model.
      * Note that this argument will be passed to the chat template, and so it must be supported in the
@@ -3121,6 +3116,8 @@ export class PreTrainedTokenizer extends Callable {
      * @returns {string | Tensor | number[]| number[][]|BatchEncoding} The tokenized output.
      */
     apply_chat_template(conversation, {
+        tools = null,
+        documents = null,
         chat_template = null,
         add_generation_prompt = false,
         tokenize = true,
@@ -3135,10 +3132,10 @@ export class PreTrainedTokenizer extends Callable {
 
         // First, handle the cases when the model has a dict of multiple templates
         if (
-            (this.chat_template && typeof this.chat_template === 'object') ||
-            (this.chat_template === null && this.default_chat_template && typeof this.default_chat_template === 'object')
+            (this.chat_template && typeof this.chat_template === 'object')
+            || this.chat_template === null
         ) {
-            const template_dict = this.chat_template ?? this.default_chat_template; // Guaranteed to be a non-null object
+            const template_dict = this.chat_template;
 
             if (chat_template !== null && Object.hasOwn(template_dict, chat_template)) {
                 // The user can pass the name of a template to the chat template argument instead of an entire template
@@ -3154,8 +3151,17 @@ export class PreTrainedTokenizer extends Callable {
             }
         } else {
             // These are the cases when the model has a single template
-            // priority: `chat_template` argument > `tokenizer.chat_template` > `tokenizer.default_chat_template
-            chat_template ??= this.chat_template ?? this.default_chat_template;
+            // priority: `chat_template` argument > `tokenizer.chat_template`
+            if (this.chat_template) {
+                chat_template = this.chat_template;
+            } else {
+                throw Error(
+                    "Cannot use apply_chat_template() because tokenizer.chat_template is not set and no template " +
+                    "argument was passed! For information about writing templates and setting the " +
+                    "tokenizer.chat_template attribute, please see the documentation at " +
+                    "https://huggingface.co/docs/transformers/main/en/chat_templating"
+                )
+            }
         }
         if (typeof chat_template !== 'string') {
             throw Error(`chat_template must be a string, but got ${typeof chat_template}`);
@@ -3178,8 +3184,9 @@ export class PreTrainedTokenizer extends Callable {
 
         const rendered = compiledTemplate.render({
             messages: conversation,
-            add_generation_prompt: add_generation_prompt,
-
+            add_generation_prompt,
+            tools,
+            documents,
             ...special_tokens_map,
             ...kwargs,
         });
@@ -3250,9 +3257,7 @@ export class ElectraTokenizer extends PreTrainedTokenizer {
 }
 
 export class T5Tokenizer extends PreTrainedTokenizer { }
-export class GPT2Tokenizer extends PreTrainedTokenizer {
-    _default_chat_template = `{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}`
-}
+export class GPT2Tokenizer extends PreTrainedTokenizer { }
 export class BartTokenizer extends PreTrainedTokenizer { }
 export class MBartTokenizer extends PreTrainedTokenizer {
     constructor(tokenizerJSON, tokenizerConfig) {
@@ -3278,7 +3283,7 @@ export class MBart50Tokenizer extends MBartTokenizer { } // NOTE: extends MBartT
 
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
-export class BloomTokenizer extends GPT2Tokenizer { // NOTE: `GPT2Tokenizer` to get the correct chat template
+export class BloomTokenizer extends PreTrainedTokenizer {
 
     constructor(tokenizerJSON, tokenizerConfig) {
         // Override the default (invalid) regex of the pretokenizer.
@@ -3295,20 +3300,11 @@ export class BloomTokenizer extends GPT2Tokenizer { // NOTE: `GPT2Tokenizer` to 
 const SPIECE_UNDERLINE = "▁";
 
 export class LlamaTokenizer extends PreTrainedTokenizer {
-    _default_chat_template = `{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% elif USE_DEFAULT_PROMPT == true and not '<<SYS>>' in messages[0]['content'] %}{% set loop_messages = messages %}{% set system_message = 'DEFAULT_SYSTEM_MESSAGE' %}{% else %}{% set loop_messages = messages %}{% set system_message = false %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 and system_message != false %}{% set content = '<<SYS>>\n' + system_message + '\n<</SYS>>\n\n' + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ bos_token + '[INST] ' + content.strip() + ' [/INST]' }}{% elif message['role'] == 'system' %}{{ '<<SYS>>\n' + content.strip() + '\n<</SYS>>\n\n' }}{% elif message['role'] == 'assistant' %}{{ ' '  + content.strip() + ' ' + eos_token }}{% endif %}{% endfor %}`
-
-    DEFAULT_SYSTEM_PROMPT =
-        "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your " +
-        "answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure " +
-        "that your responses are socially unbiased and positive in nature.\n\n" +
-        "If a question does not make any sense, or is not factually coherent, explain why instead of answering something not " +
-        "correct. If you don't know the answer to a question, please don't share false information."
 
     padding_side = 'left';
 
     constructor(tokenizerJSON, tokenizerConfig) {
         super(tokenizerJSON, tokenizerConfig);
-        this.use_default_system_prompt = tokenizerConfig.use_default_system_prompt ?? false;
 
         this.legacy = tokenizerConfig.legacy ?? true;
         if (!this.legacy) {
@@ -3341,14 +3337,8 @@ export class LlamaTokenizer extends PreTrainedTokenizer {
         }
         return tokens;
     }
-
-    get default_chat_template() {
-        return super.default_chat_template
-            .replaceAll('USE_DEFAULT_PROMPT', this.use_default_system_prompt ? 'true' : 'false')
-            .replaceAll('DEFAULT_SYSTEM_MESSAGE', this.DEFAULT_SYSTEM_PROMPT.replaceAll("\n", "\\n").replaceAll("'", "\\'"));
-    }
 }
-export class CodeLlamaTokenizer extends LlamaTokenizer { } // NOTE: `LlamaTokenizer` to get the correct chat template
+export class CodeLlamaTokenizer extends PreTrainedTokenizer { }
 
 export class XLMRobertaTokenizer extends PreTrainedTokenizer { }
 export class MPNetTokenizer extends PreTrainedTokenizer { }
@@ -3361,9 +3351,7 @@ export class EsmTokenizer extends PreTrainedTokenizer { }
 
 export class Qwen2Tokenizer extends PreTrainedTokenizer { }
 
-export class GemmaTokenizer extends PreTrainedTokenizer {
-    _default_chat_template = "{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}"
-}
+export class GemmaTokenizer extends PreTrainedTokenizer { }
 
 export class Grok1Tokenizer extends PreTrainedTokenizer { }
 
@@ -3491,7 +3479,6 @@ export class M2M100Tokenizer extends PreTrainedTokenizer {
  * @extends PreTrainedTokenizer
  */
 export class WhisperTokenizer extends PreTrainedTokenizer {
-    _default_chat_template = `{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}`;
 
     get timestamp_begin() {
         return this.model.convert_tokens_to_ids(["<|notimestamps|>"])[0] + 1;
@@ -4284,10 +4271,8 @@ export class MarianTokenizer extends PreTrainedTokenizer {
 
 export class Wav2Vec2CTCTokenizer extends PreTrainedTokenizer { }
 
-export class BlenderbotTokenizer extends PreTrainedTokenizer {
-    _default_chat_template = `{% for message in messages %}{% if message['role'] == 'user' %}{{ ' ' }}{% endif %}{{ message['content'] }}{% if not loop.last %}{{ '  ' }}{% endif %}{% endfor %}{{ eos_token }}`;
-}
-export class BlenderbotSmallTokenizer extends BlenderbotTokenizer { } // NOTE `BlenderbotTokenizer` to get the correct chat template
+export class BlenderbotTokenizer extends PreTrainedTokenizer { }
+export class BlenderbotSmallTokenizer extends PreTrainedTokenizer { }
 
 export class SpeechT5Tokenizer extends PreTrainedTokenizer { }
 

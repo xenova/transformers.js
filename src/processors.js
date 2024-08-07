@@ -40,7 +40,7 @@ import {
 } from './utils/maths.js';
 
 
-import { Tensor, permute, cat, interpolate, stack, interpolate_4d } from './utils/tensor.js';
+import { Tensor, cat, interpolate, stack, interpolate_4d } from './utils/tensor.js';
 
 import { RawImage } from './utils/image.js';
 import {
@@ -2078,6 +2078,181 @@ export class ClapFeatureExtractor extends FeatureExtractor {
 }
 
 
+export class PyAnnoteFeatureExtractor extends FeatureExtractor {
+    /**
+     * Asynchronously extracts features from a given audio using the provided configuration.
+     * @param {Float32Array|Float64Array} audio The audio data as a Float32Array/Float64Array.
+     * @returns {Promise<{ input_values: Tensor; }>} The extracted input features.
+     */
+    async _call(audio) {
+        validate_audio_inputs(audio, 'PyAnnoteFeatureExtractor');
+
+        if (audio instanceof Float64Array) {
+            audio = new Float32Array(audio);
+        }
+
+        const shape = [
+            1,            /* batch_size */
+            1,            /* num_channels */
+            audio.length, /* num_samples */
+        ];
+        return {
+            input_values: new Tensor('float32', audio, shape),
+        };
+    }
+
+    /**
+     * NOTE: Can return fractional values. `Math.ceil` will ensure correct value.
+     * @param {number} samples The number of frames in the audio.
+     * @returns {number} The number of frames in the audio.
+     */
+    samples_to_frames(samples) {
+        return ((samples - this.config.offset) / this.config.step);
+    }
+
+    /**
+     * Post-processes the speaker diarization logits output by the model.
+     * @param {Tensor} logits The speaker diarization logits output by the model.
+     * @param {number} num_samples Number of samples in the input audio.
+     * @returns {Array<Array<{ id: number, start: number, end: number, confidence: number }>>} The post-processed speaker diarization results.
+     */
+    post_process_speaker_diarization(logits, num_samples) {
+        const ratio = (
+            num_samples / this.samples_to_frames(num_samples)
+        ) / this.config.sampling_rate;
+
+        const results = [];
+        for (const scores of logits.tolist()) {
+            const accumulated_segments = [];
+
+            let current_speaker = -1;
+            for (let i = 0; i < scores.length; ++i) {
+                const probabilities = softmax(scores[i]);
+                const [score, id] = max(probabilities);
+                const [start, end] = [i, i + 1];
+
+                if (id !== current_speaker) {
+                    // Speaker has changed
+                    current_speaker = id;
+                    accumulated_segments.push({ id, start, end, score });
+                } else {
+                    // Continue the current segment
+                    accumulated_segments.at(-1).end = end;
+                    accumulated_segments.at(-1).score += score;
+                }
+            }
+
+            results.push(accumulated_segments.map(
+                // Convert frame-space to time-space
+                // and compute the confidence
+                ({ id, start, end, score }) => ({
+                    id,
+                    start: start * ratio,
+                    end: end * ratio,
+                    confidence: score / (end - start),
+                })
+            ));
+        }
+        return results;
+    }
+
+}
+
+export class WeSpeakerFeatureExtractor extends FeatureExtractor {
+
+    constructor(config) {
+        super(config);
+
+        const sampling_rate = this.config.sampling_rate;
+        const mel_filters = mel_filter_bank(
+            256, // num_frequency_bins
+            this.config.num_mel_bins, // num_mel_filters
+            20, // min_frequency
+            Math.floor(sampling_rate / 2), // max_frequency
+            sampling_rate, // sampling_rate
+            null, // norm
+            "kaldi", // mel_scale
+            true, // triangularize_in_mel_space
+        );
+
+        // Do padding:
+        for (let i = 0; i < mel_filters.length; ++i) {
+            mel_filters[i].push(0);
+        }
+        this.mel_filters = mel_filters;
+
+        this.window = window_function(400, 'hamming', {
+            periodic: false,
+        })
+        this.min_num_frames = this.config.min_num_frames;
+    }
+
+    /**
+     * Computes the log-Mel spectrogram of the provided audio waveform.
+     * @param {Float32Array|Float64Array} waveform The audio waveform to process.
+     * @returns {Promise<Tensor>} An object containing the log-Mel spectrogram data as a Float32Array and its dimensions as an array of numbers.
+     */
+    async _extract_fbank_features(waveform) {
+        // Kaldi compliance: 16-bit signed integers
+        // 32768 == 2 ** 15
+        waveform = waveform.map((/** @type {number} */ x) => x * 32768)
+
+        return spectrogram(
+            waveform,
+            this.window, // window
+            400, // frame_length
+            160, // hop_length
+            {
+                fft_length: 512,
+                power: 2.0,
+                center: false,
+                preemphasis: 0.97,
+                mel_filters: this.mel_filters,
+                log_mel: 'log',
+                mel_floor: 1.192092955078125e-07,
+                remove_dc_offset: true,
+
+                // Custom
+                transpose: true,
+                min_num_frames: this.min_num_frames,
+            }
+        )
+    }
+
+
+    /**
+     * Asynchronously extracts features from a given audio using the provided configuration.
+     * @param {Float32Array|Float64Array} audio The audio data as a Float32Array/Float64Array.
+     * @returns {Promise<{ input_features: Tensor }>} A Promise resolving to an object containing the extracted input features as a Tensor.
+     */
+    async _call(audio) {
+        validate_audio_inputs(audio, 'WeSpeakerFeatureExtractor');
+
+        const features = (await this._extract_fbank_features(audio)).unsqueeze_(0);
+
+        if (this.config.fbank_centering_span === null) {
+            // center features with global average
+            const meanData = /** @type {Float32Array} */ (features.mean(1).data);
+            const featuresData = /** @type {Float32Array} */(features.data);
+            const [batch_size, num_frames, feature_size] = features.dims;
+
+            for (let i = 0; i < batch_size; ++i) {
+                const offset1 = i * num_frames * feature_size;
+                const offset2 = i * feature_size;
+                for (let j = 0; j < num_frames; ++j) {
+                    const offset3 = offset1 + j * feature_size;
+                    for (let k = 0; k < feature_size; ++k) {
+                        featuresData[offset3 + k] -= meanData[offset2 + k];
+                    }
+                }
+            }
+        }
+
+        return {
+            input_features: features
+        };
+    }
+}
 
 export class SpeechT5FeatureExtractor extends FeatureExtractor { }
 
@@ -2156,6 +2331,23 @@ export class Wav2Vec2ProcessorWithLM extends Processor {
     async _call(audio) {
         return await this.feature_extractor(audio)
     }
+}
+
+export class PyAnnoteProcessor extends Processor {
+    /**
+     * Calls the feature_extractor function with the given audio input.
+     * @param {any} audio The audio input to extract features from.
+     * @returns {Promise<any>} A Promise that resolves with the extracted features.
+     */
+    async _call(audio) {
+        return await this.feature_extractor(audio)
+    }
+
+    post_process_speaker_diarization(...args) {
+        // @ts-ignore
+        return this.feature_extractor.post_process_speaker_diarization(...args);
+    }
+
 }
 
 export class SpeechT5Processor extends Processor {
@@ -2350,11 +2542,14 @@ export class AutoProcessor {
         SpeechT5FeatureExtractor,
         ASTFeatureExtractor,
         ClapFeatureExtractor,
+        PyAnnoteFeatureExtractor,
+        WeSpeakerFeatureExtractor,
     }
 
     static PROCESSOR_CLASS_MAPPING = {
         WhisperProcessor,
         Wav2Vec2ProcessorWithLM,
+        PyAnnoteProcessor,
         SamProcessor,
         SpeechT5Processor,
         OwlViTProcessor,

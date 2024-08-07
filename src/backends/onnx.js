@@ -64,6 +64,15 @@ export function deviceToExecutionProviders(device) {
     return executionProviders;
 }
 
+
+/**
+ * To prevent multiple calls to `initWasm()`, we store the first call in a Promise
+ * that is resolved when the first InferenceSession is created. Subsequent calls
+ * will wait for this Promise to resolve before creating their own InferenceSession.
+ * @type {Promise<any>|null}
+ */
+let wasmInitPromise = null;
+
 /**
  * Create an ONNX inference session.
  * @param {Uint8Array} buffer The ONNX model buffer.
@@ -71,7 +80,15 @@ export function deviceToExecutionProviders(device) {
  * @returns {Promise<import('onnxruntime-common').InferenceSession>} The ONNX inference session.
  */
 export async function createInferenceSession(buffer, session_options) {
-    return await InferenceSession.create(buffer, session_options);
+    if (wasmInitPromise) {
+        // A previous session has already initialized the WASM runtime
+        // so we wait for it to resolve before creating this new session.
+        await wasmInitPromise;
+    }
+
+    const sessionPromise = InferenceSession.create(buffer, session_options);
+    wasmInitPromise ??= sessionPromise;
+    return await sessionPromise;
 }
 
 /**
@@ -113,6 +130,10 @@ if (ONNX_ENV?.wasm) {
     if (isIOS) {
         ONNX_ENV.wasm.simd = false;
     }
+}
+
+if (ONNX_ENV?.webgpu) {
+    ONNX_ENV.webgpu.powerPreference = 'high-performance';
 }
 
 /**
