@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
-    "@webgpu/types": "^0.1.40",
+    "@webgpu/types": "^0.1.44",
     "catharsis": "github:xenova/catharsis",
     "jest": "^29.5.0",
     "jest-environment-node": "^29.5.0",
