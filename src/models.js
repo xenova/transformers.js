@@ -3962,6 +3962,32 @@ export class GemmaForCausalLM extends GemmaPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// Gemma2 models
+
+/**
+ * The bare Gemma2 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Gemma2PreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `Gemma2PreTrainedModel` class.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
+        this.generation_config = generation_config;
+    }
+}
+/**
+ * The bare Gemma2 Model outputting raw hidden-states without any specific head on top.
+ */
+export class Gemma2Model extends Gemma2PreTrainedModel { }
+
+export class Gemma2ForCausalLM extends Gemma2PreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class OpenELMPreTrainedModel extends PreTrainedModel {
     /**
      * Creates a new instance of the `OpenELMPreTrainedModel` class.
@@ -6317,6 +6343,7 @@ const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['llama', ['LlamaModel', LlamaModel]],
     ['cohere', ['CohereModel', CohereModel]],
     ['gemma', ['GemmaModel', GemmaModel]],
+    ['gemma2', ['Gemma2Model', Gemma2Model]],
     ['openelm', ['OpenELMModel', OpenELMModel]],
     ['qwen2', ['Qwen2Model', Qwen2Model]],
     ['phi', ['PhiModel', PhiModel]],
@@ -6403,6 +6430,7 @@ const MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = new Map([
     ['llama', ['LlamaForCausalLM', LlamaForCausalLM]],
     ['cohere', ['CohereForCausalLM', CohereForCausalLM]],
     ['gemma', ['GemmaForCausalLM', GemmaForCausalLM]],
+    ['gemma2', ['Gemma2ForCausalLM', Gemma2ForCausalLM]],
     ['openelm', ['OpenELMForCausalLM', OpenELMForCausalLM]],
     ['qwen2', ['Qwen2ForCausalLM', Qwen2ForCausalLM]],
     ['phi', ['PhiForCausalLM', PhiForCausalLM]],
