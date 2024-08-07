@@ -51,7 +51,7 @@ function buildConfig({
         patterns: [
           {
             from: "node_modules/onnxruntime-web/dist/*.wasm",
-            to: "dist/[name][ext]",
+            to: "[name][ext]",
           },
         ],
       }),
