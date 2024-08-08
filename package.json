@@ -10,7 +10,7 @@
       "import": "./dist/transformers.mjs",
       "require": "./dist/transformers.cjs"
     },
-    "default": "./src/transformers.js"
+    "default": "./dist/transformers.js"
   },
   "scripts": {
     "format": "prettier --write .",
