@@ -6,12 +6,13 @@ export default defineConfig(env => {
     }
   };
 
-  if (env.mode === 'development') {
-    // The .wasm files are not correctly served using Vite in development mode.
-    // This is a workaround to exclude the onnxruntime-web package from Vite's optimization.
-    // See also: https://github.com/vitejs/vite/issues/8427
-    config.optimizeDeps = { exclude: ["onnxruntime-web"] };
-  }
+  // TODO: Add the following when using onnxruntime-web@1.19.0
+  // if (env.mode === 'development') {
+  //   // The .wasm files are not correctly served using Vite in development mode.
+  //   // This is a workaround to exclude the onnxruntime-web package from Vite's optimization.
+  //   // See also: https://github.com/vitejs/vite/issues/8427
+  //   config.optimizeDeps = { exclude: ["onnxruntime-web"] };
+  // }
 
   return config;
 });

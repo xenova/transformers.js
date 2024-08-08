@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@xenova/transformers": "^3.0.0"
+    "@huggingface/transformers": "^3.0.0-alpha.0"
   },
   "devDependencies": {
     "vite": "^5.2.9"
