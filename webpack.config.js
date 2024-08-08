@@ -9,9 +9,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @param {Object} options Options for creating a webpack target.
  * @param {string} options.name Name of output file.
  * @param {string} options.suffix Suffix of output file.
- * @param {string} options.format Format of output file.
  * @param {string} options.type Type of library.
- * @param {string} options.dynamicImportMode Dynamic import mode.
+ * @param {string} options.ignoreModules The list of modules to ignore.
+ * @param {string} options.externalModules The list of modules to set as external.
  * @returns {import('webpack').Configuration} One webpack target.
  */
 function buildConfig({
@@ -19,6 +19,7 @@ function buildConfig({
   suffix = ".js",
   type = "module", // 'module' | 'commonjs'
   ignoreModules = [],
+  externalModules = [],
 } = {}) {
   const outputModule = type === "module";
 
@@ -57,10 +58,7 @@ function buildConfig({
     },
     resolve: { alias },
 
-    // Do not bundle the following modules with webpack (mark as external)
-    // NOTE: This is necessary for both type="module" and type="commonjs",
-    // and will be ignored when building for web (only used for node/deno)
-    externals: ['onnxruntime-node', 'sharp'],
+    externals: externalModules,
 
     // Development server
     devServer: {
@@ -86,13 +84,33 @@ function buildConfig({
   return config;
 }
 
+// Do not bundle onnxruntime-web when packaging for Node.js.
+// Instead, we use the native library (onnxruntime-node).
+const NODE_IGNORE_MODULES = ["onnxruntime-web", "onnxruntime-web/webgpu"];
+
+// Do not bundle the following modules with webpack (mark as external)
+// NOTE: This is necessary for both type="module" and type="commonjs",
+// and will be ignored when building for web (only used for node/deno)
+const NODE_EXTERNAL_MODULES = ["onnxruntime-node", "sharp"];
+
+
 export default [
+  // Web-only build
   buildConfig({
     type: "module",
+  }),
+
+  // Node-compatible builds
+  buildConfig({
+    suffix: ".mjs",
+    type: "module",
+    ignoreModules: NODE_IGNORE_MODULES,
+    externalModules: NODE_EXTERNAL_MODULES,
   }),
   buildConfig({
     suffix: ".cjs",
     type: "commonjs",
-    ignoreModules: ["onnxruntime-web", "onnxruntime-web/webgpu"],
+    ignoreModules: NODE_IGNORE_MODULES,
+    externalModules: NODE_EXTERNAL_MODULES,
   }),
 ];

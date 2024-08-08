@@ -7,7 +7,7 @@
   "type": "module",
   "exports": {
     "node": {
-      "import": "./dist/transformers.js",
+      "import": "./dist/transformers.mjs",
       "require": "./dist/transformers.cjs"
     },
     "default": "./src/transformers.js"
