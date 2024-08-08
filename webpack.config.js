@@ -28,7 +28,8 @@ function buildConfig({
     }),
   );
 
-  return {
+  /** @type {import('webpack').Configuration} */
+  const config = {
     mode: 'development',
     devtool: 'source-map',
     entry: {
@@ -43,13 +44,6 @@ function buildConfig({
       },
       assetModuleFilename: '[name][ext]',
       chunkFormat: 'module',
-    },
-    module: {
-      parser: {
-        javascript: {
-          importMeta: false
-        }
-      }
     },
     optimization: {
       minimize: true,
@@ -71,6 +65,21 @@ function buildConfig({
       port: 8080,
     },
   };
+
+  if (outputModule) {
+    config.module = {
+      parser: {
+        javascript: {
+          importMeta: false
+        }
+      }
+    }
+  } else {
+    config.externalsType = 'commonjs';
+    config.externals = ['onnxruntime-node', 'sharp'];
+  }
+
+  return config;
 }
 
 export default [
