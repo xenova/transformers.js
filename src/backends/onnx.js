@@ -105,11 +105,11 @@ const ONNX_ENV = ONNX?.env;
 if (ONNX_ENV?.wasm) {
     // Initialize wasm backend with suitable default settings.
 
-    // Set path to wasm files. This is needed when running in a web worker.
+    // (Optional) Set path to wasm files. This is needed when running in a web worker.
     // https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html#wasmPaths
     // We use remote wasm files by default to make it easier for newer users.
     // In practice, users should probably self-host the necessary .wasm files.
-    ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+    // ONNX_ENV.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0-dev.20240804-ee2fe87e2d/dist/';
 
     // TODO: Add support for loading WASM files from cached buffer when we upgrade to onnxruntime-web@1.19.0
     // https://github.com/microsoft/onnxruntime/pull/21534
