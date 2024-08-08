@@ -76,8 +76,12 @@ function buildConfig({
     }
   } else {
     config.externalsType = 'commonjs';
-    config.externals = ['onnxruntime-node', 'sharp'];
   }
+
+  // Do not bundle the following modules with webpack (mark as external)
+  // NOTE: This is necessary for both type="module" and type="commonjs",
+  // and will be ignored when building for web (only used for node/deno)
+  config.externals = ['onnxruntime-node', 'sharp'];
 
   return config;
 }
