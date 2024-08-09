@@ -224,16 +224,12 @@ def quantize_bnb4(
     return quantizer.model.model
 
 
-def main():
-
-    parser = HfArgumentParser((IOArguments, QuantizationArguments))
-    io_args, quantization_args = parser.parse_args_into_dataclasses()
+def quantize(input_folder, output_folder, quantization_args: QuantizationArguments):
 
     # (Step 1) Validate the arguments
     if not quantization_args.modes:
         raise ValueError("At least one quantization mode must be specified")
 
-    input_folder = io_args.input_folder
     if not os.path.exists(input_folder):
         raise ValueError(f"Input folder {input_folder} does not exist")
 
@@ -245,7 +241,6 @@ def main():
     if not model_names_or_paths:
         raise ValueError(f"No .onnx models found in {input_folder}")
 
-    output_folder = io_args.output_folder
     os.makedirs(output_folder, exist_ok=True)
 
     # (Step 2) Quantize the models
@@ -334,6 +329,13 @@ def main():
                     weight_type=weight_type,
                 )
 
+
+def main():
+    parser = HfArgumentParser((IOArguments, QuantizationArguments))
+    io_args, quantization_args = parser.parse_args_into_dataclasses()
+    input_folder = io_args.input_folder
+    output_folder = io_args.output_folder
+    quantize(input_folder, output_folder, quantization_args)
 
 if __name__ == "__main__":
     main()

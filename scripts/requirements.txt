@@ -1,7 +1,7 @@
-transformers[torch]==4.42.4
+transformers[torch]==4.43.4
 onnxruntime==1.18.1
-optimum==1.21.1
-onnx==1.16.1
+optimum==1.21.3
+onnx==1.16.2
 onnxconverter-common@git+https://github.com/microsoft/onnxconverter-common
-tqdm
+tqdm==4.66.5
 onnxslim==0.1.31
