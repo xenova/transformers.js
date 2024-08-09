@@ -3217,9 +3217,11 @@ export async function pipeline(
         cache_dir = null,
         local_files_only = false,
         revision = 'main',
+        model_file_name = null,
+        subfolder = 'onnx',
         device = null,
         dtype = null,
-        model_file_name = null,
+        use_external_data_format = null,
         session_options = {},
     } = {}
 ) {
@@ -3247,9 +3249,11 @@ export async function pipeline(
         cache_dir,
         local_files_only,
         revision,
+        model_file_name,
+        subfolder,
         device,
         dtype,
-        model_file_name,
+        use_external_data_format,
         session_options,
     }
 
