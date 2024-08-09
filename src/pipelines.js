@@ -72,6 +72,9 @@ import {
     topk,
 } from './utils/tensor.js';
 import { RawImage } from './utils/image.js';
+import { AutoConfig } from './configs.js';
+import { apis } from './env.js';
+import { RawTextStreamer } from './generation/streamers.js';
 
 
 /**
@@ -1065,6 +1068,158 @@ export class TextGenerationPipeline extends (/** @type {new (options: TextPipeli
             });
         }
         return (!isBatched && toReturn.length === 1) ? toReturn[0] : toReturn;
+    }
+}
+
+class BuiltInTextGenerationPipeline extends TextGenerationPipeline {
+    constructor(options) {
+        super(options);
+
+        this._session = null;
+        this._temperature = null;
+        this._top_k = null;
+    }
+
+    /**
+     * @param {Chat} messages
+     * @private
+     */
+    _apply_chat_template(messages) {
+        const eot_token = '<ctrl23>'; // End of turn control sequence/token
+
+        const has_system_message = messages.some(m => m.role === 'system');
+        if (!has_system_message) {
+            // Set default system message
+            messages = [{ role: 'system', content: 'You are a helpful assistant.' }, ...messages];
+        }
+
+        let result = '';
+        for (const message of messages) {
+            const content = message.content.trim();
+            switch (message.role) {
+                case 'system':
+                    result += `${content}\n`;
+                    break;
+                case 'user':
+                    result += `user:\n${content}\n`;
+                    break;
+                case 'assistant':
+                    result += `model:\n${content}${eot_token}\n`;
+                    break;
+                default:
+                    throw new Error(`Invalid role: ${message.role}. Must be one of 'system', 'user', or 'assistant'.`);
+            }
+        }
+
+        // Add generation prompt
+        result += `model:\n`;
+
+        return result;
+    }
+
+    /** @type {TextGenerationPipelineCallback} */
+    async _call(texts, generate_kwargs = {}) {
+        const ai = /** @type {any} */(self).ai;
+
+        // Parse arguments (if undefined, it will use the defaults defined by the model)
+        const topK = generate_kwargs.top_k;
+        const temperature = generate_kwargs.temperature;
+
+        // Dispose previous session if temperature or top_k has changed
+        if (!this._session || (this._temperature !== temperature || this._top_k !== topK)) {
+            this._session?.destroy();
+
+            this._temperature = temperature;
+            this._top_k = topK;
+
+            this._session = await ai.createTextSession({ temperature, topK });
+        }
+
+        // Prepare text inputs
+        let text;
+        if (typeof texts === 'string') {
+            text = texts;
+        } else if (isChat(texts)) {
+            const chat = /** @type {Chat} */ (texts);
+            if (this.tokenizer) {
+                text = this.tokenizer.apply_chat_template(chat, {
+                    add_generation_prompt: true,
+                    tokenize: false,
+                });
+            } else {
+                text = this._apply_chat_template(chat);
+            }
+        } else {
+            throw new Error('Input must be a string or a Chat item.');
+        }
+
+        // Set up the streamer, if provided
+        const streamer = generate_kwargs.streamer ?? null;
+        const is_raw_text_streamer = streamer instanceof RawTextStreamer;
+        if (streamer && !is_raw_text_streamer) {
+            if (!this.tokenizer) {
+                throw new Error('The `BuiltInTextGenerationPipeline` only supports `RawTextStreamer` when `load_tokenizer` is false.');
+            } else {
+                const prompt_token_ids = this.tokenizer.encode(/** @type {string} */(text), { add_special_tokens: false });
+                streamer.put([prompt_token_ids]);
+            }
+        }
+
+        const stopping_criteria = generate_kwargs.stopping_criteria ?? null;
+
+        // Create the text stream
+        /** @type {ReadableStream} */
+        const stream = await this._session.promptStreaming(text);
+
+        let prev = '';
+        let generated_text;
+        for await (generated_text of stream) {
+            // NOTE: Currently, streaming in Chromium returns a `ReadableStream` whose chunks successively build on each other,
+            // producing the full generated text for each chunk. This is not the intended behavior, and will eventually be fixed.
+            // For now, we obtain the newly generated token by stripping the previous chunk from the current one.
+            // See https://github.com/explainers-by-googlers/prompt-api/blob/main/chrome-implementation-differences.md#streaming for more information.
+            if (generated_text.startsWith(prev)) {
+                const token = generated_text.slice(prev.length);
+                if (token.length === 0) {
+                    // There is a bug in the streaming implementation that causes empty tokens to be returned
+                    // due to special tokens being stripped from the output. We skip these tokens.
+                    // See https://github.com/explainers-by-googlers/prompt-api/issues/13 for more information.
+                    continue;
+                }
+
+                // Send the token to the streamer, if provided
+                if (streamer) {
+                    if (is_raw_text_streamer) {
+                        streamer.callback_function(token);
+                    } else {
+                        const token_ids = this.tokenizer.encode(token, { add_special_tokens: false });
+                        if (token_ids.length !== 1) {
+                            throw new Error(`An error occurred while encoding the token "${token}": expected a single token, but got ${token_ids.length} tokens. Please report this bug.`);
+                        }
+                        streamer.put([BigInt(token_ids[0])]);
+                    }
+                }
+            }
+            prev = generated_text;
+
+
+            if (stopping_criteria) {
+                const stop = stopping_criteria([0]);
+                if (stop.every(x => x)) {
+                    break;
+                }
+            }
+        }
+
+        if (streamer && !is_raw_text_streamer) {
+            streamer.end();
+        }
+
+        // Dispose the stream
+        stream.cancel();
+
+        /** @type {TextGenerationOutput} */
+        return [{ generated_text }];
     }
 }
 
@@ -3251,6 +3406,35 @@ export async function pipeline(
         dtype,
         model_file_name,
         session_options,
+    }
+
+    // Guarantee we have a config first
+    config = pretrainedOptions.config = await AutoConfig.from_pretrained(model, pretrainedOptions);
+
+    // Handle special cases:
+    if (task === 'text-generation') {
+        /** @type {import('./configs.js').TransformersJSConfig} */
+        const custom_config = config['transformers.js_config'] ?? {};
+
+        // Check if we should use the built-in AI API
+        if (custom_config.use_built_in_ai) {
+            if (!apis.IS_BUILT_IN_AI_AVAILABLE) {
+                throw new Error('The built-in AI API is not available in this environment.');
+            }
+            if (config.model_type !== 'gemini') {
+                throw new Error('The built-in AI API is only available for "gemini" models.');
+            }
+
+            const tokenizer = custom_config.load_tokenizer
+                ? await AutoTokenizer.from_pretrained(model, pretrainedOptions)
+                : null;
+
+            return /** @type {any} */(new BuiltInTextGenerationPipeline({
+                task,
+                model: null,
+                tokenizer,
+            }));
+        }
     }
 
     const classes = new Map([
