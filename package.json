@@ -7,10 +7,19 @@
   "type": "module",
   "exports": {
     "node": {
-      "import": "./dist/transformers.mjs",
-      "require": "./dist/transformers.cjs"
+      "import": {
+        "default": "./dist/transformers.mjs",
+        "types": "./types/transformers.d.ts"
+      },
+      "require": {
+        "default": "./dist/transformers.cjs",
+        "types": "./types/transformers.d.ts"
+      }
     },
-    "default": "./dist/transformers.js"
+    "default": {
+      "default": "./dist/transformers.js",
+      "types": "./types/transformers.d.ts"
+    }
   },
   "scripts": {
     "format": "prettier --write .",
