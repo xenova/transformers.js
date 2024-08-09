@@ -92,6 +92,9 @@ const localModelPath = RUNNING_LOCALLY
  * allowing users to set these variables if they want to.
  * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
+ * @property {boolean} allowClientSideRemoteGatedModels Whether to allow loading of gated remote files on the client side, defaults to `false`.
+ * If set to `true`, it will be necessary to set userHFToken to load gated models.
+ * @property {string} userHFToken The user's Hugging Face API token to use when loading gated models from the client side.
  * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
  * @property {string} remotePathTemplate Path template to fill in and append to `remoteHost` when loading models.
  * @property {boolean} allowLocalModels Whether to allow loading of local files, defaults to `false` if running in-browser, and `true` otherwise.
@@ -125,6 +128,9 @@ export const env = {
     allowRemoteModels: true,
     remoteHost: 'https://huggingface.co/',
     remotePathTemplate: '{model}/resolve/{revision}/',
+
+    allowClientSideRemoteGatedModels: false,
+    userHFToken: '',
 
     allowLocalModels: !IS_BROWSER_ENV,
     localModelPath: localModelPath,
