@@ -1,4 +1,4 @@
-import { Tensor, interpolate_4d, matmul, rfft } from '../src/utils/tensor.js';
+import { Tensor, interpolate_4d, matmul, rfft } from '@huggingface/transformers';
 import { init } from './init.js';
 
 // Initialise the testing environment

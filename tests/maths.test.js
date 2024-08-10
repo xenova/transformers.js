@@ -1,8 +1,7 @@
 
-import { compare } from './test_utils.js';
-
-import { getFile } from '../src/utils/hub.js';
 import { FFT, medianFilter, bankers_round } from '../src/utils/maths.js';
+import { compare } from './test_utils.js';
+import { getFile } from '../src/utils/hub.js';
 
 
 const fft = (arr, complex = false) => {

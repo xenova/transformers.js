@@ -1,6 +1,6 @@
 
 
-import { AutoModel, PreTrainedModel } from '../src/transformers.js';
+import { AutoModel, PreTrainedModel } from '@huggingface/transformers';
 import { MAX_TEST_EXECUTION_TIME } from './init.js';
 
 // TODO: Set cache folder to a temp directory

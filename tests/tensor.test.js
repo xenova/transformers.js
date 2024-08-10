@@ -1,7 +1,6 @@
 
-import { Tensor } from '../src/transformers.js';
+import { Tensor, cat, mean, stack, layer_norm } from '@huggingface/transformers';
 import { compare } from './test_utils.js';
-import { cat, mean, stack, layer_norm } from '../src/utils/tensor.js';
 
 describe('Tensor operations', () => {
 

@@ -63,7 +63,7 @@ import {
     // Other
     full,
     RawImage,
-} from '../src/transformers.js';
+} from '@huggingface/transformers';
 
 import { init } from './init.js';
 import { compare } from './test_utils.js';
