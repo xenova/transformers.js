@@ -1,5 +1,5 @@
 
-import { env, AutoProcessor, RawImage } from '../src/transformers.js';
+import { env, AutoProcessor, RawImage } from '@huggingface/transformers';
 import { init, MAX_TEST_EXECUTION_TIME } from './init.js';
 import { compare } from './test_utils.js';
 

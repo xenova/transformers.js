@@ -1,5 +1,5 @@
 
-import { pipeline } from '../src/transformers.js';
+import { pipeline } from '@huggingface/transformers';
 import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
 
 // Initialise the testing environment

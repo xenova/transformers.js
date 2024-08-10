@@ -18,7 +18,7 @@ import {
     T5Tokenizer,
 
     RawImage,
-} from '../src/transformers.js';
+} from '@huggingface/transformers';
 
 import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
 

@@ -1,5 +1,5 @@
 
-import { pipeline, cos_sim } from '../src/transformers.js';
+import { pipeline, cos_sim } from '@huggingface/transformers';
 import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
 import { compare, loadAudio } from './test_utils.js';
 
