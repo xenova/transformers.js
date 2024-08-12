@@ -8,17 +8,17 @@
   "exports": {
     "node": {
       "import": {
-        "default": "./dist/transformers.mjs",
-        "types": "./types/transformers.d.ts"
+        "types": "./types/transformers.d.ts",
+        "default": "./dist/transformers.mjs"
       },
       "require": {
-        "default": "./dist/transformers.cjs",
-        "types": "./types/transformers.d.ts"
+        "types": "./types/transformers.d.ts",
+        "default": "./dist/transformers.cjs"
       }
     },
     "default": {
-      "default": "./dist/transformers.js",
-      "types": "./types/transformers.d.ts"
+      "types": "./types/transformers.d.ts",
+      "default": "./dist/transformers.js"
     }
   },
   "scripts": {
