@@ -4,6 +4,7 @@ export const DEVICE_TYPES = Object.freeze({
     gpu: 'gpu',
     wasm: 'wasm',
     webgpu: 'webgpu',
+    webnn: 'webnn',
 });
 
 /**
