@@ -39,21 +39,22 @@ import { dispatchCallback } from './core.js';
  * @typedef {PretrainedOptions & ModelSpecificPretrainedOptions} PretrainedModelOptions Options for loading a pretrained model.
  */
 
+/**
+ * Mapping from file extensions to MIME types.
+ */
+const CONTENT_TYPE_MAP = {
+    'txt': 'text/plain',
+    'html': 'text/html',
+    'css': 'text/css',
+    'js': 'text/javascript',
+    'json': 'application/json',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+}
 class FileResponse {
-    /**
-     * Mapping from file extensions to MIME types.
-     */
-    _CONTENT_TYPE_MAP = {
-        'txt': 'text/plain',
-        'html': 'text/html',
-        'css': 'text/css',
-        'js': 'text/javascript',
-        'json': 'application/json',
-        'png': 'image/png',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'gif': 'image/gif',
-    }
+
     /**
      * Creates a new `FileResponse` object.
      * @param {string|URL} filePath
@@ -96,7 +97,7 @@ class FileResponse {
     updateContentType() {
         // Set content-type header based on file extension
         const extension = this.filePath.toString().split('.').pop().toLowerCase();
-        this.headers.set('content-type', this._CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream');
+        this.headers.set('content-type', CONTENT_TYPE_MAP[extension] ?? 'application/octet-stream');
     }
 
     /**
