@@ -33,6 +33,27 @@ let defaultExecutionProviders;
 let ONNX;
 if (apis.IS_NODE_ENV) {
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
+
+    // Updated as of ONNX Runtime 1.18.0
+    // The following table lists the supported versions of ONNX Runtime Node.js binding provided with pre-built binaries.
+    // | EPs/Platforms | Windows x64 | Windows arm64 | Linux x64         | Linux arm64 | MacOS x64 | MacOS arm64 |
+    // | ------------- | ----------- | ------------- | ----------------- | ----------- | --------- | ----------- |
+    // | CPU           | ✔️          | ✔️            | ✔️                | ✔️          | ✔️        | ✔️          |
+    // | DirectML      | ✔️          | ✔️            | ❌                | ❌          | ❌        | ❌          |
+    // | CUDA          | ❌          | ❌            | ✔️ (CUDA v11.8)   | ❌          | ❌        | ❌          |
+    switch (process.platform) {
+        case 'win32': // Windows x64 and Windows arm64
+            supportedExecutionProviders.push('dml');
+            break;
+        case 'linux': // Linux x64 and Linux arm64
+            if (process.arch === 'x64') {
+                supportedExecutionProviders.push('cuda');
+            }
+            break;
+        case 'darwin': // MacOS x64 and MacOS arm64
+            break;
+    }
+
     supportedExecutionProviders.push('cpu');
     defaultExecutionProviders = ['cpu'];
 } else {
@@ -76,7 +97,7 @@ let wasmInitPromise = null;
 /**
  * Create an ONNX inference session.
  * @param {Uint8Array} buffer The ONNX model buffer.
- * @param {Object} session_options ONNX inference session options.
+ * @param {import('onnxruntime-common').InferenceSession.SessionOptions} session_options ONNX inference session options.
  * @returns {Promise<import('onnxruntime-common').InferenceSession>} The ONNX inference session.
  */
 export async function createInferenceSession(buffer, session_options) {
