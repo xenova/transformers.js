@@ -151,13 +151,15 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         if (device.hasOwnProperty(fileName)) {
             device = device[fileName];
         } else {
-            device = apis.IS_NODE_ENV ? 'cpu' : 'wasm';
-            console.warn(`device not specified for "${fileName}". Using the default device (${device}).`);
+            console.warn(`device not specified for "${fileName}". Using the default device.`);
+            device = null;
         }
     }
 
     // If the device is not specified, we use the default (supported) execution providers.
-    const selectedDevice = /** @type {import("./utils/devices.js").DeviceType} */(device);
+    const selectedDevice = /** @type {import("./utils/devices.js").DeviceType} */(
+        device ?? (apis.IS_NODE_ENV ? 'cpu' : 'wasm')
+    );
     const executionProviders = deviceToExecutionProviders(selectedDevice);
 
     // If options.dtype is specified, we use it to choose the suffix for the model file.
