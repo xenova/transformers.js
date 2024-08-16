@@ -8,6 +8,7 @@ export const DEVICE_TYPES = Object.freeze({
     cpu: 'cpu', // CPU
     wasm: 'wasm', // WebAssembly
     webgpu: 'webgpu', // WebGPU
+    webnn: 'webnn', // WebNN
     cuda: 'cuda', // CUDA
     dml: 'dml', // DirectML
 });
