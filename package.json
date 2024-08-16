@@ -58,8 +58,8 @@
   "dependencies": {
     "@huggingface/jinja": "^0.3.0",
     "onnxruntime-node": "1.18.0",
-    "onnxruntime-web": "1.19.0-dev.20240804-ee2fe87e2d",
-    "sharp": "^0.33.2"
+    "onnxruntime-web": "1.19.0",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@types/jest": "^29.5.1",
