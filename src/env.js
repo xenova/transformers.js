@@ -26,7 +26,7 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 
-const VERSION = '3.0.0-alpha.5';
+const VERSION = '3.0.0-alpha.6';
 
 // Check if various APIs are available (depends on environment)
 const IS_BROWSER_ENV = typeof self !== 'undefined';

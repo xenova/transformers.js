@@ -91,7 +91,7 @@ const NODE_IGNORE_MODULES = ["onnxruntime-web", "onnxruntime-web/webgpu"];
 // Do not bundle the following modules with webpack (mark as external)
 // NOTE: This is necessary for both type="module" and type="commonjs",
 // and will be ignored when building for web (only used for node/deno)
-const NODE_EXTERNAL_MODULES = ["onnxruntime-node", "sharp"];
+const NODE_EXTERNAL_MODULES = ["onnxruntime-node", "sharp", "fs", "path", "url"];
 
 
 export default [

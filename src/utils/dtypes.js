@@ -48,6 +48,8 @@ export const DEFAULT_DEVICE_DTYPE_MAPPING = Object.freeze({
     [DEVICE_TYPES.wasm]: DATA_TYPES.q8,
     [DEVICE_TYPES.webgpu]: DATA_TYPES.fp32,
     [DEVICE_TYPES.webnn]: DATA_TYPES.fp32,
+    [DEVICE_TYPES.cuda]: DATA_TYPES.fp32,
+    [DEVICE_TYPES.dml]: DATA_TYPES.fp32,
 });
 
 /** @type {Record<DataType, string>} */
