@@ -151,15 +151,14 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         if (device.hasOwnProperty(fileName)) {
             device = device[fileName];
         } else {
-            console.warn(`device not specified for "${fileName}". Using the default device.`);
-            device = null;
+            device = apis.IS_NODE_ENV ? 'cpu' : 'wasm';
+            console.warn(`device not specified for "${fileName}". Using the default device (${device}).`);
         }
     }
 
     // If the device is not specified, we use the default (supported) execution providers.
-    const executionProviders = deviceToExecutionProviders(
-        /** @type {import("./utils/devices.js").DeviceType|null} */(device)
-    );
+    const selectedDevice = /** @type {import("./utils/devices.js").DeviceType} */(device);
+    const executionProviders = deviceToExecutionProviders(selectedDevice);
 
     // If options.dtype is specified, we use it to choose the suffix for the model file.
     // Otherwise, we use the default dtype for the device.
@@ -168,19 +167,21 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         if (dtype && dtype.hasOwnProperty(fileName)) {
             dtype = dtype[fileName];
         } else {
-            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[executionProviders[0]];
-            console.warn(`dtype not specified for "${fileName}". Using the default dtype for this device (${dtype}).`);
+            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[selectedDevice];
+            console.warn(`dtype not specified for "${fileName}". Using the default dtype (${dtype}) for this device (${selectedDevice}).`);
         }
     }
 
-    if (!DEFAULT_DTYPE_SUFFIX_MAPPING.hasOwnProperty(dtype)) {
-        throw new Error(`Invalid dtype: ${dtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
-    } else if (dtype === DATA_TYPES.fp16 && device === 'webgpu' && !(await isWebGpuFp16Supported())) {
-        throw new Error(`The device (${device}) does not support fp16.`);
+    const selectedDtype = /** @type {import("./utils/dtypes.js").DataType} */(dtype);
+
+    if (!DEFAULT_DTYPE_SUFFIX_MAPPING.hasOwnProperty(selectedDtype)) {
+        throw new Error(`Invalid dtype: ${selectedDtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
+    } else if (selectedDtype === DATA_TYPES.fp16 && selectedDevice === 'webgpu' && !(await isWebGpuFp16Supported())) {
+        throw new Error(`The device (${selectedDevice}) does not support fp16.`);
     }
 
     // Construct the model file name
-    const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[dtype];
+    const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[selectedDtype];
     const modelFileName = `${options.subfolder ?? ''}/${fileName}${suffix}.onnx`;
 
     const session_options = { ...options.session_options } ?? {};
@@ -227,7 +228,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         session_options.externalData = await Promise.all(externalDataPromises);
     }
 
-    if (device === 'webgpu') {
+    if (selectedDevice === 'webgpu') {
         const shapes = getKeyValueShapes(options.config, {
             prefix: 'present',
         });

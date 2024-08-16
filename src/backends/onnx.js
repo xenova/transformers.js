@@ -25,10 +25,17 @@ import * as ONNX_WEB from 'onnxruntime-web/webgpu';
 
 export { Tensor } from 'onnxruntime-common';
 
-/** @type {import('../utils/devices.js').DeviceType[]} */
+/**
+ * @typedef {import('onnxruntime-common').InferenceSession.ExecutionProviderConfig} ONNXExecutionProviders
+ */
+
+/** 
+ * The list of supported execution providers, sorted by priority/performance.
+ * @type {ONNXExecutionProviders[]}
+ */
 const supportedExecutionProviders = [];
 
-/** @type {import('../utils/devices.js').DeviceType[]} */
+/** @type {ONNXExecutionProviders[]} */
 let defaultExecutionProviders;
 let ONNX;
 if (apis.IS_NODE_ENV) {
@@ -70,19 +77,24 @@ const InferenceSession = ONNX.InferenceSession;
 
 /**
  * Map a device to the execution providers to use for the given device.
- * @param {import("../utils/devices.js").DeviceType} [device=null] (Optional) The device to run the inference on.
- * @returns {import("../utils/devices.js").DeviceType[]} The execution providers to use for the given device.
+ * @param {import("../utils/devices.js").DeviceType|"auto"|null} [device=null] (Optional) The device to run the inference on.
+ * @returns {ONNXExecutionProviders[]} The execution providers to use for the given device.
  */
-export function deviceToExecutionProviders(device) {
-    // TODO: Use mapping from device to execution providers for overloaded devices (e.g., 'gpu' or 'cpu').
-    let executionProviders = defaultExecutionProviders;
-    if (device) { // User has specified a device
-        if (!supportedExecutionProviders.includes(device)) {
-            throw new Error(`Unsupported device: "${device}". Should be one of: ${supportedExecutionProviders.join(', ')}.`)
-        }
-        executionProviders = [device];
+export function deviceToExecutionProviders(device = null) {
+    // Use the default execution providers if the user hasn't specified anything
+    if (!device) return defaultExecutionProviders;
+
+    // Handle overloaded cases
+    switch (device) {
+        case "auto":
+            return supportedExecutionProviders;
+        case "gpu":
+            return ["webgpu", "cuda", "dml"].filter(x => supportedExecutionProviders.includes(x));
     }
-    return executionProviders;
+
+    if (supportedExecutionProviders.includes(device)) return [device];
+
+    throw new Error(`Unsupported device: "${device}". Should be one of: ${supportedExecutionProviders.join(', ')}.`)
 }
 
 
