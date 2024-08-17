@@ -21,7 +21,7 @@ import { env, apis } from '../env.js';
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
 // In either case, we select the default export if it exists, otherwise we use the named export.
 import * as ONNX_NODE from 'onnxruntime-node';
-import * as ONNX_WEB from 'onnxruntime-web/all';
+import * as ONNX_WEB from 'onnxruntime-web/webgpu';
 
 export { Tensor } from 'onnxruntime-common';
 
@@ -29,14 +29,30 @@ export { Tensor } from 'onnxruntime-common';
  * @typedef {import('onnxruntime-common').InferenceSession.ExecutionProviderConfig} ONNXExecutionProviders
  */
 
+/** @type {Record<import("../utils/devices.js").DeviceType, ONNXExecutionProviders>} */
+const DEVICE_TO_EXECUTION_PROVIDER_MAPPING = Object.freeze({
+    auto: null, // Auto-detect based on device and environment
+    gpu: null, // Auto-detect GPU
+    cpu: 'cpu', // CPU
+    wasm: 'wasm', // WebAssembly
+    webgpu: 'webgpu', // WebGPU
+    cuda: 'cuda', // CUDA
+    dml: 'dml', // DirectML
+
+    webnn: { name: 'webnn', deviceType: 'cpu' }, // WebNN (default)
+    'webnn-npu': { name: 'webnn', deviceType: 'npu' }, // WebNN NPU
+    'webnn-gpu': { name: 'webnn', deviceType: 'gpu' }, // WebNN GPU
+    'webnn-cpu': { name: 'webnn', deviceType: 'cpu' }, // WebNN CPU
+});
+
 /** 
- * The list of supported execution providers, sorted by priority/performance.
- * @type {ONNXExecutionProviders[]}
+ * The list of supported devices, sorted by priority/performance.
+ * @type {import("../utils/devices.js").DeviceType[]}
  */
-const supportedExecutionProviders = [];
+const supportedDevices = [];
 
 /** @type {ONNXExecutionProviders[]} */
-let defaultExecutionProviders;
+let defaultDevices;
 let ONNX;
 if (apis.IS_NODE_ENV) {
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
@@ -50,29 +66,33 @@ if (apis.IS_NODE_ENV) {
     // | CUDA          | ❌          | ❌            | ✔️ (CUDA v11.8)   | ❌          | ❌        | ❌          |
     switch (process.platform) {
         case 'win32': // Windows x64 and Windows arm64
-            supportedExecutionProviders.push('dml');
+            supportedDevices.push('dml');
             break;
         case 'linux': // Linux x64 and Linux arm64
             if (process.arch === 'x64') {
-                supportedExecutionProviders.push('cuda');
+                supportedDevices.push('cuda');
             }
             break;
         case 'darwin': // MacOS x64 and MacOS arm64
             break;
     }
 
-    supportedExecutionProviders.push('cpu');
-    defaultExecutionProviders = ['cpu'];
+    supportedDevices.push('cpu');
+    defaultDevices = ['cpu'];
 } else {
     ONNX = ONNX_WEB;
+
+    if (apis.IS_WEBNN_AVAILABLE) {
+        // TODO: Only push supported providers (depending on available hardware)
+        supportedDevices.push('webnn-npu', 'webnn-gpu', 'webnn-cpu', 'webnn');
+    }
+
     if (apis.IS_WEBGPU_AVAILABLE) {
-        supportedExecutionProviders.push('webgpu');
+        supportedDevices.push('webgpu');
     }
-    if(apis.IS_WEBNN_AVAILABLE) {
-        supportedExecutionProviders.push('webnn');
-    }
-    supportedExecutionProviders.push('wasm');
-    defaultExecutionProviders = ['wasm'];
+
+    supportedDevices.push('wasm');
+    defaultDevices = ['wasm'];
 }
 
 // @ts-ignore
@@ -85,19 +105,23 @@ const InferenceSession = ONNX.InferenceSession;
  */
 export function deviceToExecutionProviders(device = null) {
     // Use the default execution providers if the user hasn't specified anything
-    if (!device) return defaultExecutionProviders;
+    if (!device) return defaultDevices;
 
     // Handle overloaded cases
     switch (device) {
         case "auto":
-            return supportedExecutionProviders;
+            return supportedDevices;
         case "gpu":
-            return ["webgpu", "cuda", "dml"].filter(x => supportedExecutionProviders.includes(x));
+            return supportedDevices.filter(x => 
+                ["webgpu", "cuda", "dml", "webnn-gpu"].includes(x),
+            );
     }
 
-    if (supportedExecutionProviders.includes(device)) return [device];
+    if (supportedDevices.includes(device)) {
+        return [DEVICE_TO_EXECUTION_PROVIDER_MAPPING[device] ?? device];
+    }
 
-    throw new Error(`Unsupported device: "${device}". Should be one of: ${supportedExecutionProviders.join(', ')}.`)
+    throw new Error(`Unsupported device: "${device}". Should be one of: ${supportedDevices.join(', ')}.`)
 }
 
 

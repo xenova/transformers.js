@@ -43,13 +43,8 @@ export const DATA_TYPES = Object.freeze({
 /** @typedef {keyof typeof DATA_TYPES} DataType */
 
 export const DEFAULT_DEVICE_DTYPE_MAPPING = Object.freeze({
-    [DEVICE_TYPES.cpu]: DATA_TYPES.q8,
-    [DEVICE_TYPES.gpu]: DATA_TYPES.fp32,
+    // NOTE: If not specified, will default to fp32
     [DEVICE_TYPES.wasm]: DATA_TYPES.q8,
-    [DEVICE_TYPES.webgpu]: DATA_TYPES.fp32,
-    [DEVICE_TYPES.webnn]: DATA_TYPES.fp32,
-    [DEVICE_TYPES.cuda]: DATA_TYPES.fp32,
-    [DEVICE_TYPES.dml]: DATA_TYPES.fp32,
 });
 
 /** @type {Record<DataType, string>} */

@@ -169,7 +169,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         if (dtype && dtype.hasOwnProperty(fileName)) {
             dtype = dtype[fileName];
         } else {
-            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[selectedDevice];
+            dtype = DEFAULT_DEVICE_DTYPE_MAPPING[selectedDevice] ?? DATA_TYPES.fp32;
             console.warn(`dtype not specified for "${fileName}". Using the default dtype (${dtype}) for this device (${selectedDevice}).`);
         }
     }
