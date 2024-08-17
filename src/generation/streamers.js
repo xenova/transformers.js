@@ -65,13 +65,13 @@ export class TextStreamer extends BaseStreamer {
             throw Error('TextStreamer only supports batch size of 1');
         }
 
-        const tokens = value[0];
-        this.token_callback_function?.(tokens)
-
         if (this.skip_prompt && this.next_tokens_are_prompt) {
             this.next_tokens_are_prompt = false;
             return;
         }
+
+        const tokens = value[0];
+        this.token_callback_function?.(tokens)
 
         // Add the new token to the cache and decodes the entire thing.
         this.token_cache = mergeArrays(this.token_cache, tokens);
