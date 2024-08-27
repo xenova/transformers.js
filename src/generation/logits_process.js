@@ -156,9 +156,9 @@ export class ForcedBOSTokenLogitsProcessor extends LogitsProcessor {
     _call(input_ids, logits) {
         for (let i = 0; i < input_ids.length; ++i) {
             if (input_ids[i].length === 1) {
-                const batch_logits = logits[i];
-                batch_logits.data.fill(-Infinity);
-                batch_logits.data[this.bos_token_id] = 0;
+                const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
+                batch_logits_data.fill(-Infinity);
+                batch_logits_data[this.bos_token_id] = 0;
             }
         }
         return logits;
@@ -189,11 +189,10 @@ export class ForcedEOSTokenLogitsProcessor extends LogitsProcessor {
     _call(input_ids, logits) {
         for (let i = 0; i < input_ids.length; ++i) {
             if (input_ids[i].length === this.max_length - 1) {
-                const batch_logits = logits[i];
-                batch_logits.data.fill(-Infinity);
-
+                const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
+                batch_logits_data.fill(-Infinity);
                 for (const eos_token of this.eos_token_id) {
-                    batch_logits.data[eos_token] = 0;
+                    batch_logits_data[eos_token] = 0;
                 }
             }
         }
@@ -227,9 +226,9 @@ export class SuppressTokensAtBeginLogitsProcessor extends LogitsProcessor {
     _call(input_ids, logits) {
         for (let i = 0; i < input_ids.length; ++i) {
             if (input_ids[i].length === this.begin_index) {
-                const batch_logits = logits[i];
+                const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
                 for (const token_id of this.begin_suppress_tokens) {
-                    batch_logits.data[token_id] = -Infinity;
+                    batch_logits_data[token_id] = -Infinity;
                 }
             }
         }
@@ -271,15 +270,14 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
      */
     _call(input_ids, logits) {
         for (let i = 0; i < input_ids.length; ++i) {
-            const batch_logits = logits[i];
-            const logitsData = /** @type {Float32Array} */(batch_logits.data);
+            const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
 
             // suppress <|notimestamps|> which is handled by without_timestamps
-            logitsData[this.no_timestamps_token_id] = -Infinity;
+            batch_logits_data[this.no_timestamps_token_id] = -Infinity;
 
             if (input_ids[i].length === this.begin_index - 1) {
-                logitsData.fill(-Infinity);
-                logitsData[this.timestamp_begin] = 0;
+                batch_logits_data.fill(-Infinity);
+                batch_logits_data[this.timestamp_begin] = 0;
                 continue;
             }
 
@@ -290,25 +288,25 @@ export class WhisperTimeStampLogitsProcessor extends LogitsProcessor {
 
             if (last_was_timestamp) {
                 if (penultimate_was_timestamp) { // has to be non-timestamp
-                    logitsData.subarray(this.timestamp_begin).fill(-Infinity);
+                    batch_logits_data.subarray(this.timestamp_begin).fill(-Infinity);
                 } else { // cannot be normal text tokens
-                    logitsData.subarray(0, this.eos_token_id).fill(-Infinity);
+                    batch_logits_data.subarray(0, this.eos_token_id).fill(-Infinity);
                 }
             }
 
             // apply the `max_initial_timestamp` option
             if (input_ids[i].length === this.begin_index && this.max_initial_timestamp_index !== null) {
                 const last_allowed = this.timestamp_begin + this.max_initial_timestamp_index;
-                logitsData.subarray(last_allowed + 1).fill(-Infinity);
+                batch_logits_data.subarray(last_allowed + 1).fill(-Infinity);
             }
 
             // if sum of probability over timestamps is above any other token, sample timestamp
-            const logprobs = log_softmax(logitsData);
+            const logprobs = log_softmax(batch_logits_data);
             const timestamp_logprob = Math.log(logprobs.subarray(this.timestamp_begin).map(Math.exp).reduce((a, b) => a + b));
             const max_text_token_logprob = max(logprobs.subarray(0, this.timestamp_begin))[0];
 
             if (timestamp_logprob > max_text_token_logprob) {
-                logitsData.subarray(0, this.timestamp_begin).fill(-Infinity);
+                batch_logits_data.subarray(0, this.timestamp_begin).fill(-Infinity);
             }
         }
 
@@ -397,10 +395,10 @@ export class NoRepeatNGramLogitsProcessor extends LogitsProcessor {
      */
     _call(input_ids, logits) {
         for (let i = 0; i < input_ids.length; ++i) {
-            const batch_logits = logits[i];
+            const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
             const bannedTokens = this.calcBannedNgramTokens(input_ids[i]);
             for (const token of bannedTokens) {
-                batch_logits.data[token] = -Infinity;
+                batch_logits_data[token] = -Infinity;
             }
         }
         return logits;
@@ -432,13 +430,13 @@ export class RepetitionPenaltyLogitsProcessor extends LogitsProcessor {
         // many times in the output will be penalised more.
 
         for (let i = 0; i < input_ids.length; ++i) {
-            const batch_logits = logits[i];
-
+            const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
             for (const input_id of input_ids[i]) {
-                if (batch_logits.data[input_id] < 0) {
-                    batch_logits.data[input_id] *= this.penalty;
+                const token = Number(input_id);
+                if (batch_logits_data[token] < 0) {
+                    batch_logits_data[token] *= this.penalty;
                 } else {
-                    batch_logits.data[input_id] /= this.penalty;
+                    batch_logits_data[token] /= this.penalty;
                 }
             }
         }
@@ -471,9 +469,10 @@ export class MinLengthLogitsProcessor extends LogitsProcessor {
     _call(input_ids, logits) {
         for (let i = 0; i < input_ids.length; ++i) {
             if (input_ids[i].length < this.min_length) {
-                const batch_logits = logits[i];
+                const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
+
                 for (const eos_token of this.eos_token_id) {
-                    batch_logits.data[eos_token] = -Infinity;
+                    batch_logits_data[eos_token] = -Infinity;
                 }
             }
         }
@@ -509,9 +508,10 @@ export class MinNewTokensLengthLogitsProcessor extends LogitsProcessor {
         for (let i = 0; i < input_ids.length; ++i) {
             const new_tokens_length = input_ids[i].length - this.prompt_length_to_skip;
             if (new_tokens_length < this.min_new_tokens) {
-                const batch_logits = logits[i];
+                const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
+
                 for (const eos_token of this.eos_token_id) {
-                    batch_logits[eos_token] = -Infinity;
+                    batch_logits_data[eos_token] = -Infinity;
                 }
             }
         }
@@ -539,7 +539,8 @@ export class NoBadWordsLogitsProcessor extends LogitsProcessor {
      */
     _call(input_ids, logits) {
         for (let i = 0; i < input_ids.length; ++i) {
-            const batch_logits = logits[i];
+            const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
+
             for (const bad_word_ids of this.bad_words_ids) {
                 // Whether to modify the logits of the last token in the bad word id sequence
                 let mark = true;
@@ -548,14 +549,16 @@ export class NoBadWordsLogitsProcessor extends LogitsProcessor {
                 // then we set the logits of the last bad word id to -Infinity.
                 for (let i = 1; i <= bad_word_ids.length - 1 && bad_word_ids.length < input_ids[i].length; ++i) {
 
-                    if (bad_word_ids.at(-i - 1) !== Number(input_ids[i].at(-i))) {
+                    // NOTE: We use != instead of !== to compare bigint and number
+                    // @ts-ignore
+                    if (bad_word_ids.at(-i - 1) != input_ids[i].at(-i)) {
                         // We have found a mismatch
                         mark = false;
                         break;
                     }
                 }
                 if (mark) {
-                    batch_logits[bad_word_ids.at(-1)] = -Infinity;
+                    batch_logits_data[bad_word_ids.at(-1)] = -Infinity;
                 }
             }
         }
@@ -650,9 +653,9 @@ export class TemperatureLogitsWarper extends LogitsWarper {
      * @returns {Object} The processed logits.
      */
     _call(input_ids, logits) {
-        const logitsData = /** @type {Float32Array} */(logits.data);
-        for (let i = 0; i < logitsData.length; ++i) {
-            logitsData[i] /= this.temperature;
+        const batch_logits_data = /** @type {Float32Array} */(logits.data);
+        for (let i = 0; i < batch_logits_data.length; ++i) {
+            batch_logits_data[i] /= this.temperature;
         }
         return logits;
     }
