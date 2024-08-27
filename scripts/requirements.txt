@@ -5,3 +5,5 @@ onnx==1.16.2
 onnxconverter-common==1.14.0
 tqdm==4.66.5
 onnxslim==0.1.31
+--index-url https://pypi.ngc.nvidia.com
+onnx_graphsurgeon==0.3.27

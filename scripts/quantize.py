@@ -16,6 +16,7 @@ from onnxruntime.quantization.registry import IntegerOpsRegistry
 from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 from onnxconverter_common import float16
+import onnx_graphsurgeon as gs
 
 
 class QuantMode(Enum):
@@ -178,6 +179,9 @@ def quantize_fp16(
         keep_io_types=True,
         disable_shape_infer=disable_shape_infer,
     )
+    graph = gs.import_onnx(model_fp16)
+    graph.toposort()
+    model_fp16 = gs.export_onnx(graph)
     check_and_save_model(model_fp16, save_path)
 
 
