@@ -92,7 +92,7 @@ const localModelPath = RUNNING_LOCALLY
  * Global variable given visible to users to control execution. This provides users a simple way to configure Transformers.js.
  * @typedef {Object} TransformersEnvironment
  * @property {string} version This version of Transformers.js.
- * @property {Object} backends Expose environment variables of different backends,
+ * @property {{onnx: Partial<import('onnxruntime-common').Env>}} backends Expose environment variables of different backends,
  * allowing users to set these variables if they want to.
  * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
@@ -119,11 +119,7 @@ export const env = {
     backends: {
         // onnxruntime-web/onnxruntime-node
         onnx: {},
-
-        // TensorFlow.js
-        tfjs: {},
     },
-
 
     /////////////////// Model settings ///////////////////
     allowRemoteModels: true,

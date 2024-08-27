@@ -160,6 +160,7 @@ export function isONNXTensor(x) {
     return x instanceof ONNX.Tensor;
 }
 
+/** @type {import('onnxruntime-common').Env} */
 // @ts-ignore
 const ONNX_ENV = ONNX?.env;
 if (ONNX_ENV?.wasm) {
@@ -174,23 +175,13 @@ if (ONNX_ENV?.wasm) {
     // TODO: Add support for loading WASM files from cached buffer when we upgrade to onnxruntime-web@1.19.0
     // https://github.com/microsoft/onnxruntime/pull/21534
 
-    // Proxy the WASM backend to prevent the UI from freezing
-    // NOTE: This is only needed when running in a non-worker browser environment.
-    ONNX_ENV.wasm.proxy = !apis.IS_WEBWORKER_ENV;
+    // Users may wish to proxy the WASM backend to prevent the UI from freezing,
+    // However, this is not necessary when using WebGPU, so we default to false.
+    ONNX_ENV.wasm.proxy = false;
 
     // https://developer.mozilla.org/en-US/docs/Web/API/crossOriginIsolated
     if (typeof crossOriginIsolated === 'undefined' || !crossOriginIsolated) {
         ONNX_ENV.wasm.numThreads = 1;
-    }
-
-    // Running in a browser-environment
-    // TODO: Check if 1.17.1 fixes this issue.
-    // SIMD for WebAssembly does not operate correctly in some recent versions of iOS (16.4.x).
-    // As a temporary fix, we disable it for now.
-    // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
-    const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad).+16_4.+AppleWebKit/.test(navigator.userAgent);
-    if (isIOS) {
-        ONNX_ENV.wasm.simd = false;
     }
 }
 
