@@ -4569,6 +4569,14 @@ export class DepthAnythingForDepthEstimation extends DepthAnythingPreTrainedMode
 
 
 //////////////////////////////////////////////////
+export class SapiensPreTrainedModel extends PreTrainedModel { }
+export class SapiensForSemanticSegmentation extends SapiensPreTrainedModel { }
+export class SapiensForDepthEstimation extends SapiensPreTrainedModel { }
+export class SapiensForNormalEstimation extends SapiensPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 export class GLPNPreTrainedModel extends PreTrainedModel { }
 
 /**
@@ -6538,6 +6546,7 @@ const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES = new Map([
     ['segformer', ['SegformerForSemanticSegmentation', SegformerForSemanticSegmentation]],
+    ['sapiens', ['SapiensForSemanticSegmentation', SapiensForSemanticSegmentation]],
 ]);
 
 const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
@@ -6586,6 +6595,7 @@ const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
     ['dpt', ['DPTForDepthEstimation', DPTForDepthEstimation]],
     ['depth_anything', ['DepthAnythingForDepthEstimation', DepthAnythingForDepthEstimation]],
     ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
+    ['sapiens', ['SapiensForDepthEstimation', SapiensForDepthEstimation]],
 ])
 
 // NOTE: This is custom to Transformers.js, and is necessary because certain models

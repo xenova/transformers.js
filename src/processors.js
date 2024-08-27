@@ -150,6 +150,71 @@ function post_process_object_detection(outputs, threshold = 0.5, target_sizes = 
     return toReturn;
 }
 
+
+/**
+ * Post-processes the outputs of the model (for semantic segmentation).
+ * @param {*} outputs Raw outputs of the model.
+ * @param {number[][]} [target_sizes=null] List of tuples corresponding to the requested final size
+ * (height, width) of each prediction. If unset, predictions will not be resized.
+ * @returns {{segmentation: Tensor; labels: number[]}[]} The semantic segmentation maps.
+ */
+function post_process_semantic_segmentation(outputs, target_sizes = null) {
+
+    const logits = outputs.logits;
+    const batch_size = logits.dims[0];
+
+    if (target_sizes !== null && target_sizes.length !== batch_size) {
+        throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
+    }
+
+    const toReturn = [];
+    for (let i = 0; i < batch_size; ++i) {
+        const target_size = target_sizes !== null ? target_sizes[i] : null;
+
+        let data = logits[i];
+
+        // 1. If target_size is not null, we need to resize the masks to the target size
+        if (target_size !== null) {
+            // resize the masks to the target size
+            data = interpolate(data, target_size, 'bilinear', false);
+        }
+        const [height, width] = target_size ?? data.dims.slice(-2);
+
+        const segmentation = new Tensor(
+            'int32',
+            new Int32Array(height * width),
+            [height, width]
+        );
+
+        // Buffer to store current largest value
+        const buffer = data[0].data;
+        const segmentation_data = segmentation.data;
+        for (let j = 1; j < data.dims[0]; ++j) {
+            const row = data[j].data;
+            for (let k = 0; k < row.length; ++k) {
+                if (row[k] > buffer[k]) {
+                    buffer[k] = row[k];
+                    segmentation_data[k] = j;
+                }
+            }
+        }
+
+        // Store which objects have labels
+        // This is much more efficient that creating a set of the final values
+        const hasLabel = new Array(data.dims[0]);
+        const out = segmentation.data;
+        for (let j = 0; j < out.length; ++j) {
+            const index = out[j];
+            hasLabel[index] = index;
+        }
+        /** @type {number[]} The unique list of labels that were detected */
+        const labels = hasLabel.filter(x => x !== undefined);
+
+        toReturn.push({ segmentation, labels });
+    }
+    return toReturn;
+}
+
 /**
  * Named tuple to indicate the order we are using is (height x width), even though
  * the Graphics’ industry standard is (width x height).
@@ -726,70 +791,16 @@ export class ImageFeatureExtractor extends FeatureExtractor {
 
 }
 
+export class SapiensFeatureExtractor extends ImageFeatureExtractor {
+    /** @type {typeof post_process_semantic_segmentation} */
+    post_process_semantic_segmentation(...args) {
+        return post_process_semantic_segmentation(...args);
+    }
+}
 export class SegformerFeatureExtractor extends ImageFeatureExtractor {
-
-    /**
-     * Converts the output of `SegformerForSemanticSegmentation` into semantic segmentation maps.
-     * @param {*} outputs Raw outputs of the model.
-     * @param {number[][]} [target_sizes=null] List of tuples corresponding to the requested final size
-     * (height, width) of each prediction. If unset, predictions will not be resized.
-     * @returns {{segmentation: Tensor; labels: number[]}[]} The semantic segmentation maps.
-     */
-    post_process_semantic_segmentation(outputs, target_sizes = null) {
-
-        const logits = outputs.logits;
-        const batch_size = logits.dims[0];
-
-        if (target_sizes !== null && target_sizes.length !== batch_size) {
-            throw Error("Make sure that you pass in as many target sizes as the batch dimension of the logits")
-        }
-
-        const toReturn = [];
-        for (let i = 0; i < batch_size; ++i) {
-            const target_size = target_sizes !== null ? target_sizes[i] : null;
-
-            let data = logits[i];
-
-            // 1. If target_size is not null, we need to resize the masks to the target size
-            if (target_size !== null) {
-                // resize the masks to the target size
-                data = interpolate(data, target_size, 'bilinear', false);
-            }
-            const [height, width] = target_size ?? data.dims.slice(-2);
-
-            const segmentation = new Tensor(
-                'int32',
-                new Int32Array(height * width),
-                [height, width]
-            );
-
-            // Buffer to store current largest value
-            const buffer = data[0].data;
-            const segmentation_data = segmentation.data;
-            for (let j = 1; j < data.dims[0]; ++j) {
-                const row = data[j].data;
-                for (let k = 0; k < row.length; ++k) {
-                    if (row[k] > buffer[k]) {
-                        buffer[k] = row[k];
-                        segmentation_data[k] = j;
-                    }
-                }
-            }
-
-            // Store which objects have labels
-            // This is much more efficient that creating a set of the final values
-            const hasLabel = new Array(data.dims[0]);
-            const out = segmentation.data;
-            for (let j = 0; j < out.length; ++j) {
-                const index = out[j];
-                hasLabel[index] = index;
-            }
-            /** @type {number[]} The unique list of labels that were detected */
-            const labels = hasLabel.filter(x => x !== undefined);
-
-            toReturn.push({ segmentation, labels });
-        }
-        return toReturn;
+    /** @type {typeof post_process_semantic_segmentation} */
+    post_process_semantic_segmentation(...args) {
+        return post_process_semantic_segmentation(...args);
     }
 }
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
@@ -2520,6 +2531,7 @@ export class AutoProcessor {
         ConvNextFeatureExtractor,
         ConvNextImageProcessor,
         SegformerFeatureExtractor,
+        SapiensFeatureExtractor,
         BitImageProcessor,
         DPTImageProcessor,
         DPTFeatureExtractor,
