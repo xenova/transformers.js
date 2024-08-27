@@ -873,7 +873,7 @@ export class MobileNetV4FeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTFeatureExtractor extends ImageFeatureExtractor { }
 export class MobileViTImageProcessor extends MobileViTFeatureExtractor { } // NOTE extends MobileViTFeatureExtractor
 export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
-    /** @type {post_process_object_detection} */
+    /** @type {typeof post_process_object_detection} */
     post_process_object_detection(...args) {
         return post_process_object_detection(...args);
     }
@@ -881,7 +881,7 @@ export class OwlViTFeatureExtractor extends ImageFeatureExtractor {
 export class Owlv2ImageProcessor extends OwlViTFeatureExtractor { } // NOTE extends OwlViTFeatureExtractor
 
 export class RTDetrImageProcessor extends ImageFeatureExtractor {
-    /** @type {post_process_object_detection} */
+    /** @type {typeof post_process_object_detection} */
     post_process_object_detection(...args) {
         return post_process_object_detection(...args);
     }
@@ -959,7 +959,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
      * @return {Object[]} An array of objects containing the post-processed outputs.
      */
 
-    /** @type {post_process_object_detection} */
+    /** @type {typeof post_process_object_detection} */
     post_process_object_detection(...args) {
         return post_process_object_detection(...args);
     }
@@ -1247,7 +1247,7 @@ export class DetrFeatureExtractor extends ImageFeatureExtractor {
 }
 
 export class YolosFeatureExtractor extends ImageFeatureExtractor {
-    /** @type {post_process_object_detection} */
+    /** @type {typeof post_process_object_detection} */
     post_process_object_detection(...args) {
         return post_process_object_detection(...args);
     }
