@@ -13,6 +13,7 @@ import {
     T5Tokenizer,
     WhisperTokenizer,
     BartTokenizer,
+    MarianTokenizer,
     PreTrainedTokenizer,
     AutoTokenizer,
 
@@ -50,6 +51,7 @@ import {
     WhisperForConditionalGeneration,
     VisionEncoderDecoderModel,
     Florence2ForConditionalGeneration,
+    MarianMTModel,
 
     // Pipelines
     pipeline,
@@ -63,8 +65,6 @@ import {
     // Other
     full,
     RawImage,
-    MarianMTModel,
-    MarianTokenizer,
 } from '@huggingface/transformers';
 
 import { init } from './init.js';
