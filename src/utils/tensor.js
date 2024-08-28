@@ -271,6 +271,7 @@ export class Tensor {
         }
         return this;
     }
+
     /**
      * Return a new Tensor with every element added by a constant.
      * @param {number} val The value to add by.
@@ -289,6 +290,28 @@ export class Tensor {
         const this_data = this.data;
         for (let i = 0; i < this_data.length; ++i) {
             this_data[i] += val;
+        }
+        return this;
+    }
+
+    /**
+     * Return a new Tensor with every element subtracted by a constant.
+     * @param {number} val The value to subtract by.
+     * @returns {Tensor} The new tensor.
+     */
+    sub(val) {
+        return this.clone().sub_(val);
+    }
+
+    /**
+     * Subtract the tensor by a constant in place.
+     * @param {number} val The value to subtract by.
+     * @returns {Tensor} Returns `this`.
+     */
+    sub_(val) {
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] -= val;
         }
         return this;
     }
