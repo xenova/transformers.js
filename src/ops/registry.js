@@ -1,20 +1,31 @@
 import { createInferenceSession } from "../backends/onnx.js";
 import { Tensor } from "../utils/tensor.js";
 
+/**
+ * Asynchronously creates a wrapper function for running an ONNX inference session.
+ *
+ * @param {number[]} session_bytes The session data in bytes.
+ * @param {import('onnxruntime-common').InferenceSession.SessionOptions} session_options The options for the ONNX session.
+ * @template {string | [string, string] | string[]} T
+ * @param {T} names The name(s) of the output tensor(s).
+ * 
+ * @returns {Promise<function(Record<string, Tensor>): Promise<T extends string ? Tensor : T extends [string, string] ? [Tensor, Tensor]: T extends string[] ? Tensor[] : never>>}
+ * The wrapper function for running the ONNX inference session.
+ */
 const wrap = async (session_bytes, session_options, names) => {
     const session = await createInferenceSession(
         new Uint8Array(session_bytes), session_options,
     );
-    return async (inputs) => {
+    return /** @type {any} */(async (/** @type {Record<string, Tensor>} */ inputs) => {
         const ortFeed = Object.fromEntries(Object.entries(inputs).map(([k, v]) => [k, v.ort_tensor]));
         const outputs = await session.run(ortFeed);
 
         if (Array.isArray(names)) {
             return names.map((n) => new Tensor(outputs[n]));
         } else {
-            return new Tensor(outputs[names]);
+            return new Tensor(outputs[/** @type {string} */(names)]);
         }
-    }
+    })
 }
 
 // In-memory registry of initialized ONNX operators
