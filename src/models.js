@@ -236,6 +236,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         });
         if (Object.keys(shapes).length > 0 && !isONNXProxy()) {
             // Only set preferredOutputLocation if shapes are present and we aren't proxying ONNX
+            /** @type {Record<string, import('onnxruntime-common').Tensor.DataLocation>} */
             const preferredOutputLocation = {};
             for (const key in shapes) {
                 preferredOutputLocation[key] = 'gpu-buffer';
