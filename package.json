@@ -9,16 +9,22 @@
     "node": {
       "import": {
         "types": "./types/transformers.d.ts",
-        "default": "./dist/transformers.min.mjs"
+        "default": "./dist/transformers.js"
       },
       "require": {
         "types": "./types/transformers.d.ts",
-        "default": "./dist/transformers.min.cjs"
+        "default": "./dist/transformers.cjs"
       }
     },
     "default": {
       "types": "./types/transformers.d.ts",
-      "default": "./src/transformers.js"
+      "default": "./dist/transformers.js"
+    }
+  },
+  "imports": {
+    "#onnxruntime-webgpu": {
+      "node": "onnxruntime-web",
+      "default": "onnxruntime-web/webgpu"
     }
   },
   "scripts": {
@@ -74,10 +80,6 @@
     "webpack": "^5.80.0",
     "webpack-cli": "^5.0.2",
     "webpack-dev-server": "^4.13.3"
-  },
-  "overrides": {
-    "semver": "^7.6.3",
-    "protobufjs": "^7.2.6"
   },
   "files": [
     "src",

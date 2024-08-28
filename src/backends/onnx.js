@@ -21,7 +21,12 @@ import { env, apis } from '../env.js';
 // NOTE: Import order matters here. We need to import `onnxruntime-node` before `onnxruntime-web`.
 // In either case, we select the default export if it exists, otherwise we use the named export.
 import * as ONNX_NODE from 'onnxruntime-node';
-import * as ONNX_WEB from 'onnxruntime-web/webgpu';
+
+// Use subpath-imports to ensure Node.js and browser interoperability.
+// See package.json and https://nodejs.org/api/packages.html#subpath-imports
+// for more information.
+// @ts-ignore
+import * as ONNX_WEB from '#onnxruntime-webgpu';
 
 export { Tensor } from 'onnxruntime-common';
 
@@ -112,7 +117,7 @@ export function deviceToExecutionProviders(device = null) {
         case "auto":
             return supportedDevices;
         case "gpu":
-            return supportedDevices.filter(x => 
+            return supportedDevices.filter(x =>
                 ["webgpu", "cuda", "dml", "webnn-gpu"].includes(x),
             );
     }
