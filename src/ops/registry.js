@@ -6,10 +6,10 @@ import { Tensor } from "../utils/tensor.js";
  *
  * @param {number[]} session_bytes The session data in bytes.
  * @param {import('onnxruntime-common').InferenceSession.SessionOptions} session_options The options for the ONNX session.
- * @template {string | [string, string] | string[]} T
+ * @template {string | [string] | string[]} T
  * @param {T} names The name(s) of the output tensor(s).
  * 
- * @returns {Promise<function(Record<string, Tensor>): Promise<T extends string ? Tensor : T extends [string, string] ? [Tensor, Tensor]: T extends string[] ? Tensor[] : never>>}
+ * @returns {Promise<function(Record<string, Tensor>): Promise<T extends string ? Tensor : T extends string[] ? { [K in keyof T]: Tensor } : never>>}
  * The wrapper function for running the ONNX inference session.
  */
 const wrap = async (session_bytes, session_options, names) => {
