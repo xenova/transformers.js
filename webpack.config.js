@@ -100,7 +100,13 @@ export default [
     type: "module",
   }),
 
-  // Node-compatible build
+  // Node-compatible builds
+  buildConfig({
+    suffix: ".mjs",
+    type: "module",
+    ignoreModules: NODE_IGNORE_MODULES,
+    externalModules: NODE_EXTERNAL_MODULES,
+  }),
   buildConfig({
     suffix: ".cjs",
     type: "commonjs",

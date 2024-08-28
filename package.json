@@ -9,7 +9,7 @@
     "node": {
       "import": {
         "types": "./types/transformers.d.ts",
-        "default": "./dist/transformers.js"
+        "default": "./dist/transformers.mjs"
       },
       "require": {
         "types": "./types/transformers.d.ts",
