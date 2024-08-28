@@ -73,6 +73,7 @@ function getNormalizedConfig(config) {
         // Decoder-only models
         case 'gpt2':
         case 'gptj':
+        case 'jais':
         case 'codegen':
         case 'gpt_bigcode':
             mapping['num_heads'] = 'n_head';

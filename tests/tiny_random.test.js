@@ -35,6 +35,7 @@ import {
     BloomForCausalLM,
     GPTBigCodeForCausalLM,
     GPT2LMHeadModel,
+    JAISLMHeadModel,
     MptForCausalLM,
     CodeGenForCausalLM,
     MistralForCausalLM,
@@ -1336,6 +1337,51 @@ describe('Tiny random models', () => {
                 expect(outputs.tolist()).toEqual([
                     [0n, 0n, 258n, 863n, 79n, 79n, 79n, 79n, 79n, 79n],
                     [258n, 863n, 79n, 269n, 813n, 813n, 813n, 813n, 813n, 813n]
+                ]);
+            }, MAX_TEST_EXECUTION_TIME);
+
+            afterAll(async () => {
+                await model?.dispose();
+            }, MAX_MODEL_DISPOSE_TIME);
+        });
+    });
+
+    describe('jais', () => {
+        describe('JAISLMHeadModel', () => {
+            const model_id = 'onnx-community/tiny-random-jais';
+            /** @type {JAISLMHeadModel} */
+            let model;
+            /** @type {PreTrainedTokenizer} */
+            let tokenizer;
+            beforeAll(async () => {
+                model = await JAISLMHeadModel.from_pretrained(model_id, {
+                    // TODO move to config
+                    ...DEFAULT_MODEL_OPTIONS,
+                });
+                tokenizer = await PreTrainedTokenizer.from_pretrained(model_id);
+                tokenizer.padding_side = 'left';
+            }, MAX_MODEL_LOAD_TIME);
+
+            it('batch_size=1', async () => {
+                const inputs = tokenizer('hello');
+                const outputs = await model.generate({
+                    ...inputs,
+                    max_length: 10,
+                });
+                expect(outputs.tolist()).toEqual([
+                    [55422n, 55422n, 55422n, 55422n, 55422n, 55422n, 55422n, 55422n, 55422n, 55422n],
+                ]);
+            }, MAX_TEST_EXECUTION_TIME);
+
+            it('batch_size>1', async () => {
+                const inputs = tokenizer(['hello', 'hello world'], { padding: true });
+                const outputs = await model.generate({
+                    ...inputs,
+                    max_length: 10,
+                });
+                expect(outputs.tolist()).toEqual([
+                    [0n, 55422n, 55422n, 55422n, 55422n, 55422n, 55422n, 55422n, 55422n, 55422n],
+                    [55422n, 2838n, 2838n, 2838n, 2838n, 2838n, 2838n, 2838n, 2838n, 2838n],
                 ]);
             }, MAX_TEST_EXECUTION_TIME);
 

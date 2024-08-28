@@ -3784,6 +3784,33 @@ export class GPT2LMHeadModel extends GPT2PreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// JAIS models
+export class JAISPreTrainedModel extends PreTrainedModel {
+    /**
+     * Creates a new instance of the `JAISPreTrainedModel` class.
+     * @param {Object} config The model configuration.
+     * @param {Record<string, any>} sessions The inference sessions for the model.
+     * @param {GenerationConfig} generation_config The generation configuration.
+     */
+    constructor(config, sessions, generation_config) {
+        super(config, sessions);
+        this.generation_config = generation_config;
+    }
+}
+
+/**
+ * The bare JAIS Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class JAISModel extends JAISPreTrainedModel { }
+
+/**
+ * The JAIS Model transformer with a language modeling head on top (linear layer with weights tied to the input embeddings).
+ */
+export class JAISLMHeadModel extends JAISPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // GPTNeo models
 export class GPTNeoPreTrainedModel extends PreTrainedModel {
     /**
@@ -6345,6 +6372,7 @@ const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
 
 const MODEL_MAPPING_NAMES_DECODER_ONLY = new Map([
     ['bloom', ['BloomModel', BloomModel]],
+    ['jais', ['JAISModel', JAISModel]],
     ['gpt2', ['GPT2Model', GPT2Model]],
     ['gptj', ['GPTJModel', GPTJModel]],
     ['gpt_bigcode', ['GPTBigCodeModel', GPTBigCodeModel]],
@@ -6433,6 +6461,7 @@ const MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES = new Map([
 const MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = new Map([
     ['bloom', ['BloomForCausalLM', BloomForCausalLM]],
     ['gpt2', ['GPT2LMHeadModel', GPT2LMHeadModel]],
+    ['jais', ['JAISLMHeadModel', JAISLMHeadModel]],
     ['gptj', ['GPTJForCausalLM', GPTJForCausalLM]],
     ['gpt_bigcode', ['GPTBigCodeForCausalLM', GPTBigCodeForCausalLM]],
     ['gpt_neo', ['GPTNeoForCausalLM', GPTNeoForCausalLM]],
