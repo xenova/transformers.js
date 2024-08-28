@@ -202,9 +202,8 @@ function post_process_semantic_segmentation(outputs, target_sizes = null) {
         // Store which objects have labels
         // This is much more efficient that creating a set of the final values
         const hasLabel = new Array(data.dims[0]);
-        const out = segmentation.data;
-        for (let j = 0; j < out.length; ++j) {
-            const index = out[j];
+        for (let j = 0; j < segmentation_data.length; ++j) {
+            const index = segmentation_data[j];
             hasLabel[index] = index;
         }
         /** @type {number[]} The unique list of labels that were detected */
