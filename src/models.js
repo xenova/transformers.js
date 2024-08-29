@@ -4457,6 +4457,19 @@ export class DeiTForImageClassification extends DeiTPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+export class HieraPreTrainedModel extends PreTrainedModel { }
+export class HieraModel extends HieraPreTrainedModel { }
+export class HieraForImageClassification extends HieraPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 /**
@@ -6337,6 +6350,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['owlv2', ['Owlv2Model', Owlv2Model]],
     ['beit', ['BeitModel', BeitModel]],
     ['deit', ['DeiTModel', DeiTModel]],
+    ['hiera', ['HieraModel', HieraModel]],
     ['convnext', ['ConvNextModel', ConvNextModel]],
     ['convnextv2', ['ConvNextV2Model', ConvNextV2Model]],
     ['dinov2', ['Dinov2Model', Dinov2Model]],
@@ -6544,6 +6558,7 @@ const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['mobilevitv2', ['MobileViTV2ForImageClassification', MobileViTV2ForImageClassification]],
     ['beit', ['BeitForImageClassification', BeitForImageClassification]],
     ['deit', ['DeiTForImageClassification', DeiTForImageClassification]],
+    ['hiera', ['HieraForImageClassification', HieraForImageClassification]],
     ['convnext', ['ConvNextForImageClassification', ConvNextForImageClassification]],
     ['convnextv2', ['ConvNextV2ForImageClassification', ConvNextV2ForImageClassification]],
     ['dinov2', ['Dinov2ForImageClassification', Dinov2ForImageClassification]],
