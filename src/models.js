@@ -4204,6 +4204,11 @@ export class ViTForImageClassification extends ViTPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+export class GroupViTPreTrainedModel extends PreTrainedModel { }
+export class GroupViTModel extends GroupViTPreTrainedModel { }
+//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 export class FastViTPreTrainedModel extends PreTrainedModel { }
@@ -6343,6 +6348,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['rt_detr', ['RTDetrModel', RTDetrModel]],
     ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
     ['vit', ['ViTModel', ViTModel]],
+    ['groupvit', ['GroupViTModel', GroupViTModel]],
     ['fastvit', ['FastViTModel', FastViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
     ['mobilevitv2', ['MobileViTV2Model', MobileViTV2Model]],
