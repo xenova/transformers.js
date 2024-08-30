@@ -4621,6 +4621,11 @@ export class SapiensForDepthEstimation extends SapiensPreTrainedModel { }
 export class SapiensForNormalEstimation extends SapiensPreTrainedModel { }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+export class MaskFormerPreTrainedModel extends PreTrainedModel { }
+export class MaskFormerModel extends MaskFormerPreTrainedModel { }
+export class MaskFormerForInstanceSegmentation extends MaskFormerPreTrainedModel { }
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 export class GLPNPreTrainedModel extends PreTrainedModel { }
@@ -6348,6 +6353,7 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['rt_detr', ['RTDetrModel', RTDetrModel]],
     ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
     ['vit', ['ViTModel', ViTModel]],
+    ['pvt', ['PvtModel', PvtModel]],
     ['groupvit', ['GroupViTModel', GroupViTModel]],
     ['fastvit', ['FastViTModel', FastViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
@@ -6375,6 +6381,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['mobilenet_v2', ['MobileNetV2Model', MobileNetV2Model]],
     ['mobilenet_v3', ['MobileNetV3Model', MobileNetV3Model]],
     ['mobilenet_v4', ['MobileNetV4Model', MobileNetV4Model]],
+
+    ['maskformer', ['MaskFormerModel', MaskFormerModel]],
 ]);
 
 const MODEL_MAPPING_NAMES_ENCODER_DECODER = new Map([
@@ -6559,6 +6567,7 @@ const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ['ViTForImageClassification', ViTForImageClassification]],
+    ['pvt', ['PvtForImageClassification', PvtForImageClassification]],
     ['fastvit', ['FastViTForImageClassification', FastViTForImageClassification]],
     ['mobilevit', ['MobileViTForImageClassification', MobileViTForImageClassification]],
     ['mobilevitv2', ['MobileViTV2ForImageClassification', MobileViTV2ForImageClassification]],
@@ -6591,6 +6600,7 @@ const MODEL_FOR_ZERO_SHOT_OBJECT_DETECTION_MAPPING_NAMES = new Map([
 ]);
 
 const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
+    // TODO: Do not add new models here
     ['detr', ['DetrForSegmentation', DetrForSegmentation]],
     ['clipseg', ['CLIPSegForImageSegmentation', CLIPSegForImageSegmentation]],
 ]);
@@ -6598,6 +6608,11 @@ const MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES = new Map([
 const MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES = new Map([
     ['segformer', ['SegformerForSemanticSegmentation', SegformerForSemanticSegmentation]],
     ['sapiens', ['SapiensForSemanticSegmentation', SapiensForSemanticSegmentation]],
+]);
+
+const MODEL_FOR_UNIVERSAL_SEGMENTATION_MAPPING_NAMES = new Map([
+    ['detr', ['DetrForSegmentation', DetrForSegmentation]],
+    ['maskformer', ['MaskFormerForInstanceSegmentation', MaskFormerForInstanceSegmentation]],
 ]);
 
 const MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = new Map([
@@ -6675,6 +6690,7 @@ const MODEL_CLASS_TYPE_MAPPING = [
     [MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING_NAMES, MODEL_TYPES.ImageTextToText],
     [MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
+    [MODEL_FOR_UNIVERSAL_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_MATTING_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
     [MODEL_FOR_IMAGE_TO_IMAGE_MAPPING_NAMES, MODEL_TYPES.EncoderOnly],
@@ -6875,6 +6891,17 @@ export class AutoModelForImageSegmentation extends PretrainedMixin {
  */
 export class AutoModelForSemanticSegmentation extends PretrainedMixin {
     static MODEL_CLASS_MAPPINGS = [MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING_NAMES];
+}
+
+/**
+ * Helper class which is used to instantiate pretrained universal image segmentation models with the `from_pretrained` function.
+ * The chosen model class is determined by the type specified in the model config.
+ * 
+ * @example
+ * let model = await AutoModelForUniversalSegmentation.from_pretrained('hf-internal-testing/tiny-random-MaskFormerForInstanceSegmentation');
+ */
+export class AutoModelForUniversalSegmentation extends PretrainedMixin {
+    static MODEL_CLASS_MAPPINGS = [MODEL_FOR_UNIVERSAL_SEGMENTATION_MAPPING_NAMES];
 }
 
 /**
