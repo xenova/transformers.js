@@ -215,6 +215,19 @@ function post_process_semantic_segmentation(outputs, target_sizes = null) {
 }
 
 /**
+ * Post-processes the outputs of the model (for instance segmentation).
+ * @param {*} outputs Raw outputs of the model.
+ * @param {number} [threshold=0.5] The probability score threshold to keep predicted instance masks.
+ * @param {number[][]} [target_sizes=null] List of tuples corresponding to the requested final size
+ * (height, width) of each prediction. If unset, predictions will not be resized.
+ * @returns {Array<{ segmentation: Tensor, segments_info: Array<{id: number, label_id: number, score: number}>}>}
+ */
+function post_process_instance_segmentation(outputs, threshold = 0.5, target_sizes = null) {
+    throw new Error('Not implemented yet');
+    return [];
+}
+
+/**
  * Named tuple to indicate the order we are using is (height x width), even though
  * the Graphics’ industry standard is (width x height).
  * @typedef {[height: number, width: number]} HeightWidth
