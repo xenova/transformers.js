@@ -34,6 +34,7 @@ import {
     AutoModelForImageClassification,
     AutoModelForImageSegmentation,
     AutoModelForSemanticSegmentation,
+    AutoModelForUniversalSegmentation,
     AutoModelForObjectDetection,
     AutoModelForZeroShotObjectDetection,
     AutoModelForDocumentQuestionAnswering,
@@ -3045,7 +3046,7 @@ const SUPPORTED_TASKS = Object.freeze({
     "image-segmentation": {
         // no tokenizer
         "pipeline": ImageSegmentationPipeline,
-        "model": [AutoModelForImageSegmentation, AutoModelForSemanticSegmentation],
+        "model": [AutoModelForImageSegmentation, AutoModelForSemanticSegmentation, AutoModelForUniversalSegmentation],
         "processor": AutoProcessor,
         "default": {
             // TODO: replace with original
