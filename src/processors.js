@@ -802,6 +802,7 @@ export class SegformerFeatureExtractor extends ImageFeatureExtractor {
         return post_process_semantic_segmentation(...args);
     }
 }
+export class PvtImageProcessor extends ImageFeatureExtractor { }
 export class DPTFeatureExtractor extends ImageFeatureExtractor { }
 export class DPTImageProcessor extends DPTFeatureExtractor { } // NOTE: extends DPTFeatureExtractor
 export class BitImageProcessor extends ImageFeatureExtractor { }
@@ -2534,6 +2535,7 @@ export class AutoProcessor {
         BitImageProcessor,
         DPTImageProcessor,
         DPTFeatureExtractor,
+        PvtImageProcessor,
         GLPNFeatureExtractor,
         BeitFeatureExtractor,
         DeiTFeatureExtractor,
