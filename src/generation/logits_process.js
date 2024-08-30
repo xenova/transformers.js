@@ -540,18 +540,18 @@ export class NoBadWordsLogitsProcessor extends LogitsProcessor {
     _call(input_ids, logits) {
         for (let i = 0; i < input_ids.length; ++i) {
             const batch_logits_data = /** @type {Float32Array} */(logits[i].data);
-
+            const ids = input_ids[i];
             for (const bad_word_ids of this.bad_words_ids) {
                 // Whether to modify the logits of the last token in the bad word id sequence
                 let mark = true;
 
                 // For each bad word in the list, if the current sequence of input ids ends with this sequence (excluding the last),
                 // then we set the logits of the last bad word id to -Infinity.
-                for (let i = 1; i <= bad_word_ids.length - 1 && bad_word_ids.length < input_ids[i].length; ++i) {
+                for (let j = 1; j <= bad_word_ids.length - 1 && bad_word_ids.length < ids.length; ++j) {
 
                     // NOTE: We use != instead of !== to compare bigint and number
                     // @ts-ignore
-                    if (bad_word_ids.at(-i - 1) != input_ids[i].at(-i)) {
+                    if (bad_word_ids.at(-j - 1) != ids.at(-j)) {
                         // We have found a mismatch
                         mark = false;
                         break;
