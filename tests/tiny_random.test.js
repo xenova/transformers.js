@@ -60,6 +60,7 @@ import {
     TextClassificationPipeline,
     TextGenerationPipeline,
     ImageClassificationPipeline,
+    ZeroShotImageClassificationPipeline,
     TokenClassificationPipeline,
     QuestionAnsweringPipeline,
 
@@ -1879,6 +1880,82 @@ describe('Tiny random pipelines', () => {
                 const target = [
                     [{ label: 'LABEL_1', score: 0.5020533800125122 }],
                     [{ label: 'LABEL_1', score: 0.519227921962738 }]
+                ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
+
+    describe('zero-shot-image-classification', () => {
+        const model_id = 'hf-internal-testing/tiny-random-GroupViTModel';
+
+        // Example adapted from https://huggingface.co/docs/transformers/en/model_doc/groupvit
+        const urls = [
+            'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/white-image.png',
+            'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/blue-image.png',
+        ];
+        const labels = ['cat', 'dog'];
+        const hypothesis_template = 'a photo of a {}';
+
+
+        /** @type {ZeroShotImageClassificationPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('zero-shot-image-classification', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+            it('default', async () => {
+                const output = await pipe(urls[0], labels);
+                const target = [
+                    { score: 0.5990662574768066, label: 'cat' },
+                    { score: 0.40093377232551575, label: 'dog' }
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (w/ hypothesis_template)', async () => {
+                const output = await pipe(urls[0], labels, { hypothesis_template });
+                const target = [
+                    { score: 0.5527022480964661, label: 'cat' },
+                    { score: 0.44729775190353394, label: 'dog' }
+                ]
+                compare(output, target, 1e-5);
+            });
+        });
+
+        describe('batch_size>1', () => {
+            it('default', async () => {
+                const output = await pipe(urls, labels);
+                const target = [
+                    [
+                        { score: 0.5990662574768066, label: 'cat' },
+                        { score: 0.40093377232551575, label: 'dog' }
+                    ],
+                    [
+                        { score: 0.5006340146064758, label: 'dog' },
+                        { score: 0.49936598539352417, label: 'cat' }
+                    ]
+                ]
+                compare(output, target, 1e-5);
+            });
+            it('custom (w/ hypothesis_template)', async () => {
+                const output = await pipe(urls, labels, { hypothesis_template });
+                const target = [
+                    [
+                        { score: 0.5527022480964661, label: 'cat' },
+                        { score: 0.44729775190353394, label: 'dog' }
+                    ],
+                    [
+                        { score: 0.5395973324775696, label: 'cat' },
+                        { score: 0.46040263772010803, label: 'dog' }
+                    ]
                 ]
                 compare(output, target, 1e-5);
             });
