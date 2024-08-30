@@ -1,5 +1,5 @@
 
-import { Tensor, cat, mean, stack, layer_norm } from '@huggingface/transformers';
+import { Tensor, cat, mean, stack, layer_norm } from '../src/transformers.js';
 import { compare } from './test_utils.js';
 
 describe('Tensor operations', () => {

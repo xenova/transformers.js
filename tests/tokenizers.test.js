@@ -1,6 +1,6 @@
 
 
-import { AutoTokenizer, WhisperTokenizer } from '@huggingface/transformers';
+import { AutoTokenizer, WhisperTokenizer } from '../src/transformers.js';
 import { getFile } from '../src/utils/hub.js';
 import { m, MAX_TEST_EXECUTION_TIME } from './init.js';
 import { compare } from './test_utils.js';

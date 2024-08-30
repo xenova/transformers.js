@@ -1,5 +1,5 @@
 
-import { AutoProcessor, hamming, hanning, mel_filter_bank } from '@huggingface/transformers';
+import { AutoProcessor, hamming, hanning, mel_filter_bank } from '../src/transformers.js';
 import { getFile } from '../src/utils/hub.js';
 
 import { MAX_TEST_EXECUTION_TIME } from './init.js';
