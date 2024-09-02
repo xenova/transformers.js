@@ -4217,6 +4217,24 @@ export class PvtForImageClassification extends PvtPreTrainedModel {
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+export class ViTMAEPreTrainedModel extends PreTrainedModel { }
+export class ViTMAEModel extends ViTMAEPreTrainedModel { }
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+export class ViTMSNPreTrainedModel extends PreTrainedModel { }
+export class ViTMSNModel extends ViTMSNPreTrainedModel { }
+export class ViTMSNForImageClassification extends ViTMSNPreTrainedModel {
+    /**
+     * @param {any} model_inputs
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 export class GroupViTPreTrainedModel extends PreTrainedModel { }
@@ -6368,6 +6386,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['table-transformer', ['TableTransformerModel', TableTransformerModel]],
     ['vit', ['ViTModel', ViTModel]],
     ['pvt', ['PvtModel', PvtModel]],
+    ['vit_msn', ['ViTMSNModel', ViTMSNModel]],
+    ['vit_mae', ['ViTMAEModel', ViTMAEModel]],
     ['groupvit', ['GroupViTModel', GroupViTModel]],
     ['fastvit', ['FastViTModel', FastViTModel]],
     ['mobilevit', ['MobileViTModel', MobileViTModel]],
@@ -6582,6 +6602,7 @@ const MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
 const MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['vit', ['ViTForImageClassification', ViTForImageClassification]],
     ['pvt', ['PvtForImageClassification', PvtForImageClassification]],
+    ['vit_msn', ['ViTMSNForImageClassification', ViTMSNForImageClassification]],
     ['fastvit', ['FastViTForImageClassification', FastViTForImageClassification]],
     ['mobilevit', ['MobileViTForImageClassification', MobileViTForImageClassification]],
     ['mobilevitv2', ['MobileViTV2ForImageClassification', MobileViTV2ForImageClassification]],
