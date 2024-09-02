@@ -113,6 +113,15 @@ class ConversionArguments:
             )
         }
     )
+    library_name: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The library name to use for the export. If not specified, the library name will be auto-inferred based on the model."
+            )
+        }
+    )
+
 
     variant: Optional[str] = field(
         default='default',
@@ -253,6 +262,7 @@ def main():
         task=conv_args.task,
         do_validation=not conv_args.skip_validation,
         _variant=conv_args.variant,
+        library_name=conv_args.library_name,
         **core_export_kwargs,
     )
 
