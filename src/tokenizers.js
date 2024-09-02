@@ -3131,23 +3131,24 @@ export class PreTrainedTokenizer extends Callable {
     } = {}) {
 
         // First, handle the cases when the model has a dict of multiple templates
-        if (
-            (this.chat_template && typeof this.chat_template === 'object')
-            || this.chat_template === null
-        ) {
+        if (this.chat_template && typeof this.chat_template === 'object') {
             const template_dict = this.chat_template;
 
             if (chat_template !== null && Object.hasOwn(template_dict, chat_template)) {
                 // The user can pass the name of a template to the chat template argument instead of an entire template
                 chat_template = template_dict[chat_template];
-            } else if (chat_template === null && 'default' in template_dict) {
-                chat_template = template_dict['default'];
             } else if (chat_template === null) {
-                throw Error(
-                    `This model has multiple chat templates with no default specified! Please either pass a chat ` +
-                    `template or the name of the template you wish to use to the 'chat_template' argument. Available ` +
-                    `template names are ${Object.keys(template_dict).sort()}.`
-                )
+                if (tools !== null && 'tool_use' in template_dict) {
+                    chat_template = template_dict['tool_use'];
+                } else if ('default' in template_dict) {
+                    chat_template = template_dict['default'];
+                } else {
+                    throw Error(
+                        `This model has multiple chat templates with no default specified! Please either pass a chat ` +
+                        `template or the name of the template you wish to use to the 'chat_template' argument. Available ` +
+                        `template names are ${Object.keys(template_dict).sort()}.`
+                    )
+                }
             }
         } else {
             // These are the cases when the model has a single template
