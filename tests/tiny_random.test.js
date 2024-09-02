@@ -2103,6 +2103,70 @@ describe('Tiny random pipelines', () => {
             await pipe?.dispose();
         }, MAX_MODEL_DISPOSE_TIME);
     });
+
+    describe('object-detection', () => {
+        const model_id = 'hf-internal-testing/tiny-random-DetrForObjectDetection';
+        const urls = [
+            'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/white-image.png',
+            'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/blue-image.png',
+        ];
+
+        /** @type {ImageClassificationPipeline} */
+        let pipe;
+        beforeAll(async () => {
+            pipe = await pipeline('object-detection', model_id, {
+                // TODO move to config
+                ...DEFAULT_MODEL_OPTIONS,
+            });
+        }, MAX_MODEL_LOAD_TIME);
+
+        describe('batch_size=1', () => {
+
+            it('default (threshold unset)', async () => {
+                const output = await pipe(urls[0]);
+                const target = [];
+                compare(output, target, 1e-5);
+            });
+            it('default (threshold=0)', async () => {
+                const output = await pipe(urls[0], { threshold: 0 });
+                const target = [
+                    { score: 0.020360443741083145, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360419526696205, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.02036038413643837, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360447466373444, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360389724373817, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360423251986504, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.02036040835082531, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360363647341728, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360389724373817, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360389724373817, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360343158245087, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } },
+                    { score: 0.020360423251986504, label: 'LABEL_31', box: { xmin: 56, ymin: 55, xmax: 169, ymax: 167 } }
+                ];
+                compare(output, target, 1e-5);
+            });
+        });
+
+        // TODO: Add batched support to object detection pipeline
+        // describe('batch_size>1', () => {
+        //     it('default (threshold unset)', async () => {
+        //         const output = await pipe(urls);
+        //         console.log(output);
+        //         const target = [];
+        //         compare(output, target, 1e-5);
+        //     });
+        //     it('default (threshold=0)', async () => {
+        //         const output = await pipe(urls, { threshold: 0 });
+        //         console.log(output);
+        //         const target = [];
+        //         compare(output, target, 1e-5);
+        //     });
+        // });
+
+        afterAll(async () => {
+            await pipe?.dispose();
+        }, MAX_MODEL_DISPOSE_TIME);
+    });
 });
 
 
