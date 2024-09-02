@@ -416,8 +416,11 @@ def main():
                     for x in os.listdir(output_model_folder) if x.endswith('.onnx')]
 
         for model in onnx_models:
-            slimmed_model = onnxslim.slim(model)
-            check_and_save_model(slimmed_model, model)
+            try:
+                slimmed_model = onnxslim.slim(model)
+                check_and_save_model(slimmed_model, model)
+            except Exception as e:
+                print(f"Failed to slim {model}: {e}")
 
     # Step 2. (optional, recommended) quantize the converted model for fast inference and to reduce model size.
     if conv_args.quantize:
