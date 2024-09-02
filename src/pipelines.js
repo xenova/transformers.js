@@ -3288,7 +3288,7 @@ async function loadItems(mapping, model, pretrainedOptions) {
 
     /**@type {Promise[]} */
     const promises = [];
-    for (let [name, cls] of mapping.entries()) {
+    for (const [name, cls] of mapping.entries()) {
         if (!cls) continue;
 
         /**@type {Promise} */
@@ -3296,7 +3296,7 @@ async function loadItems(mapping, model, pretrainedOptions) {
         if (Array.isArray(cls)) {
             promise = new Promise(async (resolve, reject) => {
                 let e;
-                for (let c of cls) {
+                for (const c of cls) {
                     if (c === null) {
                         // If null, we resolve it immediately, meaning the relevant
                         // class was not found, but it is optional.
@@ -3334,7 +3334,7 @@ async function loadItems(mapping, model, pretrainedOptions) {
     await Promise.all(promises);
 
     // Then assign to result
-    for (let [name, promise] of Object.entries(result)) {
+    for (const [name, promise] of Object.entries(result)) {
         result[name] = await promise;
     }
 
