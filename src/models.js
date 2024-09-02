@@ -6293,7 +6293,7 @@ export class PretrainedMixin {
         session_options = {},
     } = {}) {
 
-        let options = {
+        const options = {
             progress_callback,
             config,
             cache_dir,
@@ -6312,7 +6312,7 @@ export class PretrainedMixin {
             throw new Error("`MODEL_CLASS_MAPPINGS` not implemented for this type of `AutoClass`: " + this.name);
         }
 
-        for (let MODEL_CLASS_MAPPING of this.MODEL_CLASS_MAPPINGS) {
+        for (const MODEL_CLASS_MAPPING of this.MODEL_CLASS_MAPPINGS) {
             const modelInfo = MODEL_CLASS_MAPPING.get(options.config.model_type);
             if (!modelInfo) {
                 continue; // Item not found in this mapping
