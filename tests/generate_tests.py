@@ -72,6 +72,9 @@ TOKENIZERS_TO_IGNORE = [
 
     # TODO: remove when https://github.com/huggingface/transformers/issues/28096 is addressed
     'RajuKandasamy/tamillama_tiny_30m',
+
+    # Requires `trust_remote_code`
+    'monologg/kobert',
 ]
 
 MAX_TESTS = {
