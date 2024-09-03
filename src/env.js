@@ -38,7 +38,7 @@ const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 
-// __dirname is reserved so we go with dirname__ instead.
+// __dirname is reserved so we use dirname__ instead.
 const dirname__ = RUNNING_LOCALLY
     ? path.dirname(path.dirname(url.fileURLToPath(import.meta.url)))
     : './';
