@@ -3503,6 +3503,18 @@ export class CLIPPreTrainedModel extends PreTrainedModel { }
 export class CLIPModel extends CLIPPreTrainedModel { }
 
 /**
+ * The text model from CLIP without any head or projection on top.
+ */
+export class CLIPTextModel extends CLIPPreTrainedModel {
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'text_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
+}
+
+/**
  * CLIP Text Model with a projection layer on top (a linear layer on top of the pooled output)
  * 
  * **Example:** Compute text embeddings with `CLIPTextModelWithProjection`.
@@ -3529,11 +3541,22 @@ export class CLIPModel extends CLIPPreTrainedModel { }
  * ```
  */
 export class CLIPTextModelWithProjection extends CLIPPreTrainedModel {
-
     /** @type {PreTrainedModel.from_pretrained} */
     static async from_pretrained(pretrained_model_name_or_path, options = {}) {
         // Update default model file name if not provided
         options.model_file_name ??= 'text_model';
+        return super.from_pretrained(pretrained_model_name_or_path, options);
+    }
+}
+
+/**
+ * The vision model from CLIP without any head or projection on top.
+ */
+export class CLIPVisionModel extends CLIPPreTrainedModel {
+    /** @type {PreTrainedModel.from_pretrained} */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        // Update default model file name if not provided
+        options.model_file_name ??= 'vision_model';
         return super.from_pretrained(pretrained_model_name_or_path, options);
     }
 }
@@ -6180,6 +6203,7 @@ export class MusicgenForConditionalGeneration extends PreTrainedModel { // NOTE:
         return audio_values;
     }
 }
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // MobileNetV1 models
@@ -6273,6 +6297,17 @@ export class MobileNetV4ForImageClassification extends MobileNetV4PreTrainedMode
 }
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// Decision Transformer models
+export class DecisionTransformerPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The model builds upon the GPT2 architecture to perform autoregressive prediction of actions in an offline RL setting.
+ * Refer to the paper for more details: https://arxiv.org/abs/2106.01345
+ */
+export class DecisionTransformerModel extends DecisionTransformerPreTrainedModel { }
+
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // AutoModels, used to simplify construction of PreTrainedModels
@@ -6410,6 +6445,8 @@ const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
 
     ['hifigan', ['SpeechT5HifiGan', SpeechT5HifiGan]],
     ['efficientnet', ['EfficientNetModel', EfficientNetModel]],
+
+    ['decision_transformer', ['DecisionTransformerModel', DecisionTransformerModel]],
 
     ['mobilenet_v1', ['MobileNetV1Model', MobileNetV1Model]],
     ['mobilenet_v2', ['MobileNetV2Model', MobileNetV2Model]],
