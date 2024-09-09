@@ -69,13 +69,10 @@ import {
     RawImage,
 } from '../src/transformers.js';
 
-import { init } from './init.js';
+import { init, MAX_MODEL_LOAD_TIME, MAX_TEST_EXECUTION_TIME, MAX_MODEL_DISPOSE_TIME } from './init.js';
 import { compare } from './test_utils.js';
-init();
 
-const MAX_MODEL_LOAD_TIME = 10_000; // 10 seconds
-const MAX_TEST_EXECUTION_TIME = 10_000; // 10 seconds
-const MAX_MODEL_DISPOSE_TIME = 1_000; // 1 second
+init();
 
 const DEFAULT_MODEL_OPTIONS = {
     dtype: 'fp32',

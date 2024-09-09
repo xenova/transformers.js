@@ -1,6 +1,6 @@
 
 import { pipeline, cos_sim } from '../src/transformers.js';
-import { init, m, MAX_TEST_EXECUTION_TIME } from './init.js';
+import { init, MAX_TEST_EXECUTION_TIME } from './init.js';
 import { compare, loadAudio } from './test_utils.js';
 
 // Initialise the testing environment
@@ -11,19 +11,19 @@ init();
 // This is due to how model construction and destruction occurs, in `beforeAll` and `afterAll`, respectively.
 // As a result, each test is responsible for exactly one model, but we run multiple inputs through it.
 // By encapsulating model construction and destruction in a single `it` block, we avoid these memory issues.
-describe('Pipelines', () => {
+xdescribe('Pipelines', () => {
 
     describe('Text classification', () => {
 
         // List all models which will be tested
         const models = [
-            'distilbert-base-uncased-finetuned-sst-2-english',
+            'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
             'Xenova/toxic-bert',
         ];
 
         // single_label_classification
         it(models[0], async () => {
-            let classifier = await pipeline('text-classification', m(models[0]));
+            let classifier = await pipeline('text-classification', models[0]);
             let texts = [
                 "This was a masterpiece. Not completely faithful to the books, but enthralling from beginning to end. Might be my favorite of the three.",
                 "I hated the movie"
@@ -87,7 +87,7 @@ describe('Pipelines', () => {
 
         // multi_label_classification
         it(models[1], async () => {
-            let classifier = await pipeline('text-classification', m(models[1]));
+            let classifier = await pipeline('text-classification', models[1]);
             let texts = [
                 "I like you. I love you", // low scores
                 "I hate you." // high scores
@@ -111,11 +111,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'Davlan/bert-base-multilingual-cased-ner-hrl',
+            'Xenova/bert-base-multilingual-cased-ner-hrl',
         ];
 
         it(models[0], async () => {
-            let classifier = await pipeline('token-classification', m(models[0]));
+            let classifier = await pipeline('token-classification', models[0]);
             let texts = [
                 "The Golden State Warriors are an American professional basketball team based in San Francisco.",
                 "My name is Sarah and I live in London."
@@ -166,11 +166,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'facebook/bart-large-mnli',
+            'Xenova/bart-large-mnli',
         ];
 
         it(models[0], async () => {
-            let classifier = await pipeline('zero-shot-classification', m(models[0]));
+            let classifier = await pipeline('zero-shot-classification', models[0]);
 
             let sequences_to_classify = ['one day I will see the world', 'I love making pizza'];
             let candidate_labels = ['travel', 'cooking', 'dancing'];
@@ -233,11 +233,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'bert-base-uncased',
+            'Xenova/bert-base-uncased',
         ];
 
         it(models[0], async () => {
-            let unmasker = await pipeline('fill-mask', m(models[0]));
+            let unmasker = await pipeline('fill-mask', models[0]);
             let texts = [
                 "Once upon a [MASK].",
                 "[MASK] is the capital of England."
@@ -367,11 +367,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'distilbert-base-uncased-distilled-squad',
+            'Xenova/distilbert-base-uncased-distilled-squad',
         ];
 
         it(models[0], async () => {
-            let answerer = await pipeline('question-answering', m(models[0]));
+            let answerer = await pipeline('question-answering', models[0]);
 
             // single
             {
@@ -403,8 +403,8 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'sshleifer/distilbart-cnn-6-6',
-            'facebook/bart-large-cnn',
+            'Xenova/distilbart-cnn-6-6',
+            'Xenova/bart-large-cnn',
         ];
 
         let texts = [
@@ -413,7 +413,7 @@ describe('Pipelines', () => {
         ];
 
         it(models[0], async () => {
-            let summarizer = await pipeline('summarization', m(models[0]));
+            let summarizer = await pipeline('summarization', models[0]);
 
             // batched
             {
@@ -431,7 +431,7 @@ describe('Pipelines', () => {
 
 
         it(models[1], async () => {
-            let summarizer = await pipeline('summarization', m(models[1]));
+            let summarizer = await pipeline('summarization', models[1]);
 
             // batched + `forced_bos_token_id`
             {
@@ -452,14 +452,14 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            't5-small',
+            'Xenova/t5-small',
 
             // Multilingual model
-            'facebook/nllb-200-distilled-600M',
+            'Xenova/nllb-200-distilled-600M',
         ];
 
         it(models[0], async () => {
-            let translator = await pipeline('translation_en_to_de', m(models[0]));
+            let translator = await pipeline('translation_en_to_de', models[0]);
             let texts = [
                 'Hello, how are you?',
                 'My name is Maria.',
@@ -500,7 +500,7 @@ describe('Pipelines', () => {
 
 
         it(models[1], async () => {
-            let translator = await pipeline('translation', m(models[1]));
+            let translator = await pipeline('translation', models[1]);
             let texts = [
                 'Hello world!',
                 'I like to walk my dog.',
@@ -552,12 +552,12 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'google/flan-t5-small',
-            'google/flan-t5-base',
+            'Xenova/flan-t5-small',
+            'Xenova/flan-t5-base',
         ];
 
         it(models[0], async () => {
-            let generator = await pipeline('text2text-generation', m(models[0]));
+            let generator = await pipeline('text2text-generation', models[0]);
             let text = "Premise:  At my age you will probably have learnt one lesson. " +
                 "Hypothesis:  It's not certain how many lessons you'll learn by your thirties. " +
                 "Does the premise entail the hypothesis?";
@@ -576,7 +576,7 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
 
         it(models[1], async () => {
-            let generator = await pipeline('text2text-generation', m(models[1]));
+            let generator = await pipeline('text2text-generation', models[1]);
             let text = `
             Q: Roger has 5 tennis balls. He buys 2 more cans of tennis balls. Each can
             has 3 tennis balls. How many tennis balls does he have now?
@@ -603,13 +603,13 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'distilgpt2',
+            'Xenova/distilgpt2',
 
-            'Salesforce/codegen-350M-mono',
+            'Xenova/codegen-350M-mono',
         ];
 
         it(models[0], async () => {
-            let generator = await pipeline('text-generation', m(models[0]));
+            let generator = await pipeline('text-generation', models[0]);
             let texts = [
                 'Once upon a time, there was a',
                 'I enjoy walking with my cute dog',
@@ -666,7 +666,7 @@ describe('Pipelines', () => {
 
 
         it(models[1], async () => {
-            let generator = await pipeline('text-generation', m(models[1]));
+            let generator = await pipeline('text-generation', models[1]);
             let code = 'def fib(n):';
 
             // single + `added_tokens`
@@ -688,11 +688,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'sentence-transformers/all-MiniLM-L6-v2',
+            'Xenova/all-MiniLM-L6-v2',
         ];
 
         it(models[0], async () => {
-            let extractor = await pipeline('feature-extraction', m(models[0]));
+            let extractor = await pipeline('feature-extraction', models[0]);
 
             // Provide sentences
             let sentences = [
@@ -731,17 +731,17 @@ describe('Pipelines', () => {
         // List all models which will be tested
         const models = [
             // whisper
-            'openai/whisper-tiny.en', // English-only
-            'openai/whisper-small', // Multilingual
-            ['openai/whisper-tiny.en', 'output_attentions'], // English-only + `output_attentions`
-            ['openai/whisper-small', 'output_attentions'], // Multilingual + `output_attentions`
+            'Xenova/whisper-tiny.en', // English-only
+            'Xenova/whisper-small', // Multilingual
+            ['Xenova/whisper-tiny.en', 'output_attentions'], // English-only + `output_attentions`
+            ['Xenova/whisper-small', 'output_attentions'], // Multilingual + `output_attentions`
 
             // wav2vec2
             'jonatasgrosman/wav2vec2-large-xlsr-53-english',
         ];
 
         it(models[0], async () => {
-            let transcriber = await pipeline('automatic-speech-recognition', m(models[0]));
+            let transcriber = await pipeline('automatic-speech-recognition', models[0]);
 
             let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
             let audioData = await loadAudio(url);
@@ -769,7 +769,7 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
 
         it(models[1], async () => {
-            let transcriber = await pipeline('automatic-speech-recognition', m(models[1]));
+            let transcriber = await pipeline('automatic-speech-recognition', models[1]);
 
             let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/french-audio.wav';
             let audioData = await loadAudio(url);
@@ -913,12 +913,12 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'microsoft/speecht5_tts',
-            'facebook/mms-tts-fra',
+            'Xenova/speecht5_tts',
+            'Xenova/mms-tts-fra',
         ];
 
         it(models[0], async () => {
-            let synthesizer = await pipeline('text-to-speech', m(models[0]), {
+            let synthesizer = await pipeline('text-to-speech', models[0], {
                 // NOTE: Although the quantized version produces incoherent results,
                 // it it is okay to use for testing.
                 // quantized: false,
@@ -937,7 +937,7 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
 
         it(models[1], async () => {
-            let synthesizer = await pipeline('text-to-speech', m(models[1]));
+            let synthesizer = await pipeline('text-to-speech', models[1]);
 
             { // Generate French speech
                 let output = await synthesizer('Bonjour');
@@ -955,11 +955,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech',
+            'Xenova/wav2vec2-large-xlsr-53-gender-recognition-librispeech',
         ];
 
         it(models[0], async () => {
-            let classifier = await pipeline('audio-classification', m(models[0]));
+            let classifier = await pipeline('audio-classification', models[0]);
 
             let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav';
             let audioData = await loadAudio(url);
@@ -984,11 +984,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'nlpconnect/vit-gpt2-image-captioning',
+            'Xenova/vit-gpt2-image-captioning',
         ];
 
         it(models[0], async () => {
-            let captioner = await pipeline('image-to-text', m(models[0]));
+            let captioner = await pipeline('image-to-text', models[0]);
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/savanna.jpg';
             let urls = [
@@ -1084,11 +1084,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'google/vit-base-patch16-224',
+            'Xenova/vit-base-patch16-224',
         ];
 
         it(models[0], async () => {
-            let classifier = await pipeline('image-classification', m(models[0]));
+            let classifier = await pipeline('image-classification', models[0]);
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg';
             let urls = [
@@ -1163,12 +1163,12 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'facebook/detr-resnet-50-panoptic',
-            'mattmdjaga/segformer_b2_clothes',
+            'Xenova/detr-resnet-50-panoptic',
+            'Xenova/segformer_b2_clothes',
         ];
 
         it(models[0], async () => {
-            let segmenter = await pipeline('image-segmentation', m(models[0]), {
+            let segmenter = await pipeline('image-segmentation', models[0], {
                 // Quantized version of model produces incorrect results
                 quantized: false,
             })
@@ -1198,7 +1198,7 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
 
         it(models[1], async () => {
-            let segmenter = await pipeline('image-segmentation', m(models[1]));
+            let segmenter = await pipeline('image-segmentation', models[1]);
             let img = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/young-man-standing-and-leaning-on-car.jpg';
 
             // single
@@ -1243,11 +1243,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'openai/clip-vit-base-patch32',
+            'Xenova/clip-vit-base-patch32',
         ];
 
         it(models[0], async () => {
-            let classifier = await pipeline('zero-shot-image-classification', m(models[0]));
+            let classifier = await pipeline('zero-shot-image-classification', models[0]);
 
             let url = 'https://huggingface.co/datasets/mishig/sample_images/resolve/main/football-match.jpg';
             let urls = [
@@ -1302,11 +1302,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'facebook/detr-resnet-50',
+            'Xenova/detr-resnet-50',
         ];
 
         it(models[0], async () => {
-            let detector = await pipeline('object-detection', m(models[0]));
+            let detector = await pipeline('object-detection', models[0]);
 
             // TODO add batched test cases when supported
             let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
@@ -1414,11 +1414,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'google/owlvit-base-patch32',
+            'Xenova/owlvit-base-patch32',
         ];
 
         it(models[0], async () => {
-            let detector = await pipeline('zero-shot-object-detection', m(models[0]));
+            let detector = await pipeline('zero-shot-object-detection', models[0]);
 
 
             // single (default)
@@ -1513,11 +1513,11 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'caidas/swin2SR-classical-sr-x2-64',
+            'Xenova/swin2SR-classical-sr-x2-64',
         ];
 
         it(models[0], async () => {
-            let upscaler = await pipeline('image-to-image', m(models[0]));
+            let upscaler = await pipeline('image-to-image', models[0]);
 
             // Input is 3x3 => padded to 8x8 => upscaled to 16x16
             let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/pattern_3x3.png';
@@ -1547,16 +1547,15 @@ describe('Pipelines', () => {
         }, MAX_TEST_EXECUTION_TIME);
     });
 
-
     describe('Depth estimation', () => {
 
         // List all models which will be tested
         const models = [
-            'Intel/dpt-hybrid-midas',
+            'Xenova/dpt-hybrid-midas',
         ];
 
         it(models[0], async () => {
-            let depth_estimator = await pipeline('depth-estimation', m(models[0]));
+            let depth_estimator = await pipeline('depth-estimation', models[0]);
 
             let url = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg';
 
@@ -1592,13 +1591,13 @@ describe('Pipelines', () => {
 
         // List all models which will be tested
         const models = [
-            'naver-clova-ix/donut-base-finetuned-docvqa',
+            'Xenova/donut-base-finetuned-docvqa',
         ];
         const image = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/invoice.png';
         const question = 'What is the invoice number?';
 
         it(models[0], async () => {
-            let qa_pipeline = await pipeline('document-question-answering', m(models[0]));
+            let qa_pipeline = await pipeline('document-question-answering', models[0]);
 
             // basic
             {

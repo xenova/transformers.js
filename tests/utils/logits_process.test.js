@@ -3,10 +3,10 @@ import {
     // Pipelines
     pipeline,
     TextGenerationPipeline,
-} from '../src/transformers.js';
+} from '../../src/transformers.js';
 
-import { init } from './init.js';
-import { compare } from './test_utils.js';
+import { init } from '../init.js';
+import { compare } from '../test_utils.js';
 init();
 
 const MAX_MODEL_LOAD_TIME = 10_000; // 10 seconds
