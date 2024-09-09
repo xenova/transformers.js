@@ -18,12 +18,18 @@ describe("Tokenizers (model-specific)", () => {
 
           for (const [test_name, test_case] of Object.entries(TEST_CONFIG[model_id])) {
             test(test_name, () => {
-              const ids = tokenizer.encode(test_case.text);
-              expect(ids).toEqual(test_case.ids);
-              const tokens = tokenizer.tokenize(test_case.text);
-              expect(tokens).toEqual(test_case.tokens);
-              const decoded = tokenizer.decode(test_case.ids);
-              expect(decoded).toEqual(test_case.decoded);
+              if (test_case.ids) {
+                const ids = tokenizer.encode(test_case.text);
+                expect(ids).toEqual(test_case.ids);
+              }
+              if (test_case.tokens) {
+                const tokens = tokenizer.tokenize(test_case.text);
+                expect(tokens).toEqual(test_case.tokens);
+              }
+              if (test_case.decoded) {
+                const decoded = tokenizer.decode(test_case.ids);
+                expect(decoded).toEqual(test_case.decoded);
+              }
             });
           }
         });

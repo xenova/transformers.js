@@ -69,3 +69,10 @@ export const QWEN_TEST_STRINGS = {
 export const WHISPER_TEST_STRINGS = {
   SPECIAL_TOKENS: "   <|startoftranscript|> <|en|>   ", // Tests lstrip+rstrip
 };
+
+export const BLENDERBOT_SMALL_TEST_STRINGS = {
+  SPECIAL_TOKENS: "__start__hello world__end__",
+  // The original (python) tokenizer simply joins by spaces (regardless of special tokens or not)
+  WHITESPACE_1: "__start__ hey __end__",  // --> ... --> "__start__ hey __end__"
+  WHITESPACE_2: "__start__hey __end__",  // --> ... --> "__start__ hey __end__"
+};
