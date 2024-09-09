@@ -1,1 +1,10 @@
-{}
+{
+    "overrides": [
+        {
+            "files": ["tests/**/*.js"],
+            "options": {
+              "printWidth": 10000000
+            }
+        }
+    ]
+}
