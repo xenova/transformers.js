@@ -76,3 +76,12 @@ export const BLENDERBOT_SMALL_TEST_STRINGS = {
   WHITESPACE_1: "__start__ hey __end__",  // --> ... --> "__start__ hey __end__"
   WHITESPACE_2: "__start__hey __end__",  // --> ... --> "__start__ hey __end__"
 };
+
+export const T5_TEST_STRINGS = {
+  // Tests the new T5 tokenizer, which uses a different prepend_scheme for its pre_tokenizer:
+  // tokenizer._tokenizer.pre_tokenizer = Metaspace(add_prefix_space = True, replacement = "▁", prepend_scheme = "first")
+  // See https://github.com/huggingface/transformers/pull/26678 for more information.
+  //  - Old (incorrect): ['▁Hey', '▁', '</s>', '▁', '.', '▁how', '▁are', '▁you']
+  //  - New (correct):   ['▁Hey', '▁', '</s>', '.', '▁how', '▁are', '▁you']
+  PREPEND_SCHEME: "Hey </s>. how are you",
+};
