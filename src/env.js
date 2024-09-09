@@ -73,19 +73,19 @@ export const apis = Object.freeze({
 });
 
 const RUNNING_LOCALLY = IS_FS_AVAILABLE && IS_PATH_AVAILABLE;
-const __dirname = RUNNING_LOCALLY
+const dirname__ = RUNNING_LOCALLY
     ? path.dirname(path.dirname(url.fileURLToPath(import.meta.url)))
     : './';
 
 // Only used for environments with access to file system
 const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
-    ? path.join(__dirname, '/.cache/')
+    ? path.join(dirname__, '/.cache/')
     : null;
 
 // Set local model path, based on available APIs
 const DEFAULT_LOCAL_MODEL_PATH = '/models/';
 const localModelPath = RUNNING_LOCALLY
-    ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
+    ? path.join(dirname__, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
 /**
