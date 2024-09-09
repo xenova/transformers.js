@@ -2538,8 +2538,6 @@ export class PreTrainedTokenizer extends Callable {
                 this.all_special_ids.push(token.id);
             }
         }
-        // Sort by length (desc) to avoid early partial matches
-        this.added_tokens.sort((a, b) => b.content.length - a.content.length)
 
         // Update additional_special_tokens
         this.additional_special_tokens = tokenizerConfig.additional_special_tokens ?? [];
@@ -2558,7 +2556,9 @@ export class PreTrainedTokenizer extends Callable {
         }
 
         this.added_tokens_regex = this.added_tokens.length > 0 ? new RegExp(
-            this.added_tokens
+            this.added_tokens.slice()
+                // Sort by length (desc) to avoid early partial matches
+                .sort((a, b) => b.content.length - a.content.length)
                 .map(x => `${x.lstrip ? '\\s*' : ''}(${escapeRegExp(x.content)})${x.rstrip ? '\\s*' : ''}`)
                 .join('|')
         ) : null;
