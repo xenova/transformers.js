@@ -238,10 +238,11 @@ export function is_chinese_char(cp) {
 /**
  * Helper function to fuse consecutive values in an array equal to the specified value.
  * @param {string[]} arr The input array
- * @param {any} value The value to fuse on.
  * @param {Map<string, any>} mapping The mapping from input domain to value.
+ * @param {any} value The value to fuse on.
+ * @private
  */
-function fuse(arr, value, mapping) {
+function fuse(arr, mapping, value) {
     const fused = [];
     let i = 0;
     while (i < arr.length) {
@@ -251,8 +252,8 @@ function fuse(arr, value, mapping) {
             continue;
         }
 
-        while (i < arr.length && (mapping.get(arr[i]) ?? value) === value) {
-            ++i;
+        while (++i < arr.length && (mapping.get(arr[i]) ?? value) === value) {
+            fused[fused.length - 1] += arr[i];
         }
     }
 
@@ -375,7 +376,7 @@ export class TokenizerModel extends Callable {
         let ids = this.encode(tokens);
         if (this.fuse_unk) {
             // Fuse unknown tokens
-            ids = fuse(ids, this.unk_token_id, this.tokens_to_ids);
+            ids = fuse(ids, this.tokens_to_ids, this.unk_token_id);
         }
         return ids;
     }
