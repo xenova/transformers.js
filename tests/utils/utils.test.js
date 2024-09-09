@@ -1,8 +1,8 @@
-import { AutoProcessor, hamming, hanning, mel_filter_bank } from "../src/transformers.js";
-import { getFile } from "../src/utils/hub.js";
+import { AutoProcessor, hamming, hanning, mel_filter_bank } from "../../src/transformers.js";
+import { getFile } from "../../src/utils/hub.js";
 
-import { MAX_TEST_EXECUTION_TIME } from "./init.js";
-import { compare } from "./test_utils.js";
+import { MAX_TEST_EXECUTION_TIME } from "../init.js";
+import { compare } from "../test_utils.js";
 
 describe("Utilities", () => {
   describe("Audio utilities", () => {

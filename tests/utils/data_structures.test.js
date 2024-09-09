@@ -1,4 +1,4 @@
-import { PriorityQueue } from "../src/utils/data-structures.js";
+import { PriorityQueue } from "../../src/utils/data-structures.js";
 
 describe("Priority queue", () => {
   const EXAMPLE_ARRAY = [2, 5, 3, 1, 4];

@@ -1,5 +1,5 @@
-import { Tensor, interpolate_4d, matmul, rfft } from "../src/transformers.js";
-import { init } from "./init.js";
+import { Tensor, interpolate_4d, matmul, rfft } from "../../src/transformers.js";
+import { init } from "../init.js";
 
 // Initialise the testing environment
 init();
