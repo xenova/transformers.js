@@ -190,20 +190,20 @@ export const TEST_CONFIG = {
       ids: [1, 29871, 30411],
       decoded: "<s> \u9547",
     },
-    EMOJIS: {
-      text: LLAMA_TEST_STRINGS.EMOJIS,
+    EMOJIS_1: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_1,
       tokens: ["\u2581", "<0xF0>", "<0x9F>", "<0xA6>", "<0x99>"],
       ids: [1, 29871, 243, 162, 169, 156],
       decoded: "<s> \ud83e\udd99",
     },
-    EMOJIS_1: {
-      text: LLAMA_TEST_STRINGS.EMOJIS_1,
+    EMOJIS_2: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_2,
       tokens: ["\u2581", "<0xF0>", "<0x9F>", "<0xA6>", "<0x99>", "<0xEA>", "<0x99>", "<0x8A>"],
       ids: [1, 29871, 243, 162, 169, 156, 237, 156, 141],
       decoded: "<s> \ud83e\udd99\ua64a",
     },
-    EMOJIS_2: {
-      text: LLAMA_TEST_STRINGS.EMOJIS_2,
+    EMOJIS_3: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_3,
       tokens: ["\u2581", "<0xEA>", "<0x99>", "<0x8A>", "<0xF0>", "<0x9F>", "<0xA6>", "<0x99>"],
       ids: [1, 29871, 237, 156, 141, 243, 162, 169, 156],
       decoded: "<s> \ua64a\ud83e\udd99",
@@ -402,20 +402,20 @@ export const TEST_CONFIG = {
       ids: [104643],
       decoded: "\u9547",
     },
-    EMOJIS: {
-      text: LLAMA_TEST_STRINGS.EMOJIS,
+    EMOJIS_1: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_1,
       tokens: ["\u00f0\u0141", "\u00a6", "\u013b"],
       ids: [9468, 99, 247],
       decoded: "\ud83e\udd99",
     },
-    EMOJIS_1: {
-      text: LLAMA_TEST_STRINGS.EMOJIS_1,
+    EMOJIS_2: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_2,
       tokens: ["\u00f0\u0141", "\u00a6", "\u013b", "\u00ea", "\u013b", "\u012c"],
       ids: [9468, 99, 247, 166, 247, 232],
       decoded: "\ud83e\udd99\ua64a",
     },
-    EMOJIS_2: {
-      text: LLAMA_TEST_STRINGS.EMOJIS_2,
+    EMOJIS_3: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_3,
       tokens: ["\u00ea", "\u013b", "\u012c", "\u00f0\u0141", "\u00a6", "\u013b"],
       ids: [166, 247, 232, 9468, 99, 247],
       decoded: "\ua64a\ud83e\udd99",
@@ -614,20 +614,20 @@ export const TEST_CONFIG = {
       ids: [128000, 104643],
       decoded: "<|begin_of_text|>\u9547",
     },
-    EMOJIS: {
-      text: LLAMA_TEST_STRINGS.EMOJIS,
+    EMOJIS_1: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_1,
       tokens: ["\u00f0\u0141", "\u00a6", "\u013b"],
       ids: [128000, 9468, 99, 247],
       decoded: "<|begin_of_text|>\ud83e\udd99",
     },
-    EMOJIS_1: {
-      text: LLAMA_TEST_STRINGS.EMOJIS_1,
+    EMOJIS_2: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_2,
       tokens: ["\u00f0\u0141", "\u00a6", "\u013b", "\u00ea", "\u013b", "\u012c"],
       ids: [128000, 9468, 99, 247, 166, 247, 232],
       decoded: "<|begin_of_text|>\ud83e\udd99\ua64a",
     },
-    EMOJIS_2: {
-      text: LLAMA_TEST_STRINGS.EMOJIS_2,
+    EMOJIS_3: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_3,
       tokens: ["\u00ea", "\u013b", "\u012c", "\u00f0\u0141", "\u00a6", "\u013b"],
       ids: [128000, 166, 247, 232, 9468, 99, 247],
       decoded: "<|begin_of_text|>\ua64a\ud83e\udd99",
@@ -894,20 +894,20 @@ export const TEST_CONFIG = {
       ids: [32013, 6759],
       decoded: "<\uff5cbegin\u2581of\u2581sentence\uff5c>\u9547",
     },
-    EMOJIS: {
-      text: LLAMA_TEST_STRINGS.EMOJIS,
+    EMOJIS_1: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_1,
       tokens: ["\u00f0\u0141", "\u00a6", "\u013b"],
       ids: [32013, 10047, 99, 234],
       decoded: "<\uff5cbegin\u2581of\u2581sentence\uff5c>\ud83e\udd99",
     },
-    EMOJIS_1: {
-      text: LLAMA_TEST_STRINGS.EMOJIS_1,
+    EMOJIS_2: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_2,
       tokens: ["\u00f0\u0141", "\u00a6", "\u013b", "\u00ea", "\u013b", "\u012c"],
       ids: [32013, 10047, 99, 234, 164, 234, 219],
       decoded: "<\uff5cbegin\u2581of\u2581sentence\uff5c>\ud83e\udd99\ua64a",
     },
-    EMOJIS_2: {
-      text: LLAMA_TEST_STRINGS.EMOJIS_2,
+    EMOJIS_3: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_3,
       tokens: ["\u00ea", "\u013b", "\u012c", "\u00f0\u0141", "\u00a6", "\u013b"],
       ids: [32013, 164, 234, 219, 10047, 99, 234],
       decoded: "<\uff5cbegin\u2581of\u2581sentence\uff5c>\ua64a\ud83e\udd99",
@@ -919,7 +919,6 @@ export const TEST_CONFIG = {
       decoded: '<\uff5cbegin\u2581of\u2581sentence\uff5c>The llama (/\u02c8l\u0251\u02d0m\u0259/; \ud83e\udd99Spanish pronunciation: [\u02c8\u028eama]) (Lama glama) is a domesticated South American camelid, widely used as a meat and pack animal by Andean cultures since the Pre-Columbian era. Llamas are social animals and live with others as a herd. Their wool is soft and contains only a small amount of lanolin.[2] Llamas can learn simple tasks after a few repetitions. When using a pack, they can carry about 25 to 30% of their body weight for 8 to 13 km (5\u20138 miles).[3] The name llama (in the past also spelled "lama" or "glama") was adopted by European settlers from native Peruvians.[4] The ancestors of llamas are thought to have originated from the Great Plains of North America about 40 million years ago, and subsequently migrated to South America about three million years ago during the Great American Interchange. By the end of the last ice age (10,000\u201312,000 years ago), camelids were extinct in North America.[3] As of 2007, there were over seven million llamas and alpacas in South America and over 158,000 llamas and 100,000\ua64a\ud83e\udd99 alpacas, descended from progenitors imported late in the 20th century, in the United States and Canada.[5] In Aymara mythology, llamas are important beings. The Heavenly Llama is said to drink water from the ocean and urinates as it rains.[6] According to Aymara eschatology, llamas will return to the water springs and lagoons where they come from at the end of time.[6]',
     },
   },
-  // https://github.com/huggingface/transformers/issues/28096
   "Xenova/tamillama_tiny_30m": {
     TEXT_WITH_NUMBERS: {
       text: BASE_TEST_STRINGS.TEXT_WITH_NUMBERS,
@@ -1083,12 +1082,6 @@ export const TEST_CONFIG = {
       ids: [1, 31654, 0],
       decoded: "<s> <unk>",
     },
-    EMOJIS: {
-      text: LLAMA_TEST_STRINGS.EMOJIS,
-      tokens: ["\u2581", "<unk>"],
-      ids: [1, 31654, 0],
-      decoded: "<s> <unk>",
-    },
     EMOJIS_1: {
       text: LLAMA_TEST_STRINGS.EMOJIS_1,
       tokens: ["\u2581", "<unk>"],
@@ -1097,6 +1090,12 @@ export const TEST_CONFIG = {
     },
     EMOJIS_2: {
       text: LLAMA_TEST_STRINGS.EMOJIS_2,
+      tokens: ["\u2581", "<unk>"],
+      ids: [1, 31654, 0],
+      decoded: "<s> <unk>",
+    },
+    EMOJIS_3: {
+      text: LLAMA_TEST_STRINGS.EMOJIS_3,
       tokens: ["\u2581", "<unk>"],
       ids: [1, 31654, 0],
       decoded: "<s> <unk>",
