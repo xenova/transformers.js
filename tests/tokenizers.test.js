@@ -35,9 +35,7 @@ describe("Tokenizers (model-specific)", () => {
         });
       }
       // Run custom tests, if they exist
-      if (CUSTOM_TESTS) {
-        describe("custom", CUSTOM_TESTS);
-      }
+      CUSTOM_TESTS && describe("custom", CUSTOM_TESTS);
     });
   }
 });
