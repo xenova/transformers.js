@@ -4372,6 +4372,13 @@ export class VitsTokenizer extends PreTrainedTokenizer {
 
 export class CohereTokenizer extends PreTrainedTokenizer { }
 
+export class ErnieMTokenizer extends PreTrainedTokenizer {
+    constructor(tokenizerJSON, tokenizerConfig) {
+        super(tokenizerJSON, tokenizerConfig);
+        console.warn('WARNING: `ErnieMTokenizer` is not yet supported by Hugging Face\'s "fast" tokenizers library. Therefore, you may experience slightly inaccurate results.')
+    }
+}
+
 /**
  * Helper class which is used to instantiate pretrained tokenizers with the `from_pretrained` function.
  * The chosen tokenizer class is determined by the type specified in the tokenizer config.
@@ -4425,6 +4432,7 @@ export class AutoTokenizer {
         GemmaTokenizer,
         Grok1Tokenizer,
         CohereTokenizer,
+        ErnieMTokenizer,
 
         // Base case:
         PreTrainedTokenizer,
