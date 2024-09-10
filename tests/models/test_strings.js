@@ -85,3 +85,8 @@ export const T5_TEST_STRINGS = {
   //  - New (correct):   ['▁Hey', '▁', '</s>', '.', '▁how', '▁are', '▁you']
   PREPEND_SCHEME: "Hey </s>. how are you",
 };
+
+export const FALCON_TEST_STRINGS = {
+  // Special case for splitting on 3 numbers
+  NUMBERS_SPLIT: "12 and 123 and 1234",
+};
