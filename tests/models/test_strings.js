@@ -90,3 +90,11 @@ export const FALCON_TEST_STRINGS = {
   // Special case for splitting on 3 numbers
   NUMBERS_SPLIT: "12 and 123 and 1234",
 };
+
+export const ESM_TEST_STRINGS = {
+  // Special tokens
+  SPECIAL_TOKENS: "<unk><pad><mask><cls><eos><bos>",
+  // Actual protein sequences
+  PROTEIN_SEQUENCES_1: "ATTCCGATTCCGATTCCG",
+  PROTEIN_SEQUENCES_2: "ATTTCTCTCTCTCTCTGAGATCGATCGATCGAT",
+};
