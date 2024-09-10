@@ -1288,7 +1288,7 @@ export class PreTrainedModel extends Callable {
      * Adds past key values to the decoder feeds object. If pastKeyValues is null, creates new tensors for past key values.
      *
      * @param {Object} decoderFeeds The decoder feeds object to add past key values to.
-     * @param {Object} pastKeyValues An object containing past key values.
+     * @param {Object} [pastKeyValues] An object containing past key values.
      */
     addPastKeyValues(decoderFeeds, pastKeyValues) {
         if (pastKeyValues) {
