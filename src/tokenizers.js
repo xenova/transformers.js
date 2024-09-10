@@ -236,24 +236,26 @@ export function is_chinese_char(cp) {
 }
 
 /**
- * Helper function to fuse consecutive values in an array equal to the specified value.
- * @param {string[]} arr The input array
- * @param {Map<string, any>} mapping The mapping from input domain to value.
- * @param {any} value The value to fuse on.
+ * Helper function to fuse consecutive unknown tokens.
+ * @param {string[]} arr The list of input tokens
+ * @param {Map<string, any>} tokens_to_ids The mapping from tokens to token ids.
+ * @param {number} unk_token_id The value to fuse on.
  * @private
  */
-function fuse(arr, mapping, value) {
+function fuse_unk(arr, tokens_to_ids, unk_token_id) {
     const fused = [];
     let i = 0;
     while (i < arr.length) {
         fused.push(arr[i])
-        if ((mapping.get(arr[i]) ?? value) !== value) {
+        if ((tokens_to_ids.get(arr[i]) ?? unk_token_id) !== unk_token_id) {
             ++i;
             continue;
         }
 
-        while (++i < arr.length && (mapping.get(arr[i]) ?? value) === value) {
-            fused[fused.length - 1] += arr[i];
+        while (++i < arr.length && (tokens_to_ids.get(arr[i]) ?? unk_token_id) === unk_token_id) {
+            if (tokens_to_ids.get(fused.at(-1)) !== unk_token_id) {
+                fused[fused.length - 1] += arr[i];
+            }
         }
     }
 
@@ -370,15 +372,15 @@ export class TokenizerModel extends Callable {
     /**
      * Internal function to call the TokenizerModel instance.
      * @param {string[]} tokens The tokens to encode.
-     * @returns {string[]} The encoded token IDs.
+     * @returns {string[]} The encoded tokens.
      */
     _call(tokens) {
-        let ids = this.encode(tokens);
+        tokens = this.encode(tokens);
         if (this.fuse_unk) {
             // Fuse unknown tokens
-            ids = fuse(ids, this.tokens_to_ids, this.unk_token_id);
+            tokens = fuse_unk(tokens, this.tokens_to_ids, this.unk_token_id);
         }
-        return ids;
+        return tokens;
     }
 
     /**
@@ -876,15 +878,19 @@ class BPE extends TokenizerModel {
             for (const t of bpe_token_list) {
                 if (this.tokens_to_ids.has(t)) {
                     outputTokens.push(t);
-                } else {
-                    if (this.byte_fallback) {
-                        outputTokens.push(
-                            ...Array.from(this.text_encoder.encode(t))
-                                .map(x => `<0x${x.toString(16).toUpperCase().padStart(2, '0')}>`)
-                        );
+                } else if (this.byte_fallback) {
+                    const byteTokens = Array.from(this.text_encoder.encode(t))
+                        .map(x => `<0x${x.toString(16).toUpperCase().padStart(2, '0')}>`);
+                    if (byteTokens.every(x => this.tokens_to_ids.has(x))) {
+                        // Ensure the byte tokens are actually in the vocabulary, otherwise
+                        // we fall back to the unknown token. For more information, see
+                        // https://github.com/huggingface/transformers/issues/28096.
+                        outputTokens.push(...byteTokens);
                     } else {
                         outputTokens.push(this.unk_token);
                     }
+                } else {
+                    outputTokens.push(this.unk_token);
                 }
             }
         }
