@@ -1,5 +1,5 @@
 
-import { pipeline } from '@xenova/transformers';
+import { pipeline } from '@huggingface/transformers';
 
 const PER_DEVICE_CONFIG = {
     webgpu: {
