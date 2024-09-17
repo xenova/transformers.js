@@ -195,7 +195,7 @@ function clean_up_tokenization(text) {
  * @returns {string} The text with accents removed.
  */
 function remove_accents(text) {
-    return text.replace(/[\u0300-\u036f]/g, '');
+    return text.replace(/\p{M}/gu, '');
 }
 
 /**
@@ -1214,7 +1214,8 @@ class BertNormalizer extends Normalizer {
      * @returns {string} The text with accents removed.
      */
     stripAccents(text) {
-        return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        // "Mark, Nonspacing" (Mn)
+        return text.normalize('NFD').replace(/\p{Mn}/gu, '');
     }
 
 
