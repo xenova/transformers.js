@@ -239,6 +239,9 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
             /** @type {Record<string, import('onnxruntime-common').Tensor.DataLocation>} */
             const preferredOutputLocation = {};
             for (const key in shapes) {
+                // TODO: For now, we keep encoder outputs on the CPU
+                // (otherwise, this causes a memory leak or throws an error "Error: previous buffer is not registered")
+                if (key.includes('encoder')) continue;
                 preferredOutputLocation[key] = 'gpu-buffer';
             }
             session_options.preferredOutputLocation = preferredOutputLocation;
@@ -1459,13 +1462,12 @@ export class PreTrainedModel extends Callable {
         // - GenerationMode.BEAM_SEARCH
         // - GenerationMode.BEAM_SAMPLE
         ////////////////////////////////////////////////////
-        let past_key_values = null;
+        let outputs;
         let attentions = {};
         while (true) {
             // prepare model inputs
             model_inputs = this.prepare_inputs_for_generation(all_input_ids, model_inputs, generation_config);
-
-            const outputs = await this.forward(model_inputs);
+            outputs = await this.forward(model_inputs);
 
             if (generation_config.output_attentions && generation_config.return_dict_in_generate) {
                 // Get attentions if they are present
@@ -1512,10 +1514,6 @@ export class PreTrainedModel extends Callable {
 
             const stop = prepared_stopping_criteria(all_input_ids);
             if (stop.every(x => x)) {
-                if (generation_config.return_dict_in_generate) {
-                    // Get past key values without disposing buffers
-                    past_key_values = this.getPastKeyValues(outputs, model_inputs.past_key_values, false);
-                }
                 break;
             }
 
@@ -1527,6 +1525,9 @@ export class PreTrainedModel extends Callable {
         if (streamer) {
             streamer.end();
         }
+
+        // Retrieve and dispose all final past key values (including encoder attentions)
+        const past_key_values = this.getPastKeyValues(outputs, model_inputs.past_key_values, true);
 
         // TODO: ensure all_input_ids is padded correctly...
         const sequences = new Tensor('int64', all_input_ids.flat(), [all_input_ids.length, all_input_ids[0].length]);
@@ -1541,6 +1542,12 @@ export class PreTrainedModel extends Callable {
                 // logits,
             }
         } else {
+            // Dispose all remaining tensors
+            for (const tensor of Object.values(outputs)) {
+                if (tensor.location === 'gpu-buffer') {
+                    tensor.dispose();
+                }
+            }
             return sequences;
         }
     }
@@ -1550,30 +1557,31 @@ export class PreTrainedModel extends Callable {
      *
      * @param {Object} decoderResults The decoder results object.
      * @param {Object} pastKeyValues The previous past key values.
-     * @param {boolean} [dispose=true] Whether to dispose of the old gpu buffer.
      * @returns {Object} An object containing past key values.
      */
-    getPastKeyValues(decoderResults, pastKeyValues, dispose = true) {
+    getPastKeyValues(decoderResults, pastKeyValues, disposeEncoderPKVs = false) {
         const pkvs = Object.create(null);
 
         for (const name in decoderResults) {
             if (name.startsWith('present')) {
                 const newName = name.replace('present', 'past_key_values');
-
-                if (pastKeyValues && name.includes('encoder')) {
-                    // Optimization introduced by optimum to reuse past key values. So, we just replace the constant
-                    // outputs with the previous past key values.
+                const is_encoder_pkv = name.includes('encoder');
+                if (is_encoder_pkv && pastKeyValues) {
+                    // Optimization introduced by optimum to reuse past key values.
+                    // So, we just replace the constant outputs (`decoderResults[name]`) with the previous past key values.
                     // https://github.com/huggingface/optimum/blob/0bf2c05fb7e1182b52d21b703cfc95fd9e4ea3dc/optimum/onnxruntime/base.py#L677-L704
                     pkvs[newName] = pastKeyValues[newName];
-                } else {
-                    if (dispose && pastKeyValues) {
-                        // Free old gpu buffer
-                        const t = pastKeyValues[newName];
-                        if (t.location === 'gpu-buffer') {
-                            t.dispose();
-                        }
-                    }
+                } else { // decoder or using first encoder PKVs
                     pkvs[newName] = decoderResults[name];
+                }
+
+                if (pastKeyValues && (!is_encoder_pkv || disposeEncoderPKVs)) {
+                    // - Always dispose decoder PKVs
+                    // - Only dispose encoder past key values when requested (after generation)
+                    const t = pastKeyValues[newName];
+                    if (t.location === 'gpu-buffer') {
+                        t.dispose();
+                    }
                 }
             }
         }
