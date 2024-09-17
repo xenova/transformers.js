@@ -398,37 +398,6 @@ function toI64Tensor(items) {
 }
 
 /**
- * Prepares an attention mask for a sequence of tokens based on configuration options.
- * @param {Object} self The calling object instance.
- * @param {Tensor} tokens The input tokens.
- * @returns {Tensor} The attention mask tensor.
- * @private
- */
-function prepareAttentionMask(self, tokens) {
-
-    // Prepare attention mask
-    let pad_token_id = self.config.pad_token_id ?? null;
-    let eos_token_id = self.config.eos_token_id ?? null;
-    if (isIntegralNumber(eos_token_id)) {
-        eos_token_id = [eos_token_id];
-    }
-
-    let is_pad_token_in_inputs = tokens.indexOf(pad_token_id) !== -1;
-    let is_pad_token_not_equal_to_eos_token_id = (eos_token_id === null) || !eos_token_id.includes(pad_token_id)
-
-    if (is_pad_token_in_inputs && is_pad_token_not_equal_to_eos_token_id) {
-        let data = BigInt64Array.from(
-            // Note: != so that int matches bigint
-            // @ts-ignore
-            tokens.data.map(x => x != pad_token_id)
-        )
-        return new Tensor('int64', data, tokens.dims)
-    } else {
-        return ones_like(tokens);
-    }
-}
-
-/**
  * Creates a boolean tensor with a single value.
  * @param {boolean} value The value of the tensor.
  * @returns {Tensor} The boolean tensor.
@@ -698,8 +667,8 @@ function image_text_to_text_prepare_inputs_for_generation(self, ...args) {
     } else {
         return decoder_prepare_inputs_for_generation(self, ...args);
     }
-
 }
+
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
