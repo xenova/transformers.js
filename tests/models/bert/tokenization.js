@@ -136,6 +136,18 @@ export const TEST_CONFIG = {
       ids: [101, 100, 100, 100, 100, 100, 1012, 102],
       decoded: "[CLS] [UNK] [UNK] [UNK] [UNK] [UNK]. [SEP]",
     },
+    POPULAR_EMOJIS: {
+      text: BASE_TEST_STRINGS.POPULAR_EMOJIS,
+      tokens: ["[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]"],
+      ids: [101, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 102],
+      decoded: "[CLS] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [SEP]",
+    },
+    MULTIBYTE_EMOJIS: {
+      text: BASE_TEST_STRINGS.MULTIBYTE_EMOJIS,
+      tokens: ["[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]"],
+      ids: [101, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 102],
+      decoded: "[CLS] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [SEP]",
+    },
     CHINESE_LATIN_MIXED: {
       text: BERT_TEST_STRINGS.CHINESE_LATIN_MIXED,
       tokens: ["ah", "\u535a", "[UNK]", "z", "##z"],
@@ -479,6 +491,18 @@ export const TEST_CONFIG = {
       ids: [0, 3293, 83, 10, 3034, 6, 5, 2],
       decoded: "<s> This is a test.</s>",
     },
+    POPULAR_EMOJIS: {
+      text: BASE_TEST_STRINGS.POPULAR_EMOJIS,
+      tokens: ["\u2581", "\ud83d\ude02", "\u2581", "\ud83d\udc4d", "\u2581", "\ud83e\udd23", "\u2581", "\ud83d\ude0d", "\u2581", "\ud83d\ude2d", "\u2581", "\ud83c\udf89", "\u2581", "\ud83d\ude4f", "\u2581", "\ud83d\ude0a", "\u2581", "\ud83d\udd25", "\u2581", "\ud83d\ude01", "\u2581", "\ud83d\ude05", "\u2581", "\ud83e\udd17", "\u2581", "\ud83d\ude06", "\u2581", "\ud83d\udc4f", "\u2581\u2764", "\ufe0f", "\u2581", "\ud83d\udc9c", "\u2581", "\ud83d\udc9a", "\u2581", "\ud83d\udc97", "\u2581", "\ud83d\udc99", "\u2581", "\ud83d\udda4", "\u2581", "\ud83d\ude0e", "\u2581", "\ud83d\udc4c", "\u2581", "\ud83e\udd73", "\u2581", "\ud83d\udcaa", "\u2581", "\u2728", "\u2581", "\ud83d\udc49", "\u2581", "\ud83d\udc40", "\u2581", "\ud83d\udcaf", "\u2581", "\ud83c\udf88", "\u2581", "\ud83d\ude48", "\u2581", "\ud83d\ude4c", "\u2581", "\ud83d\udc80", "\u2581", "\ud83d\udc47", "\u2581", "\ud83d\udc4b", "\u2581", "\u2705", "\u2581", "\ud83c\udf81", "\u2581", "\ud83c\udf1e", "\u2581", "\ud83c\udf38", "\u2581", "\ud83d\udcb0"],
+      ids: [0, 6, 115114, 6, 118280, 6, 243385, 6, 84464, 6, 232773, 6, 243816, 6, 113612, 6, 82803, 6, 222326, 6, 201344, 6, 239569, 6, 243544, 6, 191876, 6, 243404, 49933, 15755, 6, 244233, 6, 244162, 6, 244181, 6, 243892, 6, 245820, 6, 161546, 6, 204811, 6, 3, 6, 238992, 6, 167474, 6, 120242, 6, 245561, 6, 244864, 6, 246144, 6, 244459, 6, 244703, 6, 246887, 6, 144400, 6, 246511, 6, 142325, 6, 244230, 6, 245559, 6, 243374, 6, 245200, 2],
+      decoded: "<s> \ud83d\ude02 \ud83d\udc4d \ud83e\udd23 \ud83d\ude0d \ud83d\ude2d \ud83c\udf89 \ud83d\ude4f \ud83d\ude0a \ud83d\udd25 \ud83d\ude01 \ud83d\ude05 \ud83e\udd17 \ud83d\ude06 \ud83d\udc4f \u2764\ufe0f \ud83d\udc9c \ud83d\udc9a \ud83d\udc97 \ud83d\udc99 \ud83d\udda4 \ud83d\ude0e \ud83d\udc4c <unk> \ud83d\udcaa \u2728 \ud83d\udc49 \ud83d\udc40 \ud83d\udcaf \ud83c\udf88 \ud83d\ude48 \ud83d\ude4c \ud83d\udc80 \ud83d\udc47 \ud83d\udc4b \u2705 \ud83c\udf81 \ud83c\udf1e \ud83c\udf38 \ud83d\udcb0</s>",
+    },
+    MULTIBYTE_EMOJIS: {
+      text: BASE_TEST_STRINGS.MULTIBYTE_EMOJIS,
+      tokens: ["\u2581", "\u2728", "\u2581", "\ud83e\udd17", "\u2581", "\ud83d\udc41", "\ufe0f", "\u2581", "\ud83d\udc71", "\ud83c\udffb", "\u2581", "\ud83d\udd75", "\u2581", "\u2642", "\ufe0f", "\u2581", "\ud83e\uddd9", "\ud83c\udffb", "\u2581", "\u2642", "\u2581", "\ud83d\udc68", "\ud83c\udffb", "\u2581", "\ud83c\udf3e", "\u2581", "\ud83e\uddd1", "\u2581", "\ud83e\udd1d", "\u2581", "\ud83e\uddd1", "\u2581", "\ud83d\udc69", "\u2581\u2764", "\u2581", "\ud83d\udc8b", "\u2581", "\ud83d\udc68", "\u2581", "\ud83d\udc69", "\u2581", "\ud83d\udc69", "\u2581", "\ud83d\udc67", "\u2581", "\ud83d\udc66", "\u2581", "\ud83e\uddd1", "\ud83c\udffb", "\u2581", "\ud83e\udd1d", "\u2581", "\ud83e\uddd1", "\ud83c\udffb", "\u2581", "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f", "\u2581", "\ud83d\udc68", "\ud83c\udffb", "\u2581\u2764", "\ufe0f", "\u2581", "\ud83d\udc8b", "\u2581", "\ud83d\udc68", "\ud83c\udffc"],
+      ids: [0, 6, 167474, 6, 243544, 6, 246984, 15755, 6, 247201, 79500, 6, 248325, 6, 228250, 15755, 6, 3, 79500, 6, 228250, 6, 244314, 79500, 6, 246529, 6, 3, 6, 247443, 6, 3, 6, 244785, 49933, 6, 244960, 6, 244314, 6, 244785, 6, 244785, 6, 245719, 6, 246167, 6, 3, 79500, 6, 247443, 6, 3, 79500, 6, 3, 6, 244314, 79500, 49933, 15755, 6, 244960, 6, 244314, 239719, 2],
+      decoded: "<s> \u2728 \ud83e\udd17 \ud83d\udc41\ufe0f \ud83d\udc71\ud83c\udffb \ud83d\udd75 \u2642\ufe0f <unk>\ud83c\udffb \u2642 \ud83d\udc68\ud83c\udffb \ud83c\udf3e <unk> \ud83e\udd1d <unk> \ud83d\udc69 \u2764 \ud83d\udc8b \ud83d\udc68 \ud83d\udc69 \ud83d\udc69 \ud83d\udc67 \ud83d\udc66 <unk>\ud83c\udffb \ud83e\udd1d <unk>\ud83c\udffb <unk> \ud83d\udc68\ud83c\udffb \u2764\ufe0f \ud83d\udc8b \ud83d\udc68\ud83c\udffc</s>",
+    },
     CHINESE_LATIN_MIXED: {
       text: BERT_TEST_STRINGS.CHINESE_LATIN_MIXED,
       tokens: ["\u2581ah", "\u535a", "\u63a8", "zz"],
@@ -647,6 +671,18 @@ export const TEST_CONFIG = {
       ids: [101, 100, 11059, 12667, 8165, 9064, 8350, 8330, 109, 122, 119, 8136, 8243, 8174, 8719, 119, 102],
       decoded: "[CLS] [UNK] bought an apple for $ 1. 00 at the store. [SEP]",
     },
+    POPULAR_EMOJIS: {
+      text: BASE_TEST_STRINGS.POPULAR_EMOJIS,
+      tokens: ["\ud83d\ude02", "\ud83d\udc4d", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "\ud83d\udd25", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "\ud83d\ude0e", "[UNK]", "[UNK]", "[UNK]", "\u2728", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]"],
+      ids: [101, 8104, 8102, 100, 100, 100, 100, 100, 100, 8103, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 8105, 100, 100, 100, 501, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 102],
+      decoded: "[CLS] \ud83d\ude02 \ud83d\udc4d [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] \ud83d\udd25 [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] \ud83d\ude0e [UNK] [UNK] [UNK] \u2728 [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [SEP]",
+    },
+    MULTIBYTE_EMOJIS: {
+      text: BASE_TEST_STRINGS.MULTIBYTE_EMOJIS,
+      tokens: ["\u2728", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]"],
+      ids: [101, 501, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 102],
+      decoded: "[CLS] \u2728 [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [SEP]",
+    },
     SIMPLE_WITH_ACCENTS: {
       text: BERT_TEST_STRINGS.SIMPLE_WITH_ACCENTS,
       tokens: ["[UNK]"],
@@ -702,6 +738,12 @@ export const TEST_CONFIG = {
       tokens: ["i", "bo", "##ugh", "##t", "an", "apple", "for", "$", "1", ".", "00", "at", "the", "store", "."],
       ids: [101, 151, 11059, 12667, 8165, 9064, 8350, 8330, 109, 122, 119, 8136, 8243, 8174, 8719, 119, 102],
       decoded: "[CLS] i bought an apple for $ 1. 00 at the store. [SEP]",
+    },
+    POPULAR_EMOJIS: {
+      text: BASE_TEST_STRINGS.POPULAR_EMOJIS,
+      tokens: ["\ud83d\ude02", "\ud83d\udc4d", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "\ud83d\udd25", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "\u2764", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "\ud83d\ude0e", "[UNK]", "[UNK]", "[UNK]", "\u2728", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]", "[UNK]"],
+      ids: [101, 8104, 8102, 100, 100, 100, 100, 100, 100, 8103, 100, 100, 100, 100, 100, 506, 100, 100, 100, 100, 100, 8105, 100, 100, 100, 501, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 102],
+      decoded: "[CLS] \ud83d\ude02 \ud83d\udc4d [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] \ud83d\udd25 [UNK] [UNK] [UNK] [UNK] [UNK] \u2764 [UNK] [UNK] [UNK] [UNK] [UNK] \ud83d\ude0e [UNK] [UNK] [UNK] \u2728 [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [UNK] [SEP]",
     },
   },
   "Xenova/indobert-base-p1": {
@@ -1084,6 +1126,18 @@ export const TEST_CONFIG = {
       tokens: ["\u2581", "##This", "\u2581", "##is", "\u2581", "##a", "\u2581", "##test", "\u2581", "."],
       ids: [101, 3283, 342068, 3283, 15319, 3283, 14983, 3283, 50149, 3283, 119, 102],
       decoded: "[CLS] \u2581This \u2581is \u2581a \u2581test \u2581. [SEP]",
+    },
+    POPULAR_EMOJIS: {
+      text: BASE_TEST_STRINGS.POPULAR_EMOJIS,
+      tokens: ["\ud83d\ude02", "\ud83d\udc4d", "\ud83e\udd23", "\ud83d\ude0d", "\ud83d\ude2d", "\ud83c\udf89", "\ud83d\ude4f", "\ud83d\ude0a", "\ud83d\udd25", "\ud83d\ude01", "\ud83d\ude05", "\ud83e\udd17", "\ud83d\ude06", "\ud83d\udc4f", "\u2764\ufe0f", "\ud83d\udc9c", "\ud83d\udc9a", "\ud83d\udc97", "\ud83d\udc99", "\ud83d\udda4", "\ud83d\ude0e", "\ud83d\udc4c", "\ud83e\udd73", "\ud83d\udcaa", "\u2728", "\ud83d\udc49", "\ud83d\udc40", "\ud83d\udcaf", "\ud83c\udf88", "\ud83d\ude48", "\ud83d\ude4c", "\ud83d\udc80", "\ud83d\udc47", "\ud83d\udc4b", "\u2705", "\ud83c\udf81", "\ud83c\udf1e", "\ud83c\udf38", "\ud83d\udcb0"],
+      ids: [101, 14820, 14617, 14933, 14831, 14863, 14496, 14893, 14828, 14775, 14819, 14823, 14926, 14824, 14619, 91822, 14687, 14685, 14682, 14684, 14810, 14832, 14616, 14956, 14701, 3496, 14613, 14606, 14706, 14495, 14887, 14891, 14660, 14611, 14615, 3465, 14488, 14416, 14430, 14707, 102],
+      decoded: "[CLS] \ud83d\ude02 \ud83d\udc4d \ud83e\udd23 \ud83d\ude0d \ud83d\ude2d \ud83c\udf89 \ud83d\ude4f \ud83d\ude0a \ud83d\udd25 \ud83d\ude01 \ud83d\ude05 \ud83e\udd17 \ud83d\ude06 \ud83d\udc4f \u2764\ufe0f \ud83d\udc9c \ud83d\udc9a \ud83d\udc97 \ud83d\udc99 \ud83d\udda4 \ud83d\ude0e \ud83d\udc4c \ud83e\udd73 \ud83d\udcaa \u2728 \ud83d\udc49 \ud83d\udc40 \ud83d\udcaf \ud83c\udf88 \ud83d\ude48 \ud83d\ude4c \ud83d\udc80 \ud83d\udc47 \ud83d\udc4b \u2705 \ud83c\udf81 \ud83c\udf1e \ud83c\udf38 \ud83d\udcb0 [SEP]",
+    },
+    MULTIBYTE_EMOJIS: {
+      text: BASE_TEST_STRINGS.MULTIBYTE_EMOJIS,
+      tokens: ["\u2728", "\ud83e\udd17", "\ud83d\udc41\ufe0f", "\ud83d\udc71", "##\ud83c\udffb", "[UNK]", "[UNK]", "\ud83d\udc68", "##\ud83c\udffb", "##\ud83c\udf3e", "[UNK]", "\ud83d\udc69", "##\u2764", "##\ud83d\udc8b", "##\ud83d\udc68", "\ud83d\udc69", "##\ud83d\udc69", "##\ud83d\udc67", "##\ud83d\udc66", "[UNK]", "\ud83c\udff4", "\ud83d\udc68", "##\ud83c\udffb", "##\u2764", "##\ufe0f", "##\ud83d\udc8b", "##\ud83d\udc68", "##\ud83c\udffc"],
+      ids: [101, 3496, 14926, 350545, 14648, 130826, 100, 100, 14639, 130826, 498832, 100, 14640, 488649, 499065, 499034, 14640, 499035, 499033, 499032, 100, 14555, 14639, 130826, 488649, 44450, 499065, 499034, 421916, 102],
+      decoded: "[CLS] \u2728 \ud83e\udd17 \ud83d\udc41\ufe0f \ud83d\udc71\ud83c\udffb [UNK] [UNK] \ud83d\udc68\ud83c\udffb\ud83c\udf3e [UNK] \ud83d\udc69\u2764\ud83d\udc8b\ud83d\udc68 \ud83d\udc69\ud83d\udc69\ud83d\udc67\ud83d\udc66 [UNK] \ud83c\udff4 \ud83d\udc68\ud83c\udffb\u2764\ufe0f\ud83d\udc8b\ud83d\udc68\ud83c\udffc [SEP]",
     },
     CHINESE_LATIN_MIXED: {
       text: BERT_TEST_STRINGS.CHINESE_LATIN_MIXED,
