@@ -147,3 +147,15 @@ export function pick(o, props) {
         })
     );
 }
+
+/**
+ * Calculate the length of a string, taking multi-byte characters into account.
+ * This mimics the behavior of Python's `len` function.
+ * @param {string} s The string to calculate the length of. 
+ * @returns {number} The length of the string.
+ */
+export function len(s) {
+    let length = 0;
+    for (const c of s) ++length;
+    return length;
+}

@@ -229,7 +229,7 @@ export class CharTrie {
      * @param {string[]} texts The strings to add to the trie.
      */
     extend(texts) {
-        for (let text of texts) {
+        for (const text of texts) {
             this.push(text);
         }
     }
@@ -240,7 +240,7 @@ export class CharTrie {
      */
     push(text) {
         let node = this.root;
-        for (let ch of text) {
+        for (const ch of text) {
             let child = node.children.get(ch);
             if (child === undefined) {
                 child = CharTrieNode.default();
@@ -258,12 +258,14 @@ export class CharTrie {
      */
     *commonPrefixSearch(text) {
         let node = this.root;
+        if (node === undefined) return;
+
         let prefix = "";
-        for (let i = 0; i < text.length && node !== undefined; ++i) {
-            const ch = text[i];
+        for (const ch of text) {
             prefix += ch;
             node = node.children.get(ch);
-            if (node !== undefined && node.isLeaf) {
+            if (node === undefined) return;
+            if (node.isLeaf) {
                 yield prefix;
             }
         }
@@ -305,8 +307,8 @@ export class TokenLattice {
      * @param {number} eosTokenId The end-of-sequence token ID.
      */
     constructor(sentence, bosTokenId, eosTokenId) {
-        this.sentence = sentence;
-        this.len = sentence.length;
+        this.chars = Array.from(sentence);
+        this.len = this.chars.length;
         this.bosTokenId = bosTokenId;
         this.eosTokenId = eosTokenId;
         this.nodes = [];
@@ -340,7 +342,7 @@ export class TokenLattice {
     /**
      * Implements the Viterbi algorithm to compute the most likely sequence of tokens.
      *
-     * @returns {TokenLatticeNode[]} The array of nodes representing the most likely sequence of tokens.
+     * @returns {TokenLatticeNode[]} The most likely sequence of tokens.
      */
     viterbi() {
         const len = this.len;
@@ -394,11 +396,11 @@ export class TokenLattice {
      * @returns {string} The array of nodes representing the most likely sequence of tokens.
      */
     piece(node) {
-        return this.sentence.slice(node.pos, node.pos + node.length);
+        return this.chars.slice(node.pos, node.pos + node.length).join('');
     }
 
     /**
-     * @returns {Array} The array of nodes representing the most likely sequence of tokens.
+     * @returns {string[]} The most likely sequence of tokens.
      */
     tokens() {
         const nodes = this.viterbi();
@@ -406,7 +408,7 @@ export class TokenLattice {
     }
 
     /**
-     * @returns {Array} The array of nodes representing the most likely sequence of tokens.
+     * @returns {number[]} The most likely sequence of token ids.
      */
     tokenIds() {
         const nodes = this.viterbi();

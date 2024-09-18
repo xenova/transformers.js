@@ -28,6 +28,7 @@ import {
     escapeRegExp,
     isIntegralNumber,
     mergeArrays,
+    len,
 } from './utils/core.js';
 
 import {
@@ -541,18 +542,18 @@ class Unigram extends TokenizerModel {
         this.unk_token = this.vocab[config.unk_id];
 
         this.tokens_to_ids = new Map(this.vocab.map((x, i) => [x, i]));
-        this.bosToken = ' '; // beginning of a sentence token
+        this.bos_token = ' '; // beginning of a sentence token
 
-        this.bosTokenId = this.tokens_to_ids.get(this.bosToken); // NOTE: may be undefined
-        this.eosToken = moreConfig.eos_token;
+        this.bos_token_id = this.tokens_to_ids.get(this.bos_token); // NOTE: may be undefined
+        this.eos_token = moreConfig.eos_token;
 
-        this.eosTokenId = this.tokens_to_ids.get(this.eosToken);
-        this.unkToken = this.vocab[this.unk_token_id];
+        this.eos_token_id = this.tokens_to_ids.get(this.eos_token);
+        this.unk_token = this.vocab[this.unk_token_id];
 
         this.minScore = min(this.scores)[0];
 
-        this.unkScore = this.minScore - 10.0;
-        this.scores[this.unk_token_id] = this.unkScore;
+        this.unk_score = this.minScore - 10.0;
+        this.scores[this.unk_token_id] = this.unk_score;
 
         this.trie = new CharTrie();
         this.trie.extend(this.vocab);
@@ -567,26 +568,27 @@ class Unigram extends TokenizerModel {
      * @param {TokenLattice} lattice The token lattice to populate with nodes.
      */
     populateNodes(lattice) {
-        const sentence = lattice.sentence;
-        const len = sentence.length;
+        const chars = lattice.chars;
+        const mblen = 1;
         let beginPos = 0;
-        while (beginPos < len) {
-            const mblen = 1;
+        while (beginPos < chars.length) {
             let hasSingleNode = false;
-            const tokens = [];
 
-            for (let token of this.trie.commonPrefixSearch(sentence.slice(beginPos))) {
+            const tokens = [];
+            const sliced = chars.slice(beginPos).join('');
+            const prefixedTokens = this.trie.commonPrefixSearch(sliced);
+            for (const token of prefixedTokens) {
                 tokens.push(token);
                 const tokenId = this.tokens_to_ids.get(token);
                 const tokenScore = this.scores[tokenId];
-                const n = token.length;
+                const n = len(token);
                 lattice.insert(beginPos, n, tokenScore, tokenId);
                 if (!hasSingleNode && n === mblen) {
                     hasSingleNode = true;
                 }
             }
             if (!hasSingleNode) {
-                lattice.insert(beginPos, mblen, this.unkScore, this.unk_token_id);
+                lattice.insert(beginPos, mblen, this.unk_score, this.unk_token_id);
             }
             beginPos += mblen;
         }
@@ -599,7 +601,7 @@ class Unigram extends TokenizerModel {
      * @returns {string[]} An array of subtokens obtained by encoding the input tokens using the unigram model.
      */
     tokenize(normalized) {
-        const lattice = new TokenLattice(normalized, this.bosTokenId, this.eosTokenId);
+        const lattice = new TokenLattice(normalized, this.bos_token_id, this.eos_token_id);
         this.populateNodes(lattice);
         return lattice.tokens();
     }
