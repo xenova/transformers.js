@@ -195,6 +195,11 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     const free_dimension_overrides = options.config?.['transformers.js_config']?.free_dimension_overrides;
     if (free_dimension_overrides) {
         session_options.freeDimensionOverrides ??= free_dimension_overrides;
+    } else if (selectedDevice.startsWith('webnn') && !session_options.freeDimensionOverrides) {
+        console.warn(
+            'WebNN does not currently support dynamic shapes and requires `free_dimension_overrides` to be set in config.json as a field within "transformers.js_config". ' +
+            'When `free_dimension_overrides` is not set, you may experience significant performance degradation.'
+        );
     }
 
     const bufferPromise = getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
