@@ -14,7 +14,7 @@ import { dispatchCallback } from './core.js';
 /**
  * @typedef {Object} PretrainedOptions Options for loading a pretrained model.     
  * @property {function} [progress_callback=null] If specified, this function will be called during model construction, to provide the user with progress updates.
- * @property {Object} [config=null] Configuration for the model to use instead of an automatically loaded configuration. Configuration can be automatically loaded when:
+ * @property {import('../configs.js').PretrainedConfig} [config=null] Configuration for the model to use instead of an automatically loaded configuration. Configuration can be automatically loaded when:
  * - The model is a model provided by the library (loaded with the *model id* string of a pretrained model).
  * - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a configuration JSON file named *config.json* is found in the directory.
  * @property {string} [cache_dir=null] Path to a directory in which a downloaded pretrained model configuration should be cached if the standard cache should not be used.

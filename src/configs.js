@@ -296,16 +296,23 @@ export function getKeyValueShapes(config, {
 export class PretrainedConfig {
     // NOTE: Typo in original
 
+    /** @type {string|null} */
+    model_type = null;
+
+    /** @type {boolean} */
+    is_encoder_decoder = false;
+
+    /** @type {number} */
     max_position_embeddings;
+
+    /** @type {TransformersJSConfig} */
+    'transformers.js_config';
 
     /**
      * Create a new PreTrainedTokenizer instance.
      * @param {Object} configJSON The JSON of the config.
      */
     constructor(configJSON) {
-        this.model_type = null;
-        this.is_encoder_decoder = false;
-
         Object.assign(this, configJSON);
         this.normalized_config = getNormalizedConfig(this);
     }
@@ -357,5 +364,8 @@ export class AutoConfig {
 /**
  * Transformers.js-specific configuration, possibly present in config.json under the key `transformers.js_config`.
  * @typedef {Object} TransformersJSConfig
- * @property {import('./transformers.js').DataType} [kv_cache_dtype]
+ * @property {import('./utils/tensor.js').DataType} [kv_cache_dtype] The data type of the key-value cache.
+ * @property {Record<string, number>} [free_dimension_overrides] Override the free dimensions of the model.
+ * See https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html#freedimensionoverrides
+ * for more information.
  */
