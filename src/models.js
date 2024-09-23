@@ -146,7 +146,8 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  * @private
  */
 async function getSession(pretrained_model_name_or_path, fileName, options) {
-    let device = options.device;
+    const custom_config = options.config?.['transformers.js_config'] ?? {};
+    let device = options.device ?? custom_config.device;
     if (device && typeof device !== 'string') {
         if (device.hasOwnProperty(fileName)) {
             device = device[fileName];
@@ -164,7 +165,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
 
     // If options.dtype is specified, we use it to choose the suffix for the model file.
     // Otherwise, we use the default dtype for the device.
-    let dtype = options.dtype;
+    let dtype = options.dtype ?? custom_config.dtype;
     if (typeof dtype !== 'string') {
         if (dtype && dtype.hasOwnProperty(fileName)) {
             dtype = dtype[fileName];
@@ -192,7 +193,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     session_options.executionProviders ??= executionProviders;
 
     // Overwrite `freeDimensionOverrides` if specified in config and not set in session options
-    const free_dimension_overrides = options.config?.['transformers.js_config']?.free_dimension_overrides;
+    const free_dimension_overrides = custom_config.free_dimension_overrides;
     if (free_dimension_overrides) {
         session_options.freeDimensionOverrides ??= free_dimension_overrides;
     } else if (selectedDevice.startsWith('webnn') && !session_options.freeDimensionOverrides) {

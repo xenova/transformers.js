@@ -368,4 +368,6 @@ export class AutoConfig {
  * @property {Record<string, number>} [free_dimension_overrides] Override the free dimensions of the model.
  * See https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html#freedimensionoverrides
  * for more information.
+ * @property {import('./utils/devices.js').DeviceType} [device] The default device to use for the model.
+ * @property {import('./utils/dtypes.js').DataType} [dtype] The default data type to use for the model.
  */
