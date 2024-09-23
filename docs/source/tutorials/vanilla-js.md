@@ -57,7 +57,6 @@ body {
 .custom-file-upload {
     display: flex;
     align-items: center;
-    cursor: pointer;
     gap: 10px;
     border: 2px solid black;
     padding: 8px 16px;
@@ -269,14 +268,19 @@ The bounding box and label span also need some styling, so add the following to 
 
 ```css
 .bounding-box {
-  position: absolute;
-  box-sizing: border-box;
+    position: absolute;
+    box-sizing: border-box;
+    border-width: 2px;
+    border-style: solid;
 }
 
 .bounding-box-label {
-  position: absolute;
-  color: white;
-  font-size: 12px;
+    color: white;
+    position: absolute;
+    font-size: 12px;
+    margin-top: -16px;
+    margin-left: -2px;
+    padding: 1px;
 }
 ```
 
