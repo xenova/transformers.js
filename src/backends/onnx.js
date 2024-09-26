@@ -26,7 +26,6 @@ export let ONNX;
 
 export const executionProviders = [
     // 'webgpu',
-    'wasm'
 ];
 
 if (typeof process !== 'undefined' && process?.release?.name === 'node') {
@@ -34,11 +33,13 @@ if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
-    executionProviders.unshift('cpu');
+    executionProviders.push('cuda', 'cpu');
 
 } else {
     // Running in a browser-environment
     ONNX = ONNX_WEB.default ?? ONNX_WEB;
+
+    executionProviders.push('wasm');
 
     // SIMD for WebAssembly does not operate correctly in some recent versions of iOS (16.4.x).
     // As a temporary fix, we disable it for now.
