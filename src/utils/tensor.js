@@ -56,16 +56,25 @@ export class Tensor {
      */
     constructor(...args) {
         if (args[0] instanceof ONNXTensor) {
-            // Create shallow copy
-            Object.assign(this, args[0]);
+            const tensor = args[0];
 
+            // Create shallow copy
+            Object.assign(this, tensor);
+
+            // Object.assign() doesn't catch the data prop for some reason
+            this.data = tensor.data;
         } else {
-            // Create new tensor
-            Object.assign(this, new ONNXTensor(
+            const tensor = new ONNXTensor(
                 /** @type {DataType} */(args[0]),
                 /** @type {Exclude<import('./maths.js').AnyTypedArray, Uint8ClampedArray>} */(args[1]),
                 args[2]
-            ));
+            );
+
+            // Create new tensor
+            Object.assign(this, tensor);
+
+            // Object.assign() doesn't catch the data prop for some reason
+            this.data = tensor.data;
         }
 
         return new Proxy(this, {
