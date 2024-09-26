@@ -25,18 +25,26 @@ import * as ONNX_WEB from 'onnxruntime-web';
 export let ONNX;
 
 export const executionProviders = [
-    // 'webgpu',
-    'wasm'
+  // 'webgpu',
+  'wasm'
 ];
 
-if (typeof process !== 'undefined' && process?.release?.name === 'node') {
+const onnxSymbol = Symbol.for('onnxruntime');
+
+// If the JS runtime exposes their own ONNX runtime, use it
+// otherwise use the 'onnxruntime-{environment}' package
+if (onnxSymbol in globalThis) {
+  ONNX = globalThis[onnxSymbol];
+}
+else {
+  if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // Running in a node-like environment.
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
 
     // Add `cpu` execution provider, with higher precedence that `wasm`.
     executionProviders.unshift('cpu');
 
-} else {
+  } else {
     // Running in a browser-environment
     ONNX = ONNX_WEB.default ?? ONNX_WEB;
 
@@ -45,6 +53,7 @@ if (typeof process !== 'undefined' && process?.release?.name === 'node') {
     // For more information, see: https://github.com/microsoft/onnxruntime/issues/15644
     const isIOS = typeof navigator !== 'undefined' && /iP(hone|od|ad).+16_4.+AppleWebKit/.test(navigator.userAgent);
     if (isIOS) {
-        ONNX.env.wasm.simd = false;
+      ONNX.env.wasm.simd = false;
     }
+  }
 }
