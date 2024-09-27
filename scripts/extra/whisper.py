@@ -20,37 +20,22 @@ ALIGNMENT_HEADS_MAPPING = {
 
 
 class CustomWhisperOnnxConfig(WhisperOnnxConfig):
+    """
+    Custom ONNX config for Whisper models to output cross attentions.
+    Needed to compute token-level timestamps.
+    """
     @property
     def outputs(self) -> Dict[str, Dict[int, str]]:
         common_outputs = super().outputs
 
-        if self._behavior is ConfigBehavior.ENCODER:
-            for i in range(self._config.encoder_layers):
-                common_outputs[f"encoder_attentions.{i}"] = {0: "batch_size"}
-        elif self._behavior is ConfigBehavior.DECODER:
-            for i in range(self._config.decoder_layers):
-                common_outputs[f"decoder_attentions.{i}"] = {
-                    0: "batch_size",
-                    2: "decoder_sequence_length",
-                    3: "past_decoder_sequence_length + 1"
-                }
+        if self._behavior is ConfigBehavior.DECODER:
             for i in range(self._config.decoder_layers):
                 common_outputs[f"cross_attentions.{i}"] = {
                     0: "batch_size",
                     2: "decoder_sequence_length",
                     3: "encoder_sequence_length_out"
                 }
-
         return common_outputs
-
-    @property
-    def torch_to_onnx_output_map(self):
-        if self._behavior is ConfigBehavior.ENCODER:
-            # The encoder export uses WhisperEncoder that returns the key "attentions"
-            return {"attentions": "encoder_attentions"}
-        else:
-            return {}
-
 
 def get_main_export_kwargs(config, task):
 
@@ -59,9 +44,8 @@ def get_main_export_kwargs(config, task):
 
     custom_onnx_configs = dict(
         encoder_model=custom_config.with_behavior("encoder"),
-        decoder_model=custom_config.with_behavior("decoder", use_past=False),
-        decoder_with_past_model=custom_config.with_behavior(
-            "decoder", use_past=True),
+        decoder_model=custom_config.with_behavior("decoder", use_past=True, use_past_in_inputs=False),
+        decoder_with_past_model=custom_config.with_behavior("decoder", use_past=True, use_past_in_inputs=True),
     )
 
     return dict(
