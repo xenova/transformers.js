@@ -1,10 +1,10 @@
 
 import {
-    AutoTokenizer,
     AutoModelForCausalLM,
-    TextStreamer,
+    AutoTokenizer,
     StoppingCriteria,
-} from '@xenova/transformers';
+    TextStreamer,
+} from '@huggingface/transformers';
 
 
 class CallbackTextStreamer extends TextStreamer {
