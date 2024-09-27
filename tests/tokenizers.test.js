@@ -94,6 +94,17 @@ describe("Tokenizers (hard-coded)", () => {
       },
     ],
 
+    // new serialization format (tokenizers >= 0.20.0)
+    // BPE merges are now [string, string][] instead of string[]
+    "Xenova/Llama-3.2-Tokenizer": [
+      {
+        data: {
+          "hello world": [15339, 1917],
+        },
+        reversible: true,
+      },
+    ],
+
     // legacy=false
     "Xenova/t5-tokenizer-new": [
       {

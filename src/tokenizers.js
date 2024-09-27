@@ -671,7 +671,7 @@ class BPE extends TokenizerModel {
      * Create a BPE instance.
      * @param {Object} config The configuration object for BPE.
      * @param {Object} config.vocab A mapping of tokens to ids.
-     * @param {string[]} config.merges An array of BPE merges as strings.
+     * @param {string[]|[string, string][]} config.merges An array of BPE merges as strings.
      * @param {string} config.unk_token The unknown token used for out of vocabulary words.
      * @param {string} config.end_of_word_suffix The suffix to place at the end of each word.
      * @param {string} [config.continuing_subword_suffix] The suffix to insert between words.
@@ -680,8 +680,6 @@ class BPE extends TokenizerModel {
      */
     constructor(config) {
         super(config);
-
-        this.BPE_SPLIT_TOKEN = ' ';
 
         /** @type {Map<string, number>} */
         this.tokens_to_ids = objectToMap(config.vocab);
@@ -694,8 +692,15 @@ class BPE extends TokenizerModel {
             this.vocab[value] = key;
         }
 
-        this.bpe_ranks = new Map(config.merges.map((x, i) => [x, i]));
-        this.merges = config.merges.map(x => x.split(this.BPE_SPLIT_TOKEN));
+        // Tokenizers >= 0.20.0 serializes BPE merges as a [string, string][] instead of a string[],
+        // which resolves the ambiguity for merges containing spaces.
+        const use_new_merge_format = Array.isArray(config.merges[0]);
+
+        /** @type {[string, string][]} */
+        this.merges = use_new_merge_format
+            ? /** @type {[string, string][]} */(config.merges)
+            : (/** @type {string[]} */(config.merges)).map(x => /** @type {[string, string]} */(x.split(' ', 2)));
+        this.bpe_ranks = new Map(this.merges.map((x, i) => [JSON.stringify(x), i]));
 
         this.end_of_word_suffix = config.end_of_word_suffix;
 
@@ -855,7 +860,7 @@ class BPE extends TokenizerModel {
         // `score` is a measure of the merge priority: lower means higher priority
         // We use the BPE rank as a measure of priority (i.e., the local of the merge in the merges list)
         // We also add a fractional component to the score to break ties (with the earlier character having higher priority)
-        const rank = this.bpe_ranks.get(node.token + this.BPE_SPLIT_TOKEN + node.next.token);
+        const rank = this.bpe_ranks.get(JSON.stringify([node.token, node.next.token]));
         if (rank !== undefined) {
             node.score = rank + node.bias;
             queue.push(node);
