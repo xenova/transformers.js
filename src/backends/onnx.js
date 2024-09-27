@@ -80,8 +80,7 @@ if (ORT_SYMBOL in globalThis) {
             supportedDevices.push('dml');
             break;
         case 'linux': // Linux x64 and Linux arm64
-            if (process.arch 
-                'x64') {
+            if (process.arch === 'x64') {
                 supportedDevices.push('cuda');
             }
             break;
