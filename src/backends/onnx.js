@@ -59,7 +59,13 @@ const supportedDevices = [];
 /** @type {ONNXExecutionProviders[]} */
 let defaultDevices;
 let ONNX;
-if (apis.IS_NODE_ENV) {
+const ORT_SYMBOL = Symbol.for('onnxruntime');
+
+if (ORT_SYMBOL in globalThis) {
+  // If the JS runtime exposes their own ONNX runtime, use it
+  ONNX = globalThis[ORT_SYMBOL];
+
+} else if (apis.IS_NODE_ENV) {
     ONNX = ONNX_NODE.default ?? ONNX_NODE;
 
     // Updated as of ONNX Runtime 1.18.0
