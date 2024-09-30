@@ -250,9 +250,6 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
             /** @type {Record<string, import('onnxruntime-common').Tensor.DataLocation>} */
             const preferredOutputLocation = {};
             for (const key in shapes) {
-                // TODO: For now, we keep encoder outputs on the CPU
-                // (otherwise, this causes a memory leak or throws an error "Error: previous buffer is not registered")
-                if (key.includes('encoder')) continue;
                 preferredOutputLocation[key] = 'gpu-buffer';
             }
             session_options.preferredOutputLocation = preferredOutputLocation;
