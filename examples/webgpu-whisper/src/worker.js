@@ -5,7 +5,7 @@ import {
     WhisperForConditionalGeneration,
     TextStreamer,
     full,
-} from '@xenova/transformers';
+} from '@huggingface/transformers';
 
 
 const MAX_NEW_TOKENS = 64;
