@@ -32,6 +32,12 @@ Transformers.js uses [ONNX Runtime](https://onnxruntime.ai/) to run models in th
 For more information, check out the full [documentation](https://huggingface.co/docs/transformers.js).
 
 
+## Version 2 and 3
+
+The current stable version of Transformers.js is version 2. However, you should definitely check out version 3. While it's not stable, it does add support for WebGPU which, if a browser supports it, can greatly speed up inference. Some newer models are only supported in V3.
+
+
+
 ## Quick tour
 
 
@@ -94,6 +100,16 @@ Alternatively, you can use it in vanilla JS, without any bundler, by using a CDN
     import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
 </script>
 ```
+
+If you'd like to try the latest development version of Transformers.js, you could instead try something like:
+
+
+```html
+<script type="module">
+    import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.19";
+</script>
+```
+(though you should check which version is the actual latest, as development is happening rapidly).
 
 
 ## Examples
