@@ -297,7 +297,7 @@ SUPPORTED_MODELS = {
             'MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7',
             'sileod/deberta-v3-base-tasksource-nli',
             'sileod/deberta-v3-large-tasksource-nli',
-            'tasksource/deberta-small-long-nli'
+            'tasksource/deberta-small-long-nli',
             'tasksource/deberta-base-long-nli',
         ],
     },
