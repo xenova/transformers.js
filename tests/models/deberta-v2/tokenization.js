@@ -1,5 +1,5 @@
 import { DebertaV2Tokenizer } from "../../../src/tokenizers.js";
-import { BASE_TEST_STRINGS } from "../test_strings.js";
+import { BASE_TEST_STRINGS, BERT_TEST_STRINGS } from "../test_strings.js";
 
 export const TOKENIZER_CLASS = DebertaV2Tokenizer;
 export const TEST_CONFIG = {
@@ -153,6 +153,30 @@ export const TEST_CONFIG = {
       tokens: ["\u2581", "\u2728", "\u2581", "\ud83e\udd17", "\u2581", "\ud83d\udc41", "\ufe0f", "\u2581", "\ud83d\udc71", "\ud83c\udffb", "\u2581", "\ud83d\udd75", "\u2581", "\u2642", "\ufe0f", "\u2581", "\ud83e\uddd9", "\ud83c\udffb", "\u2581", "\u2642", "\u2581", "\ud83d\udc68", "\ud83c\udffb", "\u2581", "\ud83c\udf3e", "\u2581", "\ud83e\uddd1", "\u2581", "\ud83e\udd1d", "\u2581", "\ud83e\uddd1", "\u2581", "\ud83d\udc69", "\u2581\u2764", "\u2581", "\ud83d\udc8b", "\u2581", "\ud83d\udc68", "\u2581", "\ud83d\udc69", "\u2581", "\ud83d\udc69", "\u2581", "\ud83d\udc67", "\u2581", "\ud83d\udc66", "\u2581", "\ud83e\uddd1", "\ud83c\udffb", "\u2581", "\ud83e\udd1d", "\u2581", "\ud83e\uddd1", "\ud83c\udffb", "\u2581", "\ud83c\udff4", "\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f", "\u2581", "\ud83d\udc68", "\ud83c\udffb", "\u2581\u2764", "\ufe0f", "\u2581", "\ud83d\udc8b", "\u2581", "\ud83d\udc68", "\ud83c\udffc"],
       ids: [1, 507, 110119, 507, 123983, 507, 127294, 25377, 507, 3, 108391, 507, 3, 507, 117868, 25377, 507, 3, 108391, 507, 117868, 507, 125199, 108391, 507, 3, 507, 3, 507, 3, 507, 3, 507, 124709, 49509, 507, 124327, 507, 125199, 507, 124709, 507, 124709, 507, 126640, 507, 126853, 507, 3, 108391, 507, 3, 507, 3, 108391, 507, 126132, 3, 507, 125199, 108391, 49509, 25377, 507, 124327, 507, 125199, 118155, 2],
       decoded: "[CLS] \u2728 \ud83e\udd17 \ud83d\udc41\ufe0f [UNK]\ud83c\udffb [UNK] \u2642\ufe0f [UNK]\ud83c\udffb \u2642 \ud83d\udc68\ud83c\udffb [UNK] [UNK] [UNK] [UNK] \ud83d\udc69 \u2764 \ud83d\udc8b \ud83d\udc68 \ud83d\udc69 \ud83d\udc69 \ud83d\udc67 \ud83d\udc66 [UNK]\ud83c\udffb [UNK] [UNK]\ud83c\udffb \ud83c\udff4[UNK] \ud83d\udc68\ud83c\udffb \u2764\ufe0f \ud83d\udc8b \ud83d\udc68\ud83c\udffc[SEP]",
+    },
+    CHINESE_LATIN_MIXED: {
+      text: BERT_TEST_STRINGS.CHINESE_LATIN_MIXED,
+      tokens: ["\u2581a", "h", "\u535a", "\u63a8", "zz"],
+      ids: [1, 266, 1537, 122598, 111743, 23260, 2],
+      decoded: "[CLS] ah\u535a\u63a8zz[SEP]",
+    },
+    SIMPLE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.SIMPLE_WITH_ACCENTS,
+      tokens: ["\u2581H\u00e9", "llo"],
+      ids: [1, 93519, 25341, 2],
+      decoded: "[CLS] H\u00e9llo[SEP]",
+    },
+    MIXED_CASE_WITHOUT_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITHOUT_ACCENTS,
+      tokens: ["\u2581He", "LL", "o", "!", "how", "\u2581Are", "\u2581yo", "U", "?"],
+      ids: [1, 383, 17145, 795, 300, 5608, 1396, 14469, 2628, 302, 2],
+      decoded: "[CLS] HeLLo!how Are yoU?[SEP]",
+    },
+    MIXED_CASE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITH_ACCENTS,
+      tokens: ["\u2581H\u00e4", "LL", "o", "!", "how", "\u2581Are", "\u2581yo", "U", "?"],
+      ids: [1, 62693, 17145, 795, 300, 5608, 1396, 14469, 2628, 302, 2],
+      decoded: "[CLS] H\u00e4LLo!how Are yoU?[SEP]",
     },
   },
   "Xenova/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7": {
