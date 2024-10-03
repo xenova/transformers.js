@@ -206,14 +206,15 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     const bufferPromise = getModelFile(pretrained_model_name_or_path, modelFileName, true, options);
 
     // handle onnx external data files
+    const use_external_data_format = options.use_external_data_format ?? custom_config.use_external_data_format;
     /** @type {Promise<{path: string, data: Uint8Array}>[]} */
     let externalDataPromises = [];
-    if (options.use_external_data_format && (
-        options.use_external_data_format === true ||
+    if (use_external_data_format && (
+        use_external_data_format === true ||
         (
-            typeof options.use_external_data_format === 'object' &&
-            options.use_external_data_format.hasOwnProperty(fileName) &&
-            options.use_external_data_format[fileName] === true
+            typeof use_external_data_format === 'object' &&
+            use_external_data_format.hasOwnProperty(fileName) &&
+            use_external_data_format[fileName] === true
         )
     )) {
         if (apis.IS_NODE_ENV) {
