@@ -1,9 +1,295 @@
 import { RobertaTokenizer } from "../../../src/tokenizers.js";
-import { BASE_TEST_STRINGS } from "../test_strings.js";
+import { BASE_TEST_STRINGS, BERT_TEST_STRINGS } from "../test_strings.js";
 
 export const TOKENIZER_CLASS = RobertaTokenizer;
 export const TEST_CONFIG = {
-  "Xenova/jina-embeddings-v2-base-zh": {
+  "jinaai/jina-embeddings-v2-base-de": {
+    SIMPLE: {
+      text: BASE_TEST_STRINGS.SIMPLE,
+      tokens: ["How", "\u0120are", "\u0120you", "\u0120doing", "?"],
+      ids: [0, 3267, 459, 426, 3174, 35, 2],
+      decoded: "<s>How are you doing?</s>",
+    },
+    SIMPLE_WITH_PUNCTUATION: {
+      text: BASE_TEST_STRINGS.SIMPLE_WITH_PUNCTUATION,
+      tokens: ["You", "\u0120should", "'ve", "\u0120done", "\u0120this"],
+      ids: [0, 2606, 1303, 1990, 3022, 555, 2],
+      decoded: "<s>You should've done this</s>",
+    },
+    NUMBERS: {
+      text: BASE_TEST_STRINGS.NUMBERS,
+      tokens: ["0", "123", "456", "789", "\u01200", "\u01201", "\u01202", "\u01203", "\u01204", "\u01205", "\u01206", "\u01207", "\u01208", "\u01209", "\u012010", "\u0120100", "\u01201000"],
+      ids: [0, 20, 21911, 40271, 51355, 885, 387, 381, 589, 699, 703, 866, 964, 991, 1045, 949, 1873, 8611, 2],
+      decoded: "<s>0123456789 0 1 2 3 4 5 6 7 8 9 10 100 1000</s>",
+    },
+    TEXT_WITH_NUMBERS: {
+      text: BASE_TEST_STRINGS.TEXT_WITH_NUMBERS,
+      tokens: ["The", "\u0120company", "\u0120was", "\u0120founded", "\u0120in", "\u01202016", "."],
+      ids: [0, 710, 1891, 503, 15604, 295, 2262, 18, 2],
+      decoded: "<s>The company was founded in 2016.</s>",
+    },
+    PUNCTUATION: {
+      text: BASE_TEST_STRINGS.PUNCTUATION,
+      tokens: ["A", "\u010a", "'ll", "\u0120!!", "to", "?'", "d", "''", "d", "\u0120of", ",", "\u0120can", "'t", "."],
+      ids: [0, 37, 203, 2202, 26143, 764, 30080, 72, 12228, 72, 314, 16, 571, 797, 18, 2],
+      decoded: "<s>A\n'll!!to?'d''d of, can't.</s>",
+    },
+    PYTHON_CODE: {
+      text: BASE_TEST_STRINGS.PYTHON_CODE,
+      tokens: ["def", "\u0120main", "(", "):", "\u010a", "\u0109", "pass"],
+      ids: [0, 28273, 1911, 12, 4025, 203, 202, 5517, 2],
+      decoded: "<s>def main():\n\tpass</s>",
+    },
+    JAVASCRIPT_CODE: {
+      text: BASE_TEST_STRINGS.JAVASCRIPT_CODE,
+      tokens: ["let", "\u0120a", "\u0120=", "\u0120obj", ".", "to", "String", "();", "\u010a", "to", "String", "();"],
+      ids: [0, 1642, 264, 3887, 8273, 18, 764, 53889, 54181, 203, 764, 53889, 54181, 2],
+      decoded: "<s>let a = obj.toString();\ntoString();</s>",
+    },
+    NEWLINES: {
+      text: BASE_TEST_STRINGS.NEWLINES,
+      tokens: ["This", "\u010a", "\u010a", "is", "\u010a", "a", "\u010a", "test", "."],
+      ids: [0, 1803, 203, 203, 276, 203, 69, 203, 4451, 18, 2],
+      decoded: "<s>This\n\nis\na\ntest.</s>",
+    },
+    BASIC: {
+      text: BASE_TEST_STRINGS.BASIC,
+      tokens: ["UN", "w", "ant", "\u00c3\u00a9d", ",", "running"],
+      ids: [0, 3854, 91, 526, 46298, 16, 47232, 2],
+      decoded: "<s>UNwant\u00e9d,running</s>",
+    },
+    CONTROL_TOKENS: {
+      text: BASE_TEST_STRINGS.CONTROL_TOKENS,
+      tokens: ["1", "\u0100", "2", "\u00ef\u00bf\u00bd", "3"],
+      ids: [0, 21, 193, 22, 1998, 23, 2],
+      decoded: "<s>1\u00002\ufffd3</s>",
+    },
+    HELLO_WORLD_TITLECASE: {
+      text: BASE_TEST_STRINGS.HELLO_WORLD_TITLECASE,
+      tokens: ["Hello", "\u0120World"],
+      ids: [0, 17964, 3519, 2],
+      decoded: "<s>Hello World</s>",
+    },
+    HELLO_WORLD_LOWERCASE: {
+      text: BASE_TEST_STRINGS.HELLO_WORLD_LOWERCASE,
+      tokens: ["hell", "o", "\u0120world"],
+      ids: [0, 17067, 83, 1568, 2],
+      decoded: "<s>hello world</s>",
+    },
+    CHINESE_ONLY: {
+      text: BASE_TEST_STRINGS.CHINESE_ONLY,
+      tokens: ["\u00e7\u0136", "\u0141", "\u00e6", "\u00b4", "\u00bb", "\u00e7\u013c\u0126", "\u00e7", "\u013e", "\u0141", "\u00e8", "\u00b0", "\u013d", "\u00e6", "\u013a", "\u00af"],
+      ids: [0, 55225, 258, 167, 117, 124, 44574, 168, 255, 258, 169, 113, 254, 167, 251, 112, 2],
+      decoded: "<s>\u751f\u6d3b\u7684\u771f\u8c1b\u662f</s>",
+    },
+    LEADING_SPACE: {
+      text: BASE_TEST_STRINGS.LEADING_SPACE,
+      tokens: ["\u0120\u0120", "\u0120leading", "\u0120space"],
+      ids: [0, 6733, 5344, 3435, 2],
+      decoded: "<s>   leading space</s>",
+    },
+    TRAILING_SPACE: {
+      text: BASE_TEST_STRINGS.TRAILING_SPACE,
+      tokens: ["tra", "iling", "\u0120space", "\u0120\u0120\u0120"],
+      ids: [0, 766, 7462, 3435, 53448, 2],
+      decoded: "<s>trailing space   </s>",
+    },
+    DOUBLE_SPACE: {
+      text: BASE_TEST_STRINGS.DOUBLE_SPACE,
+      tokens: ["Hi", "\u0120", "\u0120Hello"],
+      ids: [0, 10103, 225, 29546, 2],
+      decoded: "<s>Hi  Hello</s>",
+    },
+    CURRENCY: {
+      text: BASE_TEST_STRINGS.CURRENCY,
+      tokens: ["test", "\u0120$", "1", "\u0120R", "2", "\u0120#", "3", "\u0120\u00e2\u0124\u00ac", "4", "\u0120\u00c2\u00a3", "5", "\u0120\u00c2", "\u00a5", "6", "\u0120\u00e2", "\u0124", "\u00a3", "7", "\u0120\u00e2\u0124\u00b9", "8", "\u0120\u00e2", "\u0124", "\u00b1", "9", "\u0120test"],
+      ids: [0, 4451, 1350, 21, 366, 22, 1805, 23, 2712, 24, 6339, 25, 960, 103, 26, 1581, 229, 101, 27, 58720, 28, 1581, 229, 114, 29, 2839, 2],
+      decoded: "<s>test $1 R2 #3 \u20ac4 \u00a35 \u00a56 \u20a37 \u20b98 \u20b19 test</s>",
+    },
+    CURRENCY_WITH_DECIMALS: {
+      text: BASE_TEST_STRINGS.CURRENCY_WITH_DECIMALS,
+      tokens: ["I", "\u0120bought", "\u0120an", "\u0120apple", "\u0120for", "\u0120$", "1", ".", "00", "\u0120at", "\u0120the", "\u0120store", "."],
+      ids: [0, 45, 8928, 371, 19798, 382, 1350, 21, 18, 505, 495, 285, 4569, 18, 2],
+      decoded: "<s>I bought an apple for $1.00 at the store.</s>",
+    },
+    ELLIPSIS: {
+      text: BASE_TEST_STRINGS.ELLIPSIS,
+      tokens: ["you", "\u00e2\u0122\u00a6", "\u0120\u0120"],
+      ids: [0, 10695, 1179, 6733, 2],
+      decoded: "<s>you\u2026  </s>",
+    },
+    TEXT_WITH_ESCAPE_CHARACTERS: {
+      text: BASE_TEST_STRINGS.TEXT_WITH_ESCAPE_CHARACTERS,
+      tokens: ["you", "\u00e2\u0122\u00a6", "\u00c2\u0142\u00c2\u0142"],
+      ids: [0, 10695, 1179, 44105, 2],
+      decoded: "<s>you\u2026\u00a0\u00a0</s>",
+    },
+    TEXT_WITH_ESCAPE_CHARACTERS_2: {
+      text: BASE_TEST_STRINGS.TEXT_WITH_ESCAPE_CHARACTERS_2,
+      tokens: ["you", "\u00e2\u0122\u00a6", "\u00c2\u0142", "\u00c2\u0142", "you", "\u00e2\u0122\u00a6", "\u00c2\u0142\u00c2\u0142"],
+      ids: [0, 10695, 1179, 15529, 15529, 10695, 1179, 44105, 2],
+      decoded: "<s>you\u2026\u00a0\u00a0you\u2026\u00a0\u00a0</s>",
+    },
+    TILDE_NORMALIZATION: {
+      text: BASE_TEST_STRINGS.TILDE_NORMALIZATION,
+      tokens: ["we", "ird", "\u0120\u00ef", "\u00bd", "\u0140", "\u0120edge", "\u0120\u00ef", "\u00bd", "\u0140", "\u0120case"],
+      ids: [0, 487, 2394, 17740, 126, 257, 9911, 17740, 126, 257, 2600, 2],
+      decoded: "<s>weird \uff5e edge \uff5e case</s>",
+    },
+    SPIECE_UNDERSCORE: {
+      text: BASE_TEST_STRINGS.SPIECE_UNDERSCORE,
+      tokens: ["\u00e2\u0138", "\u0123", "This", "\u0120\u00e2\u0138", "\u0123", "is", "\u0120\u00e2\u0138", "\u0123", "a", "\u0120\u00e2\u0138", "\u0123", "test", "\u0120\u00e2\u0138", "\u0123", "."],
+      ids: [0, 12790, 228, 1803, 20068, 228, 276, 20068, 228, 69, 20068, 228, 4451, 20068, 228, 18, 2],
+      decoded: "<s>\u2581This \u2581is \u2581a \u2581test \u2581.</s>",
+    },
+    POPULAR_EMOJIS: {
+      text: BASE_TEST_STRINGS.POPULAR_EMOJIS,
+      tokens: ["\u00f0\u0141\u013a", "\u0124", "\u0120\u00f0\u0141\u0133", "\u012f", "\u0120\u00f0\u0141", "\u00a4", "\u00a3", "\u0120\u00f0\u0141\u013a", "\u012f", "\u0120\u00f0\u0141\u013a", "\u0143", "\u0120\u00f0\u0141", "\u0130", "\u012b", "\u0120\u00f0\u0141\u013b", "\u0131", "\u0120\u00f0\u0141\u013a", "\u012c", "\u0120\u00f0\u0141", "\u0136", "\u00a5", "\u0120\u00f0\u0141\u013a", "\u0123", "\u0120\u00f0\u0141\u013a", "\u0127", "\u0120\u00f0\u0141", "\u00a4", "\u0139", "\u0120\u00f0\u0141\u013a", "\u0128", "\u0120\u00f0\u0141\u0133", "\u0131", "\u0120\u00e2\u013f\u00a4", "\u00ef\u00b8\u0131", "\u0120\u00f0\u0141\u0134", "\u013e", "\u0120\u00f0\u0141\u0134", "\u013c", "\u0120\u00f0\u0141\u0134", "\u0139", "\u0120\u00f0\u0141\u0134", "\u013b", "\u0120\u00f0\u0141", "\u0138", "\u00a4", "\u0120\u00f0\u0141\u013a", "\u0130", "\u0120\u00f0\u0141\u0133", "\u012e", "\u0120\u00f0\u0141", "\u00a5", "\u00b3", "\u0120\u00f0\u0141\u0134", "\u00aa", "\u0120\u00e2\u013e", "\u00a8", "\u0120\u00f0\u0141\u0133", "\u012b", "\u0120\u00f0\u0141\u0133", "\u0122", "\u0120\u00f0\u0141\u0134", "\u00af", "\u0120\u00f0\u0141", "\u0130", "\u012a", "\u0120\u00f0\u0141\u013b", "\u012a", "\u0120\u00f0\u0141\u013b", "\u012e", "\u0120\u00f0\u0141\u0134", "\u0122", "\u0120\u00f0\u0141\u0133", "\u0129", "\u0120\u00f0\u0141\u0133", "\u012d", "\u0120\u00e2\u013e\u0127", "\u0120\u00f0\u0141", "\u0130", "\u0123", "\u0120\u00f0\u0141", "\u012e", "\u0140", "\u0120\u00f0\u0141", "\u012e", "\u00b8", "\u0120\u00f0\u0141\u0134", "\u00b0"],
+      ids: [0, 32164, 229, 49904, 240, 5060, 102, 101, 10278, 240, 10278, 260, 5060, 241, 236, 10319, 242, 10278, 237, 5060, 247, 103, 10278, 228, 10278, 232, 5060, 102, 250, 10278, 233, 49904, 242, 42009, 16598, 52278, 255, 52278, 253, 52278, 250, 52278, 252, 5060, 249, 102, 10278, 241, 49904, 239, 5060, 103, 116, 52278, 108, 10792, 106, 49904, 236, 49904, 227, 52278, 112, 5060, 241, 235, 10319, 235, 10319, 239, 52278, 227, 49904, 234, 49904, 238, 38607, 5060, 241, 228, 5060, 239, 257, 5060, 239, 121, 52278, 113, 2],
+      decoded: "<s>\ud83d\ude02 \ud83d\udc4d \ud83e\udd23 \ud83d\ude0d \ud83d\ude2d \ud83c\udf89 \ud83d\ude4f \ud83d\ude0a \ud83d\udd25 \ud83d\ude01 \ud83d\ude05 \ud83e\udd17 \ud83d\ude06 \ud83d\udc4f \u2764\ufe0f \ud83d\udc9c \ud83d\udc9a \ud83d\udc97 \ud83d\udc99 \ud83d\udda4 \ud83d\ude0e \ud83d\udc4c \ud83e\udd73 \ud83d\udcaa \u2728 \ud83d\udc49 \ud83d\udc40 \ud83d\udcaf \ud83c\udf88 \ud83d\ude48 \ud83d\ude4c \ud83d\udc80 \ud83d\udc47 \ud83d\udc4b \u2705 \ud83c\udf81 \ud83c\udf1e \ud83c\udf38 \ud83d\udcb0</s>",
+    },
+    MULTIBYTE_EMOJIS: {
+      text: BASE_TEST_STRINGS.MULTIBYTE_EMOJIS,
+      tokens: ["\u00e2\u013e", "\u00a8", "\u0120\u00f0\u0141", "\u00a4", "\u0139", "\u0120\u00f0\u0141\u0133", "\u0123", "\u00ef\u00b8\u0131", "\u0120\u00f0\u0141\u0133", "\u00b1", "\u00f0\u0141\u0131", "\u00bb", "\u0120\u00f0\u0141", "\u0137", "\u00b5", "\u00e2\u0122\u012f", "\u00e2\u013b", "\u0124", "\u00ef\u00b8\u0131", "\u0120\u00f0\u0141", "\u00a7", "\u013b", "\u00f0\u0141\u0131", "\u00bb", "\u00e2\u0122\u012f", "\u00e2\u013b", "\u0124", "\u0120\u00f0\u0141\u0133", "\u00a8", "\u00f0\u0141\u0131", "\u00bb", "\u00e2\u0122\u012f", "\u00f0\u0141", "\u012e", "\u00be", "\u0120\u00f0\u0141", "\u00a7", "\u0133", "\u00e2\u0122\u012f", "\u00f0\u0141", "\u00a4", "\u013f", "\u00e2\u0122\u012f", "\u00f0\u0141", "\u00a7", "\u0133", "\u0120\u00f0\u0141\u0133", "\u00a9", "\u00e2\u0122\u012f", "\u00e2\u013f\u00a4", "\u00e2\u0122\u012f", "\u00f0\u0141\u0134", "\u012d", "\u00e2\u0122\u012f", "\u00f0\u0141\u0133", "\u00a8", "\u0120\u00f0\u0141\u0133", "\u00a9", "\u00e2\u0122\u012f", "\u00f0\u0141\u0133", "\u00a9", "\u00e2\u0122\u012f", "\u00f0\u0141\u0133", "\u00a7", "\u00e2\u0122\u012f", "\u00f0\u0141\u0133", "\u00a6", "\u0120\u00f0\u0141", "\u00a7", "\u0133", "\u00f0\u0141\u0131", "\u00bb", "\u00e2\u0122\u012f", "\u00f0\u0141", "\u00a4", "\u013f", "\u00e2\u0122\u012f", "\u00f0\u0141", "\u00a7", "\u0133", "\u00f0\u0141\u0131", "\u00bb", "\u0120\u00f0\u0141", "\u0131", "\u00b4", "\u00f3", "\u0142", "\u0123", "\u00a7", "\u00f3", "\u0142", "\u0123", "\u00a2", "\u00f3", "\u0142", "\u0123", "\u00a5", "\u00f3", "\u0142", "\u0123", "\u00ae", "\u00f3", "\u0142", "\u0123", "\u00a7", "\u00f3", "\u0142", "\u0123", "\u00bf", "\u0120\u00f0\u0141\u0133", "\u00a8", "\u00f0\u0141\u0131", "\u00bb", "\u00e2\u0122\u012f", "\u00e2\u013f\u00a4", "\u00ef\u00b8\u0131", "\u00e2\u0122\u012f", "\u00f0\u0141\u0134", "\u012d", "\u00e2\u0122\u012f", "\u00f0\u0141\u0133", "\u00a8", "\u00f0\u0141\u0131", "\u00bc"],
+      ids: [0, 20675, 106, 5060, 102, 250, 49904, 228, 16598, 49904, 114, 49365, 124, 5060, 248, 118, 54678, 26323, 229, 16598, 5060, 105, 252, 49365, 124, 54678, 26323, 229, 49904, 106, 49365, 124, 54678, 3753, 239, 127, 5060, 105, 244, 54678, 3753, 102, 256, 54678, 3753, 105, 244, 49904, 107, 54678, 49144, 54678, 41347, 238, 54678, 43307, 106, 49904, 107, 54678, 43307, 107, 54678, 43307, 105, 54678, 43307, 104, 5060, 105, 244, 49365, 124, 54678, 3753, 102, 256, 54678, 3753, 105, 244, 49365, 124, 5060, 242, 117, 180, 259, 228, 105, 180, 259, 228, 100, 180, 259, 228, 103, 180, 259, 228, 111, 180, 259, 228, 105, 180, 259, 228, 128, 49904, 106, 49365, 124, 54678, 49144, 16598, 54678, 41347, 238, 54678, 43307, 106, 49365, 125, 2],
+      decoded: "<s>\u2728 \ud83e\udd17 \ud83d\udc41\ufe0f \ud83d\udc71\ud83c\udffb \ud83d\udd75\u200d\u2642\ufe0f \ud83e\uddd9\ud83c\udffb\u200d\u2642 \ud83d\udc68\ud83c\udffb\u200d\ud83c\udf3e \ud83e\uddd1\u200d\ud83e\udd1d\u200d\ud83e\uddd1 \ud83d\udc69\u200d\u2764\u200d\ud83d\udc8b\u200d\ud83d\udc68 \ud83d\udc69\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66 \ud83e\uddd1\ud83c\udffb\u200d\ud83e\udd1d\u200d\ud83e\uddd1\ud83c\udffb \ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f \ud83d\udc68\ud83c\udffb\u200d\u2764\ufe0f\u200d\ud83d\udc8b\u200d\ud83d\udc68\ud83c\udffc</s>",
+    },
+    CHINESE_LATIN_MIXED: {
+      text: BERT_TEST_STRINGS.CHINESE_LATIN_MIXED,
+      tokens: ["ah", "\u00e5", "\u012f", "\u013c", "\u00e6", "\u0130", "\u00a8", "zz"],
+      ids: [0, 500, 166, 240, 253, 167, 241, 106, 9326, 2],
+      decoded: "<s>ah\u535a\u63a8zz</s>",
+    },
+    SIMPLE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.SIMPLE_WITH_ACCENTS,
+      tokens: ["H", "\u00c3\u00a9", "llo"],
+      ids: [0, 44, 2277, 31053, 2],
+      decoded: "<s>H\u00e9llo</s>",
+    },
+    MIXED_CASE_WITHOUT_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITHOUT_ACCENTS,
+      tokens: ["\u0120", "\u0109", "He", "L", "Lo", "!", "how", "\u0120\u0120", "\u010a", "\u0120Are", "\u0120y", "o", "U", "?", "\u0120\u0120"],
+      ids: [0, 225, 202, 2523, 48, 17901, 5, 7253, 6733, 203, 5175, 361, 83, 57, 35, 6733, 2],
+      decoded: "<s> \tHeLLo!how  \n Are yoU?  </s>",
+    },
+    MIXED_CASE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITH_ACCENTS,
+      tokens: ["\u0120", "\u0109", "H", "\u00c3\u00a4", "L", "Lo", "!", "how", "\u0120\u0120", "\u010a", "\u0120Are", "\u0120y", "o", "U", "?", "\u0120\u0120"],
+      ids: [0, 225, 202, 44, 325, 48, 17901, 5, 7253, 6733, 203, 5175, 361, 83, 57, 35, 6733, 2],
+      decoded: "<s> \tH\u00e4LLo!how  \n Are yoU?  </s>",
+    },
+  },
+  "jinaai/jina-embeddings-v2-base-code": {
+    NUMBERS: {
+      text: BASE_TEST_STRINGS.NUMBERS,
+      tokens: ["0123456789", "\u01200", "\u01201", "\u01202", "\u01203", "\u01204", "\u01205", "\u01206", "\u01207", "\u01208", "\u01209", "\u012010", "\u0120100", "\u01201000"],
+      ids: [0, 22133, 325, 397, 491, 795, 879, 997, 1434, 1577, 1240, 1926, 1528, 2069, 5216, 2],
+      decoded: "<s>0123456789 0 1 2 3 4 5 6 7 8 9 10 100 1000</s>",
+    },
+    TEXT_WITH_NUMBERS: {
+      text: BASE_TEST_STRINGS.TEXT_WITH_NUMBERS,
+      tokens: ["The", "\u0120company", "\u0120was", "\u0120f", "ounded", "\u0120in", "\u01202016", "."],
+      ids: [0, 1664, 18100, 2146, 304, 12402, 338, 7541, 18, 2],
+      decoded: "<s>The company was founded in 2016.</s>",
+    },
+    PYTHON_CODE: {
+      text: BASE_TEST_STRINGS.PYTHON_CODE,
+      tokens: ["def", "\u0120main", "():", "\u010a", "\u0109", "pass"],
+      ids: [0, 406, 3578, 3281, 203, 202, 4557, 2],
+      decoded: "<s>def main():\n\tpass</s>",
+    },
+    JAVASCRIPT_CODE: {
+      text: BASE_TEST_STRINGS.JAVASCRIPT_CODE,
+      tokens: ["let", "\u0120a", "\u0120=", "\u0120obj", ".", "toString", "();", "\u010a", "toString", "();"],
+      ids: [0, 953, 323, 278, 2666, 18, 3411, 467, 203, 3411, 467, 2],
+      decoded: "<s>let a = obj.toString();\ntoString();</s>",
+    },
+    BASIC: {
+      text: BASE_TEST_STRINGS.BASIC,
+      tokens: ["UN", "want", "\u00c3\u00a9", "d", ",", "running"],
+      ids: [0, 1129, 13944, 2521, 72, 16, 8423, 2],
+      decoded: "<s>UNwant\u00e9d,running</s>",
+    },
+    HELLO_WORLD_LOWERCASE: {
+      text: BASE_TEST_STRINGS.HELLO_WORLD_LOWERCASE,
+      tokens: ["hello", "\u0120world"],
+      ids: [0, 9522, 7550, 2],
+      decoded: "<s>hello world</s>",
+    },
+    CHINESE_ONLY: {
+      text: BASE_TEST_STRINGS.CHINESE_ONLY,
+      tokens: ["\u00e7\u0136\u0141", "\u00e6\u00b4\u00bb", "\u00e7\u013c\u0126", "\u00e7\u013e\u0141", "\u00e8\u00b0", "\u013d", "\u00e6\u013a\u00af"],
+      ids: [0, 12173, 28408, 2149, 36264, 12338, 254, 4988, 2],
+      decoded: "<s>\u751f\u6d3b\u7684\u771f\u8c1b\u662f</s>",
+    },
+    TRAILING_SPACE: {
+      text: BASE_TEST_STRINGS.TRAILING_SPACE,
+      tokens: ["trailing", "\u0120space", "\u0120\u0120\u0120"],
+      ids: [0, 29801, 4113, 264, 2],
+      decoded: "<s>trailing space   </s>",
+    },
+    CURRENCY: {
+      text: BASE_TEST_STRINGS.CURRENCY,
+      tokens: ["test", "\u0120$", "1", "\u0120R", "2", "\u0120#", "3", "\u0120\u00e2", "\u0124\u00ac", "4", "\u0120\u00c2", "\u00a3", "5", "\u0120\u00c2", "\u00a5", "6", "\u0120\u00e2", "\u0124", "\u00a3", "7", "\u0120\u00e2", "\u0124", "\u00b9", "8", "\u0120\u00e2", "\u0124", "\u00b1", "9", "\u0120test"],
+      ids: [0, 1052, 393, 21, 741, 22, 592, 23, 12284, 16181, 24, 5519, 101, 25, 5519, 103, 26, 12284, 229, 101, 27, 12284, 229, 122, 28, 12284, 229, 114, 29, 1089, 2],
+      decoded: "<s>test $1 R2 #3 \u20ac4 \u00a35 \u00a56 \u20a37 \u20b98 \u20b19 test</s>",
+    },
+    CURRENCY_WITH_DECIMALS: {
+      text: BASE_TEST_STRINGS.CURRENCY_WITH_DECIMALS,
+      tokens: ["I", "\u0120b", "ought", "\u0120an", "\u0120apple", "\u0120for", "\u0120$", "1", ".", "00", "\u0120at", "\u0120the", "\u0120store", "."],
+      ids: [0, 45, 328, 17412, 692, 33091, 455, 393, 21, 18, 337, 913, 329, 3205, 18, 2],
+      decoded: "<s>I bought an apple for $1.00 at the store.</s>",
+    },
+    TILDE_NORMALIZATION: {
+      text: BASE_TEST_STRINGS.TILDE_NORMALIZATION,
+      tokens: ["we", "ird", "\u0120", "\u00ef\u00bd", "\u0140", "\u0120edge", "\u0120", "\u00ef\u00bd", "\u0140", "\u0120case"],
+      ids: [0, 1643, 6005, 225, 44634, 257, 7158, 225, 44634, 257, 1007, 2],
+      decoded: "<s>weird \uff5e edge \uff5e case</s>",
+    },
+    SPIECE_UNDERSCORE: {
+      text: BASE_TEST_STRINGS.SPIECE_UNDERSCORE,
+      tokens: ["\u00e2\u0138", "\u0123", "This", "\u0120", "\u00e2\u0138", "\u0123", "is", "\u0120", "\u00e2\u0138", "\u0123", "a", "\u0120", "\u00e2\u0138", "\u0123", "test", "\u0120", "\u00e2\u0138", "\u0123", "."],
+      ids: [0, 8550, 228, 2744, 225, 8550, 228, 302, 225, 8550, 228, 69, 225, 8550, 228, 1052, 225, 8550, 228, 18, 2],
+      decoded: "<s>\u2581This \u2581is \u2581a \u2581test \u2581.</s>",
+    },
+    POPULAR_EMOJIS: {
+      text: BASE_TEST_STRINGS.POPULAR_EMOJIS,
+      tokens: ["\u00f0\u0141", "\u013a", "\u0124", "\u0120\u00f0\u0141\u0133", "\u012f", "\u0120\u00f0\u0141", "\u00a4", "\u00a3", "\u0120\u00f0\u0141", "\u013a", "\u012f", "\u0120\u00f0\u0141", "\u013a", "\u0143", "\u0120\u00f0\u0141", "\u0130", "\u012b", "\u0120\u00f0\u0141", "\u013b", "\u0131", "\u0120\u00f0\u0141", "\u013a", "\u012c", "\u0120\u00f0\u0141", "\u0136", "\u00a5", "\u0120\u00f0\u0141", "\u013a", "\u0123", "\u0120\u00f0\u0141", "\u013a\u0127", "\u0120\u00f0\u0141", "\u00a4", "\u0139", "\u0120\u00f0\u0141", "\u013a", "\u0128", "\u0120\u00f0\u0141\u0133", "\u0131", "\u0120\u00e2", "\u013f", "\u00a4", "\u00ef\u00b8\u0131", "\u0120\u00f0\u0141", "\u0134", "\u013e", "\u0120\u00f0\u0141", "\u0134", "\u013c", "\u0120\u00f0\u0141", "\u0134", "\u0139", "\u0120\u00f0\u0141", "\u0134", "\u013b", "\u0120\u00f0\u0141", "\u0138", "\u00a4", "\u0120\u00f0\u0141", "\u013a", "\u0130", "\u0120\u00f0\u0141\u0133", "\u012e", "\u0120\u00f0\u0141", "\u00a5", "\u00b3", "\u0120\u00f0\u0141", "\u0134", "\u00aa", "\u0120\u00e2", "\u013e", "\u00a8", "\u0120\u00f0\u0141\u0133", "\u012b", "\u0120\u00f0\u0141\u0133", "\u0122", "\u0120\u00f0\u0141", "\u0134", "\u00af", "\u0120\u00f0\u0141", "\u0130", "\u012a", "\u0120\u00f0\u0141", "\u013b", "\u012a", "\u0120\u00f0\u0141", "\u013b", "\u012e", "\u0120\u00f0\u0141", "\u0134", "\u0122", "\u0120\u00f0\u0141\u0133", "\u0129", "\u0120\u00f0\u0141\u0133", "\u012d", "\u0120\u00e2", "\u013e", "\u0127", "\u0120\u00f0\u0141", "\u0130", "\u0123", "\u0120\u00f0\u0141", "\u012e", "\u0140", "\u0120\u00f0\u0141", "\u012e", "\u00b8", "\u0120\u00f0\u0141", "\u0134", "\u00b0"],
+      ids: [0, 8000, 251, 229, 22730, 240, 9919, 102, 101, 9919, 251, 240, 9919, 251, 260, 9919, 241, 236, 9919, 252, 242, 9919, 251, 237, 9919, 247, 103, 9919, 251, 228, 9919, 38879, 9919, 102, 250, 9919, 251, 233, 22730, 242, 12284, 256, 102, 26726, 9919, 245, 255, 9919, 245, 253, 9919, 245, 250, 9919, 245, 252, 9919, 249, 102, 9919, 251, 241, 22730, 239, 9919, 103, 116, 9919, 245, 108, 12284, 255, 106, 22730, 236, 22730, 227, 9919, 245, 112, 9919, 241, 235, 9919, 252, 235, 9919, 252, 239, 9919, 245, 227, 22730, 234, 22730, 238, 12284, 255, 232, 9919, 241, 228, 9919, 239, 257, 9919, 239, 121, 9919, 245, 113, 2],
+      decoded: "<s>\ud83d\ude02 \ud83d\udc4d \ud83e\udd23 \ud83d\ude0d \ud83d\ude2d \ud83c\udf89 \ud83d\ude4f \ud83d\ude0a \ud83d\udd25 \ud83d\ude01 \ud83d\ude05 \ud83e\udd17 \ud83d\ude06 \ud83d\udc4f \u2764\ufe0f \ud83d\udc9c \ud83d\udc9a \ud83d\udc97 \ud83d\udc99 \ud83d\udda4 \ud83d\ude0e \ud83d\udc4c \ud83e\udd73 \ud83d\udcaa \u2728 \ud83d\udc49 \ud83d\udc40 \ud83d\udcaf \ud83c\udf88 \ud83d\ude48 \ud83d\ude4c \ud83d\udc80 \ud83d\udc47 \ud83d\udc4b \u2705 \ud83c\udf81 \ud83c\udf1e \ud83c\udf38 \ud83d\udcb0</s>",
+    },
+    MULTIBYTE_EMOJIS: {
+      text: BASE_TEST_STRINGS.MULTIBYTE_EMOJIS,
+      tokens: ["\u00e2\u013e", "\u00a8", "\u0120\u00f0\u0141", "\u00a4", "\u0139", "\u0120\u00f0\u0141\u0133", "\u0123", "\u00ef\u00b8\u0131", "\u0120\u00f0\u0141\u0133", "\u00b1", "\u00f0\u0141", "\u0131", "\u00bb", "\u0120\u00f0\u0141", "\u0137", "\u00b5", "\u00e2\u0122", "\u012f", "\u00e2\u013b", "\u0124", "\u00ef\u00b8\u0131", "\u0120\u00f0\u0141\u00a7", "\u013b", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00e2\u013b", "\u0124", "\u0120\u00f0\u0141\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u012e", "\u00be", "\u0120\u00f0\u0141\u00a7", "\u0133", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a4", "\u013f", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a7", "\u0133", "\u0120\u00f0\u0141\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00e2", "\u013f", "\u00a4", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0134", "\u012d", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a8", "\u0120\u00f0\u0141\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a7", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a6", "\u0120\u00f0\u0141\u00a7", "\u0133", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a4", "\u013f", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a7", "\u0133", "\u00f0\u0141", "\u0131", "\u00bb", "\u0120\u00f0\u0141\u0131", "\u00b4", "\u00f3", "\u0142\u0123", "\u00a7", "\u00f3", "\u0142\u0123", "\u00a2", "\u00f3", "\u0142\u0123", "\u00a5", "\u00f3", "\u0142\u0123", "\u00ae", "\u00f3", "\u0142\u0123", "\u00a7", "\u00f3", "\u0142\u0123", "\u00bf", "\u0120\u00f0\u0141\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00e2", "\u013f", "\u00a4", "\u00ef\u00b8\u0131", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0134", "\u012d", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bc"],
+      ids: [0, 60553, 106, 9919, 102, 250, 22730, 228, 26726, 22730, 114, 8000, 242, 124, 9919, 248, 118, 2965, 240, 30370, 229, 26726, 31249, 252, 8000, 242, 124, 2965, 240, 30370, 229, 22730, 106, 8000, 242, 124, 2965, 240, 8000, 239, 127, 31249, 244, 2965, 240, 8000, 102, 256, 2965, 240, 8000, 105, 244, 22730, 107, 2965, 240, 163, 256, 102, 2965, 240, 8000, 245, 238, 2965, 240, 8000, 244, 106, 22730, 107, 2965, 240, 8000, 244, 107, 2965, 240, 8000, 244, 105, 2965, 240, 8000, 244, 104, 31249, 244, 8000, 242, 124, 2965, 240, 8000, 102, 256, 2965, 240, 8000, 105, 244, 8000, 242, 124, 58646, 117, 180, 9752, 105, 180, 9752, 100, 180, 9752, 103, 180, 9752, 111, 180, 9752, 105, 180, 9752, 128, 22730, 106, 8000, 242, 124, 2965, 240, 163, 256, 102, 26726, 2965, 240, 8000, 245, 238, 2965, 240, 8000, 244, 106, 8000, 242, 125, 2],
+      decoded: "<s>\u2728 \ud83e\udd17 \ud83d\udc41\ufe0f \ud83d\udc71\ud83c\udffb \ud83d\udd75\u200d\u2642\ufe0f \ud83e\uddd9\ud83c\udffb\u200d\u2642 \ud83d\udc68\ud83c\udffb\u200d\ud83c\udf3e \ud83e\uddd1\u200d\ud83e\udd1d\u200d\ud83e\uddd1 \ud83d\udc69\u200d\u2764\u200d\ud83d\udc8b\u200d\ud83d\udc68 \ud83d\udc69\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66 \ud83e\uddd1\ud83c\udffb\u200d\ud83e\udd1d\u200d\ud83e\uddd1\ud83c\udffb \ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f \ud83d\udc68\ud83c\udffb\u200d\u2764\ufe0f\u200d\ud83d\udc8b\u200d\ud83d\udc68\ud83c\udffc</s>",
+    },
+    CHINESE_LATIN_MIXED: {
+      text: BERT_TEST_STRINGS.CHINESE_LATIN_MIXED,
+      tokens: ["ah", "\u00e5\u012f\u013c", "\u00e6\u0130\u00a8", "zz"],
+      ids: [0, 3885, 33588, 28002, 4881, 2],
+      decoded: "<s>ah\u535a\u63a8zz</s>",
+    },
+    SIMPLE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.SIMPLE_WITH_ACCENTS,
+      tokens: ["H", "\u00c3\u00a9", "l", "lo"],
+      ids: [0, 44, 2521, 80, 324, 2],
+      decoded: "<s>H\u00e9llo</s>",
+    },
+    MIXED_CASE_WITHOUT_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITHOUT_ACCENTS,
+      tokens: ["\u0120", "\u0109", "He", "L", "Lo", "!", "how", "\u0120\u0120\u010a", "\u0120Are", "\u0120y", "o", "U", "?", "\u0120\u0120"],
+      ids: [0, 225, 202, 1397, 48, 1898, 5, 11452, 11092, 14877, 711, 83, 57, 35, 261, 2],
+      decoded: "<s> \tHeLLo!how  \n Are yoU?  </s>",
+    },
+    MIXED_CASE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITH_ACCENTS,
+      tokens: ["\u0120", "\u0109", "H", "\u00c3\u00a4", "L", "Lo", "!", "how", "\u0120\u0120\u010a", "\u0120Are", "\u0120y", "o", "U", "?", "\u0120\u0120"],
+      ids: [0, 225, 202, 44, 4319, 48, 1898, 5, 11452, 11092, 14877, 711, 83, 57, 35, 261, 2],
+      decoded: "<s> \tH\u00e4LLo!how  \n Are yoU?  </s>",
+    },
+  },
+  "jinaai/jina-reranker-v1-tiny-en": {
     SIMPLE: {
       text: BASE_TEST_STRINGS.SIMPLE,
       tokens: ["how", "are", "you", "doing", "?"],
@@ -154,79 +440,47 @@ export const TEST_CONFIG = {
       ids: [0, 2742, 20992, 3, 20133, 20775, 20700, 20894, 2067, 2662, 20133, 21050, 20700, 2067, 2662, 20768, 20700, 2067, 20593, 21049, 2067, 20995, 2067, 21049, 20769, 2067, 2781, 2067, 20792, 2067, 20768, 20769, 2067, 20769, 2067, 20767, 2067, 20766, 21049, 20700, 2067, 20995, 2067, 21049, 20700, 20697, 3, 21126, 3, 3, 3, 21130, 20768, 20700, 2067, 2781, 20133, 2067, 20792, 2067, 20768, 20701, 2],
       decoded: "<s> \u2728 \ud83e\udd17 <unk> \ufe0f \ud83d\udc71 \ud83c\udffb \ud83d\udd75 \u200d \u2642 \ufe0f \ud83e\uddd9 \ud83c\udffb \u200d \u2642 \ud83d\udc68 \ud83c\udffb \u200d \ud83c\udf3e \ud83e\uddd1 \u200d \ud83e\udd1d \u200d \ud83e\uddd1 \ud83d\udc69 \u200d \u2764 \u200d \ud83d\udc8b \u200d \ud83d\udc68 \ud83d\udc69 \u200d \ud83d\udc69 \u200d \ud83d\udc67 \u200d \ud83d\udc66 \ud83e\uddd1 \ud83c\udffb \u200d \ud83e\udd1d \u200d \ud83e\uddd1 \ud83c\udffb \ud83c\udff4 <unk> \udb40\udc62 <unk> <unk> <unk> \udb40\udc7f \ud83d\udc68 \ud83c\udffb \u200d \u2764 \ufe0f \u200d \ud83d\udc8b \u200d \ud83d\udc68 \ud83c\udffc </s>",
     },
+    CHINESE_LATIN_MIXED: {
+      text: BERT_TEST_STRINGS.CHINESE_LATIN_MIXED,
+      tokens: ["ah", "\u535a", "\u63a8", "zz"],
+      ids: [0, 22311, 4352, 7628, 24387, 2],
+      decoded: "<s> ah \u535a \u63a8 zz </s>",
+    },
+    SIMPLE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.SIMPLE_WITH_ACCENTS,
+      tokens: ["h", "\u00e9", "llo"],
+      ids: [0, 76, 173, 48932, 2],
+      decoded: "<s> h \u00e9 llo </s>",
+    },
+    MIXED_CASE_WITHOUT_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITHOUT_ACCENTS,
+      tokens: ["hello", "!", "how", "are", "you", "?"],
+      ids: [0, 28687, 31, 21431, 21182, 21166, 61, 2],
+      decoded: "<s> hello! how are you? </s>",
+    },
+    MIXED_CASE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITH_ACCENTS,
+      tokens: ["h", "\u00e4", "llo", "!", "how", "are", "you", "?"],
+      ids: [0, 76, 168, 48932, 31, 21431, 21182, 21166, 61, 2],
+      decoded: "<s> h \u00e4 llo! how are you? </s>",
+    },
+  },
+  "jinaai/jina-embeddings-v2-base-zh": {
+    // https://huggingface.co/jinaai/jina-embeddings-v2-base-zh/discussions/16
+    // Slow vs. fast tokenizer mismatch
+    CONTROL_TOKENS: {
+      text: BASE_TEST_STRINGS.CONTROL_TOKENS,
+      tokens: ["1", "\u0000", "2", "\ufffd", "3"],
+      ids: [0, 47, 5, 48, 20321, 49, 2],
+      decoded: "<s> 1 \u0000 2 \ufffd 3 </s>",
+    },
   },
   "Xenova/all-distilroberta-v1": {
-    SIMPLE: {
-      text: BASE_TEST_STRINGS.SIMPLE,
-      tokens: ["How", "\u0120are", "\u0120you", "\u0120doing", "?"],
-      ids: [0, 6179, 32, 47, 608, 116, 2],
-      decoded: "<s>How are you doing?</s>",
-    },
-    SIMPLE_WITH_PUNCTUATION: {
-      text: BASE_TEST_STRINGS.SIMPLE_WITH_PUNCTUATION,
-      tokens: ["You", "\u0120should", "'ve", "\u0120done", "\u0120this"],
-      ids: [0, 1185, 197, 348, 626, 42, 2],
-      decoded: "<s>You should've done this</s>",
-    },
     NUMBERS: {
       text: BASE_TEST_STRINGS.NUMBERS,
       tokens: ["01", "23", "45", "67", "89", "\u01200", "\u01201", "\u01202", "\u01203", "\u01204", "\u01205", "\u01206", "\u01207", "\u01208", "\u01209", "\u012010", "\u0120100", "\u01201000"],
       ids: [0, 2663, 1922, 1898, 4111, 5046, 321, 112, 132, 155, 204, 195, 231, 262, 290, 361, 158, 727, 10775, 2],
       decoded: "<s>0123456789 0 1 2 3 4 5 6 7 8 9 10 100 1000</s>",
-    },
-    TEXT_WITH_NUMBERS: {
-      text: BASE_TEST_STRINGS.TEXT_WITH_NUMBERS,
-      tokens: ["The", "\u0120company", "\u0120was", "\u0120founded", "\u0120in", "\u01202016", "."],
-      ids: [0, 133, 138, 21, 4790, 11, 336, 4, 2],
-      decoded: "<s>The company was founded in 2016.</s>",
-    },
-    PUNCTUATION: {
-      text: BASE_TEST_STRINGS.PUNCTUATION,
-      tokens: ["A", "\u010a", "'ll", "\u0120!!", "to", "?'", "d", "''", "d", "\u0120of", ",", "\u0120can", "'t", "."],
-      ids: [0, 250, 50118, 581, 43912, 560, 6600, 417, 17809, 417, 9, 6, 64, 75, 4, 2],
-      decoded: "<s>A\n'll!!to?'d''d of, can't.</s>",
-    },
-    PYTHON_CODE: {
-      text: BASE_TEST_STRINGS.PYTHON_CODE,
-      tokens: ["def", "\u0120main", "():", "\u010a", "\u0109", "pass"],
-      ids: [0, 9232, 1049, 49536, 50118, 50117, 10212, 2],
-      decoded: "<s>def main():\n\tpass</s>",
-    },
-    JAVASCRIPT_CODE: {
-      text: BASE_TEST_STRINGS.JAVASCRIPT_CODE,
-      tokens: ["let", "\u0120a", "\u0120=", "\u0120obj", ".", "to", "String", "();", "\u010a", "to", "String", "();"],
-      ids: [0, 2716, 10, 5457, 26907, 4, 560, 34222, 47006, 50118, 560, 34222, 47006, 2],
-      decoded: "<s>let a = obj.toString();\ntoString();</s>",
-    },
-    NEWLINES: {
-      text: BASE_TEST_STRINGS.NEWLINES,
-      tokens: ["This", "\u010a", "\u010a", "is", "\u010a", "a", "\u010a", "test", "."],
-      ids: [0, 713, 50118, 50118, 354, 50118, 102, 50118, 21959, 4, 2],
-      decoded: "<s>This\n\nis\na\ntest.</s>",
-    },
-    BASIC: {
-      text: BASE_TEST_STRINGS.BASIC,
-      tokens: ["UN", "want", "\u00c3\u00a9", "d", ",", "running"],
-      ids: [0, 4154, 32835, 1140, 417, 6, 12364, 2],
-      decoded: "<s>UNwant\u00e9d,running</s>",
-    },
-    CONTROL_TOKENS: {
-      text: BASE_TEST_STRINGS.CONTROL_TOKENS,
-      tokens: ["1", "\u0100", "2", "\u00ef\u00bf\u00bd", "3"],
-      ids: [0, 134, 50108, 176, 21955, 246, 2],
-      decoded: "<s>1\u00002\ufffd3</s>",
-    },
-    HELLO_WORLD_TITLECASE: {
-      text: BASE_TEST_STRINGS.HELLO_WORLD_TITLECASE,
-      tokens: ["Hello", "\u0120World"],
-      ids: [0, 31414, 623, 2],
-      decoded: "<s>Hello World</s>",
-    },
-    HELLO_WORLD_LOWERCASE: {
-      text: BASE_TEST_STRINGS.HELLO_WORLD_LOWERCASE,
-      tokens: ["hello", "\u0120world"],
-      ids: [0, 42891, 232, 2],
-      decoded: "<s>hello world</s>",
     },
     CHINESE_ONLY: {
       text: BASE_TEST_STRINGS.CHINESE_ONLY,
@@ -246,53 +500,17 @@ export const TEST_CONFIG = {
       ids: [0, 9738, 7022, 980, 1437, 1437, 1437, 2],
       decoded: "<s>trailing space   </s>",
     },
-    DOUBLE_SPACE: {
-      text: BASE_TEST_STRINGS.DOUBLE_SPACE,
-      tokens: ["Hi", "\u0120", "\u0120Hello"],
-      ids: [0, 30086, 1437, 20920, 2],
-      decoded: "<s>Hi  Hello</s>",
-    },
     CURRENCY: {
       text: BASE_TEST_STRINGS.CURRENCY,
       tokens: ["test", "\u0120$", "1", "\u0120R", "2", "\u0120#", "3", "\u0120\u00e2\u0124\u00ac", "4", "\u0120\u00c2\u00a3", "5", "\u0120\u00c2\u00a5", "6", "\u0120\u00e2", "\u0124", "\u00a3", "7", "\u0120\u00e2", "\u0124", "\u00b9", "8", "\u0120\u00e2", "\u0124", "\u00b1", "9", "\u0120test"],
       ids: [0, 21959, 68, 134, 248, 176, 849, 246, 4480, 306, 984, 245, 30844, 401, 14333, 9264, 2469, 406, 14333, 9264, 9253, 398, 14333, 9264, 15389, 466, 1296, 2],
       decoded: "<s>test $1 R2 #3 \u20ac4 \u00a35 \u00a56 \u20a37 \u20b98 \u20b19 test</s>",
     },
-    CURRENCY_WITH_DECIMALS: {
-      text: BASE_TEST_STRINGS.CURRENCY_WITH_DECIMALS,
-      tokens: ["I", "\u0120bought", "\u0120an", "\u0120apple", "\u0120for", "\u0120$", "1", ".", "00", "\u0120at", "\u0120the", "\u0120store", "."],
-      ids: [0, 100, 2162, 41, 15162, 13, 68, 134, 4, 612, 23, 5, 1400, 4, 2],
-      decoded: "<s>I bought an apple for $1.00 at the store.</s>",
-    },
     ELLIPSIS: {
       text: BASE_TEST_STRINGS.ELLIPSIS,
       tokens: ["you", "\u00e2\u0122\u00a6", "\u0120", "\u0120"],
       ids: [0, 6968, 1174, 1437, 1437, 2],
       decoded: "<s>you\u2026  </s>",
-    },
-    TEXT_WITH_ESCAPE_CHARACTERS: {
-      text: BASE_TEST_STRINGS.TEXT_WITH_ESCAPE_CHARACTERS,
-      tokens: ["you", "\u00e2\u0122\u00a6", "\u00c2\u0142\u00c2\u0142"],
-      ids: [0, 6968, 1174, 50142, 2],
-      decoded: "<s>you\u2026\u00a0\u00a0</s>",
-    },
-    TEXT_WITH_ESCAPE_CHARACTERS_2: {
-      text: BASE_TEST_STRINGS.TEXT_WITH_ESCAPE_CHARACTERS_2,
-      tokens: ["you", "\u00e2\u0122\u00a6", "\u00c2\u0142", "\u00c2\u0142", "you", "\u00e2\u0122\u00a6", "\u00c2\u0142\u00c2\u0142"],
-      ids: [0, 6968, 1174, 50141, 50141, 6968, 1174, 50142, 2],
-      decoded: "<s>you\u2026\u00a0\u00a0you\u2026\u00a0\u00a0</s>",
-    },
-    TILDE_NORMALIZATION: {
-      text: BASE_TEST_STRINGS.TILDE_NORMALIZATION,
-      tokens: ["we", "ird", "\u0120\u00ef", "\u00bd", "\u0140", "\u0120edge", "\u0120\u00ef", "\u00bd", "\u0140", "\u0120case"],
-      ids: [0, 1694, 8602, 33549, 10809, 17772, 3543, 33549, 10809, 17772, 403, 2],
-      decoded: "<s>weird \uff5e edge \uff5e case</s>",
-    },
-    SPIECE_UNDERSCORE: {
-      text: BASE_TEST_STRINGS.SPIECE_UNDERSCORE,
-      tokens: ["\u00e2\u0138", "\u0123", "This", "\u0120\u00e2\u0138", "\u0123", "is", "\u0120\u00e2\u0138", "\u0123", "a", "\u0120\u00e2\u0138", "\u0123", "test", "\u0120\u00e2\u0138", "\u0123", "."],
-      ids: [0, 48584, 10172, 713, 27233, 10172, 354, 27233, 10172, 102, 27233, 10172, 21959, 27233, 10172, 4, 2],
-      decoded: "<s>\u2581This \u2581is \u2581a \u2581test \u2581.</s>",
     },
     POPULAR_EMOJIS: {
       text: BASE_TEST_STRINGS.POPULAR_EMOJIS,
@@ -305,6 +523,24 @@ export const TEST_CONFIG = {
       tokens: ["\u00e2\u013e", "\u00a8", "\u0120\u00f0\u0141", "\u00a4", "\u0139", "\u0120\u00f0\u0141\u0133", "\u0123", "\u00ef\u00b8\u0131", "\u0120\u00f0\u0141\u0133", "\u00b1", "\u00f0\u0141", "\u0131", "\u00bb", "\u0120\u00f0\u0141", "\u0137", "\u00b5", "\u00e2\u0122", "\u012f", "\u00e2\u013b", "\u0124", "\u00ef\u00b8\u0131", "\u0120\u00f0\u0141", "\u00a7", "\u013b", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00e2\u013b", "\u0124", "\u0120\u00f0\u0141\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u012e", "\u00be", "\u0120\u00f0\u0141", "\u00a7", "\u0133", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a4", "\u013f", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a7", "\u0133", "\u0120\u00f0\u0141\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00e2\u013f", "\u00a4", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0134", "\u012d", "\u00e2\u0122", "\u012f", "\u00f0\u0141\u0133", "\u00a8", "\u0120\u00f0\u0141\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00f0\u0141\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00f0\u0141\u0133", "\u00a7", "\u00e2\u0122", "\u012f", "\u00f0\u0141\u0133", "\u00a6", "\u0120\u00f0\u0141", "\u00a7", "\u0133", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a4", "\u013f", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a7", "\u0133", "\u00f0\u0141", "\u0131", "\u00bb", "\u0120\u00f0\u0141", "\u0131", "\u00b4", "\u00f3", "\u0142", "\u0123", "\u00a7", "\u00f3", "\u0142", "\u0123", "\u00a2", "\u00f3", "\u0142", "\u0123", "\u00a5", "\u00f3", "\u0142", "\u0123", "\u00ae", "\u00f3", "\u0142", "\u0123", "\u00a7", "\u00f3", "\u0142", "\u0123", "\u00bf", "\u0120\u00f0\u0141\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00e2\u013f", "\u00a4", "\u00ef\u00b8\u0131", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0134", "\u012d", "\u00e2\u0122", "\u012f", "\u00f0\u0141\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bc"],
       ids: [0, 39817, 11423, 8103, 10470, 6800, 26964, 10172, 12605, 26964, 15389, 6569, 9357, 2023, 8103, 15722, 8906, 17, 8384, 38718, 9264, 12605, 8103, 6248, 27, 6569, 9357, 2023, 17, 8384, 38718, 9264, 26964, 11423, 6569, 9357, 2023, 17, 8384, 6569, 14285, 4726, 8103, 6248, 3602, 17, 8384, 6569, 10470, 46, 17, 8384, 6569, 6248, 3602, 26964, 15375, 17, 8384, 30151, 10470, 17, 8384, 6569, 10659, 13859, 17, 8384, 31193, 11423, 26964, 15375, 17, 8384, 31193, 15375, 17, 8384, 31193, 6248, 17, 8384, 31193, 18164, 8103, 6248, 3602, 6569, 9357, 2023, 17, 8384, 6569, 10470, 46, 17, 8384, 6569, 6248, 3602, 6569, 9357, 2023, 8103, 9357, 20024, 49078, 21402, 10172, 6248, 49078, 21402, 10172, 7258, 49078, 21402, 10172, 8210, 49078, 21402, 10172, 2840, 49078, 21402, 10172, 6248, 49078, 21402, 10172, 9470, 26964, 11423, 6569, 9357, 2023, 17, 8384, 30151, 10470, 12605, 17, 8384, 6569, 10659, 13859, 17, 8384, 31193, 11423, 6569, 9357, 4394, 2],
       decoded: "<s>\u2728 \ud83e\udd17 \ud83d\udc41\ufe0f \ud83d\udc71\ud83c\udffb \ud83d\udd75\u200d\u2642\ufe0f \ud83e\uddd9\ud83c\udffb\u200d\u2642 \ud83d\udc68\ud83c\udffb\u200d\ud83c\udf3e \ud83e\uddd1\u200d\ud83e\udd1d\u200d\ud83e\uddd1 \ud83d\udc69\u200d\u2764\u200d\ud83d\udc8b\u200d\ud83d\udc68 \ud83d\udc69\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66 \ud83e\uddd1\ud83c\udffb\u200d\ud83e\udd1d\u200d\ud83e\uddd1\ud83c\udffb \ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f \ud83d\udc68\ud83c\udffb\u200d\u2764\ufe0f\u200d\ud83d\udc8b\u200d\ud83d\udc68\ud83c\udffc</s>",
+    },
+    CHINESE_LATIN_MIXED: {
+      text: BERT_TEST_STRINGS.CHINESE_LATIN_MIXED,
+      tokens: ["ah", "\u00e5\u012f", "\u013c", "\u00e6", "\u0130", "\u00a8", "zz"],
+      ids: [0, 895, 47658, 15113, 37127, 12736, 11423, 7399, 2],
+      decoded: "<s>ah\u535a\u63a8zz</s>",
+    },
+    MIXED_CASE_WITHOUT_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITHOUT_ACCENTS,
+      tokens: ["\u0120", "\u0109", "He", "LL", "o", "!", "how", "\u0120", "\u0120", "\u010a", "\u0120Are", "\u0120yo", "U", "?", "\u0120", "\u0120"],
+      ids: [0, 1437, 50117, 894, 6006, 139, 328, 9178, 1437, 1437, 50118, 3945, 25610, 791, 116, 1437, 1437, 2],
+      decoded: "<s> \tHeLLo!how  \n Are yoU?  </s>",
+    },
+    MIXED_CASE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITH_ACCENTS,
+      tokens: ["\u0120", "\u0109", "H", "\u00c3\u00a4", "LL", "o", "!", "how", "\u0120", "\u0120", "\u010a", "\u0120Are", "\u0120yo", "U", "?", "\u0120", "\u0120"],
+      ids: [0, 1437, 50117, 725, 1561, 6006, 139, 328, 9178, 1437, 1437, 50118, 3945, 25610, 791, 116, 1437, 1437, 2],
+      decoded: "<s> \tH\u00e4LLo!how  \n Are yoU?  </s>",
     },
   },
   "Xenova/EsperBERTo-small-pos": {
@@ -404,12 +640,6 @@ export const TEST_CONFIG = {
       ids: [0, 45, 1716, 89, 8840, 353, 560, 720, 434, 9416, 21, 18, 455, 3993, 2814, 275, 14003, 18, 2],
       decoded: "<s>I bought an apple for $1.00 at the store.</s>",
     },
-    ELLIPSIS: {
-      text: BASE_TEST_STRINGS.ELLIPSIS,
-      tokens: ["you", "\u00e2\u0122\u00a6", "\u0120\u0120"],
-      ids: [0, 9642, 1322, 2399, 2],
-      decoded: "<s>you\u2026  </s>",
-    },
     TEXT_WITH_ESCAPE_CHARACTERS: {
       text: BASE_TEST_STRINGS.TEXT_WITH_ESCAPE_CHARACTERS,
       tokens: ["you", "\u00e2\u0122\u00a6", "\u00c2", "\u0142", "\u00c2", "\u0142"],
@@ -439,6 +669,18 @@ export const TEST_CONFIG = {
       tokens: ["\u00e2", "\u013e", "\u00a8", "\u0120\u00f0\u0141", "\u00a4", "\u0139", "\u0120\u00f0\u0141", "\u0133", "\u0123", "\u00ef\u00b8", "\u0131", "\u0120\u00f0\u0141", "\u0133", "\u00b1", "\u00f0\u0141", "\u0131", "\u00bb", "\u0120\u00f0\u0141", "\u0137", "\u00b5", "\u00e2\u0122", "\u012f", "\u00e2\u013b", "\u0124", "\u00ef\u00b8", "\u0131", "\u0120\u00f0\u0141", "\u00a7", "\u013b", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00e2\u013b", "\u0124", "\u0120\u00f0\u0141", "\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u012e", "\u00be", "\u0120\u00f0\u0141", "\u00a7", "\u0133", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a4", "\u013f", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a7", "\u0133", "\u0120\u00f0\u0141", "\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00e2", "\u013f", "\u00a4", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0134", "\u012d", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a8", "\u0120\u00f0\u0141", "\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a9", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a7", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a6", "\u0120\u00f0\u0141", "\u00a7", "\u0133", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a4", "\u013f", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u00a7", "\u0133", "\u00f0\u0141", "\u0131", "\u00bb", "\u0120\u00f0\u0141", "\u0131", "\u00b4", "\u00f3", "\u0142", "\u0123", "\u00a7", "\u00f3", "\u0142", "\u0123", "\u00a2", "\u00f3", "\u0142", "\u0123", "\u00a5", "\u00f3", "\u0142", "\u0123", "\u00ae", "\u00f3", "\u0142", "\u0123", "\u00a7", "\u00f3", "\u0142", "\u0123", "\u00bf", "\u0120\u00f0\u0141", "\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bb", "\u00e2\u0122", "\u012f", "\u00e2", "\u013f", "\u00a4", "\u00ef\u00b8", "\u0131", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0134", "\u012d", "\u00e2\u0122", "\u012f", "\u00f0\u0141", "\u0133", "\u00a8", "\u00f0\u0141", "\u0131", "\u00bc"],
       ids: [0, 163, 255, 106, 32340, 102, 250, 32340, 244, 228, 27027, 242, 32340, 244, 114, 9132, 242, 124, 32340, 248, 118, 348, 240, 20419, 229, 27027, 242, 32340, 105, 252, 9132, 242, 124, 348, 240, 20419, 229, 32340, 244, 106, 9132, 242, 124, 348, 240, 9132, 239, 127, 32340, 105, 244, 348, 240, 9132, 102, 256, 348, 240, 9132, 105, 244, 32340, 244, 107, 348, 240, 163, 256, 102, 348, 240, 9132, 245, 238, 348, 240, 9132, 244, 106, 32340, 244, 107, 348, 240, 9132, 244, 107, 348, 240, 9132, 244, 105, 348, 240, 9132, 244, 104, 32340, 105, 244, 9132, 242, 124, 348, 240, 9132, 102, 256, 348, 240, 9132, 105, 244, 9132, 242, 124, 32340, 242, 117, 180, 259, 228, 105, 180, 259, 228, 100, 180, 259, 228, 103, 180, 259, 228, 111, 180, 259, 228, 105, 180, 259, 228, 128, 32340, 244, 106, 9132, 242, 124, 348, 240, 163, 256, 102, 27027, 242, 348, 240, 9132, 245, 238, 348, 240, 9132, 244, 106, 9132, 242, 125, 2],
       decoded: "<s>\u2728 \ud83e\udd17 \ud83d\udc41\ufe0f \ud83d\udc71\ud83c\udffb \ud83d\udd75\u200d\u2642\ufe0f \ud83e\uddd9\ud83c\udffb\u200d\u2642 \ud83d\udc68\ud83c\udffb\u200d\ud83c\udf3e \ud83e\uddd1\u200d\ud83e\udd1d\u200d\ud83e\uddd1 \ud83d\udc69\u200d\u2764\u200d\ud83d\udc8b\u200d\ud83d\udc68 \ud83d\udc69\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66 \ud83e\uddd1\ud83c\udffb\u200d\ud83e\udd1d\u200d\ud83e\uddd1\ud83c\udffb \ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f \ud83d\udc68\ud83c\udffb\u200d\u2764\ufe0f\u200d\ud83d\udc8b\u200d\ud83d\udc68\ud83c\udffc</s>",
+    },
+    MIXED_CASE_WITHOUT_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITHOUT_ACCENTS,
+      tokens: ["\u0120", "\u0109", "He", "L", "Lo", "!", "ho", "w", "\u0120\u0120", "\u010a", "\u0120Are", "\u0120yo", "U", "?", "\u0120\u0120"],
+      ids: [0, 225, 202, 13029, 48, 4876, 5, 882, 91, 2399, 203, 31676, 27961, 57, 35, 2399, 2],
+      decoded: "<s> \tHeLLo!how  \n Are yoU?  </s>",
+    },
+    MIXED_CASE_WITH_ACCENTS: {
+      text: BERT_TEST_STRINGS.MIXED_CASE_WITH_ACCENTS,
+      tokens: ["\u0120", "\u0109", "H", "\u00c3\u00a4", "L", "Lo", "!", "ho", "w", "\u0120\u0120", "\u010a", "\u0120Are", "\u0120yo", "U", "?", "\u0120\u0120"],
+      ids: [0, 225, 202, 44, 3203, 48, 4876, 5, 882, 91, 2399, 203, 31676, 27961, 57, 35, 2399, 2],
+      decoded: "<s> \tH\u00e4LLo!how  \n Are yoU?  </s>",
     },
   },
 };
