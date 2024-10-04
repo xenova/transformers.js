@@ -237,13 +237,7 @@ export const TEST_CONFIG = {
       decoded: "Hey </s>. how are you</s>",
     },
   },
-  "google-t5/t5-small": {
-    // Test that tokenizer type can be inferred (`type: "Unigram"` is missing)
-    SIMPLE: {
-      text: BASE_TEST_STRINGS.SIMPLE,
-      tokens: ["\u2581How", "\u2581are", "\u2581you", "\u2581doing", "?"],
-      ids: [571, 33, 25, 692, 58, 1],
-      decoded: "How are you doing?</s>",
-    },
-  }
 };
+
+// Test that tokenizer type can be inferred (`type: "Unigram"` is missing)
+TEST_CONFIG["google-t5/t5-small"] = TEST_CONFIG["Xenova/t5-small"];
