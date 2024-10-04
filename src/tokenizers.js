@@ -357,14 +357,21 @@ export class TokenizerModel extends Callable {
             case 'Unigram':
                 // @ts-ignore
                 return new Unigram(config, ...args);
-
             case 'BPE':
                 return new BPE(config);
 
             default:
+                // Some tokenizers, like for google-t5/t5-small, do not have a `type` field.
+                // In this case, we can infer the tokenizer type based on the structure of the `vocab` field.
                 if (config.vocab) {
-                    // @ts-ignore
-                    return new LegacyTokenizerModel(config, ...args);
+                    if (Array.isArray(config.vocab)) {
+                        // config.vocab is of type `[string, number][]`
+                        // @ts-ignore
+                        return new Unigram(config, ...args);
+                    } else {
+                        // @ts-ignore
+                        return new LegacyTokenizerModel(config, ...args);
+                    }
                 }
                 throw new Error(`Unknown TokenizerModel type: ${config.type}`);
         }
