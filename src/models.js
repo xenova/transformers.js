@@ -187,7 +187,7 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[selectedDtype];
     const modelFileName = `${options.subfolder ?? ''}/${fileName}${suffix}.onnx`;
 
-    const session_options = { ...options.session_options } ?? {};
+    const session_options = { ...options.session_options };
 
     // Overwrite `executionProviders` if not specified
     session_options.executionProviders ??= executionProviders;
