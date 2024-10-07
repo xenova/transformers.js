@@ -241,3 +241,56 @@ export const TEST_CONFIG = {
 
 // Test that tokenizer type can be inferred (`type: "Unigram"` is missing)
 TEST_CONFIG["google-t5/t5-small"] = TEST_CONFIG["Xenova/t5-small"];
+
+const MAX_EXECUTION_TIME = 10_000;
+export const CUSTOM_TESTS = () => {
+  // Tests to ensure that no matter what, the correct tokenization is returned.
+  // This is necessary since there are sometimes bugs in the transformers library.
+  describe("hard-coded", () => {
+    const TESTS = {
+      // legacy=false
+      "Xenova/t5-tokenizer-new": [
+        {
+          data: {
+            // https://github.com/huggingface/transformers/pull/26678
+            // ['▁Hey', '▁', '</s>', '.', '▁how', '▁are', '▁you']
+            "Hey </s>. how are you": [9459, 3, 1, 5, 149, 33, 25],
+          },
+          reversible: true,
+          legacy: null,
+        },
+        {
+          data: {
+            "</s>\n": [1, 3],
+            "A\n'll": [71, 3, 31, 195],
+          },
+          reversible: false,
+          legacy: null,
+        },
+      ],
+    };
+
+    for (const [tokenizerName, test_data] of Object.entries(TESTS)) {
+      it(
+        tokenizerName,
+        async () => {
+          for (const { data, reversible, legacy } of test_data) {
+            const tokenizer = await T5Tokenizer.from_pretrained(tokenizerName, { legacy });
+
+            for (const [text, expected] of Object.entries(data)) {
+              const token_ids = tokenizer.encode(text, { add_special_tokens: false });
+              expect(token_ids).toEqual(expected);
+
+              // If reversible, test that decoding produces the original text
+              if (reversible) {
+                const decoded = tokenizer.decode(token_ids);
+                expect(decoded).toEqual(text);
+              }
+            }
+          }
+        },
+        MAX_EXECUTION_TIME,
+      );
+    }
+  });
+};

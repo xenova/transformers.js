@@ -451,6 +451,9 @@ export const TEST_CONFIG = {
       decoded: 'The llama (/\u02c8l\u0251\u02d0m\u0259/; \ud83e\udd99Spanish pronunciation: [\u02c8\u028eama]) (Lama glama) is a domesticated South American camelid, widely used as a meat and pack animal by Andean cultures since the Pre-Columbian era. Llamas are social animals and live with others as a herd. Their wool is soft and contains only a small amount of lanolin.[2] Llamas can learn simple tasks after a few repetitions. When using a pack, they can carry about 25 to 30% of their body weight for 8 to 13 km (5\u20138 miles).[3] The name llama (in the past also spelled "lama" or "glama") was adopted by European settlers from native Peruvians.[4] The ancestors of llamas are thought to have originated from the Great Plains of North America about 40 million years ago, and subsequently migrated to South America about three million years ago during the Great American Interchange. By the end of the last ice age (10,000\u201312,000 years ago), camelids were extinct in North America.[3] As of 2007, there were over seven million llamas and alpacas in South America and over 158,000 llamas and 100,000\ua64a\ud83e\udd99 alpacas, descended from progenitors imported late in the 20th century, in the United States and Canada.[5] In Aymara mythology, llamas are important beings. The Heavenly Llama is said to drink water from the ocean and urinates as it rains.[6] According to Aymara eschatology, llamas will return to the water springs and lagoons where they come from at the end of time.[6]',
     },
   },
+
+  // - Sequence PostProcessor
+  // - "ignore_merges": true
   "Xenova/llama3-tokenizer-new": {
     SIMPLE: {
       text: BASE_TEST_STRINGS.SIMPLE,
@@ -1179,4 +1182,115 @@ export const TEST_CONFIG = {
       decoded: '<s> The llama (/\u02c8l\u0251\u02d0m\u0259/; <unk>Spanish pronunciation: [\u02c8<unk>ama]) (Lama glama) is a domesticated South American camelid, widely used as a meat and pack animal by Andean cultures since the Pre-Columbian era. Llamas are social animals and live with others as a herd. Their wool is soft and contains only a small amount of lanolin.[2] Llamas can learn simple tasks after a few repetitions. When using a pack, they can carry about 25 to 30% of their body weight for 8 to 13 km (5\u20138 miles).[3] The name llama (in the past also spelled "lama" or "glama") was adopted by European settlers from native Peruvians.[4] The ancestors of llamas are thought to have originated from the Great Plains of North America about 40 million years ago, and subsequently migrated to South America about three million years ago during the Great American Interchange. By the end of the last ice age (10,000\u201312,000 years ago), camelids were extinct in North America.[3] As of 2007, there were over seven million llamas and alpacas in South America and over 158,000 llamas and 100,000<unk> alpacas, descended from progenitors imported late in the 20th century, in the United States and Canada.[5] In Aymara mythology, llamas are important beings. The Heavenly Llama is said to drink water from the ocean and urinates as it rains.[6] According to Aymara eschatology, llamas will return to the water springs and lagoons where they come from at the end of time.[6]',
     },
   },
+};
+
+const MAX_EXECUTION_TIME = 10_000;
+export const CUSTOM_TESTS = () => {
+  // Tests to ensure that no matter what, the correct tokenization is returned.
+  // This is necessary since there are sometimes bugs in the transformers library.
+  describe("hard-coded", () => {
+    const TESTS = {
+      "Xenova/llama-tokenizer": [
+        // Test legacy compatibility
+        {
+          // legacy unset => legacy=true
+          // NOTE: While incorrect, it is necessary to match legacy behaviour
+          data: {
+            "<s>\n": [1, 29871, 13],
+          },
+          legacy: null,
+        },
+        {
+          // override legacy=true (same results as above)
+          data: {
+            "<s>\n": [1, 29871, 13],
+          },
+          legacy: true,
+        },
+        {
+          // override legacy=false (fixed results)
+          data: {
+            "<s>\n": [1, 13],
+          },
+          legacy: false,
+        },
+      ],
+
+      "Xenova/llama-tokenizer_new": [
+        // legacy=false
+        {
+          data: {
+            " </s> 1  2   3    4   ": [259, 2, 29871, 29896, 259, 29906, 1678, 29941, 268, 29946, 1678],
+            "<s>\n": [1, 13],
+            "</s>test</s>": [2, 1688, 2],
+            " </s> test </s> ": [259, 2, 1243, 29871, 2, 29871],
+            "A\n'll": [319, 13, 29915, 645],
+            "Hey </s>. how are you": [18637, 29871, 2, 29889, 920, 526, 366],
+            "  Hi  Hello  ": [259, 6324, 29871, 15043, 259],
+          },
+          reversible: true,
+          legacy: null,
+        },
+        {
+          // override legacy=true (incorrect results, but necessary to match legacy behaviour)
+          data: {
+            "<s>\n": [1, 29871, 13],
+          },
+          legacy: true,
+        },
+      ],
+
+      // new serialization format (tokenizers >= 0.20.0)
+      // BPE merges are now [string, string][] instead of string[]
+      "Xenova/Llama-3.2-Tokenizer": [
+        {
+          data: {
+            "hello world": [15339, 1917],
+            " belirtilen": [120909],
+          },
+          reversible: true,
+        },
+
+        // Test ignore_merges=false
+        {
+          data: {
+            "hello world": [15339, 1917],
+            " belirtilen": [101664, 1678, 268],
+          },
+          reversible: true,
+          override: (tokenizer) => {
+            tokenizer.model.ignore_merges = false;
+          },
+        },
+      ],
+    };
+
+    // Re-use the same tests for the llama2 tokenizer
+    TESTS["Xenova/llama2-tokenizer"] = TESTS["Xenova/llama-tokenizer_new"];
+
+    for (const [tokenizerName, test_data] of Object.entries(TESTS)) {
+      it(
+        tokenizerName,
+        async () => {
+          for (const { data, reversible, legacy, override } of test_data) {
+            const tokenizer = await LlamaTokenizer.from_pretrained(tokenizerName, { legacy });
+            if (override) {
+              override(tokenizer);
+            }
+            for (const [text, expected] of Object.entries(data)) {
+              const token_ids = tokenizer.encode(text, { add_special_tokens: false });
+              expect(token_ids).toEqual(expected);
+
+              // If reversible, test that decoding produces the original text
+              if (reversible) {
+                const decoded = tokenizer.decode(token_ids);
+                expect(decoded).toEqual(text);
+              }
+            }
+          }
+        },
+        MAX_EXECUTION_TIME,
+      );
+    }
+  });
 };

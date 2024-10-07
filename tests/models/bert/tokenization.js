@@ -172,6 +172,12 @@ export const TEST_CONFIG = {
       ids: [101, 2534, 2080, 999, 2129, 2024, 2017, 1029, 102],
       decoded: "[CLS] hallo! how are you? [SEP]",
     },
+    ONLY_WHITESPACE: {
+      text: BASE_TEST_STRINGS.ONLY_WHITESPACE,
+      tokens: [],
+      ids: [101, 102],
+      decoded: "[CLS] [SEP]",
+    },
   },
   "Xenova/bert-base-cased": {
     JAVASCRIPT_CODE: {

@@ -14,6 +14,7 @@ export const BASE_TEST_STRINGS = {
   CHINESE_ONLY: "生活的真谛是",
   LEADING_SPACE: "   leading space",
   TRAILING_SPACE: "trailing space   ",
+  SURROUNDING_SPACE: "   surrounding space   ",
   DOUBLE_SPACE: "Hi  Hello",
   CURRENCY: "test $1 R2 #3 €4 £5 ¥6 ₣7 ₹8 ₱9 test",
   CURRENCY_WITH_DECIMALS: "I bought an apple for $1.00 at the store.",
@@ -24,6 +25,7 @@ export const BASE_TEST_STRINGS = {
   SPIECE_UNDERSCORE: "▁This ▁is ▁a ▁test ▁.",
   POPULAR_EMOJIS: "😂 👍 🤣 😍 😭 🎉 🙏 😊 🔥 😁 😅 🤗 😆 👏 ❤️ 💜 💚 💗 💙 🖤 😎 👌 🥳 💪 ✨ 👉 👀 💯 🎈 🙈 🙌 💀 👇 👋 ✅ 🎁 🌞 🌸 💰",
   MULTIBYTE_EMOJIS: "✨ 🤗 👁️ 👱🏻 🕵‍♂️ 🧙🏻‍♂ 👨🏻‍🌾 🧑‍🤝‍🧑 👩‍❤‍💋‍👨 👩‍👩‍👧‍👦 🧑🏻‍🤝‍🧑🏻 🏴󠁧󠁢󠁥󠁮󠁧󠁿 👨🏻‍❤️‍💋‍👨🏼", // 1 2 3 4 5 6 7 8 10 11 12 14 15
+  ONLY_WHITESPACE: " \t\n",
 };
 
 export const BERT_TEST_STRINGS = {
@@ -56,6 +58,7 @@ export const LLAMA_TEST_STRINGS = {
   EMOJIS_2: "🦙Ꙋ",
   EMOJIS_3: "Ꙋ🦙",
   PARAGRAPH: 'The llama (/ˈlɑːmə/; 🦙Spanish pronunciation: [ˈʎama]) (Lama glama) is a domesticated South American camelid, widely used as a meat and pack animal by Andean cultures since the Pre-Columbian era. Llamas are social animals and live with others as a herd. Their wool is soft and contains only a small amount of lanolin.[2] Llamas can learn simple tasks after a few repetitions. When using a pack, they can carry about 25 to 30% of their body weight for 8 to 13 km (5–8 miles).[3] The name llama (in the past also spelled "lama" or "glama") was adopted by European settlers from native Peruvians.[4] The ancestors of llamas are thought to have originated from the Great Plains of North America about 40 million years ago, and subsequently migrated to South America about three million years ago during the Great American Interchange. By the end of the last ice age (10,000–12,000 years ago), camelids were extinct in North America.[3] As of 2007, there were over seven million llamas and alpacas in South America and over 158,000 llamas and 100,000Ꙋ🦙 alpacas, descended from progenitors imported late in the 20th century, in the United States and Canada.[5] In Aymara mythology, llamas are important beings. The Heavenly Llama is said to drink water from the ocean and urinates as it rains.[6] According to Aymara eschatology, llamas will return to the water springs and lagoons where they come from at the end of time.[6]',
+  IGNORE_MERGES: "Ne için gittiğimi falan bilmiyordum, Washington'da belirtilen bir yere rapor vermem gerekiyordu.",
 };
 
 export const VITS_TEST_STRINGS = {
@@ -99,4 +102,8 @@ export const ESM_TEST_STRINGS = {
   // Actual protein sequences
   PROTEIN_SEQUENCES_1: "ATTCCGATTCCGATTCCG",
   PROTEIN_SEQUENCES_2: "ATTTCTCTCTCTCTCTGAGATCGATCGATCGAT",
+};
+
+export const BLOOM_TEST_STRINGS = {
+  END_OF_SENTENCE_PUNCTUATION: "test. test, test! test? test… test。 test， test、 test। test۔ test، test",
 };
