@@ -274,12 +274,17 @@ function whitespace_split(text) {
 
 const PUNCTUATION_REGEX = '\\p{P}\\u0021-\\u002F\\u003A-\\u0040\\u005B-\\u0060\\u007B-\\u007E';
 const PUNCTUATION_ONLY_REGEX = new RegExp(`^[${PUNCTUATION_REGEX}]+$`, 'gu');
+const BLOOM_SPLIT_CHARS = '.,!?\u2026\u3002\uff0c\u3001\u0964\u06d4\u060c';
 
-// A mapping of regex patterns to their equivalent (but longer) JS-compatible versions.
+// A mapping of regex patterns to their equivalent (but possibly longer) JS-compatible versions.
 const PROBLEMATIC_REGEX_MAP = new Map([
     // This uses the case insensitive group modifier, which is not supported in JavaScript.
     // When parsing the regex, an "Invalid group" error is thrown.
     ["(?i:'s|'t|'re|'ve|'m|'ll|'d)", "(?:'([sS]|[tT]|[rR][eE]|[vV][eE]|[mM]|[lL][lL]|[dD]))"],
+
+    // Used to override the default (invalid) regex of the bloom pretokenizer.
+    // For more information, see https://github.com/xenova/transformers.js/issues/94
+    [` ?[^(\\s|[${BLOOM_SPLIT_CHARS}])]+`, ` ?[^\\s${BLOOM_SPLIT_CHARS}]+`],
 ])
 
 
@@ -3334,19 +3339,7 @@ export class MBart50Tokenizer extends MBartTokenizer { } // NOTE: extends MBartT
 
 export class RobertaTokenizer extends PreTrainedTokenizer { }
 
-export class BloomTokenizer extends PreTrainedTokenizer {
-
-    constructor(tokenizerJSON, tokenizerConfig) {
-        // Override the default (invalid) regex of the pretokenizer.
-        // For more information, see https://github.com/xenova/transformers.js/issues/94
-        const splitChars = '.,!?\u2026\u3002\uff0c\u3001\u0964\u06d4\u060c';
-        const patternObject = tokenizerJSON.pre_tokenizer?.pretokenizers[0]?.pattern;
-        if (patternObject && patternObject.Regex === ` ?[^(\\s|[${splitChars}])]+`) {
-            patternObject.Regex = ` ?[^\\s${splitChars}]+`;
-        }
-        super(tokenizerJSON, tokenizerConfig);
-    }
-}
+export class BloomTokenizer extends PreTrainedTokenizer { }
 
 const SPIECE_UNDERLINE = "▁";
 
