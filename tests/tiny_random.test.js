@@ -2234,6 +2234,36 @@ describe("Tiny random pipelines", () => {
     }, MAX_MODEL_DISPOSE_TIME);
   });
 
+  describe("translation", () => {
+    const model_id = "Xenova/tiny-random-M2M100ForConditionalGeneration";
+
+    /** @type {TextGenerationPipeline} */
+    let pipe;
+    beforeAll(async () => {
+      pipe = await pipeline("translation", model_id, {
+        // TODO move to config
+        ...DEFAULT_MODEL_OPTIONS,
+      });
+    }, MAX_MODEL_LOAD_TIME);
+
+    describe("batch_size=1", () => {
+      it("default", async () => {
+        const text = "जीवन एक चॉकलेट बॉक्स की तरह है।";
+        const output = await pipe(text, {
+          src_lang: "hi",
+          tgt_lang: "fr",
+          max_new_tokens: 5,
+        });
+        const target = [{ translation_text: "Slovenska төсли төсли төсли" }];
+        compare(output, target);
+      });
+    });
+
+    afterAll(async () => {
+      await pipe?.dispose();
+    }, MAX_MODEL_DISPOSE_TIME);
+  });
+
   describe("object-detection", () => {
     const model_id = "hf-internal-testing/tiny-random-DetrForObjectDetection";
     const urls = ["https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/white-image.png", "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/blue-image.png"];
