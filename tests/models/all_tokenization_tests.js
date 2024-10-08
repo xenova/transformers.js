@@ -10,6 +10,7 @@ export * as FalconTokenizer from "./falcon/tokenization.js";
 export * as GPT2Tokenizer from "./gpt2/tokenization.js";
 export * as GemmaTokenizer from "./gemma/tokenization.js";
 export * as LlamaTokenizer from "./llama/tokenization.js";
+export * as M2M100Tokenizer from "./m2m_100/tokenization.js";
 export * as MPNetTokenizer from "./mpnet/tokenization.js";
 export * as NllbTokenizer from "./nllb/tokenization.js";
 export * as Qwen2Tokenizer from "./qwen2/tokenization.js";

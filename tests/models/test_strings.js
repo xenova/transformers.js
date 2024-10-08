@@ -107,3 +107,9 @@ export const ESM_TEST_STRINGS = {
 export const BLOOM_TEST_STRINGS = {
   END_OF_SENTENCE_PUNCTUATION: "test. test, test! test? test… test。 test， test、 test। test۔ test، test",
 };
+
+export const M2M_100_TEST_STRINGS = {
+  TRANSLATION_INPUTS: "__en__ hello world</s>",
+  HIDNI_TEXT: "जीवन एक चॉकलेट बॉक्स की तरह है।",
+  CHINESE_TEXT: "生活就像一盒巧克力。",
+};
