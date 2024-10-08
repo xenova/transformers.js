@@ -178,6 +178,14 @@ export const TEST_CONFIG = {
       ids: [101, 102],
       decoded: "[CLS] [SEP]",
     },
+
+    TEXT_PAIR: {
+      text: "hello",
+      text_pair: "world",
+      tokens: ["hello", "world"],
+      ids: [101, 7592, 102, 2088, 102],
+      decoded: "[CLS] hello [SEP] world [SEP]",
+    },
   },
   "Xenova/bert-base-cased": {
     JAVASCRIPT_CODE: {

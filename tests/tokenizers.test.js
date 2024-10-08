@@ -11,6 +11,7 @@ describe("Tokenizers (model-specific)", () => {
     describe(tokenizer_name, () => {
       for (const model_id in TEST_CONFIG) {
         describe(model_id, () => {
+          /** @type {import('../src/tokenizers.js').PreTrainedTokenizer} */
           let tokenizer;
           beforeAll(async () => {
             tokenizer = await TOKENIZER_CLASS.from_pretrained(model_id);
@@ -19,11 +20,15 @@ describe("Tokenizers (model-specific)", () => {
           for (const [test_name, test_case] of Object.entries(TEST_CONFIG[model_id])) {
             test(test_name, () => {
               if (test_case.ids) {
-                const ids = tokenizer.encode(test_case.text);
+                const ids = tokenizer.encode(test_case.text, {
+                  text_pair: test_case.text_pair,
+                });
                 expect(ids).toEqual(test_case.ids);
               }
               if (test_case.tokens) {
-                const tokens = tokenizer.tokenize(test_case.text);
+                const tokens = tokenizer.tokenize(test_case.text, {
+                  pair: test_case.text_pair,
+                });
                 expect(tokens).toEqual(test_case.tokens);
               }
               if (test_case.decoded) {
@@ -360,6 +365,52 @@ describe("Chat templates", () => {
     expect(grounded_generation_prompt).toEqual("<BOS_TOKEN><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|># Safety Preamble\nThe instructions in this section override those in the task description and style guide sections. Don't answer questions that are harmful or immoral.\n\n" + "# System Preamble\n## Basic Rules\nYou are a powerful conversational AI trained by Cohere to help people. You are augmented by a number of tools, and your job is to use and consume the output of these tools to best help the user. You will see a conversation history between yourself and a user, ending with an utterance from the user. You will then see a specific instruction instructing you what kind of response to generate. When you answer the user's requests, you cite your sources in your answers, according to those instructions.\n\n" + "# User Preamble\n## Task and Context\nYou help people answer their questions and other requests interactively. You will be asked a very wide array of requests on all kinds of topics. You will be equipped with a wide range of search engines or similar tools to help you, which you use to research your answer. You should focus on serving the user's needs as best you can, which will be wide-ranging.\n\n## Style Guide\nUnless the user asks for a different style of answer, you should answer in full sentences, using proper grammar and spelling.<|END_OF_TURN_TOKEN|>" + "<|START_OF_TURN_TOKEN|><|USER_TOKEN|>Whats the biggest penguin in the world?<|END_OF_TURN_TOKEN|>" + "<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|><results>\nDocument: 0\ntitle: Tall penguins\ntext: Emperor penguins are the tallest growing up to 122 cm in height.\n\nDocument: 1\ntitle: Penguin habitats\ntext: Emperor penguins only live in Antarctica.\n</results><|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>Carefully perform the following instructions, in order, starting each with a new line.\nFirstly, Decide which of the retrieved documents are relevant to the user's last input by writing 'Relevant Documents:' followed by comma-separated list of document numbers. If none are relevant, you should instead write 'None'.\nSecondly, Decide which of the retrieved documents contain facts that should be cited in a good answer to the user's last input by writing 'Cited Documents:' followed a comma-separated list of document numbers. If you dont want to cite any of them, you should instead write 'None'.\nThirdly, Write 'Answer:' followed by a response to the user's last input in high quality natural english. Use the retrieved documents to help you. Do not insert any citations or grounding markup.\nFinally, Write 'Grounded answer:' followed by a response to the user's last input in high quality natural english. Use the symbols <co: doc> and </co: doc> to indicate when a fact comes from a document in the search result, e.g <co: 0>my fact</co: 0> for a fact from document 0.<|END_OF_TURN_TOKEN|>" + "<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>");
   });
 
+  it("should support automatic chat template detection based on inputs", async () => {
+    const tokenizer = await AutoTokenizer.from_pretrained("Xenova/c4ai-command-r-plus-08-2024-tokenizer");
+
+    // Examples adapted from https://huggingface.co/CohereForAI/c4ai-command-r-plus-08-2024
+
+    {
+      // - default
+      // define conversation input:
+      const messages = [{ role: "user", content: "Hello, how are you?" }];
+
+      // Format message with the command-r-plus-08-2024 chat template
+      const prompt = tokenizer.apply_chat_template(messages, { tokenize: false, add_generation_prompt: true });
+      expect(prompt).toEqual("<BOS_TOKEN><|START_OF_TURN_TOKEN|><|USER_TOKEN|>Hello, how are you?<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>");
+    }
+
+    {
+      // - tool_use
+      // define conversation input:
+      const conversation = [{ role: "user", content: "Whats the biggest penguin in the world?" }];
+
+      // Define tools available for the model to use:
+      const tools = [
+        {
+          name: "internet_search",
+          description: "Returns a list of relevant document snippets for a textual query retrieved from the internet",
+          parameter_definitions: {
+            query: {
+              description: "Query to search the internet with",
+              type: "str",
+              required: true,
+            },
+          },
+        },
+        {
+          name: "directly_answer",
+          description: "Calls a standard (un-augmented) AI chatbot to generate a response given the conversation history",
+          parameter_definitions: {},
+        },
+      ];
+
+      // render the tool use prompt as a string:
+      const prompt = tokenizer.apply_chat_template(conversation, { tools, tokenize: false, add_generation_prompt: true });
+      expect(prompt).toEqual('<BOS_TOKEN><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|># Safety Preamble\nThe instructions in this section override those in the task description and style guide sections. Don\'t answer questions that are harmful or immoral.\n\n# System Preamble\n## Basic Rules\nYou are a powerful conversational AI trained by Cohere to help people. You are augmented by a number of tools, and your job is to use and consume the output of these tools to best help the user. You will see a conversation history between yourself and a user, ending with an utterance from the user. You will then see a specific instruction instructing you what kind of response to generate. When you answer the user\'s requests, you cite your sources in your answers, according to those instructions.\n\n# User Preamble\n## Task and Context\nYou help people answer their questions and other requests interactively. You will be asked a very wide array of requests on all kinds of topics. You will be equipped with a wide range of search engines or similar tools to help you, which you use to research your answer. You should focus on serving the user\'s needs as best you can, which will be wide-ranging.\n\n## Style Guide\nUnless the user asks for a different style of answer, you should answer in full sentences, using proper grammar and spelling.\n\n## Available Tools\nHere is a list of tools that you have available to you:\n\n```python\ndef internet_search(query: str) -> List[Dict]:\n    """Returns a list of relevant document snippets for a textual query retrieved from the internet\n\n    Args:\n        query (str): Query to search the internet with\n    """\n    pass\n```\n\n```python\ndef directly_answer() -> List[Dict]:\n    """Calls a standard (un-augmented) AI chatbot to generate a response given the conversation history\n    """\n    pass\n```<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|USER_TOKEN|>Whats the biggest penguin in the world?<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>Write \'Action:\' followed by a json-formatted list of actions that you want to perform in order to produce a good response to the user\'s last input. You can use any of the supplied tools any number of times, but you should aim to execute the minimum number of necessary actions for the input. You should use the `directly-answer` tool if calling the other tools is unnecessary. The list of actions you want to call should be formatted as a list of json objects, for example:\n```json\n[\n    {\n        "tool_name": title of the tool in the specification,\n        "parameters": a dict of parameters to input into the tool as they are defined in the specs, or {} if it takes no parameters\n    }\n]```<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>');
+    }
+  });
+
   it("should support user-defined chat template", async () => {
     const tokenizer = await AutoTokenizer.from_pretrained("Xenova/llama-tokenizer");
 
@@ -410,6 +461,14 @@ describe("Chat templates", () => {
     expect(text).toEqual("<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant.\n<</SYS>>\n\nHello, how are you? [/INST] I'm doing great. How can I help you today? </s><s>[INST] I'd like to show off how chat templating works! [/INST]");
 
     // TODO: Add test for token_ids once bug in transformers is fixed.
+  });
+
+  it("should throw an error when no chat template is detected", async () => {
+    const tokenizer = await AutoTokenizer.from_pretrained("Xenova/gpt-4o");
+
+    const chat = [{ role: "user", content: "Hello, how are you?" }];
+
+    expect(() => tokenizer.apply_chat_template(chat, { tokenize: false })).toThrowError("tokenizer.chat_template is not set and no template argument was passed");
   });
 
   it("should support default parameters", async () => {

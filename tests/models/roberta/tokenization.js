@@ -178,6 +178,14 @@ export const TEST_CONFIG = {
       ids: [0, 225, 202, 44, 325, 48, 17901, 5, 7253, 6733, 203, 5175, 361, 83, 57, 35, 6733, 2],
       decoded: "<s> \tH\u00e4LLo!how  \n Are yoU?  </s>",
     },
+
+    TEXT_PAIR: {
+      text: "hello",
+      text_pair: "world",
+      tokens: ["hell", "o", "world"],
+      ids: [0, 17067, 83, 2, 2, 13639, 2],
+      decoded: "<s>hello</s></s>world</s>",
+    },
   },
   "jinaai/jina-embeddings-v2-base-code": {
     NUMBERS: {
