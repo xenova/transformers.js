@@ -4663,6 +4663,11 @@ export class SapiensForNormalEstimation extends SapiensPreTrainedModel { }
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+export class DepthProPreTrainedModel extends PreTrainedModel { }
+export class DepthProForDepthEstimation extends DepthProPreTrainedModel { }
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 export class MaskFormerPreTrainedModel extends PreTrainedModel { }
 export class MaskFormerModel extends MaskFormerPreTrainedModel { }
 export class MaskFormerForInstanceSegmentation extends MaskFormerPreTrainedModel { }
@@ -6720,6 +6725,7 @@ const MODEL_FOR_DEPTH_ESTIMATION_MAPPING_NAMES = new Map([
     ['depth_anything', ['DepthAnythingForDepthEstimation', DepthAnythingForDepthEstimation]],
     ['glpn', ['GLPNForDepthEstimation', GLPNForDepthEstimation]],
     ['sapiens', ['SapiensForDepthEstimation', SapiensForDepthEstimation]],
+    ['depth_pro', ['DepthProForDepthEstimation', DepthProForDepthEstimation]],
 ])
 
 const MODEL_FOR_NORMAL_ESTIMATION_MAPPING_NAMES = new Map([
