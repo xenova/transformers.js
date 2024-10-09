@@ -1,9 +1,9 @@
 /**
  * @file Helper module for `Tensor` processing.
- * 
- * These functions and classes are only used internally, 
+ *
+ * These functions and classes are only used internally,
  * meaning an end-user shouldn't need to access anything here.
- * 
+ *
  * @module utils/tensor
  */
 
@@ -141,9 +141,9 @@ export class Tensor {
     }
 
     /**
-     * @param {number} index 
-     * @param {number} iterSize 
-     * @param {any} iterDims 
+     * @param {number} index
+     * @param {number} iterSize
+     * @param {any} iterDims
      * @returns {Tensor}
      */
     _subarray(index, iterSize, iterDims) {
@@ -194,6 +194,29 @@ export class Tensor {
     sigmoid_() {
         for (let i = 0; i < this.data.length; ++i) {
             this.data[i] = 1 / (1 + Math.exp(-this.data[i]));
+        }
+        return this;
+    }
+
+    /**
+     * Return a new Tensor with a callback function applied to each element.
+     * @param {Function} callback - The function to apply to each element. It should take three arguments:
+     *                              the current element, its index, and the tensor's data array.
+     * @returns {Tensor} A new Tensor with the callback function applied to each element.
+     */
+    map(callback) {
+        return this.clone().map_(callback);
+    }
+
+    /**
+     * Apply a callback function to each element of the tensor in place.
+     * @param {Function} callback - The function to apply to each element. It should take three arguments:
+     *                              the current element, its index, and the tensor's data array.
+     * @returns {Tensor} Returns `this`.
+     */
+    map_(callback) {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] = callback(this.data[i], i, this.data);
         }
         return this;
     }
@@ -326,7 +349,7 @@ export class Tensor {
 
     /**
      * Returns the sum of each row of the input tensor in the given dimension dim.
-     * 
+     *
      * @param {number} [dim=null] The dimension or dimensions to reduce. If `null`, all dimensions are reduced.
      * @param {boolean} keepdim Whether the output tensor has `dim` retained or not.
      * @returns The summed tensor
@@ -455,10 +478,10 @@ export class Tensor {
 
     /**
      * Returns a tensor with all specified dimensions of input of size 1 removed.
-     * 
+     *
      * NOTE: The returned tensor shares the storage with the input tensor, so changing the contents of one will change the contents of the other.
      * If you would like a copy, use `tensor.clone()` before squeezing.
-     * 
+     *
      * @param {number} [dim=null] If given, the input will be squeezed only in the specified dimensions.
      * @returns The squeezed tensor
      */
@@ -480,9 +503,9 @@ export class Tensor {
 
     /**
      * Returns a new tensor with a dimension of size one inserted at the specified position.
-     * 
+     *
      * NOTE: The returned tensor shares the same underlying data with this tensor.
-     * 
+     *
      * @param {number} dim The index at which to insert the singleton dimension
      * @returns The unsqueezed tensor
      */
@@ -625,7 +648,7 @@ export class Tensor {
 
 /**
  * This creates a nested array of a given type and depth (see examples).
- * 
+ *
  * @example
  *   NestArray<string, 1>; // string[]
  * @example
@@ -846,7 +869,7 @@ function calc_unsqueeze_dims(dims, dim) {
  * @param {number} size The size of the array.
  * @param {number} [dimension=null] The dimension that the index is for (optional).
  * @returns {number} The index, guaranteed to be non-negative and less than `arrayLength`.
- * 
+ *
  * @throws {Error} If the index is out of range.
  * @private
  */
@@ -1074,7 +1097,7 @@ export function mean(input, dim = null, keepdim = false) {
  *
  * Measures similarity between two temporal sequences (e.g., input audio and output tokens
  * to generate token-level timestamps).
- * @param {Tensor} matrix 
+ * @param {Tensor} matrix
  * @returns {number[][]}
  */
 export function dynamicTimeWarping(matrix) {

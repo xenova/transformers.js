@@ -162,6 +162,16 @@ describe('Tensor operations', () => {
         });
     });
 
+    describe('map', () => {
+        it('should double', async () => {
+            const original = new Tensor('float32', [1, 2, 3, 4, 5, 6], [2, 3]);
+            const target = new Tensor('float32', [2, 4, 6, 8, 10, 12], [2, 3]);
+
+            const doubled = original.map(x => x * 2);
+            compare(doubled, target, 1e-3);
+        });
+    });
+
     describe('mean', () => {
         it('should calculate mean', async () => {
             const t1 = new Tensor('float32', [1, 2, 3, 4, 5, 6], [2, 3, 1]);
