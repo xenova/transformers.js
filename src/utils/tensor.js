@@ -215,8 +215,9 @@ export class Tensor {
      * @returns {Tensor} Returns `this`.
      */
     map_(callback) {
-        for (let i = 0; i < this.data.length; ++i) {
-            this.data[i] = callback(this.data[i], i, this.data);
+        const this_data = this.data;
+        for (let i = 0; i < this_data.length; ++i) {
+            this_data[i] = callback(this_data[i], i, this_data);
         }
         return this;
     }
