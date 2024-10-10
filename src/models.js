@@ -1135,6 +1135,7 @@ export class PreTrainedModel extends Callable {
 
             // Run callback
             if (generation_config.callback_function) {
+                beams.stride = generation_config.stride;
                 generation_config.callback_function(beams);
             }
         }
