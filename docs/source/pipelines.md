@@ -14,7 +14,7 @@ For the full list of available tasks/pipelines, check out [this table](#availabl
 Start by creating an instance of `pipeline()` and specifying a task you want to use it for. For example, to create a sentiment analysis pipeline, you can do:
 
 ```javascript
-import { pipeline } from '@xenova/transformers';
+import { pipeline } from '@huggingface/transformers';
 
 let classifier = await pipeline('sentiment-analysis');
 ```
