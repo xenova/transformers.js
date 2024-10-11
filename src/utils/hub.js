@@ -24,6 +24,7 @@ import { dispatchCallback } from './core.js';
  * since we use a git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any identifier allowed by git.
  * NOTE: This setting is ignored for local requests.
  * @property {string} [model_file_name=null] If specified, load the model with this name (excluding the .onnx suffix). Currently only valid for encoder- or decoder-only models.
+ * @property {string} [subfolder=null] If specified, load the model from this subdirectory of the model repository.
  */
 
 class FileResponse {
@@ -326,6 +327,9 @@ async function tryCache(cache, ...names) {
  * @returns {Promise} A Promise that resolves with the file content as a buffer.
  */
 export async function getModelFile(path_or_repo_id, filename, fatal = true, options = {}) {
+    if (options.subfolder) {
+        filename = pathJoin(options.subfolder, filename);
+    }
 
     if (!env.allowLocalModels) {
         // User has disabled local models, so we just make sure other settings are correct.
