@@ -438,6 +438,31 @@ export class RawImage {
         }
     }
 
+    /**
+     * Pad the image to a square.
+     * @param {*} dim The length of one of the square's side.
+     * @returns {Promise<RawImage>} `this` to support chaining.
+     */
+    async padToSquare(dim) {
+        // We cannot pad to a square if the image is larger than provided size.
+        if (this.width > dim || this.height > dim) {
+            return this;
+        }
+
+        // If no value was provided, then use the largest side.
+        if (dim === undefined) {
+            dim = Math.max(this.width, this.height);
+        }
+
+        // Odd numbers will add extra padding to the right and bottom.
+        return this.pad([
+            Math.floor((dim - this.width) / 2),
+            Math.ceil((dim - this.width) / 2),
+            Math.floor((dim - this.height) / 2),
+            Math.ceil((dim - this.height) / 2),
+        ]);
+    }
+
     async crop([x_min, y_min, x_max, y_max]) {
         // Ensure crop bounds are within the image
         x_min = Math.max(x_min, 0);

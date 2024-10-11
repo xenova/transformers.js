@@ -89,5 +89,26 @@ describe("Utilities", () => {
       expect(resized.width).toBe(300);
       expect(resized.height).toBe(200);
     });
+
+    it("Can pad to a square with no args", async () => {
+      const image = await RawImage.fromURL("https://picsum.photos/300/200");
+      const padded = await image.padToSquare();
+      expect(padded.width).toBe(300);
+      expect(padded.height).toBe(300);
+    });
+
+    it("Can pad to a square with larger sides", async () => {
+      const image = await RawImage.fromURL("https://picsum.photos/300/200");
+      const padded = await image.padToSquare(400);
+      expect(padded.width).toBe(400);
+      expect(padded.height).toBe(400);
+    });
+
+    it("Cannot pad to square if dim is smaller than image", async () => {
+      const image = await RawImage.fromURL("https://picsum.photos/300/200");
+      const padded = await image.padToSquare(100);
+      expect(padded.width).toBe(300);
+      expect(padded.height).toBe(200);
+    });
   });
 });
