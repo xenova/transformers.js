@@ -23,6 +23,7 @@ import {
 
   // Models
   LlamaForCausalLM,
+  GraniteForCausalLM,
   CohereModel,
   CohereForCausalLM,
   GemmaForCausalLM,
@@ -934,6 +935,56 @@ describe("Tiny random models", () => {
           expect(outputs.tolist()).toEqual([
             [0n, 1n, 22172n, 18547n, 8143n, 22202n, 9456n, 17213n, 15330n, 26591n],
             [1n, 22172n, 3186n, 24786n, 19169n, 20222n, 29993n, 27146n, 27426n, 24562n],
+          ]);
+        },
+        MAX_TEST_EXECUTION_TIME,
+      );
+
+      afterAll(async () => {
+        await model?.dispose();
+      }, MAX_MODEL_DISPOSE_TIME);
+    });
+  });
+
+  describe("granite", () => {
+    describe("GraniteForCausalLM", () => {
+      const model_id = "hf-internal-testing/tiny-random-GraniteForCausalLM";
+      /** @type {GraniteForCausalLM} */
+      let model;
+      /** @type {GPT2Tokenizer} */
+      let tokenizer;
+      beforeAll(async () => {
+        model = await GraniteForCausalLM.from_pretrained(model_id, {
+          // TODO move to config
+          ...DEFAULT_MODEL_OPTIONS,
+        });
+        tokenizer = await GPT2Tokenizer.from_pretrained(model_id);
+      }, MAX_MODEL_LOAD_TIME);
+
+      it(
+        "batch_size=1",
+        async () => {
+          const inputs = tokenizer("hello");
+          const outputs = await model.generate({
+            ...inputs,
+            max_length: 10,
+          });
+          expect(outputs.tolist()).toEqual([[7656n, 23147n, 31291n, 1011n, 8768n, 30904n, 9256n, 28368n, 16199n, 26560n]]);
+        },
+        MAX_TEST_EXECUTION_TIME,
+      );
+
+      it(
+        "batch_size>1",
+        async () => {
+          const inputs = tokenizer(["hello", "hello world"], { padding: true });
+          const outputs = await model.generate({
+            ...inputs,
+            max_length: 10,
+          });
+          expect(outputs.tolist()).toEqual([
+            [0n, 7656n, 23147n, 31291n, 1011n, 8768n, 30904n, 9256n, 28368n, 16199n],
+            [7656n, 5788n, 9477n, 14490n, 18374n, 28650n, 10907n, 2989n, 14096n, 27403n],
           ]);
         },
         MAX_TEST_EXECUTION_TIME,
