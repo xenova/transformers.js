@@ -68,6 +68,23 @@ describe("Tensor operations", () => {
 
       compare(t2, target);
     });
+
+    it("should return a given column dim", async () => {
+      const t1 = new Tensor("float32", [1, 2, 3, 4, 5, 6], [3, 2]);
+      const t2 = t1.vslice(1);
+      const target = new Tensor("float32", [2, 4, 6], [3, 1]);
+
+      compare(t2, target);
+    });
+
+    it("should return a range of cols", async () => {
+      const t1 = new Tensor("float32", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [3, 4]);
+      // The end index is not included.
+      const t2 = t1.vslice([1, 3]);
+      const target = new Tensor("float32", [2, 3, 6, 7, 10, 11], [3, 2]);
+
+      compare(t2, target);
+    });
   });
 
   describe("stack", () => {
