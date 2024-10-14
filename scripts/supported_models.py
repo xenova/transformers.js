@@ -441,6 +441,74 @@ SUPPORTED_MODELS = {
             'google/electra-base-discriminator',
         ],
     },
+    'ernie': {  # bert-like
+        # Feature extraction
+        'feature-extraction': [
+            'hf-internal-testing/tiny-random-ErnieModel',
+
+            'nghuyong/ernie-2.0-large-en',
+            'nghuyong/ernie-2.0-base-en',
+            'nghuyong/ernie-health-zh',
+            'nghuyong/ernie-3.0-mini-zh',
+            'nghuyong/ernie-3.0-nano-zh',
+            'nghuyong/ernie-3.0-micro-zh',
+            'nghuyong/ernie-gram-zh',
+
+            'shibing624/text2vec-base-chinese-paraphrase',
+            'shibing624/text2vec-base-chinese-sentence',
+        ],
+
+        # Text classification
+        'text-classification': [
+            'hf-internal-testing/tiny-random-ErnieForSequenceClassification',
+        ],
+
+        # Token classification
+        'token-classification': [
+            'hf-internal-testing/tiny-random-ErnieForTokenClassification',
+        ],
+
+        # Masked language modelling
+        'fill-mask': [
+            'nghuyong/ernie-3.0-xbase-zh',
+            'nghuyong/ernie-1.0-base-zh',
+            'nghuyong/ernie-3.0-medium-zh',
+            'nghuyong/ernie-3.0-base-zh',
+            'hf-internal-testing/tiny-random-ErnieForMaskedLM',
+        ],
+
+        # Question answering
+        'question-answering': [
+            'hf-internal-testing/tiny-random-ErnieForQuestionAnswering',
+        ],
+    },
+    'ernie_m': {  # distilbert-like
+        # Feature extraction
+        'feature-extraction': [
+            'hf-internal-testing/tiny-random-ErnieMModel',
+        ],
+
+        # Text classification
+        'text-classification': [
+            'hf-internal-testing/tiny-random-ErnieMForSequenceClassification',
+        ],
+
+        # Zero-shot classification
+        'zero-shot-classification': [
+            'MoritzLaurer/ernie-m-base-mnli-xnli',
+            'MoritzLaurer/ernie-m-large-mnli-xnli',
+        ],
+
+        # Token classification
+        'token-classification': [
+            'hf-internal-testing/tiny-random-ErnieMForTokenClassification',
+        ],
+
+        # Question answering
+        'question-answering': [
+            'hf-tiny-model-private/tiny-random-ErnieMForQuestionAnswering',
+        ],
+    },
     'esm': {
         # Masked language modelling
         'fill-mask': [

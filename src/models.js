@@ -1472,6 +1472,149 @@ export class BertForQuestionAnswering extends BertPreTrainedModel {
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
+// Ernie models
+export class ErniePreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare Ernie Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class ErnieModel extends ErniePreTrainedModel { }
+
+/**
+ * Ernie Model with a `language modeling` head on top.
+ */
+export class ErnieForMaskedLM extends ErniePreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Ernie Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class ErnieForSequenceClassification extends ErniePreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Ernie Model with a token classification head on top (a linear layer on top of the hidden-states output)
+ */
+export class ErnieForTokenClassification extends ErniePreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * Ernie Model with a span classification head on top for extractive question-answering tasks like SQuAD
+ * (a linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class ErnieForQuestionAnswering extends ErniePreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// ErnieM models
+export class ErnieMPreTrainedModel extends PreTrainedModel { }
+
+/**
+ * The bare ErnieM Model transformer outputting raw hidden-states without any specific head on top.
+ */
+export class ErnieMModel extends ErnieMPreTrainedModel { }
+
+/**
+ * ErnieM Model with a `language modeling` head on top.
+ */
+export class ErnieMForMaskedLM extends ErnieMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<MaskedLMOutput>} An object containing the model's output logits for masked language modeling.
+     */
+    async _call(model_inputs) {
+        return new MaskedLMOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ErnieM Model transformer with a sequence classification/regression head on top (a linear layer on top of the pooled output)
+ */
+export class ErnieMForSequenceClassification extends ErnieMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<SequenceClassifierOutput>} An object containing the model's output logits for sequence classification.
+     */
+    async _call(model_inputs) {
+        return new SequenceClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ErnieM Model with a token classification head on top (a linear layer on top of the hidden-states output)
+ */
+export class ErnieMForTokenClassification extends ErnieMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<TokenClassifierOutput>} An object containing the model's output logits for token classification.
+     */
+    async _call(model_inputs) {
+        return new TokenClassifierOutput(await super._call(model_inputs));
+    }
+}
+
+/**
+ * ErnieM Model with a span classification head on top for extractive question-answering tasks like SQuAD
+ * (a linear layers on top of the hidden-states output to compute `span start logits` and `span end logits`).
+ */
+export class ErnieMForQuestionAnswering extends ErnieMPreTrainedModel {
+    /**
+     * Calls the model on new inputs.
+     *
+     * @param {Object} model_inputs The inputs to the model.
+     * @returns {Promise<QuestionAnsweringModelOutput>} An object containing the model's output logits for question answering.
+     */
+    async _call(model_inputs) {
+        return new QuestionAnsweringModelOutput(await super._call(model_inputs));
+    }
+}
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
 // NomicBert models
 export class NomicBertPreTrainedModel extends PreTrainedModel { }
 export class NomicBertModel extends NomicBertPreTrainedModel { }
@@ -5564,6 +5707,8 @@ export class PretrainedMixin {
 
 const MODEL_MAPPING_NAMES_ENCODER_ONLY = new Map([
     ['bert', ['BertModel', BertModel]],
+    ['ernie', ['ErnieModel', ErnieModel]],
+    ['ernie_m', ['ErnieMModel', ErnieMModel]],
     ['nomic_bert', ['NomicBertModel', NomicBertModel]],
     ['roformer', ['RoFormerModel', RoFormerModel]],
     ['electra', ['ElectraModel', ElectraModel]],
@@ -5668,6 +5813,8 @@ const MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForSequenceClassification', BertForSequenceClassification]],
+    ['ernie', ['ErnieForSequenceClassification', ErnieForSequenceClassification]],
+    ['ernie_m', ['ErnieMForSequenceClassification', ErnieMForSequenceClassification]],
     ['roformer', ['RoFormerForSequenceClassification', RoFormerForSequenceClassification]],
     ['electra', ['ElectraForSequenceClassification', ElectraForSequenceClassification]],
     ['esm', ['EsmForSequenceClassification', EsmForSequenceClassification]],
@@ -5689,6 +5836,8 @@ const MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = new Map([
     ['bert', ['BertForTokenClassification', BertForTokenClassification]],
+    ['ernie', ['ErnieForTokenClassification', ErnieForTokenClassification]],
+    ['ernie_m', ['ErnieMForTokenClassification', ErnieMForTokenClassification]],
     ['roformer', ['RoFormerForTokenClassification', RoFormerForTokenClassification]],
     ['electra', ['ElectraForTokenClassification', ElectraForTokenClassification]],
     ['esm', ['EsmForTokenClassification', EsmForTokenClassification]],
@@ -5738,6 +5887,8 @@ const MODEL_WITH_LM_HEAD_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
     ['bert', ['BertForMaskedLM', BertForMaskedLM]],
+    ['ernie', ['ErnieForMaskedLM', ErnieForMaskedLM]],
+    ['ernie_m', ['ErnieMForMaskedLM', ErnieMForMaskedLM]],
     ['roformer', ['RoFormerForMaskedLM', RoFormerForMaskedLM]],
     ['electra', ['ElectraForMaskedLM', ElectraForMaskedLM]],
     ['esm', ['EsmForMaskedLM', EsmForMaskedLM]],
@@ -5757,6 +5908,8 @@ const MODEL_FOR_MASKED_LM_MAPPING_NAMES = new Map([
 
 const MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = new Map([
     ['bert', ['BertForQuestionAnswering', BertForQuestionAnswering]],
+    ['ernie', ['ErnieForQuestionAnswering', ErnieForQuestionAnswering]],
+    ['ernie_m', ['ErnieMForQuestionAnswering', ErnieMForQuestionAnswering]],
     ['roformer', ['RoFormerForQuestionAnswering', RoFormerForQuestionAnswering]],
     ['electra', ['ElectraForQuestionAnswering', ElectraForQuestionAnswering]],
     ['convbert', ['ConvBertForQuestionAnswering', ConvBertForQuestionAnswering]],
