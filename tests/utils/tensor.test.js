@@ -85,6 +85,22 @@ describe("Tensor operations", () => {
 
       compare(t2, target);
     });
+
+    it("should return a every third row", async () => {
+      // Create 21 nodes.
+      const t1 = new Tensor("float32", Array.from({ length: 21 }, (v, i) => v = ++i), [3, 7]);
+
+      // Extract every third column.
+      const indices = Array.from({ length: t1.dims[1] }, (_, i) => i)
+        .filter(i => i % 3 === 0)
+        // Make sure to wrap each in an array since an array creates a new range.
+        .map(v => [v]);
+      const t2 = t1.vslice(indices);
+
+      const target = new Tensor("float32", [1, 4, 7, 8, 11, 14, 15, 18, 21], [3, 3]);
+
+      compare(t2, target);
+    });
   });
 
   describe("stack", () => {
