@@ -340,10 +340,23 @@ export class Tensor {
         return this;
     }
 
+    /**
+     * Creates a deep copy of the current Tensor.
+     * @returns {Tensor} A new Tensor with the same type, data, and dimensions as the original.
+     */
     clone() {
         return new Tensor(this.type, this.data.slice(), this.dims.slice());
     }
 
+    /**
+     * Performs a vertical slice operation on a 2D Tensor.
+     * @param {number|number[]|number[][]} slices - The slice specification:
+     *   - If a number is given, then a single column is selected.
+     *   - If an array of two numbers is given, then a range of columns [start, end (exclusive)] is selected.
+     *   - If an array of arrays is given, then those specific columns are selected.
+     * @returns {Tensor} A new Tensor containing the selected columns.
+     * @throws {Error} If the slice input is invalid.
+     */
     vslice(slices) {
         const rowDim = this.dims[0];
         const colDim = this.dims[1];
@@ -353,7 +366,7 @@ export class Tensor {
         if (typeof slices === 'number') {
             // Single column slice
             selectedCols = [slices];
-        } else if (Array.isArray(slices) && slices.length === 2 && !Array.isArray(slices[0])) {
+        } else if (Array.isArray(slices) && slices.length === 2 && !Array.isArray(slices[0]) && !Array.isArray(slices[1])) {
             // Range slice [start, end]
             const [start, end] = slices;
             selectedCols = Array.from({ length: end - start }, (_, i) => i + start);
@@ -384,6 +397,15 @@ export class Tensor {
         return new Tensor(this.type, data, newTensorDims);
     }
 
+    /**
+     * Performs a slice operation on the Tensor along specified dimensions.
+     * @param {...(number|number[]|null)} slices - The slice specifications for each dimension.
+     *   - If a number is given, then a single column is selected.
+     *   - If an array of two numbers is given, then a range of columns [start, end (exclusive)] is selected.
+     *   - If null is given, then the entire dimension is selected.
+     * @returns {Tensor} A new Tensor containing the selected elements.
+     * @throws {Error} If the slice input is invalid.
+     */
     slice(...slices) {
         // This allows for slicing with ranges and numbers
         const newTensorDims = [];
