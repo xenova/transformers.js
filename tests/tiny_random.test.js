@@ -68,7 +68,7 @@ import {
   RawImage,
 } from "../src/transformers.js";
 
-import { init, MAX_MODEL_LOAD_TIME, MAX_TEST_EXECUTION_TIME, MAX_MODEL_DISPOSE_TIME } from "./init.js";
+import { init, MAX_TEST_TIME, MAX_MODEL_LOAD_TIME, MAX_TEST_EXECUTION_TIME, MAX_MODEL_DISPOSE_TIME } from "./init.js";
 import { compare } from "./test_utils.js";
 
 init();
@@ -943,6 +943,42 @@ describe("Tiny random models", () => {
       afterAll(async () => {
         await model?.dispose();
       }, MAX_MODEL_DISPOSE_TIME);
+    });
+
+    describe("LlamaForCausalLM (onnxruntime-genai)", () => {
+      const model_id = "onnx-community/tiny-random-LlamaForCausalLM-ONNX";
+      /** @type {LlamaTokenizer} */
+      let tokenizer;
+      let inputs;
+      beforeAll(async () => {
+        tokenizer = await LlamaTokenizer.from_pretrained(model_id);
+        inputs = tokenizer("hello");
+      }, MAX_MODEL_LOAD_TIME);
+
+      const dtypes = ["fp32", "fp16", "q4", "q4f16"];
+
+      for (const dtype of dtypes) {
+        it(
+          `dtype=${dtype}`,
+          async () => {
+            /** @type {LlamaForCausalLM} */
+            const model = await LlamaForCausalLM.from_pretrained(model_id, {
+              // TODO move to config
+              ...DEFAULT_MODEL_OPTIONS,
+              dtype,
+            });
+
+            const outputs = await model.generate({
+              ...inputs,
+              max_length: 5,
+            });
+            expect(outputs.tolist()).toEqual([[128000n, 15339n, 15339n, 15339n, 15339n]]);
+
+            await model?.dispose();
+          },
+          MAX_TEST_TIME,
+        );
+      }
     });
   });
 

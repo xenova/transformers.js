@@ -142,7 +142,7 @@ const MODEL_CLASS_TO_NAME_MAPPING = new Map();
  * @param {string} pretrained_model_name_or_path The path to the directory containing the model file.
  * @param {string} fileName The name of the model file.
  * @param {import('./utils/hub.js').PretrainedModelOptions} options Additional options for loading the model.
- * @returns {Promise<{buffer: Uint8Array, session_options: Object}>} A Promise that resolves to the data needed to create an InferenceSession object.
+ * @returns {Promise<{buffer: Uint8Array, session_options: Object, session_config: Object}>} A Promise that resolves to the data needed to create an InferenceSession object.
  * @private
  */
 async function getSession(pretrained_model_name_or_path, fileName, options) {
@@ -181,6 +181,22 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
         throw new Error(`Invalid dtype: ${selectedDtype}. Should be one of: ${Object.keys(DATA_TYPES).join(', ')}`);
     } else if (selectedDtype === DATA_TYPES.fp16 && selectedDevice === 'webgpu' && !(await isWebGpuFp16Supported())) {
         throw new Error(`The device (${selectedDevice}) does not support fp16.`);
+    }
+
+    // Only valid for models with a decoder
+    const kv_cache_dtype = custom_config.kv_cache_dtype
+        ? (typeof custom_config.kv_cache_dtype === 'string'
+            ? custom_config.kv_cache_dtype
+            : custom_config.kv_cache_dtype[selectedDtype] ?? 'float32')
+        : undefined;
+
+    if (kv_cache_dtype && !['float32', 'float16'].includes(kv_cache_dtype)) {
+        throw new Error(`Invalid kv_cache_dtype: ${kv_cache_dtype}. Should be one of: float32, float16`);
+    }
+
+    const session_config = {
+        dtype: selectedDtype,
+        kv_cache_dtype,
     }
 
     // Construct the model file name
@@ -258,7 +274,8 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
     }
 
     const buffer = await bufferPromise;
-    return { buffer, session_options };
+
+    return { buffer, session_options, session_config };
 }
 
 /**
@@ -273,8 +290,8 @@ async function getSession(pretrained_model_name_or_path, fileName, options) {
 async function constructSessions(pretrained_model_name_or_path, names, options) {
     return Object.fromEntries(await Promise.all(
         Object.keys(names).map(async (name) => {
-            const { buffer, session_options } = await getSession(pretrained_model_name_or_path, names[name], options);
-            const session = await createInferenceSession(buffer, session_options);
+            const { buffer, session_options, session_config } = await getSession(pretrained_model_name_or_path, names[name], options);
+            const session = await createInferenceSession(buffer, session_options, session_config);
             return [name, session];
         })
     ));
@@ -1631,9 +1648,8 @@ export class PreTrainedModel extends Callable {
         if (pastKeyValues) {
             Object.assign(decoderFeeds, pastKeyValues)
         } else {
-
-            /** @type {import('./transformers.js').DataType} */
-            const dtype = this.custom_config.kv_cache_dtype ?? 'float32';
+            const session = this.sessions['decoder_model_merged'] ?? this.sessions['model'];
+            const dtype = session?.config?.kv_cache_dtype ?? 'float32';
             const empty = (dtype === 'float16') ? new Uint16Array() : [];
 
             const shapes = getKeyValueShapes(this.config);
