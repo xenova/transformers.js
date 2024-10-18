@@ -72,6 +72,10 @@ import {
 } from './utils/hub.js';
 
 import {
+    GITHUB_ISSUE_URL,
+} from './utils/constants.js';
+
+import {
     LogitsProcessorList,
     ForcedBOSTokenLogitsProcessor,
     ForcedEOSTokenLogitsProcessor,
@@ -910,7 +914,7 @@ export class PreTrainedModel extends Callable {
 
         } else { // should be MODEL_TYPES.EncoderOnly
             if (modelType !== MODEL_TYPES.EncoderOnly) {
-                console.warn(`Model type for '${modelName ?? config?.model_type}' not found, assuming encoder-only architecture. Please report this at https://github.com/xenova/transformers.js/issues/new/choose.`)
+                console.warn(`Model type for '${modelName ?? config?.model_type}' not found, assuming encoder-only architecture. Please report this at ${GITHUB_ISSUE_URL}.`)
             }
             info = await Promise.all([
                 constructSessions(pretrained_model_name_or_path, {
@@ -4897,7 +4901,7 @@ export class PyAnnoteModel extends PyAnnotePreTrainedModel { }
  * **Example:** Load and run a `PyAnnoteForAudioFrameClassification` for speaker diarization.
  * 
  * ```javascript
- * import { AutoProcessor, AutoModelForAudioFrameClassification, read_audio } from '@xenova/transformers';
+ * import { AutoProcessor, AutoModelForAudioFrameClassification, read_audio } from '@huggingface/transformers';
  * 
  * // Load model and processor
  * const model_id = 'onnx-community/pyannote-segmentation-3.0';

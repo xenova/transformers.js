@@ -37,11 +37,11 @@
     "readme": "python ./docs/scripts/build_readme.py",
     "docs-api": "node ./docs/scripts/generate.js",
     "docs-preview": "doc-builder preview transformers.js ./docs/source/ --not_python_module",
-    "docs-build": "doc-builder build transformers.js ./docs/source/ --not_python_module --build_dir ./docs/build/ --repo_owner xenova"
+    "docs-build": "doc-builder build transformers.js ./docs/source/ --not_python_module --build_dir ./docs/build/"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xenova/transformers.js.git"
+    "url": "git+https://github.com/huggingface/transformers.js.git"
   },
   "keywords": [
     "transformers",
@@ -57,9 +57,9 @@
   "author": "Hugging Face",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/xenova/transformers.js/issues"
+    "url": "https://github.com/huggingface/transformers.js/issues"
   },
-  "homepage": "https://github.com/xenova/transformers.js#readme",
+  "homepage": "https://github.com/huggingface/transformers.js#readme",
   "dependencies": {
     "@huggingface/jinja": "^0.3.0",
     "onnxruntime-node": "1.19.2",

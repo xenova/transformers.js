@@ -20,8 +20,8 @@
     <a href="https://www.jsdelivr.com/package/npm/@huggingface/transformers">
         <img alt="jsDelivr Hits" src="https://img.shields.io/jsdelivr/npm/hw/@huggingface/transformers">
     </a>
-    <a href="https://github.com/xenova/transformers.js/blob/main/LICENSE">
-        <img alt="License" src="https://img.shields.io/github/license/xenova/transformers.js?color=blue">
+    <a href="https://github.com/huggingface/transformers.js/blob/main/LICENSE">
+        <img alt="License" src="https://img.shields.io/github/license/huggingface/transformers.js?color=blue">
     </a>
     <a href="https://huggingface.co/docs/transformers.js/index">
         <img alt="Documentation" src="https://img.shields.io/website/http/huggingface.co/docs/transformers.js/index.svg?down_color=red&down_message=offline&up_message=online">
@@ -114,18 +114,18 @@ Want to jump straight in? Get started with one of our sample applications/templa
 |-------------------|----------------------------------|-------------------------------|
 | Whisper Web       | Speech recognition w/ Whisper    | [code](https://github.com/xenova/whisper-web), [demo](https://huggingface.co/spaces/Xenova/whisper-web) |
 | Doodle Dash       | Real-time sketch-recognition game | [blog](https://huggingface.co/blog/ml-web-games), [code](https://github.com/xenova/doodle-dash), [demo](https://huggingface.co/spaces/Xenova/doodle-dash) |
-| Code Playground   | In-browser code completion website | [code](https://github.com/xenova/transformers.js/tree/main/examples/code-completion/), [demo](https://huggingface.co/spaces/Xenova/ai-code-playground) |
-| Semantic Image Search (client-side) | Search for images with text | [code](https://github.com/xenova/transformers.js/tree/main/examples/semantic-image-search-client/), [demo](https://huggingface.co/spaces/Xenova/semantic-image-search-client) |
-| Semantic Image Search (server-side) | Search for images with text (Supabase) | [code](https://github.com/xenova/transformers.js/tree/main/examples/semantic-image-search/), [demo](https://huggingface.co/spaces/Xenova/semantic-image-search) |
-| Vanilla JavaScript | In-browser object detection     | [video](https://scrimba.com/scrim/cKm9bDAg), [code](https://github.com/xenova/transformers.js/tree/main/examples/vanilla-js/), [demo](https://huggingface.co/spaces/Scrimba/vanilla-js-object-detector) |
-| React             | Multilingual translation website | [code](https://github.com/xenova/transformers.js/tree/main/examples/react-translator/), [demo](https://huggingface.co/spaces/Xenova/react-translator) |
-| Text to speech (client-side) | In-browser speech synthesis | [code](https://github.com/xenova/transformers.js/tree/main/examples/text-to-speech-client/), [demo](https://huggingface.co/spaces/Xenova/text-to-speech-client) |
-| Browser extension | Text classification extension    | [code](https://github.com/xenova/transformers.js/tree/main/examples/extension/) |
-| Electron          | Text classification application  | [code](https://github.com/xenova/transformers.js/tree/main/examples/electron/)  |
-| Next.js (client-side) | Sentiment analysis (in-browser inference) | [code](https://github.com/xenova/transformers.js/tree/main/examples/next-client/), [demo](https://huggingface.co/spaces/Xenova/next-example-app) |
-| Next.js (server-side) | Sentiment analysis (Node.js inference) | [code](https://github.com/xenova/transformers.js/tree/main/examples/next-server/), [demo](https://huggingface.co/spaces/Xenova/next-server-example-app) |
-| Node.js           | Sentiment analysis API           | [code](https://github.com/xenova/transformers.js/tree/main/examples/node/)      |
-| Demo site         | A collection of demos | [code](https://github.com/xenova/transformers.js/tree/main/examples/demo-site/), [demo](https://xenova.github.io/transformers.js/) |
+| Code Playground   | In-browser code completion website | [code](https://github.com/huggingface/transformers.js/tree/main/examples/code-completion/), [demo](https://huggingface.co/spaces/Xenova/ai-code-playground) |
+| Semantic Image Search (client-side) | Search for images with text | [code](https://github.com/huggingface/transformers.js/tree/main/examples/semantic-image-search-client/), [demo](https://huggingface.co/spaces/Xenova/semantic-image-search-client) |
+| Semantic Image Search (server-side) | Search for images with text (Supabase) | [code](https://github.com/huggingface/transformers.js/tree/main/examples/semantic-image-search/), [demo](https://huggingface.co/spaces/Xenova/semantic-image-search) |
+| Vanilla JavaScript | In-browser object detection     | [video](https://scrimba.com/scrim/cKm9bDAg), [code](https://github.com/huggingface/transformers.js/tree/main/examples/vanilla-js/), [demo](https://huggingface.co/spaces/Scrimba/vanilla-js-object-detector) |
+| React             | Multilingual translation website | [code](https://github.com/huggingface/transformers.js/tree/main/examples/react-translator/), [demo](https://huggingface.co/spaces/Xenova/react-translator) |
+| Text to speech (client-side) | In-browser speech synthesis | [code](https://github.com/huggingface/transformers.js/tree/main/examples/text-to-speech-client/), [demo](https://huggingface.co/spaces/Xenova/text-to-speech-client) |
+| Browser extension | Text classification extension    | [code](https://github.com/huggingface/transformers.js/tree/main/examples/extension/) |
+| Electron          | Text classification application  | [code](https://github.com/huggingface/transformers.js/tree/main/examples/electron/)  |
+| Next.js (client-side) | Sentiment analysis (in-browser inference) | [code](https://github.com/huggingface/transformers.js/tree/main/examples/next-client/), [demo](https://huggingface.co/spaces/Xenova/next-example-app) |
+| Next.js (server-side) | Sentiment analysis (Node.js inference) | [code](https://github.com/huggingface/transformers.js/tree/main/examples/next-server/), [demo](https://huggingface.co/spaces/Xenova/next-server-example-app) |
+| Node.js           | Sentiment analysis API           | [code](https://github.com/huggingface/transformers.js/tree/main/examples/node/)      |
+| Demo site         | A collection of demos | [code](https://github.com/huggingface/transformers.js/tree/main/examples/demo-site/), [demo](https://xenova.github.io/transformers.js/) |
 
 Check out the Transformers.js [template](https://huggingface.co/new-space?template=static-templates%2Ftransformers.js) on Hugging Face to get started in one click!
 
@@ -155,7 +155,7 @@ For a full list of available settings, check out the [API Reference](https://hug
 
 ### Convert your models to ONNX
 
-We recommend using our [conversion script](https://github.com/xenova/transformers.js/blob/main/scripts/convert.py) to convert your PyTorch, TensorFlow, or JAX models to ONNX in a single command. Behind the scenes, it uses [🤗 Optimum](https://huggingface.co/docs/optimum) to perform conversion and quantization of your model.
+We recommend using our [conversion script](https://github.com/huggingface/transformers.js/blob/main/scripts/convert.py) to convert your PyTorch, TensorFlow, or JAX models to ONNX in a single command. Behind the scenes, it uses [🤗 Optimum](https://huggingface.co/docs/optimum) to perform conversion and quantization of your model.
 
 ```bash
 python -m scripts.convert --quantize --model_id <model_name_or_path>
@@ -185,7 +185,7 @@ For the full list of supported architectures, see the [Optimum documentation](ht
 
 Here is the list of all tasks and architectures currently supported by Transformers.js.
 If you don't see your task/model listed here or it is not yet supported, feel free
-to open up a feature request [here](https://github.com/xenova/transformers.js/issues/new/choose).
+to open up a feature request [here](https://github.com/huggingface/transformers.js/issues/new/choose).
 
 To find compatible models on the Hub, select the "transformers.js" library tag in the filter menu (or visit [this link](https://huggingface.co/models?library=transformers.js)).
 You can refine your search by selecting the task you're interested in (e.g., [text-classification](https://huggingface.co/models?pipeline_tag=text-classification&library=transformers.js)).
