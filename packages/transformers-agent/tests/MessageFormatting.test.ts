@@ -80,7 +80,7 @@ test("formats structured tool responses for Gemma4, including turns with reasoni
 
   messages[0].thinking = "Check the weather service.";
   const [withReasoning] = formatMessages(messages, "gemma4");
-  assert.equal(withReasoning.reasoning_content, "Check the weather service.");
+  assert.equal(withReasoning.reasoning_content, undefined);
   assert.equal(withReasoning.content, undefined);
   assert.deepEqual(withReasoning.tool_calls, [
     {
@@ -93,6 +93,8 @@ test("formats structured tool responses for Gemma4, including turns with reasoni
       response: { location: "London", temperature: 20, weather: "sunny" },
     },
   ]);
+  const [unresolved] = formatMessages(messages.slice(0, 1), "gemma4");
+  assert.equal(unresolved.reasoning_content, "Check the weather service.");
 });
 
 test("preserves text tool results for Gemma4", () => {

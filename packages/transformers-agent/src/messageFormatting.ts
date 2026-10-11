@@ -80,7 +80,9 @@ function formatGemmaMessages(messages: ReadonlyArray<Message>): Array<Record<str
         // makes Gemma's template close the turn and append a new model opener.
         formatted.push({
             role: 'assistant',
-            ...(thinking ? { reasoning_content: thinking } : {}),
+            // Replaying completed thinking before resolved calls can make Gemma
+            // end the continuation immediately instead of answering.
+            ...(thinking && responses.length === 0 ? { reasoning_content: thinking } : {}),
             ...(text !== undefined ? { content: text } : {}),
             tool_calls: toolCalls.map((call) => ({
                 function: { name: call.name, arguments: call.arguments },
