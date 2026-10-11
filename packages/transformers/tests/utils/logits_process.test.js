@@ -136,6 +136,12 @@ describe("MinPLogitsWarper", () => {
     expect(data.filter((x) => x !== -Infinity)).toHaveLength(3);
   });
 
+  it("rejects a min_p that is not a finite number in [0, 1]", () => {
+    for (const min_p of [NaN, Infinity, -Infinity, -0.1, 1.1, "0.1", null, undefined]) {
+      expect(() => new MinPLogitsWarper(min_p)).toThrow("`min_p` must be a float in the [0, 1] interval");
+    }
+  });
+
   it("processes each batch row independently", () => {
     const logits = new Tensor("float32", new Float32Array([0.5, 0.01, 0.01, 0.5].map(Math.log)), [2, 2]);
     const warper = new MinPLogitsWarper(0.3);

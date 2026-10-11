@@ -768,7 +768,7 @@ export class MinPLogitsWarper extends LogitsWarper {
      */
     constructor(min_p, { filter_value = -Infinity, min_tokens_to_keep = 1 } = {}) {
         super();
-        if (typeof min_p !== 'number' || min_p < 0 || min_p > 1.0) {
+        if (!Number.isFinite(min_p) || min_p < 0 || min_p > 1.0) {
             throw new Error(`\`min_p\` must be a float in the [0, 1] interval, but is ${min_p}`);
         }
         if (!Number.isInteger(min_tokens_to_keep) || min_tokens_to_keep < 1) {
