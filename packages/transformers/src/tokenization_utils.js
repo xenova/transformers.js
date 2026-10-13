@@ -130,6 +130,21 @@ function padHelper(item, length, value_fn, side) {
 }
 
 /**
+ * Alias reasoning fields for compatibility with chat templates that predate
+ * the `reasoning_content` convention, without mutating the caller's messages.
+ * @param {Message[]} conversation
+ * @returns {Message[]}
+ */
+function aliasReasoningFields(conversation) {
+    return conversation.map((message) => {
+        const reasoning = message.reasoning_content ?? message.thinking ?? message.reasoning;
+        return reasoning === undefined || reasoning === null
+            ? message
+            : { ...message, thinking: reasoning, reasoning_content: reasoning };
+    });
+}
+
+/**
  * Helper function for truncating values of an object, which are each arrays.
  * NOTE: No additional checks are made here for validity of arguments.
  * @param {Record<string, any[]>} item The input object.
@@ -903,7 +918,7 @@ export class PreTrainedTokenizer
         }
 
         const rendered = compiledTemplate.render({
-            messages: conversation,
+            messages: aliasReasoningFields(conversation),
             add_generation_prompt,
             tools,
             documents,

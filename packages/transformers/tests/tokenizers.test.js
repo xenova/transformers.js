@@ -714,6 +714,19 @@ it("round-trips parsed reasoning and tool calls through a local chat template", 
   expect(rendered).toContain('<tool_call>{"name": "get_weather", "arguments": {"city": "Paris"}}</tool_call>');
 });
 
+it("aliases reasoning fields for chat template compatibility without mutating messages", () => {
+  const local = Object.assign(Object.create(PreTrainedTokenizer.prototype), {
+    config: {},
+    _compiled_template_cache: new Map(),
+    chat_template: "{{ messages[0].thinking }}|{{ messages[0].reasoning_content }}",
+  });
+  const conversations = [[{ role: "assistant", reasoning_content: "canonical" }], [{ role: "assistant", thinking: "legacy" }], [{ role: "assistant", reasoning: "older" }], [{ role: "assistant", reasoning_content: "preferred", thinking: "ignored", reasoning: "ignored" }]];
+  const original = structuredClone(conversations);
+
+  expect(conversations.map((messages) => local.apply_chat_template(messages, { tokenize: false }))).toEqual(["canonical|canonical", "legacy|legacy", "older|older", "preferred|preferred"]);
+  expect(conversations).toEqual(original);
+});
+
 describe("Chat templates", () => {
   it("should generate a chat template", async () => {
     const tokenizer = await AutoTokenizer.from_pretrained("Xenova/mistral-tokenizer-v1");
