@@ -39,70 +39,24 @@ function versionedKey(key, version, cache) {
 }
 
 /**
- * Keep the legacy cache-lookup helper consistent with versioned resolution.
- * @private
- * @param {import('../cache.js').CacheInterface|null} cache
- * @param {string} localPath
- * @param {string} proposedCacheKey
- * @returns {string[]}
- */
-export function getCacheLookupKeys(cache, localPath, proposedCacheKey) {
-    const version =
-        cache instanceof FileCache
-            ? Number(proposedCacheKey.match(/^transformersjs_assets_v(\d+)\//)?.[1] ?? 0)
-            : Number(proposedCacheKey.match(/[?&]__transformersjs_cache_version=(\d+)(?:[&#]|$)/)?.[1] ?? 0);
-    return [...new Set([versionedKey(localPath, version, cache), proposedCacheKey])];
-}
-
-/**
- * Internal resource-loading dependency. Captures only source, transport, and
- * cache settings at the loading boundary; public pretrained options stay intact.
+ * Internal resource-loading dependency. Shallow-copies the environment at the
+ * loading boundary; public pretrained options stay intact.
  * @private
  */
 export class AssetLoadingContext {
     /** @param {import('../hub.js').PretrainedOptions} [options] */
     constructor(options = {}) {
-        const {
-            version,
-            allowLocalModels,
-            allowRemoteModels,
-            localModelPath,
-            remoteHost,
-            remotePathTemplate,
-            useFS,
-            fetch,
-            useCustomCache,
-            customCache,
-            experimental_useCrossOriginStorage,
-            useBrowserCache,
-            cacheKey,
-            useFSCache,
-            cacheDir,
-        } = env;
-        this.settings = {
-            version,
-            allowLocalModels,
-            allowRemoteModels,
-            localModelPath,
-            remoteHost,
-            remotePathTemplate,
-            useFS,
-            fetch,
-            useCustomCache,
-            customCache,
-            experimental_useCrossOriginStorage,
-            useBrowserCache,
-            cacheKey,
-            useFSCache,
-            cacheDir,
-        };
+        /** @type {import('../../env.js').TransformersEnvironment} */
+        this.settings = { ...env };
         this.options = {
             revision: options.revision ?? 'main',
             cache_dir: options.cache_dir ?? null,
             local_files_only: options.local_files_only ?? false,
         };
         const isNode = typeof process !== 'undefined' && process?.release?.name === 'node';
-        this.userAgent = isNode ? `transformers.js/${version}; is_ci/${!!process.env?.TESTING_REMOTELY};` : null;
+        this.userAgent = isNode
+            ? `transformers.js/${this.settings.version}; is_ci/${!!process.env?.TESTING_REMOTELY};`
+            : null;
         this.token = isNode ? (process.env?.HF_TOKEN ?? process.env?.HF_ACCESS_TOKEN) : null;
         /** @type {Promise<import('../cache.js').CacheInterface|null>|undefined} */
         this.cache = undefined;
@@ -168,7 +122,7 @@ export class AssetLoadingContext {
         const version = ASSET_CACHE_VERSIONS.get(filename) ?? 0;
         const localCacheKey = versionedKey(localPath, version, cache);
         const proposedCacheKey = versionedKey(baseCacheKey, version, cache);
-        const cacheKeys = getCacheLookupKeys(cache, localPath, proposedCacheKey);
+        const cacheKeys = [...new Set([localCacheKey, proposedCacheKey])];
         const obsoleteCacheKeys = [];
         for (let previous = 0; previous < version; ++previous) {
             obsoleteCacheKeys.push(
@@ -225,13 +179,29 @@ export class AssetLoadingContext {
 
     /** @param {string} modelId @param {...unknown} parts */
     key(modelId, ...parts) {
-        const { fetch, customCache, ...settings } = this.settings;
+        const settings = this.settings;
+        // Only loading inputs belong in the key. Backend objects may be circular,
+        // and changes to logging or WASM settings must not split equivalent loads.
         return makePretrainedOptionsKey(
             modelId,
             this.options,
-            settings,
-            objectId(fetch),
-            objectId(customCache),
+            {
+                allowLocalModels: settings.allowLocalModels,
+                allowRemoteModels: settings.allowRemoteModels,
+                localModelPath: settings.localModelPath,
+                remoteHost: settings.remoteHost,
+                remotePathTemplate: settings.remotePathTemplate,
+                useFS: settings.useFS,
+                useCustomCache: settings.useCustomCache,
+                experimental_useCrossOriginStorage: settings.experimental_useCrossOriginStorage,
+                useBrowserCache: settings.useBrowserCache,
+                cacheKey: settings.cacheKey,
+                useFSCache: settings.useFSCache,
+                cacheDir: settings.cacheDir,
+            },
+            objectId(settings.fetch),
+            objectId(settings.customCache),
+            this.userAgent,
             this.token,
             ...parts,
         );

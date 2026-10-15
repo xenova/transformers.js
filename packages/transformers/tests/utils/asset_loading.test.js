@@ -12,11 +12,12 @@ jest.unstable_mockModule("../../src/utils/model_registry/get_pipeline_files.js",
 }));
 
 const { env } = await import("../../src/env.js");
-const { getModelJSON, getModelFile, buildResourcePaths, checkCachedResource } = await import("../../src/utils/hub.js");
+const { getModelJSON, getModelFile, checkCachedResource } = await import("../../src/utils/hub.js");
 const { get_file_metadata } = await import("../../src/utils/model_registry/get_file_metadata.js");
 const { is_cached_files, is_pipeline_cached_files } = await import("../../src/utils/model_registry/is_cached.js");
 const { clear_cache } = await import("../../src/utils/model_registry/clear_cache.js");
 const { FileCache } = await import("../../src/utils/cache/FileCache.js");
+const { AssetLoadingContext } = await import("../../src/utils/hub/AssetLoadingContext.js");
 
 const MODEL = "test/asset-loading";
 const REMOTE = `https://huggingface.co/${MODEL}/resolve/main/`;
@@ -58,6 +59,53 @@ describe("Internal asset loading", () => {
   });
   afterEach(() => Object.assign(env, ORIGINAL_ENV));
 
+  it("shallow-copies the environment while preserving transport and cache identities", () => {
+    const context = new AssetLoadingContext();
+    expect(context.settings).not.toBe(env);
+    expect(context.settings).toEqual(env);
+    expect(context.settings.fetch).toBe(env.fetch);
+    expect(context.settings.customCache).toBe(cache);
+    expect(context.settings.backends).toBe(env.backends);
+
+    env.remoteHost = "https://other.example/";
+    env.fetch = jest.fn();
+    env.customCache = memoryCache();
+    expect(context.settings.remoteHost).toBe("https://huggingface.co/");
+    expect(context.settings.fetch).not.toBe(env.fetch);
+    expect(context.settings.customCache).toBe(cache);
+  });
+
+  it("ignores backend, logging, and WASM settings in loading keys", () => {
+    const key = new AssetLoadingContext().key(MODEL, "config.json");
+    const onnx = {};
+    onnx.self = onnx;
+    env.backends = { onnx };
+    env.logLevel = 50;
+    env.useWasmCache = !env.useWasmCache;
+    expect(new AssetLoadingContext().key(MODEL, "config.json")).toBe(key);
+  });
+
+  it.each([
+    ["allowLocalModels", true],
+    ["allowRemoteModels", false],
+    ["localModelPath", "/other-models/"],
+    ["remoteHost", "https://other.example/"],
+    ["remotePathTemplate", "{model}/{revision}/"],
+    ["useFS", !ORIGINAL_ENV.useFS],
+    ["useCustomCache", false],
+    ["experimental_useCrossOriginStorage", true],
+    ["useBrowserCache", true],
+    ["cacheKey", "other-cache"],
+    ["useFSCache", true],
+    ["cacheDir", "/other-cache/"],
+    ["fetch", async () => jsonResponse({ other: true })],
+    ["customCache", memoryCache()],
+  ])("isolates loading keys when %s changes", (setting, value) => {
+    const key = new AssetLoadingContext().key(MODEL, "config.json");
+    env[setting] = value;
+    expect(new AssetLoadingContext().key(MODEL, "config.json")).not.toBe(key);
+  });
+
   it("refreshes only versioned metadata, rejects old local aliases, and remains cache-first afterwards", async () => {
     const oldRemote = `${REMOTE}tokenizer_config.json`;
     const oldLocal = `/models/${MODEL}/tokenizer_config.json`;
@@ -76,6 +124,26 @@ describe("Internal asset loading", () => {
     expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
     expect(await getModelFile(MODEL, "onnx/model.onnx")).toEqual(new Uint8Array([1, 2, 3]));
     expect(env.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses normal HTTP caching for a versioned asset on a fresh cache", async () => {
+    expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
+    expect(env.fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = env.fetch.mock.calls[0];
+    expect(url).toBe(`${REMOTE}tokenizer_config.json`);
+    expect(init.cache).toBeUndefined();
+  });
+
+  it("uses normal HTTP caching when no cache backend is enabled", async () => {
+    env.useCustomCache = false;
+    expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
+    expect(env.fetch.mock.calls[0][1].cache).toBeUndefined();
+  });
+
+  it("reloads when replacing a previous versioned entry", async () => {
+    cache.entries.set(`${REMOTE}tokenizer_config.json?__transformersjs_cache_version=1`, jsonResponse({ stale: true }));
+    expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
+    expect(env.fetch).toHaveBeenCalledWith(`${REMOTE}tokenizer_config.json`, expect.objectContaining({ cache: "reload" }));
   });
 
   it("uses the same versioned identity for metadata, registry checks, and removal", async () => {
@@ -97,12 +165,12 @@ describe("Internal asset loading", () => {
     expect(cache.entries.size).toBe(0);
   });
 
-  it("keeps the existing path and cache helpers consistent without accepting stale aliases", async () => {
-    const resource = buildResourcePaths(MODEL, "tokenizer_config.json", {}, cache);
+  it("checks resolved cache keys without accepting stale aliases", async () => {
+    const resource = new AssetLoadingContext().resolve(MODEL, "tokenizer_config.json", cache);
     cache.entries.set(resource.localPath, jsonResponse({ stale: true }));
-    expect(await checkCachedResource(cache, resource.localPath, resource.proposedCacheKey)).toBeUndefined();
+    expect(await checkCachedResource(cache, resource.localCacheKey, resource.proposedCacheKey)).toBeUndefined();
     cache.entries.set(VERSIONED, jsonResponse({ updated: true }));
-    expect(await (await checkCachedResource(cache, resource.localPath, resource.proposedCacheKey)).json()).toEqual({ updated: true });
+    expect(await (await checkCachedResource(cache, resource.localCacheKey, resource.proposedCacheKey)).json()).toEqual({ updated: true });
   });
 
   it("versions local HTTP cache entries without changing the local request path", async () => {
@@ -111,7 +179,7 @@ describe("Internal asset loading", () => {
     const localPath = `/models/${MODEL}/tokenizer_config.json`;
     cache.entries.set(localPath, jsonResponse({ stale: true }));
     expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
-    expect(env.fetch).toHaveBeenCalledWith(localPath, expect.anything());
+    expect(env.fetch).toHaveBeenCalledWith(localPath, expect.objectContaining({ cache: "reload" }));
     expect(cache.entries.has(`${localPath}?__transformersjs_cache_version=2`)).toBe(true);
     expect(cache.entries.has(localPath)).toBe(false);
     expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
@@ -189,6 +257,20 @@ describe("Internal asset loading", () => {
     expect(env.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("reuses an existing loading context for metadata requests", async () => {
+    const fetch = env.fetch;
+    fetch.mockResolvedValue(new Response("x", { status: 206, headers: { "content-range": "bytes 0-0/42" } }));
+    const context = new AssetLoadingContext();
+    env.fetch = jest.fn();
+    env.customCache = memoryCache();
+
+    expect(await get_file_metadata(MODEL, "config.json", context)).toEqual({ exists: true, size: 42, contentType: "text/plain;charset=UTF-8", fromCache: false });
+    expect(fetch).toHaveBeenCalledWith(`${REMOTE}config.json`, expect.objectContaining({ method: "GET" }));
+    expect(env.fetch).not.toHaveBeenCalled();
+    expect(cache.match).toHaveBeenCalled();
+    expect(env.customCache.match).not.toHaveBeenCalled();
+  });
+
   it("preserves authorization while adding metadata Range headers, without versioning the request URL", async () => {
     const originalToken = process.env.HF_TOKEN;
     process.env.HF_TOKEN = "test-token";
@@ -216,7 +298,7 @@ describe("Internal asset loading", () => {
       expect(await fs.readFile(path.join(directory, "transformersjs_assets_v2", MODEL, "tokenizer_config.json"), "utf8")).toBe('{"updated":true}');
       expect(await fileCache.match(`${MODEL}/tokenizer_config.json`)).toBeUndefined();
       expect(await fileCache.match(`${MODEL}/onnx/model.onnx`)).toBeDefined();
-      const revision = buildResourcePaths(MODEL, "tokenizer_config.json", { revision: "v1" }, fileCache);
+      const revision = new AssetLoadingContext({ revision: "v1" }).resolve(MODEL, "tokenizer_config.json", fileCache);
       expect(revision.proposedCacheKey).toBe(`transformersjs_assets_v2/${MODEL}/v1/tokenizer_config.json`);
       expect(revision.remoteURL).toBe(`https://huggingface.co/${MODEL}/resolve/v1/tokenizer_config.json`);
     } finally {

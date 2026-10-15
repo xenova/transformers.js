@@ -26,7 +26,7 @@ export async function getCache(file_cache_dir = null) {
 /**
  * Resolve the existing cache backend using captured resource-loading settings.
  * @private
- * @param {Pick<import('../env.js').TransformersEnvironment, 'useCustomCache'|'customCache'|'experimental_useCrossOriginStorage'|'useBrowserCache'|'cacheKey'|'useFSCache'|'cacheDir'>} settings
+ * @param {import('../env.js').TransformersEnvironment} settings
  * @param {string|null} [file_cache_dir=null]
  * @returns {Promise<CacheInterface|null>}
  */

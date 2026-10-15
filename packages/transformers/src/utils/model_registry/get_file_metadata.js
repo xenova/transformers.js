@@ -45,23 +45,13 @@ async function fetch_file_head(urlOrPath, context) {
  * - a string, the *model id* of a model repo on huggingface.co.
  * - a path to a *directory* potentially containing the file.
  * @param {string} filename The name of the file to check.
- * @param {PretrainedOptions} [options] An object containing optional parameters.
+ * @param {PretrainedOptions|AssetLoadingContext} [options] Loading options or an existing internal loading context.
  * @returns {Promise<{exists: boolean, size?: number, contentType?: string, fromCache?: boolean}>} A Promise that resolves to file metadata. `exists: false` means the file was not found.
  * @throws {import('../hub/utils.js').ModelFileNotFoundError} If access to the file was denied (401/403), e.g. a gated or private repository without a valid token.
  * @throws {Error} On network or server failures.
  */
 export function get_file_metadata(path_or_repo_id, filename, options = {}) {
-    return getFileMetadata(path_or_repo_id, filename, new AssetLoadingContext(options));
-}
-
-/**
- * Reuse the loading context when fetching metadata during an asset download.
- * @private
- * @param {string} path_or_repo_id
- * @param {string} filename
- * @param {AssetLoadingContext} context
- */
-export function getFileMetadata(path_or_repo_id, filename, context) {
+    const context = options instanceof AssetLoadingContext ? options : new AssetLoadingContext(options);
     const key = context.key(path_or_repo_id, 'metadata', filename);
     return memoizePromise(key, () => _get_file_metadata(path_or_repo_id, filename, context));
 }

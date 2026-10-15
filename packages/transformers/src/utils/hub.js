@@ -7,10 +7,10 @@
 import { apis } from '../env.js';
 import { DefaultProgressCallback, dispatchCallback } from './core.js';
 import { FileResponse } from './hub/FileResponse.js';
-import { AssetLoadingContext, getCacheLookupKeys } from './hub/AssetLoadingContext.js';
+import { AssetLoadingContext } from './hub/AssetLoadingContext.js';
 import { handleError, isValidUrl, ModelFileNotFoundError, readResponse, toAbsoluteURL } from './hub/utils.js';
 import { tryCache } from './cache.js';
-import { getFileMetadata } from './model_registry/get_file_metadata.js';
+import { get_file_metadata } from './model_registry/get_file_metadata.js';
 import { logger } from './logger.js';
 
 export { MAX_EXTERNAL_DATA_CHUNKS } from './hub/constants.js';
@@ -73,23 +73,6 @@ export function getFetchHeaders(urlOrPath) {
 }
 
 /**
- * Builds the resource paths and URLs for a model file.
- * Can be used to get the resource URL or path without loading the file.
- *
- * @param {string} path_or_repo_id This can be either:
- * - a string, the *model id* of a model repo on huggingface.co.
- * - a path to a *directory* potentially containing the file.
- * @param {string} filename The name of the file to locate.
- * @param {PretrainedOptions} [options] An object containing optional parameters.
- * @param {import('./cache.js').CacheInterface | null} [cache] The cache instance to use for determining cache keys.
- * @returns {{ requestURL: string, localPath: string, remoteURL: string, proposedCacheKey: string, validModelId: boolean }}
- * An object containing all the paths and URLs for the resource.
- */
-export function buildResourcePaths(path_or_repo_id, filename, options = {}, cache = null) {
-    return new AssetLoadingContext(options).resolve(path_or_repo_id, filename, cache);
-}
-
-/**
  * Checks if a resource exists in cache.
  *
  * @param {import('./cache.js').CacheInterface | null} cache The cache instance to check.
@@ -107,7 +90,7 @@ export async function checkCachedResource(cache, localPath, proposedCacheKey) {
     //  1. We first try to get from cache using the local path. In some environments (like deno),
     //     non-URL cache keys are not allowed. In these cases, `response` will be undefined.
     //  2. If no response is found, we try to get from cache using the remote URL or file system cache.
-    return await tryCache(cache, ...getCacheLookupKeys(cache, localPath, proposedCacheKey));
+    return await tryCache(cache, localPath, proposedCacheKey);
 }
 
 /**
@@ -219,6 +202,10 @@ async function loadResourceFile(
         cacheKey = cached.key;
     } else {
         // Caching not available, or file is not cached, so we perform the request
+        // Bypass the HTTP cache only when replacing an older cached asset.
+        const stale = await context.match(cache, { ...resource, cacheKeys: resource.obsoleteCacheKeys });
+        /** @type {RequestInit|undefined} */
+        const requestInit = stale ? { cache: 'reload' } : undefined;
 
         if (context.settings.allowLocalModels) {
             // Accessing local models is enabled, so we try to get the file locally.
@@ -226,7 +213,7 @@ async function loadResourceFile(
             const isURL = isValidUrl(requestURL, ['http:', 'https:']);
             if (!isURL) {
                 try {
-                    response = await context.read(localPath, resource.cacheVersion ? { cache: 'reload' } : undefined);
+                    response = await context.read(localPath, requestInit);
                     cacheKey = localCacheKey;
                 } catch (e) {
                     // Something went wrong while trying to get the file locally.
@@ -269,7 +256,7 @@ async function loadResourceFile(
             }
 
             // File not found locally, so we try to download it from the remote server
-            response = await context.read(remoteURL, resource.cacheVersion ? { cache: 'reload' } : undefined);
+            response = await context.read(remoteURL, requestInit);
 
             if (response.status !== 200) {
                 return handleError(response.status, remoteURL, fatal);
@@ -336,7 +323,7 @@ async function loadResourceFile(
                 } else {
                     // Try to get size from metadata (useful when content-length is missing during download)
                     try {
-                        const metadata = await getFileMetadata(path_or_repo_id, filename, context);
+                        const metadata = await get_file_metadata(path_or_repo_id, filename, context);
                         if (metadata.size) {
                             expectedSize = metadata.size;
                         }
