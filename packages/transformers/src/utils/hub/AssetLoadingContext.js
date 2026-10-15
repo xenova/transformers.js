@@ -20,17 +20,13 @@ function objectId(object) {
 }
 
 /**
- * Encode a version in the backend's existing key format.
+ * Add a version to cache identity without changing the download URL.
  * @private
  * @param {string} key
  * @param {number} version
- * @param {import('../cache.js').CacheInterface|null} cache
  */
-function versionedKey(key, version, cache) {
+function versionedKey(key, version) {
     if (!version) return key;
-    if (cache instanceof FileCache) {
-        return pathJoin(`transformersjs_assets_v${version}`, key);
-    }
     // Preserve relative URLs as well as existing query parameters and fragments.
     const hashIndex = key.indexOf('#');
     const url = hashIndex < 0 ? key : key.slice(0, hashIndex);
@@ -120,15 +116,12 @@ export class AssetLoadingContext {
                     : pathJoin(path_or_repo_id, revision, filename)
                 : remoteURL;
         const version = ASSET_CACHE_VERSIONS.get(filename) ?? 0;
-        const localCacheKey = versionedKey(localPath, version, cache);
-        const proposedCacheKey = versionedKey(baseCacheKey, version, cache);
+        const localCacheKey = versionedKey(localPath, version);
+        const proposedCacheKey = versionedKey(baseCacheKey, version);
         const cacheKeys = [...new Set([localCacheKey, proposedCacheKey])];
         const obsoleteCacheKeys = [];
         for (let previous = 0; previous < version; ++previous) {
-            obsoleteCacheKeys.push(
-                versionedKey(localPath, previous, cache),
-                versionedKey(baseCacheKey, previous, cache),
-            );
+            obsoleteCacheKeys.push(versionedKey(localPath, previous), versionedKey(baseCacheKey, previous));
         }
         return {
             requestURL,

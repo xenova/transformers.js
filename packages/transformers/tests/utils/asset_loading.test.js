@@ -221,7 +221,7 @@ describe("Internal asset loading", () => {
         const fileCache = new FileCache(directory);
         env.customCache = fileCache;
         const oldKey = `${MODEL}/v1/tokenizer_config.json`;
-        const earlierKey = `transformersjs_assets_v1/${oldKey}`;
+        const earlierKey = `${oldKey}?__transformersjs_cache_version=1`;
         const otherRevision = `${MODEL}/tokenizer_config.json`;
         await fileCache.put(oldKey, jsonResponse({ stale: true }));
         await fileCache.put(earlierKey, jsonResponse({ stale: true }));
@@ -259,6 +259,21 @@ describe("Internal asset loading", () => {
     expect(cache.entries.has(localPath)).toBe(false);
     expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
     expect(env.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("works with a custom cache that treats keys only as request URLs", async () => {
+    const entries = new Map();
+    const requestURL = (key) => new Request(new URL(key, "https://app.example/")).url;
+    env.customCache = {
+      match: async (key) => entries.get(requestURL(key))?.clone(),
+      put: async (key, response) => entries.set(requestURL(key), response.clone()),
+    };
+
+    expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
+    expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
+    expect([...entries.keys()]).toEqual([VERSIONED]);
+    expect(env.fetch).toHaveBeenCalledTimes(1);
+    expect(env.fetch.mock.calls[0][0]).toBe(`${REMOTE}tokenizer_config.json`);
   });
 
   it("does not require custom caches to support deletion", async () => {
@@ -374,8 +389,44 @@ describe("Internal asset loading", () => {
       expect(await fileCache.match(`${MODEL}/tokenizer_config.json`)).toBeUndefined();
       expect(await fileCache.match(`${MODEL}/onnx/model.onnx`)).toBeDefined();
       const revision = new AssetLoadingContext({ revision: "v1" }).resolve(MODEL, "tokenizer_config.json", fileCache);
-      expect(revision.proposedCacheKey).toBe(`transformersjs_assets_v2/${MODEL}/v1/tokenizer_config.json`);
+      expect(revision.proposedCacheKey).toBe(`${MODEL}/v1/tokenizer_config.json?__transformersjs_cache_version=2`);
       expect(revision.remoteURL).toBe(`https://huggingface.co/${MODEL}/resolve/v1/tokenizer_config.json`);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ["model/config.json?__transformersjs_cache_version=2", "model/config.json"],
+    ["model/config.json?download=true&__transformersjs_cache_version=2", "model/config.json?download=true"],
+    ["model/config.json?__transformersjs_cache_version=2&download=true#fragment", "model/config.json?download=true#fragment"],
+  ])("maps versioned filesystem identity internally for %s", async (key, originalKey) => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "transformers-file-identity-"));
+    try {
+      const fileCache = new FileCache(directory);
+      await fileCache.put(originalKey, jsonResponse({ old: true }));
+      await fileCache.put(key, jsonResponse({ updated: true }));
+      const response = await fileCache.match(key);
+      expect(response.filePath).toBe(path.join(directory, "transformersjs_assets_v2", originalKey));
+      expect(await response.json()).toEqual({ updated: true });
+      expect(await (await fileCache.match(originalKey)).json()).toEqual({ old: true });
+      expect(await fileCache.delete(key)).toBe(true);
+      expect(await fileCache.match(key)).toBeUndefined();
+      expect(await fileCache.match(originalKey)).toBeDefined();
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("returns the mapped filesystem path for a versioned asset on download and cache hit", async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "transformers-return-path-"));
+    try {
+      env.customCache = new FileCache(directory);
+      const expectedPath = path.join(directory, "transformersjs_assets_v2", MODEL, "tokenizer_config.json");
+      expect(await getModelFile(MODEL, "tokenizer_config.json", true, {}, true)).toBe(expectedPath);
+      expect(await getModelFile(MODEL, "tokenizer_config.json", true, {}, true)).toBe(expectedPath);
+      expect(await fs.readFile(expectedPath, "utf8")).toBe('{"updated":true}');
+      expect(env.fetch).toHaveBeenCalledTimes(1);
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
     }
