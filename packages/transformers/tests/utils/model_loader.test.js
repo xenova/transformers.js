@@ -23,7 +23,7 @@ describe("getModelDataFiles", () => {
     mockGetModelFile.mockRejectedValue(new Error("simulated network error"));
 
     await expect(getModelDataFiles("onnx-community/test-model", "model", "_q4", { subfolder: "onnx" }, 1)).rejects.toThrow("simulated network error");
-  });
+  }, 2000);
 
   it("resolves chunk data with path info on success", async () => {
     const data = new Uint8Array([1, 2, 3]);
