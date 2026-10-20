@@ -30,7 +30,9 @@ export async function selectWebGPURows(tensor, indices) {
     if (!(source.usage & GPUBufferUsage.COPY_SRC)) return null;
     const device = await env.backends.onnx.webgpu?.device;
     if (!device) return null;
-    const size = indices.length * row_bytes;
+    const byte_length = indices.length * row_bytes;
+    // ONNX Runtime rounds GPU transfer sizes up to sixteen bytes.
+    const size = Math.ceil(byte_length / 16) * 16;
     if (size > device.limits.maxBufferSize) return null;
     const output = device.createBuffer({
         label: 'transformers-beam-rows',
@@ -58,7 +60,7 @@ export async function selectWebGPURows(tensor, indices) {
                     copy.copyBufferToBuffer(output, 0, staging, 0, size);
                     device.queue.submit([copy.finish()]);
                     await staging.mapAsync(GPUMapMode.READ);
-                    return new TypedArray(staging.getMappedRange().slice(0));
+                    return new TypedArray(staging.getMappedRange().slice(0, byte_length));
                 } finally {
                     staging.destroy();
                 }

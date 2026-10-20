@@ -68,7 +68,9 @@ window.runBeamGPU = async (options) => {
   if (options.mode === "validate") {
     const cases = [
       ["float32", Float32Array, [3, 4]],
+      ["float32", Float32Array, [3, 1]],
       ["float16", Uint16Array, [3, 4]],
+      ["float16", Uint16Array, [3, 2]],
       ["float16", Uint16Array, [3, 3]],
       ["int64", BigInt64Array, [3, 2]],
       ["uint8", Uint8Array, [3, 4]],
@@ -104,6 +106,7 @@ window.runBeamGPU = async (options) => {
       const selected = await index_select_async(original, [2, 0, 2]);
       const selectedLocation = selected.location;
       const aligned = (dims[1] * ArrayType.BYTES_PER_ELEMENT) % 4 === 0;
+      if (aligned && selected.ort_tensor.gpuBuffer.size % 16 !== 0) throw new Error("GPU output is not padded for ONNX Runtime");
       if (selectedLocation !== (aligned ? "gpu-buffer" : "cpu")) throw new Error("Unexpected row selection location");
       if (aligned && (downloads !== 0 || original.location !== "gpu-buffer")) throw new Error("GPU selection downloaded the source");
       const chained = await index_select_async(selected, [1, 0]);
