@@ -16,6 +16,7 @@ import { TensorOpRegistry } from '../ops/registry.js';
 import { DataTypeMap } from './dtypes.js';
 
 import { random } from './random.js';
+import { selectWebGPURows } from './webgpu.js';
 
 /**
  * @typedef {keyof typeof DataTypeMap} DataType
@@ -1503,14 +1504,20 @@ export function index_select(tensor, indices) {
 }
 
 /**
- * Async version of index_select that supports GPU-backed tensors by downloading data to CPU.
+ * Async row selection. Aligned WebGPU tensors stay on the GPU; other device
+ * tensors are downloaded to the CPU without releasing caller-owned resources.
  * @param {Tensor} tensor The source tensor.
  * @param {number[]} indices Array of row indices to select.
- * @returns {Promise<Tensor>} A new tensor with selected rows (CPU-backed).
+ * @returns {Promise<Tensor>} A new tensor with selected rows.
  */
 export async function index_select_async(tensor, indices) {
     if (tensor.location === 'cpu' || tensor.location === 'cpu-pinned') {
         return index_select(tensor, indices);
+    }
+
+    if (tensor.location === 'gpu-buffer') {
+        const selected = await selectWebGPURows(tensor.ort_tensor, indices);
+        if (selected) return new Tensor(selected);
     }
 
     // Download GPU/ML data without releasing resources owned by the caller.

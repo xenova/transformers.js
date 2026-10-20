@@ -69,6 +69,20 @@ const sequences = await model.generate({
 });
 ```
 
+## WebGPU
+
+Load a model with `device: 'webgpu'` to run inference on WebGPU. Beam reordering
+keeps aligned decoder-cache tensors on the GPU using buffer row copies. Candidate
+ranking still runs in JavaScript. Tensors whose row sizes are not multiples of
+four bytes use CPU row selection instead.
+
+```javascript
+const model = await AutoModelForSeq2SeqLM.from_pretrained(model_id, {
+    device: 'webgpu',
+    dtype: 'fp32',
+});
+```
+
 ## Restrictions
 
 Beam search rejects streamers and classifier-free guidance (`guidance_scale > 1`).
