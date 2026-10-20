@@ -10,7 +10,7 @@ With `return_dict_in_generate`, beam generation returns:
 - `beam_indices`: int64 `[returned_sequences, padded_sequence_length]`. Column **zero means the first generated token**, not the first prefix token. Each entry identifies the parent forward row for that step, including the step selecting EOS. Unused columns are `-1`.
 - `sequence_lengths`: int64 valid lengths including prefix and EOS. Padding is not aligned.
 
-Whisper reconstructs the selected ancestry before computing statistics. First-forward prefix queries participate in normalization, but are excluded from DTW. Later forwards contribute the final query (the preceding generated token), for cached and uncached decoders. The final generated token has no query and repeats the last aligned boundary; padding timestamps are zero. fp16 storage is numerically converted to fp32. Constant variance produces zero normalized weights. The median window is bounded to the valid cropped recording; the general median-filter implementation is unchanged.
+Whisper reconstructs the selected ancestry before computing statistics. First-forward prefix queries are excluded before normalization and DTW, matching Python Transformers v4.57.1. Later forwards contribute the final query (the preceding generated token), for cached and uncached decoders. The final generated token has no query and repeats the last aligned boundary; padding timestamps are zero. fp16 storage is numerically converted to fp32. Constant variance produces zero normalized weights. Recordings with at most half the median window in frames skip median filtering, matching Python; the general median-filter implementation is unchanged.
 
 Public `num_frames` is a mel-frame count (10 ms), scalar or per input. Alignment uses `floor(num_frames / 2)` encoder frames (20 ms). Short-form batch and multiple returns are supported with `max_new_tokens`. Seek mode supports one input and one return; other combinations fail before encoding. Seek mode currently rejects explicit public attention output because its concatenated transcript does not have a single encoder/attention time axis. Internal seek attentions are released after alignment.
 
@@ -30,7 +30,7 @@ node scripts/beam-timestamps/native.mjs '{"device":"cpu","dtype":"fp32","batch":
 node scripts/beam-timestamps/native.mjs '{"device":"cpu","dtype":"fp32","returns":2,"repeats":3}' > scripts/beam-timestamps/results/native-single.json
 node scripts/beam-timestamps/native.mjs '{"device":"cpu","dtype":"fp32","batch":true,"returns":2,"beams":4,"groups":2,"publicAttentions":true,"repeats":25}' > scripts/beam-timestamps/results/native-diverse.json
 node scripts/beam-timestamps/native.mjs '{"device":"cpu","dtype":"fp32","long":true,"repeats":3}' > scripts/beam-timestamps/results/native-long.json
-node scripts/beam-timestamps/verify-results.mjs
+node scripts/beam-timestamps/verify-results.mjs "$(git rev-parse HEAD)"
 ```
 
 `TIMESTAMP_AUDIO` can point to the pinned WAV. `TIMESTAMP_CACHE` sets a cache directory; default is branch-local `model-cache/`. Never copy the parent's model cache. `offline-tests.js` provides read-only shared-cache use for the test suite when `TRANSFORMERS_SHARED_CACHE` is set (remote model loading disabled).
@@ -50,3 +50,7 @@ Same-backend/dtype batch vs independent comparison requires exact tokens, order,
 Read-only metadata checked for PR1755 (attention/encoder memory), PR1742 (seek/logits regression), and PR1797 (oversized median reflection). This branch necessarily intersects attention and encoder ownership in PR1755. Its beam-loop cleanup also releases unused GPU step outputs before the next forward; it does not copy the general getPastKeyValues patch. It does not import the logits fix or general reflection patch. Invalid seek advancement fails explicitly instead of hanging.
 
 Parent owns hardware validation and both postimplementation review rounds. CPU results and synthetic GPU ownership boundaries are not AMD/NVIDIA execution proof. Full suite, Python alignment parity, browser WASM, hardware cells, and full allocation accounting must be reported individually; no final-readiness claim follows from this harness.
+
+Internal attention instrumentation reports peak live attention bytes and verifies zero remaining tracked bytes after each call, including timestamp-only mode. This is tensor-lifetime accounting, not the driver's allocator high-water mark or total KV/model memory. Explicit public attention histories remain caller-owned. Timestamp-only calls currently retain complete histories too; large models, beam counts and long generations need separate memory admission measurements. fp16 alignment converts only the selected head/row/query frame range.
+
+The verifier requires an immutable full source SHA, clean-checkout provenance, and matching source hashes for every result; stale evidence fails closed. CPU fixture results are not independent Python parity or hardware execution proof. The deterministic numerical regression uses Python Transformers v4.57.1's prefix cropping and short-median-window semantics.

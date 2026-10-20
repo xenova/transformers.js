@@ -1,13 +1,34 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+const requestedRevision = process.argv[2];
+assert(requestedRevision, "Pass the exact expected source commit as the first argument");
+const expectedRevision = execFileSync("git", ["rev-parse", `${requestedRevision}^{commit}`], { encoding: "utf8" }).trim();
+assert.equal(requestedRevision, expectedRevision, "Use a full immutable commit SHA");
+const sourcePaths = ["generation/beam_search.js", "models/modeling_utils.js", "models/whisper/modeling_whisper.js"];
+const expectedSources = Object.fromEntries(
+  sourcePaths.map((path) => [
+    path,
+    createHash("sha256")
+      .update(execFileSync("git", ["show", `${expectedRevision}:packages/transformers/src/${path}`]))
+      .digest("hex"),
+  ]),
+);
 const read = (name) => JSON.parse(fs.readFileSync(new URL(`results/${name}.json`, import.meta.url)));
 const batch = read("native-cpu"),
   single = read("native-single"),
   diverse = read("native-diverse"),
   long = read("native-long");
 for (const result of [batch, single, diverse, long]) {
+  assert.equal(result.sha, expectedRevision, "Stale result revision");
+  assert.equal(result.status, "", "Results must come from a clean checkout");
+  assert.deepEqual(result.sources, expectedSources, "Source bytes do not match the requested revision");
+  assert(result.outputs.length >= 3, "Require three measured repeats");
   assert.equal(result.fixture.revision, "aeaa13760958b03fac5062f457d317d3319c3168");
   for (const output of result.outputs) {
+    assert(output.peakInternalAttentionBytes > 0);
+    assert.equal(output.liveAttentionBytesAfterCleanup, 0);
     assert.equal(output.tokens.length, output.timestamps.length);
     output.tokens.forEach((tokens, row) => {
       const times = output.timestamps[row],

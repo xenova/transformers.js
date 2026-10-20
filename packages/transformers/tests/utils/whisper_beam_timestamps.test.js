@@ -161,3 +161,47 @@ it("expands an explicitly supplied flat prefix across the short-form batch", asy
     forward.mockRestore();
   }
 });
+
+// Pinned Python Transformers v4.57.1 reference: prefix is cropped before
+// population mean/std, median smoothing, head averaging and DTW.
+const referenceFixture = (frames = 6) => {
+  let seed = 1234;
+  const rows = Array.from({ length: 5 }, () =>
+    Float32Array.from({ length: frames }, () => {
+      seed = (1664525 * seed + 1013904223) >>> 0;
+      return seed / 2 ** 32;
+    }),
+  );
+  return {
+    sequences: new Tensor("int64", [9n, 8n, 1n, 2n, 3n, 0n], [1, 6]),
+    cross_attentions: [[new Tensor("float32", Float32Array.from([...rows[0], ...rows[1]]), [1, 1, 2, frames])], ...rows.slice(2).map((row) => [new Tensor("float32", row, [1, 1, 1, frames])])],
+  };
+};
+it("matches the pinned Python alignment reference and ignores prefix values", () => {
+  const output = referenceFixture();
+  const expected = [[0, 0, 0, 0, Math.fround(0.04), Math.fround(0.04)]];
+  expect(extract(output).tolist()).toEqual(expected);
+  output.cross_attentions[0][0].data.fill(100000);
+  expect(extract(output).tolist()).toEqual(expected);
+});
+it.each([2, 3])("does not median-filter %s frames with a seven-frame window", (frames) => {
+  const output = referenceFixture(frames);
+  const filtered = WhisperForConditionalGeneration.prototype._extract_token_timestamps.call({ config: { median_filter_width: 7 } }, output, [[0, 0]], frames, 0.02, 2);
+  expect(filtered.tolist()).toEqual(extract(output, frames).tolist());
+});
+it("converts only selected fp16 attention elements", () => {
+  const output = referenceFixture();
+  output.cross_attentions = output.cross_attentions.map((step) => step.map((t) => new Tensor("float16", new Uint16Array(4 * 3 * t.dims[2] * 6).fill(0x3c00), [4, 3, t.dims[2], 6])));
+  let elements = 0;
+  const original = Tensor.prototype.to;
+  const spy = jest.spyOn(Tensor.prototype, "to").mockImplementation(function (type) {
+    if (this.type === "float16" && type === "float32") elements += this.data.length;
+    return original.call(this, type);
+  });
+  try {
+    expect(extract(output).data.every(Number.isFinite)).toBe(true);
+    expect(elements).toBe(3 * 6);
+  } finally {
+    spy.mockRestore();
+  }
+});

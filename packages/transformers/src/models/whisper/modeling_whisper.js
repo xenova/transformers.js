@@ -509,44 +509,42 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             const frames = Math.min(steps[0][alignment_heads[0][0]].dims[3], requestedFrames ?? Infinity);
             if (!Number.isInteger(frames) || frames <= 0)
                 throw new Error('Timestamp encoder frame count must be positive.');
-            const prefixQueries = steps[0][alignment_heads[0][0]].dims[2];
-            const validQueries = prefixQueries + queries;
             const matrix = Array.from({ length: queries }, () => new Float32Array(frames));
             for (const [layer, head] of alignment_heads) {
                 const weights = [];
-                for (let token = 0; token < validQueries; ++token) {
-                    const step = token < prefixQueries ? 0 : token - prefixQueries + 1;
+                for (let token = 0; token < queries; ++token) {
+                    const step = token + 1;
                     const source = steps[step]?.[layer];
                     if (!source || head >= source.dims[1])
                         throw new Error('Missing timestamp alignment attention head or step.');
                     const row = ancestry ? Number(ancestry[result][step]) : result;
                     if (row < 0 || row >= source.dims[0]) throw new Error('Invalid timestamp beam ancestry.');
-                    const numeric = source.to('float32');
-                    // Cached decoders expose one query; uncached decoders expose the
-                    // complete history, whose final query is the preceding token.
+                    // Convert only the selected row/head/query and valid frames, rather
+                    // than all beam rows and heads for every selected hypothesis.
                     const offset =
-                        ((row * source.dims[1] + head) * source.dims[2] + (step === 0 ? token : source.dims[2] - 1)) *
-                        source.dims[3];
-                    weights.push(Float32Array.from(numeric.data.slice(offset, offset + frames)));
-                    if (numeric !== source) numeric.dispose();
+                        ((row * source.dims[1] + head) * source.dims[2] + source.dims[2] - 1) * source.dims[3];
+                    const selected = new Tensor(source.type, source.data.slice(offset, offset + frames), [frames]);
+                    const numeric = selected.to('float32');
+                    weights.push(Float32Array.from(numeric.data));
+                    if (numeric !== selected) numeric.dispose();
+                    selected.dispose();
                 }
-                // Crop the selected hypothesis before computing statistics: other
-                // beams and padding must not affect normalization. Valid prefix queries
-                // participate in normalization, matching Whisper, but not in DTW.
+                // Exclude prefix queries, other beams, and padding before statistics,
+                // matching Transformers v4.57.1 Whisper alignment.
                 for (let frame = 0; frame < frames; ++frame) {
                     let average = 0;
-                    for (const row of weights) average += row[frame] / validQueries;
+                    for (const row of weights) average += row[frame] / queries;
                     let variance = 0;
-                    for (const row of weights) variance += (row[frame] - average) ** 2 / validQueries;
+                    for (const row of weights) variance += (row[frame] - average) ** 2 / queries;
                     const scale = Math.sqrt(variance);
                     for (const row of weights) row[frame] = scale > 0 ? (row[frame] - average) / scale : 0;
                 }
                 for (let token = 0; token < queries; ++token) {
-                    // A cropped recording can be shorter than the configured reflection window.
-                    const filtered = medianFilter(
-                        weights[prefixQueries + token],
-                        Math.min(median_filter_width, 2 * frames - 1),
-                    );
+                    // Python leaves recordings too short for reflection padding unchanged.
+                    const filtered =
+                        frames <= Math.floor(median_filter_width / 2)
+                            ? weights[token]
+                            : medianFilter(weights[token], median_filter_width);
                     for (let frame = 0; frame < frames; ++frame)
                         matrix[token][frame] -= filtered[frame] / alignment_heads.length;
                 }

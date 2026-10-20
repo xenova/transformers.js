@@ -78,10 +78,37 @@ export async function run(
     num_frames: Math.floor(samples.length / 160),
     ...(long ? {} : { max_new_tokens: 64 }),
   };
+  // Instrument actual internal attention lifetime, including timestamp-only calls.
+  // This measures attention allocations, not total ORT/GPU allocator residency.
+  const liveAttentions = new Map();
+  let liveAttentionBytes = 0,
+    peakAttentionBytes = 0;
+  const originalDispose = Tensor.prototype.dispose;
+  Tensor.prototype.dispose = function (...args) {
+    const bytes = liveAttentions.get(this);
+    if (bytes !== undefined) {
+      liveAttentionBytes -= bytes;
+      liveAttentions.delete(this);
+    }
+    return originalDispose.apply(this, args);
+  };
+  const originalForward = model.forward;
+  model.forward = async function (...args) {
+    const result = await originalForward.apply(this, args);
+    for (const [name, tensor] of Object.entries(result)) {
+      if (!/^(cross|decoder|encoder)_attentions/.test(name) || liveAttentions.has(tensor)) continue;
+      const bytes = tensor.dims.reduce((a, b) => a * b, 1) * ({ float16: 2, float32: 4, float64: 8 }[tensor.type] ?? 4);
+      liveAttentions.set(tensor, bytes);
+      liveAttentionBytes += bytes;
+      peakAttentionBytes = Math.max(peakAttentionBytes, liveAttentionBytes);
+    }
+    return result;
+  };
   const timings = [],
     outputs = [];
   try {
     for (let iteration = -1; iteration < repeats; ++iteration) {
+      peakAttentionBytes = liveAttentionBytes;
       const start = performance.now();
       const result = await model.generate(options);
       const elapsed = performance.now() - start;
@@ -92,6 +119,7 @@ export async function run(
         beam_indices: result.beam_indices?.tolist().map((row) => row.map(Number)),
         lengths: result.sequence_lengths?.tolist().map(Number),
         retainedAttentionBytes: 0,
+        peakInternalAttentionBytes: peakAttentionBytes,
       };
       for (const key of ["cross_attentions", "decoder_attentions", "encoder_attentions"])
         for (const step of result[key] ?? [])
@@ -103,6 +131,8 @@ export async function run(
       if (!record.timestamps.flat().every(Number.isFinite)) throw Error("Nonfinite timestamps");
       for (const value of Object.values(result)) if (value instanceof Tensor) value.dispose();
       await result.past_key_values?.dispose();
+      record.liveAttentionBytesAfterCleanup = liveAttentionBytes;
+      if (liveAttentionBytes !== 0) throw Error(`Attention allocation leak: ${liveAttentionBytes} bytes`);
       if (iteration >= 0) {
         timings.push(elapsed);
         outputs.push(record);
@@ -117,6 +147,8 @@ export async function run(
       note: "Attach runtime EP profiling / browser GPU trace and driver identity; requested device alone is not execution proof.",
     };
   } finally {
+    model.forward = originalForward;
+    Tensor.prototype.dispose = originalDispose;
     await model.dispose();
     input.dispose();
     if (input !== processed.input_features) processed.input_features.dispose();

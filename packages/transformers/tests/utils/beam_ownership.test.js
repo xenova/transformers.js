@@ -175,6 +175,20 @@ describe("Beam resource ownership", () => {
     expect(allocated.every((buffer) => buffer.destroyed)).toBe(true);
   });
 
+  it.each(["beam validation", "processor preparation"])("releases encoded output after %s fails", async (failure) => {
+    const model = modelWith();
+    let destroyed = 0;
+    const encoded = gpu([1, 1, 4], { dispose: () => ++destroyed });
+    model.config.is_encoder_decoder = true;
+    model._prepare_encoder_decoder_kwargs_for_generation = async ({ model_inputs }) => ({ ...model_inputs, encoder_outputs: encoded });
+    if (failure === "processor preparation")
+      model._get_logits_processor = () => {
+        throw Error("injected processor failure");
+      };
+    await expect(model.generate({ num_beams: 2, num_return_sequences: 3, max_new_tokens: 1, decoder_start_token_id: 1 })).rejects.toThrow(failure === "beam validation" ? "must be <= num_beams" : "injected processor failure");
+    expect(destroyed).toBe(1);
+  });
+
   it("releases unused GPU step outputs before the next forward", async () => {
     const model = modelWith();
     let calls = 0,
