@@ -54,6 +54,7 @@ import { GenerationConfig } from '../generation/configuration_utils.js';
 import { EosTokenCriteria, MaxLengthCriteria, StoppingCriteriaList } from '../generation/stopping_criteria.js';
 import { LogitsSampler } from '../generation/logits_sampler.js';
 import { BeamSearchScorer } from '../generation/beam_search.js';
+import { selectBeamCandidates } from '../generation/beam_search_utils.js';
 import { DefaultProgressCallback, pick } from '../utils/core.js';
 import { log_softmax } from '../utils/maths.js';
 import { ModelOutput } from './modeling_outputs.js';
@@ -1188,24 +1189,16 @@ export class PreTrainedModel extends Callable {
                                 const log_probs = logits_data;
                                 const beam_score = beam_scores[flat_beam];
 
-                                // Retain enough candidates per beam to fill the group after EOS.
-                                /** @type {{score: number, token: bigint, beam_idx: number}[]} */
-                                const beam_candidates = [];
-                                for (let v = 0; v < vocab_size; ++v) {
-                                    const token = BigInt(v);
-                                    let score = beam_score + log_probs[v];
-                                    const penalty_count = prev_group_tokens[batch_idx].get(token) ?? 0;
-                                    if (penalty_count > 0) {
-                                        score -= diversity_penalty * penalty_count;
-                                    }
-                                    beam_candidates.push({
-                                        score,
-                                        token,
+                                candidates.push(
+                                    ...selectBeamCandidates(
+                                        log_probs,
+                                        beam_score,
                                         beam_idx,
-                                    });
-                                }
-                                beam_candidates.sort((a, b) => b.score - a.score);
-                                candidates.push(...beam_candidates.slice(0, candidates_per_beam * group_size));
+                                        candidates_per_beam * group_size,
+                                        prev_group_tokens[batch_idx],
+                                        diversity_penalty,
+                                    ),
+                                );
                             }
 
                             // Rank candidates across the group for this batch item.
@@ -1270,18 +1263,19 @@ export class PreTrainedModel extends Callable {
                         for (let beam_idx = 0; beam_idx < num_beams; ++beam_idx) {
                             const flat_beam = batch_idx * num_beams + beam_idx;
                             const logits_data = /** @type {Float32Array} */ (next_tokens_scores[flat_beam].data);
-                            const beam_candidates = Array.from(logits_data, (score, token) => ({
-                                score: beam_scores[flat_beam] + score,
-                                token: BigInt(token),
-                                beam_idx,
-                            }));
-                            beam_candidates.sort((a, b) => b.score - a.score);
                             const count = do_beam_sample
                                 ? top_k > 0
                                     ? Math.max(top_k, candidates_per_beam * num_beams)
                                     : vocab_size
                                 : candidates_per_beam * num_beams;
-                            for (const candidate of beam_candidates.slice(0, count)) candidates.push(candidate);
+                            for (const candidate of selectBeamCandidates(
+                                logits_data,
+                                beam_scores[flat_beam],
+                                beam_idx,
+                                count,
+                            )) {
+                                candidates.push(candidate);
+                            }
                         }
 
                         const count = Math.min(candidates_per_beam * num_beams, candidates.length);
