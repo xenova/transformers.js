@@ -723,7 +723,9 @@ export class PreTrainedModel extends Callable {
      * @returns {{inputs_tensor: Tensor, model_inputs: Record<string, Tensor> & {past_key_values?: DynamicCache}, model_input_name: string}} The model-specific inputs for generation.
      */
     _prepare_model_inputs({ inputs, bos_token_id, model_kwargs }) {
-        const model_inputs = pick(model_kwargs, [...this.forward_params, 'inputs_embeds', 'rope_deltas']);
+        const model_inputs = pick(model_kwargs, this._multimodal_generation_config()
+            ? [...this.forward_params, 'inputs_embeds', 'rope_deltas']
+            : this.forward_params);
         const input_name = this.main_input_name;
         if (input_name in model_inputs) {
             if (inputs) {
@@ -1159,10 +1161,12 @@ export class PreTrainedModel extends Callable {
                 model_inputs = this.prepare_inputs_for_generation(all_input_ids, model_inputs, generation_config);
                 const prefill_embeddings = model_inputs.inputs_embeds;
                 outputs = await this.forward(model_inputs);
-                // Embeddings describe only this prefill, never the next generated token.
-                model_inputs.inputs_embeds = null;
-                if (prepared_tensors.delete(prefill_embeddings) || expanded_tensors.delete(prefill_embeddings)) {
-                    prefill_embeddings.dispose();
+                if (modality) {
+                    // Opted-in families consume merged embeddings only during prefill.
+                    model_inputs.inputs_embeds = null;
+                    if (prepared_tensors.delete(prefill_embeddings) || expanded_tensors.delete(prefill_embeddings)) {
+                        prefill_embeddings.dispose();
+                    }
                 }
 
                 if (generation_config.return_dict_in_generate) {
@@ -1968,7 +1972,21 @@ async function prepare_multimodal_inputs(self, params) {
     inputs_embeds = await self.encode_text({ ...params, input_ids });
     let features;
     try {
-        if (!past_key_values?.get_seq_length() && modality_input_names.some((key) => params[key] != null)) {
+        const modality_token_id =
+            modality_output_name === 'audio_features'
+                ? (self.config.ignore_index ?? self.config.audio_token_id ?? self.config.audio_token_index)
+                : (self.config.image_token_index ?? self.config.image_token_id);
+        // A supplied cache can precede a new multimodal prompt chunk. Merge
+        // placeholders still present in the unprocessed query, but do not
+        // re-encode old modality inputs on ordinary cached text decode steps.
+        const has_unprocessed_modality =
+            modality_token_id == null
+                ? input_ids.dims[1] !== 1
+                : input_ids.data.some((token) => token == modality_token_id);
+        if (
+            (!past_key_values?.get_seq_length() || has_unprocessed_modality) &&
+            modality_input_names.some((key) => params[key] != null)
+        ) {
             features = await (encode_function ?? self.encode_image.bind(self))(params);
             const merged = (merge_function ?? self._merge_input_ids_with_image_features.bind(self))({
                 [modality_output_name]: features,

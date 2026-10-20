@@ -162,9 +162,17 @@ describe("Prepared multimodal generation", () => {
   });
   it("does not re-encode modalities for supplied nonempty cache", async () => {
     const cache = new DynamicCache({ "past_key_values.0.key": tensor("float32", new Float32Array(12), [2, 1, 3, 2]) });
-    const { model } = synthetic({ past_key_values: cache });
+    const { model } = synthetic({ past_key_values: cache, input_ids: tensor("int64", [1n, 2n], [2, 1]) });
     await model.generate({ num_beams: 2, max_new_tokens: 1 });
     expect(model.encode_image).not.toHaveBeenCalled();
+    expect(cache.get_seq_length()).toBe(3);
+  });
+  it("merges newly supplied image placeholders after a cached text prefix", async () => {
+    const cache = new DynamicCache({ "past_key_values.0.key": tensor("float32", new Float32Array(12), [2, 1, 3, 2]) });
+    const { model, forwards } = synthetic({ past_key_values: cache });
+    await model.generate({ num_beams: 2, max_new_tokens: 1 });
+    expect(model.encode_image).toHaveBeenCalledTimes(1);
+    expect(forwards[0].embeds[0][1]).toEqual([2, 3]);
     expect(cache.get_seq_length()).toBe(3);
   });
   it.each(["float32", "float16"])("handles ONNX Uint16-backed embeddings with %s features", (type) => {

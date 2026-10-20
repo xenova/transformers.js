@@ -76,6 +76,20 @@ for (const [family, Model, Processor, model_id] of models) {
         inputs_embeds.dispose();
       }
     }, 120000);
+    it(`merges a new image prompt following a supplied text-prefix cache (${family === "idefics3" ? "greedy: export GQA limits cached multi-token batches" : "two beams"})`, async () => {
+      const prefix = await model.generate({ input_ids: new Tensor("int64", [1n, 2n], [1, 2]), attention_mask: new Tensor("int64", [1n, 1n], [1, 2]), max_new_tokens: 1, do_sample: false, eos_token_id: null, return_dict_in_generate: true });
+      try {
+        const input_ids = cat([prefix.sequences, samples[0].input_ids], 1);
+        const attention_mask = cat([new Tensor("int64", [1n, 1n, 1n], [1, 3]), samples[0].attention_mask], 1);
+        // This tiny Idefics3 export requires batch_size=1 for multi-token cached prefill.
+        const options = { ...samples[0], input_ids, attention_mask, num_beams: family === "idefics3" ? 1 : 2, max_new_tokens: 2, do_sample: false, eos_token_id: null };
+        const cached = await model.generate({ ...options, past_key_values: prefix.past_key_values });
+        const reference = await model.generate(options);
+        expect(cached.tolist()).toEqual(reference.tolist());
+      } finally {
+        await prefix.past_key_values.dispose();
+      }
+    }, 120000);
     it("preserves unequal image groups with two beams", async () => {
       const ragged = await makeSamples(processor, family, { ragged: true });
       const batch = collate(ragged);
