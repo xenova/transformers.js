@@ -86,6 +86,8 @@ const model = await AutoModelForSeq2SeqLM.from_pretrained(model_id, {
 ## Restrictions
 
 Beam search rejects streamers and classifier-free guidance (`guidance_scale > 1`).
+Decoder-only multimodal inputs and `output_attentions` (including Whisper token
+timestamps) are not supported with beams.
 Diverse beam search cannot be combined with `do_sample: true`. Nucleus sampling
 (`top_p`) is not implemented by the generation sampler.
 

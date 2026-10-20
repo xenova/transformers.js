@@ -144,7 +144,7 @@ export class BeamSearchScorer {
         const cur_len = all_input_ids[0].length;
         const total_beams = this.batch_size * this.num_beams;
 
-        const next_beam_scores = new Array(total_beams).fill(0);
+        const next_beam_scores = new Array(total_beams).fill(-Infinity);
         const next_beam_tokens = new Array(total_beams).fill(0n);
         const next_beam_indices = new Array(total_beams).fill(0);
 
@@ -186,6 +186,21 @@ export class BeamSearchScorer {
                 }
 
                 if (beam_idx === this.num_beams) break;
+            }
+
+            if (beam_idx === 0) {
+                if (this._beam_hyps[batch_idx].length < this.num_return_sequences) {
+                    throw new Error(
+                        'Beam search has too few valid hypotheses. Check logits processors and EOS tokens.',
+                    );
+                }
+                this._done[batch_idx] = true;
+                for (let i = 0; i < this.num_beams; ++i) {
+                    const out_idx = batch_idx * this.num_beams + i;
+                    next_beam_tokens[out_idx] = BigInt(this.pad_token_id);
+                    next_beam_indices[out_idx] = batch_idx * this.num_beams;
+                }
+                continue;
             }
 
             // If we couldn't fill all beams (too many EOS), pad with last valid

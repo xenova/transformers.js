@@ -74,3 +74,21 @@ describe("Beam hypothesis scoring", () => {
     expect(hypotheses.is_done(-1, 3)).toBe(false);
   });
 });
+
+describe("Exhausted beam candidates", () => {
+  it("returns a real EOS hypothesis when no continuation exists", () => {
+    const scorer = new BeamSearchScorer(1, 2, { eos_token_id: [1, 2], decoder_prompt_len: 1, max_length: 2 });
+    const next = scorer.process([[9n], [9n]], [0, -1e9], [1n, 2n, 1n, 2n], [0, 0, 1, 1], [-0.3, -1.3, -1e9, -1e9]);
+    expect(scorer.is_done).toBe(true);
+    expect(next.next_beam_scores).toEqual([-Infinity, -Infinity]);
+    expect(
+      scorer.finalize(
+        [
+          [9n, 0n],
+          [9n, 0n],
+        ],
+        next.next_beam_scores,
+      ),
+    ).toEqual([[9n, 1n]]);
+  });
+});
