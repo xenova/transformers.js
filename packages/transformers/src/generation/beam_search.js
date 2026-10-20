@@ -10,11 +10,13 @@ export class BeamHypotheses {
      * @param {number} num_beams Number of beams.
      * @param {number} length_penalty Exponential penalty to the length.
      * @param {boolean|"never"} early_stopping Whether to stop when enough hypotheses are finished.
+     * @param {number} [max_length] Maximum generated length, excluding the prompt.
      */
-    constructor(num_beams, length_penalty = 1.0, early_stopping = false) {
+    constructor(num_beams, length_penalty = 1.0, early_stopping = false, max_length = Infinity) {
         this.num_beams = num_beams;
         this.length_penalty = length_penalty;
         this.early_stopping = early_stopping;
+        this.max_length = max_length;
 
         /** @type {{score: number, tokens: bigint[]}[]} */
         this.beams = [];
@@ -29,9 +31,10 @@ export class BeamHypotheses {
      * Add a new hypothesis to the list.
      * @param {number} sum_logprobs Sum of log probabilities of the hypothesis.
      * @param {bigint[]} tokens The token ids of the hypothesis.
+     * @param {number} [generated_length] Number of generated tokens, excluding the prompt.
      */
-    add(sum_logprobs, tokens) {
-        const score = sum_logprobs / tokens.length ** this.length_penalty;
+    add(sum_logprobs, tokens, generated_length = tokens.length) {
+        const score = sum_logprobs / Math.max(1, generated_length) ** this.length_penalty;
         if (this.beams.length < this.num_beams || score > this.worst_score) {
             this.beams.push({ score, tokens });
             if (this.beams.length > this.num_beams) {
@@ -61,7 +64,8 @@ export class BeamHypotheses {
         if (this.early_stopping === true) {
             return true;
         } else if (this.early_stopping === 'never') {
-            return false;
+            const length = this.length_penalty > 0 ? this.max_length : cur_len;
+            return this.worst_score >= best_sum_logprobs / Math.max(1, length) ** this.length_penalty;
         } else {
             // Heuristic: check if the best possible score for the next step
             // could beat the worst completed hypothesis
@@ -84,6 +88,8 @@ export class BeamSearchScorer {
      * @param {number} [options.num_return_sequences]
      * @param {number|number[]|null} [options.eos_token_id]
      * @param {number|null} [options.pad_token_id]
+     * @param {number} [options.decoder_prompt_len] Prompt length to exclude from hypothesis scores.
+     * @param {number} [options.max_length] Maximum sequence length, including the prompt.
      */
     constructor(
         batch_size,
@@ -94,8 +100,11 @@ export class BeamSearchScorer {
             num_return_sequences = 1,
             eos_token_id = null,
             pad_token_id = null,
+            decoder_prompt_len = 0,
+            max_length = Infinity,
         } = {},
     ) {
+        this.decoder_prompt_len = decoder_prompt_len;
         this.batch_size = batch_size;
         this.num_beams = num_beams;
         this.length_penalty = length_penalty;
@@ -111,7 +120,7 @@ export class BeamSearchScorer {
         /** @type {BeamHypotheses[]} */
         this._beam_hyps = Array.from(
             { length: batch_size },
-            () => new BeamHypotheses(num_beams, length_penalty, early_stopping),
+            () => new BeamHypotheses(num_beams, length_penalty, early_stopping, max_length - decoder_prompt_len),
         );
         /** @type {boolean[]} */
         this._done = new Array(batch_size).fill(false);
@@ -126,9 +135,9 @@ export class BeamSearchScorer {
      *
      * @param {bigint[][]} all_input_ids All sequences so far, shape [batch_size * num_beams, seq_len].
      * @param {number[]} beam_scores Cumulative scores, shape [batch_size * num_beams].
-     * @param {bigint[]} next_tokens Candidate tokens, shape [batch_size * 2 * num_beams].
-     * @param {number[]} next_indices Which beam each candidate came from (relative to batch group), shape [batch_size * 2 * num_beams].
-     * @param {number[]} next_scores New cumulative scores for candidates, shape [batch_size * 2 * num_beams].
+     * @param {bigint[]} next_tokens Candidate tokens, shape [batch_size * num_candidates].
+     * @param {number[]} next_indices Which beam each candidate came from (relative to batch group), shape [batch_size * num_candidates].
+     * @param {number[]} next_scores New cumulative scores for candidates, shape [batch_size * num_candidates].
      * @returns {{ next_beam_scores: number[], next_beam_tokens: bigint[], next_beam_indices: number[] }}
      */
     process(all_input_ids, beam_scores, next_tokens, next_indices, next_scores) {
@@ -152,7 +161,7 @@ export class BeamSearchScorer {
             }
 
             let beam_idx = 0;
-            const num_candidates = 2 * this.num_beams;
+            const num_candidates = next_tokens.length / this.batch_size;
             for (let j = 0; j < num_candidates; ++j) {
                 const cand_idx = batch_idx * num_candidates + j;
                 const beam_token = next_tokens[cand_idx];
@@ -163,9 +172,10 @@ export class BeamSearchScorer {
                 const is_eos = this.eos_token_ids.some((id) => BigInt(id) === beam_token);
 
                 if (is_eos) {
-                    // Add completed hypothesis
+                    // Only EOS candidates that survive the beam cutoff can complete.
+                    if (j >= this.num_beams) continue;
                     const hypothesis = [...all_input_ids[abs_beam_source], beam_token];
-                    this._beam_hyps[batch_idx].add(beam_score, hypothesis);
+                    this._beam_hyps[batch_idx].add(beam_score, hypothesis, cur_len + 1 - this.decoder_prompt_len);
                 } else {
                     // Add to next active beams
                     const out_idx = batch_idx * this.num_beams + beam_idx;
@@ -190,10 +200,13 @@ export class BeamSearchScorer {
             }
 
             // Check if done for this batch using next-step scores
-            const start = batch_idx * this.num_beams;
-            const end = start + this.num_beams;
-            const best_sum_logprobs = Math.max(...next_beam_scores.slice(start, end));
-            this._done[batch_idx] = this._beam_hyps[batch_idx].is_done(best_sum_logprobs, cur_len + 1);
+            const best_sum_logprobs = Math.max(
+                ...next_scores.slice(batch_idx * num_candidates, (batch_idx + 1) * num_candidates),
+            );
+            this._done[batch_idx] = this._beam_hyps[batch_idx].is_done(
+                best_sum_logprobs,
+                cur_len + 1 - this.decoder_prompt_len,
+            );
         }
 
         return { next_beam_scores, next_beam_tokens, next_beam_indices };
@@ -219,10 +232,14 @@ export class BeamSearchScorer {
         // For each batch, ensure we have enough hypotheses
         for (let batch_idx = 0; batch_idx < this.batch_size; ++batch_idx) {
             const hyps = this._beam_hyps[batch_idx];
-            if (hyps.length < this.num_beams) {
+            if (!this._done[batch_idx]) {
                 for (let beam_idx = 0; beam_idx < this.num_beams; ++beam_idx) {
                     const flat_idx = batch_idx * this.num_beams + beam_idx;
-                    hyps.add(beam_scores[flat_idx], all_input_ids[flat_idx]);
+                    hyps.add(
+                        beam_scores[flat_idx],
+                        all_input_ids[flat_idx],
+                        all_input_ids[flat_idx].length - this.decoder_prompt_len,
+                    );
                 }
             }
         }

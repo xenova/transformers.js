@@ -27,6 +27,8 @@
 - sections:
     - local: guides/webgpu
       title: Running models on WebGPU
+    - local: guides/beam-search
+      title: Beam search
     - local: guides/dtypes
       title: Using quantized models (dtypes)
     - local: guides/private

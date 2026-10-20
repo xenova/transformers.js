@@ -995,6 +995,8 @@ export class PreTrainedModel extends Callable {
                             num_return_sequences: group_size,
                             eos_token_id: generation_config.eos_token_id,
                             pad_token_id: generation_config.pad_token_id,
+                            decoder_prompt_len: input_ids_length,
+                            max_length: generation_config.max_length,
                         }),
                 );
             } else {
@@ -1004,6 +1006,8 @@ export class PreTrainedModel extends Callable {
                     num_return_sequences: generation_config.num_return_sequences,
                     eos_token_id: generation_config.eos_token_id,
                     pad_token_id: generation_config.pad_token_id,
+                    decoder_prompt_len: input_ids_length,
+                    max_length: generation_config.max_length,
                 });
             }
         }
@@ -1032,7 +1036,14 @@ export class PreTrainedModel extends Callable {
                     expanded_indices.push(i);
                 }
             }
-            for (const key of [model_input_name, 'attention_mask', 'decoder_attention_mask', 'encoder_outputs']) {
+            for (const key of [
+                model_input_name,
+                'attention_mask',
+                'decoder_attention_mask',
+                'encoder_outputs',
+                'position_ids',
+                'inputs_embeds',
+            ]) {
                 const tensor = model_inputs[key];
                 if (tensor instanceof Tensor) {
                     if (tensor.location === 'cpu' || tensor.location === 'cpu-pinned') {
@@ -1041,6 +1052,18 @@ export class PreTrainedModel extends Callable {
                         model_inputs[key] = await index_select_async(tensor, expanded_indices);
                     }
                 }
+            }
+
+            if (model_inputs.past_key_values) {
+                /** @type {Record<string, Tensor>} */
+                const expanded_cache = {};
+                for (const [key, tensor] of Object.entries(model_inputs.past_key_values)) {
+                    expanded_cache[key] = await index_select_async(
+                        tensor,
+                        this._get_cache_indices(key, expanded_indices),
+                    );
+                }
+                model_inputs.past_key_values = new DynamicCache(expanded_cache);
             }
 
             // Initialize beam_scores: first beam of each input = 0, rest = -1e9
@@ -1096,15 +1119,28 @@ export class PreTrainedModel extends Callable {
             // TODO: Support float16 sampling in the sampler directly
             const logits = outputs.logits.slice(null, -1, null).to('float32');
 
+            // Beam processors operate on log probabilities. Renormalizing after
+            // suppression would change the relative scores of different beams.
+            if (is_beam_search) {
+                const vocab_size = logits.dims.at(-1);
+                for (let i = 0; i < logits.dims[0]; ++i) {
+                    const offset = i * vocab_size;
+                    const data = /** @type {Float32Array} */ (logits.data);
+                    data.set(log_softmax(data.subarray(offset, offset + vocab_size)), offset);
+                }
+            }
             const next_tokens_scores = prepared_logits_processor(all_input_ids, logits);
 
             /** @type {[bigint][]} */
             const generated_input_ids = [];
 
             if (is_beam_search) {
-                // Beam search: score all candidates across beams, select top 2*num_beams per batch
+                // Beam search: retain enough candidates for active beams and all EOS ids.
                 const vocab_size = next_tokens_scores.dims.at(-1);
                 const total_beams = numInputs * num_beams;
+                const eos_ids = generation_config.eos_token_id;
+                const num_eos = eos_ids === null ? 0 : Array.isArray(eos_ids) ? eos_ids.length : 1;
+                const candidates_per_beam = Math.max(2, 1 + num_eos);
 
                 /** @type {number[]} */
                 let next_beam_scores;
@@ -1149,10 +1185,10 @@ export class PreTrainedModel extends Callable {
                             for (let beam_idx = 0; beam_idx < group_size; ++beam_idx) {
                                 const flat_beam = batch_idx * num_beams + group_offset + beam_idx;
                                 const logits_data = /** @type {Float32Array} */ (next_tokens_scores[flat_beam].data);
-                                const log_probs = log_softmax(logits_data);
+                                const log_probs = logits_data;
                                 const beam_score = beam_scores[flat_beam];
 
-                                // Find top 2*group_size candidates per beam for efficiency
+                                // Retain enough candidates per beam to fill the group after EOS.
                                 /** @type {{score: number, token: bigint, beam_idx: number}[]} */
                                 const beam_candidates = [];
                                 for (let v = 0; v < vocab_size; ++v) {
@@ -1169,12 +1205,12 @@ export class PreTrainedModel extends Callable {
                                     });
                                 }
                                 beam_candidates.sort((a, b) => b.score - a.score);
-                                candidates.push(...beam_candidates.slice(0, 2 * group_size));
+                                candidates.push(...beam_candidates.slice(0, candidates_per_beam * group_size));
                             }
 
-                            // Select top 2*group_size candidates globally for this batch item
+                            // Rank candidates across the group for this batch item.
                             candidates.sort((a, b) => b.score - a.score);
-                            const top_candidates = candidates.slice(0, 2 * group_size);
+                            const top_candidates = candidates.slice(0, candidates_per_beam * group_size);
 
                             for (const c of top_candidates) {
                                 group_next_tokens.push(c.token);
@@ -1234,56 +1270,42 @@ export class PreTrainedModel extends Callable {
                         for (let beam_idx = 0; beam_idx < num_beams; ++beam_idx) {
                             const flat_beam = batch_idx * num_beams + beam_idx;
                             const logits_data = /** @type {Float32Array} */ (next_tokens_scores[flat_beam].data);
-                            if (do_beam_sample) {
-                                const beam_score = beam_scores[flat_beam];
-                                const beam_vocab = logits_data.length;
-                                let k = top_k > 0 ? Math.min(top_k, beam_vocab) : beam_vocab;
-                                const indices = Array.from({ length: beam_vocab }, (_, i) => i);
-                                indices.sort((a, b) => logits_data[b] - logits_data[a]);
-                                if (k < indices.length) {
-                                    indices.length = k;
-                                }
-                                const maxLogit = logits_data[indices[0]];
-                                const probs = new Float32Array(indices.length);
-                                let sum = 0;
-                                for (let i = 0; i < indices.length; ++i) {
-                                    const val = Math.exp(logits_data[indices[i]] - maxLogit);
-                                    probs[i] = val;
-                                    sum += val;
-                                }
-                                for (let i = 0; i < probs.length; ++i) {
-                                    probs[i] /= sum;
-                                }
-                                for (let s = 0; s < num_beams; ++s) {
-                                    const sampledIndex = sampler.randomSelect(probs);
-                                    const tokenId = indices[sampledIndex];
-                                    candidates.push({
-                                        score: beam_score + Math.log(probs[sampledIndex]),
-                                        token: BigInt(tokenId),
-                                        beam_idx,
-                                    });
-                                }
-                            } else {
-                                const log_probs = log_softmax(logits_data);
-
-                                // Find top 2*num_beams candidates per beam for efficiency
-                                /** @type {{score: number, token: bigint, beam_idx: number}[]} */
-                                const beam_candidates = [];
-                                for (let v = 0; v < vocab_size; ++v) {
-                                    beam_candidates.push({
-                                        score: beam_scores[flat_beam] + log_probs[v],
-                                        token: BigInt(v),
-                                        beam_idx,
-                                    });
-                                }
-                                beam_candidates.sort((a, b) => b.score - a.score);
-                                candidates.push(...beam_candidates.slice(0, 2 * num_beams));
-                            }
+                            const beam_candidates = Array.from(logits_data, (score, token) => ({
+                                score: beam_scores[flat_beam] + score,
+                                token: BigInt(token),
+                                beam_idx,
+                            }));
+                            beam_candidates.sort((a, b) => b.score - a.score);
+                            const count = do_beam_sample
+                                ? top_k > 0
+                                    ? Math.max(top_k, candidates_per_beam * num_beams)
+                                    : vocab_size
+                                : candidates_per_beam * num_beams;
+                            for (const candidate of beam_candidates.slice(0, count)) candidates.push(candidate);
                         }
 
-                        // Select top 2*num_beams candidates globally for this batch item
-                        candidates.sort((a, b) => b.score - a.score);
-                        const top_candidates = candidates.slice(0, 2 * num_beams);
+                        const count = Math.min(candidates_per_beam * num_beams, candidates.length);
+                        let top_candidates;
+                        if (do_beam_sample) {
+                            // Sample across the joint beam/token distribution without
+                            // replacement, retaining the original cumulative scores.
+                            top_candidates = [];
+                            for (let i = 0; i < count; ++i) {
+                                const max_score = candidates.reduce(
+                                    (best, candidate) => Math.max(best, candidate.score),
+                                    -Infinity,
+                                );
+                                const probabilities = Float32Array.from(candidates, (candidate) =>
+                                    Math.exp(candidate.score - max_score),
+                                );
+                                const index = sampler.randomSelect(probabilities);
+                                top_candidates.push(candidates.splice(index, 1)[0]);
+                            }
+                            top_candidates.sort((a, b) => b.score - a.score);
+                        } else {
+                            candidates.sort((a, b) => b.score - a.score);
+                            top_candidates = candidates.slice(0, count);
+                        }
 
                         for (const c of top_candidates) {
                             all_next_tokens.push(c.token);
@@ -1503,6 +1525,21 @@ export class PreTrainedModel extends Callable {
     }
 
     /**
+     * Map batch rows to cache rows, including exports that flatten attention heads.
+     * @param {string} key Cache input name.
+     * @param {number[]} indices Batch row indices.
+     * @returns {number[]} Cache row indices.
+     * @private
+     */
+    _get_cache_indices(key, indices) {
+        const session = this.sessions?.decoder_model_merged ?? this.sessions?.model;
+        const metadata = session?.inputMetadata.find((meta) => meta.name === key);
+        if (metadata?.shape[0] !== 'batch_size x num_heads') return indices;
+        const num_heads = this.config.normalized_config.num_heads;
+        return indices.flatMap((index) => Array.from({ length: num_heads }, (_, head) => index * num_heads + head));
+    }
+
+    /**
      * Reorder the past key values cache to match beam reordering.
      * @param {DynamicCache} past_key_values The past key values cache.
      * @param {number[]} beam_indices Indices indicating which beam each new position came from.
@@ -1519,9 +1556,9 @@ export class PreTrainedModel extends Callable {
                 reordered[key] = tensor;
             } else {
                 if (tensor.location === 'cpu' || tensor.location === 'cpu-pinned') {
-                    reordered[key] = index_select(tensor, beam_indices);
+                    reordered[key] = index_select(tensor, this._get_cache_indices(key, beam_indices));
                 } else {
-                    reordered[key] = await index_select_async(tensor, beam_indices);
+                    reordered[key] = await index_select_async(tensor, this._get_cache_indices(key, beam_indices));
                 }
                 // Dispose old tensor if it owns GPU resources
                 if (location === 'gpu-buffer' || location === 'texture' || location === 'ml-tensor') {
