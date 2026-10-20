@@ -175,6 +175,20 @@ describe("Beam resource ownership", () => {
     expect(allocated.every((buffer) => buffer.destroyed)).toBe(true);
   });
 
+  it("releases unused GPU step outputs before the next forward", async () => {
+    const model = modelWith();
+    let calls = 0,
+      destroyed = 0;
+    model.forward = async () => {
+      expect(destroyed).toBe(calls);
+      ++calls;
+      return { logits: new Tensor("float32", [0, 1, 2, 3, 0, 1, 2, 3], [2, 1, 4]), unused: gpu([2, 1, 4], { dispose: () => ++destroyed }) };
+    };
+    await model.generate({ num_beams: 2, max_new_tokens: 3 });
+    expect(calls).toBe(3);
+    expect(destroyed).toBe(3);
+  });
+
   it("rejects decoder-only multimodal beams before inference", async () => {
     const model = modelWith({ pixel_values: new Tensor("float32", [1], [1, 1]) });
     model.forward = async () => {

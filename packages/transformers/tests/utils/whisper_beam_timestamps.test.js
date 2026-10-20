@@ -142,3 +142,22 @@ it.each([false, true])("crops retained seek segments before alignment and releas
     forward.mockRestore();
   }
 });
+
+it("expands an explicitly supplied flat prefix across the short-form batch", async () => {
+  const forward = jest.spyOn(PreTrainedModel.prototype, "generate").mockImplementation(async ({ decoder_input_ids }) => {
+    expect(decoder_input_ids).toEqual([
+      [9, 8],
+      [9, 8],
+    ]);
+    return new Tensor("int64", [9n, 8n, 1n, 9n, 8n, 1n], [2, 3]);
+  });
+  const model = Object.assign(Object.create(WhisperForConditionalGeneration.prototype), {
+    _prepare_generation_config: () => ({ max_new_tokens: 1 }),
+  });
+  try {
+    await model.generate({ input_features: new Tensor("float32", new Float32Array(16), [2, 1, 8]), decoder_input_ids: [9, 8] });
+    expect(forward).toHaveBeenCalledTimes(1);
+  } finally {
+    forward.mockRestore();
+  }
+});

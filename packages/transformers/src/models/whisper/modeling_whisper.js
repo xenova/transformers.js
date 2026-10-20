@@ -189,8 +189,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             inputs,
             generation_config,
             logits_processor,
-            decoder_input_ids,
             ...kwargs,
+            decoder_input_ids,
         });
 
         if (generation_config.return_token_timestamps) {
@@ -301,8 +301,8 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                 outputs = await super.generate({
                     generation_config,
                     logits_processor,
-                    decoder_input_ids: init_tokens,
                     ...kwargs,
+                    decoder_input_ids: init_tokens,
                     input_features: segment_features,
                 });
             } finally {

@@ -1382,6 +1382,18 @@ export class PreTrainedModel extends Callable {
                         getPastKeyValues(outputs, model_inputs.past_key_values),
                         next_beam_indices,
                     );
+                    // Reordering consumes the old cache, but merged decoders may
+                    // also return unused encoder-cache outputs. Release step-local
+                    // GPU scratch before the next forward overwrites `outputs`.
+                    const active_cache_tensors = new Set(Object.values(model_inputs.past_key_values));
+                    for (const tensor of Object.values(outputs)) {
+                        if (
+                            tensor.location === 'gpu-buffer' &&
+                            !active_cache_tensors.has(tensor) &&
+                            !retained_attentions.has(tensor)
+                        )
+                            tensor.dispose();
+                    }
                 } else {
                     // Greedy / sample: existing behavior
                     for (let batch_idx = 0; batch_idx < next_tokens_scores.dims.at(0); ++batch_idx) {

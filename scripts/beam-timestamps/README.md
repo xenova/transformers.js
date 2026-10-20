@@ -47,6 +47,6 @@ Same-backend/dtype batch vs independent comparison requires exact tokens, order,
 
 ## Overlap and remaining evidence
 
-Read-only metadata checked for PR1755 (attention/encoder memory), PR1742 (seek/logits regression), and PR1797 (oversized median reflection). This branch necessarily intersects attention ownership in PR1755. It does not import the logits fix or general reflection patch. Invalid seek advancement fails explicitly instead of hanging.
+Read-only metadata checked for PR1755 (attention/encoder memory), PR1742 (seek/logits regression), and PR1797 (oversized median reflection). This branch necessarily intersects attention and encoder ownership in PR1755. Its beam-loop cleanup also releases unused GPU step outputs before the next forward; it does not copy the general getPastKeyValues patch. It does not import the logits fix or general reflection patch. Invalid seek advancement fails explicitly instead of hanging.
 
 Parent owns hardware validation and both postimplementation review rounds. CPU results and synthetic GPU ownership boundaries are not AMD/NVIDIA execution proof. Full suite, Python alignment parity, browser WASM, hardware cells, and full allocation accounting must be reported individually; no final-readiness claim follows from this harness.
