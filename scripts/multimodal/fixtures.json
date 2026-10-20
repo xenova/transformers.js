@@ -51,6 +51,183 @@
         "bytes": 1205,
         "sha256": "0d9d7849a129ab1563b5f57768e6195aa7460db27e307f1ae3f5524d75fddcee"
       }
+    ],
+    "available_onnx": [
+      {
+        "path": "onnx/decoder_model.onnx",
+        "bytes": 6349632,
+        "sha256": "dc06f2ceb21945744909b497e133ac3a114b1d437745e3539c976d9def2b33f8"
+      },
+      {
+        "path": "onnx/decoder_model_bnb4.onnx",
+        "bytes": 4563625,
+        "sha256": "bff1cd41554d2af28a0a793692ca25ce7b78cff48814af119963a8ecda9e05f9"
+      },
+      {
+        "path": "onnx/decoder_model_fp16.onnx",
+        "bytes": 5341642,
+        "sha256": "950976e8b97142f7de5557fae1796f2cc2cb7dfd7eb6cd86ad023bf630c6da24"
+      },
+      {
+        "path": "onnx/decoder_model_int8.onnx",
+        "bytes": 4836525,
+        "sha256": "19e4484e36fab85af9318308d0f7cf7f41820416781bd176bd6caba643ba2002"
+      },
+      {
+        "path": "onnx/decoder_model_merged.onnx",
+        "bytes": 10620207,
+        "sha256": "bdb1960cad212a0e76d054b77e4065d465b306a34b8284b0633587f9228e85d9"
+      },
+      {
+        "path": "onnx/decoder_model_merged_bnb4.onnx",
+        "bytes": 8836288,
+        "sha256": "1ddb7ab328c7ab5864747e23e918f4609b2549ca7204f55ae68612e8a7858c9b"
+      },
+      {
+        "path": "onnx/decoder_model_merged_fp16.onnx",
+        "bytes": 9645468,
+        "sha256": "6448b9d27343ab9eecc2436ea0fd5371c9cb196ec81a64f483594ff238a3d2f8"
+      },
+      {
+        "path": "onnx/decoder_model_merged_int8.onnx",
+        "bytes": 9155125,
+        "sha256": "9fb70db8844d9f24c7aa0a3a269bbb7556971583aa3f5529b19f0443795d4f78"
+      },
+      {
+        "path": "onnx/decoder_model_merged_q4.onnx",
+        "bytes": 9192419,
+        "sha256": "9955668d52e655b3353061a39db20609ad79624d7304e18b5bdc008c6088713e"
+      },
+      {
+        "path": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 9155125,
+        "sha256": "9fb70db8844d9f24c7aa0a3a269bbb7556971583aa3f5529b19f0443795d4f78"
+      },
+      {
+        "path": "onnx/decoder_model_merged_uint8.onnx",
+        "bytes": 9155133,
+        "sha256": "c0640d2f426392c8c1ef1d23fe64a93a1171c777055041475ecb886ca941ee40"
+      },
+      {
+        "path": "onnx/decoder_model_q4.onnx",
+        "bytes": 4919891,
+        "sha256": "bac563dadaca6d94eff59b628a814cf8b031656c75be7eb7c2ebeb9dc95e3022"
+      },
+      {
+        "path": "onnx/decoder_model_quantized.onnx",
+        "bytes": 4836525,
+        "sha256": "19e4484e36fab85af9318308d0f7cf7f41820416781bd176bd6caba643ba2002"
+      },
+      {
+        "path": "onnx/decoder_model_uint8.onnx",
+        "bytes": 4836533,
+        "sha256": "c1151c45098f666710d012b7d890952510e804815129561751611ef2b43ee6da"
+      },
+      {
+        "path": "onnx/decoder_with_past_model.onnx",
+        "bytes": 6351027,
+        "sha256": "45661de34371b88d607c2b71f5a1172eb8c822344f35c6c4540969223024c11d"
+      },
+      {
+        "path": "onnx/decoder_with_past_model_bnb4.onnx",
+        "bytes": 4565020,
+        "sha256": "0612dfde167180d40205d4b27cbd7d7584d6b9442734ca21e8aab61f6e02c2f0"
+      },
+      {
+        "path": "onnx/decoder_with_past_model_fp16.onnx",
+        "bytes": 5344265,
+        "sha256": "ea617ca550250560f14e0cbfdebcf268daf3661ea4e638116905c8fb7cb3c46c"
+      },
+      {
+        "path": "onnx/decoder_with_past_model_int8.onnx",
+        "bytes": 4838535,
+        "sha256": "f091f93dd97b68769e37a0f54ee29e53e9b2124f443dbc02db42e9fbf1910562"
+      },
+      {
+        "path": "onnx/decoder_with_past_model_q4.onnx",
+        "bytes": 4921286,
+        "sha256": "c884ed89e6c1efc446d9106ddf497609ad2c2eedb1a96a4441f27358e254fdc4"
+      },
+      {
+        "path": "onnx/decoder_with_past_model_quantized.onnx",
+        "bytes": 4838535,
+        "sha256": "f091f93dd97b68769e37a0f54ee29e53e9b2124f443dbc02db42e9fbf1910562"
+      },
+      {
+        "path": "onnx/decoder_with_past_model_uint8.onnx",
+        "bytes": 4838543,
+        "sha256": "575c2470a0b2bff8416c8c9c0dc0f60a10dc82bc70cab6f59525861f96e00058"
+      },
+      {
+        "path": "onnx/embed_tokens.onnx",
+        "bytes": 2048359,
+        "sha256": "839a343c187fb926d275d23dc8ddaff3a0c4f3b5aeffe587670985c4dbf17fa3"
+      },
+      {
+        "path": "onnx/embed_tokens_bnb4.onnx",
+        "bytes": 2048378,
+        "sha256": "cc9149f8f88901ba2e4c94858ecac72de3516fffa52c8ecd0edc8b382290b1ed"
+      },
+      {
+        "path": "onnx/embed_tokens_fp16.onnx",
+        "bytes": 1024444,
+        "sha256": "6fc0519be7b1952f1b9050a08a7feda77f8425f92dd48219e0a38f3e5a11a208"
+      },
+      {
+        "path": "onnx/embed_tokens_int8.onnx",
+        "bytes": 512508,
+        "sha256": "f81a1758e5d1ef4b4e325da23e662e52fbbfe07b0cb14a6881ac93e0a3e8f33b"
+      },
+      {
+        "path": "onnx/embed_tokens_q4.onnx",
+        "bytes": 2048378,
+        "sha256": "cc9149f8f88901ba2e4c94858ecac72de3516fffa52c8ecd0edc8b382290b1ed"
+      },
+      {
+        "path": "onnx/embed_tokens_quantized.onnx",
+        "bytes": 512508,
+        "sha256": "f81a1758e5d1ef4b4e325da23e662e52fbbfe07b0cb14a6881ac93e0a3e8f33b"
+      },
+      {
+        "path": "onnx/embed_tokens_uint8.onnx",
+        "bytes": 512507,
+        "sha256": "37fe94fcc07b3fa3ad51811cf3173f3e928d2c5b3fa012f35d157ea4257643a7"
+      },
+      {
+        "path": "onnx/vision_encoder.onnx",
+        "bytes": 102838,
+        "sha256": "543d0044de2f174103bdb2c78e50408e46c167beee8359175d5e5d6cf5d0f2ef"
+      },
+      {
+        "path": "onnx/vision_encoder_bnb4.onnx",
+        "bytes": 79193,
+        "sha256": "6735f415dd926958424480da02e2c7a1dc76dc3d442e32e08a32224981e8abe6"
+      },
+      {
+        "path": "onnx/vision_encoder_fp16.onnx",
+        "bytes": 86988,
+        "sha256": "a781263fa91283f94282ea911bbdb74ced8a75245e12c40f9d5a1e5ccc9bea59"
+      },
+      {
+        "path": "onnx/vision_encoder_int8.onnx",
+        "bytes": 85561,
+        "sha256": "2857ac59b595631dfcb0d21dda9ed9717da63c8ecd87c34ea9a4f4f0a1d6dd3b"
+      },
+      {
+        "path": "onnx/vision_encoder_q4.onnx",
+        "bytes": 80289,
+        "sha256": "4e9722da136f3d058d30448c5852d4ef5fbf4f8c090985c18224cc8b1b7f2320"
+      },
+      {
+        "path": "onnx/vision_encoder_quantized.onnx",
+        "bytes": 85566,
+        "sha256": "45188fc13d9e8f97effb81e37aa6ca23fa6f2a8c0a7fe7831e155921f1edba30"
+      },
+      {
+        "path": "onnx/vision_encoder_uint8.onnx",
+        "bytes": 85566,
+        "sha256": "45188fc13d9e8f97effb81e37aa6ca23fa6f2a8c0a7fe7831e155921f1edba30"
+      }
     ]
   },
   {
@@ -106,6 +283,23 @@
         "bytes": 51783,
         "sha256": "c09665bd83e2afb15396aac2bea86d4086102f7ff80f603b43ec564ca39e9a6c"
       }
+    ],
+    "available_onnx": [
+      {
+        "path": "onnx/decoder_model_merged.onnx",
+        "bytes": 43161647,
+        "sha256": "92c2bec0806487d3f5e40ddb7102ea9697fe259c8b9f237787b082c7759f6fa9"
+      },
+      {
+        "path": "onnx/embed_tokens.onnx",
+        "bytes": 32834600,
+        "sha256": "15a53f2fbab3be311daa25af0ce915ba5c2f47f0b1f9fcdd0cf34a83ff91ef70"
+      },
+      {
+        "path": "onnx/vision_encoder.onnx",
+        "bytes": 1281955,
+        "sha256": "0e9b72e85c8d13549bee6454d21fbd97ae00b611208f3e6ecd15dd8ec3602c5d"
+      }
     ]
   },
   {
@@ -156,6 +350,23 @@
         "bytes": 4297,
         "sha256": "eb3c5a310899d7d65feec0dee4dff9067d7bc4ad2a17e2005bc9163f1ace0531"
       }
+    ],
+    "available_onnx": [
+      {
+        "path": "onnx/decoder_model_merged.onnx",
+        "bytes": 9827934,
+        "sha256": "1220fec87bac8d49c34eb346c4924c76fb79859ce2dafb694e535b7b03fc84a9"
+      },
+      {
+        "path": "onnx/embed_tokens.onnx",
+        "bytes": 9732392,
+        "sha256": "5dd8bf772a06967736faf9ee64ad13b3edee64124c1a3e50fcd319deddf82063"
+      },
+      {
+        "path": "onnx/vision_encoder.onnx",
+        "bytes": 208649,
+        "sha256": "34469f36f9b144fa2ba4805c54ec3a21e9e9235e27a6342fc7b6af846758f5e6"
+      }
     ]
   },
   {
@@ -205,6 +416,143 @@
         "path": "tokenizer_config.json",
         "bytes": 54761,
         "sha256": "2b19b3db086176e9e6cc01090dbbde5b95c8856a72485237b6826836d557bea1"
+      }
+    ],
+    "available_onnx": [
+      {
+        "path": "onnx/audio_encoder.onnx",
+        "bytes": 639355204,
+        "sha256": "70c4240a04cf65925b64b69e08dd14460d4a3d784067e3d02e2bccf3b537729c"
+      },
+      {
+        "path": "onnx/audio_encoder.onnx_data",
+        "bytes": 2093690880,
+        "sha256": "176ea097c33b17d491c95b08d66c07aff9ee01c20732f5f57272300d195d25d8"
+      },
+      {
+        "path": "onnx/audio_encoder_bnb4.onnx",
+        "bytes": 411779827,
+        "sha256": "090b60eb1a17be5bed472e457dcb9c05307e08976186ffd0186e66ceced4bb49"
+      },
+      {
+        "path": "onnx/audio_encoder_fp16.onnx",
+        "bytes": 1366797755,
+        "sha256": "656265398cc351cda100d126d3160619e6f9b5d978e09eee1b18b2d1450376c0"
+      },
+      {
+        "path": "onnx/audio_encoder_int8.onnx",
+        "bytes": 691165689,
+        "sha256": "2911e9bccc2a93a9e701db2b61fd4e409c468713a6981dc09bb0cb5844cbfca3"
+      },
+      {
+        "path": "onnx/audio_encoder_q4.onnx",
+        "bytes": 453983426,
+        "sha256": "8036644964362696f3b68f407b32fb980f5e99c12c24e946684207ae890c0a4d"
+      },
+      {
+        "path": "onnx/audio_encoder_q4f16.onnx",
+        "bytes": 396107099,
+        "sha256": "8c756a33865acc17576a58d57b482f48e4fbe5effe75835598cae772862efc7f"
+      },
+      {
+        "path": "onnx/audio_encoder_quantized.onnx",
+        "bytes": 691165797,
+        "sha256": "d8181d01be84163eea31ce1e1bddfcb740749e53877ca7b1d4b0b8bc22fbd0e8"
+      },
+      {
+        "path": "onnx/audio_encoder_uint8.onnx",
+        "bytes": 691165797,
+        "sha256": "d8181d01be84163eea31ce1e1bddfcb740749e53877ca7b1d4b0b8bc22fbd0e8"
+      },
+      {
+        "path": "onnx/decoder_model_merged.onnx",
+        "bytes": 295187,
+        "sha256": "b1d3dc2d019cbe6c61c9073c06fc1dc4d595c9b31de76d913193df10a2db8750"
+      },
+      {
+        "path": "onnx/decoder_model_merged.onnx_data",
+        "bytes": 4976812032,
+        "sha256": "bdf52a35d1f22a1d0f0c8e98dc5849f6429830cf7dfff9d187ccee015f729c4b"
+      },
+      {
+        "path": "onnx/decoder_model_merged_bnb4.onnx",
+        "bytes": 729238965,
+        "sha256": "99201d583f54d5a241e7a890fe0e7924eecfb43148c7a53f1eda89b7276b5fdc"
+      },
+      {
+        "path": "onnx/decoder_model_merged_fp16.onnx",
+        "bytes": 525764858,
+        "sha256": "48d16275fe8650c22714d05d5f6e6ff63d1968b38544406a4fa07334a5db754e"
+      },
+      {
+        "path": "onnx/decoder_model_merged_fp16.onnx_data",
+        "bytes": 1962934272,
+        "sha256": "eb03693261cec07c3381d8bc62dd5416ac36dee87d064f2d9ea53326a474357d"
+      },
+      {
+        "path": "onnx/decoder_model_merged_int8.onnx",
+        "bytes": 1269984047,
+        "sha256": "25dc3c9f2795fae389028ccb36ec18460995842227ec1a5f754f002eec0770aa"
+      },
+      {
+        "path": "onnx/decoder_model_merged_q4.onnx",
+        "bytes": 806472269,
+        "sha256": "88c266037cb9c20a9f2d11c97dc7c208e902b6e96ffea86746734bb1ebd35c0b"
+      },
+      {
+        "path": "onnx/decoder_model_merged_q4f16.onnx",
+        "bytes": 712325701,
+        "sha256": "a6cb07583061624e6700292cd3a0d4db7812085ac9deabd22de8dcca7730efda"
+      },
+      {
+        "path": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 1269984107,
+        "sha256": "51f973ed5fd221bf603f56504ceb187193974b9ad6f1c095758c79c0ce9e7729"
+      },
+      {
+        "path": "onnx/decoder_model_merged_uint8.onnx",
+        "bytes": 1269984107,
+        "sha256": "51f973ed5fd221bf603f56504ceb187193974b9ad6f1c095758c79c0ce9e7729"
+      },
+      {
+        "path": "onnx/embed_tokens.onnx",
+        "bytes": 1050673454,
+        "sha256": "d1fff7c397095ebc32730a6ca86563369ab990e5156645993059d460ca149dfe"
+      },
+      {
+        "path": "onnx/embed_tokens_bnb4.onnx",
+        "bytes": 1050673473,
+        "sha256": "46194ef6884a27c761d1116fb84575db5a77b5037226c90fea84c92452d1eb9e"
+      },
+      {
+        "path": "onnx/embed_tokens_fp16.onnx",
+        "bytes": 525336965,
+        "sha256": "6d4f3c41c24d7940b4a8d193f645b9cf707cdf35b6c3aa84c538cc503072ce76"
+      },
+      {
+        "path": "onnx/embed_tokens_int8.onnx",
+        "bytes": 262668831,
+        "sha256": "aa74691240d71584712786e9daf3f70dc6d98c16367d1b44e3b0503234dc79ab"
+      },
+      {
+        "path": "onnx/embed_tokens_q4.onnx",
+        "bytes": 1050673473,
+        "sha256": "46194ef6884a27c761d1116fb84575db5a77b5037226c90fea84c92452d1eb9e"
+      },
+      {
+        "path": "onnx/embed_tokens_q4f16.onnx",
+        "bytes": 525336984,
+        "sha256": "35d6032a463dafdc51ddcebd1516834e5c364f5a7fecf7f135c1ff216282541a"
+      },
+      {
+        "path": "onnx/embed_tokens_quantized.onnx",
+        "bytes": 262668831,
+        "sha256": "aa74691240d71584712786e9daf3f70dc6d98c16367d1b44e3b0503234dc79ab"
+      },
+      {
+        "path": "onnx/embed_tokens_uint8.onnx",
+        "bytes": 262668831,
+        "sha256": "aa74691240d71584712786e9daf3f70dc6d98c16367d1b44e3b0503234dc79ab"
       }
     ]
   },
@@ -259,6 +607,128 @@
         "path": "tokenizer_config.json",
         "bytes": 28626,
         "sha256": "dd9ce2ab89a3dd881bd9378f1a79b943a064b9275a7e1706d5b7b47b68977913"
+      }
+    ],
+    "available_onnx": [
+      {
+        "path": "onnx/decoder_model_merged.onnx",
+        "bytes": 540972236,
+        "sha256": "2ff9605f7493cd2283bad9d9c14c5145f5c8b5f6dff8a197d05b247f5871d378"
+      },
+      {
+        "path": "onnx/decoder_model_merged_bnb4.onnx",
+        "bytes": 78486831,
+        "sha256": "5b1fcb5aac9890f2b3fa934f656d7f8a4fe3771495d7a6f14de5b17117570d2d"
+      },
+      {
+        "path": "onnx/decoder_model_merged_fp16.onnx",
+        "bytes": 270746096,
+        "sha256": "6e7002e13921ec15d8032d4c3666b55583f9b6a0f5628aaa692a8543092cb4e9"
+      },
+      {
+        "path": "onnx/decoder_model_merged_int8.onnx",
+        "bytes": 137553254,
+        "sha256": "03304ea9501d2d72c3858d668a56f54fc42fc54132759c389e54ff706f3d37c1"
+      },
+      {
+        "path": "onnx/decoder_model_merged_q4.onnx",
+        "bytes": 86894835,
+        "sha256": "ce4021b8e2242cbd4caac06b259e1b15e085c6a4b900af40f1e0abec7a6c6df2"
+      },
+      {
+        "path": "onnx/decoder_model_merged_q4f16.onnx",
+        "bytes": 77366473,
+        "sha256": "6c9032242ea8d440e6d53f31e7a1216cf94a98b5b909b1a718d68dc2983c0398"
+      },
+      {
+        "path": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 137553366,
+        "sha256": "eedf3c77e0bb3a260517dfb2f4940b900e582e64e58ab6bd29b49c4a01f84626"
+      },
+      {
+        "path": "onnx/decoder_model_merged_uint8.onnx",
+        "bytes": 137553366,
+        "sha256": "eedf3c77e0bb3a260517dfb2f4940b900e582e64e58ab6bd29b49c4a01f84626"
+      },
+      {
+        "path": "onnx/embed_tokens.onnx",
+        "bytes": 113541419,
+        "sha256": "05c2c945e08b8f87088a1e855fc363782c8e65f1f7283c30382d93b568d2bbf8"
+      },
+      {
+        "path": "onnx/embed_tokens_bnb4.onnx",
+        "bytes": 113541438,
+        "sha256": "64f62db97ca38a44b5ed8a225b75dbede2d069c9afc76696d63b89300d5edcd2"
+      },
+      {
+        "path": "onnx/embed_tokens_fp16.onnx",
+        "bytes": 56770946,
+        "sha256": "e9be80e1b680f586192d038dc8b48e0f2a6444a96ac1d069808dc0832ad20df3"
+      },
+      {
+        "path": "onnx/embed_tokens_int8.onnx",
+        "bytes": 28385824,
+        "sha256": "e2cdc3690af5719c7463254f96c3b665a9e24add2a1fa6f594347d67a422710a"
+      },
+      {
+        "path": "onnx/embed_tokens_q4.onnx",
+        "bytes": 113541438,
+        "sha256": "64f62db97ca38a44b5ed8a225b75dbede2d069c9afc76696d63b89300d5edcd2"
+      },
+      {
+        "path": "onnx/embed_tokens_q4f16.onnx",
+        "bytes": 56770965,
+        "sha256": "f70ed24f9f21e0d9999151282aef893861bf08f96b5ad1658fb71ffd51e26784"
+      },
+      {
+        "path": "onnx/embed_tokens_quantized.onnx",
+        "bytes": 28385824,
+        "sha256": "e2cdc3690af5719c7463254f96c3b665a9e24add2a1fa6f594347d67a422710a"
+      },
+      {
+        "path": "onnx/embed_tokens_uint8.onnx",
+        "bytes": 28385824,
+        "sha256": "e2cdc3690af5719c7463254f96c3b665a9e24add2a1fa6f594347d67a422710a"
+      },
+      {
+        "path": "onnx/vision_encoder.onnx",
+        "bytes": 374316454,
+        "sha256": "9f2fa81b77ed18b8372da99923ed846db8b04de8bd62bd4d32352a1f1b725f49"
+      },
+      {
+        "path": "onnx/vision_encoder_bnb4.onnx",
+        "bytes": 58034696,
+        "sha256": "fbc83f9a519bce54bba1a54b5ab5fafe8115086d3e955123d0eb0d3f4dc5b058"
+      },
+      {
+        "path": "onnx/vision_encoder_fp16.onnx",
+        "bytes": 187294650,
+        "sha256": "853691b76aa006181835c22c6195f2a036ee27d5c1edc5c30fa2f880cb83f908"
+      },
+      {
+        "path": "onnx/vision_encoder_int8.onnx",
+        "bytes": 94247884,
+        "sha256": "39f0efae9614b1679404961efb970bf307adb76b4d9fb4e25f1e3c564611963d"
+      },
+      {
+        "path": "onnx/vision_encoder_q4.onnx",
+        "bytes": 63784944,
+        "sha256": "253d225bf96b6203118d16e57bb2890c2dc542dd989d484cb9541dc4d4ae719b"
+      },
+      {
+        "path": "onnx/vision_encoder_q4f16.onnx",
+        "bytes": 55037541,
+        "sha256": "e0b4747edcc23de250266264ce8e5cb3e010cf80755933efca7052da53871818"
+      },
+      {
+        "path": "onnx/vision_encoder_quantized.onnx",
+        "bytes": 94247926,
+        "sha256": "2a70c53030657dc01be90be0e9bf24febc9c709ebf20812ad0a9976698619668"
+      },
+      {
+        "path": "onnx/vision_encoder_uint8.onnx",
+        "bytes": 94247926,
+        "sha256": "2a70c53030657dc01be90be0e9bf24febc9c709ebf20812ad0a9976698619668"
       }
     ]
   }

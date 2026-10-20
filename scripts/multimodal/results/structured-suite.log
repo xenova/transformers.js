@@ -1,0 +1,46 @@
+
+> @huggingface/transformers-structured-output@4.3.1 pretest /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers-structured-output
+> pnpm build
+
+
+> @huggingface/transformers-structured-output@4.3.1 build /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers-structured-output
+> node scripts/build.mjs && pnpm typegen
+
+
+> @huggingface/transformers-structured-output@4.3.1 typegen /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers-structured-output
+> tsc --build --force
+
+
+> @huggingface/transformers-structured-output@4.3.1 test /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers-structured-output
+> node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose --runInBand --coverage=false
+
+(node:90273) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS tests/structured-output-processor.test.js
+  StructuredOutputProcessor
+    ✓ derives token bytes through the configured decoder (3 ms)
+    ✓ applies a regex mask (2 ms)
+    ✓ does not process the same sampled token twice
+    ✓ discourages repeated non-progressing JSON whitespace (2 ms)
+    ✓ accepts JSON that satisfies a schema (4 ms)
+    ✓ applies schema structure while producing JSON
+    ✓ rejects impossible property and finite scalar prefixes (12 ms)
+    ✓ restricts integer fields to reachable canonical syntax (49 ms)
+    ✓ supports composition, conditionals, and local references (29 ms)
+    ✓ supports deep equality and structural assertions (8 ms)
+    ✓ supports property patterns and dependencies (10 ms)
+    ✓ supports recursive references and draft-07 compatibility (7 ms)
+    ✓ supports x-guidance separators (6 ms)
+    ✓ rejects malformed and unsupported schema shapes (20 ms)
+    ✓ rejects string assertions that cannot be enforced incrementally (1 ms)
+    ✓ supports unconstrained JSON objects (3 ms)
+    ✓ reuses cached masks without sharing generation state (2 ms)
+    ✓ rejects batched generation (4 ms)
+    ✓ rejects a sampled token outside the constraint
+    ✓ can be passed directly as a logits processor list (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       20 passed, 20 total
+Snapshots:   0 total
+Time:        0.325 s
+Ran all test suites.

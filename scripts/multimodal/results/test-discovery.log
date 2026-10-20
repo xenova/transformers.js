@@ -1,0 +1,48 @@
+
+> @huggingface/transformers-monorepo@0.0.1 test /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace
+> pnpm -r test --config ../../scripts/multimodal/jest.config.mjs --listTests
+
+Scope: 2 of 3 workspace projects
+packages/transformers test$ node --experimental-vm-modules --expose-gc node_modules/jest/bin/jest.js --verbose --logHeapUsage --config ../../scripts/multimodal/jest.config.mjs --listTests
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/pipelines.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/models.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/tokenizers.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/image_processors.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/multimodal_integration.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/processors.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/types.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/generation.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/feature_extractors.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/custom_cache.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/progress_callbacks.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/audio.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/cache.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/bundles.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/utils.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/image.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/random.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/logits_process.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/hub.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/configs.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/tensor.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/exports.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/tensor_ops.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/model_registry.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/browser_cache.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/beam_search_utils.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/multimodal_generation.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/beam_ownership.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/maths.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/session_config.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/beam_search.test.js
+packages/transformers test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers/tests/utils/lru_cache.test.js
+packages/transformers test: Done
+packages/transformers-structured-output pretest$ pnpm build
+packages/transformers-structured-output pretest: > @huggingface/transformers-structured-output@4.3.1 build /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers-structured-output
+packages/transformers-structured-output pretest: > node scripts/build.mjs && pnpm typegen
+packages/transformers-structured-output pretest: > @huggingface/transformers-structured-output@4.3.1 typegen /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers-structured-output
+packages/transformers-structured-output pretest: > tsc --build --force
+packages/transformers-structured-output pretest: Done
+packages/transformers-structured-output test$ node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose --config ../../scripts/multimodal/jest.config.mjs --listTests
+packages/transformers-structured-output test: /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers-structured-output/tests/structured-output-processor.test.js
+packages/transformers-structured-output test: Done

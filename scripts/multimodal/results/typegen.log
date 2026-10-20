@@ -1,0 +1,4 @@
+
+> @huggingface/transformers@4.3.1 typegen /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers
+> tsc --build
+

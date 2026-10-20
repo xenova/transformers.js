@@ -1,0 +1,33 @@
+
+> @huggingface/transformers@4.3.1 docs-generate /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers
+> node ./docs/scripts/generate-all.js
+
+wrote backends/onnx.md
+wrote generation/cache.md
+wrote configs.md
+wrote env.md
+wrote processors.md
+wrote generation/beam_search.md
+wrote generation/configuration_utils.md
+wrote generation/logits_process.md
+skipped generation/logits_sampler.md — no public content
+wrote generation/parameters.md
+wrote generation/stopping_criteria.md
+wrote generation/streamers.md
+wrote models.md
+wrote tokenizers.md
+wrote pipelines.md
+wrote transformers.md
+wrote utils/audio.md
+wrote utils/core.md
+wrote utils/hub.md
+wrote utils/image.md
+skipped utils/logger.md — no public content
+wrote utils/maths.md
+wrote utils/model_registry.md
+wrote utils/random.md
+wrote utils/tensor.md
+wrote utils/video.md
+wrote skill to .ai/skills/transformers-js
+wrote ../../README.md
+validated docs toctree

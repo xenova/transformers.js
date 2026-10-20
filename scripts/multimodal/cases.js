@@ -131,9 +131,24 @@ export async function runMultimodal(options = {}) {
   progress("loaded", { family });
   const evidence = { family, model_id, revision, source, requested: load, cases: [], forward_locations: [], encoder_calls: 0 };
   evidence.sessions = Object.fromEntries(Object.entries(model.sessions).map(([name, session]) => [name, session.config]));
+  evidence.finite_logits = true;
   const forward = model.forward.bind(model);
   model.forward = async (inputs) => {
     const output = await forward(inputs);
+    if (output.logits.location === "cpu" || output.logits.location === "cpu-pinned") {
+      const numeric = output.logits.to("float32");
+      for (const value of numeric.data) {
+        if (!Number.isFinite(value)) {
+          evidence.finite_logits = false;
+          break;
+        }
+      }
+      if (numeric !== output.logits) numeric.dispose();
+    } else {
+      // Generation normally returns CPU logits. Do not claim a numeric check
+      // for a custom output-placement configuration that wasn't inspected.
+      evidence.finite_logits = false;
+    }
     const locations = Object.fromEntries(
       Object.entries(output)
         .filter(([, v]) => v instanceof Tensor)
@@ -158,6 +173,7 @@ export async function runMultimodal(options = {}) {
         repetition_penalty: 2,
         do_sample: false,
         num_beams: beams,
+        ...(options.diverse && beams > 1 ? { num_beam_groups: 2, diversity_penalty: 1 } : {}),
         num_return_sequences: beams > 1 ? 2 : 1,
       };
       const before = evidence.encoder_calls;
@@ -178,6 +194,7 @@ export async function runMultimodal(options = {}) {
       const generated = rows(output).map((row) => row.slice(batch.input_ids.dims[1]));
       evidence.cases.push({
         beams,
+        generation_config: config,
         ms,
         encoder_calls: calls,
         tokens: generated,
@@ -192,6 +209,25 @@ export async function runMultimodal(options = {}) {
     random.seed(123);
     const b = rows(await model.generate(config));
     evidence.cases.push({ mode: "seeded_sampling", pass: equal(a, b), tokens: a });
+    if (options.inject_failure) {
+      const originalForward = model.forward;
+      const originalIds = rows(batch.input_ids);
+      let steps = 0;
+      let observed = false;
+      model.forward = async (inputs) => {
+        if (++steps === 2) throw new Error("multimodal injected decode failure");
+        return originalForward(inputs);
+      };
+      try {
+        await model.generate({ ...batch, num_beams: 2, max_new_tokens: 3, eos_token_id: null, do_sample: false });
+      } catch (error) {
+        if (error.message !== "multimodal injected decode failure") throw error;
+        observed = true;
+      } finally {
+        model.forward = originalForward;
+      }
+      evidence.cases.push({ mode: "injected_decode_failure", pass: observed && equal(rows(batch.input_ids), originalIds) });
+    }
     const timings = [];
     for (let i = 0; i < (options.repeats ?? 25); ++i) {
       const start = performance.now();
@@ -199,7 +235,7 @@ export async function runMultimodal(options = {}) {
       timings.push(performance.now() - start);
     }
     evidence.repeated_call_ms = timings;
-    evidence.pass = evidence.cases.every((x) => x.pass);
+    evidence.pass = evidence.finite_logits && evidence.cases.every((x) => x.pass);
     return evidence;
   } finally {
     await model.dispose();

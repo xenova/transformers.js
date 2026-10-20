@@ -1,0 +1,39 @@
+
+> @huggingface/transformers@4.3.1 build /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers
+> node scripts/build.mjs && pnpm typegen
+
+
+[35m[transformers][0m [1m[36m=== BUILD ===[0m
+[35m[transformers][0m [34m[info][0m Building transformers.js with esbuild...
+
+
+[35m[transformers][0m [1m[36m=== Bundle Build (ESM) ===[0m
+[35m[transformers][0m [36m[build][0m Building [1mtransformers.js[0m...
+[35m[transformers][0m [32m✓[0m [90mCopied ort-wasm-simd-threaded.jsep.mjs[0m
+[35m[transformers][0m [32m[done][0m [1mtransformers.js[0m [90m1.33mb[0m [2m(gzip: 278.8kb)[0m
+[35m[transformers][0m [36m[build][0m Building [1mtransformers.min.js[0m...
+[35m[transformers][0m [32m[done][0m [1mtransformers.min.js[0m [90m589.3kb[0m [2m(gzip: 172.5kb)[0m
+
+[35m[transformers][0m [1m[36m=== Web Build (ESM) ===[0m
+[35m[transformers][0m [36m[build][0m Building [1mtransformers.web.js[0m...
+[35m[transformers][0m [32m[done][0m [1mtransformers.web.js[0m [90m1.14mb[0m [2m(gzip: 231.1kb)[0m
+[35m[transformers][0m [36m[build][0m Building [1mtransformers.web.min.js[0m...
+[35m[transformers][0m [32m[done][0m [1mtransformers.web.min.js[0m [90m460.5kb[0m [2m(gzip: 130.6kb)[0m
+
+[35m[transformers][0m [1m[36m=== Node Build (ESM) ===[0m
+[35m[transformers][0m [36m[build][0m Building [1mtransformers.node.mjs[0m...
+[35m[transformers][0m [32m[done][0m [1mtransformers.node.mjs[0m [90m1.30mb[0m [2m(gzip: 273.8kb)[0m
+[35m[transformers][0m [36m[build][0m Building [1mtransformers.node.min.mjs[0m...
+[35m[transformers][0m [32m[done][0m [1mtransformers.node.min.mjs[0m [90m576.4kb[0m [2m(gzip: 169.1kb)[0m
+
+[35m[transformers][0m [1m[36m=== Node Build (CJS) ===[0m
+[35m[transformers][0m [36m[build][0m Building [1mtransformers.node.cjs[0m...
+[35m[transformers][0m [32m[done][0m [1mtransformers.node.cjs[0m [90m1.35mb[0m [2m(gzip: 281.5kb)[0m
+[35m[transformers][0m [36m[build][0m Building [1mtransformers.node.min.cjs[0m...
+[35m[transformers][0m [32m[done][0m [1mtransformers.node.min.cjs[0m [90m598.1kb[0m [2m(gzip: 173.6kb)[0m
+[35m[transformers][0m [32m✓[0m All builds completed in [1m946.75ms[0m
+
+
+> @huggingface/transformers@4.3.1 typegen /Users/dan/.t3/worktrees/transformers.js/t3-a2e63ace/packages/transformers
+> tsc --build
+

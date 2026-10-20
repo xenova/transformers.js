@@ -19,8 +19,11 @@ copying it, pass `model_path` pointing at the directory containing config.json
 and onnx/. Local paths bypass revision lookup; check their hashes first.
 `model_id`, `revision`, `dtype` (string or per-component object), `device`,
 `cache_dir`, `local_files_only`, `session_options`, `beams`, `max_new_tokens`,
-`ragged`, and `repeats` are configurable. `ragged:true` exercises one versus two
-images per input. Default `repeats:25`; initial comparisons warm up inference.
+`ragged`, `diverse`, `inject_failure`, and `repeats` are configurable. Set `diverse:true` with
+`beams:[4]` for the two-group diverse-beam matrix case. `ragged:true` exercises one versus two
+images per input. Use `inject_failure:true` to fail the second decoder call and exercise cleanup
+and caller-input ownership on the selected backend. Default `repeats:25`; initial
+comparisons warm up inference.
 JSON includes token/rank comparisons, encoder invocation counts, timings,
 output tensor locations, runtime, and commit. A failed comparison exits nonzero.
 The default sample is synthetic black/white/gray images or 440/880 Hz audio.
@@ -41,6 +44,25 @@ The exported Ultravox processor does not batch raw audio. The harness processes
 examples independently and collates equal-length tensors. Variable-duration
 padded audio requires encoder-specific frame lengths; it is not established by
 these equal-duration tests. Gemma3n and other custom audio families remain guarded.
+
+## Published dtype coverage
+
+The pinned tiny Llava fixture publishes fp32 and fp16 components. The pinned
+**tiny Idefics3 and Qwen2VL fixtures publish no fp16 components**. Do not turn a
+missing-export error into a GPU failure or silently substitute fp32. The pinned
+Ultravox and SmolVLM2 exports also publish fp16 components. `fixtures.json` lists
+all available ONNX files, sizes, and hashes, separately from locally tested files.
+
+These additional fp16 exports were verified by metadata/config only; inference
+is for the parent's hardware run. Use the same options in the browser entry:
+
+```sh
+node scripts/multimodal/run.mjs '{"family":"idefics3","model_id":"HuggingFaceTB/SmolVLM-256M-Instruct","revision":"7e3e67edbbed1bf9888184d9df282b700a323964","device":"cuda","dtype":"fp16"}'
+node scripts/multimodal/run.mjs '{"family":"qwen2_vl","model_id":"onnx-community/Qwen2-VL-2B-Instruct","revision":"6855b966cae21877107daa61dc609f0f2d696151","device":"cuda","dtype":"fp16"}'
+```
+
+The first is an `idefics3` export (~514 MB of fp16 components); the second is a
+`qwen2_vl` export (~4.89 GB). Neither was downloaded in this worktree.
 
 ## Browser matrix
 
@@ -65,15 +87,23 @@ by native CPU results.
 
 ```sh
 pnpm --filter @huggingface/transformers test --runInBand --coverage=false tests/utils/multimodal_generation.test.js tests/utils/beam_ownership.test.js tests/multimodal_integration.test.js
-pnpm test --runInBand --coverage=false --setupFiles ../../scripts/multimodal/offline-tests.js
+NODE_OPTIONS=--max-old-space-size=8192 pnpm test --config ../../scripts/multimodal/jest.config.mjs
 pnpm --filter @huggingface/transformers build
 pnpm --filter @huggingface/transformers docs-generate
 ```
 
-The optional full-suite setup disables downloads and caps native session threads;
-it does not mock model computation. Missing cached fixtures remain failures.
+The optional full-suite configuration disables downloads, caps native session
+threads, and recycles a single worker between large suites; it does not mock
+model computation or skip tests. Missing cached fixtures remain failures. Set
+`MULTIMODAL_TEST_ONLINE=1` to permit public fixture downloads for the full suite.
 Tiny-model batch comparisons use the same left-padded sequence shape for the
 independent baseline. Unpadded Idefics3 tiny-random execution showed lower-rank
 beam differences under native default threading; do not represent that check as
 an exact-token pass. Real integrations also test ragged image groups, cached
 continuation, supplied embeddings, diverse search, and seeded beam sampling.
+
+The tiny Idefics3 CPU export requires batch size 1 for multi-token prefill with
+an existing cache (ORT GroupQueryAttention restriction). Its new-image-after-text-
+cache test therefore uses greedy generation; ordinary cached single-token
+continuation is tested with two beams. Llava and Qwen2VL also test new image
+chunks after a cached text prefix with two beams.
