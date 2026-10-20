@@ -851,6 +851,10 @@ export class PreTrainedModel extends Callable {
 
     /**
      * Generate token sequences with a language-modeling head.
+     * Returned attentions use step/layer/tensor layout with global forward rows.
+     * Beam dictionary outputs include `beam_indices` (global parent rows, one column per generated
+     * token starting at column zero, including EOS, padded with -1) and `sequence_lengths`
+     * (valid lengths including the decoder prefix and EOS). Attention tensors remain caller-owned.
      * @param {import('../generation/parameters.js').GenerationFunctionParameters} options
      * @returns {Promise<ModelOutput|Tensor>} The output of the model, which can contain the generated token ids, attentions, and scores.
      */
@@ -877,9 +881,6 @@ export class PreTrainedModel extends Callable {
 
         const is_encoder_decoder = this.config.is_encoder_decoder;
         if (generation_config.num_beams > 1) {
-            if (generation_config.output_attentions) {
-                throw new Error('Beam search does not support output_attentions or token timestamps.');
-            }
             const modality_inputs = [
                 'pixel_values',
                 'pixel_values_videos',
@@ -893,6 +894,7 @@ export class PreTrainedModel extends Callable {
             }
         }
 
+        let owned_encoder_output = null;
         // 4. Define other model kwargs
         if (!is_encoder_decoder) {
             // decoder-only models should use left-padding for generation
@@ -905,6 +907,7 @@ export class PreTrainedModel extends Callable {
                 model_input_name,
                 generation_config,
             });
+            owned_encoder_output = model_inputs.encoder_outputs;
         }
 
         // 5. Prepare `input_ids` which will be used for auto-regressive generation
@@ -968,6 +971,10 @@ export class PreTrainedModel extends Callable {
         const is_beam_search = num_beams > 1;
         const is_group_beam_search = is_beam_search && num_beam_groups > 1;
 
+        const sequence_lengths = new Array(numInputs).fill(null);
+        let beam_history = Array.from({ length: numInputs * num_beams }, () => []);
+        const retained_attentions = new Set();
+        let returned_attentions = false;
         let beam_scorer = null;
         let beam_scorers = null;
         /** @type {number[]} */
@@ -1127,6 +1134,7 @@ export class PreTrainedModel extends Callable {
                                 attentions[key] = [];
                             }
                             attentions[key].push(token_attentions[key]);
+                            for (const tensor of token_attentions[key]) retained_attentions.add(tensor);
                         }
                     } else if (this._return_dict_in_generate_keys) {
                         Object.assign(return_dict_items, pick(outputs, this._return_dict_in_generate_keys));
@@ -1247,6 +1255,17 @@ export class PreTrainedModel extends Callable {
                                 group_next_tokens,
                                 group_next_indices,
                                 group_next_scores,
+                                Array.from(
+                                    { length: numInputs * group_size },
+                                    (_, i) =>
+                                        beam_history[
+                                            Math.floor(i / group_size) * num_beams + group_offset + (i % group_size)
+                                        ],
+                                ),
+                                Array.from(
+                                    { length: numInputs * group_size },
+                                    (_, i) => Math.floor(i / group_size) * num_beams + group_offset + (i % group_size),
+                                ),
                             );
 
                             // Map group outputs into global beam arrays
@@ -1339,10 +1358,12 @@ export class PreTrainedModel extends Callable {
                             all_next_tokens,
                             all_next_indices,
                             all_next_scores,
+                            beam_history,
                         ));
                     }
 
                     // Reorder all_input_ids based on beam indices and append new tokens
+                    beam_history = next_beam_indices.map((parent) => [...beam_history[parent], parent]);
                     const new_all_input_ids = [];
                     for (let i = 0; i < total_beams; ++i) {
                         new_all_input_ids.push([...all_input_ids[next_beam_indices[i]], next_beam_tokens[i]]);
@@ -1391,6 +1412,10 @@ export class PreTrainedModel extends Callable {
                     }
                 }
                 const stop = prepared_stopping_criteria(all_input_ids);
+                if (!is_beam_search)
+                    for (let i = 0; i < stop.length; ++i) {
+                        if (stop[i] && sequence_lengths[i] === null) sequence_lengths[i] = all_input_ids[i].length;
+                    }
                 if (stop.every((x) => x)) {
                     break;
                 }
@@ -1435,6 +1460,7 @@ export class PreTrainedModel extends Callable {
             }
 
             let sequences;
+            let selected_hypotheses = [];
             if (is_beam_search) {
                 /** @type {bigint[][]} */
                 let best_sequences;
@@ -1460,6 +1486,13 @@ export class PreTrainedModel extends Callable {
                         const group_results = beam_scorers[group_idx].finalize_with_scores(
                             group_all_input_ids,
                             group_beam_scores,
+                            Array.from(
+                                { length: numInputs * group_size },
+                                (_, i) =>
+                                    beam_history[
+                                        Math.floor(i / group_size) * num_beams + group_offset + (i % group_size)
+                                    ],
+                            ),
                         );
 
                         for (let batch_idx = 0; batch_idx < numInputs; ++batch_idx) {
@@ -1475,11 +1508,13 @@ export class PreTrainedModel extends Callable {
                         const sorted = grouped[batch_idx].sort((a, b) => b.score - a.score);
                         for (let i = 0; i < generation_config.num_return_sequences; ++i) {
                             best_sequences.push(sorted[i].tokens);
+                            selected_hypotheses.push(sorted[i]);
                         }
                     }
                 } else {
                     // Finalize beam search: select best hypotheses
-                    best_sequences = beam_scorer.finalize(all_input_ids, beam_scores);
+                    selected_hypotheses = beam_scorer.finalize_with_scores(all_input_ids, beam_scores, beam_history);
+                    best_sequences = selected_hypotheses.map((x) => x.tokens);
                 }
 
                 // Pad sequences to equal length for tensor creation
@@ -1505,7 +1540,11 @@ export class PreTrainedModel extends Callable {
             // Dispose output tensors not held by the cache
             const cachedTensors = new Set(Object.values(past_key_values));
             for (const tensor of Object.values(outputs)) {
-                if (tensor.location === 'gpu-buffer' && !cachedTensors.has(tensor)) {
+                if (
+                    tensor.location === 'gpu-buffer' &&
+                    !cachedTensors.has(tensor) &&
+                    !retained_attentions.has(tensor)
+                ) {
                     tensor.dispose();
                 }
             }
@@ -1519,6 +1558,31 @@ export class PreTrainedModel extends Callable {
 
             if (generation_config.return_dict_in_generate) {
                 const past_key_values_for_return = is_beam_search ? null : past_key_values;
+                if (is_beam_search) {
+                    const width = sequences.dims[1];
+                    // Ancestry starts at column zero (the first generated token),
+                    // independent of prefix length. Unused columns are -1.
+                    return_dict_items.beam_indices = new Tensor(
+                        'int64',
+                        selected_hypotheses.flatMap((x) => [
+                            ...x.beam_indices.map(BigInt),
+                            ...Array(width - x.beam_indices.length).fill(-1n),
+                        ]),
+                        sequences.dims,
+                    );
+                    return_dict_items.sequence_lengths = new Tensor(
+                        'int64',
+                        selected_hypotheses.map((x) => BigInt(x.tokens.length)),
+                        [selected_hypotheses.length],
+                    );
+                }
+                if (!is_beam_search)
+                    return_dict_items.sequence_lengths = new Tensor(
+                        'int64',
+                        all_input_ids.map((ids, i) => BigInt(sequence_lengths[i] ?? ids.length)),
+                        [all_input_ids.length],
+                    );
+                returned_attentions = true;
                 return {
                     sequences,
                     past_key_values: past_key_values_for_return,
@@ -1528,6 +1592,8 @@ export class PreTrainedModel extends Callable {
             }
             return sequences;
         } finally {
+            owned_encoder_output?.dispose();
+            if (!returned_attentions) for (const tensor of retained_attentions) tensor.dispose();
             if (is_beam_search) {
                 // Also run on forward/processor/reorder failures and partial expansion.
                 const owned = new Set(expanded_tensors);
@@ -1536,7 +1602,11 @@ export class PreTrainedModel extends Callable {
                 }
                 for (const tensor of Object.values(outputs ?? {})) owned.add(tensor);
                 for (const tensor of owned) {
-                    if (expanded_tensors.has(tensor) || tensor.location === 'gpu-buffer') tensor.dispose();
+                    if (
+                        !retained_attentions.has(tensor) &&
+                        (expanded_tensors.has(tensor) || tensor.location === 'gpu-buffer')
+                    )
+                        tensor.dispose();
                 }
                 if (model_inputs.past_key_values !== caller_cache) {
                     await model_inputs.past_key_values?.dispose();

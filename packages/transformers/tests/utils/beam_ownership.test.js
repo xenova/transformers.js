@@ -158,6 +158,23 @@ describe("Beam resource ownership", () => {
     await caller.dispose();
   });
 
+  it.each([false, true])("releases the internally encoded source after beam expansion (failure=%s)", async (fail) => {
+    const model = modelWith();
+    let destroyed = 0;
+    const encoded = gpu([1, 1, 4], { dispose: () => ++destroyed });
+    model.config.is_encoder_decoder = true;
+    model._prepare_encoder_decoder_kwargs_for_generation = async ({ model_inputs }) => ({ ...model_inputs, encoder_outputs: encoded });
+    if (fail)
+      model.forward = async () => {
+        throw Error("injected encoder continuation failure");
+      };
+    const result = model.generate({ num_beams: 2, max_new_tokens: 1, decoder_start_token_id: 1 });
+    if (fail) await expect(result).rejects.toThrow("injected encoder continuation failure");
+    else await result;
+    expect(destroyed).toBe(1);
+    expect(allocated.every((buffer) => buffer.destroyed)).toBe(true);
+  });
+
   it("rejects decoder-only multimodal beams before inference", async () => {
     const model = modelWith({ pixel_values: new Tensor("float32", [1], [1, 1]) });
     model.forward = async () => {
@@ -166,11 +183,25 @@ describe("Beam resource ownership", () => {
     await expect(model.generate({ num_beams: 2, max_new_tokens: 1 })).rejects.toThrow("decoder-only multimodal inputs");
   });
 
-  it("rejects beam attentions used for token timestamps before inference", async () => {
+  it.each([false, true])("retains public attention buffers and releases them on error=%s", async (fail) => {
     const model = modelWith();
+    let destroyed = 0;
+    let calls = 0;
     model.forward = async () => {
-      throw new Error("must not run");
+      if (++calls === 2 && fail) throw new Error("injected");
+      return { logits: new Tensor("float32", [0, 1, 2, 3, 0, 1, 2, 3], [2, 1, 4]), "cross_attentions.0": gpu([2, 1, 1, 4], { dispose: () => ++destroyed }) };
     };
-    await expect(model.generate({ num_beams: 2, output_attentions: true, max_new_tokens: 1 })).rejects.toThrow("output_attentions or token timestamps");
+    const promise = model.generate({ num_beams: 2, output_attentions: true, return_dict_in_generate: true, max_new_tokens: 2 });
+    if (fail) {
+      await expect(promise).rejects.toThrow("injected");
+      expect(destroyed).toBe(1);
+    } else {
+      const result = await promise;
+      expect(result.cross_attentions.length).toBe(2);
+      expect(destroyed).toBe(0);
+      expect(result.beam_indices.tolist()[0].slice(0, 2)).toEqual([0n, 0n]);
+      for (const step of result.cross_attentions) for (const tensor of step) tensor.dispose();
+      expect(destroyed).toBe(2);
+    }
   });
 });

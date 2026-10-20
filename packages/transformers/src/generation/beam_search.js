@@ -18,7 +18,7 @@ export class BeamHypotheses {
         this.early_stopping = early_stopping;
         this.max_length = max_length;
 
-        /** @type {{score: number, tokens: bigint[]}[]} */
+        /** @type {{score: number, tokens: bigint[], beam_indices: number[]}[]} */
         this.beams = [];
         this.worst_score = 1e9;
     }
@@ -32,11 +32,12 @@ export class BeamHypotheses {
      * @param {number} sum_logprobs Sum of log probabilities of the hypothesis.
      * @param {bigint[]} tokens The token ids of the hypothesis.
      * @param {number} [generated_length] Number of generated tokens, excluding the prompt.
+     * @param {number[]} [beam_indices] Global parent row for each generated token.
      */
-    add(sum_logprobs, tokens, generated_length = tokens.length) {
+    add(sum_logprobs, tokens, generated_length = tokens.length, beam_indices = []) {
         const score = sum_logprobs / Math.max(1, generated_length) ** this.length_penalty;
         if (this.beams.length < this.num_beams || score > this.worst_score) {
-            this.beams.push({ score, tokens });
+            this.beams.push({ score, tokens: [...tokens], beam_indices: [...beam_indices] });
             if (this.beams.length > this.num_beams) {
                 // Remove worst hypothesis
                 let worst_idx = 0;
@@ -138,9 +139,11 @@ export class BeamSearchScorer {
      * @param {bigint[]} next_tokens Candidate tokens, shape [batch_size * num_candidates].
      * @param {number[]} next_indices Which beam each candidate came from (relative to batch group), shape [batch_size * num_candidates].
      * @param {number[]} next_scores New cumulative scores for candidates, shape [batch_size * num_candidates].
+     * @param {number[][]} [beam_indices] Active ancestry in scorer row order.
+     * @param {number[]} [row_indices] Mapping from scorer rows to global attention rows.
      * @returns {{ next_beam_scores: number[], next_beam_tokens: bigint[], next_beam_indices: number[] }}
      */
-    process(all_input_ids, beam_scores, next_tokens, next_indices, next_scores) {
+    process(all_input_ids, beam_scores, next_tokens, next_indices, next_scores, beam_indices = [], row_indices = null) {
         const cur_len = all_input_ids[0].length;
         const total_beams = this.batch_size * this.num_beams;
 
@@ -175,7 +178,10 @@ export class BeamSearchScorer {
                     // Only EOS candidates that survive the beam cutoff can complete.
                     if (j >= this.num_beams) continue;
                     const hypothesis = [...all_input_ids[abs_beam_source], beam_token];
-                    this._beam_hyps[batch_idx].add(beam_score, hypothesis, cur_len + 1 - this.decoder_prompt_len);
+                    this._beam_hyps[batch_idx].add(beam_score, hypothesis, cur_len + 1 - this.decoder_prompt_len, [
+                        ...(beam_indices[abs_beam_source] ?? []),
+                        row_indices?.[abs_beam_source] ?? abs_beam_source,
+                    ]);
                 } else {
                     // Add to next active beams
                     const out_idx = batch_idx * this.num_beams + beam_idx;
@@ -241,9 +247,10 @@ export class BeamSearchScorer {
      * Finalize: select best hypotheses and return scores.
      * @param {bigint[][]} all_input_ids Final sequences, shape [batch_size * num_beams, seq_len].
      * @param {number[]} beam_scores Final cumulative scores.
-     * @returns {{tokens: bigint[], score: number}[]} Best sequences with scores.
+     * @param {number[][]} [beam_indices] Active ancestry in scorer row order.
+     * @returns {{tokens: bigint[], score: number, beam_indices: number[]}[]} Best sequences with scores.
      */
-    finalize_with_scores(all_input_ids, beam_scores) {
+    finalize_with_scores(all_input_ids, beam_scores, beam_indices = []) {
         // For each batch, ensure we have enough hypotheses
         for (let batch_idx = 0; batch_idx < this.batch_size; ++batch_idx) {
             const hyps = this._beam_hyps[batch_idx];
@@ -254,6 +261,7 @@ export class BeamSearchScorer {
                         beam_scores[flat_idx],
                         all_input_ids[flat_idx],
                         all_input_ids[flat_idx].length - this.decoder_prompt_len,
+                        beam_indices[flat_idx] ?? [],
                     );
                 }
             }
