@@ -1,3 +1,4 @@
+import { runMultimodal } from "../multimodal/cases.js";
 import {
   AutoModelForSeq2SeqLM,
   AutoModelForCausalLM,
@@ -21,6 +22,7 @@ const equal = (a, b) =>
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 
 window.runBeamGPU = async (options) => {
+  if (options.mode === "multimodal" && options.device === "wasm") return runMultimodal(options);
   const adapter = await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" });
   if (!adapter) throw new Error("No WebGPU adapter");
   const info = adapter.info;
@@ -70,6 +72,29 @@ window.runBeamGPU = async (options) => {
   device.lost.then((value) => {
     console.error("DEVICE_LOST", value.reason, value.message);
   });
+
+  if (options.mode === "multimodal") {
+    const dtypes = typeof options.dtype === "object" ? Object.values(options.dtype) : [options.dtype];
+    if (dtypes.some((dtype) => dtype === "fp16" || dtype === "q4f16") && !adapter.features.has("shader-f16")) {
+      throw new Error("The requested fp16 inference requires shader-f16");
+    }
+    const result = await runMultimodal({ ...options, device: options.device ?? "webgpu" });
+    await device.queue.onSubmittedWorkDone();
+    const gpuCacheObserved = result.forward_locations.some((step) =>
+      Object.entries(step).some(([key, location]) => key.startsWith("present.") && location === "gpu-buffer"),
+    );
+    const hardwarePass = gpuCacheObserved && peakOwnedBuffers > 0 && liveBuffers.size === 0 && errors.length === 0;
+    return {
+      ...result,
+      pass: result.pass && hardwarePass,
+      hardware,
+      shader_f16: adapter.features.has("shader-f16"),
+      gpuCacheObserved,
+      peakOwnedBuffers,
+      remainingOwnedBuffers: liveBuffers.size,
+      errors,
+    };
+  }
 
   if (options.mode === "validate") {
     const cases = [

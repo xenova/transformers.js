@@ -86,8 +86,19 @@ const model = await AutoModelForSeq2SeqLM.from_pretrained(model_id, {
 ## Restrictions
 
 Beam search rejects streamers and classifier-free guidance (`guidance_scale > 1`).
-Decoder-only multimodal inputs and `output_attentions` (including Whisper token
-timestamps) are not supported with beams.
+Image inputs are supported for Llava, Idefics3, SmolVLM, and Qwen2VL. Ultravox
+supports audio inputs. Each original image or audio input is encoded before beam
+expansion; prefill embeddings are consumed once. Supplied `inputs_embeds` must
+already contain merged modality features, alongside the original `input_ids`
+and the corresponding attention mask. The caller retains ownership of supplied
+embeddings and caches.
+
+Video inputs, other decoder-only multimodal families, and `output_attentions`
+(including Whisper token timestamps) are not supported with beams. Ultravox's
+processor currently accepts one audio example at a time; equal-length processed
+audio tensors can be collated for batched generation. For Qwen2VL cached
+continuation, retain the original image grid or supply the matching `rope_deltas`
+with the input ids and attention mask.
 Diverse beam search cannot be combined with `do_sample: true`. Nucleus sampling
 (`top_p`) is not implemented by the generation sampler.
 

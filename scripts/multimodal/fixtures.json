@@ -1,0 +1,265 @@
+[
+  {
+    "model_id": "Xenova/tiny-random-LlavaForConditionalGeneration",
+    "revision": "a61a79a541cec4898722bdfb5b016984c29fb061",
+    "files": [
+      {
+        "path": "config.json",
+        "bytes": 1180,
+        "sha256": "22447cfa3841cf1d1d8eb5795bc04697e0315d69b62b5176ecc7211db4db9dfd"
+      },
+      {
+        "path": "generation_config.json",
+        "bytes": 133,
+        "sha256": "9322c086ea7464e14c74cca367cacacd9f0e54ed62156c425d9738cdfd245417"
+      },
+      {
+        "path": "onnx/decoder_model_merged.onnx",
+        "bytes": 10620207,
+        "sha256": "bdb1960cad212a0e76d054b77e4065d465b306a34b8284b0633587f9228e85d9",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/embed_tokens.onnx",
+        "bytes": 2048359,
+        "sha256": "839a343c187fb926d275d23dc8ddaff3a0c4f3b5aeffe587670985c4dbf17fa3",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/vision_encoder.onnx",
+        "bytes": 102838,
+        "sha256": "543d0044de2f174103bdb2c78e50408e46c167beee8359175d5e5d6cf5d0f2ef",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "preprocessor_config.json",
+        "bytes": 816,
+        "sha256": "3c28767a082fe5929f89821c932bfbc5ba3f2fff5b4f78a82860c42561e850c0"
+      },
+      {
+        "path": "processor_config.json",
+        "bytes": 166,
+        "sha256": "1dc8aee739651c743bcb40c2da9461274923f1bf609c7a81b8266e826f602ca2"
+      },
+      {
+        "path": "tokenizer.json",
+        "bytes": 1843128,
+        "sha256": "8d8cd285930c2c24a73b1030ed3f50a90eb402c21fa5acc966b0388fe9bab6a1"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "bytes": 1205,
+        "sha256": "0d9d7849a129ab1563b5f57768e6195aa7460db27e307f1ae3f5524d75fddcee"
+      }
+    ]
+  },
+  {
+    "model_id": "hf-internal-testing/tiny-random-Idefics3ForConditionalGeneration",
+    "revision": "5c0505e5c04d9e87b7cdb599076e6cf0cedf707d",
+    "files": [
+      {
+        "path": "config.json",
+        "bytes": 7326,
+        "sha256": "43bbfd1237cc420d66cb547907c057303bec234eb01865c6d80eb8d1ef4fb1b0"
+      },
+      {
+        "path": "generation_config.json",
+        "bytes": 193,
+        "sha256": "6e792080accdb03f8cd48403f8fb069329c23150d968fa7b6cb23222272a3413"
+      },
+      {
+        "path": "onnx/decoder_model_merged.onnx",
+        "bytes": 43161647,
+        "sha256": "92c2bec0806487d3f5e40ddb7102ea9697fe259c8b9f237787b082c7759f6fa9",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/embed_tokens.onnx",
+        "bytes": 32834600,
+        "sha256": "15a53f2fbab3be311daa25af0ce915ba5c2f47f0b1f9fcdd0cf34a83ff91ef70",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/vision_encoder.onnx",
+        "bytes": 1281955,
+        "sha256": "0e9b72e85c8d13549bee6454d21fbd97ae00b611208f3e6ecd15dd8ec3602c5d",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "preprocessor_config.json",
+        "bytes": 486,
+        "sha256": "e876521b9a75f7da3d31f043323e27004006c01c22934fd9567dc250836a9bdc"
+      },
+      {
+        "path": "processor_config.json",
+        "bytes": 69,
+        "sha256": "2a7f33f0bc9a94dc45fe148075d45f19c585218fbfce7a7141e056ca93a21bfc"
+      },
+      {
+        "path": "tokenizer.json",
+        "bytes": 17210501,
+        "sha256": "d1b5ea123f25178b4d498f9fd5dafe3e1356c7d179ffeb792659eaee8972b8a6",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "tokenizer_config.json",
+        "bytes": 51783,
+        "sha256": "c09665bd83e2afb15396aac2bea86d4086102f7ff80f603b43ec564ca39e9a6c"
+      }
+    ]
+  },
+  {
+    "model_id": "hf-internal-testing/tiny-random-Qwen2VLForConditionalGeneration",
+    "revision": "2e2ed20b74bd5157aafd082b00e87fe25b2231a6",
+    "files": [
+      {
+        "path": "config.json",
+        "bytes": 1192,
+        "sha256": "fb96bdca31eaaf15636a12cafb9a2683e09c78a39191e4fba92de4fc4ed03845"
+      },
+      {
+        "path": "generation_config.json",
+        "bytes": 273,
+        "sha256": "f05645adc1b363f3e0592c2ed2dd35774b7366318632dc1769cf7af0e72eedbf"
+      },
+      {
+        "path": "onnx/decoder_model_merged.onnx",
+        "bytes": 9827934,
+        "sha256": "1220fec87bac8d49c34eb346c4924c76fb79859ce2dafb694e535b7b03fc84a9",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/embed_tokens.onnx",
+        "bytes": 9732392,
+        "sha256": "5dd8bf772a06967736faf9ee64ad13b3edee64124c1a3e50fcd319deddf82063",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/vision_encoder.onnx",
+        "bytes": 208649,
+        "sha256": "34469f36f9b144fa2ba4805c54ec3a21e9e9235e27a6342fc7b6af846758f5e6",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "preprocessor_config.json",
+        "bytes": 499,
+        "sha256": "56fd296c1d6dc1ae216c84b39b10381784a02ff42db425dbf02683b42a7e3f65"
+      },
+      {
+        "path": "tokenizer.json",
+        "bytes": 11420538,
+        "sha256": "88a3a6fcb80132f76da8aa40cdc3fccd7e5d8468ef15421f5b0c2715e85217d2",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "tokenizer_config.json",
+        "bytes": 4297,
+        "sha256": "eb3c5a310899d7d65feec0dee4dff9067d7bc4ad2a17e2005bc9163f1ace0531"
+      }
+    ]
+  },
+  {
+    "model_id": "onnx-community/ultravox-v0_5-llama-3_2-1b-ONNX",
+    "revision": "1ccaedd19b01bc50b5257800ea8b90f53a5cbffa",
+    "files": [
+      {
+        "path": "config.json",
+        "bytes": 2760,
+        "sha256": "b55dfc7932e6760754a176585b9851c974964c1c1ead80dbbf66228abe1fd4af"
+      },
+      {
+        "path": "onnx/audio_encoder_q4.onnx",
+        "bytes": 453983426,
+        "sha256": "8036644964362696f3b68f407b32fb980f5e99c12c24e946684207ae890c0a4d",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/decoder_model_merged_q4.onnx",
+        "bytes": 806472269,
+        "sha256": "88c266037cb9c20a9f2d11c97dc7c208e902b6e96ffea86746734bb1ebd35c0b",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/embed_tokens_int8.onnx",
+        "bytes": 262668831,
+        "sha256": "aa74691240d71584712786e9daf3f70dc6d98c16367d1b44e3b0503234dc79ab",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "preprocessor_config.json",
+        "bytes": 340,
+        "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711"
+      },
+      {
+        "path": "processor_config.json",
+        "bytes": 190,
+        "sha256": "10365090cea6f991d92d2e5d215ddb7bfa5ec2a110ae88f06b2d84278c1313f4"
+      },
+      {
+        "path": "tokenizer.json",
+        "bytes": 11574770,
+        "sha256": "797050aa46eb155b64dffd8ad679051a8a117084c15b377edfe5b361486b9041",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "tokenizer_config.json",
+        "bytes": 54761,
+        "sha256": "2b19b3db086176e9e6cc01090dbbde5b95c8856a72485237b6826836d557bea1"
+      }
+    ]
+  },
+  {
+    "model_id": "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
+    "revision": "067788b187b95ebe7b2e040b3e4299e342e5b8fd",
+    "files": [
+      {
+        "path": "config.json",
+        "bytes": 3812,
+        "sha256": "756cb7d37d7659c9d5a71c563f9d2530f9dd674ab7e909d8d0dd5b1a2d3e8317"
+      },
+      {
+        "path": "generation_config.json",
+        "bytes": 136,
+        "sha256": "34835060c9f0f74d1acb456cc72ca32746d3843d9eb5f578f9cbffac1d2eb840"
+      },
+      {
+        "path": "onnx/decoder_model_merged_q4.onnx",
+        "bytes": 86894835,
+        "sha256": "ce4021b8e2242cbd4caac06b259e1b15e085c6a4b900af40f1e0abec7a6c6df2",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/embed_tokens_int8.onnx",
+        "bytes": 28385824,
+        "sha256": "e2cdc3690af5719c7463254f96c3b665a9e24add2a1fa6f594347d67a422710a",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "onnx/vision_encoder_q4.onnx",
+        "bytes": 63784944,
+        "sha256": "253d225bf96b6203118d16e57bb2890c2dc542dd989d484cb9541dc4d4ae719b",
+        "matches_hub_revision": true
+      },
+      {
+        "path": "preprocessor_config.json",
+        "bytes": 599,
+        "sha256": "149e315d9410368e5491455bb06e0f763426e9e56cca731c13b24404a29b6374"
+      },
+      {
+        "path": "processor_config.json",
+        "bytes": 67,
+        "sha256": "f3ad45028447b3562b4752be0d5916d6806c1ef589091a469608dcf0faa1737c"
+      },
+      {
+        "path": "tokenizer.json",
+        "bytes": 3548256,
+        "sha256": "5ece781dc8d2b2f3e2f289ca0ae50b17cfc27dd27bfe7971bb8241e0b964331a"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "bytes": 28626,
+        "sha256": "dd9ce2ab89a3dd881bd9378f1a79b943a064b9275a7e1706d5b7b47b68977913"
+      }
+    ]
+  }
+]

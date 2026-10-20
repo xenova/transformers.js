@@ -674,6 +674,11 @@ export class PreTrainedModel extends Callable {
         return this._prepare_inputs_for_generation(this, ...args);
     }
 
+    // Opt in only families whose merge and batch axes have been verified.
+    _multimodal_generation_config() {
+        return null;
+    }
+
     /**
      *
      * @param {Object} inputs
@@ -718,7 +723,7 @@ export class PreTrainedModel extends Callable {
      * @returns {{inputs_tensor: Tensor, model_inputs: Record<string, Tensor> & {past_key_values?: DynamicCache}, model_input_name: string}} The model-specific inputs for generation.
      */
     _prepare_model_inputs({ inputs, bos_token_id, model_kwargs }) {
-        const model_inputs = pick(model_kwargs, this.forward_params);
+        const model_inputs = pick(model_kwargs, [...this.forward_params, 'inputs_embeds', 'rope_deltas']);
         const input_name = this.main_input_name;
         if (input_name in model_inputs) {
             if (inputs) {
@@ -876,6 +881,7 @@ export class PreTrainedModel extends Callable {
         });
 
         const is_encoder_decoder = this.config.is_encoder_decoder;
+        const modality = !is_encoder_decoder && this._multimodal_generation_config();
         if (generation_config.num_beams > 1) {
             if (generation_config.output_attentions) {
                 throw new Error('Beam search does not support output_attentions or token timestamps.');
@@ -888,8 +894,20 @@ export class PreTrainedModel extends Callable {
                 'image_grid_thw',
                 'video_grid_thw',
             ];
-            if (!is_encoder_decoder && modality_inputs.some((key) => model_inputs[key] != null)) {
-                throw new Error('Beam search does not yet support decoder-only multimodal inputs.');
+            if (
+                !is_encoder_decoder &&
+                modality_inputs.some((key) => (kwargs[key] ?? model_inputs[key]) != null) &&
+                (!modality ||
+                    kwargs.pixel_values_videos != null ||
+                    kwargs.video_grid_thw != null ||
+                    ['pixel_values', 'audio_values', 'input_features'].some(
+                        (key) =>
+                            (kwargs[key] ?? model_inputs[key]) != null && !modality.modality_input_names.includes(key),
+                    ))
+            ) {
+                throw new Error(
+                    `Beam search does not yet support decoder-only multimodal inputs for ${this.config.model_type ?? 'this model'} with the supplied modality keys.`,
+                );
             }
         }
 
@@ -1039,7 +1057,21 @@ export class PreTrainedModel extends Callable {
         const expanded_tensors = new Set();
         const caller_cache = model_inputs.past_key_values;
         let outputs;
+        const prepared_tensors = new Set();
         try {
+            if (modality) {
+                // Run family position/cache preparation on the original batch, before expanding.
+                model_inputs = this.prepare_inputs_for_generation(all_input_ids, model_inputs, generation_config);
+                const prepared = await prepare_multimodal_inputs(this, { ...model_inputs, ...modality });
+                if (prepared.inputs_embeds !== model_inputs.inputs_embeds) prepared_tensors.add(prepared.inputs_embeds);
+                if (prepared.attention_mask !== model_inputs.attention_mask)
+                    prepared_tensors.add(prepared.attention_mask);
+                Object.assign(model_inputs, prepared);
+                // Raw modality groups are flattened/ragged, not batch-major decoder inputs.
+                for (const key of modality.modality_input_names) delete model_inputs[key];
+                delete model_inputs.pixel_attention_mask;
+                delete model_inputs.image_grid_thw;
+            }
             if (is_beam_search) {
                 // Expand all_input_ids: [A, B] -> [A, A, A, B, B, B] for num_beams=3
                 const expanded_ids = [];
@@ -1065,15 +1097,24 @@ export class PreTrainedModel extends Callable {
                     'encoder_outputs',
                     'position_ids',
                     'inputs_embeds',
+                    'rope_deltas',
                 ]) {
                     const tensor = model_inputs[key];
                     if (tensor instanceof Tensor) {
-                        if (tensor.location === 'cpu' || tensor.location === 'cpu-pinned') {
+                        const axis = modality?.batch_axes?.[key] ?? 0;
+                        if (axis === 1) {
+                            model_inputs[key] = index_select(tensor.transpose(1, 0, 2), expanded_indices).transpose(
+                                1,
+                                0,
+                                2,
+                            );
+                        } else if (tensor.location === 'cpu' || tensor.location === 'cpu-pinned') {
                             model_inputs[key] = index_select(tensor, expanded_indices);
                         } else {
                             model_inputs[key] = await index_select_async(tensor, expanded_indices);
                         }
                         expanded_tensors.add(model_inputs[key]);
+                        if (key === 'inputs_embeds' && prepared_tensors.delete(tensor)) tensor.dispose();
                     }
                 }
 
@@ -1116,7 +1157,13 @@ export class PreTrainedModel extends Callable {
             while (true) {
                 // prepare model inputs
                 model_inputs = this.prepare_inputs_for_generation(all_input_ids, model_inputs, generation_config);
+                const prefill_embeddings = model_inputs.inputs_embeds;
                 outputs = await this.forward(model_inputs);
+                // Embeddings describe only this prefill, never the next generated token.
+                model_inputs.inputs_embeds = null;
+                if (prepared_tensors.delete(prefill_embeddings) || expanded_tensors.delete(prefill_embeddings)) {
+                    prefill_embeddings.dispose();
+                }
 
                 if (generation_config.return_dict_in_generate) {
                     if (generation_config.output_attentions) {
@@ -1528,6 +1575,7 @@ export class PreTrainedModel extends Callable {
             }
             return sequences;
         } finally {
+            for (const tensor of prepared_tensors) tensor?.dispose();
             if (is_beam_search) {
                 // Also run on forward/processor/reorder failures and partial expansion.
                 const owned = new Set(expanded_tensors);
@@ -1904,6 +1952,42 @@ export async function decoder_forward(self, model_inputs, is_encoder_decoder = f
     return await sessionRun(session, fixed);
 }
 
+// Own only encoder results. Caller-provided embeddings are already merged and borrowed.
+async function prepare_multimodal_inputs(self, params) {
+    let {
+        inputs_embeds,
+        attention_mask,
+        input_ids,
+        past_key_values,
+        encode_function,
+        merge_function,
+        modality_input_names,
+        modality_output_name,
+    } = params;
+    if (inputs_embeds) return { inputs_embeds, attention_mask };
+    inputs_embeds = await self.encode_text({ ...params, input_ids });
+    let features;
+    try {
+        if (!past_key_values?.get_seq_length() && modality_input_names.some((key) => params[key] != null)) {
+            features = await (encode_function ?? self.encode_image.bind(self))(params);
+            const merged = (merge_function ?? self._merge_input_ids_with_image_features.bind(self))({
+                [modality_output_name]: features,
+                inputs_embeds,
+                input_ids,
+                attention_mask,
+            });
+            if (merged.inputs_embeds !== inputs_embeds) inputs_embeds.dispose();
+            ({ inputs_embeds, attention_mask } = merged);
+        }
+        return { inputs_embeds, attention_mask };
+    } catch (error) {
+        inputs_embeds.dispose();
+        throw error;
+    } finally {
+        features?.dispose();
+    }
+}
+
 /**
  * Abstract forward pass function for image-text-to-text or audio-text-to-text models.
  * @param {Object} self The model object.
@@ -1950,83 +2034,64 @@ async function generic_text_to_text_forward(
         ...kwargs
     },
 ) {
-    if (!inputs_embeds) {
-        // 1. Extract the text embeddings.
-        inputs_embeds = await self.encode_text({ input_ids, ...kwargs });
-
-        // 2. Possibly, merge text and modality values
-        const modality_values = pick(kwargs, modality_input_names);
-        if (Object.keys(modality_values).length > 0) {
-            if (input_ids.dims[1] !== 1) {
-                const modality_features = await encode_function({
-                    // Pass the modality values under its expected key.
-                    // The caller knows whether this is audio or image.
-                    ...modality_values,
-                    ...kwargs,
-                });
-                ({ inputs_embeds, attention_mask } = merge_function({
-                    [modality_output_name]: modality_features,
-                    inputs_embeds,
-                    input_ids,
-                    attention_mask,
-                }));
-            } else if (past_key_values && input_ids.dims[1] === 1) {
-                // This branch handles the cache case.
-                const target_length = input_ids.dims[1]; // always 1
-                const past_length = past_key_values.get_seq_length();
-
-                attention_mask = cat(
-                    [
-                        ones([input_ids.dims[0], past_length]),
-                        attention_mask.slice(null, [attention_mask.dims[1] - target_length, attention_mask.dims[1]]),
-                    ],
-                    1,
-                );
+    const prepared = await prepare_multimodal_inputs(self, {
+        input_ids,
+        inputs_embeds,
+        attention_mask,
+        past_key_values,
+        encode_function,
+        merge_function,
+        modality_input_names,
+        modality_output_name,
+        ...kwargs,
+    });
+    const owned_embeddings = prepared.inputs_embeds !== inputs_embeds;
+    ({ inputs_embeds, attention_mask } = prepared);
+    try {
+        if (!position_ids) {
+            if (
+                // Handle special case for qwen vl models
+                [
+                    'qwen2_vl',
+                    'qwen2_vl_text',
+                    'qwen2_5_vl',
+                    'qwen2_5_vl_text',
+                    'qwen3_vl',
+                    'qwen3_vl_text',
+                    'qwen3_vl_moe',
+                    'qwen3_vl_moe_text',
+                    'qwen3_5',
+                    'qwen3_5_text',
+                    'qwen3_5_moe',
+                    'qwen3_5_moe_text',
+                    'glm_ocr',
+                    'glm_ocr_text',
+                ].includes(self.config.model_type)
+            ) {
+                // @ts-ignore
+                const { image_grid_thw, video_grid_thw } = kwargs;
+                [position_ids] = self.get_rope_index(input_ids, image_grid_thw, video_grid_thw, attention_mask);
             }
         }
-    }
 
-    if (!position_ids) {
-        if (
-            // Handle special case for qwen vl models
-            [
-                'qwen2_vl',
-                'qwen2_vl_text',
-                'qwen2_5_vl',
-                'qwen2_5_vl_text',
-                'qwen3_vl',
-                'qwen3_vl_text',
-                'qwen3_vl_moe',
-                'qwen3_vl_moe_text',
-                'qwen3_5',
-                'qwen3_5_text',
-                'qwen3_5_moe',
-                'qwen3_5_moe_text',
-                'glm_ocr',
-                'glm_ocr_text',
-            ].includes(self.config.model_type)
-        ) {
-            // @ts-ignore
-            const { image_grid_thw, video_grid_thw } = kwargs;
-            [position_ids] = self.get_rope_index(input_ids, image_grid_thw, video_grid_thw, attention_mask);
-        }
+        // 3. Call the decoder forward using the updated inputs.
+        const outputs = await decoder_forward(
+            self,
+            {
+                inputs_embeds,
+                past_key_values,
+                attention_mask,
+                position_ids,
+                generation_config,
+                logits_processor,
+                num_logits_to_keep,
+            },
+            true,
+        );
+        return outputs;
+    } finally {
+        if (owned_embeddings) inputs_embeds.dispose();
     }
-
-    // 3. Call the decoder forward using the updated inputs.
-    const outputs = await decoder_forward(
-        self,
-        {
-            inputs_embeds,
-            past_key_values,
-            attention_mask,
-            position_ids,
-            generation_config,
-            logits_processor,
-            num_logits_to_keep,
-        },
-        true,
-    );
-    return outputs;
 }
 
 /**
@@ -2186,6 +2251,19 @@ function multimodal_text_to_text_prepare_inputs_for_generation(self, ...args) {
     }
 }
 
+function number_to_float16(value) {
+    const sign = value < 0 || Object.is(value, -0) ? 0x8000 : 0;
+    const magnitude = Math.abs(value);
+    if (Number.isNaN(magnitude)) return 0x7e00;
+    if (magnitude >= 65520) return sign | 0x7c00;
+    if (magnitude === 0) return sign;
+    const exponent = Math.max(-14, Math.floor(Math.log2(magnitude)));
+    const scaled = magnitude / 2 ** (exponent - 10);
+    const floor = Math.floor(scaled);
+    const rounded = floor + (scaled - floor > 0.5 || (scaled - floor === 0.5 && floor % 2) ? 1 : 0);
+    return sign | (rounded < 1024 ? rounded : ((exponent + 14) << 10) + rounded);
+}
+
 function default_merge_input_ids_with_features({
     modality_token_id,
     inputs_embeds,
@@ -2205,19 +2283,37 @@ function default_merge_input_ids_with_features({
         throw new Error(`Number of tokens and features do not match: tokens: ${n_tokens}, features ${n_features}`);
     }
 
-    // Currently, we require modality features to be in float32 for correct scatter behavior.
-    // TODO: In future, detect dtype of embeds and cast modality features to the same dtype before scattering.
-    // modality_features = modality_features.to('float32');
+    if (inputs_embeds.dims.at(-1) !== modality_features.dims.at(-1)) {
+        throw new Error('Modality features and text embeddings must have the same hidden size.');
+    }
+    // ONNX Runtime may return Uint16-backed half tensors even in runtimes with
+    // Float16Array. Match numeric values as well as the declared tensor dtype.
+    const same_storage = inputs_embeds.data instanceof Uint16Array === modality_features.data instanceof Uint16Array;
+    const converted =
+        modality_features.type === inputs_embeds.type && same_storage
+            ? modality_features
+            : modality_features.to('float32');
+    const to_half =
+        inputs_embeds.type === 'float16' && inputs_embeds.data instanceof Uint16Array && converted.type !== 'float16';
+    const hidden_size = inputs_embeds.dims.at(-1);
+    const sequence_length = inputs_embeds.dims[1];
+    const target = inputs_embeds.data;
+    const source = converted.data;
 
-    // Equivalent to performing a masked_scatter
-    let img = 0;
+    // Scatter directly into storage: Tensor row views may change the backing
+    // representation of float16 on platforms with native Float16Array support.
+    let feature = 0;
     for (let i = 0; i < token_positions.length; ++i) {
-        const tokens = token_positions[i];
-        const embeds = inputs_embeds[i];
-        for (let j = 0; j < tokens.length; ++j) {
-            embeds[tokens[j]].data.set(modality_features[img++].data);
+        for (const token of token_positions[i]) {
+            const values = source.subarray(feature * hidden_size, (feature + 1) * hidden_size);
+            ++feature;
+            target.set(
+                to_half ? Uint16Array.from(values, number_to_float16) : values,
+                (i * sequence_length + token) * hidden_size,
+            );
         }
     }
+    if (converted !== modality_features) converted.dispose();
     return { inputs_embeds, attention_mask };
 }
 
