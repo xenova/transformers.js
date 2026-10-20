@@ -42,20 +42,26 @@ window.runBeamGPU = async (options) => {
   env.backends.onnx.webgpu.device = device;
   const liveBuffers = new Set();
   let peakOwnedBuffers = 0;
-  const createBuffer = device.createBuffer.bind(device);
-  device.createBuffer = (descriptor) => {
-    const buffer = createBuffer(descriptor);
-    if (descriptor.label?.startsWith("transformers-beam-")) {
-      liveBuffers.add(buffer);
-      peakOwnedBuffers = Math.max(peakOwnedBuffers, liveBuffers.size);
-      const destroy = buffer.destroy.bind(buffer);
-      buffer.destroy = () => {
-        liveBuffers.delete(buffer);
-        destroy();
-      };
-    }
-    return buffer;
+  const trackedDevices = new WeakSet();
+  const trackDevice = (gpuDevice) => {
+    if (trackedDevices.has(gpuDevice)) return;
+    trackedDevices.add(gpuDevice);
+    const createBuffer = gpuDevice.createBuffer.bind(gpuDevice);
+    gpuDevice.createBuffer = (descriptor) => {
+      const buffer = createBuffer(descriptor);
+      if (descriptor.label?.startsWith("transformers-beam-")) {
+        liveBuffers.add(buffer);
+        peakOwnedBuffers = Math.max(peakOwnedBuffers, liveBuffers.size);
+        const destroy = buffer.destroy.bind(buffer);
+        buffer.destroy = () => {
+          liveBuffers.delete(buffer);
+          destroy();
+        };
+      }
+      return buffer;
+    };
   };
+  trackDevice(device);
   const errors = [];
   device.addEventListener("uncapturederror", (event) => {
     errors.push(event.error.message);
@@ -128,7 +134,7 @@ window.runBeamGPU = async (options) => {
     }
     await device.queue.onSubmittedWorkDone();
     if (errors.length) throw new Error(errors.join("\n"));
-    return { hardware, results, errors };
+    return { hardware, results, errors, peakOwnedBuffers, remainingOwnedBuffers: liveBuffers.size };
   }
 
   if (options.mode === "micro") {
@@ -190,7 +196,7 @@ window.runBeamGPU = async (options) => {
       emit(result);
     }
     if (errors.length) throw new Error(errors.join("\n"));
-    return { hardware, results, errors };
+    return { hardware, results, errors, peakOwnedBuffers, remainingOwnedBuffers: liveBuffers.size };
   }
 
   const models = options.models ?? ["hf-internal-testing/tiny-random-T5ForConditionalGeneration", "hf-internal-testing/tiny-random-LlamaForCausalLM"];
@@ -198,6 +204,7 @@ window.runBeamGPU = async (options) => {
   for (const modelId of models) {
     const Model = /T5/.test(modelId) ? AutoModelForSeq2SeqLM : AutoModelForCausalLM;
     const model = await Model.from_pretrained(modelId, { device: options.device ?? "webgpu", dtype: options.dtype ?? "fp32" });
+    trackDevice(await env.backends.onnx.webgpu.device);
     const tokenizer = await AutoTokenizer.from_pretrained(modelId);
     tokenizer.padding_side = "left";
     let cacheStats = [];
@@ -254,6 +261,9 @@ window.runBeamGPU = async (options) => {
           const tail = (rows) => rows.map((row) => row.slice(-(options.tokens ?? 16)));
           if (!equal(tail(expected.slice(i * 2, i * 2 + 2)), tail(single.tolist()))) throw new Error("Batch independence failed");
         }
+      }
+      if (!options.cpuRowSelection && cacheStats.some((step) => step.before.some((tensor) => tensor.location === "gpu-buffer")) && peakOwnedBuffers === 0) {
+        throw new Error("GPU buffer lifetime tracking did not observe the row-copy path");
       }
       const result = {
         type: "generation",

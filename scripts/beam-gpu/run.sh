@@ -2,6 +2,7 @@
 set -euo pipefail
 OUTPUT_ROOT=${BEAM_OUTPUT_ROOT:-/workspace/beam-gpu}
 mkdir -p "$OUTPUT_ROOT"
+printf "running\n" > "$OUTPUT_ROOT/final-exit-status"
 trap 'code=$?; printf "%s\n" "$code" > "$OUTPUT_ROOT/final-exit-status"' EXIT
 git rev-parse HEAD > "$OUTPUT_ROOT/final-source-commit"
 git status --porcelain > "$OUTPUT_ROOT/final-source-status"
