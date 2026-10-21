@@ -27,8 +27,7 @@ import { env } from '../env.js';
  *
  * @typedef {Object} TextToAudioPipelineOptions Parameters specific to text-to-audio pipelines.
  * @property {Tensor|Float32Array|string|URL} [speaker_embeddings=null] The speaker embeddings (if the model requires it).
- * Accepted forms depend on the model. Phonon requires a `Tensor`, for example from
- * `load_phonon_voice(repo_or_path, filename)`; it does not accept strings or URLs directly.
+ * Phonon only accepts a `Tensor`, e.g. from `load_phonon_voice()`.
  * @property {number} [num_inference_steps] The number of denoising steps (if the model supports it).
  * More denoising steps usually lead to higher quality audio but slower inference.
  * @property {number} [speed] The speed of the generated audio (if the model supports it).
@@ -85,12 +84,7 @@ import { env } from '../env.js';
  * ```javascript
  * import { pipeline } from '@huggingface/transformers';
  *
- * const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', {
- *   dtype: 'q4', revision: '147b180afe11ddb7d1ee32553f2e1578ff31f970',
- * });
- * // Optional custom voices: load_phonon_voice(repo_or_path, filename), then pass
- * // the returned Tensor as speaker_embeddings and dispose it after synthesis.
- * // The pinned revision includes the converted tokenizer and mixed-precision metadata.
+ * const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
  * const audio = await tts('Hello from Phonon!', {
  *   temperature: 0.3,
  *   callback_function: (chunk) => console.log(chunk.audio.length),

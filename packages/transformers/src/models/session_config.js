@@ -194,7 +194,9 @@ export function getSessionDtypes(config, dtype) {
     const custom = config['transformers.js_config'];
     const variants = custom?.dtype_map;
     if (!variants) return dtype;
-    const defaults = typeof custom.dtype === 'string' ? variants[custom.dtype] : custom.dtype;
+    // Without a configured default, the first listed variant is used.
+    const defaults =
+        typeof custom.dtype === 'string' ? variants[custom.dtype] : (custom.dtype ?? Object.values(variants)[0]);
     const selected = typeof dtype === 'string' ? variants[dtype] : { ...defaults, ...dtype };
     if (
         !selected ||
