@@ -139,6 +139,11 @@ describe("get_available_dtypes", () => {
         q4f16: { encoder_model: "q4f16", decoder_model_merged: "fp16" },
       },
     } };
+    // Session "model" loads encoder_model: probing by session key alone would
+    // incorrectly reuse the fp32 encoder and report the q4 variant as available.
+    setupExistingFiles("onnx/encoder_model.onnx", "onnx/decoder_model_merged.onnx");
+    expect(await get_available_dtypes("test/mixed", { config })).toEqual(["fp32"]);
+    expect(mockGetFileMetadata.mock.calls.some(([, file]) => file === "onnx/encoder_model_q4.onnx")).toBe(true);
     setupExistingFiles("onnx/encoder_model.onnx", "onnx/encoder_model_q4.onnx", "onnx/encoder_model_q4f16.onnx", "onnx/decoder_model_merged.onnx");
     expect(await get_available_dtypes("test/mixed", { config })).toEqual(["fp32", "q4"]);
     expect(mockGetFileMetadata.mock.calls.some(([, file]) => file === "onnx/decoder_model_merged_q4.onnx")).toBe(false);

@@ -57,7 +57,7 @@ export async function get_available_dtypes(
             const graphDtypes = getSessionDtypes(config, dtype);
             const allExist = await Promise.all(
                 Object.entries(sessions).map(async ([session, baseName]) => {
-                    const selected = typeof graphDtypes === 'string' ? graphDtypes : graphDtypes[session];
+                    const selected = typeof graphDtypes === 'string' ? graphDtypes : (graphDtypes[baseName] ?? graphDtypes[session]);
                     const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[selected] ?? '';
                     const filename = `${subfolder}/${baseName}${suffix}.onnx`;
                     const metadata = await get_file_metadata(modelId, filename, metadataOptions);
