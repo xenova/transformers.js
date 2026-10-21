@@ -1,19 +1,17 @@
 import { pipeline, GradiumPhononTTSForConditionalGeneration, ModelRegistry } from "../../../src/transformers.js";
 
 const MODEL_ID = "onnx-community/phonon-31m-en-ONNX";
-const REVISION = process.env.PHONON_TEST_REVISION ?? "147b180afe11ddb7d1ee32553f2e1578ff31f970";
+const REVISION = "608cd31aaa8899e6d14d6f14b424fa084ea25c98";
 
 // Opt-in real ONNX tests (native CPU, not browser/GPU or numerical Python audio parity):
 // RUN_PHONON_INTEGRATION=1 pnpm --filter @huggingface/transformers test --runInBand --coverage=false tests/models.test.js -t 'Phonon ONNX integration'
-// The pinned export supports fp32/auto. For q4 or q4f16, set PHONON_TEST_DTYPE
-// and PHONON_TEST_REVISION to a revision containing the decoder aliases.
-// TODO: pin that revision and restore the q4 default once the Hub aliases land.
+// Defaults to q4. Set PHONON_TEST_DTYPE=auto, fp32, or q4f16 to test another variant.
 export default () => {
   (process.env.RUN_PHONON_INTEGRATION === "1" ? describe : describe.skip)("Phonon ONNX integration", () => {
     let tts;
     beforeAll(async () => {
       tts = await pipeline("text-to-speech", MODEL_ID, {
-        revision: REVISION, dtype: process.env.PHONON_TEST_DTYPE ?? "fp32",
+        revision: REVISION, dtype: process.env.PHONON_TEST_DTYPE ?? "q4",
       });
     }, 180_000);
     afterAll(async () => { await tts?.dispose(); });
@@ -35,9 +33,8 @@ export default () => {
       }
     });
 
-    it("discovers the selected complete variant", async () => {
-      const selected = process.env.PHONON_TEST_DTYPE ?? "fp32";
-      expect(await ModelRegistry.get_available_dtypes(MODEL_ID, { revision: REVISION })).toContain(selected === "auto" ? "fp32" : selected);
+    it("discovers all complete mixed-precision variants", async () => {
+      expect(await ModelRegistry.get_available_dtypes(MODEL_ID, { revision: REVISION })).toEqual(["fp32", "q4", "q4f16"]);
     }, 60_000);
 
     it("streams finite 24 kHz frames, stops on EOS and repeats deterministically", async () => {
@@ -79,6 +76,13 @@ export default () => {
     it("loads a safetensors voice URL through the pipeline", async () => {
       const speaker_embeddings = new URL(`https://huggingface.co/${MODEL_ID}/resolve/${REVISION}/default-voice.safetensors`);
       const output = await tts("Hello.", { speaker_embeddings, temperature: 0 });
+      expect(output.audio.length).toBeGreaterThan(0);
+      expect(output.audio.every(Number.isFinite)).toBe(true);
+    }, 60_000);
+
+    it("loads a safetensors voice URL through the model directly", async () => {
+      const speaker_embeddings = `https://huggingface.co/${MODEL_ID}/resolve/${REVISION}/default-voice.safetensors`;
+      const output = await tts.model.synthesize("Hello.", tts.tokenizer, { speaker_embeddings, temperature: 0 });
       expect(output.audio.length).toBeGreaterThan(0);
       expect(output.audio.every(Number.isFinite)).toBe(true);
     }, 60_000);

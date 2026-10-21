@@ -191,12 +191,14 @@ export default () => {
           await pipe.dispose();
         }
       });
-      it.each(["string", "URL"])("loads a safetensors %s and releases the pipeline-owned voice", async (kind) => {
+      it.each(["pipeline", "model"])("loads a safetensors URL through the %s and releases the loaded voice", async (kind) => {
         const { pipe, model, flow } = fake_pipeline();
         const url = "https://example.com/voice.safetensors";
         const fetch = jest.spyOn(env, "fetch").mockResolvedValue(new Response(voice_file()));
         try {
-          const output = await pipe(["Hello.", "Goodbye."], { speaker_embeddings: kind === "URL" ? new URL(url) : url });
+          const output = kind === "pipeline"
+            ? await pipe(["Hello.", "Goodbye."], { speaker_embeddings: url })
+            : await model.synthesize(["Hello.", "Goodbye."], pipe.tokenizer, { speaker_embeddings: new URL(url) });
           expect(output).toHaveLength(2);
           expect(fetch).toHaveBeenCalledTimes(1);
           const voice = flow.mock.calls.find(([, args]) => args.voice)[1].voice;
@@ -206,13 +208,14 @@ export default () => {
         } finally { await pipe.dispose(); }
       });
       it("loads local safetensors paths and file URLs", async () => {
-        const { pipe } = fake_pipeline();
+        const { pipe, model } = fake_pipeline();
         const dir = await mkdtemp(join(tmpdir(), "phonon-voice-"));
         const path = join(dir, "voice.safetensors");
         try {
           await writeFile(path, voice_file());
           for (const speaker_embeddings of [path, pathToFileURL(path)]) {
             expect((await pipe("Hello.", { speaker_embeddings })).audio.length).toBeGreaterThan(0);
+            expect((await model.synthesize("Hello.", pipe.tokenizer, { speaker_embeddings })).audio.length).toBeGreaterThan(0);
           }
         } finally {
           await pipe.dispose();
@@ -222,15 +225,25 @@ export default () => {
       it.each(["callback", "conditioning", "validation"])("releases a loaded voice after %s failure", async (failure) => {
         const { pipe, model, flow } = fake_pipeline();
         jest.spyOn(env, "fetch").mockResolvedValue(new Response(voice_file(failure === "validation" ? 3 : 2)));
-        const synthesize = jest.spyOn(model, "synthesize");
+        const validate = jest.spyOn(model, "_validate_voice");
         if (failure === "conditioning") flow.mockRejectedValueOnce(new Error("conditioning failed"));
         try {
           await expect(pipe("Hello.", {
             speaker_embeddings: "https://example.com/voice.safetensors",
             callback_function: () => { throw new Error("callback failed"); },
           })).rejects.toThrow(failure === "validation" ? "[1, 2, frames]" : `${failure} failed`);
-          const voice = synthesize.mock.calls[0][2].speaker_embeddings;
+          const voice = validate.mock.calls[0][0];
           expect(() => voice.data).toThrow("disposed");
+        } finally { await pipe.dispose(); }
+      });
+      it("reloads a voice URL on each synthesis call", async () => {
+        const { pipe } = fake_pipeline();
+        const fetch = jest.spyOn(env, "fetch").mockImplementation(async () => new Response(voice_file()));
+        try {
+          const options = { speaker_embeddings: "https://example.com/voice.safetensors" };
+          await pipe("Hello.", options);
+          await pipe("Hello again.", options);
+          expect(fetch).toHaveBeenCalledTimes(2);
         } finally { await pipe.dispose(); }
       });
       it("reports failed voice downloads before running the model", async () => {
@@ -265,7 +278,7 @@ export default () => {
       it("rejects voices that are not tensors of the right shape", async () => {
         const { pipe, model } = fake_pipeline();
         try {
-          await expect(model.synthesize("Hello.", pipe.tokenizer, { speaker_embeddings: "voice.safetensors" })).rejects.toThrow("float32 Tensor");
+          await expect(model.synthesize("Hello.", pipe.tokenizer, { speaker_embeddings: new Float32Array(2) })).rejects.toThrow("float32 Tensor");
           await expect(pipe("Hello.", { speaker_embeddings: new Float32Array(2) })).rejects.toThrow("float32 Tensor");
           await expect(pipe("Hello.", { speaker_embeddings: new Tensor("float32", [0, 0], [1, 2]) })).rejects.toThrow("[1, 2, frames]");
         } finally {

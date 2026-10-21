@@ -14,7 +14,8 @@ export const TOKENIZER_JSON = {
       { type: "Replace", pattern: { Regex: "[»«‹›“”„‟″‶⹂❝❞❠〝〞〟＂]" }, content: '"' },
       { type: "Replace", pattern: { Regex: "[‘’‚‛′‵❛❜❟＇ʼʻʹ´`]" }, content: "'" },
       { type: "Replace", pattern: { Regex: "[‐‑‒―]" }, content: "-" },
-      { type: "Replace", pattern: { Regex: "[–*—\\[\\]{}•‣◦·→←↑↓➡➜\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{2B00}-\\x{2BFF}\\x{FE0F}\\x{200D}\\p{Cc}\\s]+" }, content: " " },
+      // Same literal Unicode ranges as the pinned Hub tokenizer.
+      { type: "Replace", pattern: { Regex: "[–*—\\[\\]{}•‣◦·→←↑↓➡➜🀀-🫿☀-➿⬀-⯿️‍\\p{Cc}\\s]+" }, content: " " },
       { type: "Replace", pattern: { String: "…" }, content: "." },
       { type: "Replace", pattern: { Regex: "(?<!\\S):|:(?!\\S)|[;()]" }, content: ", " },
       { type: "Replace", pattern: { Regex: "(?:\\s|[!()*,\\-./:;<=>?\\[\\\\\\]^_`{|}~]|(?<![0-9])\\$)+(?=[.,])" }, content: "" },
