@@ -1,5 +1,0 @@
-{"stage":"loading","family":"smolvlm","source":"./scripts/multimodal/.cache/HuggingFaceTB/SmolVLM2-256M-Video-Instruct/067788b187b95ebe7b2e040b3e4299e342e5b8fd"}
-{"stage":"loaded","family":"smolvlm"}
-{"stage":"beam_case","family":"smolvlm","beams":1,"pass":true}
-{"stage":"beam_case","family":"smolvlm","beams":2,"pass":true}
-{"stage":"beam_case","family":"smolvlm","beams":4,"pass":true}

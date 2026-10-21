@@ -55,7 +55,14 @@ for (const [family, Model, Processor, model_id] of models) {
       const prefill = await model.generate({ ...sample, ...options, return_dict_in_generate: true });
       const attention_mask = cat([sample.attention_mask, new Tensor("int64", [1n, 1n], [1, 2])], 1);
       const continuation = { ...sample, input_ids: prefill.sequences, attention_mask, ...options, num_beams: 2 };
-      const cached = await model.generate({ ...continuation, past_key_values: prefill.past_key_values });
+      const continuationEncoder = jest.spyOn(model, "encode_image");
+      let cached;
+      try {
+        cached = await model.generate({ ...continuation, past_key_values: prefill.past_key_values });
+        expect(continuationEncoder).not.toHaveBeenCalled();
+      } finally {
+        continuationEncoder.mockRestore();
+      }
       const uncached = await model.generate(continuation);
       expect(cached.tolist()).toEqual(uncached.tolist());
       await prefill.past_key_values.dispose();
@@ -83,7 +90,34 @@ for (const [family, Model, Processor, model_id] of models) {
         const attention_mask = cat([new Tensor("int64", [1n, 1n, 1n], [1, 3]), samples[0].attention_mask], 1);
         // This tiny Idefics3 export requires batch_size=1 for multi-token cached prefill.
         const options = { ...samples[0], input_ids, attention_mask, num_beams: family === "idefics3" ? 1 : 2, max_new_tokens: 2, do_sample: false, eos_token_id: null };
-        const cached = await model.generate({ ...options, past_key_values: prefix.past_key_values });
+        const encoder = jest.spyOn(model, "encode_image");
+        let cached;
+        try {
+          cached = await model.generate({ ...options, past_key_values: prefix.past_key_values });
+          expect(encoder).toHaveBeenCalledTimes(1);
+          expect(encoder.mock.calls[0][0].pixel_values).toBe(samples[0].pixel_values);
+          // Tiny random models can emit identical tokens even when vision is
+          // silently skipped. Inspect the actual merged decoder embeddings.
+          const embeddings = [];
+          const originalForward = model.forward.bind(model);
+          const forward = jest.spyOn(model, "forward").mockImplementation(async function (inputs) {
+            if (inputs.inputs_embeds) embeddings.push(Array.from(inputs.inputs_embeds.data));
+            return originalForward(inputs);
+          });
+          try {
+            encoder.mockClear();
+            for (const pixel_values of [samples[0].pixel_values, samples[1].pixel_values]) {
+              await model.generate({ ...options, pixel_values, past_key_values: prefix.past_key_values });
+            }
+            expect(encoder).toHaveBeenCalledTimes(2);
+            expect(embeddings).toHaveLength(2);
+            expect(embeddings[0]).not.toEqual(embeddings[1]);
+          } finally {
+            forward.mockRestore();
+          }
+        } finally {
+          encoder.mockRestore();
+        }
         const reference = await model.generate(options);
         expect(cached.tolist()).toEqual(reference.tolist());
       } finally {

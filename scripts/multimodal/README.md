@@ -107,3 +107,13 @@ an existing cache (ORT GroupQueryAttention restriction). Its new-image-after-tex
 cache test therefore uses greedy generation; ordinary cached single-token
 continuation is tested with two beams. Llava and Qwen2VL also test new image
 chunks after a cached text prefix with two beams.
+
+## Photographic inputs
+
+Pass `image_urls` as the two immutable URLs in [photo-fixtures.json](photo-fixtures.json)
+for real photos. The JSON output records these URLs; verify downloaded content
+against the manifest SHA-256 values before claiming a reproducible hardware run.
+`ragged:true` uses one photo for the first input and both photos for the second.
+For example, select the pinned SmolVLM2 model above and use these photos for the
+same beams/repeats/failure-injection checks. The default remains synthetic so
+small deterministic regressions do not depend on external photo downloads.

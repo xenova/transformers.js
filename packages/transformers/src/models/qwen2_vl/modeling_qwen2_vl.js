@@ -357,8 +357,8 @@ export class Qwen2VLForConditionalGeneration extends Qwen2VLPreTrainedModel {
                 model_inputs.attention_mask,
             );
         } else {
-            model_inputs.pixel_values = null;
-            // model_inputs.pixel_values_videos = null;
+            // Keep supplied image data until the unprocessed query is sliced.
+            // Shared preparation encodes it only if that query has image tokens.
 
             const past_length = model_inputs.past_key_values.get_seq_length();
 

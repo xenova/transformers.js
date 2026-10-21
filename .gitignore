@@ -17,3 +17,5 @@ packages/*/types
 packages/*/coverage
 
 *.local.*
+# Raw local multimodal validation evidence
+scripts/multimodal/results/

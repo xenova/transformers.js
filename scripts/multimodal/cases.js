@@ -75,7 +75,11 @@ export function collate(samples) {
   return result;
 }
 
-export async function makeSamples(processor, family, { ragged = false } = {}) {
+export async function makeSamples(processor, family, { ragged = false, image_urls = null } = {}) {
+  if (image_urls && (family === "ultravox" || image_urls.length !== 2)) {
+    throw new Error("image_urls requires two photographic image URLs and an image model");
+  }
+  const photographs = image_urls ? await Promise.all(image_urls.map((url) => RawImage.fromURL(url))) : null;
   const samples = [];
   for (let i = 0; i < 2; ++i) {
     if (family === "ultravox") {
@@ -88,7 +92,13 @@ export async function makeSamples(processor, family, { ragged = false } = {}) {
       continue;
     }
     const image = (value) => new RawImage(new Uint8ClampedArray(56 * 56 * 3).fill(value), 56, 56, 3);
-    const images = ragged && i ? [image(255), image(127)] : [image(i * 255)];
+    const images = photographs
+      ? ragged && i
+        ? [photographs[1], photographs[0]]
+        : [photographs[i]]
+      : ragged && i
+        ? [image(255), image(127)]
+        : [image(i * 255)];
     const text =
       family === "llava"
         ? `${"<image>".repeat(images.length)}${i ? "Describe this image in detail." : "Hi"}`
@@ -129,7 +139,17 @@ export async function runMultimodal(options = {}) {
   const processor = await fixture.Processor.from_pretrained(source, load);
   const model = await fixture.Model.from_pretrained(source, load);
   progress("loaded", { family });
-  const evidence = { family, model_id, revision, source, requested: load, cases: [], forward_locations: [], encoder_calls: 0 };
+  const evidence = {
+    family,
+    model_id,
+    revision,
+    source,
+    requested: load,
+    image_urls: options.image_urls ?? null,
+    cases: [],
+    forward_locations: [],
+    encoder_calls: 0,
+  };
   evidence.sessions = Object.fromEntries(Object.entries(model.sessions).map(([name, session]) => [name, session.config]));
   evidence.finite_logits = true;
   const forward = model.forward.bind(model);

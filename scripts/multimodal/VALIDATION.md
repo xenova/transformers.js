@@ -12,20 +12,20 @@ No parent source edits, PRs, external comments, paid hosts, or secret access.
 - On the first implementation commit: **64/64 focused tests**, including 18 real
   tiny-model public `generate` integration cases, multimodal ownership/numeric
   regressions, and existing beam selection/ownership tests. See
-  [raw focused results](results/final-focused.log).
+  raw focused results (local ignored evidence: `results/final-focused.log`).
 - **21/21 multimodal tests with Float16Array disabled**, exercising Uint16-backed
   fp16 conversion as well as mixed native/Uint16 storage. See
-  [fallback results](results/fp16-fallback.log).
+  fallback results (local ignored evidence: `results/fp16-fallback.log`).
 - Package build and typegen passed; docs generation and toctree/link validation
   passed. Generated API docs for the new generation parameters were inspected.
-  [Build](results/build.log), [docs](results/docs.log).
+  Build (local ignored evidence: `results/build.log`), docs (local ignored evidence: `results/docs.log`).
 - Real exported Ultravox (quantized encoder/decoder, int8 embeddings): exact
   batch/independent token and rank comparisons with beams 1/2/4, seeded beam
   sampling, and three repeated generation calls passed.
-  [Raw audio result](results/audio-batch.json).
+  Raw audio result (local ignored evidence: `results/audio-batch.json`).
 - Real SmolVLM2-256M image-only export (quantized encoder/decoder, int8 embeddings):
   unequal image groups, beams 1/2/4, seeded beam sampling, and three repeated calls
-  passed. [Raw SmolVLM result](results/smolvlm.json).
+  passed. Raw SmolVLM result (local ignored evidence: `results/smolvlm.json`).
 - The native exported-model runs began before the implementation commit. Their
   raw JSON intentionally retains the base SHA / dirty status rather than claiming
   those runs were on a clean final commit. They are fixture-admission evidence;
@@ -34,7 +34,7 @@ No parent source edits, PRs, external comments, paid hosts, or secret access.
   revisions. [Manifest](fixtures.json) also records available, untested exports.
 - Native harness diverse-beam mode and injected second-decoder-call failure
   passed on tiny Llava, using source commit `a2510f5` with the added harness
-  controls. CPU logits were checked for finite values. [Raw harness result](results/diverse-failure-harness.json).
+  controls. CPU logits were checked for finite values. Raw harness result (local ignored evidence: `results/diverse-failure-harness.json`).
 - Browser bundle builds; no browser or GPU inference was performed in this worktree.
 
 ## Full-suite status
@@ -44,27 +44,27 @@ On source commit `a2510f5`, **all 32 Transformers suites passed: 2,310 tests,
 multimodal integration cases, all 21 synthetic multimodal regressions, existing
 beam tests, and both Voxtral streaming tests. The run uses actual inference,
 public fixture access, one native thread, and one recyclable Jest worker.
-[Complete main-package log](results/full-suite-online.log).
+Complete main-package log (local ignored evidence: `results/full-suite-online.log`).
 
 The root recursive command then stopped at the structured-output package's
 pretest because that package's local dependency links had not yet been copied.
 After restoring its existing locked dependency links into this worktree,
 **all 20 structured-output tests passed**, including its build/typegen pretest.
-[Structured-output retry](results/structured-suite.log).
+Structured-output retry (local ignored evidence: `results/structured-suite.log`).
 Thus **33 suites / 2,330 tests passed across both packages**, with 47 existing
 skips. The initial root command itself exited nonzero; the second package was
 completed separately. The shared config now preserves each package's roots,
 and root test discovery verifies both packages without rerunning passed tests.
-[Discovery log](results/test-discovery.log).
+Discovery log (local ignored evidence: `results/test-discovery.log`).
 
 Earlier attempts are retained separately: default-heap exhaustion, a stopped
 per-test-GC run, and the completed offline run with unavailable public fixtures.
 The offline run also exposed two Voxtral streaming regressions caused by clearing
 embeddings for non-opted-in families. Commit `a2510f5` restricts that behavior to
 explicit multimodal hooks; both streaming tests pass in the online run.
-[Aborted run](results/full-suite-offline.log),
-[completed offline run](results/full-suite-recycled-offline.log),
-[early utility network retry](results/network-retry.log).
+Aborted run (local ignored evidence: `results/full-suite-offline.log`),
+completed offline run (local ignored evidence: `results/full-suite-recycled-offline.log`),
+early utility network retry (local ignored evidence: `results/network-retry.log`).
 
 ## Remaining gates and precise limits
 
@@ -102,3 +102,23 @@ new immutable model fixtures. Existing parent model weights are referenced throu
 an ignored cache symlink, never copied. Dependency setup first attempted frozen
 pnpm offline installation; a missing tarball required copying the existing locked
 dependency tree into this worktree. No parent installation or lockfile change.
+
+## Round-one corrections
+
+The new-image cached Qwen2VL test previously passed token comparisons while
+never calling the image encoder. An encoder-count assertion reproduced this
+failure. Preserve image inputs until shared preparation inspects the sliced,
+unprocessed query. Real-model regressions now verify one encode for each new
+image chunk, changed image pixels change decoder prefill embeddings, and ordinary
+cached continuation never re-encodes an old image. All **51 focused tests** pass
+across integration, multimodal numerics/ownership, and beam ownership. Build,
+typegen, and full docs generation/validation passed after this correction.
+Raw reproduction and passing logs remain under ignored `results/review1-*`.
+The full suite must be rerun on the final reviewed source; the older full-suite
+result above does not validate these corrections.
+
+`photo-fixtures.json` pins two photographic inputs by immutable dataset revision,
+SHA-256 and size. Both hashes were verified against downloaded bytes. The shared
+native/browser harness accepts `image_urls` so hardware runs can use meaningful
+photos rather than only synthetic patches. Photo inference remains a parent
+hardware validation gate; metadata/download verification is not inference proof.
