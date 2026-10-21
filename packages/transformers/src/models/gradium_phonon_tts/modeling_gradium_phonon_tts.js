@@ -39,7 +39,6 @@ function next_state(outputs) {
  * for the processor to decode, this returns 24 kHz PCM directly (without end-of-pause trimming).
  * Hub decoder suffixes identify the variant: `mimi_decoder_q4.onnx` is fp32,
  * while `mimi_decoder_q4f16.onnx` is fp16 (only the flow model is quantized).
- * Use WASM in browsers for now; keeping recurrent state on WebGPU is not yet optimized.
  */
 export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     get phonon_config() {

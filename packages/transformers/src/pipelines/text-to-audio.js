@@ -52,7 +52,6 @@ import { env } from '../env.js';
 /**
  * Text-to-audio generation pipeline using any `AutoModelForTextToWaveform` or `AutoModelForTextToSpectrogram`.
  * This pipeline generates an audio file from an input text and optional other conditional inputs.
- * For Phonon in browsers, use `device: 'wasm'` for now; WebGPU recurrent-state handling is not yet optimized.
  *
  * **Example:** Generate audio from text with `onnx-community/Supertonic-TTS-ONNX`.
  * ```javascript
