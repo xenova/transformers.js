@@ -757,36 +757,43 @@ export class PreTrainedModel extends Callable {
             };
         }
         let { last_hidden_state } = await encoder_forward(this, model_inputs);
+        const owned = new Set([last_hidden_state]);
+        try {
+            // Add a null encoder input for classifier-free guidance.
+            if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
+                const null_state = full_like(last_hidden_state, 0.0);
+                owned.add(null_state);
+                last_hidden_state = cat([last_hidden_state, null_state], 0);
+                owned.add(last_hidden_state);
 
-        // for classifier free guidance we need to add a 'null' input to our encoder hidden states
-        if (generation_config.guidance_scale !== null && generation_config.guidance_scale > 1) {
-            last_hidden_state = cat([last_hidden_state, full_like(last_hidden_state, 0.0)], 0);
-
-            if ('attention_mask' in model_inputs) {
-                model_inputs['attention_mask'] = cat(
-                    [model_inputs['attention_mask'], zeros_like(model_inputs['attention_mask'])],
-                    0,
-                );
-            }
-        } else if (model_inputs.decoder_input_ids) {
-            // Ensure that the encoder outputs have the same batch size as the decoder inputs,
-            // allowing for more efficient batched generation for single inputs
-            const decoder_input_ids_batch_size = toI64Tensor(model_inputs.decoder_input_ids).dims[0];
-            if (decoder_input_ids_batch_size !== last_hidden_state.dims[0]) {
-                if (last_hidden_state.dims[0] !== 1) {
-                    throw new Error(
-                        `The encoder outputs have a different batch size (${last_hidden_state.dims[0]}) than the decoder inputs (${decoder_input_ids_batch_size}).`,
-                    );
+                if ('attention_mask' in model_inputs) {
+                    const null_mask = zeros_like(model_inputs.attention_mask);
+                    owned.add(null_mask);
+                    model_inputs.attention_mask = cat([model_inputs.attention_mask, null_mask], 0);
                 }
-                last_hidden_state = cat(
-                    Array.from({ length: decoder_input_ids_batch_size }, () => last_hidden_state),
-                    0,
-                );
+            } else if (model_inputs.decoder_input_ids) {
+                // A single encoder input may serve multiple decoder prefixes.
+                const decoder_input_ids_batch_size = toI64Tensor(model_inputs.decoder_input_ids).dims[0];
+                if (decoder_input_ids_batch_size !== last_hidden_state.dims[0]) {
+                    if (last_hidden_state.dims[0] !== 1) {
+                        throw new Error(
+                            `The encoder outputs have a different batch size (${last_hidden_state.dims[0]}) than the decoder inputs (${decoder_input_ids_batch_size}).`,
+                        );
+                    }
+                    last_hidden_state = cat(
+                        Array.from({ length: decoder_input_ids_batch_size }, () => last_hidden_state),
+                        0,
+                    );
+                    owned.add(last_hidden_state);
+                }
             }
+            model_inputs.encoder_outputs = last_hidden_state;
+            // Transfer only the final encoder state to generate's outer cleanup.
+            owned.delete(last_hidden_state);
+            return model_inputs;
+        } finally {
+            for (const tensor of owned) tensor.dispose();
         }
-        model_inputs['encoder_outputs'] = last_hidden_state;
-
-        return model_inputs;
     }
 
     /**
