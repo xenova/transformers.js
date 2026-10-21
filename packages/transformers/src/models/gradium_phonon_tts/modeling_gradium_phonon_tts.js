@@ -17,27 +17,6 @@ const dispose_state = (state) => {
     for (const tensor of Object.values(state ?? {})) tensor.dispose();
 };
 
-/**
- * Load a precomputed Phonon voice (a `.safetensors` file) from the Hub or a local directory.
- * The caller owns the returned tensor and should dispose it after use.
- * @param {string} repo_or_path A Hub repository ID or local directory.
- * @param {string} [filename='default-voice.safetensors'] Voice file within that repository or directory.
- * @param {import('../../utils/hub.js').PretrainedOptions} [options={}] Hub loading options.
- * @returns {Promise<Tensor>} Voice latents of shape `[1, 512, frames]`.
- *
- * **Example:** Use a voice from `gradium/phonon-voices`.
- * ```javascript
- * import { load_phonon_voice } from '@huggingface/transformers';
- * const voice = await load_phonon_voice('gradium/phonon-voices', 'voices/LMDIYE0Oa377Qh6Z.safetensors');
- * const audio = await tts('Hello there.', { speaker_embeddings: voice });
- * voice.dispose();
- * ```
- */
-export async function load_phonon_voice(repo_or_path, filename = 'default-voice.safetensors', options = {}) {
-    const bytes = /** @type {Uint8Array} */ (await getModelFile(repo_or_path, filename, true, options));
-    return parse_phonon_voice(bytes);
-}
-
 function empty_cache({ num_layers, num_heads, head_dim }) {
     return Object.fromEntries(
         Array.from({ length: num_layers }, (_, i) =>
@@ -84,7 +63,10 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
             await super.from_pretrained(model_id, options)
         );
         try {
-            model.default_voice = await load_phonon_voice(model_id, 'default-voice.safetensors', options);
+            const bytes = /** @type {Uint8Array} */ (
+                await getModelFile(model_id, 'default-voice.safetensors', true, options)
+            );
+            model.default_voice = parse_phonon_voice(bytes);
             return model;
         } catch (error) {
             await model.dispose();
@@ -157,7 +139,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
             voice.dims.join() !== `1,${voice_dim},${voice.dims[2]}`
         ) {
             throw new Error(
-                `Phonon speaker_embeddings must be a float32 Tensor of shape [1, ${voice_dim}, frames]; use load_phonon_voice() to load a voice file.`,
+                `Phonon speaker_embeddings must be a float32 Tensor of shape [1, ${voice_dim}, frames]. The text-to-speech pipeline also accepts a safetensors voice URL or path.`,
             );
         }
     }
@@ -167,7 +149,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      * @param {string|string[]} text_inputs Text or a batch of texts.
      * @param {import('../../tokenization_utils.js').PreTrainedTokenizer} tokenizer The model's tokenizer.
      * @param {Object} [options={}] Speech generation options.
-     * @param {Tensor} [options.speaker_embeddings] Voice latents, e.g. from `load_phonon_voice()`. Defaults to the bundled voice.
+     * @param {Tensor} [options.speaker_embeddings] Voice latents. Defaults to the bundled voice; the pipeline can load custom voices from safetensors URLs or paths.
      * @param {(chunk: RawAudio) => void | Promise<void>} [options.callback_function] Receives each decoded frame.
      * @param {number} [options.temperature] Sampling noise variance.
      * @param {number} [options.num_speakers] Speaker conditioning index.

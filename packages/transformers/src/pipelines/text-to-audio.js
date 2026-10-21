@@ -10,6 +10,8 @@ import { logger } from '../utils/logger.js';
 
 import { AutoModel } from '../models/auto/modeling_auto.js';
 import { env } from '../env.js';
+import { getFile } from '../utils/hub.js';
+import { parse_phonon_voice } from '../models/gradium_phonon_tts/utils_gradium_phonon_tts.js';
 
 /**
  * @typedef {import('./_base.js').TextAudioPipelineConstructorArgs} TextAudioPipelineConstructorArgs
@@ -27,7 +29,7 @@ import { env } from '../env.js';
  *
  * @typedef {Object} TextToAudioPipelineOptions Parameters specific to text-to-audio pipelines.
  * @property {Tensor|Float32Array|string|URL} [speaker_embeddings=null] The speaker embeddings (if the model requires it).
- * Phonon only accepts a `Tensor`, e.g. from `load_phonon_voice()`.
+ * Phonon accepts a voice `Tensor` or a URL/path to a `.safetensors` voice file; omit it to use the bundled default voice.
  * @property {number} [num_inference_steps] The number of denoising steps (if the model supports it).
  * More denoising steps usually lead to higher quality audio but slower inference.
  * @property {number} [speed] The speed of the generated audio (if the model supports it).
@@ -90,6 +92,17 @@ import { env } from '../env.js';
  *   callback_function: (chunk) => console.log(chunk.audio.length),
  * });
  * await audio.save('phonon.wav');
+ * await tts.dispose();
+ * ```
+ *
+ * **Example:** Use a custom Phonon voice without a separate loader.
+ * ```javascript
+ * import { pipeline } from '@huggingface/transformers';
+ *
+ * const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
+ * const speaker_embeddings = 'https://huggingface.co/gradium/phonon-voices/resolve/main/voices/LMDIYE0Oa377Qh6Z.safetensors';
+ * const audio = await tts('Hello there.', { speaker_embeddings });
+ * // In Node.js, speaker_embeddings can also be a local .safetensors path.
  * await tts.dispose();
  * ```
  */
@@ -162,7 +175,20 @@ export class TextToAudioPipeline
     async _call(text_inputs, options = /** @type {any} */ ({})) {
         if (this.model.config.model_type === 'gradium_phonon_tts') {
             const model = /** @type {import('../models/gradium_phonon_tts/modeling_gradium_phonon_tts.js').GradiumPhononTTSForConditionalGeneration} */ (this.model);
-            return model.synthesize(text_inputs, this.tokenizer, options);
+            const { speaker_embeddings } = options;
+            if (typeof speaker_embeddings !== 'string' && !(speaker_embeddings instanceof URL)) {
+                return model.synthesize(text_inputs, this.tokenizer, options);
+            }
+            const response = await getFile(speaker_embeddings);
+            if (response.status !== 200) {
+                throw new Error(`Unable to load Phonon voice: ${response.status} ${response.statusText}.`);
+            }
+            const voice = parse_phonon_voice(new Uint8Array(await response.arrayBuffer()));
+            try {
+                return await model.synthesize(text_inputs, this.tokenizer, { ...options, speaker_embeddings: voice });
+            } finally {
+                voice.dispose();
+            }
         }
         // If this.processor is not set, we are using an `AutoModelForTextToWaveform` model
         if (this.processor) {

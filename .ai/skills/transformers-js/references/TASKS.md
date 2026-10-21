@@ -208,6 +208,17 @@ await audio.save('phonon.wav');
 await tts.dispose();
 ```
 
+**Example:** Use a custom Phonon voice without a separate loader.
+```javascript
+import { pipeline } from '@huggingface/transformers';
+
+const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
+const speaker_embeddings = 'https://huggingface.co/gradium/phonon-voices/resolve/main/voices/LMDIYE0Oa377Qh6Z.safetensors';
+const audio = await tts('Hello there.', { speaker_embeddings });
+// In Node.js, speaker_embeddings can also be a local .safetensors path.
+await tts.dispose();
+```
+
 ## Vision
 
 ### `image-to-text`
