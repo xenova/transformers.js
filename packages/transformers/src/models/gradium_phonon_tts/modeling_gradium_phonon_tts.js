@@ -48,9 +48,11 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     /** @type {Tensor} */
     default_voice;
 
-    // Prefixes belong to the model; URL objects and strings share the same key.
+    // Only the bundled default and URL/path prefixes belong to the model.
+    // Caller-provided tensor prefixes live for one synthesis/generator call.
     /** @type {Map<Tensor|string, Promise<Record<string, Tensor>>>} */
     _voice_states = new Map();
+    _disposing = false;
 
     /**
      * Load both streaming graphs and the bundled default voice.
@@ -98,6 +100,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     }
 
     async _prepare_voice(voice) {
+        if (this._disposing) throw new Error('Cannot prepare a Phonon voice after model disposal has started.');
         const key = voice instanceof URL ? voice.href : voice;
         if (this._voice_states.has(key)) return this._voice_states.get(key);
         const create = async () => {
@@ -124,9 +127,12 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
                 if (owns_voice) tensor.dispose();
             }
         };
+        if (typeof key !== 'string' && voice !== this.default_voice) return create();
         const pending = create();
         this._voice_states.set(key, pending);
-        pending.catch(() => this._voice_states.delete(key));
+        pending.catch(() => {
+            if (this._voice_states.get(key) === pending) this._voice_states.delete(key);
+        });
         return pending;
     }
 
@@ -159,7 +165,8 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      * @param {import('../../tokenization_utils.js').PreTrainedTokenizer} tokenizer The model's tokenizer.
      * @param {Object} [options={}] Speech generation options.
      * @param {Tensor|string|URL} [options.speaker_embeddings] Voice latents or a safetensors voice URL/path. Defaults to the bundled voice.
-     * Voice prefixes are cached by URL/path or tensor identity until model disposal. Treat a cached tensor's contents as immutable.
+     * Default and URL/path voice prefixes are cached until model disposal, with no eviction; memory grows with distinct URLs/paths.
+     * Custom tensors are reconditioned once per call, shared across its chunks, and never retained by the model cache.
      * Loaded voice tensors are released after conditioning; caller-provided tensors remain caller-owned.
      * @param {(chunk: RawAudio) => void | Promise<void>} [options.callback_function] Receives each decoded frame.
      * @param {number} [options.temperature] Sampling noise variance.
@@ -173,28 +180,33 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         const prepared = texts.map((text) => this.prepare_text(text, tokenizer));
         const voice = speaker_embeddings ?? this.default_voice;
         const voice_state = prepared.some((sentences) => sentences.length) ? await this._prepare_voice(voice) : null;
-        const results = [];
-        for (const sentences of prepared) {
-            const frames = [];
-            let length = 0;
-            for (const sentence of sentences) {
-                for await (const pcm of this.generate_speech({ ...sentence, ...options }, voice_state)) {
-                    frames.push(pcm);
-                    length += pcm.length;
-                    // The generator copies before releasing decoder tensors. The
-                    // callback gets a separate copy to protect the final waveform.
-                    if (callback_function) await callback_function(new RawAudio(pcm.slice(), cfg.sample_rate));
+        const owns_prefix = voice instanceof Tensor && voice !== this.default_voice;
+        try {
+            const results = [];
+            for (const sentences of prepared) {
+                const frames = [];
+                let length = 0;
+                for (const sentence of sentences) {
+                    for await (const pcm of this.generate_speech({ ...sentence, ...options }, voice_state)) {
+                        frames.push(pcm);
+                        length += pcm.length;
+                        // The generator copies before releasing decoder tensors. The
+                        // callback gets a separate copy to protect the final waveform.
+                        if (callback_function) await callback_function(new RawAudio(pcm.slice(), cfg.sample_rate));
+                    }
                 }
+                const audio = new Float32Array(length);
+                let offset = 0;
+                for (const frame of frames) {
+                    audio.set(frame, offset);
+                    offset += frame.length;
+                }
+                results.push(new RawAudio(audio, cfg.sample_rate));
             }
-            const audio = new Float32Array(length);
-            let offset = 0;
-            for (const frame of frames) {
-                audio.set(frame, offset);
-                offset += frame.length;
-            }
-            results.push(new RawAudio(audio, cfg.sample_rate));
+            return Array.isArray(text_inputs) ? results : results[0];
+        } finally {
+            if (owns_prefix) dispose_state(voice_state);
         }
-        return Array.isArray(text_inputs) ? results : results[0];
     }
 
     /**
@@ -202,7 +214,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      * @param {Object} options Generation inputs and sampling controls.
      * @param {number[]} options.input_ids A text chunk from `prepare_text()`.
      * @param {number} options.word_count Word count, used to choose the end-of-speech tail length.
-     * @param {Tensor|string|URL} [options.speaker_embeddings] Voice latents of shape `[1, 512, frames]` or a safetensors URL/path. Defaults to the bundled voice; prefixes are cached until disposal.
+     * @param {Tensor|string|URL} [options.speaker_embeddings] Voice latents of shape `[1, 512, frames]` or a safetensors URL/path. Default and URL/path prefixes are cached until disposal; custom tensor prefixes live for this call only.
      * @param {number} [options.temperature] Sampling noise variance (default 0.3); 0 is deterministic.
      * @param {number} [options.num_speakers=1] Speaker conditioning index (0, 1, or 2).
      * @param {number} [options.duration_delta=0] Duration conditioning value.
@@ -234,6 +246,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         voice_state = null,
     ) {
         const cfg = this.phonon_config;
+        const owns_prefix = !voice_state && speaker_embeddings instanceof Tensor && speaker_embeddings !== this.default_voice;
         const prefix = voice_state ?? (await this._prepare_voice(speaker_embeddings));
         let state = null,
             codec = null,
@@ -276,14 +289,17 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
             dispose_state(state);
             dispose_state(codec);
             latent?.dispose();
+            if (owns_prefix) dispose_state(prefix);
         }
     }
 
     async dispose() {
-        await Promise.all(Array.from(this._voice_states.values(), async (pending) => {
+        this._disposing = true;
+        const pending_states = Array.from(this._voice_states.values());
+        this._voice_states.clear();
+        await Promise.all(pending_states.map(async (pending) => {
             dispose_state(await pending.catch(() => null));
         }));
-        this._voice_states.clear();
         this.default_voice?.dispose();
         return super.dispose();
     }

@@ -28,7 +28,8 @@ import { env } from '../env.js';
  * @typedef {Object} TextToAudioPipelineOptions Parameters specific to text-to-audio pipelines.
  * @property {Tensor|Float32Array|string|URL} [speaker_embeddings=null] The speaker embeddings (if the model requires it).
  * Phonon accepts a voice `Tensor` or a URL/path to a `.safetensors` voice file; omit it to use the bundled default voice.
- * Phonon voice prefixes are cached by URL/path or tensor identity until model disposal; caller-provided tensors remain caller-owned.
+ * Phonon default and URL/path voice prefixes are cached without eviction until model disposal; memory grows with distinct URLs/paths.
+ * Custom tensor prefixes live for one call only; caller-provided tensors remain caller-owned.
  * @property {number} [num_inference_steps] The number of denoising steps (if the model supports it).
  * More denoising steps usually lead to higher quality audio but slower inference.
  * @property {number} [speed] The speed of the generated audio (if the model supports it).

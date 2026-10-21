@@ -177,24 +177,49 @@ export default () => {
         }
         expect(model._voice_states.size).toBe(0);
       });
-      it("reuses a tensor voice across chunks, batches and calls until model disposal", async () => {
-        const { pipe, flow } = fake_pipeline();
+      it("shares a tensor prefix within a call, then reconditions in-place changes on the next call", async () => {
+        const { pipe, model, flow } = fake_pipeline();
         const voice = new Tensor("float32", [0.5, 0.25], [1, 2, 1]);
         let prefix;
         try {
           await pipe(["Hello. ".repeat(10), "And another sentence."], { speaker_embeddings: voice, temperature: 0 });
           expect(flow.mock.calls.filter(([, args]) => args.voice)).toHaveLength(1);
           prefix = await flow.mock.results[0].value;
+          expect(() => prefix["present.0.key"].data).toThrow("disposed");
+          expect(model._voice_states.size).toBe(0);
+          voice.data[0] = 0.75;
           await pipe("Another sentence.", { speaker_embeddings: voice });
-          expect(flow.mock.calls.filter(([, args]) => args.voice)).toHaveLength(1);
-          expect(prefix["present.0.key"].data.length).toBe(1);
-          expect(Array.from(voice.data)).toEqual([0.5, 0.25]);
+          expect(flow.mock.calls.filter(([, args]) => args.voice)).toHaveLength(2);
+          expect(model._voice_states.size).toBe(0);
+          expect(Array.from(voice.data)).toEqual([0.75, 0.25]);
         } finally {
           await pipe.dispose();
-          expect(Array.from(voice.data)).toEqual([0.5, 0.25]);
+          expect(Array.from(voice.data)).toEqual([0.75, 0.25]);
           voice.dispose();
         }
         expect(() => prefix["present.0.key"].data).toThrow("disposed");
+      });
+      it.each(["break", "callback"])("frees per-call tensor prefixes on %s without retaining the tensor", async (failure) => {
+        const { pipe, model, flow } = fake_pipeline();
+        const voice = new Tensor("float32", [0.5, 0.25], [1, 2, 1]);
+        try {
+          if (failure === "break") {
+            const [prompt] = model.prepare_text("Hello.", pipe.tokenizer);
+            for await (const pcm of model.generate_speech({ ...prompt, speaker_embeddings: voice })) break;
+          } else {
+            await expect(pipe("Hello.", {
+              speaker_embeddings: voice,
+              callback_function: () => { throw new Error("callback failed"); },
+            })).rejects.toThrow("callback failed");
+          }
+          const prefix = await flow.mock.results[0].value;
+          expect(() => prefix["present.0.key"].data).toThrow("disposed");
+          expect(model._voice_states.size).toBe(0);
+          expect(Array.from(voice.data)).toEqual([0.5, 0.25]);
+        } finally {
+          voice.dispose();
+          await pipe.dispose();
+        }
       });
       it.each(["pipeline", "model"])("loads a safetensors URL through the %s and releases the loaded voice", async (kind) => {
         const { pipe, model, flow } = fake_pipeline();
@@ -283,11 +308,26 @@ export default () => {
         jest.spyOn(env, "fetch").mockImplementation(() => new Promise((resolve) => { resolve_fetch = resolve; }));
         const pending = model._prepare_voice("https://example.com/voice.safetensors");
         const disposing = pipe.dispose();
+        expect(model._voice_states.size).toBe(0);
+        await expect(model._prepare_voice("https://example.com/other.safetensors")).rejects.toThrow("disposal has started");
         resolve_fetch(new Response(voice_file()));
         const prefix = await pending;
         await disposing;
         expect(() => prefix["past_key_values.0.key"].data).toThrow("disposed");
         expect(model._voice_states.size).toBe(0);
+      });
+      it("does not delete a replacement entry when an older preparation fails", async () => {
+        const { pipe, model } = fake_pipeline();
+        const url = "https://example.com/voice.safetensors";
+        let reject_fetch;
+        jest.spyOn(env, "fetch").mockImplementation(() => new Promise((resolve, reject) => { reject_fetch = reject; }));
+        const pending = model._prepare_voice(url);
+        const replacement = Promise.resolve({});
+        model._voice_states.set(url, replacement);
+        reject_fetch(new Error("download failed"));
+        await expect(pending).rejects.toThrow("download failed");
+        expect(model._voice_states.get(url)).toBe(replacement);
+        await pipe.dispose();
       });
       it("reports failed voice downloads before running the model", async () => {
         const { pipe, flow } = fake_pipeline();
