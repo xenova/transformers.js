@@ -102,7 +102,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     async _prepare_voice(voice) {
         if (this._disposing) throw new Error('Cannot prepare a Phonon voice after model disposal has started.');
         const key = voice instanceof URL ? voice.href : voice;
-        if (this._voice_states.has(key)) return this._voice_states.get(key);
+        const cached = typeof key === 'string' || voice === this.default_voice;
         const create = async () => {
             const owns_voice = typeof key === 'string';
             let tensor = voice;
@@ -127,13 +127,18 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
                 if (owns_voice) tensor.dispose();
             }
         };
-        if (typeof key !== 'string' && voice !== this.default_voice) return create();
-        const pending = create();
-        this._voice_states.set(key, pending);
-        pending.catch(() => {
-            if (this._voice_states.get(key) === pending) this._voice_states.delete(key);
-        });
-        return pending;
+        let pending = cached ? this._voice_states.get(key) : null;
+        if (!pending) {
+            pending = create();
+            if (cached) {
+                this._voice_states.set(key, pending);
+                pending.catch(() => {
+                    if (this._voice_states.get(key) === pending) this._voice_states.delete(key);
+                });
+            }
+        }
+        const state = await pending;
+        return { state, release: cached ? () => {} : () => dispose_state(state) };
     }
 
     /**
@@ -178,16 +183,16 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         const cfg = this.phonon_config;
         const texts = Array.isArray(text_inputs) ? text_inputs : [text_inputs];
         const prepared = texts.map((text) => this.prepare_text(text, tokenizer));
-        const voice = speaker_embeddings ?? this.default_voice;
-        const voice_state = prepared.some((sentences) => sentences.length) ? await this._prepare_voice(voice) : null;
-        const owns_prefix = voice instanceof Tensor && voice !== this.default_voice;
+        const voice = prepared.some((sentences) => sentences.length)
+            ? await this._prepare_voice(speaker_embeddings ?? this.default_voice)
+            : null;
         try {
             const results = [];
             for (const sentences of prepared) {
                 const frames = [];
                 let length = 0;
                 for (const sentence of sentences) {
-                    for await (const pcm of this.generate_speech({ ...sentence, ...options }, voice_state)) {
+                    for await (const pcm of this._generate_frames({ ...sentence, ...options }, voice.state)) {
                         frames.push(pcm);
                         length += pcm.length;
                         // The generator copies before releasing decoder tensors. The
@@ -205,7 +210,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
             }
             return Array.isArray(text_inputs) ? results : results[0];
         } finally {
-            if (owns_prefix) dispose_state(voice_state);
+            voice?.release();
         }
     }
 
@@ -218,7 +223,6 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      * @param {number} [options.temperature] Sampling noise variance (default 0.3); 0 is deterministic.
      * @param {number} [options.num_speakers=1] Speaker conditioning index (0, 1, or 2).
      * @param {number} [options.duration_delta=0] Duration conditioning value.
-     * @param {Record<string, Tensor>} [voice_state=null] Precomputed voice prefix, shared across chunks by `synthesize()`.
      * @returns {AsyncGenerator<Float32Array>} PCM frames, each containing 1920 samples.
      *
      * **Example:** Consume PCM directly without retaining the complete waveform.
@@ -234,20 +238,27 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      * }
      * ```
      */
-    async *generate_speech(
+    async *generate_speech(options) {
+        const voice = await this._prepare_voice(options.speaker_embeddings ?? this.default_voice);
+        try {
+            yield* this._generate_frames(options, voice.state);
+        } finally {
+            voice.release();
+        }
+    }
+
+    /** @private */
+    async *_generate_frames(
         {
             input_ids,
             word_count,
-            speaker_embeddings = this.default_voice,
             temperature = this.phonon_config.temperature,
             num_speakers = 1,
             duration_delta = 0,
         },
-        voice_state = null,
+        prefix,
     ) {
         const cfg = this.phonon_config;
-        const owns_prefix = !voice_state && speaker_embeddings instanceof Tensor && speaker_embeddings !== this.default_voice;
-        const prefix = voice_state ?? (await this._prepare_voice(speaker_embeddings));
         let state = null,
             codec = null,
             latent = null;
@@ -289,7 +300,6 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
             dispose_state(state);
             dispose_state(codec);
             latent?.dispose();
-            if (owns_prefix) dispose_state(prefix);
         }
     }
 

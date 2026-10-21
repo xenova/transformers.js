@@ -444,24 +444,6 @@ export function getCacheNames(config, options) {
             names.add(`${pkv_prefix}.${i}.shift_state`);
         }
         return names;
-    } else if (config.model_type === 'gradium_phonon_tts') {
-        // Every output fed back into a graph: KV caches, the decoder's convolution states,
-        // and the flow model's latent (which also feeds the decoder).
-        const phonon = /** @type {any} */ (config).phonon;
-        const graph = phonon[options?.session_name];
-        if (!graph) return names;
-        for (let i = 0; i < graph.num_layers; ++i) {
-            names.add(`present.${i}.key`);
-            names.add(`present.${i}.value`);
-        }
-        if (options.session_name === 'flow_lm') {
-            names.add('latent_out');
-        } else {
-            for (const name of Object.keys(graph.conv_states ?? {})) {
-                names.add(name.replace('past_', 'present_'));
-            }
-        }
-        return names;
     } else if (['lfm2_vl', 'qwen3_5', 'qwen3_5_moe', 'voxtral_realtime'].includes(config.model_type)) {
         let subConfig;
         if (config.model_type === 'voxtral_realtime' && options?.session_name === 'audio_encoder') {

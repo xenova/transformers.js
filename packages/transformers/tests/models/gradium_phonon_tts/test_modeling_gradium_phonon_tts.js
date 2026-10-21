@@ -292,13 +292,15 @@ export default () => {
         const url = "https://example.com/voice.safetensors";
         const fetch = jest.spyOn(env, "fetch").mockImplementation(async () => new Response(voice_file()));
         const [first, second] = await Promise.all([model._prepare_voice(url), model._prepare_voice(new URL(url))]);
-        expect(first).toBe(second);
+        expect(first.state).toBe(second.state);
+        first.release();
+        expect(first.state["past_key_values.0.key"].data.length).toBe(1);
         expect(fetch).toHaveBeenCalledTimes(1);
         expect(flow).toHaveBeenCalledTimes(1);
         const other = await model._prepare_voice("https://example.com/other.safetensors");
         await pipe.dispose();
         for (const prefix of [first, other]) {
-          expect(() => prefix["past_key_values.0.key"].data).toThrow("disposed");
+          expect(() => prefix.state["past_key_values.0.key"].data).toThrow("disposed");
         }
         expect(model._voice_states.size).toBe(0);
       });
@@ -313,7 +315,7 @@ export default () => {
         resolve_fetch(new Response(voice_file()));
         const prefix = await pending;
         await disposing;
-        expect(() => prefix["past_key_values.0.key"].data).toThrow("disposed");
+        expect(() => prefix.state["past_key_values.0.key"].data).toThrow("disposed");
         expect(model._voice_states.size).toBe(0);
       });
       it("does not delete a replacement entry when an older preparation fails", async () => {
