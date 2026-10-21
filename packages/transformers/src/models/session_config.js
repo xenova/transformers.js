@@ -17,6 +17,7 @@ export const MODEL_TYPES = {
     Chatterbox: 15,
     VoxtralRealtime: 16,
     MultimodalEncoder: 17,
+    GradiumPhononTTS: 18,
 };
 
 export const MODEL_SESSION_CONFIG = {
@@ -119,6 +120,10 @@ export const MODEL_SESSION_CONFIG = {
             voice_decoder: 'voice_decoder',
         }),
     },
+    [MODEL_TYPES.GradiumPhononTTS]: {
+        sessions: () => ({ flow_lm: 'flow_lm', mimi_decoder: 'mimi_decoder' }),
+        additional_files: ['default-voice.safetensors'],
+    },
     [MODEL_TYPES.Chatterbox]: {
         sessions: () => ({
             embed_tokens: 'embed_tokens',
@@ -168,7 +173,7 @@ export function getTextOnlySessions(modelType) {
  * @param {number} modelType The model type enum value.
  * @param {Object} config The model config.
  * @param {Object} [options] Loading options.
- * @returns {{ sessions: Record<string, string>, cache_sessions?: Record<string, true>, optional_configs?: Record<string, string> }}
+ * @returns {{ sessions: Record<string, string>, cache_sessions?: Record<string, true>, optional_configs?: Record<string, string>, additional_files?: string[], available_dtypes?: string[] }}
  */
 export function getSessionsConfig(modelType, config, options = {}) {
     const typeConfig = MODEL_SESSION_CONFIG[modelType] ?? MODEL_SESSION_CONFIG.default;
@@ -176,5 +181,32 @@ export function getSessionsConfig(modelType, config, options = {}) {
         sessions: typeConfig.sessions(config, options, options.textOnly ?? false),
         cache_sessions: typeConfig.cache_sessions,
         optional_configs: typeConfig.optional_configs,
+        additional_files: typeConfig.additional_files,
+        available_dtypes: config['transformers.js_config']?.dtype_map
+            ? Object.keys(config['transformers.js_config'].dtype_map)
+            : undefined,
     };
+}
+
+// Shared by loading, file enumeration, and dtype discovery so graph combinations
+// are resolved identically without model-specific branches in those callers.
+export function getSessionDtypes(config, dtype) {
+    const custom = config['transformers.js_config'];
+    const variants = custom?.dtype_map;
+    if (!variants) return dtype;
+    const defaults = typeof custom.dtype === 'string' ? variants[custom.dtype] : custom.dtype;
+    const selected = typeof dtype === 'string' ? variants[dtype] : { ...defaults, ...dtype };
+    if (
+        !selected ||
+        !Object.keys(selected).length ||
+        Object.entries(selected).some(
+            ([session, value]) =>
+                !Object.values(variants).some(
+                    (variant) => Object.hasOwn(variant, session) && variant[session] === value,
+                ),
+        )
+    ) {
+        throw new Error(`Unsupported dtype variant: ${JSON.stringify(dtype)}.`);
+    }
+    return { ...selected };
 }

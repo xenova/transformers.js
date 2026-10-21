@@ -27,9 +27,15 @@ import { env } from '../env.js';
  *
  * @typedef {Object} TextToAudioPipelineOptions Parameters specific to text-to-audio pipelines.
  * @property {Tensor|Float32Array|string|URL} [speaker_embeddings=null] The speaker embeddings (if the model requires it).
+ * Accepted forms depend on the model. Phonon requires a `Tensor`, for example from
+ * `load_phonon_voice(repo_or_path, filename)`; it does not accept strings or URLs directly.
  * @property {number} [num_inference_steps] The number of denoising steps (if the model supports it).
  * More denoising steps usually lead to higher quality audio but slower inference.
  * @property {number} [speed] The speed of the generated audio (if the model supports it).
+ * @property {number} [temperature] Phonon sampling noise variance. Set to 0 for deterministic speech.
+ * @property {number} [num_speakers] Phonon speaker conditioning index (0, 1, or 2; default 1).
+ * @property {number} [duration_delta] Phonon duration conditioning (default 0).
+ * @property {(chunk: RawAudio) => void | Promise<void>} [callback_function] Called with each Phonon audio frame. Async callbacks are awaited.
  *
  * @typedef {TextToAudioPipelineConstructorArgs & TextToAudioPipelineCallback & Disposable} TextToAudioPipelineType
  */
@@ -73,6 +79,24 @@ import { env } from '../env.js';
  * //   audio: Float32Array(23808) [-0.00037693005288019776, 0.0003325853613205254, ...],
  * //   sampling_rate: 16000
  * // }
+ * ```
+ *
+ * **Example:** Streaming Phonon speech with the bundled default voice.
+ * ```javascript
+ * import { pipeline } from '@huggingface/transformers';
+ *
+ * const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', {
+ *   dtype: 'q4', revision: '147b180afe11ddb7d1ee32553f2e1578ff31f970',
+ * });
+ * // Optional custom voices: load_phonon_voice(repo_or_path, filename), then pass
+ * // the returned Tensor as speaker_embeddings and dispose it after synthesis.
+ * // The pinned revision includes the converted tokenizer and mixed-precision metadata.
+ * const audio = await tts('Hello from Phonon!', {
+ *   temperature: 0.3,
+ *   callback_function: (chunk) => console.log(chunk.audio.length),
+ * });
+ * await audio.save('phonon.wav');
+ * await tts.dispose();
  * ```
  */
 export class TextToAudioPipeline
@@ -141,7 +165,13 @@ export class TextToAudioPipeline
         return Array.isArray(text_inputs) ? results : results[0];
     }
 
-    async _call(text_inputs, options) {
+    async _call(text_inputs, options = /** @type {any} */ ({})) {
+        const model = /** @type {import('../models/modeling_utils.js').PreTrainedModel & {
+         * synthesize?: (text: string|string[], tokenizer: import('../tokenization_utils.js').PreTrainedTokenizer, options: TextToAudioPipelineOptions) => Promise<RawAudio|RawAudio[]>
+         * }} */ (this.model);
+        if (typeof model.synthesize === 'function') {
+            return model.synthesize(text_inputs, this.tokenizer, options);
+        }
         // If this.processor is not set, we are using an `AutoModelForTextToWaveform` model
         if (this.processor) {
             return this._call_text_to_spectrogram(text_inputs, options);

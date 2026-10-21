@@ -50,7 +50,7 @@ import { logger } from '../utils/logger.js';
 import { DynamicCache } from '../cache_utils.js';
 import { get_model_files } from '../utils/model_registry/get_model_files.js';
 import { get_file_metadata } from '../utils/model_registry/get_file_metadata.js';
-import { MODEL_SESSION_CONFIG, MODEL_TYPES } from './session_config.js';
+import { MODEL_SESSION_CONFIG, MODEL_TYPES, getSessionDtypes } from './session_config.js';
 
 /**
  * Converts an array or Tensor of integers to an int64 Tensor.
@@ -306,6 +306,7 @@ export class PreTrainedModel extends Callable {
         config = options.config = await AutoConfig.from_pretrained(pretrained_model_name_or_path, options);
 
         const { typeConfig, textOnly, modelType } = resolveTypeConfig(modelName, config);
+        options.dtype = getSessionDtypes(config, dtype);
 
         if (modelType === undefined) {
             const type = modelName ?? config?.model_type;

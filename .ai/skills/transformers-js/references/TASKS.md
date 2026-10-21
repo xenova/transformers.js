@@ -195,6 +195,24 @@ const output = await synthesizer('Bonjour');
 // }
 ```
 
+**Example:** Streaming Phonon speech with the bundled default voice.
+```javascript
+import { pipeline } from '@huggingface/transformers';
+
+const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', {
+  dtype: 'q4', revision: '147b180afe11ddb7d1ee32553f2e1578ff31f970',
+});
+// Optional custom voices: load_phonon_voice(repo_or_path, filename), then pass
+// the returned Tensor as speaker_embeddings and dispose it after synthesis.
+// The pinned revision includes the converted tokenizer and mixed-precision metadata.
+const audio = await tts('Hello from Phonon!', {
+  temperature: 0.3,
+  callback_function: (chunk) => console.log(chunk.audio.length),
+});
+await audio.save('phonon.wav');
+await tts.dispose();
+```
+
 ## Vision
 
 ### `image-to-text`

@@ -1,7 +1,7 @@
 import { DEFAULT_DTYPE_SUFFIX_MAPPING, selectDtype } from '../dtypes.js';
 import { selectDevice } from '../devices.js';
 import { resolveExternalDataFormat, getExternalDataChunkNames } from '../model-loader.js';
-import { getSessionsConfig } from '../../models/session_config.js';
+import { getSessionsConfig, getSessionDtypes } from '../../models/session_config.js';
 import { AutoConfig } from '../../configs.js';
 import { makePretrainedOptionsKey } from '../hub/utils.js';
 import { memoizePromise } from '../memoize_promise.js';
@@ -73,10 +73,10 @@ export async function get_model_files(
     const subfolder = 'onnx'; // Always 'onnx' as per the default in from_pretrained
 
     const rawDevice = overrideDevice ?? custom_config.device;
-    let dtype = overrideDtype ?? custom_config.dtype;
 
     // Infer model type from config
     const modelType = resolve_model_type(config);
+    const dtype = getSessionDtypes(config, overrideDtype) ?? custom_config.dtype;
 
     const add_model_file = (fileName, baseName = null) => {
         baseName = baseName ?? fileName;
@@ -97,7 +97,8 @@ export async function get_model_files(
     };
 
     // Get session configuration from the shared source of truth
-    const { sessions, optional_configs } = getSessionsConfig(modelType, config, { model_file_name });
+    const { sessions, optional_configs, additional_files } = getSessionsConfig(modelType, config, { model_file_name });
+    files.push(...(additional_files ?? []));
 
     // Add model files based on sessions
     for (const [sessionKey, baseName] of Object.entries(sessions)) {

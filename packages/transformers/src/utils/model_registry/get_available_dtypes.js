@@ -1,4 +1,4 @@
-import { getSessionsConfig } from '../../models/session_config.js';
+import { getSessionsConfig, getSessionDtypes } from '../../models/session_config.js';
 import { DEFAULT_DTYPE_SUFFIX_MAPPING } from '../dtypes.js';
 import { get_file_metadata } from './get_file_metadata.js';
 import { get_config } from './get_model_files.js';
@@ -45,20 +45,20 @@ export async function get_available_dtypes(
 
     const modelType = resolve_model_type(config);
 
-    const { sessions } = getSessionsConfig(modelType, config, { model_file_name });
-
-    // Get all base names for model session files
-    const baseNames = Object.values(sessions);
+    const { sessions, available_dtypes } = getSessionsConfig(modelType, config, { model_file_name });
+    const dtypes = available_dtypes ?? CONCRETE_DTYPES;
 
     // For each dtype, check if all session files exist
     const metadataOptions = { revision, cache_dir, local_files_only };
 
     // Probe all (dtype, baseName) combinations in parallel
     const probeResults = await Promise.all(
-        CONCRETE_DTYPES.map(async (dtype) => {
-            const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[dtype] ?? '';
+        dtypes.map(async (dtype) => {
+            const graphDtypes = getSessionDtypes(config, dtype);
             const allExist = await Promise.all(
-                baseNames.map(async (baseName) => {
+                Object.entries(sessions).map(async ([session, baseName]) => {
+                    const selected = typeof graphDtypes === 'string' ? graphDtypes : graphDtypes[session];
+                    const suffix = DEFAULT_DTYPE_SUFFIX_MAPPING[selected] ?? '';
                     const filename = `${subfolder}/${baseName}${suffix}.onnx`;
                     const metadata = await get_file_metadata(modelId, filename, metadataOptions);
                     return metadata.exists;
