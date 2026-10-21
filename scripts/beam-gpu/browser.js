@@ -78,7 +78,14 @@ window.runBeamGPU = async (options) => {
     if (dtypes.some((dtype) => dtype === "fp16" || dtype === "q4f16") && !adapter.features.has("shader-f16")) {
       throw new Error("The requested fp16 inference requires shader-f16");
     }
-    const result = await runMultimodal({ ...options, device: options.device ?? "webgpu" });
+    const result = await runMultimodal({
+      ...options,
+      device: options.device ?? "webgpu",
+      sample_allocations: async () => {
+        await device.queue.onSubmittedWorkDone();
+        return { beam_buffers: liveBuffers.size, beam_bytes: [...liveBuffers].reduce((sum, buffer) => sum + buffer.size, 0) };
+      },
+    });
     await device.queue.onSubmittedWorkDone();
     const gpuCacheObserved = result.forward_locations.some((step) =>
       Object.entries(step).some(([key, location]) => key.startsWith("present.") && location === "gpu-buffer"),

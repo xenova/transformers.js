@@ -122,3 +122,25 @@ SHA-256 and size. Both hashes were verified against downloaded bytes. The shared
 native/browser harness accepts `image_urls` so hardware runs can use meaningful
 photos rather than only synthetic patches. Photo inference remains a parent
 hardware validation gate; metadata/download verification is not inference proof.
+
+## Round-two cache and allocation gates
+
+Qwen2VL rejects full-history raw new-image prompts after image-containing caches,
+and rejects query-only raw-image cached prompts whose image provenance is absent.
+The real Qwen integration test proves both guards run before vision encoding;
+text-only prefix plus full new-image history remains supported. Prepared query
+embeddings/positions or uncached generation remain available alternatives.
+
+The browser harness samples labeled beam-copy buffer counts and bytes before and
+after every generate call, including failures, while the model remains loaded.
+Beam calls must restore their own baseline. This measures beam-owned copies,
+not ORT allocator pools. Native execution does not fabricate GPU counters.
+The failure harness now retains a real caller-owned cache, records identities
+and length, injects a second-step decoder failure, and reuses the same cache to
+reproduce baseline tokens. Qwen2VL and Llava CPU harness runs passed this gate;
+raw local files are `results/review2-cache-harness.json` and
+`results/review2-llava-cache.json` (honestly marked dirty/precommit source).
+
+Final round-two focused validation: **43/43 tests passed** (real multimodal
+integrations and numeric/ownership regressions), with build/typegen and full
+docs generation/validation passing. Full-suite and hardware reruns remain pending.

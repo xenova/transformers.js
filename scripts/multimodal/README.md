@@ -117,3 +117,16 @@ against the manifest SHA-256 values before claiming a reproducible hardware run.
 For example, select the pinned SmolVLM2 model above and use these photos for the
 same beams/repeats/failure-injection checks. The default remains synthetic so
 small deterministic regressions do not depend on external photo downloads.
+
+Browser WebGPU results include `call_allocations` with beam-owned buffer counts
+and bytes before and after each generation call, before model disposal. Every
+beam call must restore its baseline. These counters cover labeled beam copies,
+not ORT allocator pools. `inject_failure:true` additionally retains a real caller
+cache, fails the second decoder step, verifies cache identities/length, then
+reuses it and checks tokens against a successful baseline. Native runs also test
+cache reuse but do not report WebGPU allocation counters.
+
+Qwen raw new-image chunks after image-containing caches are explicitly rejected.
+Use prepared embeddings/positions or uncached full conversation generation. Raw
+new images after a text-only cache require full input-id history; query-only
+raw-image cache inputs are rejected because the cache lacks modality provenance.

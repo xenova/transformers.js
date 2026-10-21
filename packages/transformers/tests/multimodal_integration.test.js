@@ -124,6 +124,36 @@ for (const [family, Model, Processor, model_id] of models) {
         await prefix.past_key_values.dispose();
       }
     }, 120000);
+    if (family === "qwen2_vl")
+      it("rejects raw new images after an image-containing cache before encoding", async () => {
+        const prefix = await model.generate({ ...samples[0], max_new_tokens: 1, eos_token_id: null, return_dict_in_generate: true });
+        const encode = jest.spyOn(model, "encode_image");
+        try {
+          const input_ids = cat([prefix.sequences, samples[1].input_ids], 1);
+          const attention_mask = new Tensor("int64", new BigInt64Array(input_ids.size).fill(1n), input_ids.dims);
+          // Full-history grids are required for rotary positions, but raw features
+          // cannot safely be selected from old and new image groups yet.
+          await expect(
+            model.generate({
+              ...samples[1],
+              input_ids,
+              attention_mask,
+              image_grid_thw: cat(
+                samples.map((sample) => sample.image_grid_thw),
+                0,
+              ),
+              past_key_values: prefix.past_key_values,
+              num_beams: 2,
+              max_new_tokens: 2,
+            }),
+          ).rejects.toThrow("cannot append raw images after an image-containing cache");
+          await expect(model.generate({ ...samples[0], past_key_values: prefix.past_key_values, num_beams: 2, max_new_tokens: 2 })).rejects.toThrow("cached raw-image prompts require full input_ids history");
+          expect(encode).not.toHaveBeenCalled();
+        } finally {
+          encode.mockRestore();
+          await prefix.past_key_values.dispose();
+        }
+      }, 120000);
     it("preserves unequal image groups with two beams", async () => {
       const ragged = await makeSamples(processor, family, { ragged: true });
       const batch = collate(ragged);

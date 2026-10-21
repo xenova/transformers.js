@@ -98,7 +98,10 @@ Video inputs, other decoder-only multimodal families, and `output_attentions`
 processor currently accepts one audio example at a time; equal-length processed
 audio tensors can be collated for batched generation. For Qwen2VL cached
 continuation, retain the original image grid or supply the matching `rope_deltas`
-with the input ids and attention mask.
+with the input ids and attention mask. Appending raw images to an image-containing
+Qwen2VL cache is not supported: use prepared query embeddings and matching
+positions/rotary offsets, or regenerate the full conversation without a cache.
+Raw-image chunks after a text-only cache require full input-id history.
 Diverse beam search cannot be combined with `do_sample: true`. Nucleus sampling
 (`top_p`) is not implemented by the generation sampler.
 

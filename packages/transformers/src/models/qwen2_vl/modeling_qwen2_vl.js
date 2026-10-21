@@ -327,6 +327,35 @@ export class Qwen2VLForConditionalGeneration extends Qwen2VLPreTrainedModel {
     prepare_inputs_for_generation(input_ids, model_inputs, generation_config) {
         setNumLogitsToKeep(this, model_inputs, 1n);
 
+        // Full-history image grids and new-query pixel patches have different
+        // indexing contracts. Do not silently scatter old image features into a
+        // new image chunk; this continuation needs explicit prepared embeddings.
+        if (this._multimodal_generation_config() && model_inputs.pixel_values && !model_inputs.inputs_embeds) {
+            const pastLength = model_inputs.past_key_values?.get_seq_length() ?? 0;
+            // @ts-ignore Model-specific configuration field.
+            const imageToken = this.config.image_token_id;
+            if (
+                pastLength >= model_inputs.input_ids.dims[1] &&
+                model_inputs.input_ids.data.some((id) => id == imageToken)
+            ) {
+                throw new Error(
+                    'Qwen2VL cached raw-image prompts require full input_ids history; supply prepared inputs_embeds for query-only image chunks.',
+                );
+            }
+            if (pastLength && pastLength < model_inputs.input_ids.dims[1]) {
+                for (const row of model_inputs.input_ids.tolist()) {
+                    if (
+                        row.slice(0, pastLength).some((id) => id == imageToken) &&
+                        row.slice(pastLength).some((id) => id == imageToken)
+                    ) {
+                        throw new Error(
+                            'Qwen2VL cannot append raw images after an image-containing cache; supply prepared inputs_embeds and matching position_ids/rope_deltas.',
+                        );
+                    }
+                }
+            }
+        }
+
         // Caller-supplied prefill positions still need the image-dependent offset
         // on subsequent decode steps, after raw image grids have been cleared.
         if (model_inputs.position_ids && !model_inputs.rope_deltas && model_inputs.image_grid_thw) {

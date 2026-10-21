@@ -177,6 +177,23 @@ export async function runMultimodal(options = {}) {
     if (evidence.forward_locations.length < 2) evidence.forward_locations.push(locations);
     return output;
   };
+  evidence.call_allocations = [];
+  const generate = model.generate.bind(model);
+  model.generate = async (config) => {
+    const before = options.sample_allocations ? await options.sample_allocations() : null;
+    try {
+      return await generate(config);
+    } finally {
+      const after = options.sample_allocations ? await options.sample_allocations() : null;
+      if (before && after)
+        evidence.call_allocations.push({
+          beams: config.num_beams ?? 1,
+          before,
+          after,
+          pass: (config.num_beams ?? 1) === 1 || (after.beam_buffers === before.beam_buffers && after.beam_bytes === before.beam_bytes),
+        });
+    }
+  };
   const encodeKey = family === "ultravox" ? "encode_audio" : "encode_image";
   const encode = model[encodeKey].bind(model);
   model[encodeKey] = async (inputs) => {
@@ -248,6 +265,49 @@ export async function runMultimodal(options = {}) {
       }
       evidence.cases.push({ mode: "injected_decode_failure", pass: observed && equal(rows(batch.input_ids), originalIds) });
     }
+    if (options.inject_failure) {
+      const sample = samples[0];
+      const prefix = await model.generate({ ...sample, max_new_tokens: 2, eos_token_id: null, return_dict_in_generate: true });
+      const cache = prefix.past_key_values;
+      const entries = Object.entries(cache);
+      const length = cache.get_seq_length();
+      const continuation = {
+        ...sample,
+        input_ids: prefix.sequences,
+        attention_mask: cat([sample.attention_mask, new Tensor("int64", [1n, 1n], [1, 2])], 1),
+        past_key_values: cache,
+        num_beams: 2,
+        max_new_tokens: 2,
+        eos_token_id: null,
+        do_sample: false,
+      };
+      const originalForward = model.forward;
+      let observed = false;
+      let steps = 0;
+      try {
+        const expected = rows(await model.generate(continuation));
+        model.forward = async (inputs) => {
+          if (++steps === 2) throw new Error("supplied cache injected failure");
+          return originalForward(inputs);
+        };
+        try {
+          await model.generate(continuation);
+        } catch (error) {
+          if (error.message !== "supplied cache injected failure") throw error;
+          observed = true;
+        } finally {
+          model.forward = originalForward;
+        }
+        const identitiesPreserved = cache.get_seq_length() === length && entries.every(([key, tensor]) => cache[key] === tensor);
+        // Reusing the exact cache proves GPU backing storage remains usable;
+        // inspecting location or JavaScript identity alone cannot establish this.
+        const actual = rows(await model.generate(continuation));
+        evidence.cases.push({ mode: "supplied_cache_survives_failure", pass: observed && identitiesPreserved && equal(expected, actual) });
+      } finally {
+        model.forward = originalForward;
+        await cache.dispose();
+      }
+    }
     const timings = [];
     for (let i = 0; i < (options.repeats ?? 25); ++i) {
       const start = performance.now();
@@ -255,7 +315,7 @@ export async function runMultimodal(options = {}) {
       timings.push(performance.now() - start);
     }
     evidence.repeated_call_ms = timings;
-    evidence.pass = evidence.finite_logits && evidence.cases.every((x) => x.pass);
+    evidence.pass = evidence.finite_logits && evidence.cases.every((x) => x.pass) && evidence.call_allocations.every((x) => x.pass);
     return evidence;
   } finally {
     await model.dispose();
