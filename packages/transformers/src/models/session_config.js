@@ -194,10 +194,33 @@ export function getSessionDtypes(config, dtype) {
     const custom = config['transformers.js_config'];
     const variants = custom?.dtype_map;
     if (!variants) return dtype;
-    // Without a configured default, the first listed variant is used.
-    const defaults =
-        typeof custom.dtype === 'string' ? variants[custom.dtype] : (custom.dtype ?? Object.values(variants)[0]);
-    const selected = typeof dtype === 'string' ? variants[dtype] : { ...defaults, ...dtype };
+    const names = Object.keys(variants);
+    const error = (message) => new Error(`${message}. Available dtype variants: ${names.join(', ') || '(none)'}.`);
+    if (!names.length) throw error('dtype_map must define at least one variant');
+    const first = variants[names[0]];
+    const get_default = () => {
+        if (typeof custom.dtype !== 'string' || custom.dtype === 'auto') return custom.dtype === 'auto' ? first : (custom.dtype ?? first);
+        if (!Object.hasOwn(variants, custom.dtype)) throw error(`Invalid default dtype variant ${JSON.stringify(custom.dtype)}`);
+        return variants[custom.dtype];
+    };
+    // "auto" follows the configured variant (or the first variant), not a
+    // device heuristic that could request graphs absent from this export.
+    let defaults;
+    let selected;
+    if (dtype == null || dtype === 'auto') {
+        selected = { ...(defaults = get_default()) };
+    } else if (typeof dtype === 'string') {
+        if (!Object.hasOwn(variants, dtype)) throw error(`Unsupported dtype variant ${JSON.stringify(dtype)}`);
+        selected = { ...variants[dtype] };
+    } else {
+        selected = { ...(defaults = get_default()), ...dtype };
+    }
+    for (const [session, value] of Object.entries(selected)) {
+        if (value === 'auto') {
+            defaults ??= get_default();
+            selected[session] = defaults[session] === 'auto' ? first[session] : defaults[session];
+        }
+    }
     if (
         !selected ||
         !Object.keys(selected).length ||
@@ -208,7 +231,7 @@ export function getSessionDtypes(config, dtype) {
                 ),
         )
     ) {
-        throw new Error(`Unsupported dtype variant: ${JSON.stringify(dtype)}.`);
+        throw error(`Unsupported dtype mapping ${JSON.stringify(selected)}`);
     }
     return { ...selected };
 }

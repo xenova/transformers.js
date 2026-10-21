@@ -47,8 +47,11 @@ export function prepare_phonon_text(tokenizer, text, max_tokens) {
             if (!boundaries.has(ids[i - 1]) || boundaries.has(ids[i])) continue;
             if (
                 skip_decimals &&
-                /\p{Nd}\.$/u.test(tokenizer.decode(ids.slice(0, i))) &&
-                /^\p{Nd}/u.test(tokenizer.decode(ids.slice(i)))
+                // A Unicode digit may occupy four byte-fallback tokens; five
+                // tokens cover it plus the period/leading space. Keep decoding
+                // bounded instead of repeatedly decoding the whole paragraph.
+                /\p{Nd}\.$/u.test(tokenizer.decode(ids.slice(Math.max(0, i - 5), i))) &&
+                /^\p{Nd}/u.test(tokenizer.decode(ids.slice(i, i + 5)))
             )
                 continue;
             segments.push(ids.slice(start, i));
@@ -62,18 +65,23 @@ export function prepare_phonon_text(tokenizer, text, max_tokens) {
     );
     const chunks = [];
     let chunk = [];
+    let chunk_length = 0;
     const push = () => {
-        const decoded = tokenizer.decode(chunk).trim();
+        const decoded = chunk.join(' ').trim();
         if (decoded) chunks.push({ input_ids: encode(tokenizer, decoded), word_count: decoded.split(/\s+/u).length });
     };
     for (const segment of segments) {
-        if (chunk.length && chunk.length + segment.length > max_tokens) {
+        if (chunk_length && chunk_length + segment.length > max_tokens) {
             push();
             chunk = [];
+            chunk_length = 0;
         }
-        chunk = chunk.concat(segment);
+        // Python joins decoded pieces with spaces before re-encoding a chunk,
+        // even when the original text had no space after punctuation.
+        chunk.push(tokenizer.decode(segment));
+        chunk_length += segment.length;
     }
-    if (chunk.length) push();
+    if (chunk_length) push();
     return chunks;
 }
 
