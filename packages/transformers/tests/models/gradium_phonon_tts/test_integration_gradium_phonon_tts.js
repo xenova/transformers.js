@@ -1,4 +1,5 @@
 import { pipeline, GradiumPhononTTSForConditionalGeneration, ModelRegistry } from "../../../src/transformers.js";
+import { prepare_phonon_text } from "../../../src/models/gradium_phonon_tts/utils_gradium_phonon_tts.js";
 
 const MODEL_ID = "onnx-community/phonon-31m-en-ONNX";
 const REVISION = "608cd31aaa8899e6d14d6f14b424fa084ea25c98";
@@ -41,7 +42,7 @@ export default () => {
       const text = "Hello from Phonon.";
       const frames = [];
       const output = await tts(text, { temperature: 0, callback_function: (chunk) => { frames.push(chunk); } });
-      const [prompt] = tts.model.prepare_text(text, tts.tokenizer);
+      const [prompt] = prepare_phonon_text(tts.tokenizer, text, tts.model.config.phonon.max_tokens_per_chunk);
       const max_frames = Math.ceil((prompt.input_ids.length / 3 + 2) * tts.model.config.phonon.frame_rate);
       expect(frames.length).toBeGreaterThan(1);
       expect(frames.length).toBeLessThan(max_frames);
@@ -60,8 +61,8 @@ export default () => {
     it("uses real custom-voice prefixes and recovers from early return and callback failure", async () => {
       const voice = tts.model.default_voice.clone();
       try {
-        const [prompt] = tts.model.prepare_text("Hello.", tts.tokenizer);
-        for await (const pcm of tts.model.generate_speech({ ...prompt, speaker_embeddings: voice, temperature: 0 })) {
+        const chunks = prepare_phonon_text(tts.tokenizer, "Hello.", tts.model.config.phonon.max_tokens_per_chunk);
+        for await (const pcm of tts.model.generate_speech({ chunks, speaker_embeddings: voice, temperature: 0 })) {
           expect(pcm.length).toBe(1920);
           break;
         }
@@ -74,17 +75,12 @@ export default () => {
     }, 60_000);
 
     it("loads a safetensors voice URL through the pipeline", async () => {
-      const speaker_embeddings = new URL(`https://huggingface.co/${MODEL_ID}/resolve/${REVISION}/default-voice.safetensors`);
-      const output = await tts("Hello.", { speaker_embeddings, temperature: 0 });
-      expect(output.audio.length).toBeGreaterThan(0);
-      expect(output.audio.every(Number.isFinite)).toBe(true);
-    }, 60_000);
-
-    it("loads a safetensors voice URL through the model directly", async () => {
       const speaker_embeddings = `https://huggingface.co/${MODEL_ID}/resolve/${REVISION}/default-voice.safetensors`;
-      const output = await tts.model.synthesize("Hello.", tts.tokenizer, { speaker_embeddings, temperature: 0 });
-      expect(output.audio.length).toBeGreaterThan(0);
-      expect(output.audio.every(Number.isFinite)).toBe(true);
+      for (const voice of [speaker_embeddings, new URL(speaker_embeddings)]) {
+        const output = await tts("Hello.", { speaker_embeddings: voice, temperature: 0 });
+        expect(output.audio.length).toBeGreaterThan(0);
+        expect(output.audio.every(Number.isFinite)).toBe(true);
+      }
     }, 60_000);
   });
 };

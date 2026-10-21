@@ -9,7 +9,9 @@ import { RawAudio } from '../utils/audio.js';
 import { logger } from '../utils/logger.js';
 
 import { AutoModel } from '../models/auto/modeling_auto.js';
+import { parse_phonon_voice, prepare_phonon_text } from '../models/gradium_phonon_tts/utils_gradium_phonon_tts.js';
 import { env } from '../env.js';
+import { getFile } from '../utils/hub.js';
 
 /**
  * @typedef {import('./_base.js').TextAudioPipelineConstructorArgs} TextAudioPipelineConstructorArgs
@@ -28,15 +30,15 @@ import { env } from '../env.js';
  * @typedef {Object} TextToAudioPipelineOptions Parameters specific to text-to-audio pipelines.
  * @property {Tensor|Float32Array|string|URL} [speaker_embeddings=null] The speaker embeddings (if the model requires it).
  * Phonon accepts a voice `Tensor` or a URL/path to a `.safetensors` voice file; omit it to use the bundled default voice.
- * Phonon default and URL/path voice prefixes are cached without eviction until model disposal; memory grows with distinct URLs/paths.
- * Custom tensor prefixes live for one call only; caller-provided tensors remain caller-owned.
+ * Voice files are cached per URL/path until the pipeline is disposed. See `generate_speech` for prefix caching.
  * @property {number} [num_inference_steps] The number of denoising steps (if the model supports it).
  * More denoising steps usually lead to higher quality audio but slower inference.
  * @property {number} [speed] The speed of the generated audio (if the model supports it).
- * @property {number} [temperature] Phonon sampling noise variance. Set to 0 for deterministic speech.
- * @property {number} [num_speakers] Phonon speaker conditioning index (0, 1, or 2; default 1).
- * @property {number} [duration_delta] Phonon duration conditioning (default 0).
- * @property {(chunk: RawAudio) => void | Promise<void>} [callback_function] Called with each Phonon audio frame. Async callbacks are awaited.
+ * @property {number} [temperature] Phonon flow noise variance (as in Python transformers); 0 = deterministic.
+ * @property {number} [num_speakers] Phonon speaker conditioning index (`0 | 1 | 2`), not a count. Defaults to the model config.
+ * @property {number} [duration_delta] Phonon duration conditioning. Defaults to the model config.
+ * @property {(chunk: RawAudio) => void | Promise<void>} [callback_function] Phonon-only: called with each streamed audio frame.
+ * Async callbacks are awaited. Other text-to-audio models do not stream.
  *
  * @typedef {TextToAudioPipelineConstructorArgs & TextToAudioPipelineCallback & Disposable} TextToAudioPipelineType
  */
@@ -82,27 +84,17 @@ import { env } from '../env.js';
  * // }
  * ```
  *
- * **Example:** Streaming Phonon speech with the bundled default voice.
- * ```javascript
- * import { pipeline } from '@huggingface/transformers';
- *
- * const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
- * const audio = await tts('Hello from Phonon!', {
- *   temperature: 0.3,
- *   callback_function: (chunk) => console.log(chunk.audio.length),
- * });
- * await audio.save('phonon.wav');
- * await tts.dispose();
- * ```
- *
- * **Example:** Use a custom Phonon voice without a separate loader.
+ * **Example:** Stream Phonon speech with a custom voice. Omit `speaker_embeddings` to use the bundled default voice.
  * ```javascript
  * import { pipeline } from '@huggingface/transformers';
  *
  * const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
  * const speaker_embeddings = 'https://huggingface.co/gradium/phonon-voices/resolve/main/voices/LMDIYE0Oa377Qh6Z.safetensors';
- * const audio = await tts('Hello there.', { speaker_embeddings });
- * // In Node.js, speaker_embeddings can also be a local .safetensors path.
+ * const audio = await tts('Hello from Phonon!', {
+ *   speaker_embeddings, // In Node.js, this can also be a local .safetensors path.
+ *   callback_function: (chunk) => console.log(chunk.audio.length), // 1920 samples at 24 kHz
+ * });
+ * await audio.save('phonon.wav');
  * await tts.dispose();
  * ```
  */
@@ -120,6 +112,9 @@ export class TextToAudioPipeline
 
         // TODO: Find a better way for `pipeline` to set the default vocoder
         this.vocoder = options.vocoder ?? null;
+
+        /** @type {Map<string, Promise<Tensor>>} Phonon voice files, keyed by URL/path. */
+        this._phonon_voices = new Map();
     }
 
     async _prepare_speaker_embeddings(speaker_embeddings, batch_size) {
@@ -172,16 +167,14 @@ export class TextToAudioPipeline
         return Array.isArray(text_inputs) ? results : results[0];
     }
 
-    async _call(text_inputs, options = /** @type {any} */ ({})) {
-        if (this.model.config.model_type === 'gradium_phonon_tts') {
-            const model = /** @type {import('../models/gradium_phonon_tts/modeling_gradium_phonon_tts.js').GradiumPhononTTSForConditionalGeneration} */ (this.model);
-            return model.synthesize(text_inputs, this.tokenizer, options);
-        }
+    async _call(text_inputs, options) {
         // If this.processor is not set, we are using an `AutoModelForTextToWaveform` model
         if (this.processor) {
             return this._call_text_to_spectrogram(text_inputs, options);
         } else if (this.model.config.model_type === 'supertonic') {
             return this._call_supertonic(text_inputs, options);
+        } else if (this.model.config.model_type === 'gradium_phonon_tts') {
+            return this._call_phonon(text_inputs, options);
         } else {
             return this._call_text_to_waveform(text_inputs);
         }
@@ -213,6 +206,106 @@ export class TextToAudioPipeline
 
         return this._postprocess_waveform(text_inputs, waveform, sampling_rate, durations);
     }
+
+    /**
+     * @param {string|string[]} text_inputs
+     * @param {TextToAudioPipelineOptions} [options]
+     * @private
+     */
+    async _call_phonon(
+        text_inputs,
+        { speaker_embeddings, callback_function, temperature, num_speakers, duration_delta } = {},
+    ) {
+        // @ts-expect-error TS2339
+        const { max_tokens_per_chunk, sample_rate } = this.model.config.phonon;
+        const texts = Array.isArray(text_inputs) ? text_inputs : [text_inputs];
+        const inputs = texts.map((text) => prepare_phonon_text(this.tokenizer, text, max_tokens_per_chunk));
+        const voice = speaker_embeddings == null ? undefined : await this._prepare_phonon_voice(speaker_embeddings);
+
+        const results = [];
+        for (const chunks of inputs) {
+            const frames = [];
+            // @ts-expect-error TS2339
+            const stream = this.model.generate_speech({
+                chunks,
+                speaker_embeddings: voice,
+                temperature,
+                num_speakers,
+                duration_delta,
+            });
+            for await (const frame of stream) {
+                frames.push(frame);
+                // A separate copy, so callbacks cannot modify the final waveform.
+                if (callback_function) await callback_function(new RawAudio(frame.slice(), sample_rate));
+            }
+            const audio = new Float32Array(frames.reduce((length, frame) => length + frame.length, 0));
+            let offset = 0;
+            for (const frame of frames) {
+                audio.set(frame, offset);
+                offset += frame.length;
+            }
+            results.push(new RawAudio(audio, sample_rate));
+        }
+        return Array.isArray(text_inputs) ? results : results[0];
+    }
+
+    async _prepare_phonon_voice(voice) {
+        if (typeof voice === 'string' || voice instanceof URL) {
+            const key = voice instanceof URL ? voice.href : voice;
+            let pending = this._phonon_voices.get(key);
+            if (!pending) {
+                pending = this._load_phonon_voice(voice);
+                this._phonon_voices.set(key, pending);
+                pending.catch(() => {
+                    if (this._phonon_voices.get(key) === pending) this._phonon_voices.delete(key);
+                });
+            }
+            return pending;
+        }
+        this._validate_phonon_voice(voice);
+        return voice;
+    }
+
+    async _load_phonon_voice(url) {
+        const response = await getFile(url);
+        if (response.status !== 200) {
+            throw new Error(`Unable to load Phonon voice: ${response.status} ${response.statusText}.`);
+        }
+        const voice = parse_phonon_voice(new Uint8Array(await response.arrayBuffer()));
+        try {
+            this._validate_phonon_voice(voice);
+        } catch (error) {
+            voice.dispose();
+            throw error;
+        }
+        return voice;
+    }
+
+    _validate_phonon_voice(voice) {
+        // @ts-expect-error TS2339
+        const { voice_dim } = this.model.config.phonon;
+        if (
+            !(voice instanceof Tensor) ||
+            voice.type !== 'float32' ||
+            voice.dims.length !== 3 ||
+            voice.dims[0] !== 1 ||
+            voice.dims[1] !== voice_dim
+        ) {
+            throw new Error(
+                `Phonon speaker_embeddings must be a float32 Tensor of shape [1, ${voice_dim}, frames], or a safetensors voice URL or path.`,
+            );
+        }
+    }
+
+    /** @type {import('./_base.js').DisposeType} */
+    dispose = async () => {
+        const voices = Array.from(this._phonon_voices.values());
+        this._phonon_voices.clear();
+        for (const voice of await Promise.allSettled(voices)) {
+            if (voice.status === 'fulfilled') voice.value.dispose();
+        }
+        await super.dispose();
+    };
 
     async _call_text_to_waveform(text_inputs) {
         // Run tokenization

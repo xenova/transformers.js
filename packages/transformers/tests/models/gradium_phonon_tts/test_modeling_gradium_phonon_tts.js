@@ -20,11 +20,12 @@ const phonon = {
   temperature: 0.3,
   eos_threshold: 4,
   max_tokens_per_chunk: 50,
+  conditions: { num_speakers: { default: "2" }, duration_delta: { default: 0.5 } },
   flow_lm: { num_layers: 1, num_heads: 1, head_dim: 2 },
   mimi_decoder: { num_layers: 1, num_heads: 1, head_dim: 2, conv_states: { "past_conv.test": [1, 2, 1] } },
 };
 const config = () => new PretrainedConfig({ model_type: "gradium_phonon_tts", phonon, "transformers.js_config": dtype_config });
-const tensor = (value = 0) => new Tensor("float32", [value], [1]);
+const url = "https://example.com/voice.safetensors";
 
 function voice_file(channels = 2) {
   const entry = { dtype: "F32", shape: [1, channels, 1], data_offsets: [0, channels * 4] };
@@ -39,28 +40,35 @@ function voice_file(channels = 2) {
 }
 
 function fake_pipeline(eos = 5) {
-  const noises = [];
-  const decoder = {
-    inputNames: ["latent", "past_offset", "past_conv.test", "past_key_values.0.key", "past_key_values.0.value"],
+  const steps = [];
+  const state = () => ({ "present.0.key": new ORTTensor("float32", [0], [1]), "present.0.value": new ORTTensor("float32", [0], [1]) });
+  const flow = {
+    inputNames: ["text_ids", "voice_latents", "latent", "noise", "num_speakers", "duration_delta", "past_key_values.0.key", "past_key_values.0.value"],
     run: jest.fn(async (inputs) => {
-      return {
-        audio: new ORTTensor("float32", [0.25, -0.5], [1, 2]),
-        present_offset: new ORTTensor("int64", [1n], [1]),
-        "present_conv.test": new ORTTensor("float32", [0], [1]),
-        "present.0.key": new ORTTensor("float32", [0], [1]),
-        "present.0.value": new ORTTensor("float32", [0], [1]),
-      };
+      if (inputs.latent.dims[1]) {
+        steps.push({ noise: Array.from(inputs.noise.data), num_speakers: inputs.num_speakers.data[0], duration_delta: inputs.duration_delta.data[0] });
+      }
+      return { ...state(), latent_out: new ORTTensor("float32", [0, 0], [1, 1, 2]), eos_logit: new ORTTensor("float32", [eos], [1]) };
     }),
     release: jest.fn(),
   };
-  const model = new GradiumPhononTTSForConditionalGeneration(config(), { mimi_decoder: decoder });
+  const decoder = {
+    inputNames: ["latent", "past_offset", "past_conv.test", "past_key_values.0.key", "past_key_values.0.value"],
+    run: jest.fn(async () => ({
+      ...state(),
+      audio: new ORTTensor("float32", [0.25, -0.5], [1, 2]),
+      present_offset: new ORTTensor("int64", [1n], [1]),
+      "present_conv.test": new ORTTensor("float32", [0], [1]),
+    })),
+    release: jest.fn(),
+  };
+  const model = new GradiumPhononTTSForConditionalGeneration(config(), { flow_lm: flow, mimi_decoder: decoder });
   model.default_voice = new Tensor("float32", [0, 0], [1, 2, 1]);
-  const flow = jest.spyOn(model, "_run_flow").mockImplementation(async (past, args) => {
-    if (args.noise) noises.push(Array.from(args.noise.data));
-    return { "present.0.key": tensor(), "present.0.value": tensor(), latent_out: new Tensor("float32", [0, 0], [1, 1, 2]), eos_logit: tensor(eos) };
-  });
   const pipe = new TextToAudioPipeline({ model, tokenizer: create_tokenizer() });
-  return { pipe, model, flow, decoder, noises };
+  // Voice-conditioning runs are the only flow runs with voice frames.
+  const voice_runs = () => flow.run.mock.calls.map(([inputs], i) => ({ inputs, i })).filter(({ inputs }) => inputs.voice_latents.dims[2] > 0);
+  const prefix = async (n = 0) => (await flow.run.mock.results[voice_runs()[n].i].value)["present.0.key"];
+  return { pipe, model, flow, decoder, steps, voice_runs, prefix };
 }
 
 // Python PocketTTSProcessor.split_text -> apply_chat_template -> encode, using
@@ -98,21 +106,19 @@ export default () => {
   describe("GradiumPhononTTSForConditionalGeneration", () => {
     afterEach(() => jest.restoreAllMocks());
 
-    describe("model files", () => {
-      // The Hub aliases use variant suffixes, not decoder precision:
-      // mimi_decoder_q4 is fp32 and mimi_decoder_q4f16 is fp16.
-      it.each(["fp32", "q4", "q4f16"])("lists graphs and the default voice for %s", async (dtype) => {
-        const suffix = dtype === "fp32" ? "" : `_${dtype}`;
-        expect(await get_model_files("unused", { config: config(), dtype })).toEqual(["config.json", "default-voice.safetensors", `onnx/flow_lm${suffix}.onnx`, `onnx/mimi_decoder${suffix}.onnx`]);
-      });
-      it.each([undefined, "auto"])("uses configured fp32 rather than wasm's q8 default for %j", (dtype) => {
-        for (const name of ["flow_lm", "mimi_decoder"]) {
-          expect(selectDtype(dtype ?? dtype_config.dtype, name, "wasm", { configDtype: dtype_config.dtype })).toBe("fp32");
-        }
-      });
-      it("enumerates fp32 files by default on wasm", async () => {
-        expect(await get_model_files("unused", { config: config(), device: "wasm" })).toEqual(["config.json", "default-voice.safetensors", "onnx/flow_lm.onnx", "onnx/mimi_decoder.onnx"]);
-      });
+    // The Hub aliases use variant suffixes, not decoder precision:
+    // mimi_decoder_q4 is fp32 and mimi_decoder_q4f16 is fp16.
+    // Without a dtype, the configured fp32 wins over wasm's q8 default.
+    it.each([
+      [{ dtype: "fp32" }, ""],
+      [{ dtype: "q4" }, "_q4"],
+      [{ dtype: "q4f16" }, "_q4f16"],
+      [{ device: "wasm" }, ""],
+    ])("lists graphs and the default voice for %j", async (options, suffix) => {
+      expect(await get_model_files("unused", { config: config(), ...options })).toEqual(["config.json", "default-voice.safetensors", `onnx/flow_lm${suffix}.onnx`, `onnx/mimi_decoder${suffix}.onnx`]);
+      for (const dtype of options.dtype ? [] : [undefined, "auto"]) {
+        expect(selectDtype(dtype ?? dtype_config.dtype, "flow_lm", "wasm", { configDtype: dtype_config.dtype })).toBe("fp32");
+      }
     });
 
     describe("text preparation", () => {
@@ -161,175 +167,136 @@ export default () => {
     });
 
     describe("generation", () => {
-      it("streams frames and caches the default voice prefix", async () => {
-        const { pipe, model, flow, noises } = fake_pipeline();
+      it("streams frames and caches the default voice prefix until disposal", async () => {
+        const { pipe, steps, voice_runs, prefix } = fake_pipeline();
         let callbacks = 0;
         try {
           const result = await pipe("Hello.", { temperature: 0, callback_function: () => callbacks++ });
           // EOS on the first frame, then a 3-frame tail for short texts.
           expect(callbacks).toBe(4);
           expect(Array.from(result.audio)).toEqual([0.25, -0.5, 0.25, -0.5, 0.25, -0.5, 0.25, -0.5]);
-          expect(noises.every((noise) => noise.every((value) => value === 0))).toBe(true);
+          expect(steps.every(({ noise }) => noise.every((value) => value === 0))).toBe(true);
           await pipe("Hello.");
-          expect(flow.mock.calls.filter(([, args]) => args.voice)).toHaveLength(1);
+          expect(voice_runs()).toHaveLength(1);
+          expect((await prefix()).data.length).toBe(1);
         } finally {
           await pipe.dispose();
         }
-        expect(model._voice_states.size).toBe(0);
+        await expect(prefix().then((p) => p.data)).rejects.toThrow("disposed");
       });
-      it("shares a tensor prefix within a call, then reconditions in-place changes on the next call", async () => {
-        const { pipe, model, flow } = fake_pipeline();
-        const voice = new Tensor("float32", [0.5, 0.25], [1, 2, 1]);
-        let prefix;
+      it("takes conditioning defaults from the config and forwards overrides", async () => {
+        const { pipe, steps } = fake_pipeline();
         try {
-          await pipe(["Hello. ".repeat(10), "And another sentence."], { speaker_embeddings: voice, temperature: 0 });
-          expect(flow.mock.calls.filter(([, args]) => args.voice)).toHaveLength(1);
-          prefix = await flow.mock.results[0].value;
-          expect(() => prefix["present.0.key"].data).toThrow("disposed");
-          expect(model._voice_states.size).toBe(0);
+          await pipe("Hello.");
+          expect(steps[0]).toMatchObject({ num_speakers: 2n, duration_delta: 0.5 });
+          await pipe("Hello.", { num_speakers: 0, duration_delta: -1 });
+          expect(steps.at(-1)).toMatchObject({ num_speakers: 0n, duration_delta: -1 });
+        } finally {
+          await pipe.dispose();
+        }
+      });
+      it("shares a tensor prefix across chunks, then reconditions in-place changes on the next call", async () => {
+        const { pipe, voice_runs, prefix } = fake_pipeline();
+        const voice = new Tensor("float32", [0.5, 0.25], [1, 2, 1]);
+        const text = "Hello. ".repeat(10);
+        try {
+          expect(prepare_phonon_text(pipe.tokenizer, text, phonon.max_tokens_per_chunk).length).toBeGreaterThan(1);
+          await pipe(text, { speaker_embeddings: voice, temperature: 0 });
+          expect(voice_runs()).toHaveLength(1);
+          expect(() => voice_runs()[0].inputs.voice_latents.data).not.toThrow();
+          await expect(prefix().then((p) => p.data)).rejects.toThrow("disposed");
           voice.data[0] = 0.75;
           await pipe("Another sentence.", { speaker_embeddings: voice });
-          expect(flow.mock.calls.filter(([, args]) => args.voice)).toHaveLength(2);
-          expect(model._voice_states.size).toBe(0);
-          expect(Array.from(voice.data)).toEqual([0.75, 0.25]);
+          expect(voice_runs()).toHaveLength(2);
         } finally {
           await pipe.dispose();
           expect(Array.from(voice.data)).toEqual([0.75, 0.25]);
           voice.dispose();
         }
-        expect(() => prefix["present.0.key"].data).toThrow("disposed");
       });
-      it.each(["break", "callback"])("frees per-call tensor prefixes on %s without retaining the tensor", async (failure) => {
-        const { pipe, model, flow } = fake_pipeline();
+      it.each(["break", "callback"])("frees per-call tensor prefixes on %s without releasing the tensor", async (failure) => {
+        const { pipe, model, prefix } = fake_pipeline();
         const voice = new Tensor("float32", [0.5, 0.25], [1, 2, 1]);
         try {
           if (failure === "break") {
-            const [prompt] = model.prepare_text("Hello.", pipe.tokenizer);
-            for await (const pcm of model.generate_speech({ ...prompt, speaker_embeddings: voice })) break;
+            const chunks = prepare_phonon_text(pipe.tokenizer, "Hello.", phonon.max_tokens_per_chunk);
+            for await (const pcm of model.generate_speech({ chunks, speaker_embeddings: voice })) break;
           } else {
             await expect(pipe("Hello.", {
               speaker_embeddings: voice,
               callback_function: () => { throw new Error("callback failed"); },
             })).rejects.toThrow("callback failed");
           }
-          const prefix = await flow.mock.results[0].value;
-          expect(() => prefix["present.0.key"].data).toThrow("disposed");
-          expect(model._voice_states.size).toBe(0);
+          await expect(prefix().then((p) => p.data)).rejects.toThrow("disposed");
           expect(Array.from(voice.data)).toEqual([0.5, 0.25]);
         } finally {
           voice.dispose();
           await pipe.dispose();
         }
       });
-      it.each(["pipeline", "model"])("loads a safetensors URL through the %s and releases the loaded voice", async (kind) => {
-        const { pipe, model, flow } = fake_pipeline();
-        const url = "https://example.com/voice.safetensors";
-        const fetch = jest.spyOn(env, "fetch").mockResolvedValue(new Response(voice_file()));
+      it("downloads each voice URL once, shares in-flight downloads and releases loaded voices on disposal", async () => {
+        const { pipe, model, voice_runs } = fake_pipeline();
+        const fetch = jest.spyOn(env, "fetch").mockImplementation(async () => new Response(voice_file()));
+        const other = "https://example.com/other.safetensors";
         try {
-          const output = kind === "pipeline"
-            ? await pipe(["Hello.", "Goodbye."], { speaker_embeddings: url })
-            : await model.synthesize(["Hello.", "Goodbye."], pipe.tokenizer, { speaker_embeddings: new URL(url) });
-          expect(output).toHaveLength(2);
-          await pipe("Another sentence.", { speaker_embeddings: new URL(url) });
-          await model.synthesize("And another.", pipe.tokenizer, { speaker_embeddings: url });
-          expect(fetch).toHaveBeenCalledTimes(1);
-          const voice = flow.mock.calls.find(([, args]) => args.voice)[1].voice;
-          expect(() => voice.data).toThrow("disposed");
-          expect(model.default_voice.data.length).toBe(2);
-          expect(flow.mock.calls.filter(([, args]) => args.voice)).toHaveLength(1);
-        } finally { await pipe.dispose(); }
+          const outputs = await Promise.all([pipe(["Hello.", "Goodbye."], { speaker_embeddings: url }), pipe("Hi.", { speaker_embeddings: new URL(url) })]);
+          expect(outputs[0]).toHaveLength(2);
+          await pipe("Another sentence.", { speaker_embeddings: other });
+          await pipe("And another.", { speaker_embeddings: other });
+          expect(fetch).toHaveBeenCalledTimes(2);
+          // The prefix of a non-default voice is recomputed once per input.
+          expect(voice_runs()).toHaveLength(5);
+        } finally {
+          await pipe.dispose();
+        }
+        for (const { inputs } of voice_runs()) expect(() => inputs.voice_latents.data).toThrow("disposed");
+        expect(() => model.default_voice.data).toThrow("disposed");
+      });
+      it("releases a voice whose download is still pending at disposal", async () => {
+        const { pipe, voice_runs } = fake_pipeline();
+        let resolve_fetch;
+        jest.spyOn(env, "fetch").mockImplementation(() => new Promise((resolve) => { resolve_fetch = resolve; }));
+        const call = pipe("Hello.", { speaker_embeddings: url });
+        const disposing = pipe.dispose();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        resolve_fetch(new Response(voice_file()));
+        await disposing;
+        await call.catch(() => {});
+        expect(voice_runs()).toHaveLength(1);
+        expect(() => voice_runs()[0].inputs.voice_latents.data).toThrow("disposed");
       });
       it("loads local safetensors paths and file URLs", async () => {
-        const { pipe, model } = fake_pipeline();
+        const { pipe } = fake_pipeline();
         const dir = await mkdtemp(join(tmpdir(), "phonon-voice-"));
         const path = join(dir, "voice.safetensors");
         try {
           await writeFile(path, voice_file());
           for (const speaker_embeddings of [path, pathToFileURL(path)]) {
             expect((await pipe("Hello.", { speaker_embeddings })).audio.length).toBeGreaterThan(0);
-            expect((await model.synthesize("Hello.", pipe.tokenizer, { speaker_embeddings })).audio.length).toBeGreaterThan(0);
           }
         } finally {
           await pipe.dispose();
           await rm(dir, { recursive: true });
         }
       });
-      it.each(["callback", "conditioning", "validation"])("releases a loaded voice after %s failure", async (failure) => {
-        const { pipe, model, flow } = fake_pipeline();
+      it.each(["callback", "conditioning", "validation"])("recovers from a %s failure with a voice URL", async (failure) => {
+        const { pipe, flow } = fake_pipeline();
         let invalid = failure === "validation";
         const fetch = jest.spyOn(env, "fetch").mockImplementation(async () => new Response(voice_file(invalid ? 3 : 2)));
-        const validate = jest.spyOn(model, "_validate_voice");
-        if (failure === "conditioning") flow.mockRejectedValueOnce(new Error("conditioning failed"));
+        const dispose = jest.spyOn(Tensor.prototype, "dispose");
+        jest.spyOn(console, "error").mockImplementation(() => {});
+        if (failure === "conditioning") flow.run.mockRejectedValueOnce(new Error("conditioning failed"));
         try {
           await expect(pipe("Hello.", {
-            speaker_embeddings: "https://example.com/voice.safetensors",
+            speaker_embeddings: url,
             callback_function: () => { throw new Error("callback failed"); },
           })).rejects.toThrow(failure === "validation" ? "[1, 2, frames]" : `${failure} failed`);
-          const voice = validate.mock.calls[0][0];
-          expect(() => voice.data).toThrow("disposed");
+          // An invalid voice is released right away and not cached; a valid one stays cached.
+          expect(dispose.mock.contexts.some((t) => t.dims?.[1] === 3)).toBe(invalid);
           invalid = false;
-          await pipe("Try again.", { speaker_embeddings: "https://example.com/voice.safetensors" });
-          // Callback failures do not invalidate a successfully conditioned voice.
-          expect(fetch).toHaveBeenCalledTimes(failure === "callback" ? 1 : 2);
+          await pipe("Try again.", { speaker_embeddings: url });
+          expect(fetch).toHaveBeenCalledTimes(failure === "validation" ? 2 : 1);
         } finally { await pipe.dispose(); }
-      });
-      it("caches distinct voices independently", async () => {
-        const { pipe, flow } = fake_pipeline();
-        const fetch = jest.spyOn(env, "fetch").mockImplementation(async () => new Response(voice_file()));
-        try {
-          const options = { speaker_embeddings: "https://example.com/voice.safetensors" };
-          await pipe("Hello.", options);
-          await pipe("Hello again.", options);
-          const other = { speaker_embeddings: "https://example.com/other.safetensors" };
-          await pipe("Another speaker.", other);
-          await pipe("That speaker again.", other);
-          expect(fetch).toHaveBeenCalledTimes(2);
-          expect(flow.mock.calls.filter(([, args]) => args.voice)).toHaveLength(2);
-        } finally { await pipe.dispose(); }
-      });
-      it("shares in-flight URL conditioning and disposes every cached prefix", async () => {
-        const { pipe, model, flow } = fake_pipeline();
-        const url = "https://example.com/voice.safetensors";
-        const fetch = jest.spyOn(env, "fetch").mockImplementation(async () => new Response(voice_file()));
-        const [first, second] = await Promise.all([model._prepare_voice(url), model._prepare_voice(new URL(url))]);
-        expect(first.state).toBe(second.state);
-        first.release();
-        expect(first.state["past_key_values.0.key"].data.length).toBe(1);
-        expect(fetch).toHaveBeenCalledTimes(1);
-        expect(flow).toHaveBeenCalledTimes(1);
-        const other = await model._prepare_voice("https://example.com/other.safetensors");
-        await pipe.dispose();
-        for (const prefix of [first, other]) {
-          expect(() => prefix.state["past_key_values.0.key"].data).toThrow("disposed");
-        }
-        expect(model._voice_states.size).toBe(0);
-      });
-      it("waits for pending voice conditioning before disposing its prefix", async () => {
-        const { pipe, model } = fake_pipeline();
-        let resolve_fetch;
-        jest.spyOn(env, "fetch").mockImplementation(() => new Promise((resolve) => { resolve_fetch = resolve; }));
-        const pending = model._prepare_voice("https://example.com/voice.safetensors");
-        const disposing = pipe.dispose();
-        expect(model._voice_states.size).toBe(0);
-        await expect(model._prepare_voice("https://example.com/other.safetensors")).rejects.toThrow("disposal has started");
-        resolve_fetch(new Response(voice_file()));
-        const prefix = await pending;
-        await disposing;
-        expect(() => prefix.state["past_key_values.0.key"].data).toThrow("disposed");
-        expect(model._voice_states.size).toBe(0);
-      });
-      it("does not delete a replacement entry when an older preparation fails", async () => {
-        const { pipe, model } = fake_pipeline();
-        const url = "https://example.com/voice.safetensors";
-        let reject_fetch;
-        jest.spyOn(env, "fetch").mockImplementation(() => new Promise((resolve, reject) => { reject_fetch = reject; }));
-        const pending = model._prepare_voice(url);
-        const replacement = Promise.resolve({});
-        model._voice_states.set(url, replacement);
-        reject_fetch(new Error("download failed"));
-        await expect(pending).rejects.toThrow("download failed");
-        expect(model._voice_states.get(url)).toBe(replacement);
-        await pipe.dispose();
       });
       it("reports failed voice downloads before running the model", async () => {
         const { pipe, flow } = fake_pipeline();
@@ -338,7 +305,7 @@ export default () => {
           .mockResolvedValueOnce(new Response(voice_file()));
         try {
           await expect(pipe("Hello.", { speaker_embeddings: "https://example.com/missing.safetensors" })).rejects.toThrow("Unable to load Phonon voice: 404 Not Found");
-          expect(flow).not.toHaveBeenCalled();
+          expect(flow.run).not.toHaveBeenCalled();
           await pipe("Try again.", { speaker_embeddings: "https://example.com/missing.safetensors" });
           expect(fetch).toHaveBeenCalledTimes(2);
         } finally { await pipe.dispose(); }
@@ -365,9 +332,8 @@ export default () => {
         }
       });
       it("rejects voices that are not tensors of the right shape", async () => {
-        const { pipe, model } = fake_pipeline();
+        const { pipe } = fake_pipeline();
         try {
-          await expect(model.synthesize("Hello.", pipe.tokenizer, { speaker_embeddings: new Float32Array(2) })).rejects.toThrow("float32 Tensor");
           await expect(pipe("Hello.", { speaker_embeddings: new Float32Array(2) })).rejects.toThrow("float32 Tensor");
           await expect(pipe("Hello.", { speaker_embeddings: new Tensor("float32", [0, 0], [1, 2]) })).rejects.toThrow("[1, 2, frames]");
         } finally {

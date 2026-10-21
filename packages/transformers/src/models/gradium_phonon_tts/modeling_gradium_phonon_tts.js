@@ -4,11 +4,12 @@
 
 import { PreTrainedModel } from '../modeling_utils.js';
 import { Tensor, randn } from '../../utils/tensor.js';
-import { getFile, getModelFile } from '../../utils/hub.js';
+import { getModelFile } from '../../utils/hub.js';
 import { sessionRun } from '../session.js';
-import { parse_phonon_voice, prepare_phonon_text } from './utils_gradium_phonon_tts.js';
-import { RawAudio } from '../../utils/audio.js';
+import { parse_phonon_voice } from './utils_gradium_phonon_tts.js';
 import { logger } from '../../utils/logger.js';
+
+export { prepare_phonon_text } from './utils_gradium_phonon_tts.js';
 
 const f32 = (dims, data = null) =>
     new Tensor('float32', data ?? new Float32Array(dims.reduce((a, b) => a * b, 1)), dims);
@@ -45,14 +46,17 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         return /** @type {any} */ (this.config).phonon;
     }
 
+    // Python keeps these as config values; the checkpoint stores them under `phonon.conditions`.
+    get default_conditions() {
+        const { num_speakers, duration_delta } = this.phonon_config.conditions;
+        return { num_speakers: Number(num_speakers.default), duration_delta: Number(duration_delta.default) };
+    }
+
     /** @type {Tensor} */
     default_voice;
 
-    // Only the bundled default and URL/path prefixes belong to the model.
-    // Caller-provided tensor prefixes live for one synthesis/generator call.
-    /** @type {Map<Tensor|string, Promise<Record<string, Tensor>>>} */
-    _voice_states = new Map();
-    _disposing = false;
+    /** @type {Promise<Record<string, Tensor>>|null} */
+    _default_prefix = null;
 
     /**
      * Load both streaming graphs and the bundled default voice.
@@ -76,10 +80,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         }
     }
 
-    async _run_flow(
-        past,
-        { text = [], voice = null, latent = null, noise = null, num_speakers = 1, duration_delta = 0 } = {},
-    ) {
+    async _run_flow(past, { text = [], voice = null, latent = null, noise = null, num_speakers, duration_delta }) {
         const cfg = this.phonon_config;
         const inputs = {
             text_ids: i64(text, [1, text.length]),
@@ -99,171 +100,87 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         }
     }
 
+    // The only place that decides who owns a voice prefix: the bundled default voice's prefix is
+    // cached until disposal, any other voice's prefix is released by the caller after one call.
     async _prepare_voice(voice) {
-        if (this._disposing) throw new Error('Cannot prepare a Phonon voice after model disposal has started.');
-        const key = voice instanceof URL ? voice.href : voice;
-        const cached = typeof key === 'string' || voice === this.default_voice;
         const create = async () => {
-            const owns_voice = typeof key === 'string';
-            let tensor = voice;
-            if (owns_voice) {
-                const response = await getFile(voice);
-                if (response.status !== 200) {
-                    throw new Error(`Unable to load Phonon voice: ${response.status} ${response.statusText}.`);
-                }
-                tensor = parse_phonon_voice(new Uint8Array(await response.arrayBuffer()));
-            }
-            let cache;
+            const cache = empty_cache(this.phonon_config.flow_lm);
             try {
-                this._validate_voice(tensor);
-                cache = empty_cache(this.phonon_config.flow_lm);
-                const outputs = await this._run_flow(cache, { voice: tensor });
-                const state = next_state(outputs);
+                const outputs = await this._run_flow(cache, { voice, ...this.default_conditions });
                 outputs.latent_out.dispose();
                 outputs.eos_logit.dispose();
-                return state;
+                return next_state(outputs);
             } finally {
                 dispose_state(cache);
-                if (owns_voice) tensor.dispose();
             }
         };
-        let pending = cached ? this._voice_states.get(key) : null;
-        if (!pending) {
-            pending = create();
-            if (cached) {
-                this._voice_states.set(key, pending);
-                pending.catch(() => {
-                    if (this._voice_states.get(key) === pending) this._voice_states.delete(key);
-                });
-            }
+        if (voice !== this.default_voice) {
+            const state = await create();
+            return { state, release: () => dispose_state(state) };
         }
-        const state = await pending;
-        return { state, release: cached ? () => {} : () => dispose_state(state) };
+        if (!this._default_prefix) {
+            const pending = (this._default_prefix = create());
+            pending.catch(() => {
+                if (this._default_prefix === pending) this._default_prefix = null;
+            });
+        }
+        return { state: await this._default_prefix, release: () => {} };
     }
 
     /**
-     * Split text into chunks of at most ~50 tokens, as Python's `PocketTTSProcessor.split_text` does.
-     * @param {string} text Text to prepare.
-     * @param {import('../../tokenization_utils.js').PreTrainedTokenizer} tokenizer The model's tokenizer.
-     * @returns {{ input_ids: number[], word_count: number }[]} Inputs accepted by `generate_speech()`.
-     */
-    prepare_text(text, tokenizer) {
-        return prepare_phonon_text(tokenizer, text, this.phonon_config.max_tokens_per_chunk);
-    }
-
-    _validate_voice(voice) {
-        const { voice_dim } = this.phonon_config;
-        if (
-            !(voice instanceof Tensor) ||
-            voice.type !== 'float32' ||
-            voice.dims.join() !== `1,${voice_dim},${voice.dims[2]}`
-        ) {
-            throw new Error(
-                `Phonon speaker_embeddings must be a float32 Tensor of shape [1, ${voice_dim}, frames]. synthesize() also accepts a safetensors voice URL or path.`,
-            );
-        }
-    }
-
-    /**
-     * Generate complete audio from text, optionally delivering PCM frames as they arrive.
-     * @param {string|string[]} text_inputs Text or a batch of texts.
-     * @param {import('../../tokenization_utils.js').PreTrainedTokenizer} tokenizer The model's tokenizer.
-     * @param {Object} [options={}] Speech generation options.
-     * @param {Tensor|string|URL} [options.speaker_embeddings] Voice latents or a safetensors voice URL/path. Defaults to the bundled voice.
-     * Default and URL/path voice prefixes are cached until model disposal, with no eviction; memory grows with distinct URLs/paths.
-     * Custom tensors are reconditioned once per call, shared across its chunks, and never retained by the model cache.
-     * Loaded voice tensors are released after conditioning; caller-provided tensors remain caller-owned.
-     * @param {(chunk: RawAudio) => void | Promise<void>} [options.callback_function] Receives each decoded frame.
-     * @param {number} [options.temperature] Sampling noise variance.
-     * @param {number} [options.num_speakers] Speaker conditioning index.
+     * Generate speech for prepared text chunks as streaming 24 kHz PCM frames.
+     *
+     * The voice prefix is conditioned once per call and shared across all chunks. Only the prefix of
+     * the bundled default voice is cached (until `dispose()`); any other voice is reconditioned on every
+     * call, and its prefix is freed when the generator finishes, throws, or is exited early.
+     * `speaker_embeddings` itself always remains owned by the caller.
+     *
+     * @param {Object} options Generation inputs and conditioning controls.
+     * @param {{ input_ids: number[], word_count: number }[]} options.chunks Text chunks to speak, in order.
+     * `word_count` chooses the end-of-speech tail length.
+     * @param {Tensor} [options.speaker_embeddings] Voice latents of shape `[1, voice_dim, frames]`. Defaults to the bundled voice.
+     * @param {number} [options.temperature] Flow noise variance (as in Python transformers); 0 = deterministic.
+     * @param {number} [options.num_speakers] Speaker conditioning index (`0 | 1 | 2`), not a count.
      * @param {number} [options.duration_delta] Duration conditioning value.
-     * @returns {Promise<RawAudio|RawAudio[]>} Audio matching the input's scalar or batch form.
-     */
-    async synthesize(text_inputs, tokenizer, { speaker_embeddings = null, callback_function = null, ...options } = {}) {
-        const cfg = this.phonon_config;
-        const texts = Array.isArray(text_inputs) ? text_inputs : [text_inputs];
-        const prepared = texts.map((text) => this.prepare_text(text, tokenizer));
-        const voice = prepared.some((sentences) => sentences.length)
-            ? await this._prepare_voice(speaker_embeddings ?? this.default_voice)
-            : null;
-        try {
-            const results = [];
-            for (const sentences of prepared) {
-                const frames = [];
-                let length = 0;
-                for (const sentence of sentences) {
-                    for await (const pcm of this._generate_frames({ ...sentence, ...options }, voice.state)) {
-                        frames.push(pcm);
-                        length += pcm.length;
-                        // The generator copies before releasing decoder tensors. The
-                        // callback gets a separate copy to protect the final waveform.
-                        if (callback_function) await callback_function(new RawAudio(pcm.slice(), cfg.sample_rate));
-                    }
-                }
-                const audio = new Float32Array(length);
-                let offset = 0;
-                for (const frame of frames) {
-                    audio.set(frame, offset);
-                    offset += frame.length;
-                }
-                results.push(new RawAudio(audio, cfg.sample_rate));
-            }
-            return Array.isArray(text_inputs) ? results : results[0];
-        } finally {
-            voice?.release();
-        }
-    }
-
-    /**
-     * Generate one text chunk as streaming 24 kHz PCM frames.
-     * @param {Object} options Generation inputs and sampling controls.
-     * @param {number[]} options.input_ids A text chunk from `prepare_text()`.
-     * @param {number} options.word_count Word count, used to choose the end-of-speech tail length.
-     * @param {Tensor|string|URL} [options.speaker_embeddings] Voice latents of shape `[1, 512, frames]` or a safetensors URL/path. Default and URL/path prefixes are cached until disposal; custom tensor prefixes live for this call only.
-     * @param {number} [options.temperature] Sampling noise variance (default 0.3); 0 is deterministic.
-     * @param {number} [options.num_speakers=1] Speaker conditioning index (0, 1, or 2).
-     * @param {number} [options.duration_delta=0] Duration conditioning value.
      * @returns {AsyncGenerator<Float32Array>} PCM frames, each containing 1920 samples.
      *
      * **Example:** Consume PCM directly without retaining the complete waveform.
      * ```javascript
-     * import { AutoTokenizer, GradiumPhononTTSForConditionalGeneration } from '@huggingface/transformers';
+     * import { AutoTokenizer, GradiumPhononTTSForConditionalGeneration, prepare_phonon_text } from '@huggingface/transformers';
      * const id = 'onnx-community/phonon-31m-en-ONNX';
      * const tokenizer = await AutoTokenizer.from_pretrained(id);
      * const model = await GradiumPhononTTSForConditionalGeneration.from_pretrained(id, { dtype: 'q4' });
-     * for (const chunk of model.prepare_text('Hello from Phonon.', tokenizer)) {
-     *   for await (const pcm of model.generate_speech(chunk)) {
-     *     console.log(pcm.length); // 1920 mono samples at 24 kHz
-     *   }
+     * const chunks = prepare_phonon_text(tokenizer, 'Hello from Phonon.', model.config.phonon.max_tokens_per_chunk);
+     * for await (const pcm of model.generate_speech({ chunks })) {
+     *   console.log(pcm.length); // 1920 mono samples at 24 kHz
      * }
      * ```
      */
-    async *generate_speech(options) {
-        const voice = await this._prepare_voice(options.speaker_embeddings ?? this.default_voice);
+    async *generate_speech({
+        chunks,
+        speaker_embeddings = this.default_voice,
+        temperature = this.phonon_config.temperature,
+        num_speakers = this.default_conditions.num_speakers,
+        duration_delta = this.default_conditions.duration_delta,
+    }) {
+        const conditions = { num_speakers, duration_delta };
+        const voice = await this._prepare_voice(speaker_embeddings);
         try {
-            yield* this._generate_frames(options, voice.state);
+            for (const { input_ids, word_count } of chunks) {
+                yield* this._generate_frames(input_ids, word_count, voice.state, temperature, conditions);
+            }
         } finally {
             voice.release();
         }
     }
 
-    /** @private */
-    async *_generate_frames(
-        {
-            input_ids,
-            word_count,
-            temperature = this.phonon_config.temperature,
-            num_speakers = 1,
-            duration_delta = 0,
-        },
-        prefix,
-    ) {
+    async *_generate_frames(input_ids, word_count, prefix, temperature, conditions) {
         const cfg = this.phonon_config;
         let state = null,
             codec = null,
             latent = null;
         try {
-            const prompt = await this._run_flow(prefix, { text: input_ids, num_speakers, duration_delta });
+            const prompt = await this._run_flow(prefix, { text: input_ids, ...conditions });
             state = next_state(prompt);
             prompt.latent_out.dispose();
             prompt.eos_logit.dispose();
@@ -279,7 +196,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
                     temperature === 0
                         ? f32([1, cfg.latent_dim])
                         : randn([1, cfg.latent_dim]).mul_(Math.sqrt(temperature));
-                const step = await this._run_flow(state, { latent, noise, num_speakers, duration_delta });
+                const step = await this._run_flow(state, { latent, noise, ...conditions });
                 dispose_state(state);
                 state = next_state(step);
                 latent.dispose();
@@ -304,12 +221,9 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     }
 
     async dispose() {
-        this._disposing = true;
-        const pending_states = Array.from(this._voice_states.values());
-        this._voice_states.clear();
-        await Promise.all(pending_states.map(async (pending) => {
-            dispose_state(await pending.catch(() => null));
-        }));
+        const pending = this._default_prefix;
+        this._default_prefix = null;
+        dispose_state(await pending?.catch(() => null));
         this.default_voice?.dispose();
         return super.dispose();
     }

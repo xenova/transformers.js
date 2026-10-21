@@ -14,6 +14,13 @@ function encode(tokenizer, text) {
     });
 }
 
+/**
+ * Split text into the chunks accepted by Phonon's `generate_speech()`, as Python's `PocketTTSProcessor.split_text` does.
+ * @param {import('../../tokenization_utils.js').PreTrainedTokenizer} tokenizer The model's tokenizer.
+ * @param {string} text Text to prepare.
+ * @param {number} max_tokens Soft token budget per chunk (`config.phonon.max_tokens_per_chunk`).
+ * @returns {{ input_ids: number[], word_count: number }[]} The text chunks, in order.
+ */
 export function prepare_phonon_text(tokenizer, text, max_tokens) {
     if (typeof text !== 'string' || !text.trim()) {
         throw new Error('Phonon expects a non-empty text string.');
@@ -24,9 +31,9 @@ export function prepare_phonon_text(tokenizer, text, max_tokens) {
     const tokens = encode(tokenizer, text.trim());
     const boundary_ids = (pieces) =>
         new Set(
-            tokenizer
-                .convert_tokens_to_ids(pieces)
-                .filter((id) => Number.isInteger(id) && id !== tokenizer.unk_token_id),
+            /** @type {number[]} */ (tokenizer.convert_tokens_to_ids(pieces)).filter(
+                (id) => Number.isInteger(id) && id !== tokenizer.unk_token_id,
+            ),
         );
     const sentence_ends = boundary_ids(['.', '!', '...', '?']);
     const clause_ends = boundary_ids([',', ';', ':']);
