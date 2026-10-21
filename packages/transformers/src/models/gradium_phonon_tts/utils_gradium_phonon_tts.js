@@ -4,24 +4,14 @@ import { Tensor } from '../../utils/tensor.js';
 // before they are converted to IDs. Limit the workaround to Phonon encoding.
 // TODO: remove this adapter once https://github.com/huggingface/tokenizers.js/issues/26 is fixed.
 function encode(tokenizer, text) {
-    const model = tokenizer._tokenizer.model;
-    const original = model.encode;
-    if (!model.byte_fallback) {
-        model.encode = (tokens) =>
-            original.call(model, tokens).flatMap((piece) => {
-                if (model.tokens_to_ids.has(piece)) return [piece];
-                const bytes = Array.from(
-                    new TextEncoder().encode(piece),
-                    (b) => `<0x${b.toString(16).toUpperCase().padStart(2, '0')}>`,
-                );
-                return bytes.every((b) => model.tokens_to_ids.has(b)) ? bytes : [piece];
-            });
-    }
-    try {
-        return tokenizer.encode(text, { add_special_tokens: false });
-    } finally {
-        model.encode = original;
-    }
+    return tokenizer.tokenize(text).flatMap((piece) => {
+        const id = tokenizer.convert_tokens_to_ids(piece);
+        if (id != null) return [id];
+        const bytes = tokenizer.convert_tokens_to_ids(
+            Array.from(new TextEncoder().encode(piece), (b) => `<0x${b.toString(16).toUpperCase().padStart(2, '0')}>`),
+        );
+        return bytes.every((id) => id != null) ? bytes : [tokenizer.unk_token_id];
+    });
 }
 
 export function prepare_phonon_text(tokenizer, text, max_tokens) {
@@ -40,27 +30,23 @@ export function prepare_phonon_text(tokenizer, text, max_tokens) {
         );
     const sentence_ends = boundary_ids(['.', '!', '...', '?']);
     const clause_ends = boundary_ids([',', ';', ':']);
-    const split_after = (ids, boundaries, skip_decimals = false) => {
+    // Five tokens cover a four-byte Unicode digit plus punctuation/space.
+    const is_decimal_point = (ids, i) =>
+        /\p{Nd}\.$/u.test(tokenizer.decode(ids.slice(Math.max(0, i - 5), i))) &&
+        /^\p{Nd}/u.test(tokenizer.decode(ids.slice(i, i + 5)));
+    const split_after = (ids, boundaries) => {
         const segments = [];
         let start = 0;
         for (let i = 1; i < ids.length; ++i) {
             if (!boundaries.has(ids[i - 1]) || boundaries.has(ids[i])) continue;
-            if (
-                skip_decimals &&
-                // A Unicode digit may occupy four byte-fallback tokens; five
-                // tokens cover it plus the period/leading space. Keep decoding
-                // bounded instead of repeatedly decoding the whole paragraph.
-                /\p{Nd}\.$/u.test(tokenizer.decode(ids.slice(Math.max(0, i - 5), i))) &&
-                /^\p{Nd}/u.test(tokenizer.decode(ids.slice(i, i + 5)))
-            )
-                continue;
+            if (boundaries === sentence_ends && is_decimal_point(ids, i)) continue;
             segments.push(ids.slice(start, i));
             start = i;
         }
         segments.push(ids.slice(start));
         return segments;
     };
-    const segments = split_after(tokens, sentence_ends, true).flatMap((sentence) =>
+    const segments = split_after(tokens, sentence_ends).flatMap((sentence) =>
         sentence.length > max_tokens ? split_after(sentence, clause_ends) : [sentence],
     );
     const chunks = [];

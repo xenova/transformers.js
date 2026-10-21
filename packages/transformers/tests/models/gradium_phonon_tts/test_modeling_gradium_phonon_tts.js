@@ -3,18 +3,11 @@ import { Tensor as ORTTensor } from "onnxruntime-node";
 import { PretrainedConfig, Tensor, TextToAudioPipeline, GradiumPhononTTSForConditionalGeneration } from "../../../src/transformers.js";
 import { prepare_phonon_text, parse_phonon_voice } from "../../../src/models/gradium_phonon_tts/utils_gradium_phonon_tts.js";
 import { get_model_files } from "../../../src/utils/model_registry/get_model_files.js";
-import { getSessionDtypes } from "../../../src/models/session_config.js";
+import { selectDtype } from "../../../src/utils/dtypes.js";
 import { create_tokenizer } from "./tokenizer_fixture.js";
 import integration_tests from "./test_integration_gradium_phonon_tts.js";
 
-const dtype_config = {
-  dtype: "fp32",
-  dtype_map: {
-    fp32: { flow_lm: "fp32", mimi_decoder: "fp32" },
-    q4: { flow_lm: "q4", mimi_decoder: "fp32" },
-    q4f16: { flow_lm: "q4f16", mimi_decoder: "fp16" },
-  },
-};
+const dtype_config = { dtype: "fp32" };
 const phonon = {
   voice_dim: 2,
   latent_dim: 2,
@@ -101,51 +94,20 @@ export default () => {
   describe("GradiumPhononTTSForConditionalGeneration", () => {
     afterEach(() => jest.restoreAllMocks());
 
-    describe("dtype variants", () => {
-      it.each([
-        [undefined, "fp32", "fp32"],
-        [null, "fp32", "fp32"],
-        ["auto", "fp32", "fp32"],
-        ["q4", "q4", "fp32"],
-        ["q4f16", "q4f16", "fp16"],
-        [{ flow_lm: "auto" }, "fp32", "fp32"],
-        [{ flow_lm: "q4", mimi_decoder: "auto" }, "q4", "fp32"],
-        [{ flow_lm: "q4", mimi_decoder: "fp16" }, "q4", "fp16"],
-      ])("resolves %j to per-session dtypes", (dtype, flow_lm, mimi_decoder) => {
-        expect(getSessionDtypes(config(), dtype)).toEqual({ flow_lm, mimi_decoder });
+    describe("model files", () => {
+      // The Hub aliases use variant suffixes, not decoder precision:
+      // mimi_decoder_q4 is fp32 and mimi_decoder_q4f16 is fp16.
+      it.each(["fp32", "q4", "q4f16"])("lists graphs and the default voice for %s", async (dtype) => {
+        const suffix = dtype === "fp32" ? "" : `_${dtype}`;
+        expect(await get_model_files("unused", { config: config(), dtype })).toEqual(["config.json", "default-voice.safetensors", `onnx/flow_lm${suffix}.onnx`, `onnx/mimi_decoder${suffix}.onnx`]);
       });
-      it("falls back to the first variant without a configured default", () => {
-        const custom = { dtype_map: { q4: { flow_lm: "q4", mimi_decoder: "fp32" } } };
-        expect(getSessionDtypes({ "transformers.js_config": custom }, undefined)).toEqual({ flow_lm: "q4", mimi_decoder: "fp32" });
-        expect(getSessionDtypes({ "transformers.js_config": custom }, "auto")).toEqual({ flow_lm: "q4", mimi_decoder: "fp32" });
-      });
-      it("uses the configured variant for auto without mutating metadata", () => {
-        const custom = { ...dtype_config, dtype: "q4f16" };
-        const cfg = { "transformers.js_config": custom };
-        expect(getSessionDtypes(cfg, "auto")).toEqual({ flow_lm: "q4f16", mimi_decoder: "fp16" });
-        expect(getSessionDtypes(cfg, { flow_lm: "auto", mimi_decoder: "auto" })).toEqual({ flow_lm: "q4f16", mimi_decoder: "fp16" });
-        expect(custom.dtype_map.q4f16).toEqual({ flow_lm: "q4f16", mimi_decoder: "fp16" });
-        expect(getSessionDtypes({ "transformers.js_config": { ...custom, dtype: "auto" } }, "auto")).toEqual(dtype_config.dtype_map.fp32);
-      });
-      it.each(["fp16", "not-a-dtype", { flow_lm: "fp16" }, { missing_session: "auto" }])("lists valid variants for unsupported requests: %j", (dtype) => {
-        expect(() => getSessionDtypes(config(), dtype)).toThrow("Available dtype variants: fp32, q4, q4f16");
-      });
-      it("reports a missing configured default by name rather than undefined", () => {
-        const cfg = { "transformers.js_config": { ...dtype_config, dtype: "missing" } };
-        expect(() => getSessionDtypes(cfg, undefined)).toThrow('Invalid default dtype variant "missing"');
-        expect(() => getSessionDtypes(cfg, "auto")).toThrow("Available dtype variants: fp32, q4, q4f16");
-        expect(getSessionDtypes(cfg, "q4")).toEqual(dtype_config.dtype_map.q4);
-      });
-      it("preserves auto and nullish inputs when no dtype_map exists", () => {
-        for (const dtype of [undefined, null, "auto", "fp16", { model: "auto" }]) {
-          expect(getSessionDtypes({ "transformers.js_config": { dtype: "fp32" } }, dtype)).toBe(dtype);
+      it.each([undefined, "auto"])("uses configured fp32 rather than wasm's q8 default for %j", (dtype) => {
+        for (const name of ["flow_lm", "mimi_decoder"]) {
+          expect(selectDtype(dtype ?? dtype_config.dtype, name, "wasm", { configDtype: dtype_config.dtype })).toBe("fp32");
         }
       });
-      it("lists the mixed-precision graphs and the default voice", async () => {
-        expect(await get_model_files("unused", { config: config(), dtype: "q4" })).toEqual(["config.json", "default-voice.safetensors", "onnx/flow_lm_q4.onnx", "onnx/mimi_decoder.onnx"]);
-      });
-      it("enumerates concrete default files for auto dtype", async () => {
-        expect(await get_model_files("unused", { config: config(), dtype: "auto" })).toEqual(["config.json", "default-voice.safetensors", "onnx/flow_lm.onnx", "onnx/mimi_decoder.onnx"]);
+      it("enumerates fp32 files by default on wasm", async () => {
+        expect(await get_model_files("unused", { config: config(), device: "wasm" })).toEqual(["config.json", "default-voice.safetensors", "onnx/flow_lm.onnx", "onnx/mimi_decoder.onnx"]);
       });
     });
 
@@ -180,11 +142,11 @@ export default () => {
         };
         expect(work(400)).toBeLessThan(work(100) * 5);
       });
-      it("applies byte fallback and restores the tokenizer", () => {
+      it("applies byte fallback using only public tokenizer methods", () => {
         const tok = create_tokenizer();
-        const original = tok._tokenizer.model.encode;
+        const encode = jest.spyOn(tok, "encode");
         expect(tok.decode(prepare_phonon_text(tok, "hi 漢", 50)[0].input_ids)).toBe("Hi 漢.");
-        expect(tok._tokenizer.model.encode).toBe(original);
+        expect(encode).not.toHaveBeenCalled();
       });
     });
 

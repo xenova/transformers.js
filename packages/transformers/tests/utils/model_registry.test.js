@@ -131,26 +131,6 @@ describe("get_available_dtypes", () => {
     expect(dtypes).not.toContain("q4");
   });
 
-  it("discovers dtype_map variants with a shared floating-point decoder", async () => {
-    const config = { ...SEQ2SEQ_CONFIG, "transformers.js_config": {
-      dtype: "fp32", dtype_map: {
-        fp32: { encoder_model: "fp32", decoder_model_merged: "fp32" },
-        q4: { encoder_model: "q4", decoder_model_merged: "fp32" },
-        q4f16: { encoder_model: "q4f16", decoder_model_merged: "fp16" },
-      },
-    } };
-    // Session "model" loads encoder_model: probing by session key alone would
-    // incorrectly reuse the fp32 encoder and report the q4 variant as available.
-    setupExistingFiles("onnx/encoder_model.onnx", "onnx/decoder_model_merged.onnx");
-    expect(await get_available_dtypes("test/mixed", { config })).toEqual(["fp32"]);
-    expect(mockGetFileMetadata.mock.calls.some(([, file]) => file === "onnx/encoder_model_q4.onnx")).toBe(true);
-    setupExistingFiles("onnx/encoder_model.onnx", "onnx/encoder_model_q4.onnx", "onnx/encoder_model_q4f16.onnx", "onnx/decoder_model_merged.onnx");
-    expect(await get_available_dtypes("test/mixed", { config })).toEqual(["fp32", "q4"]);
-    expect(mockGetFileMetadata.mock.calls.some(([, file]) => file === "onnx/decoder_model_merged_q4.onnx")).toBe(false);
-    setupExistingFiles("onnx/encoder_model.onnx", "onnx/encoder_model_q4.onnx", "onnx/encoder_model_q4f16.onnx", "onnx/decoder_model_merged.onnx", "onnx/decoder_model_merged_fp16.onnx");
-    expect(await get_available_dtypes("test/mixed", { config })).toEqual(["fp32", "q4", "q4f16"]);
-  });
-
   it("should handle decoder-only models", async () => {
     setupExistingFiles("onnx/model.onnx", "onnx/model_q4.onnx", "onnx/model_q4f16.onnx");
 

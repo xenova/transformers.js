@@ -1,7 +1,7 @@
 import { DEFAULT_DTYPE_SUFFIX_MAPPING, selectDtype } from '../dtypes.js';
 import { selectDevice } from '../devices.js';
 import { resolveExternalDataFormat, getExternalDataChunkNames } from '../model-loader.js';
-import { getSessionsConfig, getSessionDtypes } from '../../models/session_config.js';
+import { getSessionsConfig } from '../../models/session_config.js';
 import { AutoConfig } from '../../configs.js';
 import { makePretrainedOptionsKey } from '../hub/utils.js';
 import { memoizePromise } from '../memoize_promise.js';
@@ -73,10 +73,10 @@ export async function get_model_files(
     const subfolder = 'onnx'; // Always 'onnx' as per the default in from_pretrained
 
     const rawDevice = overrideDevice ?? custom_config.device;
+    let dtype = overrideDtype ?? custom_config.dtype;
 
     // Infer model type from config
     const modelType = resolve_model_type(config);
-    const dtype = getSessionDtypes(config, overrideDtype) ?? custom_config.dtype;
 
     const add_model_file = (fileName, baseName = null) => {
         baseName = baseName ?? fileName;

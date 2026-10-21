@@ -160,10 +160,8 @@ export class TextToAudioPipeline
     }
 
     async _call(text_inputs, options = /** @type {any} */ ({})) {
-        const model = /** @type {import('../models/modeling_utils.js').PreTrainedModel & {
-         * synthesize?: (text: string|string[], tokenizer: import('../tokenization_utils.js').PreTrainedTokenizer, options: TextToAudioPipelineOptions) => Promise<RawAudio|RawAudio[]>
-         * }} */ (this.model);
-        if (typeof model.synthesize === 'function') {
+        if (this.model.config.model_type === 'gradium_phonon_tts') {
+            const model = /** @type {import('../models/gradium_phonon_tts/modeling_gradium_phonon_tts.js').GradiumPhononTTSForConditionalGeneration} */ (this.model);
             return model.synthesize(text_inputs, this.tokenizer, options);
         }
         // If this.processor is not set, we are using an `AutoModelForTextToWaveform` model

@@ -173,7 +173,7 @@ export function getTextOnlySessions(modelType) {
  * @param {number} modelType The model type enum value.
  * @param {Object} config The model config.
  * @param {Object} [options] Loading options.
- * @returns {{ sessions: Record<string, string>, cache_sessions?: Record<string, true>, optional_configs?: Record<string, string>, additional_files?: string[], available_dtypes?: string[] }}
+ * @returns {{ sessions: Record<string, string>, cache_sessions?: Record<string, true>, optional_configs?: Record<string, string>, additional_files?: string[] }}
  */
 export function getSessionsConfig(modelType, config, options = {}) {
     const typeConfig = MODEL_SESSION_CONFIG[modelType] ?? MODEL_SESSION_CONFIG.default;
@@ -182,56 +182,5 @@ export function getSessionsConfig(modelType, config, options = {}) {
         cache_sessions: typeConfig.cache_sessions,
         optional_configs: typeConfig.optional_configs,
         additional_files: typeConfig.additional_files,
-        available_dtypes: config['transformers.js_config']?.dtype_map
-            ? Object.keys(config['transformers.js_config'].dtype_map)
-            : undefined,
     };
-}
-
-// Shared by loading, file enumeration, and dtype discovery so graph combinations
-// are resolved identically without model-specific branches in those callers.
-export function getSessionDtypes(config, dtype) {
-    const custom = config['transformers.js_config'];
-    const variants = custom?.dtype_map;
-    if (!variants) return dtype;
-    const names = Object.keys(variants);
-    const error = (message) => new Error(`${message}. Available dtype variants: ${names.join(', ') || '(none)'}.`);
-    if (!names.length) throw error('dtype_map must define at least one variant');
-    const first = variants[names[0]];
-    const get_default = () => {
-        if (typeof custom.dtype !== 'string' || custom.dtype === 'auto') return custom.dtype === 'auto' ? first : (custom.dtype ?? first);
-        if (!Object.hasOwn(variants, custom.dtype)) throw error(`Invalid default dtype variant ${JSON.stringify(custom.dtype)}`);
-        return variants[custom.dtype];
-    };
-    // "auto" follows the configured variant (or the first variant), not a
-    // device heuristic that could request graphs absent from this export.
-    let defaults;
-    let selected;
-    if (dtype == null || dtype === 'auto') {
-        selected = { ...(defaults = get_default()) };
-    } else if (typeof dtype === 'string') {
-        if (!Object.hasOwn(variants, dtype)) throw error(`Unsupported dtype variant ${JSON.stringify(dtype)}`);
-        selected = { ...variants[dtype] };
-    } else {
-        selected = { ...(defaults = get_default()), ...dtype };
-    }
-    for (const [session, value] of Object.entries(selected)) {
-        if (value === 'auto') {
-            defaults ??= get_default();
-            selected[session] = defaults[session] === 'auto' ? first[session] : defaults[session];
-        }
-    }
-    if (
-        !selected ||
-        !Object.keys(selected).length ||
-        Object.entries(selected).some(
-            ([session, value]) =>
-                !Object.values(variants).some(
-                    (variant) => Object.hasOwn(variant, session) && variant[session] === value,
-                ),
-        )
-    ) {
-        throw error(`Unsupported dtype mapping ${JSON.stringify(selected)}`);
-    }
-    return { ...selected };
 }
