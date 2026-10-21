@@ -54,3 +54,18 @@ Parent owns hardware validation and both postimplementation review rounds. CPU r
 Internal attention instrumentation reports peak live attention bytes and verifies zero remaining tracked bytes after each call, including timestamp-only mode. This is tensor-lifetime accounting, not the driver's allocator high-water mark or total KV/model memory. Explicit public attention histories remain caller-owned. Timestamp-only calls currently retain complete histories too; large models, beam counts and long generations need separate memory admission measurements. fp16 alignment converts only the selected head/row/query frame range.
 
 The verifier requires an immutable full source SHA, clean-checkout provenance, and matching source hashes for every result; stale evidence fails closed. CPU fixture results are not independent Python parity or hardware execution proof. The deterministic numerical regression uses Python Transformers v4.57.1's prefix cropping and short-median-window semantics.
+
+Round-two numerical validation independently executed the unmodified alignment,
+median-filter, and DTW functions extracted from Python Transformers v4.57.1 with
+PyTorch 2.9.0 and NumPy 2.3.4. Sixteen synthetic comparisons cover changing beam
+ancestry, heterogeneous EOS lengths/frame counts, short median windows, and
+fp16-quantized inputs decoded to fp32. All boundaries match exactly after making
+Whisper statistics and DTW cost accumulation explicitly fp32. The general DTW
+helper retains its previous precision unless the new option is requested. This
+is algorithm parity, not full Python model-inference parity. Near-tie regressions
+are retained in the unit tests.
+
+Seek generation preserves existing processor-provided log-mel silence padding
+while bounding alignment to valid audio frames. The English speech fixture lasts
+13 seconds: its final word now ends at 12.98 seconds (the last valid encoder frame)
+instead of the previous out-of-recording 13.6-second golden.

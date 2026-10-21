@@ -249,10 +249,15 @@ export default () => {
                 { text: " meaning", timestamp: [11.62, 11.78] },
                 { text: " of", timestamp: [11.78, 12.12] },
                 { text: " its", timestamp: [12.12, 12.64] },
-                { text: " creed.", timestamp: [12.64, 13.6] },
+                // The fixture is 13 seconds; the final valid encoder frame starts at 12.98.
+                // Aligning padded silence used to place this boundary beyond the recording.
+                { text: " creed.", timestamp: [12.64, 12.98] },
               ],
             };
             expect(output).toBeCloseToNested(target, 1);
+            for (const chunk of output.chunks) {
+              expect(chunk.timestamp[1]).toBeLessThanOrEqual(audio.length / 16000);
+            }
           },
           MAX_TEST_EXECUTION_TIME,
         );

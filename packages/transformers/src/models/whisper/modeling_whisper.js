@@ -266,7 +266,13 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         while (seek < total_frames) {
             // Slice input features for this segment
             const seek_end = Math.min(seek + num_segment_frames, total_frames);
-            const segment_input = input_features.slice(null, null, [seek, seek_end]);
+            // Keep the feature extractor's normalized silence padding. Valid audio
+            // frames bound seek/alignment, but replacing existing padded features
+            // with zeros changes the encoder input (zero is not log-mel silence).
+            const segment_input = input_features.slice(null, null, [
+                seek,
+                Math.min(seek + num_segment_frames, input_features.dims[2]),
+            ]);
 
             // Pad to full segment size if needed (whisper expects fixed-length input)
             let segment_features;
@@ -536,8 +542,12 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                     for (const row of weights) average += row[frame] / queries;
                     let variance = 0;
                     for (const row of weights) variance += (row[frame] - average) ** 2 / queries;
-                    const scale = Math.sqrt(variance);
-                    for (const row of weights) row[frame] = scale > 0 ? (row[frame] - average) / scale : 0;
+                    // Torch uses fp32 statistics and elementwise arithmetic. Rounding
+                    // matters when near-equal DTW costs choose different boundaries.
+                    average = Math.fround(average);
+                    const scale = Math.fround(Math.sqrt(variance));
+                    for (const row of weights)
+                        row[frame] = scale > 0 ? Math.fround(Math.fround(row[frame] - average) / scale) : 0;
                 }
                 for (let token = 0; token < queries; ++token) {
                     // Python leaves recordings too short for reflection padding unchanged.
@@ -549,7 +559,10 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                         matrix[token][frame] -= filtered[frame] / alignment_heads.length;
                 }
             }
-            const [text, times] = dynamic_time_warping(matrix.map((row) => Array.from(row)));
+            const [text, times] = dynamic_time_warping(
+                matrix.map((row) => Array.from(row)),
+                true,
+            );
             let last = 0;
             for (let i = 0; i < text.length; ++i) {
                 if (i === 0 || text[i] !== text[i - 1]) {

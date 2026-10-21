@@ -205,3 +205,73 @@ it("converts only selected fp16 attention elements", () => {
     spy.mockRestore();
   }
 });
+
+it("preserves preprocessed silence padding while bounding seek to valid audio frames", async () => {
+  const inputs = new Tensor("float32", [1, 2, 3, -1.5, -1.5, -1.5, -1.5, -1.5], [1, 1, 8]);
+  const forward = jest.spyOn(PreTrainedModel.prototype, "generate").mockImplementation(async ({ input_features }) => {
+    expect(input_features.tolist()).toEqual(inputs.tolist());
+    return new Tensor("int64", [9n, 100n, 2n, 101n, 0n], [1, 5]);
+  });
+  const model = Object.assign(Object.create(WhisperForConditionalGeneration.prototype), { config: { max_source_positions: 4 } });
+  try {
+    const output = await model._generate_with_seek({ inputs, generation_config: { num_frames: 3, no_timestamps_token_id: 99, eos_token_id: 0, return_token_timestamps: false }, init_tokens: [9], kwargs: {} });
+    expect(forward).toHaveBeenCalledTimes(1);
+    expect(output.tolist()).toEqual([[9n, 100n, 2n, 101n, 0n]]);
+    expect(inputs.tolist()[0][0][7]).toBe(-1.5);
+  } finally {
+    forward.mockRestore();
+  }
+});
+
+// Golden boundaries from independently executed Transformers v4.57.1 Python
+// alignment, including a shorter EOS result and per-input valid frame lengths.
+it.each([1, 7])("matches upstream fp32 alignment near DTW ties (median=%s)", (median) => {
+  const histories = [
+    [0, 1, 0, 1, 1, -1, -1, -1],
+    [2, 3, 2, -1, -1, -1, -1, -1],
+  ];
+  const steps = Array.from({ length: 5 }, (_, step) =>
+    Array.from({ length: 2 }, (_, layer) => {
+      const dims = [4, 2, step === 0 ? 3 : 1, 16];
+      const data = Float32Array.from({ length: dims.reduce((a, b) => a * b) }, (_, i) => Math.sin(i * 0.83 + step * 2.31 + layer) * 0.6 + Math.cos(i * 0.12 + step) * 0.3);
+      return new Tensor("float32", data, dims);
+    }),
+  );
+  const outputs = {
+    sequences: new Tensor(
+      "int64",
+      Array.from({ length: 16 }, (_, i) => BigInt(i)),
+      [2, 8],
+    ),
+    cross_attentions: steps,
+    beam_indices: new Tensor("int64", histories.flat().map(BigInt), [2, 8]),
+    sequence_lengths: new Tensor("int64", [8n, 6n], [2]),
+    num_beams: 2,
+  };
+  const actual = WhisperForConditionalGeneration.prototype._extract_token_timestamps
+    .call(
+      { config: { median_filter_width: median } },
+      outputs,
+      [
+        [0, 0],
+        [1, 1],
+      ],
+      [16, 10],
+      0.02,
+      3,
+    )
+    .tolist();
+  const expected = {
+    1: [
+      [0.0, 0.0, 0.0, 0.0, 0.25999999046325684, 0.25999999046325684, 0.30000001192092896, 0.30000001192092896],
+      [0.0, 0.0, 0.0, 0.0, 0.03999999910593033, 0.03999999910593033],
+    ],
+    7: [
+      [0.0, 0.0, 0.0, 0.0, 0.25999999046325684, 0.25999999046325684, 0.30000001192092896, 0.30000001192092896],
+      [0.0, 0.0, 0.0, 0.0, 0.14000000059604645, 0.14000000059604645],
+    ],
+  };
+  expect(actual[0]).toEqual(expected[median][0]);
+  expect(actual[1].slice(0, 6)).toEqual(expected[median][1]);
+  expect(actual[1].slice(6)).toEqual([0, 0]);
+});

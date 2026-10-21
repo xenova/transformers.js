@@ -1,4 +1,4 @@
-import { FFT, medianFilter, bankers_round, log_softmax } from "../../src/utils/maths.js";
+import { FFT, medianFilter, bankers_round, log_softmax, dynamic_time_warping } from "../../src/utils/maths.js";
 import { init } from "../init.js";
 
 // Initialise the testing environment
@@ -192,4 +192,17 @@ describe("Mathematical operations", () => {
       });
     }
   });
+});
+
+// Pinned Transformers v4.57.1 alignment matrix: rounding changes the optimal path.
+it("preserves default DTW precision and supports upstream fp32 cost ties", () => {
+  const matrix = [
+    [-1.0, -1.0000001192092896, 1.7881393432617188e-7, -0.0, -5.960464477539063e-8, 2.9802322387695312e-8, 0.9999998807907104, 1.0, -5.364418029785156e-7, -0.0],
+    [1.0, 0.9999999403953552, 1.4901161193847656e-7, 5.960464477539063e-8, -0.0, 5.960464477539063e-8, -1.000000238418579, -1.0, -5.066394805908203e-7, 2.9802322387695312e-8],
+  ];
+  expect(dynamic_time_warping(matrix, true)).toEqual([
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+  ]);
+  expect(dynamic_time_warping(matrix)[0]).toEqual([0, 0, 0, 0, 0, 0, 1, 1, 1, 1]);
 });
