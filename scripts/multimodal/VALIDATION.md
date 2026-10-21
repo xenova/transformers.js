@@ -144,3 +144,21 @@ raw local files are `results/review2-cache-harness.json` and
 Final round-two focused validation: **43/43 tests passed** (real multimodal
 integrations and numeric/ownership regressions), with build/typegen and full
 docs generation/validation passing. Full-suite and hardware reruns remain pending.
+
+## Final full-suite and harness handoff
+
+At clean runtime/source commit `77a166f57f6f24aad281ee2f0100ecd44929d0fe`, the
+root `pnpm test --config ../../scripts/multimodal/jest.config.mjs` command exited
+**0**: **2,331 passed, 47 existing skips, 33 suites** (2,311 main-package tests
+and 20 structured-output tests). Online public fixture access and one recyclable
+worker were used. Local raw evidence: `results/round2-full-suite-77a166f.log`.
+
+Subsequent changes touch only harnesses/documentation/fixture metadata. Browser
+buffer tracking now attaches to the actual ORT runtime device after model load,
+including its error listener; ORT can replace the initially supplied device.
+The strict positive-allocation and zero-leak gates remain in place. Browser bundle
+build and native Llava cache/failure smoke were rerun after these harness changes.
+The new JFK speech fixture decoder was checked to produce two distinct 48,000-
+sample crops, with processed hashes in the manifest. Runtime library source is
+unchanged since the passing full suite; real hardware final evidence is retained
+by the parent task rather than claimed here.

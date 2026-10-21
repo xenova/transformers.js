@@ -45,9 +45,14 @@ window.runBeamGPU = async (options) => {
   const liveBuffers = new Set();
   let peakOwnedBuffers = 0;
   const trackedDevices = new WeakSet();
+  const errors = [];
   const trackDevice = (gpuDevice) => {
     if (trackedDevices.has(gpuDevice)) return;
     trackedDevices.add(gpuDevice);
+    gpuDevice.addEventListener("uncapturederror", (event) => {
+      errors.push(event.error.message);
+      console.error(event.error.message);
+    });
     const createBuffer = gpuDevice.createBuffer.bind(gpuDevice);
     gpuDevice.createBuffer = (descriptor) => {
       const buffer = createBuffer(descriptor);
@@ -64,11 +69,6 @@ window.runBeamGPU = async (options) => {
     };
   };
   trackDevice(device);
-  const errors = [];
-  device.addEventListener("uncapturederror", (event) => {
-    errors.push(event.error.message);
-    console.error(event.error.message);
-  });
   device.lost.then((value) => {
     console.error("DEVICE_LOST", value.reason, value.message);
   });
@@ -82,11 +82,15 @@ window.runBeamGPU = async (options) => {
       ...options,
       device: options.device ?? "webgpu",
       sample_allocations: async () => {
-        await device.queue.onSubmittedWorkDone();
+        // ORT may replace the supplied device while creating model sessions.
+        // Track the runtime device after loading, before every generation call.
+        const runtimeDevice = await env.backends.onnx.webgpu.device;
+        trackDevice(runtimeDevice);
+        await runtimeDevice.queue.onSubmittedWorkDone();
         return { beam_buffers: liveBuffers.size, beam_bytes: [...liveBuffers].reduce((sum, buffer) => sum + buffer.size, 0) };
       },
     });
-    await device.queue.onSubmittedWorkDone();
+    await (await env.backends.onnx.webgpu.device).queue.onSubmittedWorkDone();
     const gpuCacheObserved = result.forward_locations.some((step) =>
       Object.entries(step).some(([key, location]) => key.startsWith("present.") && location === "gpu-buffer"),
     );

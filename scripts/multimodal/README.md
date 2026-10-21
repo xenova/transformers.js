@@ -130,3 +130,14 @@ Qwen raw new-image chunks after image-containing caches are explicitly rejected.
 Use prepared embeddings/positions or uncached full conversation generation. Raw
 new images after a text-only cache require full input-id history; query-only
 raw-image cache inputs are rejected because the cache lacks modality provenance.
+
+## Real speech fixture
+
+For Ultravox, pass `audio_urls` containing the pinned JFK WAV URL twice from
+[speech-fixture.json](speech-fixture.json), `audio_offsets:[0,3]`, and
+`audio_seconds:3`. The fixture decoder averages PCM16 channels, linearly resamples
+to 16 kHz, and takes two distinct equal-length 48,000-sample crops. The manifest
+records source and processed-crop hashes. This is an explicit deterministic test
+input conversion, not a general-purpose or production audio decoder.
+Use `max_new_tokens:32` to inspect meaningful output beyond short smoke tests;
+the harness keeps exact batch/independent token and rank comparison as its gate.

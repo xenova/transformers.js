@@ -1,0 +1,19 @@
+{
+  "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/542437c29cc5273cfd29e25c77696f2b349badd7/jfk.wav",
+  "sha256": "aa81c2552465568567e670f3823117e633900d16bd6202346a72f3c8464c74c8",
+  "bytes": 1940478,
+  "channels": 2,
+  "sample_width": 2,
+  "sample_rate": 44100,
+  "frames": 485100,
+  "crop_seconds": 3,
+  "crop_offsets_seconds": [
+    0,
+    3
+  ],
+  "preprocessing": "PCM16 channel averaging, linear resampling to16000Hz, exact48000sample crops at0s/3s",
+  "crop_pcm_f32le_sha256": [
+    "1ee24a3720df3785e60c5e46335fff35db9c85a21556481b38602b2583af4cee",
+    "e489cde2eadbe146aa49cd6d5596ab5a2c6e7edb5977c3cdaee1fa1a5f0c2e6f"
+  ]
+}

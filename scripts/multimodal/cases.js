@@ -75,18 +75,30 @@ export function collate(samples) {
   return result;
 }
 
-export async function makeSamples(processor, family, { ragged = false, image_urls = null } = {}) {
+export async function makeSamples(processor, family, { ragged = false, image_urls = null, audio_urls = null, audio_offsets = [0, 3], audio_seconds = 3 } = {}) {
   if (image_urls && (family === "ultravox" || image_urls.length !== 2)) {
     throw new Error("image_urls requires two photographic image URLs and an image model");
   }
   const photographs = image_urls ? await Promise.all(image_urls.map((url) => RawImage.fromURL(url))) : null;
+  if (
+    audio_urls &&
+    (family !== "ultravox" ||
+      audio_urls.length !== 2 ||
+      audio_offsets.length !== 2 ||
+      !Number.isFinite(audio_seconds) ||
+      audio_seconds <= 0 ||
+      audio_offsets.some((x) => !Number.isFinite(x) || x < 0))
+  ) {
+    throw new Error("audio_urls requires two speech URLs, two nonnegative offsets, positive duration, and an Ultravox model");
+  }
+  const speech = audio_urls ? await Promise.all(audio_urls.map((url, i) => loadSpeech(url, audio_offsets[i], audio_seconds))) : null;
   const samples = [];
   for (let i = 0; i < 2; ++i) {
     if (family === "ultravox") {
       samples.push(
         await processor(
           "Listen: <|audio|> Describe the sound.",
-          Float32Array.from({ length: 16000 }, (_, t) => 0.1 * Math.sin((t * 2 * Math.PI * (i ? 880 : 440)) / 16000)),
+          speech ? speech[i] : Float32Array.from({ length: 16000 }, (_, t) => 0.1 * Math.sin((t * 2 * Math.PI * (i ? 880 : 440)) / 16000)),
         ),
       );
       continue;
@@ -146,6 +158,9 @@ export async function runMultimodal(options = {}) {
     source,
     requested: load,
     image_urls: options.image_urls ?? null,
+    audio_urls: options.audio_urls ?? null,
+    audio_offsets: options.audio_offsets ?? [0, 3],
+    audio_seconds: options.audio_seconds ?? 3,
     cases: [],
     forward_locations: [],
     encoder_calls: 0,
@@ -320,4 +335,48 @@ export async function runMultimodal(options = {}) {
   } finally {
     await model.dispose();
   }
+}
+
+// Deterministic fixture PCM16 WAV decode, channel averaging, linear
+// resampling to16kHz, and exact duration crop. Not a general audio decoder.
+async function loadSpeech(url, offset, seconds) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Audio fetch ${response.status}`);
+  const buffer = await response.arrayBuffer(),
+    view = new DataView(buffer);
+  if (buffer.byteLength < 12) throw new Error("Truncated WAV");
+  const tag = (p) => String.fromCharCode(...new Uint8Array(buffer, p, 4));
+  if (tag(0) !== "RIFF" || tag(8) !== "WAVE") throw new Error("Expected RIFF WAV");
+  let channels, rate, bits, format, data, size;
+  for (let p = 12; p + 8 <= buffer.byteLength; ) {
+    const n = view.getUint32(p + 4, true);
+    if (p + 8 + n > buffer.byteLength) throw new Error("Truncated WAV");
+    if (tag(p) === "fmt ") {
+      if (n < 16) throw new Error("Truncated WAV format");
+      format = view.getUint16(p + 8, true);
+      channels = view.getUint16(p + 10, true);
+      rate = view.getUint32(p + 12, true);
+      bits = view.getUint16(p + 22, true);
+    }
+    if (tag(p) === "data") {
+      data = p + 8;
+      size = n;
+    }
+    p += 8 + n + (n % 2);
+  }
+  if (format !== 1 || bits !== 16 || !channels || !data) throw new Error("Expected PCM16 WAV");
+  const total = size / (channels * 2),
+    count = Math.round(seconds * 16000);
+  if ((offset + seconds) * rate > total) throw new Error("Speech crop exceeds source");
+  const sample = (frame) => {
+    let sum = 0;
+    for (let c = 0; c < channels; c++) sum += view.getInt16(data + (frame * channels + c) * 2, true) / 32768;
+    return sum / channels;
+  };
+  return Float32Array.from({ length: count }, (_, i) => {
+    const p = offset * rate + (i * rate) / 16000,
+      a = Math.floor(p),
+      f = p - a;
+    return sample(a) * (1 - f) + sample(Math.min(a + 1, total - 1)) * f;
+  });
 }
