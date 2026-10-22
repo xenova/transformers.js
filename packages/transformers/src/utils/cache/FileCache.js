@@ -25,6 +25,10 @@ export class FileCache {
      * Translate cache identity to storage layout. Versioned keys are stored at the
      * same path as unversioned ones, so the cache keeps the layout of the repo; the
      * version lives in a marker file next to the cached file (no marker = version 0).
+     *
+     * Releases before versioning don't know about markers. If one shares this folder
+     * and deletes and re-downloads a versioned file, the old marker stays and the
+     * re-downloaded file counts as current. That case is rare, so it is accepted.
      * @private
      * @param {string} request
      * @returns {{ filePath: string, markerPath: string, version: number }}
