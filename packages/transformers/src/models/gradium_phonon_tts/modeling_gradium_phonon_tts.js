@@ -3,12 +3,10 @@
  */
 
 import { PreTrainedModel } from '../modeling_utils.js';
-import { Tensor, randn } from '../../utils/tensor.js';
+import { Tensor, full, randn } from '../../utils/tensor.js';
 import { sessionRun } from '../session.js';
 import { logger } from '../../utils/logger.js';
 
-const f32 = (dims, data = null) =>
-    new Tensor('float32', data ?? new Float32Array(dims.reduce((a, b) => a * b, 1)), dims);
 const i64 = (values, dims) => new Tensor('int64', BigInt64Array.from(values, BigInt), dims);
 const dispose_state = (state) => {
     for (const tensor of Object.values(state ?? {})) tensor.dispose();
@@ -17,7 +15,7 @@ const dispose_state = (state) => {
 function empty_cache({ num_layers, num_heads, head_dim }) {
     return Object.fromEntries(
         Array.from({ length: num_layers }, (_, i) =>
-            ['key', 'value'].map((key) => [`past_key_values.${i}.${key}`, f32([1, num_heads, 0, head_dim])]),
+            ['key', 'value'].map((key) => [`past_key_values.${i}.${key}`, full([1, num_heads, 0, head_dim], 0)]),
         ).flat(),
     );
 }
@@ -50,11 +48,11 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         const cfg = this.config.phonon;
         const inputs = {
             text_ids: i64(text, [1, text.length]),
-            voice_latents: voice ?? f32([1, cfg.voice_dim, 0]),
-            latent: latent ?? f32([1, 0, cfg.latent_dim]),
-            noise: noise ?? f32([1, cfg.latent_dim]),
+            voice_latents: voice ?? full([1, cfg.voice_dim, 0], 0),
+            latent: latent ?? full([1, 0, cfg.latent_dim], 0),
+            noise: noise ?? full([1, cfg.latent_dim], 0),
             num_speakers: i64([num_speakers], [1]),
-            duration_delta: f32([1], new Float32Array([duration_delta])),
+            duration_delta: full([1], duration_delta),
         };
         try {
             return await sessionRun(this.sessions.flow_lm, { ...inputs, ...past });
@@ -142,15 +140,15 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
             prompt.latent_out.dispose();
             prompt.eos_logit.dispose();
             codec = { past_offset: i64([0], [1]), ...empty_cache(cfg.mimi_decoder) };
-            for (const [name, dims] of Object.entries(cfg.mimi_decoder.conv_states)) codec[name] = f32(dims);
-            latent = f32([1, 1, cfg.latent_dim], new Float32Array(cfg.latent_dim).fill(NaN));
+            for (const [name, dims] of Object.entries(cfg.mimi_decoder.conv_states)) codec[name] = full(dims, 0);
+            latent = full([1, 1, cfg.latent_dim], NaN);
             let countdown = null;
             // Frame budget of the original runtime; the EOS countdown follows Python's PocketTTSGenerationMixin.
             const max_frames = Math.ceil((input_ids.length / 3 + 2) * cfg.frame_rate);
             for (let frame = 0; frame < max_frames; ++frame) {
                 const noise =
                     temperature === 0
-                        ? f32([1, cfg.latent_dim])
+                        ? full([1, cfg.latent_dim], 0)
                         : randn([1, cfg.latent_dim]).mul_(Math.sqrt(temperature));
                 const step = await this._run_flow(state, { latent, noise, ...conditions });
                 dispose_state(state);
