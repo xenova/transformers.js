@@ -42,13 +42,10 @@ function next_state(outputs) {
  * while `mimi_decoder_q4f16.onnx` is fp16 (only the flow model is quantized).
  */
 export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
-    get phonon_config() {
-        return /** @type {any} */ (this.config).phonon;
-    }
-
     // Python keeps these as config values; the checkpoint stores them under `phonon.conditions`.
     get default_conditions() {
-        const { num_speakers, duration_delta } = this.phonon_config.conditions;
+        // @ts-expect-error TS2339
+        const { num_speakers, duration_delta } = this.config.phonon.conditions;
         return { num_speakers: Number(num_speakers.default), duration_delta: Number(duration_delta.default) };
     }
 
@@ -81,7 +78,8 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     }
 
     async _run_flow(past, { text = [], voice = null, latent = null, noise = null, num_speakers, duration_delta }) {
-        const cfg = this.phonon_config;
+        // @ts-expect-error TS2339
+        const cfg = this.config.phonon;
         const inputs = {
             text_ids: i64(text, [1, text.length]),
             voice_latents: voice ?? f32([1, cfg.voice_dim, 0]),
@@ -104,7 +102,8 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     // cached until disposal, any other voice's prefix is released by the caller after one call.
     async _prepare_voice(voice) {
         const create = async () => {
-            const cache = empty_cache(this.phonon_config.flow_lm);
+            // @ts-expect-error TS2339
+            const cache = empty_cache(this.config.phonon.flow_lm);
             try {
                 const outputs = await this._run_flow(cache, { voice, ...this.default_conditions });
                 outputs.latent_out.dispose();
@@ -159,7 +158,8 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     async *generate_speech({
         chunks,
         speaker_embeddings = this.default_voice,
-        temperature = this.phonon_config.temperature,
+        // @ts-expect-error TS2339
+        temperature = this.config.phonon.temperature,
         num_speakers = this.default_conditions.num_speakers,
         duration_delta = this.default_conditions.duration_delta,
     }) {
@@ -175,7 +175,8 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
     }
 
     async *_generate_frames(input_ids, word_count, prefix, temperature, conditions) {
-        const cfg = this.phonon_config;
+        // @ts-expect-error TS2339
+        const cfg = this.config.phonon;
         let state = null,
             codec = null,
             latent = null;
