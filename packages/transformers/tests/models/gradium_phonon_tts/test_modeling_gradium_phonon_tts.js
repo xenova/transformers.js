@@ -165,7 +165,7 @@ export default () => {
           expect(decoder.run).toHaveBeenCalledTimes(4);
           expect(Array.from(result.audio)).toEqual([0.25, -0.5, 0.25, -0.5, 0.25, -0.5, 0.25, -0.5]);
           expect(steps.every(({ noise }) => noise.every((value) => value === 0))).toBe(true);
-          expect(fetch).toHaveBeenCalledWith(phonon.default_voice);
+          expect(fetch).toHaveBeenCalledWith(phonon.default_voice, expect.anything());
           await pipe("Hello.");
           // Nothing is cached: every call loads and conditions its voice.
           expect(fetch).toHaveBeenCalledTimes(2);
@@ -243,7 +243,7 @@ export default () => {
         const { pipe, flow, fetch } = fake_pipeline();
         fetch.mockResolvedValueOnce(new Response("not found", { status: 404, statusText: "Not Found" }));
         try {
-          await expect(pipe("Hello.", { speaker_embeddings: url })).rejects.toThrow("Unable to load speaker embeddings: 404 Not Found");
+          await expect(pipe("Hello.", { speaker_embeddings: url })).rejects.toThrow("Unable to load Phonon voice: 404 Not Found");
           expect(flow.run).not.toHaveBeenCalled();
           await pipe("Try again.", { speaker_embeddings: url });
           expect(fetch).toHaveBeenCalledTimes(2);
@@ -313,9 +313,8 @@ export default () => {
 
       it("streams finite 24 kHz frames, stops on EOS and repeats deterministically", async () => {
         const text = "Hello from Phonon.";
-        const { voice_dim, default_voice, frame_rate } = tts.model.config.phonon;
-        const data = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
-        const speaker_embeddings = new Tensor("float32", data, [1, voice_dim, data.length / voice_dim]);
+        const { frame_rate } = tts.model.config.phonon;
+        const speaker_embeddings = await tts.model.load_voice();
         const chunks = await tts.processor(text);
         const frames = [];
         for await (const pcm of tts.model.generate_speech({ chunks, speaker_embeddings, temperature: 0 })) frames.push(pcm);
@@ -336,9 +335,7 @@ export default () => {
       }, MAX_TEST_EXECUTION_TIME);
 
       it("uses real custom-voice prefixes and recovers from an early stream exit", async () => {
-        const { voice_dim, default_voice } = tts.model.config.phonon;
-        const data = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
-        const voice = new Tensor("float32", data, [1, voice_dim, data.length / voice_dim]);
+        const voice = await tts.model.load_voice();
         try {
           const chunks = await tts.processor("Hello.");
           for await (const pcm of tts.model.generate_speech({ chunks, speaker_embeddings: voice, temperature: 0 })) {
@@ -352,13 +349,19 @@ export default () => {
         } finally { voice.dispose(); }
       }, MAX_TEST_EXECUTION_TIME);
 
-      it("loads a flat voice URL through the pipeline", async () => {
-        const speaker_embeddings = `https://huggingface.co/${MODEL_ID}/resolve/main/voices/LMDIYE0Oa377Qh6Z.bin`;
-        for (const voice of [speaker_embeddings, new URL(speaker_embeddings)]) {
-          const output = await tts("Hello.", { speaker_embeddings: voice, temperature: 0 });
+      it("loads flat voices from URLs and repo-relative paths", async () => {
+        const path = "voices/LMDIYE0Oa377Qh6Z.bin";
+        const url = `https://huggingface.co/${MODEL_ID}/resolve/main/${path}`;
+        expect((await tts.model.load_voice(path)).dims).toEqual([1, 512, 125]);
+        const outputs = [];
+        for (const speaker_embeddings of [path, url, new URL(url)]) {
+          const output = await tts("Hello.", { speaker_embeddings, temperature: 0 });
           expect(output.audio.length).toBeGreaterThan(0);
           expect(output.audio.every(Number.isFinite)).toBe(true);
+          outputs.push(output.audio);
         }
+        expect(outputs[1]).toEqual(outputs[0]);
+        expect(outputs[2]).toEqual(outputs[0]);
       }, MAX_TEST_EXECUTION_TIME);
     });
   });

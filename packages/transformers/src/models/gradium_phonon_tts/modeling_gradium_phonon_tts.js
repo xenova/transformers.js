@@ -5,6 +5,7 @@
 import { PreTrainedModel } from '../modeling_utils.js';
 import { Tensor, full, randn } from '../../utils/tensor.js';
 import { sessionRun } from '../session.js';
+import { getFile, getModelFile } from '../../utils/hub.js';
 import { logger } from '../../utils/logger.js';
 
 const i64 = (values, dims) => new Tensor('int64', BigInt64Array.from(values, BigInt), dims);
@@ -41,6 +42,55 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         // @ts-expect-error TS2339
         const { num_speakers, duration_delta } = this.config.phonon.conditions;
         return { num_speakers: Number(num_speakers.default), duration_delta: Number(duration_delta.default) };
+    }
+
+    /** @type {{ path: string, options: Object }} Where the model was loaded from, for `load_voice()`. */
+    _source;
+
+    /**
+     * Load the model and remember where it came from, so `load_voice()` can resolve repo-relative voices.
+     * @param {string} pretrained_model_name_or_path Model repository ID or local directory.
+     * @param {import('../../utils/hub.js').PretrainedModelOptions} [options={}] Model loading options.
+     * @returns {Promise<GradiumPhononTTSForConditionalGeneration>} The loaded model.
+     */
+    static async from_pretrained(pretrained_model_name_or_path, options = {}) {
+        const model = /** @type {GradiumPhononTTSForConditionalGeneration} */ (
+            await super.from_pretrained(pretrained_model_name_or_path, options)
+        );
+        const { revision, cache_dir, local_files_only } = options;
+        model._source = { path: pretrained_model_name_or_path, options: { revision, cache_dir, local_files_only } };
+        return model;
+    }
+
+    /**
+     * Load a voice for `speaker_embeddings`: a flat float32 file in `[1, voice_dim, frames]` order.
+     * Repo-relative paths (like `voices/default.bin`) are loaded like the model files, so they follow the
+     * model's revision, local model path, cache and remote host settings. Absolute URLs are fetched as-is.
+     * @param {string|URL} [voice] Repo-relative path or absolute URL. Defaults to the checkpoint's `phonon.default_voice`.
+     * @returns {Promise<Tensor>} The voice, of shape `[1, voice_dim, frames]`.
+     */
+    // @ts-expect-error TS2339
+    async load_voice(voice = this.config.phonon.default_voice) {
+        let bytes;
+        if (voice instanceof URL || /^[a-z][a-z\d+.-]*:/i.test(voice)) {
+            const response = await getFile(voice);
+            if (response.status !== 200) {
+                throw new Error(`Unable to load Phonon voice: ${response.status} ${response.statusText}.`);
+            }
+            bytes = new Uint8Array(await response.arrayBuffer());
+        } else {
+            bytes = /** @type {Uint8Array} */ (
+                await getModelFile(this._source.path, voice, true, this._source.options)
+            );
+        }
+        // @ts-expect-error TS2339
+        const { voice_dim } = this.config.phonon;
+        if (!bytes.byteLength || bytes.byteLength % (4 * voice_dim)) {
+            throw new Error(`Phonon voice must be float32 data in [1, ${voice_dim}, frames] order.`);
+        }
+        // Copy, as the bytes may not be 4-byte aligned.
+        const data = new Float32Array(bytes.slice().buffer);
+        return new Tensor('float32', data, [1, voice_dim, data.length / voice_dim]);
     }
 
     async _run_flow(past, { text = [], voice = null, latent = null, noise = null, num_speakers, duration_delta }) {
@@ -96,13 +146,11 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      *
      * **Example:** Consume PCM directly without retaining the complete waveform.
      * ```javascript
-     * import { AutoProcessor, GradiumPhononTTSForConditionalGeneration, Tensor } from '@huggingface/transformers';
+     * import { AutoProcessor, GradiumPhononTTSForConditionalGeneration } from '@huggingface/transformers';
      * const id = 'onnx-community/phonon-31m-en-ONNX';
      * const processor = await AutoProcessor.from_pretrained(id);
      * const model = await GradiumPhononTTSForConditionalGeneration.from_pretrained(id, { dtype: 'q4' });
-     * const { voice_dim, default_voice } = model.config.phonon;
-     * const voice = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
-     * const speaker_embeddings = new Tensor('float32', voice, [1, voice_dim, voice.length / voice_dim]);
+     * const speaker_embeddings = await model.load_voice(); // or e.g. model.load_voice('voices/LMDIYE0Oa377Qh6Z.bin')
      * const chunks = await processor('Hello from Phonon.');
      * for await (const pcm of model.generate_speech({ chunks, speaker_embeddings })) {
      *   console.log(pcm.length); // 1920 mono samples at 24 kHz

@@ -27,7 +27,8 @@ import { env } from '../env.js';
  *
  * @typedef {Object} TextToAudioPipelineOptions Parameters specific to text-to-audio pipelines.
  * @property {Tensor|Float32Array|string|URL} [speaker_embeddings=null] The speaker embeddings (if the model requires it).
- * Phonon voices are flat float32 data in `[1, voice_dim, frames]` order; omit it to use the checkpoint's default voice.
+ * Phonon voices are flat float32 data in `[1, voice_dim, frames]` order, given as a URL, a path relative to the model repo
+ * (e.g. `voices/LMDIYE0Oa377Qh6Z.bin`), an array or a tensor; omit it to use the checkpoint's default voice.
  * @property {number} [num_inference_steps] The number of denoising steps (if the model supports it).
  * More denoising steps usually lead to higher quality audio but slower inference.
  * @property {number} [speed] The speed of the generated audio (if the model supports it).
@@ -209,11 +210,16 @@ export class TextToAudioPipeline
      */
     async _call_phonon(text_inputs, { speaker_embeddings, temperature, num_speakers, duration_delta } = {}) {
         // @ts-expect-error TS2339
-        const { sample_rate, voice_dim, default_voice } = this.model.config.phonon;
+        const { sample_rate, voice_dim } = this.model.config.phonon;
         const texts = Array.isArray(text_inputs) ? text_inputs : [text_inputs];
         const inputs = await Promise.all(texts.map((text) => this.processor(text)));
+        // Paths and URLs (or the default voice) load through the model, so repo-relative voices
+        // follow the model's revision and cache settings. Arrays and tensors take the shared path.
         const embeddings = /** @type {Tensor} */ (
-            await this._prepare_speaker_embeddings(speaker_embeddings ?? default_voice, 1)
+            speaker_embeddings == null || typeof speaker_embeddings === 'string' || speaker_embeddings instanceof URL
+                ? // @ts-expect-error TS2339
+                  await this.model.load_voice(speaker_embeddings ?? undefined)
+                : await this._prepare_speaker_embeddings(speaker_embeddings, 1)
         );
         if (embeddings.type !== 'float32' || !embeddings.size || embeddings.size % voice_dim !== 0) {
             throw new Error(`Phonon speaker_embeddings must be float32 data in [1, ${voice_dim}, frames] order.`);
