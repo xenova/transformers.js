@@ -97,8 +97,7 @@ export async function get_model_files(
     };
 
     // Get session configuration from the shared source of truth
-    const { sessions, optional_configs, additional_files } = getSessionsConfig(modelType, config, { model_file_name });
-    files.push(...(additional_files ?? []));
+    const { sessions, optional_configs } = getSessionsConfig(modelType, config, { model_file_name });
 
     // Add model files based on sessions
     for (const [sessionKey, baseName] of Object.entries(sessions)) {

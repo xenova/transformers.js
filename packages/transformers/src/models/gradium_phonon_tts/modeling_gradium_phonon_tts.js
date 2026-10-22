@@ -4,9 +4,7 @@
 
 import { PreTrainedModel } from '../modeling_utils.js';
 import { Tensor, randn } from '../../utils/tensor.js';
-import { getModelFile } from '../../utils/hub.js';
 import { sessionRun } from '../session.js';
-import { parse_phonon_voice } from './utils_gradium_phonon_tts.js';
 import { logger } from '../../utils/logger.js';
 
 export { prepare_phonon_text } from './utils_gradium_phonon_tts.js';
@@ -49,34 +47,6 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         return { num_speakers: Number(num_speakers.default), duration_delta: Number(duration_delta.default) };
     }
 
-    /** @type {Tensor} */
-    default_voice;
-
-    /** @type {Promise<Record<string, Tensor>>|null} */
-    _default_prefix = null;
-
-    /**
-     * Load both streaming graphs and the bundled default voice.
-     * @param {string} model_id Model repository ID or local directory.
-     * @param {import('../../utils/hub.js').PretrainedModelOptions} [options={}] Model loading options.
-     * @returns {Promise<GradiumPhononTTSForConditionalGeneration>} The ready-to-use speech model.
-     */
-    static async from_pretrained(model_id, options = {}) {
-        const model = /** @type {GradiumPhononTTSForConditionalGeneration} */ (
-            await super.from_pretrained(model_id, options)
-        );
-        try {
-            const bytes = /** @type {Uint8Array} */ (
-                await getModelFile(model_id, 'default-voice.safetensors', true, options)
-            );
-            model.default_voice = parse_phonon_voice(bytes);
-            return model;
-        } catch (error) {
-            await model.dispose();
-            throw error;
-        }
-    }
-
     async _run_flow(past, { text = [], voice = null, latent = null, noise = null, num_speakers, duration_delta }) {
         // @ts-expect-error TS2339
         const cfg = this.config.phonon;
@@ -98,46 +68,31 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         }
     }
 
-    // The only place that decides who owns a voice prefix: the bundled default voice's prefix is
-    // cached until disposal, any other voice's prefix is released by the caller after one call.
+    // Conditions the flow model on a voice. The returned prefix is owned and freed by `generate_speech`.
     async _prepare_voice(voice) {
-        const create = async () => {
-            // @ts-expect-error TS2339
-            const cache = empty_cache(this.config.phonon.flow_lm);
-            try {
-                const outputs = await this._run_flow(cache, { voice, ...this.default_conditions });
-                outputs.latent_out.dispose();
-                outputs.eos_logit.dispose();
-                return next_state(outputs);
-            } finally {
-                dispose_state(cache);
-            }
-        };
-        if (voice !== this.default_voice) {
-            const state = await create();
-            return { state, release: () => dispose_state(state) };
+        // @ts-expect-error TS2339
+        const cache = empty_cache(this.config.phonon.flow_lm);
+        try {
+            const outputs = await this._run_flow(cache, { voice, ...this.default_conditions });
+            outputs.latent_out.dispose();
+            outputs.eos_logit.dispose();
+            return next_state(outputs);
+        } finally {
+            dispose_state(cache);
         }
-        if (!this._default_prefix) {
-            const pending = (this._default_prefix = create());
-            pending.catch(() => {
-                if (this._default_prefix === pending) this._default_prefix = null;
-            });
-        }
-        return { state: await this._default_prefix, release: () => {} };
     }
 
     /**
      * Generate speech for prepared text chunks as streaming 24 kHz PCM frames.
      *
-     * The voice prefix is conditioned once per call and shared across all chunks. Only the prefix of
-     * the bundled default voice is cached (until `dispose()`); any other voice is reconditioned on every
-     * call, and its prefix is freed when the generator finishes, throws, or is exited early.
-     * `speaker_embeddings` itself always remains owned by the caller.
+     * The voice prefix is conditioned once per call, shared across all chunks, and freed when the
+     * generator finishes, throws, or is exited early. Nothing is cached between calls, and
+     * `speaker_embeddings` remains owned by the caller.
      *
      * @param {Object} options Generation inputs and conditioning controls.
      * @param {{ input_ids: number[], word_count: number }[]} options.chunks Text chunks to speak, in order.
      * `word_count` chooses the end-of-speech tail length.
-     * @param {Tensor} [options.speaker_embeddings] Voice latents of shape `[1, voice_dim, frames]`. Defaults to the bundled voice.
+     * @param {Tensor} options.speaker_embeddings Voice latents of shape `[1, voice_dim, frames]`.
      * @param {number} [options.temperature] Flow noise variance (as in Python transformers); 0 = deterministic.
      * @param {number} [options.num_speakers] Speaker conditioning index (`0 | 1 | 2`), not a count.
      * @param {number} [options.duration_delta] Duration conditioning value.
@@ -145,32 +100,35 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      *
      * **Example:** Consume PCM directly without retaining the complete waveform.
      * ```javascript
-     * import { AutoTokenizer, GradiumPhononTTSForConditionalGeneration, prepare_phonon_text } from '@huggingface/transformers';
+     * import { AutoTokenizer, GradiumPhononTTSForConditionalGeneration, Tensor, prepare_phonon_text } from '@huggingface/transformers';
      * const id = 'onnx-community/phonon-31m-en-ONNX';
      * const tokenizer = await AutoTokenizer.from_pretrained(id);
      * const model = await GradiumPhononTTSForConditionalGeneration.from_pretrained(id, { dtype: 'q4' });
-     * const chunks = prepare_phonon_text(tokenizer, 'Hello from Phonon.', model.config.phonon.max_tokens_per_chunk);
-     * for await (const pcm of model.generate_speech({ chunks })) {
+     * const { voice_dim, default_voice, max_tokens_per_chunk } = model.config.phonon;
+     * const voice = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
+     * const speaker_embeddings = new Tensor('float32', voice, [1, voice_dim, voice.length / voice_dim]);
+     * const chunks = prepare_phonon_text(tokenizer, 'Hello from Phonon.', max_tokens_per_chunk);
+     * for await (const pcm of model.generate_speech({ chunks, speaker_embeddings })) {
      *   console.log(pcm.length); // 1920 mono samples at 24 kHz
      * }
      * ```
      */
     async *generate_speech({
         chunks,
-        speaker_embeddings = this.default_voice,
+        speaker_embeddings,
         // @ts-expect-error TS2339
         temperature = this.config.phonon.temperature,
         num_speakers = this.default_conditions.num_speakers,
         duration_delta = this.default_conditions.duration_delta,
     }) {
         const conditions = { num_speakers, duration_delta };
-        const voice = await this._prepare_voice(speaker_embeddings);
+        const prefix = await this._prepare_voice(speaker_embeddings);
         try {
             for (const { input_ids, word_count } of chunks) {
-                yield* this._generate_frames(input_ids, word_count, voice.state, temperature, conditions);
+                yield* this._generate_frames(input_ids, word_count, prefix, temperature, conditions);
             }
         } finally {
-            voice.release();
+            dispose_state(prefix);
         }
     }
 
@@ -219,13 +177,5 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
             dispose_state(codec);
             latent?.dispose();
         }
-    }
-
-    async dispose() {
-        const pending = this._default_prefix;
-        this._default_prefix = null;
-        dispose_state(await pending?.catch(() => null));
-        this.default_voice?.dispose();
-        return super.dispose();
     }
 }

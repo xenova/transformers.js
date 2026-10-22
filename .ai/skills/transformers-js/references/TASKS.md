@@ -195,14 +195,14 @@ const output = await synthesizer('Bonjour');
 // }
 ```
 
-**Example:** Stream Phonon speech with a custom voice. Omit `speaker_embeddings` to use the bundled default voice.
+**Example:** Stream Phonon speech with a custom voice. Omit `speaker_embeddings` to use the checkpoint's default voice.
 ```javascript
 import { pipeline } from '@huggingface/transformers';
 
 const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
-const speaker_embeddings = 'https://huggingface.co/gradium/phonon-voices/resolve/main/voices/LMDIYE0Oa377Qh6Z.safetensors';
+const speaker_embeddings = 'https://huggingface.co/onnx-community/phonon-31m-en-ONNX/resolve/main/voices/LMDIYE0Oa377Qh6Z.bin';
 const audio = await tts('Hello from Phonon!', {
-  speaker_embeddings, // In Node.js, this can also be a local .safetensors path.
+  speaker_embeddings,
   callback_function: (chunk) => console.log(chunk.audio.length), // 1920 samples at 24 kHz
 });
 await audio.save('phonon.wav');

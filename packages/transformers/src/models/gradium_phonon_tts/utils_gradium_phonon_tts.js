@@ -1,5 +1,3 @@
-import { Tensor } from '../../utils/tensor.js';
-
 // Until tokenizers.js implements Unigram byte fallback, expand unknown pieces
 // before they are converted to IDs. Limit the workaround to Phonon encoding.
 // TODO: remove this adapter once https://github.com/huggingface/tokenizers.js/issues/26 is fixed.
@@ -76,16 +74,4 @@ export function prepare_phonon_text(tokenizer, text, max_tokens) {
     }
     if (chunk_length) push();
     return chunks;
-}
-
-// A Phonon voice file holds one F32 `speaker_wavs` tensor of shape [1, 512, frames].
-export function parse_phonon_voice(bytes) {
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    const header_length = Number(view.getBigUint64(0, true));
-    const header = JSON.parse(new TextDecoder().decode(bytes.subarray(8, 8 + header_length)));
-    const { dtype, shape, data_offsets } = header.speaker_wavs ?? {};
-    if (dtype !== 'F32') throw new Error('Invalid Phonon voice: expected an F32 `speaker_wavs` tensor.');
-    const offset = 8 + header_length;
-    const data = new Float32Array(bytes.slice(offset + data_offsets[0], offset + data_offsets[1]).buffer);
-    return new Tensor('float32', data, shape);
 }

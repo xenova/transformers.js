@@ -122,7 +122,6 @@ export const MODEL_SESSION_CONFIG = {
     },
     [MODEL_TYPES.GradiumPhononTTS]: {
         sessions: () => ({ flow_lm: 'flow_lm', mimi_decoder: 'mimi_decoder' }),
-        additional_files: ['default-voice.safetensors'],
     },
     [MODEL_TYPES.Chatterbox]: {
         sessions: () => ({
@@ -173,7 +172,7 @@ export function getTextOnlySessions(modelType) {
  * @param {number} modelType The model type enum value.
  * @param {Object} config The model config.
  * @param {Object} [options] Loading options.
- * @returns {{ sessions: Record<string, string>, cache_sessions?: Record<string, true>, optional_configs?: Record<string, string>, additional_files?: string[] }}
+ * @returns {{ sessions: Record<string, string>, cache_sessions?: Record<string, true>, optional_configs?: Record<string, string> }}
  */
 export function getSessionsConfig(modelType, config, options = {}) {
     const typeConfig = MODEL_SESSION_CONFIG[modelType] ?? MODEL_SESSION_CONFIG.default;
@@ -181,6 +180,5 @@ export function getSessionsConfig(modelType, config, options = {}) {
         sessions: typeConfig.sessions(config, options, options.textOnly ?? false),
         cache_sessions: typeConfig.cache_sessions,
         optional_configs: typeConfig.optional_configs,
-        additional_files: typeConfig.additional_files,
     };
 }
