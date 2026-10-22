@@ -35,8 +35,6 @@ import { env } from '../env.js';
  * @property {number} [temperature] Phonon flow noise variance (as in Python transformers); 0 = deterministic.
  * @property {number} [num_speakers] Phonon speaker conditioning index (`0 | 1 | 2`), not a count. Defaults to the model config.
  * @property {number} [duration_delta] Phonon duration conditioning. Defaults to the model config.
- * @property {(chunk: RawAudio) => void | Promise<void>} [callback_function] Phonon-only: called with each streamed audio frame.
- * Async callbacks are awaited. Other text-to-audio models do not stream.
  *
  * @typedef {TextToAudioPipelineConstructorArgs & TextToAudioPipelineCallback & Disposable} TextToAudioPipelineType
  */
@@ -82,16 +80,14 @@ import { env } from '../env.js';
  * // }
  * ```
  *
- * **Example:** Stream Phonon speech with a custom voice. Omit `speaker_embeddings` to use the checkpoint's default voice.
+ * **Example:** Phonon speech with a custom voice. Omit `speaker_embeddings` to use the checkpoint's default voice.
+ * To stream audio frames as they are generated, use `GradiumPhononTTSForConditionalGeneration.generate_speech()`.
  * ```javascript
  * import { pipeline } from '@huggingface/transformers';
  *
  * const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
  * const speaker_embeddings = 'https://huggingface.co/onnx-community/phonon-31m-en-ONNX/resolve/main/voices/LMDIYE0Oa377Qh6Z.bin';
- * const audio = await tts('Hello from Phonon!', {
- *   speaker_embeddings,
- *   callback_function: (chunk) => console.log(chunk.audio.length), // 1920 samples at 24 kHz
- * });
+ * const audio = await tts('Hello from Phonon!', { speaker_embeddings });
  * await audio.save('phonon.wav');
  * await tts.dispose();
  * ```
@@ -211,10 +207,7 @@ export class TextToAudioPipeline
      * @param {TextToAudioPipelineOptions} [options]
      * @private
      */
-    async _call_phonon(
-        text_inputs,
-        { speaker_embeddings, callback_function, temperature, num_speakers, duration_delta } = {},
-    ) {
+    async _call_phonon(text_inputs, { speaker_embeddings, temperature, num_speakers, duration_delta } = {}) {
         // @ts-expect-error TS2339
         const { max_tokens_per_chunk, sample_rate, voice_dim, default_voice } = this.model.config.phonon;
         const texts = Array.isArray(text_inputs) ? text_inputs : [text_inputs];
@@ -238,11 +231,7 @@ export class TextToAudioPipeline
                 num_speakers,
                 duration_delta,
             });
-            for await (const frame of stream) {
-                frames.push(frame);
-                // A separate copy, so callbacks cannot modify the final waveform.
-                if (callback_function) await callback_function(new RawAudio(frame.slice(), sample_rate));
-            }
+            for await (const frame of stream) frames.push(frame);
             const audio = new Float32Array(frames.reduce((length, frame) => length + frame.length, 0));
             let offset = 0;
             for (const frame of frames) {

@@ -151,12 +151,11 @@ export default () => {
 
     describe("generation", () => {
       it("streams frames with the checkpoint's default voice and frees each call's prefix", async () => {
-        const { pipe, fetch, steps, voice_runs, prefix } = fake_pipeline();
-        let callbacks = 0;
+        const { pipe, decoder, fetch, steps, voice_runs, prefix } = fake_pipeline();
         try {
-          const result = await pipe("Hello.", { temperature: 0, callback_function: () => callbacks++ });
+          const result = await pipe("Hello.", { temperature: 0 });
           // EOS on the first frame, then a 3-frame tail for short texts.
-          expect(callbacks).toBe(4);
+          expect(decoder.run).toHaveBeenCalledTimes(4);
           expect(Array.from(result.audio)).toEqual([0.25, -0.5, 0.25, -0.5, 0.25, -0.5, 0.25, -0.5]);
           expect(steps.every(({ noise }) => noise.every((value) => value === 0))).toBe(true);
           expect(fetch).toHaveBeenCalledWith(phonon.default_voice);
@@ -199,19 +198,19 @@ export default () => {
           voice.dispose();
         }
       });
-      it.each(["break", "callback"])("frees per-call tensor prefixes on %s without releasing the tensor", async (failure) => {
+      it.each(["break", "throw"])("frees per-call tensor prefixes when the consumer exits a stream with %s", async (exit) => {
         const { pipe, model, prefix } = fake_pipeline();
         const voice = new Tensor("float32", [0.5, 0.25], [1, 2, 1]);
-        try {
-          if (failure === "break") {
-            const chunks = prepare_phonon_text(pipe.tokenizer, "Hello.", phonon.max_tokens_per_chunk);
-            for await (const pcm of model.generate_speech({ chunks, speaker_embeddings: voice })) break;
-          } else {
-            await expect(pipe("Hello.", {
-              speaker_embeddings: voice,
-              callback_function: () => { throw new Error("callback failed"); },
-            })).rejects.toThrow("callback failed");
+        const chunks = prepare_phonon_text(pipe.tokenizer, "Hello.", phonon.max_tokens_per_chunk);
+        const consume = async () => {
+          for await (const pcm of model.generate_speech({ chunks, speaker_embeddings: voice })) {
+            if (exit === "break") break;
+            throw new Error("playback failed");
           }
+        };
+        try {
+          if (exit === "break") await consume();
+          else await expect(consume()).rejects.toThrow("playback failed");
           await expect(prefix().then((p) => p.data)).rejects.toThrow("disposed");
           expect(Array.from(voice.data)).toEqual([0.5, 0.25]);
         } finally {
@@ -306,25 +305,29 @@ export default () => {
 
       it("streams finite 24 kHz frames, stops on EOS and repeats deterministically", async () => {
         const text = "Hello from Phonon.";
+        const { voice_dim, default_voice, max_tokens_per_chunk, frame_rate } = tts.model.config.phonon;
+        const data = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
+        const speaker_embeddings = new Tensor("float32", data, [1, voice_dim, data.length / voice_dim]);
+        const chunks = prepare_phonon_text(tts.tokenizer, text, max_tokens_per_chunk);
         const frames = [];
-        const output = await tts(text, { temperature: 0, callback_function: (chunk) => { frames.push(chunk); } });
-        const [prompt] = prepare_phonon_text(tts.tokenizer, text, tts.model.config.phonon.max_tokens_per_chunk);
-        const max_frames = Math.ceil((prompt.input_ids.length / 3 + 2) * tts.model.config.phonon.frame_rate);
+        for await (const pcm of tts.model.generate_speech({ chunks, speaker_embeddings, temperature: 0 })) frames.push(pcm);
+        // The pipeline's default voice is the same file, so it returns the concatenated stream.
+        const output = await tts(text, { temperature: 0 });
+        const max_frames = Math.ceil((chunks[0].input_ids.length / 3 + 2) * frame_rate);
         expect(frames.length).toBeGreaterThan(1);
         expect(frames.length).toBeLessThan(max_frames);
         expect(output.sampling_rate).toBe(24000);
         expect(output.audio.length).toBe(frames.length * 1920);
         expect(output.audio.every(Number.isFinite)).toBe(true);
         expect(output.audio.some((sample) => Math.abs(sample) > 0.01)).toBe(true);
-        for (const [index, chunk] of frames.entries()) {
-          expect(chunk.sampling_rate).toBe(24000);
-          expect(chunk.audio.length).toBe(1920);
-          expect(output.audio.slice(index * 1920, (index + 1) * 1920)).toEqual(chunk.audio);
+        for (const [index, pcm] of frames.entries()) {
+          expect(pcm.length).toBe(1920);
+          expect(output.audio.slice(index * 1920, (index + 1) * 1920)).toEqual(pcm);
         }
         expect((await tts(text, { temperature: 0 })).audio).toEqual(output.audio);
       }, MAX_TEST_EXECUTION_TIME);
 
-      it("uses real custom-voice prefixes and recovers from early return and callback failure", async () => {
+      it("uses real custom-voice prefixes and recovers from an early stream exit", async () => {
         const { voice_dim, default_voice } = tts.model.config.phonon;
         const data = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
         const voice = new Tensor("float32", data, [1, voice_dim, data.length / voice_dim]);
@@ -334,7 +337,6 @@ export default () => {
             expect(pcm.length).toBe(1920);
             break;
           }
-          await expect(tts("Hello.", { speaker_embeddings: voice, callback_function: () => { throw new Error("stop playback"); } })).rejects.toThrow("stop playback");
           const output = await tts(["Hello.", "Goodbye."], { speaker_embeddings: voice, temperature: 0 });
           expect(output).toHaveLength(2);
           expect(output.every((audio) => audio.audio.length > 0 && audio.audio.every(Number.isFinite))).toBe(true);

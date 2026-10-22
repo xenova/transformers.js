@@ -167,6 +167,18 @@ const output = await transcriber(url, { chunk_length_s: 30, stride_length_s: 5 }
 Text-to-audio generation pipeline using any `AutoModelForTextToWaveform` or `AutoModelForTextToSpectrogram`.
 This pipeline generates an audio file from an input text and optional other conditional inputs.
 
+**Example:** Phonon speech with a custom voice. Omit `speaker_embeddings` to use the checkpoint's default voice.
+To stream audio frames as they are generated, use `GradiumPhononTTSForConditionalGeneration.generate_speech()`.
+```javascript
+import { pipeline } from '@huggingface/transformers';
+
+const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
+const speaker_embeddings = 'https://huggingface.co/onnx-community/phonon-31m-en-ONNX/resolve/main/voices/LMDIYE0Oa377Qh6Z.bin';
+const audio = await tts('Hello from Phonon!', { speaker_embeddings });
+await audio.save('phonon.wav');
+await tts.dispose();
+```
+
 **Example:** Generate audio from text with `onnx-community/Supertonic-TTS-ONNX`.
 ```javascript
 import { pipeline } from '@huggingface/transformers';
@@ -193,20 +205,6 @@ const output = await synthesizer('Bonjour');
 //   audio: Float32Array(23808) [-0.00037693005288019776, 0.0003325853613205254, ...],
 //   sampling_rate: 16000
 // }
-```
-
-**Example:** Stream Phonon speech with a custom voice. Omit `speaker_embeddings` to use the checkpoint's default voice.
-```javascript
-import { pipeline } from '@huggingface/transformers';
-
-const tts = await pipeline('text-to-speech', 'onnx-community/phonon-31m-en-ONNX', { dtype: 'q4' });
-const speaker_embeddings = 'https://huggingface.co/onnx-community/phonon-31m-en-ONNX/resolve/main/voices/LMDIYE0Oa377Qh6Z.bin';
-const audio = await tts('Hello from Phonon!', {
-  speaker_embeddings,
-  callback_function: (chunk) => console.log(chunk.audio.length), // 1920 samples at 24 kHz
-});
-await audio.save('phonon.wav');
-await tts.dispose();
 ```
 
 ## Vision
