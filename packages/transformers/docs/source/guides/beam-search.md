@@ -96,7 +96,10 @@ embeddings and caches.
 Video inputs, other decoder-only multimodal families, and `output_attentions`
 (including Whisper token timestamps) are not supported with beams. Ultravox's
 processor currently accepts one audio example at a time; equal-length processed
-audio tensors can be collated for batched generation. For Qwen2VL cached
+audio tensors can be collated for batched generation. Qwen2VL generation accepts
+preprocessed multi-image patch tensors and grids; support for passing multiple
+raw images through its processor is tracked separately in
+[PR #1812](https://github.com/huggingface/transformers.js/pull/1812). For Qwen2VL cached
 continuation, retain the original image grid or supply the matching `rope_deltas`
 with the input ids and attention mask. Appending raw images to an image-containing
 Qwen2VL cache is not supported: use prepared query embeddings and matching

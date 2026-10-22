@@ -17,25 +17,6 @@ export class Qwen2VLImageProcessor extends ImageProcessor {
     }
 
     async _call(images, ...args) {
-        // A list here is a batch of independent images, not temporal frames.
-        // Resize each separately so unequal spatial grids retain their patch counts.
-        if (Array.isArray(images)) {
-            if (images.length === 0) throw new Error('At least one image is required.');
-            const processed = [];
-            for (const image of images) processed.push(await this._call(image, ...args));
-            return {
-                pixel_values: cat(
-                    processed.map((x) => x.pixel_values),
-                    0,
-                ),
-                image_grid_thw: cat(
-                    processed.map((x) => x.image_grid_thw),
-                    0,
-                ),
-                original_sizes: processed.flatMap((x) => x.original_sizes),
-                reshaped_input_sizes: processed.flatMap((x) => x.reshaped_input_sizes),
-            };
-        }
         const { pixel_values, original_sizes, reshaped_input_sizes } = await super._call(images, ...args);
 
         let patches = pixel_values;

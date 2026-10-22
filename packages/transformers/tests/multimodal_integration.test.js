@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { env } from "../src/env.js";
-import { makeSamples, collate, fixtures } from "../../../scripts/multimodal/cases.js";
+import { makeSamples, collate, revisions } from "./helpers/multimodal.js";
 import { jest } from "@jest/globals";
 import { LlavaForConditionalGeneration, LlavaProcessor, Idefics3ForConditionalGeneration, Idefics3Processor, Qwen2VLForConditionalGeneration, Qwen2VLProcessor, RawImage, Tensor, cat, random } from "../src/transformers.js";
 import { init } from "./init.js";
@@ -39,7 +39,7 @@ for (const [family, Model, Processor, model_id] of models) {
     beforeAll(async () => {
       const cached = path.join(env.cacheDir, model_id);
       const source = existsSync(path.join(cached, "config.json")) ? cached : model_id;
-      const options = { revision: fixtures[family].revision, dtype: "fp32", session_options: { intraOpNumThreads: 1 } };
+      const options = { revision: revisions[family], dtype: "fp32", session_options: { intraOpNumThreads: 1 } };
       model = await Model.from_pretrained(source, options);
       processor = await Processor.from_pretrained(source, options);
       samples = [];
@@ -155,7 +155,7 @@ for (const [family, Model, Processor, model_id] of models) {
         }
       }, 120000);
     it("preserves unequal image groups with two beams", async () => {
-      const ragged = await makeSamples(processor, family, { ragged: true });
+      const ragged = await makeSamples(processor, family);
       const batch = collate(ragged);
       const options = { num_beams: 2, max_new_tokens: 2, do_sample: false, repetition_penalty: 2, eos_token_id: null };
       const result = await model.generate({ ...batch, ...options });
