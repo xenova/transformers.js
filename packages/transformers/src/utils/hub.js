@@ -9,7 +9,6 @@ import { DefaultProgressCallback, dispatchCallback } from './core.js';
 import { FileResponse } from './hub/FileResponse.js';
 import { AssetLoadingContext } from './hub/AssetLoadingContext.js';
 import { handleError, isValidUrl, ModelFileNotFoundError, readResponse, toAbsoluteURL } from './hub/utils.js';
-import { tryCache } from './cache.js';
 import { get_file_metadata } from './model_registry/get_file_metadata.js';
 import { logger } from './logger.js';
 
@@ -58,39 +57,6 @@ export { MAX_EXTERNAL_DATA_CHUNKS } from './hub/constants.js';
  */
 export async function getFile(urlOrPath) {
     return new AssetLoadingContext().read(urlOrPath);
-}
-
-/**
- * Generates appropriate HTTP headers for fetching resources.
- * In Node.js environments, adds User-Agent and Authorization headers when applicable.
- * In browser environments, returns minimal headers for security.
- *
- * @param {URL|string} urlOrPath The URL or path being fetched.
- * @returns {Headers} A Headers object with appropriate headers for the request.
- */
-export function getFetchHeaders(urlOrPath) {
-    return new AssetLoadingContext().getHeaders(urlOrPath);
-}
-
-/**
- * Checks if a resource exists in cache.
- *
- * @param {import('./cache.js').CacheInterface | null} cache The cache instance to check.
- * @param {string} localPath The local path to try first.
- * @param {string} proposedCacheKey The proposed cache key to try second.
- * @returns {Promise<Response|import('./hub/FileResponse.js').FileResponse|undefined|string>}
- * The cached response if found, undefined otherwise.
- */
-export async function checkCachedResource(cache, localPath, proposedCacheKey) {
-    if (!cache) {
-        return undefined;
-    }
-
-    // A caching system is available, so we try to get the file from it.
-    //  1. We first try to get from cache using the local path. In some environments (like deno),
-    //     non-URL cache keys are not allowed. In these cases, `response` will be undefined.
-    //  2. If no response is found, we try to get from cache using the remote URL or file system cache.
-    return await tryCache(cache, localPath, proposedCacheKey);
 }
 
 /**
@@ -190,6 +156,9 @@ async function loadResourceFile(
     // Whether to cache the final response in the end.
     let toCacheResponse = false;
 
+    // Whether an outdated cached copy was served because the replacement could not be fetched.
+    let servedStale = false;
+
     /** @type {Response|import('./hub/FileResponse.js').FileResponse|undefined|string} */
     let response;
 
@@ -235,7 +204,8 @@ async function loadResourceFile(
             // - the path is a valid HTTP url (`response === undefined`)
             // - the path is not a valid HTTP url and the file is not present on the file system or local server (`response.status === 404`)
 
-            if (context.options.local_files_only || !context.settings.allowRemoteModels) {
+            const remoteDisabled = context.options.local_files_only || !context.settings.allowRemoteModels;
+            if (remoteDisabled && !stale) {
                 // User requested local files only, but the file is not found locally.
                 if (fatal) {
                     throw new ModelFileNotFoundError(
@@ -247,23 +217,42 @@ async function loadResourceFile(
                     return null;
                 }
             }
-            if (!validModelId) {
-                // Before making any requests to the remote server, we check if the model ID is valid.
-                // This prevents unnecessary network requests for invalid model IDs.
-                throw new ModelFileNotFoundError(
-                    `Local file missing at "${localPath}" and download aborted due to invalid model ID "${path_or_repo_id}".`,
-                );
+
+            /** @type {Response|import('./hub/FileResponse.js').FileResponse|undefined} */
+            let remoteResponse;
+            if (!remoteDisabled) {
+                if (!validModelId) {
+                    // Before making any requests to the remote server, we check if the model ID is valid.
+                    // This prevents unnecessary network requests for invalid model IDs.
+                    throw new ModelFileNotFoundError(
+                        `Local file missing at "${localPath}" and download aborted due to invalid model ID "${path_or_repo_id}".`,
+                    );
+                }
+
+                // File not found locally, so we try to download it from the remote server
+                try {
+                    remoteResponse = await context.read(remoteURL, requestInit);
+                } catch (e) {
+                    if (!stale) throw e;
+                    logger.warn(`Unable to refresh "${remoteURL}", using the previously cached copy: "${e}"`);
+                }
             }
 
-            // File not found locally, so we try to download it from the remote server
-            response = await context.read(remoteURL, requestInit);
+            if (remoteResponse) {
+                response = remoteResponse;
+                if (response.status !== 200) {
+                    return handleError(response.status, remoteURL, fatal);
+                }
 
-            if (response.status !== 200) {
-                return handleError(response.status, remoteURL, fatal);
+                // Success! We use the proposed cache key from earlier
+                cacheKey = proposedCacheKey;
+            } else {
+                // Offline: an outdated copy is better than failing to load at all.
+                // It stays cached under its old key, so the next online load replaces it.
+                response = stale.response;
+                cacheKey = stale.key;
+                servedStale = true;
             }
-
-            // Success! We use the proposed cache key from earlier
-            cacheKey = proposedCacheKey;
         }
 
         // Only cache the response if:
@@ -271,7 +260,8 @@ async function loadResourceFile(
             cache && // 1. A caching system is available
             typeof Response !== 'undefined' && // 2. `Response` is defined (i.e., we are in a browser-like environment)
             response instanceof Response && // 3. result is a `Response` object (i.e., not a `FileResponse`)
-            response.status === 200; // 4. request was successful (status code 200)
+            response.status === 200 && // 4. request was successful (status code 200)
+            !servedStale; // 5. response is not an outdated copy that is already cached
     }
 
     // Start downloading

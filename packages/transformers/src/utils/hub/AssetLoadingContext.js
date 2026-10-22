@@ -7,7 +7,12 @@ import { isValidHfModelId, isValidUrl, makePretrainedOptionsKey, pathJoin } from
 // Only assets explicitly listed here receive new cache keys. Model weights and
 // all other resources retain their existing keys. Versions affect storage, not
 // source URLs or the contents of downloaded files.
-const ASSET_CACHE_VERSIONS = new Map([['tokenizer_config.json', 2]]);
+const ASSET_CACHE_VERSIONS = new Map([['tokenizer_config.json', 1]]);
+
+// Settings that cannot change which file a load returns. Every other setting
+// splits loading keys, so a setting missing here costs a duplicate download
+// rather than merging two different loads.
+const KEY_IGNORED_SETTINGS = new Set(['version', 'backends', 'logLevel', 'useWasmCache']);
 
 const OBJECT_IDS = new WeakMap();
 let nextObjectId = 0;
@@ -172,31 +177,16 @@ export class AssetLoadingContext {
 
     /** @param {string} modelId @param {...unknown} parts */
     key(modelId, ...parts) {
-        const settings = this.settings;
-        // Only loading inputs belong in the key. Backend objects may be circular,
-        // and changes to logging or WASM settings must not split equivalent loads.
-        return makePretrainedOptionsKey(
-            modelId,
-            this.options,
-            {
-                allowLocalModels: settings.allowLocalModels,
-                allowRemoteModels: settings.allowRemoteModels,
-                localModelPath: settings.localModelPath,
-                remoteHost: settings.remoteHost,
-                remotePathTemplate: settings.remotePathTemplate,
-                useFS: settings.useFS,
-                useCustomCache: settings.useCustomCache,
-                experimental_useCrossOriginStorage: settings.experimental_useCrossOriginStorage,
-                useBrowserCache: settings.useBrowserCache,
-                cacheKey: settings.cacheKey,
-                useFSCache: settings.useFSCache,
-                cacheDir: settings.cacheDir,
-            },
-            objectId(settings.fetch),
-            objectId(settings.customCache),
-            this.userAgent,
-            this.token,
-            ...parts,
+        // Backend objects may be circular, so objects and functions (fetch,
+        // customCache) are keyed by identity.
+        const settings = Object.fromEntries(
+            Object.entries(this.settings)
+                .filter(([name]) => !KEY_IGNORED_SETTINGS.has(name))
+                .map(([name, value]) => [
+                    name,
+                    (value !== null && typeof value === 'object') || typeof value === 'function' ? objectId(value) : value,
+                ]),
         );
+        return makePretrainedOptionsKey(modelId, this.options, settings, this.userAgent, this.token, ...parts);
     }
 }

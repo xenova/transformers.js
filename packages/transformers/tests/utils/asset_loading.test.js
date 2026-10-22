@@ -12,7 +12,7 @@ jest.unstable_mockModule("../../src/utils/model_registry/get_pipeline_files.js",
 }));
 
 const { env } = await import("../../src/env.js");
-const { getModelJSON, getModelFile, checkCachedResource } = await import("../../src/utils/hub.js");
+const { getModelJSON, getModelFile } = await import("../../src/utils/hub.js");
 const { get_file_metadata } = await import("../../src/utils/model_registry/get_file_metadata.js");
 const { is_cached_files, is_pipeline_cached_files } = await import("../../src/utils/model_registry/is_cached.js");
 const { clear_cache, clear_pipeline_cache } = await import("../../src/utils/model_registry/clear_cache.js");
@@ -21,7 +21,7 @@ const { AssetLoadingContext } = await import("../../src/utils/hub/AssetLoadingCo
 
 const MODEL = "test/asset-loading";
 const REMOTE = `https://huggingface.co/${MODEL}/resolve/main/`;
-const VERSIONED = `${REMOTE}tokenizer_config.json?__transformersjs_cache_version=2`;
+const VERSIONED = `${REMOTE}tokenizer_config.json?__transformersjs_cache_version=1`;
 const ORIGINAL_ENV = { ...env };
 
 function jsonResponse(value) {
@@ -106,6 +106,16 @@ describe("Internal asset loading", () => {
     expect(new AssetLoadingContext().key(MODEL, "config.json")).not.toBe(key);
   });
 
+  it("isolates loading keys for settings it does not know about", () => {
+    const key = new AssetLoadingContext().key(MODEL, "config.json");
+    env.someFutureLoadingSetting = true;
+    try {
+      expect(new AssetLoadingContext().key(MODEL, "config.json")).not.toBe(key);
+    } finally {
+      delete env.someFutureLoadingSetting;
+    }
+  });
+
   it("refreshes only versioned metadata, rejects old local aliases, and remains cache-first afterwards", async () => {
     const oldRemote = `${REMOTE}tokenizer_config.json`;
     const oldLocal = `/models/${MODEL}/tokenizer_config.json`;
@@ -140,12 +150,6 @@ describe("Internal asset loading", () => {
     expect(env.fetch.mock.calls[0][1].cache).toBeUndefined();
   });
 
-  it("reloads when replacing a previous versioned entry", async () => {
-    cache.entries.set(`${REMOTE}tokenizer_config.json?__transformersjs_cache_version=1`, jsonResponse({ stale: true }));
-    expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
-    expect(env.fetch).toHaveBeenCalledWith(`${REMOTE}tokenizer_config.json`, expect.objectContaining({ cache: "reload" }));
-  });
-
   it("uses the same versioned identity for metadata, registry checks, and removal", async () => {
     cache.entries.set(`${REMOTE}tokenizer_config.json`, jsonResponse({ stale: true }));
     cache.entries.set(`${REMOTE}onnx/model.onnx`, new Response("weights"));
@@ -169,7 +173,7 @@ describe("Internal asset loading", () => {
     ["clear_cache", (options) => clear_cache(MODEL, options)],
     ["clear_pipeline_cache", (options) => clear_pipeline_cache("text-generation", MODEL, options)],
   ])("%s cache aliases", (_name, clear) => {
-    it.each([`${REMOTE}tokenizer_config.json`, `/models/${MODEL}/tokenizer_config.json`, `${REMOTE}tokenizer_config.json?__transformersjs_cache_version=1`, `/models/${MODEL}/tokenizer_config.json?__transformersjs_cache_version=1`])("clears a stale-only entry at %s before any replacement is loaded", async (key) => {
+    it.each([`${REMOTE}tokenizer_config.json`, `/models/${MODEL}/tokenizer_config.json`])("clears a stale-only entry at %s before any replacement is loaded", async (key) => {
       cache.entries.set(key, jsonResponse({ stale: true }));
       expect((await is_cached_files(MODEL)).files[0].cached).toBe(false);
 
@@ -221,17 +225,14 @@ describe("Internal asset loading", () => {
         const fileCache = new FileCache(directory);
         env.customCache = fileCache;
         const oldKey = `${MODEL}/v1/tokenizer_config.json`;
-        const earlierKey = `${oldKey}?__transformersjs_cache_version=1`;
         const otherRevision = `${MODEL}/tokenizer_config.json`;
         await fileCache.put(oldKey, jsonResponse({ stale: true }));
-        await fileCache.put(earlierKey, jsonResponse({ stale: true }));
         await fileCache.put(otherRevision, jsonResponse({ unrelated: true }));
 
         const result = await clear({ revision: "v1" });
         expect(result.filesCached).toBe(1);
         expect(result.filesDeleted).toBe(1);
         expect(await fileCache.match(oldKey)).toBeUndefined();
-        expect(await fileCache.match(earlierKey)).toBeUndefined();
         expect(await fileCache.match(otherRevision)).toBeDefined();
         expect(env.fetch).not.toHaveBeenCalled();
       } finally {
@@ -240,12 +241,13 @@ describe("Internal asset loading", () => {
     });
   });
 
-  it("checks resolved cache keys without accepting stale aliases", async () => {
-    const resource = new AssetLoadingContext().resolve(MODEL, "tokenizer_config.json", cache);
+  it("matches resolved cache keys without accepting stale aliases", async () => {
+    const context = new AssetLoadingContext();
+    const resource = context.resolve(MODEL, "tokenizer_config.json", cache);
     cache.entries.set(resource.localPath, jsonResponse({ stale: true }));
-    expect(await checkCachedResource(cache, resource.localCacheKey, resource.proposedCacheKey)).toBeUndefined();
+    expect(await context.match(cache, resource)).toBeUndefined();
     cache.entries.set(VERSIONED, jsonResponse({ updated: true }));
-    expect(await (await checkCachedResource(cache, resource.localCacheKey, resource.proposedCacheKey)).json()).toEqual({ updated: true });
+    expect(await (await context.match(cache, resource)).response.json()).toEqual({ updated: true });
   });
 
   it("versions local HTTP cache entries without changing the local request path", async () => {
@@ -255,7 +257,7 @@ describe("Internal asset loading", () => {
     cache.entries.set(localPath, jsonResponse({ stale: true }));
     expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
     expect(env.fetch).toHaveBeenCalledWith(localPath, expect.objectContaining({ cache: "reload" }));
-    expect(cache.entries.has(`${localPath}?__transformersjs_cache_version=2`)).toBe(true);
+    expect(cache.entries.has(`${localPath}?__transformersjs_cache_version=1`)).toBe(true);
     expect(cache.entries.has(localPath)).toBe(false);
     expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
     expect(env.fetch).toHaveBeenCalledTimes(1);
@@ -299,13 +301,56 @@ describe("Internal asset loading", () => {
     expect(cache.entries.has(VERSIONED)).toBe(true);
   });
 
-  it("does not accept an invalidated entry when remote access is disabled", async () => {
+  it.each([
+    ["env.allowRemoteModels=false", () => (env.allowRemoteModels = false), {}],
+    ["local_files_only", () => {}, { local_files_only: true }],
+  ])("falls back to the outdated copy when %s", async (_name, configure, options) => {
     env.allowLocalModels = true;
-    env.allowRemoteModels = false;
+    configure();
     cache.entries.set(`${REMOTE}tokenizer_config.json`, jsonResponse({ stale: true }));
-    await expect(getModelJSON(MODEL, "tokenizer_config.json")).rejects.toThrow("file was not found locally");
+    expect(await getModelJSON(MODEL, "tokenizer_config.json", true, options)).toEqual({ stale: true });
     expect(env.fetch).not.toHaveBeenCalled();
+    expect(cache.put).not.toHaveBeenCalled();
     expect(cache.delete).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the outdated copy when the refresh fails, and replaces it once online", async () => {
+    env.logLevel = 50;
+    cache.entries.set(`${REMOTE}tokenizer_config.json`, jsonResponse({ stale: true }));
+    const online = env.fetch;
+    env.fetch = jest.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ stale: true });
+    expect(cache.put).not.toHaveBeenCalled();
+    expect(cache.entries.has(`${REMOTE}tokenizer_config.json`)).toBe(true);
+
+    env.fetch = online;
+    expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
+    expect(cache.entries.has(VERSIONED)).toBe(true);
+    expect(cache.entries.has(`${REMOTE}tokenizer_config.json`)).toBe(false);
+  });
+
+  it("still fails offline when there is no cached copy at all", async () => {
+    env.fetch = jest.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await expect(getModelJSON(MODEL, "tokenizer_config.json")).rejects.toThrow("Failed to fetch");
+  });
+
+  it("serves the outdated filesystem copy offline from a cache folder filled by an older version", async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "transformers-offline-"));
+    try {
+      await fs.mkdir(path.join(directory, MODEL), { recursive: true });
+      await fs.writeFile(path.join(directory, MODEL, "tokenizer_config.json"), '{"stale":true}');
+      env.customCache = new FileCache(directory);
+      env.allowRemoteModels = false;
+      env.allowLocalModels = true;
+      expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ stale: true });
+      expect(await getModelFile(MODEL, "tokenizer_config.json", true, {}, true)).toBe(path.join(directory, MODEL, "tokenizer_config.json"));
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("captures the source, transport, and cache before asynchronous cache lookup", async () => {
@@ -377,7 +422,7 @@ describe("Internal asset loading", () => {
     }
   });
 
-  it("versions filesystem cache paths while preserving filenames, revisions, and unrelated entries", async () => {
+  it("keeps the repo layout for versioned filesystem entries while preserving revisions and unrelated entries", async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "transformers-assets-"));
     try {
       const fileCache = new FileCache(directory);
@@ -385,11 +430,12 @@ describe("Internal asset loading", () => {
       await fileCache.put(`${MODEL}/tokenizer_config.json`, jsonResponse({ stale: true }));
       await fileCache.put(`${MODEL}/onnx/model.onnx`, new Response("weights"));
       expect(await getModelJSON(MODEL, "tokenizer_config.json")).toEqual({ updated: true });
-      expect(await fs.readFile(path.join(directory, "transformersjs_assets_v2", MODEL, "tokenizer_config.json"), "utf8")).toBe('{"updated":true}');
+      expect(await fs.readFile(path.join(directory, MODEL, "tokenizer_config.json"), "utf8")).toBe('{"updated":true}');
+      expect(await fs.readdir(directory)).toEqual(["test"]);
       expect(await fileCache.match(`${MODEL}/tokenizer_config.json`)).toBeUndefined();
       expect(await fileCache.match(`${MODEL}/onnx/model.onnx`)).toBeDefined();
       const revision = new AssetLoadingContext({ revision: "v1" }).resolve(MODEL, "tokenizer_config.json", fileCache);
-      expect(revision.proposedCacheKey).toBe(`${MODEL}/v1/tokenizer_config.json?__transformersjs_cache_version=2`);
+      expect(revision.proposedCacheKey).toBe(`${MODEL}/v1/tokenizer_config.json?__transformersjs_cache_version=1`);
       expect(revision.remoteURL).toBe(`https://huggingface.co/${MODEL}/resolve/v1/tokenizer_config.json`);
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
@@ -397,32 +443,35 @@ describe("Internal asset loading", () => {
   });
 
   it.each([
-    ["model/config.json?__transformersjs_cache_version=2", "model/config.json"],
-    ["model/config.json?download=true&__transformersjs_cache_version=2", "model/config.json?download=true"],
-    ["model/config.json?__transformersjs_cache_version=2&download=true#fragment", "model/config.json?download=true#fragment"],
-  ])("maps versioned filesystem identity internally for %s", async (key, originalKey) => {
+    ["model/config.json?__transformersjs_cache_version=1", "model/config.json"],
+    ["model/config.json?download=true&__transformersjs_cache_version=1", "model/config.json?download=true"],
+    ["model/config.json?__transformersjs_cache_version=1&download=true#fragment", "model/config.json?download=true#fragment"],
+  ])("stores %s at the unversioned path and tracks its version beside it", async (key, originalKey) => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "transformers-file-identity-"));
     try {
       const fileCache = new FileCache(directory);
       await fileCache.put(originalKey, jsonResponse({ old: true }));
+      expect(await fileCache.match(key)).toBeUndefined();
       await fileCache.put(key, jsonResponse({ updated: true }));
       const response = await fileCache.match(key);
-      expect(response.filePath).toBe(path.join(directory, "transformersjs_assets_v2", originalKey));
+      expect(response.filePath).toBe(path.join(directory, originalKey));
       expect(await response.json()).toEqual({ updated: true });
-      expect(await (await fileCache.match(originalKey)).json()).toEqual({ old: true });
+      expect(await fileCache.match(originalKey)).toBeUndefined();
+      expect(await fileCache.delete(originalKey)).toBe(false);
+      expect(await fileCache.match(key)).toBeDefined();
       expect(await fileCache.delete(key)).toBe(true);
       expect(await fileCache.match(key)).toBeUndefined();
-      expect(await fileCache.match(originalKey)).toBeDefined();
+      expect(await fs.readdir(path.join(directory, "model"))).toEqual([]);
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
     }
   });
 
-  it("returns the mapped filesystem path for a versioned asset on download and cache hit", async () => {
+  it("returns the repo-layout filesystem path for a versioned asset on download and cache hit", async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "transformers-return-path-"));
     try {
       env.customCache = new FileCache(directory);
-      const expectedPath = path.join(directory, "transformersjs_assets_v2", MODEL, "tokenizer_config.json");
+      const expectedPath = path.join(directory, MODEL, "tokenizer_config.json");
       expect(await getModelFile(MODEL, "tokenizer_config.json", true, {}, true)).toBe(expectedPath);
       expect(await getModelFile(MODEL, "tokenizer_config.json", true, {}, true)).toBe(expectedPath);
       expect(await fs.readFile(expectedPath, "utf8")).toBe('{"updated":true}');
