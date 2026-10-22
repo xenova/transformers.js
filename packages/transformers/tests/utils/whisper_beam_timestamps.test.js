@@ -1,3 +1,4 @@
+import { upstream1809 } from "./fixtures/whisper_timestamp_1809.js";
 import { jest } from "@jest/globals";
 import { PreTrainedModel } from "../../src/models/modeling_utils.js";
 import { Tensor } from "../../src/utils/tensor.js";
@@ -19,17 +20,23 @@ it.each([false, true])("reconstructs changing rows, query offsets, EOS and paddi
       const offset = (row * queries + queries - 1) * 8;
       // Unselected rows and padded frames are intentionally misleading.
       data.fill(500 + row * 10 + step, offset, offset + 8);
-      if (step > 0 && row === Number(history[0][step])) {
-        data.fill(0, offset, offset + 6);
-        data[offset + (step - 1) * 2] = 10;
-        data[offset + (step - 1) * 2 + 1] = 10;
+      if (row === Number(history[0][step])) {
+        data.fill(0, offset, offset + 8);
+        data[offset + step * 2] = 10;
+        data[offset + step * 2 + 1] = 10;
       }
+    }
+    if (step < 2) {
+      const offset = (Number(history[1][step]) * queries + queries - 1) * 8;
+      data.fill(0, offset, offset + 4);
+      data[offset + step * 2] = 10;
+      data[offset + step * 2 + 1] = 10;
     }
     return [new Tensor("float32", data, [4, 1, queries, 8])];
   });
-  const result = extract({ sequences: sequences(), cross_attentions: steps, beam_indices: new Tensor("int64", history.flat(), [2, 6]), sequence_lengths: new Tensor("int64", [6n, 4n], [2]), num_beams: 2 }, [6, 4]);
-  expect(Array.from(result.data.slice(0, 6))).toEqual([0, 0, 0, Math.fround(0.04), Math.fround(0.08), Math.fround(0.08)]);
-  expect(Array.from(result.data.slice(6))).toEqual([0, 0, 0, 0, 0, 0]);
+  const result = extract({ sequences: sequences(), cross_attentions: steps, beam_indices: new Tensor("int64", history.flat(), [2, 6]), sequence_lengths: new Tensor("int64", [6n, 4n], [2]), num_beams: 2 }, [8, 4]);
+  expect(Array.from(result.data.slice(0, 6))).toEqual([0, 0, 0, Math.fround(0.02), Math.fround(0.06), Math.fround(0.1)]);
+  expect(Array.from(result.data.slice(6))).toEqual([0, 0, 0, Math.fround(0.02), 0, 0]);
   expect(Array.from(result.data).every(Number.isFinite)).toBe(true);
 });
 
@@ -132,8 +139,8 @@ it.each([false, true])("crops retained seek segments before alignment and releas
     else {
       const output = await result;
       expect(calls).toEqual([
-        { frames: 2, length: 5 },
-        { frames: 2, length: 5 },
+        { frames: 2, length: 4 },
+        { frames: 2, length: 4 },
       ]);
       expect(output.sequences.tolist()).toEqual([[9n, 100n, 1n, 102n, 102n, 2n, 104n, 0n]]);
     }
@@ -162,8 +169,7 @@ it("expands an explicitly supplied flat prefix across the short-form batch", asy
   }
 });
 
-// Pinned Python Transformers v4.57.1 reference: prefix is cropped before
-// population mean/std, median smoothing, head averaging and DTW.
+// Compare against the independent, pre-beam PR #1809 algorithm.
 const referenceFixture = (frames = 6) => {
   let seed = 1234;
   const rows = Array.from({ length: 5 }, () =>
@@ -177,12 +183,14 @@ const referenceFixture = (frames = 6) => {
     cross_attentions: [[new Tensor("float32", Float32Array.from([...rows[0], ...rows[1]]), [1, 1, 2, frames])], ...rows.slice(2).map((row) => [new Tensor("float32", row, [1, 1, 1, frames])])],
   };
 };
-it("matches the pinned Python alignment reference and ignores prefix values", () => {
-  const output = referenceFixture();
-  const expected = [[0, 0, 0, 0, Math.fround(0.04), Math.fround(0.04)]];
-  expect(extract(output).tolist()).toEqual(expected);
-  output.cross_attentions[0][0].data.fill(100000);
-  expect(extract(output).tolist()).toEqual(expected);
+it.each([1, 3])("matches PR #1809 single-beam alignment including prefix normalization (median=%s)", (median) => {
+  const output = referenceFixture(12);
+  const config = { median_filter_width: median, decoder_layers: 1 };
+  const actual = () => WhisperForConditionalGeneration.prototype._extract_token_timestamps.call({ config }, output, [[0, 0]], 12, 0.02, 2).tolist();
+  const expected = () => upstream1809.call({ config }, output, [[0, 0]], 12, 0.02, 2).tolist();
+  expect(actual()).toEqual(expected());
+  output.cross_attentions[0][0].data.set([5, -8, 12, 0, 1, 20, -4, 2, 19, -5, 1, 9]);
+  expect(actual()).toEqual(expected());
 });
 it.each([2, 3])("does not median-filter %s frames with a seven-frame window", (frames) => {
   const output = referenceFixture(frames);
@@ -200,7 +208,7 @@ it("converts only selected fp16 attention elements", () => {
   });
   try {
     expect(extract(output).data.every(Number.isFinite)).toBe(true);
-    expect(elements).toBe(3 * 6);
+    expect(elements).toBe(5 * 6);
   } finally {
     spy.mockRestore();
   }
@@ -223,18 +231,21 @@ it("preserves preprocessed silence padding while bounding seek to valid audio fr
   }
 });
 
-// Golden boundaries from independently executed Transformers v4.57.1 Python
-// alignment, including a shorter EOS result and per-input valid frame lengths.
-it.each([1, 7])("matches upstream fp32 alignment near DTW ties (median=%s)", (median) => {
+// Reconstruct each hypothesis independently and compare with the upstream
+// non-beam oracle, including early EOS and a second selected attention head.
+it.each([1, 7])("matches PR #1809 for selected beam histories (median=%s)", (median) => {
   const histories = [
-    [0, 1, 0, 1, 1, -1, -1, -1],
-    [2, 3, 2, -1, -1, -1, -1, -1],
+    [0, 1, 0, 1, 1],
+    [2, 3, 2],
   ];
   const steps = Array.from({ length: 5 }, (_, step) =>
     Array.from({ length: 2 }, (_, layer) => {
       const dims = [4, 2, step === 0 ? 3 : 1, 16];
-      const data = Float32Array.from({ length: dims.reduce((a, b) => a * b) }, (_, i) => Math.sin(i * 0.83 + step * 2.31 + layer) * 0.6 + Math.cos(i * 0.12 + step) * 0.3);
-      return new Tensor("float32", data, dims);
+      return new Tensor(
+        "float32",
+        Float32Array.from({ length: dims.reduce((a, b) => a * b) }, (_, i) => Math.sin(i * 0.83 + step * 2.31 + layer) * 0.6 + Math.cos(i * 0.12 + step) * 0.3),
+        dims,
+      );
     }),
   );
   const outputs = {
@@ -244,34 +255,32 @@ it.each([1, 7])("matches upstream fp32 alignment near DTW ties (median=%s)", (me
       [2, 8],
     ),
     cross_attentions: steps,
-    beam_indices: new Tensor("int64", histories.flat().map(BigInt), [2, 8]),
+    beam_indices: new Tensor("int64", histories.flatMap((row) => [...row, ...Array(8 - row.length).fill(-1)]).map(BigInt), [2, 8]),
     sequence_lengths: new Tensor("int64", [8n, 6n], [2]),
     num_beams: 2,
   };
-  const actual = WhisperForConditionalGeneration.prototype._extract_token_timestamps
-    .call(
-      { config: { median_filter_width: median } },
-      outputs,
-      [
-        [0, 0],
-        [1, 1],
-      ],
-      [16, 10],
-      0.02,
-      3,
-    )
-    .tolist();
-  const expected = {
-    1: [
-      [0.0, 0.0, 0.0, 0.0, 0.25999999046325684, 0.25999999046325684, 0.30000001192092896, 0.30000001192092896],
-      [0.0, 0.0, 0.0, 0.0, 0.03999999910593033, 0.03999999910593033],
-    ],
-    7: [
-      [0.0, 0.0, 0.0, 0.0, 0.25999999046325684, 0.25999999046325684, 0.30000001192092896, 0.30000001192092896],
-      [0.0, 0.0, 0.0, 0.0, 0.14000000059604645, 0.14000000059604645],
-    ],
-  };
-  expect(actual[0]).toEqual(expected[median][0]);
-  expect(actual[1].slice(0, 6)).toEqual(expected[median][1]);
-  expect(actual[1].slice(6)).toEqual([0, 0]);
+  const config = { median_filter_width: median, decoder_layers: 2 };
+  const heads = [
+    [0, 0],
+    [1, 1],
+  ];
+  const actual = WhisperForConditionalGeneration.prototype._extract_token_timestamps.call({ config }, outputs, heads, [16, 10], 0.02, 3).tolist();
+  for (let result = 0; result < 2; ++result) {
+    const history = histories[result];
+    const single = { sequences: new Tensor("int64", Array(history.length + 3).fill(1n), [1, history.length + 3]), cross_attentions: history.map((row, step) => steps[step].map((t) => t.slice([row, row + 1]))) };
+    const expected = upstream1809.call({ config }, single, heads, [16, 10][result], 0.02, 3).tolist()[0];
+    expect(actual[result].slice(0, expected.length)).toEqual(expected);
+    expect(actual[result].slice(expected.length).every((x) => x === 0)).toBe(true);
+  }
+});
+
+it.each([0n, 7n])("aligns the final predicting query at EOS or token limit (%s)", (lastToken) => {
+  const output = referenceFixture(12);
+  output.sequences.data[5] = lastToken;
+  const config = { median_filter_width: 1, decoder_layers: 1 };
+  expect(extract(output, 12).tolist()).toEqual(upstream1809.call({ config }, output, [[0, 0]], 12, 0.02, 2).tolist());
+});
+it("handles EOS on the first forward without a subsequent query", () => {
+  const output = { sequences: new Tensor("int64", [9n, 8n, 0n], [1, 3]), cross_attentions: referenceFixture().cross_attentions.slice(0, 1), beam_indices: new Tensor("int64", [0n, -1n, -1n], [1, 3]), sequence_lengths: new Tensor("int64", [3n], [1]), num_beams: 1 };
+  expect(extract(output).tolist()).toEqual([[0, 0, 0]]);
 });

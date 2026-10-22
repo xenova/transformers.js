@@ -86,8 +86,19 @@ const model = await AutoModelForSeq2SeqLM.from_pretrained(model_id, {
 ## Restrictions
 
 Beam search rejects streamers and classifier-free guidance (`guidance_scale > 1`).
-Decoder-only multimodal inputs and `output_attentions` (including Whisper token
-timestamps) are not supported with beams.
+Decoder-only multimodal inputs are not supported with beams.
+Whisper token timestamps support short-form batches and multiple returned
+hypotheses. Long-form seek requires one input and one returned sequence.
+Timestamp alignment follows each hypothesis's beam ancestry and includes the
+last prompt query, which predicts the first generated token. Normalization uses
+the original prompt and generated attention rows before cropping all but the
+final prompt row.
+
+With `output_attentions: true`, attention tensors contain raw per-step beam rows;
+`beam_indices` identifies the rows used for each selected hypothesis.
+`sequence_lengths` excludes right padding. Internally retained attentions are
+released after timestamp extraction unless explicitly requested by the caller.
+Attention history grows with model size, beam count, and generated sequence length.
 Diverse beam search cannot be combined with `do_sample: true`. Nucleus sampling
 (`top_p`) is not implemented by the generation sampler.
 

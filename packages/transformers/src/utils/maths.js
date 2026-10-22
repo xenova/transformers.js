@@ -966,18 +966,15 @@ export function bankers_round(x) {
  * Measures similarity between two temporal sequences (e.g., input audio and output tokens
  * to generate token-level timestamps).
  * @param {number[][]} matrix
- * @param {boolean} [float32_cost=false] Accumulate costs in float32 to match Whisper alignment.
  * @returns {number[][]}
  */
-export function dynamic_time_warping(matrix, float32_cost = false) {
+export function dynamic_time_warping(matrix) {
     const output_length = matrix.length;
     const input_length = matrix[0].length;
 
     const outputShape = [output_length + 1, input_length + 1];
 
-    const cost = Array.from({ length: outputShape[0] }, () =>
-        float32_cost ? new Float32Array(outputShape[1]).fill(Infinity) : Array(outputShape[1]).fill(Infinity),
-    );
+    const cost = Array.from({ length: outputShape[0] }, () => Array(outputShape[1]).fill(Infinity));
     cost[0][0] = 0;
 
     const trace = Array.from({ length: outputShape[0] }, () => Array(outputShape[1]).fill(-1));

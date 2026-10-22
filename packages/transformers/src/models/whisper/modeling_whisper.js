@@ -1,4 +1,4 @@
-import { Tensor } from '../../utils/tensor.js';
+import { Tensor, std_mean } from '../../utils/tensor.js';
 import { PreTrainedModel } from '../modeling_utils.js';
 import { WhisperGenerationConfig } from './generation_whisper.js';
 import { whisper_language_to_code } from './common_whisper.js';
@@ -374,14 +374,14 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                 }
 
                 // Align only the retained segment, before normalization and DTW.
-                // Include one terminal slot so the final retained token can use its
-                // query from the next forward, when that query exists.
+                // Every retained token uses the query that predicted it; do not
+                // include the next segment token in normalization.
                 let seek_token_timestamps;
                 if (return_token_timestamps) {
                     outputs.num_beams = generation_config.num_beams;
                     const valid_length = Math.min(
                         Number(outputs.sequence_lengths?.data[0] ?? raw_sequence.dims[1]),
-                        init_tokens.length + tokens_to_keep + 1,
+                        init_tokens.length + tokens_to_keep,
                     );
                     outputs.sequence_lengths?.dispose();
                     outputs.sequence_lengths = new Tensor('int64', [BigInt(valid_length)], [1]);
@@ -504,10 +504,9 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
         for (let result = 0; result < shape[0]; ++result) {
             const valid = lengths ? Number(lengths[result]) : shape[1];
             const generated = valid - num_input_ids;
-            // Forward zero contains prefix queries only. Each later forward contains
-            // the preceding generated token. The final token (including EOS) has no
-            // query of its own; assign it the last aligned boundary.
-            const queries = Math.max(0, generated - 1);
+            // Each forward predicts one generated token, including EOS. The last
+            // prefill query predicts the first token (the convention in PR #1809).
+            const queries = Math.max(0, generated);
             if (!queries) continue;
             const firstRow = ancestry ? Number(ancestry[result][0]) : result;
             const inputIndex = Math.floor(firstRow / (generate_outputs.num_beams ?? 1));
@@ -518,50 +517,51 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
             const matrix = Array.from({ length: queries }, () => new Float32Array(frames));
             for (const [layer, head] of alignment_heads) {
                 const weights = [];
-                for (let token = 0; token < queries; ++token) {
-                    const step = token + 1;
+                for (let step = 0; step < queries; ++step) {
                     const source = steps[step]?.[layer];
                     if (!source || head >= source.dims[1])
                         throw new Error('Missing timestamp alignment attention head or step.');
                     const row = ancestry ? Number(ancestry[result][step]) : result;
                     if (row < 0 || row >= source.dims[0]) throw new Error('Invalid timestamp beam ancestry.');
-                    // Convert only the selected row/head/query and valid frames, rather
-                    // than all beam rows and heads for every selected hypothesis.
-                    const offset =
-                        ((row * source.dims[1] + head) * source.dims[2] + source.dims[2] - 1) * source.dims[3];
-                    const selected = new Tensor(source.type, source.data.slice(offset, offset + frames), [frames]);
-                    const numeric = selected.to('float32');
-                    weights.push(Float32Array.from(numeric.data));
-                    if (numeric !== selected) numeric.dispose();
-                    selected.dispose();
+                    // Preserve original prefill rows for normalization. Uncached later
+                    // forwards repeat the prefix: take only their final query.
+                    const firstQuery = step === 0 ? 0 : source.dims[2] - 1;
+                    for (let query = firstQuery; query < source.dims[2]; ++query) {
+                        const offset = ((row * source.dims[1] + head) * source.dims[2] + query) * source.dims[3];
+                        const selected = new Tensor(source.type, source.data.slice(offset, offset + frames), [frames]);
+                        const numeric = selected.to('float32');
+                        weights.push(Float32Array.from(numeric.data));
+                        if (numeric !== selected) numeric.dispose();
+                        selected.dispose();
+                    }
                 }
-                // Exclude prefix queries, other beams, and padding before statistics,
-                // matching Transformers v4.57.1 Whisper alignment.
-                for (let frame = 0; frame < frames; ++frame) {
-                    let average = 0;
-                    for (const row of weights) average += row[frame] / queries;
-                    let variance = 0;
-                    for (const row of weights) variance += (row[frame] - average) ** 2 / queries;
-                    // Torch uses fp32 statistics and elementwise arithmetic. Rounding
-                    // matters when near-equal DTW costs choose different boundaries.
-                    average = Math.fround(average);
-                    const scale = Math.fround(Math.sqrt(variance));
-                    for (const row of weights)
-                        row[frame] = scale > 0 ? Math.fround(Math.fround(row[frame] - average) / scale) : 0;
+                // Normalize before cropping prompt rows, matching PR #1809's
+                // single-beam algorithm while excluding other hypotheses and padding.
+                const allWeights = new Tensor('float32', Float32Array.from(weights.flatMap((row) => Array.from(row))), [
+                    weights.length,
+                    frames,
+                ]);
+                const [std, average] = std_mean(allWeights, 0, 0);
+                for (const row of weights) {
+                    for (let frame = 0; frame < frames; ++frame) {
+                        row[frame] = std.data[frame] > 0 ? (row[frame] - average.data[frame]) / std.data[frame] : 0;
+                    }
                 }
+                allWeights.dispose();
+                std.dispose();
+                average.dispose();
+                const skipped = weights.length - queries;
                 for (let token = 0; token < queries; ++token) {
                     // Python leaves recordings too short for reflection padding unchanged.
                     const filtered =
                         frames <= Math.floor(median_filter_width / 2)
-                            ? weights[token]
-                            : medianFilter(weights[token], median_filter_width);
-                    for (let frame = 0; frame < frames; ++frame)
-                        matrix[token][frame] -= filtered[frame] / alignment_heads.length;
+                            ? weights[skipped + token]
+                            : medianFilter(weights[skipped + token], median_filter_width);
+                    for (let frame = 0; frame < frames; ++frame) matrix[token][frame] += filtered[frame];
                 }
             }
             const [text, times] = dynamic_time_warping(
-                matrix.map((row) => Array.from(row)),
-                true,
+                matrix.map((row) => Array.from(row, (value) => -Math.fround(value / alignment_heads.length))),
             );
             let last = 0;
             for (let i = 0; i < text.length; ++i) {
@@ -570,7 +570,6 @@ export class WhisperForConditionalGeneration extends WhisperPreTrainedModel {
                     timestamps.data[result * shape[1] + num_input_ids + text[i]] = last;
                 }
             }
-            timestamps.data[result * shape[1] + valid - 1] = last;
         }
 
         return timestamps;
