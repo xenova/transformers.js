@@ -9,7 +9,6 @@ import { RawAudio } from '../utils/audio.js';
 import { logger } from '../utils/logger.js';
 
 import { AutoModel } from '../models/auto/modeling_auto.js';
-import { prepare_phonon_text } from '../models/gradium_phonon_tts/utils_gradium_phonon_tts.js';
 import { env } from '../env.js';
 
 /**
@@ -163,13 +162,14 @@ export class TextToAudioPipeline
     }
 
     async _call(text_inputs, options) {
+        if (this.model.config.model_type === 'gradium_phonon_tts') {
+            return this._call_phonon(text_inputs, options);
+        }
         // If this.processor is not set, we are using an `AutoModelForTextToWaveform` model
         if (this.processor) {
             return this._call_text_to_spectrogram(text_inputs, options);
         } else if (this.model.config.model_type === 'supertonic') {
             return this._call_supertonic(text_inputs, options);
-        } else if (this.model.config.model_type === 'gradium_phonon_tts') {
-            return this._call_phonon(text_inputs, options);
         } else {
             return this._call_text_to_waveform(text_inputs);
         }
@@ -209,9 +209,9 @@ export class TextToAudioPipeline
      */
     async _call_phonon(text_inputs, { speaker_embeddings, temperature, num_speakers, duration_delta } = {}) {
         // @ts-expect-error TS2339
-        const { max_tokens_per_chunk, sample_rate, voice_dim, default_voice } = this.model.config.phonon;
+        const { sample_rate, voice_dim, default_voice } = this.model.config.phonon;
         const texts = Array.isArray(text_inputs) ? text_inputs : [text_inputs];
-        const inputs = texts.map((text) => prepare_phonon_text(this.tokenizer, text, max_tokens_per_chunk));
+        const inputs = await Promise.all(texts.map((text) => this.processor(text)));
         const embeddings = /** @type {Tensor} */ (
             await this._prepare_speaker_embeddings(speaker_embeddings ?? default_voice, 1)
         );

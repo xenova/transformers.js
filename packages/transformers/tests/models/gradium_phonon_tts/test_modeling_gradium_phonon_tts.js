@@ -1,7 +1,6 @@
 import { jest } from "@jest/globals";
 import { Tensor as ORTTensor } from "onnxruntime-node";
-import { env, pipeline, ModelRegistry, PretrainedConfig, Tensor, TextToAudioPipeline, GradiumPhononTTSForConditionalGeneration } from "../../../src/transformers.js";
-import { prepare_phonon_text } from "../../../src/models/gradium_phonon_tts/utils_gradium_phonon_tts.js";
+import { env, pipeline, ModelRegistry, PretrainedConfig, Tensor, TextToAudioPipeline, GradiumPhononTTSForConditionalGeneration, PocketTTSProcessor } from "../../../src/transformers.js";
 import { get_model_files } from "../../../src/utils/model_registry/get_model_files.js";
 import { selectDtype } from "../../../src/utils/dtypes.js";
 import { create_tokenizer } from "./tokenizer_fixture.js";
@@ -17,7 +16,6 @@ const phonon = {
   frame_rate: 12.5,
   temperature: 0.3,
   eos_threshold: 4,
-  max_tokens_per_chunk: 50,
   default_voice: "https://example.com/default.bin",
   conditions: { num_speakers: { default: "2" }, duration_delta: { default: 0.5 } },
   flow_lm: { num_layers: 1, num_heads: 1, head_dim: 2 },
@@ -25,6 +23,10 @@ const phonon = {
 };
 const config = () => new PretrainedConfig({ model_type: "gradium_phonon_tts", phonon, "transformers.js_config": dtype_config });
 const url = "https://example.com/voice.bin";
+const processor_config = { processor_class: "PocketTTSProcessor", short_text_max_words: 4, frames_after_eos_short_text: 3, frames_after_eos: 1 };
+const create_processor = (config = processor_config) => new PocketTTSProcessor(config, { tokenizer: create_tokenizer() });
+// Final per-chunk model inputs, decoded back to text.
+const decoded = async (processor, text, max_tokens) => (await processor(text, { max_tokens })).map(({ input_ids }) => processor.tokenizer.decode(input_ids));
 // Phonon voice files are raw float32 data in [1, voice_dim, frames] order.
 const voice_file = (values = [0.25, -0.5]) => new Response(new Float32Array(values).buffer);
 
@@ -53,7 +55,8 @@ function fake_pipeline(eos = 5) {
   };
   const model = new GradiumPhononTTSForConditionalGeneration(config(), { flow_lm: flow, mimi_decoder: decoder });
   const fetch = jest.spyOn(env, "fetch").mockImplementation(async () => voice_file());
-  const pipe = new TextToAudioPipeline({ model, tokenizer: create_tokenizer() });
+  const processor = create_processor();
+  const pipe = new TextToAudioPipeline({ model, tokenizer: processor.tokenizer, processor });
   // Voice-conditioning runs are the only flow runs with voice frames.
   const voice_runs = () => flow.run.mock.calls.map(([inputs], i) => ({ inputs, i })).filter(({ inputs }) => inputs.voice_latents.dims[2] > 0);
   const prefix = async (n = 0) => (await flow.run.mock.results[voice_runs()[n].i].value)["present.0.key"];
@@ -111,41 +114,45 @@ export default () => {
     });
 
     describe("text preparation", () => {
-      it.each(OFFLINE_PARITY_CASES)("matches Python's per-chunk model inputs: $text", ({ text, budget, ids }) => {
-        expect(prepare_phonon_text(create_tokenizer(), text, budget).map((chunk) => chunk.input_ids)).toEqual(ids);
+      it.each(OFFLINE_PARITY_CASES)("matches Python's per-chunk model inputs: $text", async ({ text, budget, ids }) => {
+        expect((await create_processor()(text, { max_tokens: budget })).map((chunk) => chunk.input_ids)).toEqual(ids);
       });
-      it("groups short sentences and keeps unsplittable clauses intact", () => {
-        const tok = create_tokenizer();
-        expect(prepare_phonon_text(tok, "Hi. Bye. Yes. No.", 10).map((c) => tok.decode(c.input_ids))).toEqual(["Hi. Bye.", "Yes. No."]);
-        expect(prepare_phonon_text(tok, "a".repeat(80), 10)).toHaveLength(1);
+      it("groups short sentences and keeps unsplittable clauses intact", async () => {
+        const processor = create_processor();
+        expect(await decoded(processor, "Hi. Bye. Yes. No.", 10)).toEqual(["Hi. Bye.", "Yes. No."]);
+        expect(processor.split_text("a".repeat(80), 10)).toHaveLength(1);
       });
-      it("joins decoded pieces with spaces like Python when punctuation has no following whitespace", () => {
-        const tok = create_tokenizer();
-        expect(prepare_phonon_text(tok, "Hi.Bye.", 50).map((chunk) => tok.decode(chunk.input_ids))).toEqual(["Hi. Bye."]);
-        expect(prepare_phonon_text(tok, "one,two,three,four,five,six.", 17).map((chunk) => tok.decode(chunk.input_ids))).toEqual(["One, two, three,", "Four, five, six."]);
+      it("joins decoded pieces with spaces like Python when punctuation has no following whitespace", async () => {
+        const processor = create_processor();
+        expect(processor.split_text("Hi.Bye.")).toEqual(["Hi. Bye."]);
+        expect(await decoded(processor, "one,two,three,four,five,six.", 17)).toEqual(["One, two, three,", "Four, five, six."]);
       });
-      it("keeps bounded decimal lookaround correct for byte-fallback digits", () => {
-        const tok = create_tokenizer();
-        expect(prepare_phonon_text(tok, "price ١.٥. next.", 10).map((chunk) => tok.decode(chunk.input_ids))).toEqual(["Price ١.٥.", "Next."]);
+      it("keeps bounded decimal lookaround correct for byte-fallback digits", async () => {
+        expect(await decoded(create_processor(), "price ١.٥. next.", 10)).toEqual(["Price ١.٥.", "Next."]);
       });
       it.each([50, 1_000_000])("bounds decoding work linearly for long paragraphs (budget %i)", (budget) => {
         const work = (sentences) => {
-          const tok = create_tokenizer();
+          const processor = create_processor();
           const text = "Hello. ".repeat(sentences);
-          const tokens = tok.encode(text, { add_special_tokens: false });
-          const decode = jest.spyOn(tok, "decode");
-          prepare_phonon_text(tok, text, budget);
+          const tokens = processor.tokenizer.encode(text, { add_special_tokens: false });
+          const decode = jest.spyOn(processor.tokenizer, "decode");
+          processor.split_text(text, budget);
           const decoded_tokens = decode.mock.calls.reduce((total, [ids]) => total + ids.length, 0);
           expect(decoded_tokens).toBeLessThan(tokens.length * 12);
           return decoded_tokens;
         };
         expect(work(400)).toBeLessThan(work(100) * 5);
       });
-      it("applies byte fallback using only public tokenizer methods", () => {
-        const tok = create_tokenizer();
-        const encode = jest.spyOn(tok, "encode");
-        expect(tok.decode(prepare_phonon_text(tok, "hi 漢", 50)[0].input_ids)).toBe("Hi 漢.");
+      it("applies byte fallback using only public tokenizer methods", async () => {
+        const processor = create_processor();
+        const encode = jest.spyOn(processor.tokenizer, "encode");
+        expect(await decoded(processor, "hi 漢")).toEqual(["Hi 漢."]);
         expect(encode).not.toHaveBeenCalled();
+      });
+      it("takes the EOS tail per chunk from the processor config", async () => {
+        const processor = create_processor({ short_text_max_words: 2, frames_after_eos_short_text: 7, frames_after_eos: 5 });
+        const chunks = await processor("Hi there. This one is longer.", { max_tokens: 5 });
+        expect(chunks.map((chunk) => chunk.frames_after_eos)).toEqual([7, 5]);
       });
     });
 
@@ -184,7 +191,7 @@ export default () => {
         const voice = new Tensor("float32", [0.5, 0.25], [1, 2, 1]);
         const text = "Hello. ".repeat(10);
         try {
-          expect(prepare_phonon_text(pipe.tokenizer, text, phonon.max_tokens_per_chunk).length).toBeGreaterThan(1);
+          expect((await pipe.processor(text)).length).toBeGreaterThan(1);
           await pipe(text, { speaker_embeddings: voice, temperature: 0 });
           expect(voice_runs()).toHaveLength(1);
           expect(() => voice_runs()[0].inputs.voice_latents.data).not.toThrow();
@@ -201,7 +208,7 @@ export default () => {
       it.each(["break", "throw"])("frees per-call tensor prefixes when the consumer exits a stream with %s", async (exit) => {
         const { pipe, model, prefix } = fake_pipeline();
         const voice = new Tensor("float32", [0.5, 0.25], [1, 2, 1]);
-        const chunks = prepare_phonon_text(pipe.tokenizer, "Hello.", phonon.max_tokens_per_chunk);
+        const chunks = await pipe.processor("Hello.");
         const consume = async () => {
           for await (const pcm of model.generate_speech({ chunks, speaker_embeddings: voice })) {
             if (exit === "break") break;
@@ -284,6 +291,7 @@ export default () => {
 
       it("loads the native architecture and the published graph/state interfaces", () => {
         expect(tts.model).toBeInstanceOf(GradiumPhononTTSForConditionalGeneration);
+        expect(tts.processor).toBeInstanceOf(PocketTTSProcessor);
         expect(tts.model.config.model_type).toBe("gradium_phonon_tts");
         const { flow_lm, mimi_decoder } = tts.model.sessions;
         expect(flow_lm.inputNames).toEqual(expect.arrayContaining(["text_ids", "voice_latents", "latent", "noise", "num_speakers", "duration_delta"]));
@@ -305,10 +313,10 @@ export default () => {
 
       it("streams finite 24 kHz frames, stops on EOS and repeats deterministically", async () => {
         const text = "Hello from Phonon.";
-        const { voice_dim, default_voice, max_tokens_per_chunk, frame_rate } = tts.model.config.phonon;
+        const { voice_dim, default_voice, frame_rate } = tts.model.config.phonon;
         const data = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
         const speaker_embeddings = new Tensor("float32", data, [1, voice_dim, data.length / voice_dim]);
-        const chunks = prepare_phonon_text(tts.tokenizer, text, max_tokens_per_chunk);
+        const chunks = await tts.processor(text);
         const frames = [];
         for await (const pcm of tts.model.generate_speech({ chunks, speaker_embeddings, temperature: 0 })) frames.push(pcm);
         // The pipeline's default voice is the same file, so it returns the concatenated stream.
@@ -332,7 +340,7 @@ export default () => {
         const data = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
         const voice = new Tensor("float32", data, [1, voice_dim, data.length / voice_dim]);
         try {
-          const chunks = prepare_phonon_text(tts.tokenizer, "Hello.", tts.model.config.phonon.max_tokens_per_chunk);
+          const chunks = await tts.processor("Hello.");
           for await (const pcm of tts.model.generate_speech({ chunks, speaker_embeddings: voice, temperature: 0 })) {
             expect(pcm.length).toBe(1920);
             break;

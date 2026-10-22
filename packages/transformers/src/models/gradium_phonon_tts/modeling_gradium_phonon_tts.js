@@ -7,8 +7,6 @@ import { Tensor, randn } from '../../utils/tensor.js';
 import { sessionRun } from '../session.js';
 import { logger } from '../../utils/logger.js';
 
-export { prepare_phonon_text } from './utils_gradium_phonon_tts.js';
-
 const f32 = (dims, data = null) =>
     new Tensor('float32', data ?? new Float32Array(dims.reduce((a, b) => a * b, 1)), dims);
 const i64 = (values, dims) => new Tensor('int64', BigInt64Array.from(values, BigInt), dims);
@@ -90,8 +88,8 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      * `speaker_embeddings` remains owned by the caller.
      *
      * @param {Object} options Generation inputs and conditioning controls.
-     * @param {{ input_ids: number[], word_count: number }[]} options.chunks Text chunks to speak, in order.
-     * `word_count` chooses the end-of-speech tail length.
+     * @param {{ input_ids: number[], frames_after_eos: number }[]} options.chunks Text chunks to speak, in order,
+     * as returned by `PocketTTSProcessor`. `frames_after_eos` is the number of frames generated after end of speech.
      * @param {Tensor} options.speaker_embeddings Voice latents of shape `[1, voice_dim, frames]`.
      * @param {number} [options.temperature] Flow noise variance (as in Python transformers); 0 = deterministic.
      * @param {number} [options.num_speakers] Speaker conditioning index (`0 | 1 | 2`), not a count.
@@ -100,14 +98,14 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
      *
      * **Example:** Consume PCM directly without retaining the complete waveform.
      * ```javascript
-     * import { AutoTokenizer, GradiumPhononTTSForConditionalGeneration, Tensor, prepare_phonon_text } from '@huggingface/transformers';
+     * import { AutoProcessor, GradiumPhononTTSForConditionalGeneration, Tensor } from '@huggingface/transformers';
      * const id = 'onnx-community/phonon-31m-en-ONNX';
-     * const tokenizer = await AutoTokenizer.from_pretrained(id);
+     * const processor = await AutoProcessor.from_pretrained(id);
      * const model = await GradiumPhononTTSForConditionalGeneration.from_pretrained(id, { dtype: 'q4' });
-     * const { voice_dim, default_voice, max_tokens_per_chunk } = model.config.phonon;
+     * const { voice_dim, default_voice } = model.config.phonon;
      * const voice = new Float32Array(await (await fetch(default_voice)).arrayBuffer());
      * const speaker_embeddings = new Tensor('float32', voice, [1, voice_dim, voice.length / voice_dim]);
-     * const chunks = prepare_phonon_text(tokenizer, 'Hello from Phonon.', max_tokens_per_chunk);
+     * const chunks = await processor('Hello from Phonon.');
      * for await (const pcm of model.generate_speech({ chunks, speaker_embeddings })) {
      *   console.log(pcm.length); // 1920 mono samples at 24 kHz
      * }
@@ -124,15 +122,15 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
         const conditions = { num_speakers, duration_delta };
         const prefix = await this._prepare_voice(speaker_embeddings);
         try {
-            for (const { input_ids, word_count } of chunks) {
-                yield* this._generate_frames(input_ids, word_count, prefix, temperature, conditions);
+            for (const { input_ids, frames_after_eos } of chunks) {
+                yield* this._generate_frames(input_ids, frames_after_eos, prefix, temperature, conditions);
             }
         } finally {
             dispose_state(prefix);
         }
     }
 
-    async *_generate_frames(input_ids, word_count, prefix, temperature, conditions) {
+    async *_generate_frames(input_ids, frames_after_eos, prefix, temperature, conditions) {
         // @ts-expect-error TS2339
         const cfg = this.config.phonon;
         let state = null,
@@ -147,8 +145,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
             for (const [name, dims] of Object.entries(cfg.mimi_decoder.conv_states)) codec[name] = f32(dims);
             latent = f32([1, 1, cfg.latent_dim], new Float32Array(cfg.latent_dim).fill(NaN));
             let countdown = null;
-            // Frame budget and short/long EOS tail (3/1 frames) of the original runtime and Python's
-            // PocketTTSGenerationMixin (`frames_after_eos` in the checkpoint's processor_config.json).
+            // Frame budget of the original runtime; the EOS countdown follows Python's PocketTTSGenerationMixin.
             const max_frames = Math.ceil((input_ids.length / 3 + 2) * cfg.frame_rate);
             for (let frame = 0; frame < max_frames; ++frame) {
                 const noise =
@@ -167,7 +164,7 @@ export class GradiumPhononTTSForConditionalGeneration extends PreTrainedModel {
                 codec = next_state(decoded);
                 const pcm = new Float32Array(decoded.audio.data);
                 decoded.audio.dispose();
-                if (countdown === null && eos > cfg.eos_threshold) countdown = word_count <= 4 ? 3 : 1;
+                if (countdown === null && eos > cfg.eos_threshold) countdown = frames_after_eos;
                 yield pcm;
                 if (countdown !== null && countdown-- === 0) return;
             }
