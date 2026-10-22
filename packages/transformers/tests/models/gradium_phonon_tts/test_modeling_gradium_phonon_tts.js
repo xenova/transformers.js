@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 import { Tensor as ORTTensor } from "onnxruntime-node";
 import { env, pipeline, ModelRegistry, PretrainedConfig, Tensor, TextToAudioPipeline, GradiumPhononTTSForConditionalGeneration, PocketTTSProcessor } from "../../../src/transformers.js";
 import { get_model_files } from "../../../src/utils/model_registry/get_model_files.js";
+import { getCacheNames } from "../../../src/configs.js";
 import { selectDtype } from "../../../src/utils/dtypes.js";
 import { create_tokenizer } from "./tokenizer_fixture.js";
 import { MAX_MODEL_LOAD_TIME, MAX_TEST_EXECUTION_TIME, MAX_MODEL_DISPOSE_TIME } from "../../init.js";
@@ -111,6 +112,15 @@ export default () => {
       for (const dtype of options.dtype ? [] : [undefined, "auto"]) {
         expect(selectDtype(dtype ?? dtype_config.dtype, "flow_lm", "wasm", { configDtype: dtype_config.dtype })).toBe("fp32");
       }
+    });
+
+    // On WebGPU, every output fed back into a graph stays on the GPU between frames.
+    it.each([
+      ["flow_lm", ["present.0.key", "present.0.value", "latent_out"]],
+      ["mimi_decoder", ["present.0.key", "present.0.value", "present_conv.test"]],
+      ["unknown_session", []],
+    ])("lists the WebGPU feedback outputs for %s", (session_name, expected) => {
+      expect([...getCacheNames(config(), { prefix: "present", session_name })]).toEqual(expected);
     });
 
     describe("text preparation", () => {
@@ -298,7 +308,10 @@ export default () => {
         expect(flow_lm.outputNames).toEqual(expect.arrayContaining(["latent_out", "eos_logit"]));
         expect(mimi_decoder.inputNames).toEqual(expect.arrayContaining(["latent", "past_offset", ...Object.keys(tts.model.config.phonon.mimi_decoder.conv_states)]));
         expect(mimi_decoder.outputNames).toEqual(expect.arrayContaining(["audio", "present_offset"]));
-        for (const session of [flow_lm, mimi_decoder]) {
+        for (const [session_name, session] of Object.entries({ flow_lm, mimi_decoder })) {
+          for (const name of getCacheNames(tts.model.config, { prefix: "present", session_name })) {
+            expect(session.outputNames).toContain(name);
+          }
           const state_names = session.outputNames.filter((name) => name.startsWith("present"));
           expect(state_names.length).toBeGreaterThan(0);
           for (const name of state_names) {
