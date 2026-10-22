@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals";
 import { RawImage, Tensor, cat } from "../../src/transformers.js";
 
 export const revisions = {
@@ -50,12 +51,13 @@ async function processImages(processor, family, text, images) {
       0,
     ),
   };
-  processor.image_processor = Object.assign(async () => imageInputs, { config: imageProcessor.config });
+  const imageInputsStub = Object.assign(async () => imageInputs, { config: imageProcessor.config });
+  const imageProcessorGetter = jest.spyOn(processor, "image_processor", "get").mockReturnValue(imageInputsStub);
   try {
     // Retain the real processor's token expansion using the supplied grids.
     return await processor(text, images);
   } finally {
-    processor.image_processor = imageProcessor;
+    imageProcessorGetter.mockRestore();
   }
 }
 
