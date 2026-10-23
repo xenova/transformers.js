@@ -154,12 +154,7 @@ export async function constructSessions(pretrained_model_name_or_path, names, op
                     cache_config,
                     name,
                 );
-                const session = await createInferenceSession(
-                    buffer_or_path,
-                    session_options,
-                    session_config,
-                    options.env,
-                );
+                const session = await createInferenceSession(buffer_or_path, session_options, session_config);
                 return [name, session];
             }),
         ),

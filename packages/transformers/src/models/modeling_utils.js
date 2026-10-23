@@ -25,7 +25,7 @@ export function registerTaskMappings(mappings) {
     MODEL_MAPPING_NAMES = mappings;
 }
 import { GITHUB_ISSUE_URL } from '../utils/constants.js';
-import { getModelJSON, maybeAddDeprecatedEnvWarning } from '../utils/hub.js';
+import { getModelJSON } from '../utils/hub.js';
 import { Seq2SeqLMOutput } from './modeling_outputs.js';
 import {
     LogitsProcessorList,
@@ -288,8 +288,6 @@ export class PreTrainedModel extends Callable {
             env: sessionEnv = {},
         } = {},
     ) {
-        maybeAddDeprecatedEnvWarning(cache_dir, local_files_only);
-
         const options = {
             progress_callback,
             config,

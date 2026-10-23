@@ -78,13 +78,7 @@ describe("Utilities", () => {
     it("Read data from blob", async () => {
       const blob = new Blob(["Hello, world!"], { type: "text/plain" });
       const blobUrl = URL.createObjectURL(blob);
-      const env = resolveEnv();
-      const data = await getFile(blobUrl, {
-        useFS: env.useFS,
-        fetch: env.fetch,
-        version: env.version,
-        hfToken: env.hfToken,
-      });
+      const data = await getFile(blobUrl);
       expect(await data.text()).toBe("Hello, world!");
     });
 

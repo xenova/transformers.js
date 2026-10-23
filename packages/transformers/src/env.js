@@ -155,7 +155,6 @@ if (RUNNING_LOCALLY) {
 
 // Only used for environments with access to file system
 const DEFAULT_CACHE_DIR = RUNNING_LOCALLY ? path.join(dirname__, '/.cache/') : null;
-const DEFAULT_REMOTE_HOST = globalThis.process?.env?.HF_ENDPOINT ?? 'https://huggingface.co/';
 
 // Set local model path, based on available APIs
 const DEFAULT_LOCAL_MODEL_PATH = '/models/';
@@ -163,7 +162,15 @@ const localModelPath = RUNNING_LOCALLY ? path.join(dirname__, DEFAULT_LOCAL_MODE
 
 // Ensure default fetch is called with the correct receiver in browser environments.
 const DEFAULT_FETCH = typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : undefined;
-const DEFAULT_HF_TOKEN = globalThis.process?.env?.HF_TOKEN ?? globalThis.process?.env?.HF_ACCESS_TOKEN;
+
+// `remoteHost` and `hfToken` fall back to environment variables, which are read on access (not at import)
+// so that variables loaded after importing the library (e.g., with `dotenv`) are still picked up.
+// NOTE: We keep `HF_ACCESS_TOKEN` for backwards compatibility (as a fallback).
+const readEnvVar = (name) => globalThis.process?.env?.[name];
+let remoteHost;
+let remoteHostAssigned = false;
+let hfToken;
+let hfTokenAssigned = false;
 
 const SESSION_ENV_KEYS = Object.freeze([
     'allowRemoteModels',
@@ -212,13 +219,13 @@ export const LogLevel = Object.freeze({
  * @typedef {Object} TransformersEnvironmentSession
  * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
- * @property {string} remoteHost Host URL to load models from. Defaults to the Hugging Face Hub.
+ * @property {string} remoteHost Host URL to load models from. Defaults to the `HF_ENDPOINT` environment variable when set (read on access), otherwise the Hugging Face Hub.
  * @property {string} remotePathTemplate Path template to fill in and append to `remoteHost` when loading models.
  * @property {boolean} allowLocalModels Whether to allow loading of local files, defaults to `false` if running in-browser, and `true` otherwise.
  * If set to `false`, it will skip the local file check and try to load the model from the remote host.
  * @property {string} localModelPath Path to load local models from. By default, it is `/models/` relative to the library's installed location when a file system is available (e.g., Node.js), and the `/models/` URL path otherwise (e.g., browsers).
  * @property {(input: string | URL, init?: any) => Promise<any>} fetch The fetch function to use. Defaults to `fetch`.
- * @property {string|undefined} hfToken Hugging Face access token to use for requests to the Hugging Face Hub.
+ * @property {string|undefined} hfToken Hugging Face access token to use for requests to the Hugging Face Hub. Defaults to the `HF_TOKEN` (or `HF_ACCESS_TOKEN`) environment variable, read on access.
  * @property {string|null} cacheDir The directory to use for caching files with the file system. By default, it is `.cache` relative to the library's installed location when a file system is available (e.g., Node.js), and `null` otherwise (e.g., browsers).
  */
 
@@ -273,7 +280,13 @@ export const env = {
     },
     /////////////////// Model settings ///////////////////
     allowRemoteModels: true,
-    remoteHost: DEFAULT_REMOTE_HOST,
+    get remoteHost() {
+        return remoteHostAssigned ? remoteHost : (readEnvVar('HF_ENDPOINT') ?? 'https://huggingface.co/');
+    },
+    set remoteHost(value) {
+        remoteHost = value;
+        remoteHostAssigned = true;
+    },
     remotePathTemplate: '{model}/resolve/{revision}/',
 
     allowLocalModels: !(IS_BROWSER_ENV || IS_WEBWORKER_ENV || IS_DENO_WEB_RUNTIME), // Default to true for non-web environments, false for web environments
@@ -296,7 +309,13 @@ export const env = {
 
     /////////////////// Custom fetch /////////////////////
     fetch: DEFAULT_FETCH,
-    hfToken: DEFAULT_HF_TOKEN,
+    get hfToken() {
+        return hfTokenAssigned ? hfToken : (readEnvVar('HF_TOKEN') ?? readEnvVar('HF_ACCESS_TOKEN'));
+    },
+    set hfToken(value) {
+        hfToken = value;
+        hfTokenAssigned = true;
+    },
 
     //////////////////////////////////////////////////////
 };

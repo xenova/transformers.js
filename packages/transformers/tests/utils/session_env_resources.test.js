@@ -1,11 +1,11 @@
 import { jest } from "@jest/globals";
 
 import { CrossOriginStorage } from "../../src/utils/cache/CrossOriginStorageCache.js";
-import { loadWasmBinary } from "../../src/backends/utils/cacheWasm.js";
 import { env } from "../../src/env.js";
 import { getCache } from "../../src/utils/cache.js";
 import { FileCache } from "../../src/utils/cache/FileCache.js";
-import { Pipeline } from "../../src/pipelines/_base.js";
+import { getFetchHeaders, getFetchOptions } from "../../src/utils/hub.js";
+import { Pipeline, getSessionEnv, prepareImages, prepareAudios } from "../../src/pipelines/_base.js";
 
 describe("Session-scoped resource loading", () => {
   describe("Cross-origin storage", () => {
@@ -99,49 +99,94 @@ describe("Session-scoped resource loading", () => {
       expect(/** @type {FileCache} */ (cache).path).toBe("/session-cache/");
     });
 
-    it("should let the deprecated cache_dir override the session cacheDir", async () => {
+    it("should let cache_dir override the session cacheDir", async () => {
       const cache = await getCache("/legacy-cache/", { env: { cacheDir: "/session-cache/" } });
 
       expect(/** @type {FileCache} */ (cache).path).toBe("/legacy-cache/");
     });
   });
 
-  describe("Pipeline env", () => {
-    it("should resolve pipeline.env on access, applying session overrides over the live global env", () => {
-      const scopedFetch = () => {};
-      const pipe = new Pipeline({ task: "test", model: null, sessionEnv: { fetch: scopedFetch } });
-      const originalRemoteHost = env.remoteHost;
+  describe("Environment variables", () => {
+    const names = ["HF_TOKEN", "HF_ACCESS_TOKEN", "HF_ENDPOINT"];
+    let saved;
 
-      try {
-        env.remoteHost = "https://changed-later.example/";
-        expect(pipe.env.fetch).toBe(scopedFetch);
-        expect(pipe.env.remoteHost).toBe("https://changed-later.example/");
-        expect(pipe.sessionEnv).toEqual({ fetch: scopedFetch });
-      } finally {
-        env.remoteHost = originalRemoteHost;
+    beforeEach(() => {
+      saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+      for (const name of names) delete process.env[name];
+    });
+
+    afterEach(() => {
+      for (const name of names) {
+        if (saved[name] === undefined) delete process.env[name];
+        else process.env[name] = saved[name];
       }
+    });
+
+    it("should read HF_TOKEN and HF_ENDPOINT when accessed, not at import", () => {
+      // e.g., `dotenv.config()` called after importing the library
+      process.env.HF_TOKEN = "late-token";
+      process.env.HF_ENDPOINT = "https://late-hub.example/";
+
+      expect(env.hfToken).toBe("late-token");
+      expect(env.remoteHost).toBe("https://late-hub.example/");
+      expect(getFetchHeaders("https://late-hub.example/org/model", getFetchOptions(env)).get("Authorization")).toBe("Bearer late-token");
+    });
+
+    it("should fall back to HF_ACCESS_TOKEN and the official Hub", () => {
+      process.env.HF_ACCESS_TOKEN = "legacy-token";
+
+      expect(env.hfToken).toBe("legacy-token");
+      expect(env.remoteHost).toBe("https://huggingface.co/");
     });
   });
 
-  it("should use the scoped fetch when loading the ONNX WASM binary", async () => {
-    const bytes = new Uint8Array([1, 2, 3]);
-    const fetch = jest.fn(async () => new Response(bytes));
-    const originalUseFSCache = env.useFSCache;
-    const originalUseBrowserCache = env.useBrowserCache;
-    const originalUseCustomCache = env.useCustomCache;
-    env.useFSCache = false;
-    env.useBrowserCache = false;
-    env.useCustomCache = false;
+  describe("Pipeline env", () => {
+    it("should keep session overrides off the public pipeline instance", () => {
+      const sessionEnv = { hfToken: "scoped-token" };
+      const pipe = new Pipeline({ task: "test", model: null, sessionEnv });
 
-    try {
-      const result = await loadWasmBinary("https://cdn.example/ort.wasm", fetch);
+      expect(getSessionEnv(pipe)).toBe(sessionEnv);
+      expect(Object.values(pipe)).not.toContain(sessionEnv);
+      expect(JSON.stringify(Object.keys(pipe))).not.toMatch(/env/i);
+    });
+  });
 
-      expect(fetch).toHaveBeenCalledWith("https://cdn.example/ort.wasm");
-      expect(new Uint8Array(result)).toEqual(bytes);
-    } finally {
-      env.useFSCache = originalUseFSCache;
-      env.useBrowserCache = originalUseBrowserCache;
-      env.useCustomCache = originalUseCustomCache;
-    }
+  describe("Pipeline inputs", () => {
+    const sessionEnv = {
+      remoteHost: "https://private-hub.example/",
+      hfToken: "scoped-token",
+    };
+
+    it("should download image URL inputs with the session fetch and token", async () => {
+      const fetch = jest.fn(async () => ({ status: 404, statusText: "Not Found" }));
+
+      await expect(prepareImages("https://private-hub.example/image.png", { ...sessionEnv, fetch })).rejects.toThrow('Unable to read image from "https://private-hub.example/image.png"');
+
+      expect(fetch).toHaveBeenCalledWith("https://private-hub.example/image.png", expect.any(Object));
+      expect(fetch.mock.calls[0][1].headers.get("Authorization")).toBe("Bearer scoped-token");
+    });
+
+    it("should download audio URL inputs with the session fetch and token", async () => {
+      const originalAudioContext = globalThis.AudioContext;
+      globalThis.AudioContext = class {
+        constructor({ sampleRate }) {
+          this.sampleRate = sampleRate;
+        }
+        async decodeAudioData() {
+          return { numberOfChannels: 1, length: 2, getChannelData: () => new Float32Array([0.25, 0.5]) };
+        }
+      };
+      const fetch = jest.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
+
+      try {
+        const [audio] = await prepareAudios("https://private-hub.example/audio.wav", 16000, { ...sessionEnv, fetch });
+
+        expect(audio).toEqual(new Float32Array([0.25, 0.5]));
+        expect(fetch).toHaveBeenCalledWith("https://private-hub.example/audio.wav", expect.any(Object));
+        expect(fetch.mock.calls[0][1].headers.get("Authorization")).toBe("Bearer scoped-token");
+      } finally {
+        globalThis.AudioContext = originalAudioContext;
+      }
+    });
   });
 });

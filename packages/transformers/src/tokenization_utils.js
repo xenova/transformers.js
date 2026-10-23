@@ -15,7 +15,7 @@ import { Template } from '@huggingface/jinja';
 import { Callable } from './utils/generic.js';
 
 import { isIntegralNumber, mergeArrays } from './utils/core.js';
-import { getModelJSON, maybeAddDeprecatedEnvWarning } from './utils/hub.js';
+import { getModelJSON } from './utils/hub.js';
 import { max } from './utils/maths.js';
 import { Tensor } from './utils/tensor.js';
 import { logger } from './utils/logger.js';
@@ -32,8 +32,6 @@ import { get_tokenizer_files } from './utils/model_registry/get_tokenizer_files.
  * @returns {Promise<any[]>} A promise that resolves with information about the loaded tokenizer.
  */
 export async function loadTokenizer(pretrained_model_name_or_path, options) {
-    maybeAddDeprecatedEnvWarning(options.cache_dir, options.local_files_only);
-
     const tokenizerFiles = await get_tokenizer_files(pretrained_model_name_or_path, options);
     return await Promise.all(
         tokenizerFiles.map((file) => getModelJSON(pretrained_model_name_or_path, file, true, options)),

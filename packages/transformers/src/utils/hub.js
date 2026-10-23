@@ -36,7 +36,7 @@ export { getFetchHeaders } from './hub/utils.js';
 
 /**
  * @typedef {Object} ModelLoadingOptions Options for fetching model files.
- * @property {string|null} [cache_dir=null] Path to a directory in which a downloaded pretrained model configuration should be cached if the standard cache should not be used. Deprecated: use `options.env.cacheDir` for a session-scoped cache directory, or global `env.cacheDir` for the default.
+ * @property {string|null} [cache_dir=null] Path to a directory in which a downloaded pretrained model configuration should be cached if the standard cache should not be used.
  * @property {string} [revision='main'] The specific model version to use. Ignored for local requests.
  * @property {string} localModelPath Path to load local models from.
  * @property {string} remoteHost Host URL to load models from.
@@ -71,8 +71,8 @@ export { getFetchHeaders } from './hub/utils.js';
  * - The model is provided by the library and loaded with the *model ID* string of a pretrained model.
  * - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a configuration JSON file named *config.json* is found in the directory.
  * @property {Partial<import('../env.js').TransformersEnvironmentSession>} [env={}] Session-scopable environment overrides.
- * @property {string} [cache_dir=null] Path to a directory in which a downloaded pretrained model configuration should be cached if the standard cache should not be used. Deprecated: use `options.env.cacheDir` for a session-scoped cache directory, or global `env.cacheDir` for the default.
- * @property {boolean} [local_files_only=false] Whether or not to only look at local files (e.g., not try downloading the model). Deprecated: use `options.env.allowRemoteModels=false` for session-scoped remote loading control.
+ * @property {string} [cache_dir=null] Path to a directory in which a downloaded pretrained model configuration should be cached if the standard cache should not be used.
+ * @property {boolean} [local_files_only=false] Whether or not to only look at local files (e.g., not try downloading the model).
  * @property {string} [revision='main'] The model revision to use. This can be a branch name, tag name, or commit ID.
  * Because the Hub uses Git-based storage, `revision` can be any identifier accepted by Git. Ignored for local requests.
  */
@@ -93,13 +93,29 @@ export { getFetchHeaders } from './hub/utils.js';
  */
 
 /**
+ * Builds the options used by {@link getFile} from a resolved environment.
+ *
+ * @param {import('../env.js').TransformersEnvironment} env The resolved environment.
+ * @returns {FetchOptions} Options for fetching files.
+ */
+export function getFetchOptions(env) {
+    return {
+        useFS: env.useFS,
+        fetch: env.fetch,
+        version: env.version,
+        hfToken: env.hfToken,
+        remoteHost: env.remoteHost,
+    };
+}
+
+/**
  * Helper function to get a file, using either the Fetch API or FileSystem API.
  *
  * @param {URL|string} urlOrPath The URL/path of the file to get.
- * @param {FetchOptions} options Options for fetching files.
+ * @param {FetchOptions} [options] Options for fetching files. Defaults to the global `env`.
  * @returns {Promise<FileResponse|Response>} A promise that resolves to a FileResponse object (if the file is retrieved using the FileSystem API), or a Response object (if the file is retrieved using the Fetch API).
  */
-export async function getFile(urlOrPath, options) {
+export async function getFile(urlOrPath, options = getFetchOptions(resolveEnv())) {
     if (options.useFS && !isValidUrl(urlOrPath, ['http:', 'https:', 'blob:'])) {
         return new FileResponse(
             urlOrPath instanceof URL
@@ -529,13 +545,7 @@ export async function getModelFile(path_or_repo_id, filename, fatal = true, opti
         allowRemoteModels: env.allowRemoteModels,
         localFilesOnly,
     };
-    const fetchOptions = {
-        useFS: env.useFS,
-        fetch: env.fetch,
-        version: env.version,
-        hfToken: env.hfToken,
-        remoteHost: env.remoteHost,
-    };
+    const fetchOptions = getFetchOptions(env);
     const metadataOptions = {
         cache_dir: cacheDir,
         local_files_only: localFilesOnly,
@@ -631,29 +641,4 @@ export async function getModelJSON(modelPath, fileName, fatal = true, options = 
     }
 
     return JSON.parse(text);
-}
-
-let warnedCacheDir = false;
-let warnedLocalFilesOnly = false;
-
-/**
- * Emits deprecation warnings for legacy resource-loading options that should be
- * represented by environment configuration instead.
- *
- * @param {string|null|undefined} cache_dir Custom cache directory option.
- * @param {boolean} local_files_only Whether loading is restricted to local files.
- */
-export function maybeAddDeprecatedEnvWarning(cache_dir, local_files_only) {
-    if (cache_dir !== null && cache_dir !== undefined && !warnedCacheDir) {
-        warnedCacheDir = true;
-        logger.warn(
-            '`cache_dir` is deprecated. Use `options.env.cacheDir` for a session-scoped cache directory, or global `env.cacheDir` for the default.',
-        );
-    }
-    if (local_files_only && !warnedLocalFilesOnly) {
-        warnedLocalFilesOnly = true;
-        logger.warn(
-            '`local_files_only` is deprecated. Use `options.env.allowRemoteModels=false` for session-scoped remote loading control.',
-        );
-    }
 }

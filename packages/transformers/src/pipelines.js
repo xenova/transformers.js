@@ -51,7 +51,6 @@ import {
 } from './pipelines/index.js';
 import { get_pipeline_files } from './utils/model_registry/get_pipeline_files.js';
 import { get_file_metadata } from './utils/model_registry/get_file_metadata.js';
-import { maybeAddDeprecatedEnvWarning } from './utils/hub.js';
 
 /**
  * @typedef {keyof typeof SUPPORTED_TASKS} TaskType
@@ -116,8 +115,6 @@ export async function pipeline(
         env: sessionEnv = {},
     } = {},
 ) {
-    maybeAddDeprecatedEnvWarning(cache_dir, local_files_only);
-
     // Apply aliases
     // @ts-ignore
     task = TASK_ALIASES[task] ?? task;

@@ -27,7 +27,7 @@
  */
 
 import { pick } from './utils/core.js';
-import { getModelJSON, maybeAddDeprecatedEnvWarning } from './utils/hub.js';
+import { getModelJSON } from './utils/hub.js';
 
 /**
  * @typedef {import('./utils/hub.js').PretrainedOptions} PretrainedOptions
@@ -540,8 +540,6 @@ export class PretrainedConfig {
             env: sessionEnv = {},
         } = {},
     ) {
-        maybeAddDeprecatedEnvWarning(cache_dir, local_files_only);
-
         if (config && !(config instanceof PretrainedConfig)) {
             config = new PretrainedConfig(config);
         }
