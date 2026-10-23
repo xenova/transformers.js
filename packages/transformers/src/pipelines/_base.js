@@ -1,11 +1,40 @@
 import { PreTrainedTokenizer } from '../tokenization_utils.js';
 import { PreTrainedModel } from '../models/modeling_utils.js';
 import { Processor } from '../processing_utils.js';
+import { resolveEnv } from '../env.js';
 
 import { Callable } from '../utils/generic.js';
 
-import { read_audio } from '../utils/audio.js';
+import { decode_audio } from '../utils/audio.js';
 import { RawImage } from '../utils/image.js';
+import { getFile, getFetchOptions } from '../utils/hub.js';
+
+/**
+ * Session-scopable environment overrides of each pipeline. Kept off the instance so that they
+ * (including any `hfToken`) are not exposed as public pipeline state.
+ * @type {WeakMap<object, Partial<import('../env.js').TransformersEnvironmentSession>>}
+ */
+const PIPELINE_SESSION_ENVS = new WeakMap();
+
+/**
+ * Get the session-scopable environment overrides a pipeline was created with.
+ * @param {object} pipeline The pipeline.
+ * @returns {Partial<import('../env.js').TransformersEnvironmentSession>} The overrides (empty if none).
+ * @private
+ */
+export function getSessionEnv(pipeline) {
+    return PIPELINE_SESSION_ENVS.get(pipeline) ?? {};
+}
+
+/**
+ * Download a pipeline input given as a path/URL, using the pipeline's environment.
+ * @param {string|URL} url The path/URL of the input.
+ * @param {Partial<import('../env.js').TransformersEnvironmentSession>} sessionEnv Session-scopable environment overrides.
+ * @returns {Promise<import('../utils/hub/FileResponse.js').FileResponse|Response>} The response.
+ */
+async function fetchInput(url, sessionEnv) {
+    return await getFile(url, getFetchOptions(resolveEnv(sessionEnv)));
+}
 
 /**
  * @typedef {string | RawImage | URL | Blob | HTMLCanvasElement | OffscreenCanvas} ImageInput
@@ -15,15 +44,27 @@ import { RawImage } from '../utils/image.js';
 /**
  * Prepare images for further tasks.
  * @param {ImagePipelineInputs} images images to prepare.
+ * @param {Partial<import('../env.js').TransformersEnvironmentSession>} [sessionEnv={}] Session-scopable environment overrides.
  * @returns {Promise<RawImage[]>} returns processed images.
  */
-export async function prepareImages(images) {
+export async function prepareImages(images, sessionEnv = {}) {
     if (!Array.isArray(images)) {
         images = [images];
     }
 
     // Possibly convert any non-images to images
-    return await Promise.all(images.map((x) => RawImage.read(x)));
+    return await Promise.all(
+        images.map(async (x) => {
+            if (typeof x === 'string' || x instanceof URL) {
+                const response = await fetchInput(x, sessionEnv);
+                if (response.status !== 200) {
+                    throw new Error(`Unable to read image from "${x}" (${response.status} ${response.statusText})`);
+                }
+                return await RawImage.fromBlob(await response.blob());
+            }
+            return await RawImage.read(x);
+        }),
+    );
 }
 
 /**
@@ -35,17 +76,19 @@ export async function prepareImages(images) {
  * Prepare audios for further tasks.
  * @param {AudioPipelineInputs} audios audios to prepare.
  * @param {number} sampling_rate sampling rate of the audios.
+ * @param {Partial<import('../env.js').TransformersEnvironmentSession>} [sessionEnv={}] Session-scopable environment overrides.
  * @returns {Promise<Float32Array[]>} The preprocessed audio data.
  */
-export async function prepareAudios(audios, sampling_rate) {
+export async function prepareAudios(audios, sampling_rate, sessionEnv = {}) {
     if (!Array.isArray(audios)) {
         audios = [audios];
     }
 
     return await Promise.all(
-        audios.map((x) => {
+        audios.map(async (x) => {
             if (typeof x === 'string' || x instanceof URL) {
-                return read_audio(x, sampling_rate);
+                const response = await fetchInput(x, sessionEnv);
+                return await decode_audio(await response.arrayBuffer(), sampling_rate);
             } else if (x instanceof Float64Array) {
                 return new Float32Array(x);
             }
@@ -98,13 +141,15 @@ export class Pipeline extends Callable {
      * @param {PreTrainedModel} [options.model] The model used by the pipeline.
      * @param {PreTrainedTokenizer} [options.tokenizer=null] The tokenizer used by the pipeline (if any).
      * @param {Processor} [options.processor=null] The processor used by the pipeline (if any).
+     * @param {Partial<import('../env.js').TransformersEnvironmentSession>} [options.sessionEnv={}] Session-scopable environment overrides.
      */
-    constructor({ task, model, tokenizer = null, processor = null }) {
+    constructor({ task, model, tokenizer = null, processor = null, sessionEnv = {} }) {
         super();
         this.task = task;
         this.model = model;
         this.tokenizer = tokenizer;
         this.processor = processor;
+        PIPELINE_SESSION_ENVS.set(this, sessionEnv);
     }
 
     /** @type {DisposeType} */
@@ -118,6 +163,7 @@ export class Pipeline extends Callable {
  * @property {string} task The task of the pipeline. Useful for specifying subtasks.
  * @property {PreTrainedModel} model The model used by the pipeline.
  * @property {PreTrainedTokenizer} tokenizer The tokenizer used by the pipeline.
+ * @property {Partial<import('../env.js').TransformersEnvironmentSession>} [sessionEnv] The session-scopable environment overrides used by the pipeline.
  *
  * @typedef {ModelTokenizerConstructorArgs} TextPipelineConstructorArgs An object used to instantiate a text-based pipeline.
  */
@@ -127,6 +173,7 @@ export class Pipeline extends Callable {
  * @property {string} task The task of the pipeline. Useful for specifying subtasks.
  * @property {PreTrainedModel} model The model used by the pipeline.
  * @property {Processor} processor The processor used by the pipeline.
+ * @property {Partial<import('../env.js').TransformersEnvironmentSession>} [sessionEnv] The session-scopable environment overrides used by the pipeline.
  *
  * @typedef {ModelProcessorConstructorArgs} AudioPipelineConstructorArgs An object used to instantiate an audio-based pipeline.
  * @typedef {ModelProcessorConstructorArgs} ImagePipelineConstructorArgs An object used to instantiate an image-based pipeline.
@@ -138,6 +185,7 @@ export class Pipeline extends Callable {
  * @property {PreTrainedModel} model The model used by the pipeline.
  * @property {PreTrainedTokenizer} tokenizer The tokenizer used by the pipeline.
  * @property {Processor} processor The processor used by the pipeline.
+ * @property {Partial<import('../env.js').TransformersEnvironmentSession>} [sessionEnv] The session-scopable environment overrides used by the pipeline.
  *
  * @typedef {ModelTokenizerProcessorConstructorArgs} TextAudioPipelineConstructorArgs An object used to instantiate a text- and audio-based pipeline.
  * @typedef {ModelTokenizerProcessorConstructorArgs} TextImagePipelineConstructorArgs An object used to instantiate a text- and image-based pipeline.
