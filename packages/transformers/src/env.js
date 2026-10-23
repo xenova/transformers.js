@@ -23,7 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
 
-const VERSION = '4.3.0';
+const VERSION = '4.3.1';
 
 const HAS_SELF = typeof self !== 'undefined';
 
@@ -226,7 +226,7 @@ export const LogLevel = Object.freeze({
  * Global variables that describe runtime facts, backend singleton state, or application-owned infrastructure.
  * @typedef {Object} TransformersEnvironmentGlobal
  * @property {string} version This version of Transformers.js.
- * @property {{onnx: Partial<import('onnxruntime-common').Env> & { setLogLevel?: (logLevel: number) => void }}} backends Exposes backend environment settings that users can override.
+ * @property {{onnx: Partial<import('onnxruntime-common').Env> & { setLogLevel?: (logLevel: number) => void, getSupportedDevices?: () => import('./utils/devices.js').DeviceType[] }}} backends Exposes backend environment settings that users can override.
  * @property {number} logLevel The logging level. Use LogLevel enum values. Defaults to LogLevel.WARNING.
  * @property {boolean} useFS Whether to use the file system to load files. By default, it is `true` if available.
  * @property {boolean} useBrowserCache Whether to use Cache API to cache models. By default, it is `true` if available.
