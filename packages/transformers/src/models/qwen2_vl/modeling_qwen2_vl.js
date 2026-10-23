@@ -222,8 +222,10 @@ export class Qwen2VLForConditionalGeneration extends Qwen2VLPreTrainedModel {
      */
     get_rope_index(input_ids, image_grid_thw, video_grid_thw, attention_mask) {
         // @ts-ignore
+        // Text-only checkpoints (e.g. model_type "qwen3_5_text") have no vision_config,
+        // so this must not be dereferenced before we know there is an image/video to place.
         const { vision_config } = this.config;
-        const spatial_merge_size = vision_config.spatial_merge_size ?? 2;
+        const spatial_merge_size = vision_config?.spatial_merge_size ?? 2;
 
         if (image_grid_thw || video_grid_thw) {
             const total_input_ids = input_ids.tolist();
