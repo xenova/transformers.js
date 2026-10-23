@@ -110,10 +110,9 @@ const granite30_template = {
   start_anchor: "<|start_of_role|>assistant<|end_of_role|>",
   fields: {
     tool_calls: {
-      open_pattern: String.raw`\{\s*(?="tool"\s*:)`,
+      open_pattern: String.raw`(?=\{\s*"tool"\s*:)`,
       close: "<|end_of_text|>",
       content: "json",
-      content_args: { prefix: "{" },
       transform: [{ type: "function", function: { name: "{content.tool}", arguments: "{content.parameters}" } }],
     },
     content: { close: "<|end_of_text|>", content: "text" },

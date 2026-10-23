@@ -70,7 +70,6 @@ const LAX_CLOSE = '\x02';
  *   - `unquoted_keys` (bool): quote bare-identifier keys before parsing.
  *   - `string_delims` ([[open, close], ...]): strings delimited by these
  *     custom markers are pre-extracted, then restored as standard JSON strings.
- *   - `prefix` / `suffix` (string): restore syntax consumed by region delimiters.
  *   - `allow_non_json` (bool): return stripped text if parsing fails.
  */
 function _json(text, args) {
@@ -81,7 +80,7 @@ function _json(text, args) {
         throw new Error('json: input contains reserved sentinel characters (\\x01/\\x02); cannot parse safely.');
     }
 
-    let working = `${args.prefix ?? ''}${text}${args.suffix ?? ''}`;
+    let working = text;
     const captured = [];
     for (const [open_d, close_d] of string_delims) {
         const pattern = compile_pattern(`${escape_pattern(open_d)}(.*?)${escape_pattern(close_d)}`);
