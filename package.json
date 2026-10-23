@@ -34,8 +34,7 @@
       "-lintignore"
     ],
     "ignoreBinaries": [
-      "doc-builder",
-      "python"
+      "doc-builder"
     ],
     "workspaces": {
       ".": {
@@ -51,15 +50,13 @@
           "src/models/registry.js",
           "tests/**/*.js",
           "scripts/*.mjs",
-          "docs/scripts/**/*.js",
-          "docs/plugins/**/*.js"
+          "docs/scripts/**/*.js"
         ],
         "project": [
           "src/**/*.{js,ts}",
           "tests/**/*.js",
           "scripts/**/*.mjs",
           "docs/scripts/**/*.js",
-          "docs/plugins/**/*.js",
           "!coverage/**",
           "!dist/**",
           "!types/**"
