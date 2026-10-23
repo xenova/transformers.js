@@ -109,7 +109,7 @@ export class LiteRtInferenceProvider {
         return options.deleteModelFile(this.artifactModelId, file, getArtifactOptions(options, artifact.revision));
     }
 
-    async load(options: Record<string, any>): Promise<Function> {
+    async load(options: Record<string, any>): Promise<object> {
         if (options.task && options.task !== this.descriptor.task) {
             throw new Error(
                 `LiteRtInferenceProvider model "${this.descriptor.id}" does not support the "${options.task}" task.`,

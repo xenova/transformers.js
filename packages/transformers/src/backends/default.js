@@ -35,3 +35,15 @@ export async function getDefaultInferenceProvider(modelId) {
     const { OnnxInferenceProvider } = await getOnnxProviderModule();
     return OnnxInferenceProvider.from_modelId(modelId);
 }
+
+/**
+ * Built-in session roles and base file names for a model architecture. Session providers that do
+ * not define `getSessionConfig()` receive these from `constructSessions()`.
+ *
+ * @param {string} modelType
+ * @param {Object} config
+ * @param {Object} [options]
+ */
+export function getDefaultSessionConfig(modelType, config, options = {}) {
+    return onnxProviderModule.getSessionsConfig(modelType, config, options);
+}

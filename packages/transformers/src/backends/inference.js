@@ -19,8 +19,8 @@
  * `sharedAssets`, `chatTemplate`, the registry hooks, the host services passed to `load()`, loaded
  * models with `forward()` and `dispose()`, and the `forward` capability. Everything marked
  * "Experimental" below is being developed together with a first external runtime and may change
- * in a minor release: the normalized-session contract, causal generation, the object-detection
- * hooks, and the random-access `artifactProvider`.
+ * in a minor release: the normalized-session contract, causal generation, provider-owned
+ * `generate()`, model-owned pipeline steps, and the random-access `artifactProvider`.
  *
  * @module backends/inference
  */
@@ -44,7 +44,29 @@ import { delete_file_from_cache } from '../utils/model_registry/delete_file_from
  * @typedef {Object} InferenceModelCapabilities
  * @property {ForwardCapabilitiesV1} [forward] Stable. The model implements `forward(inputs)`.
  * @property {import('../generation/runtime.js').CausalGenerationCapabilitiesV1} [causalGeneration] Experimental: The model implements `createAutoregressiveSession(options)`.
- * @property {{version: 1, preprocess?: 'model', postprocess: 'model'}} [objectDetection] Experimental: The model owns object-detection preprocessing and/or postprocessing.
+ * @property {PipelineStepsCapabilitiesV1} [pipelineSteps] Experimental: The model owns preprocessing and/or postprocessing for the listed tasks.
+ * @property {{version: 1, preprocess?: 'model', postprocess?: 'model'}} [objectDetection] Deprecated alias for `pipelineSteps` with the `object-detection` task.
+ */
+
+/**
+ * Tasks whose pipeline steps a loaded model can take over, per step. Each entry has a fixed,
+ * task-specific contract documented in the integration guide.
+ */
+export const MODEL_PIPELINE_STEP_TASKS = Object.freeze({
+    preprocess: Object.freeze(['image-classification', 'object-detection']),
+    postprocess: Object.freeze(['object-detection']),
+});
+
+/**
+ * Experimental: declares which pipeline steps a loaded model performs itself. A task listed under
+ * `preprocess` makes the pipeline call `model.preprocess(task, inputs)` instead of its processor and
+ * pass the result to the model. A task listed under `postprocess` makes the pipeline call
+ * `model.postprocess(task, outputs, options)` instead of the processor's postprocessing.
+ *
+ * @typedef {Object} PipelineStepsCapabilitiesV1
+ * @property {1} version
+ * @property {ReadonlyArray<string>} [preprocess] Tasks from `MODEL_PIPELINE_STEP_TASKS.preprocess`.
+ * @property {ReadonlyArray<string>} [postprocess] Tasks from `MODEL_PIPELINE_STEP_TASKS.postprocess`.
  */
 
 /**
@@ -112,11 +134,13 @@ import { delete_file_from_cache } from '../utils/model_registry/delete_file_from
 /**
  * @typedef {Object} InferenceModel
  * @property {(inputs: Record<string, import('../utils/tensor.js').Tensor>) => Promise<Record<string, import('../utils/tensor.js').Tensor>>} [forward]
- * @property {(options: Record<string, unknown>) => Promise<import('../utils/tensor.js').Tensor|Record<string, unknown>>} [generate] Provider-owned generation. When the model implements `createAutoregressiveSession()`, Transformers.js installs its own `generate()` and replaces this one.
+ * @property {(options: Record<string, unknown>) => Promise<import('../utils/tensor.js').Tensor|Record<string, unknown>>} [generate] Experimental: Provider-owned generation, called by generating pipelines such as automatic speech recognition and text2text generation. A model may implement `generate()` without `forward()`. When the model implements `createAutoregressiveSession()`, Transformers.js installs its own `generate()` and replaces this one.
  * @property {InferenceModelCapabilities} [capabilities]
  * @property {(options: import('../generation/runtime.js').AutoregressiveSessionOptionsV1) => Promise<import('../generation/runtime.js').AutoregressiveSessionV1>} [createAutoregressiveSession] Experimental: Required with `capabilities.causalGeneration`.
- * @property {(images: import('../utils/image.js').RawImage[]) => Promise<Record<string, unknown>>} [preprocessObjectDetection] Experimental: Used when `capabilities.objectDetection.preprocess === 'model'`.
- * @property {(outputs: Record<string, import('../utils/tensor.js').Tensor>, threshold?: number, targetSizes?: number[][]|null) => Promise<unknown>|unknown} [postProcessObjectDetection] Experimental: Used when `capabilities.objectDetection.postprocess === 'model'`.
+ * @property {(task: string, inputs: unknown, options?: Record<string, unknown>) => Promise<Record<string, unknown>>|Record<string, unknown>} [preprocess] Experimental: Required with `capabilities.pipelineSteps.preprocess`. Returns the model inputs.
+ * @property {(task: string, outputs: Record<string, import('../utils/tensor.js').Tensor>, options?: Record<string, unknown>) => Promise<unknown>|unknown} [postprocess] Experimental: Required with `capabilities.pipelineSteps.postprocess`.
+ * @property {(images: import('../utils/image.js').RawImage[]) => Promise<Record<string, unknown>>} [preprocessObjectDetection] Deprecated: use `preprocess()`. Used when `capabilities.objectDetection.preprocess === 'model'`.
+ * @property {(outputs: Record<string, import('../utils/tensor.js').Tensor>, threshold?: number, targetSizes?: number[][]|null) => Promise<unknown>|unknown} [postProcessObjectDetection] Deprecated: use `postprocess()`. Used when `capabilities.objectDetection.postprocess === 'model'`.
  * @property {import('../configs.js').PretrainedConfig} [config]
  * @property {() => Promise<unknown>|unknown} dispose
  */
@@ -328,6 +352,68 @@ export function validateInferenceModelTask(model, task) {
 }
 
 /**
+ * Validate a loaded model's `capabilities.pipelineSteps` declaration.
+ *
+ * @param {any} implementation
+ */
+function validatePipelineSteps(implementation) {
+    const steps = implementation.capabilities?.pipelineSteps;
+    if (steps == null) return;
+    if (steps.version !== 1) {
+        throw new TypeError('`capabilities.pipelineSteps` must declare `version: 1`.');
+    }
+    for (const step of /** @type {const} */ (['preprocess', 'postprocess'])) {
+        const tasks = steps[step];
+        if (tasks == null) continue;
+        if (!Array.isArray(tasks)) {
+            throw new TypeError(`\`capabilities.pipelineSteps.${step}\` must be an array of task names.`);
+        }
+        const unsupported = tasks.filter((task) => !MODEL_PIPELINE_STEP_TASKS[step].includes(task));
+        if (unsupported.length > 0) {
+            throw new TypeError(
+                `\`capabilities.pipelineSteps.${step}\` lists unsupported task(s): ${unsupported.join(', ')}. ` +
+                    `Supported tasks: ${MODEL_PIPELINE_STEP_TASKS[step].join(', ')}.`,
+            );
+        }
+        if (tasks.length > 0 && typeof implementation[step] !== 'function') {
+            throw new TypeError(
+                `Models declaring \`capabilities.pipelineSteps.${step}\` must implement \`${step}(task, ...)\`.`,
+            );
+        }
+    }
+}
+
+/**
+ * Return the model-owned implementation of a pipeline step for a task, or `null` when the pipeline
+ * should run its own step. The returned function takes the step's arguments without the task.
+ *
+ * @param {unknown} model
+ * @param {'preprocess'|'postprocess'} step
+ * @param {string} task
+ * @returns {((...args: any[]) => Promise<any>)|null}
+ */
+export function getModelPipelineStep(model, step, task) {
+    const implementation = /** @type {any} */ (model);
+    const steps = implementation?.capabilities?.pipelineSteps;
+    if (steps?.version === 1 && steps[step]?.includes(task) && typeof implementation[step] === 'function') {
+        return async (...args) => implementation[step](task, ...args);
+    }
+
+    // Deprecated `capabilities.objectDetection` alias.
+    const legacy = implementation?.capabilities?.objectDetection;
+    if (task === 'object-detection' && legacy?.version === 1 && legacy[step] === 'model') {
+        if (step === 'preprocess' && typeof implementation.preprocessObjectDetection === 'function') {
+            return async (images) => implementation.preprocessObjectDetection(images);
+        }
+        if (step === 'postprocess' && typeof implementation.postProcessObjectDetection === 'function') {
+            return async (outputs, { threshold, targetSizes } = {}) =>
+                implementation.postProcessObjectDetection(outputs, threshold, targetSizes);
+        }
+    }
+    return null;
+}
+
+/**
  * Make a plain model with `forward()` callable, matching the model contract used by pipelines.
  *
  * @param {InferenceModel|Function} model
@@ -349,13 +435,15 @@ export function normalizeInferenceModel(model) {
             'Models declaring `capabilities.causalGeneration` must implement `createAutoregressiveSession(options)`.',
         );
     }
+    validatePipelineSteps(implementation);
     if (typeof model === 'function') return model;
     if (
         typeof implementation.forward !== 'function' &&
+        typeof implementation.generate !== 'function' &&
         typeof implementation.createAutoregressiveSession !== 'function'
     ) {
         throw new TypeError(
-            'Inference backend models must be callable, implement `forward(inputs)`, or implement `createAutoregressiveSession(options)`.',
+            'Inference backend models must be callable, implement `forward(inputs)`, implement `generate(options)`, or implement `createAutoregressiveSession(options)`.',
         );
     }
 

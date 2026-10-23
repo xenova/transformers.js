@@ -106,15 +106,11 @@ async function greedyGenerate(
     return new Tensor('int64', Array.from(tokens.subarray(0, length), BigInt), [1, length]);
 }
 
-export function createWhisperModel(model: CompiledModel, generationConfig: GenerationConfig): Function {
-    const callable = () => {
-        throw new Error('LiteRT Whisper supports `generate()` rather than a generic forward pass.');
-    };
-    // Speech recognition has no versioned execution capability yet, so the model declares none and
-    // relies on the pipeline calling `generate()` directly.
-    return Object.assign(callable, {
+export function createWhisperModel(model: CompiledModel, generationConfig: GenerationConfig) {
+    // The ASR pipeline calls `generate()` directly, so the model needs no generic forward pass.
+    return {
         generate: (options: Record<string, unknown>) =>
             greedyGenerate(model, options.inputs as Tensor, generationConfig, options),
         dispose: () => model.delete(),
-    });
+    };
 }

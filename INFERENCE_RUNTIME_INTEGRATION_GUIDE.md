@@ -35,7 +35,8 @@ The contract has two tiers. Build on the stable tier. Use the experimental tier 
 
 - the normalized-session contract (`sessionProvider` and `constructSessions()`);
 - causal text generation (`capabilities.causalGeneration` and `createAutoregressiveSession()`);
-- the object-detection hooks (`capabilities.objectDetection`);
+- provider-owned `generate()` for encoder-decoder and speech-recognition models;
+- model-owned pipeline steps (`capabilities.pipelineSteps`, `preprocess()`, and `postprocess()`);
 - the random-access `artifactProvider` loading option.
 
 Each experimental part is marked `@experimental` in the Transformers.js type definitions and described in [Experimental contracts](#experimental-contracts) below. The [portable execution manifest](#proposed-portable-execution-manifest) that will eventually replace the ONNX-shaped session roles is a proposal, not an implemented contract.
@@ -56,7 +57,7 @@ type InferenceModel = {
 
 This is the recommended starting point. It lets Transformers.js retain preprocessing, postprocessing, and task semantics while your package only handles execution. A model may also be a plain callable function with `dispose()` attached; Transformers.js treats a callable and a `forward()` method the same way.
 
-Transformers.js reads exactly three loaded-model capabilities: `forward`, `causalGeneration`, and `objectDetection`. Declare only the ones your model implements. Do not invent capability names or copy unversioned methods from another provider and expect Transformers.js to detect them. If a task needs an execution contract that does not exist yet, propose the versioned contract in Transformers.js first.
+Transformers.js reads exactly three loaded-model capabilities: `forward`, `causalGeneration`, and `pipelineSteps`. Declare only the ones your model implements. (`objectDetection` is still read as a deprecated alias for `pipelineSteps`.) Do not invent capability names or copy unversioned methods from another provider and expect Transformers.js to detect them. If a task needs an execution contract that does not exist yet, propose the versioned contract in Transformers.js first.
 
 ## 2. Implement the provider
 
@@ -222,7 +223,7 @@ TensorOpRegistry.register('my-webgpu-runtime', {
 
 The feature-extraction pipeline dispatches mean pooling, token slicing, and normalization by tensor backend. If no backend implementation is registered, it uses the existing CPU implementation. Quantization still requires CPU-visible data. Providers should unregister operations during package teardown or tests with `TensorOpRegistry.unregister(backend, implementation)`.
 
-Generic asynchronous tensor operations such as matrix multiplication, interpolation, FFT, top-k, and graph slicing also select their implementation from the non-CPU input tensor's backend. Inputs from two different non-CPU backends are rejected rather than interpreting one backend's opaque handle as another backend's tensor.
+Generic asynchronous tensor operations such as matrix multiplication, interpolation, FFT, top-k, and graph slicing also select their implementation from the non-CPU input tensor's backend. Inputs from two different non-CPU backends are rejected rather than interpreting one backend's opaque handle as another backend's tensor. Top-k on a CPU tensor with numeric data runs in JavaScript, so classification postprocessing does not initialize ONNX Runtime when your provider returns CPU tensors.
 
 ## 4. Use host-provided loading services
 
@@ -467,11 +468,22 @@ export class MySessionProvider {
 }
 ```
 
-Transformers.js selects the semantic model class from `config.json`, determines the required session roles, and calls `constructSessions()`. The provider compiles those graph files and returns normalized sessions. Each returned session must provide `inputNames`, `outputNames`, `run(inputs)`, and `release()`. Metadata and runtime-specific `config` are optional. If one session fails to initialize, release every session already created before rejecting `constructSessions()`.
+Transformers.js selects the semantic model class from `config.json`, determines the required session roles, and calls `constructSessions()`. The roles and base file names in `names` come from the built-in session configuration for the model architecture, for example `{ model: 'encoder_model', decoder_model_merged: 'decoder_model_merged' }` for an encoder-decoder model.
+
+To map an architecture to different roles or file names, implement the optional `getSessionConfig(modelType, config, options)` method. It returns the `sessions` mapping plus the optional `cache_sessions` and `optional_configs` entries, or `null` when the provider cannot run that architecture:
+
+```js
+getSessionConfig(modelType, config, options) {
+    if (modelType !== 'EncoderOnly') return null;
+    return { sessions: { model: 'my_runtime_model' } };
+}
+```
+
+When `getSessionConfig()` is not defined, Transformers.js uses the built-in configuration. Returning `null` rejects loading with an error that the provider does not define session artifacts for this architecture. The provider compiles those graph files and returns normalized sessions. Each returned session must provide `inputNames`, `outputNames`, `run(inputs)`, and `release()`. Metadata and runtime-specific `config` are optional. If one session fails to initialize, release every session already created before rejecting `constructSessions()`.
 
 This path lets one graph runtime reuse architecture-specific forward methods, generation orchestration, and output classes without implementing a loader for every model class. It is the answer for a runtime that can execute an exported op graph, for example a WebGPU engine that parses ONNX files and runs them with its own kernels.
 
-Know the limitation before you build on it. The session roles and base file names in `names` come from the built-in ONNX session configuration, so they follow ONNX export conventions such as `model`, `encoder_model`, or `decoder_model_merged`. A non-ONNX runtime has to map those conventions onto its own artifacts. The [portable execution manifest proposal](#proposed-portable-execution-manifest) describes how this is meant to become portable; until it is implemented, the contract is experimental.
+Know the limitation before you build on it. The built-in session roles and base file names follow ONNX export conventions such as `model`, `encoder_model`, or `decoder_model_merged`. A non-ONNX runtime has to map those conventions onto its own artifacts. The [portable execution manifest proposal](#proposed-portable-execution-manifest) describes how this is meant to become portable; until it is implemented, the contract is experimental.
 
 ### Proposed portable execution manifest
 
@@ -551,11 +563,68 @@ The session protocol has two flavors. The pull session is the minimum: `prefill(
 
 See `CausalGenerationCapabilitiesV1`, `PullAutoregressiveSessionV1`, `PlanAutoregressiveSessionV1`, and `LogitsLeaseV1` in the type definitions for the exact shapes. No provider in this repository implements this contract yet; it is being developed against an external WebGPU runtime.
 
-### Object-detection hooks
+### Provider-owned generation for encoder-decoder models
 
-Some fixed-shape detection models bake preprocessing or postprocessing into the graph or require model-specific decoding of the raw output. A loaded model can take over either step by declaring `capabilities.objectDetection` with `preprocess: 'model'` and/or `postprocess: 'model'` and implementing `preprocessObjectDetection(images)` and/or `postProcessObjectDetection(outputs, threshold, targetSizes)`. The object-detection pipeline calls those methods in place of its own steps. The LiteRT.js YOLO model uses this hook.
+Pipelines that generate tokens from a non-text input, such as automatic speech recognition, call `model.generate(options)` directly. A provider that runs the whole encoder-decoder loop itself, for example a speech model that keeps encoder states on the GPU, can implement `generate()` without a generic `forward()`:
 
-This is a task-specific escape hatch. It will either be generalized into one mechanism for model-owned pipeline steps or replaced; do not use it as a template for other tasks.
+```js
+async load(options) {
+    const runtime = await compileSpeechModel(/* ... */);
+    return {
+        async generate({ input_values, max_new_tokens }) {
+            const tokens = await runtime.transcribe(input_values, {
+                maxNewTokens: max_new_tokens,
+                generationConfig: options.generation_config,
+            });
+            return new Tensor('int64', BigInt64Array.from(tokens, BigInt), [1, tokens.length]);
+        },
+        dispose() {
+            return runtime.dispose();
+        },
+    };
+}
+```
+
+`generate()` receives the pipeline's generation options merged with the model inputs. The input names depend on the architecture: Moonshine receives the processor output `input_values` plus `max_new_tokens`, while Whisper receives `inputs` (the `input_features` of one audio chunk) plus the resolved generation config. It returns a `[batch, sequence]` `int64` tensor of token IDs, which the pipeline decodes with the tokenizer. The options passed to `generate()` depend on the model architecture's pipeline code, so check the pipeline for each architecture you support. The LiteRT.js Whisper model in this repository uses this pattern.
+
+The causal-generation session protocol below is decoder-only. Encoder-decoder models are not covered by it yet, so logits processors, stopping criteria, and streamers are applied only if your `generate()` implements them.
+
+### Model-owned pipeline steps
+
+Some fixed-shape models bake preprocessing or postprocessing into the graph, or need model-specific decoding of the raw output. A runtime may also run preprocessing much faster on its own device. A loaded model can take over these steps by declaring `capabilities.pipelineSteps` and implementing `preprocess()` and/or `postprocess()`:
+
+```js
+return {
+    capabilities: {
+        forward: { version: 1 },
+        pipelineSteps: {
+            version: 1,
+            preprocess: ['image-classification', 'object-detection'],
+            postprocess: ['object-detection'],
+        },
+    },
+    async preprocess(task, images) {
+        return { pixel_values: await runPreprocessKernel(images) };
+    },
+    async postprocess(task, outputs, { threshold, targetSizes }) {
+        return decodeDetections(outputs, threshold, targetSizes);
+    },
+    forward,
+    dispose,
+};
+```
+
+Each task listed in `preprocess` makes the pipeline call `model.preprocess(task, inputs)` instead of its processor, and pass the returned object to `forward()`. Each task listed in `postprocess` makes the pipeline call `model.postprocess(task, outputs, options)` instead of the processor's postprocessing. Both methods may be async. The task contracts are:
+
+| Step | Task | Arguments | Returns |
+| --- | --- | --- | --- |
+| `preprocess` | `image-classification` | `RawImage[]` | model inputs, normally `{ pixel_values }`; the model's `logits` output is then softmaxed and ranked by the pipeline |
+| `preprocess` | `object-detection` | `RawImage[]` | model inputs |
+| `postprocess` | `object-detection` | `outputs`, `{ threshold, targetSizes }` | one `{ boxes, scores, classes }` per image, like `post_process_object_detection()` |
+
+Declaring a task that is not in this table, or declaring a step without implementing its method, rejects the loaded model. New tasks are added to the table together with the pipeline code that calls them. The LiteRT.js YOLO model uses this hook.
+
+The earlier `capabilities.objectDetection` form with `preprocessObjectDetection()` and `postProcessObjectDetection()` still works as a deprecated alias for the `object-detection` task.
 
 ### Random-access artifact provider
 
@@ -568,7 +637,7 @@ Applications can pass an `artifactProvider` loading option with `readJson(file)`
 - Network requests use the host-provided `options.fetch`.
 - Loading honors `device`, `dtype`, `session_options`, `local_files_only`, and `signal` where applicable.
 - The loaded model accepts and returns named Transformers.js tensors.
-- The loaded model declares only the execution capabilities Transformers.js reads: `forward`, and where applicable the experimental `causalGeneration` or `objectDetection`.
+- The loaded model declares only the execution capabilities Transformers.js reads: `forward`, and where applicable the experimental `causalGeneration` or `pipelineSteps`.
 - `dispose()` releases all runtime resources.
 - Static capabilities accurately describe supported tasks, devices, and data types.
 - Artifact discovery and artifact loading use one shared selection rule.

@@ -2,6 +2,7 @@ import { Pipeline, prepareImages } from './_base.js';
 
 import { Tensor, topk } from '../utils/tensor.js';
 import { softmax } from '../utils/maths.js';
+import { getModelPipelineStep } from '../backends/inference.js';
 
 /**
  * @typedef {import('./_base.js').ImagePipelineConstructorArgs} ImagePipelineConstructorArgs
@@ -82,8 +83,15 @@ export class ImageClassificationPipeline
     async _call(images, { top_k = 5 } = {}) {
         const preparedImages = await prepareImages(images);
 
-        const { pixel_values } = await this.processor(preparedImages);
-        const output = await this.model({ pixel_values });
+        const preprocess = getModelPipelineStep(this.model, 'preprocess', 'image-classification');
+        let modelInputs;
+        if (preprocess) {
+            modelInputs = await preprocess(preparedImages);
+        } else {
+            const { pixel_values } = await this.processor(preparedImages);
+            modelInputs = { pixel_values };
+        }
+        const output = await this.model(modelInputs);
 
         // @ts-expect-error TS2339
         const { id2label } = this.model.config;

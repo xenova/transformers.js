@@ -1,4 +1,5 @@
 import { Pipeline, prepareImages, get_bounding_box } from './_base.js';
+import { getModelPipelineStep } from '../backends/inference.js';
 
 /**
  * @typedef {import('./_base.js').ImagePipelineConstructorArgs} ImagePipelineConstructorArgs
@@ -67,23 +68,21 @@ export class ObjectDetectionPipeline
 
         const imageSizes = percentage ? null : preparedImages.map((x) => [x.height, x.width]);
 
-        const model = /** @type {any} */ (this.model);
-        const modelOwnsPreprocessing =
-            model.capabilities?.objectDetection?.version === 1 &&
-            model.capabilities.objectDetection.preprocess === 'model' &&
-            typeof model.preprocessObjectDetection === 'function';
-        const modelInputs = modelOwnsPreprocessing
-            ? await model.preprocessObjectDetection(preparedImages)
-            : await this.processor(preparedImages);
+        const preprocess = getModelPipelineStep(this.model, 'preprocess', 'object-detection');
+        let modelInputs;
+        if (preprocess) {
+            modelInputs = await preprocess(preparedImages);
+        } else {
+            const { pixel_values, pixel_mask } = await this.processor(preparedImages);
+            modelInputs = { pixel_values, pixel_mask };
+        }
         const output = await this.model(modelInputs);
 
-        const processed =
-            model.capabilities?.objectDetection?.version === 1 &&
-            model.capabilities.objectDetection.postprocess === 'model' &&
-            typeof model.postProcessObjectDetection === 'function'
-                ? await model.postProcessObjectDetection(output, threshold, imageSizes)
-                : // @ts-ignore
-                  this.processor.image_processor.post_process_object_detection(output, threshold, imageSizes);
+        const postprocess = getModelPipelineStep(this.model, 'postprocess', 'object-detection');
+        const processed = postprocess
+            ? await postprocess(output, { threshold, targetSizes: imageSizes })
+            : // @ts-ignore
+              this.processor.image_processor.post_process_object_detection(output, threshold, imageSizes);
 
         // Add labels
         // @ts-expect-error TS2339

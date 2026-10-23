@@ -40,7 +40,7 @@ import {
     withInferenceBackendHostOptions,
     withInferenceBackendSharedAssetOptions,
 } from '../backends/inference.js';
-import { getDefaultInferenceProvider } from '../backends/default.js';
+import { getDefaultInferenceProvider, getDefaultSessionConfig } from '../backends/default.js';
 
 /**
  * Converts an array or Tensor of integers to an int64 Tensor.
@@ -434,7 +434,11 @@ export class PreTrainedModel extends Callable {
             }
         }
 
-        const sessionConfig = inferenceProvider?.getSessionConfig?.(modelType, config, { ...options, textOnly });
+        const sessionOptions = { ...options, textOnly };
+        const sessionConfig =
+            typeof inferenceProvider?.getSessionConfig === 'function'
+                ? inferenceProvider.getSessionConfig(modelType, config, sessionOptions)
+                : getDefaultSessionConfig(modelType, config, sessionOptions);
         if (!sessionConfig) {
             throw new Error('The inference provider does not define session artifacts for this model architecture.');
         }

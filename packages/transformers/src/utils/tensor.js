@@ -1234,17 +1234,54 @@ export async function rfft(x, a) {
  * @returns {Promise<[Tensor, Tensor]>} the output tuple of (Tensor, LongTensor) of top-k elements and their indices.
  */
 export async function topk(x, k) {
-    const op = await TensorOpRegistry.resolve('top_k', [x]);
-
     if (k == null) {
         k = x.dims.at(-1);
     } else {
         k = Math.min(k, x.dims.at(-1));
     }
+
+    // Backend-owned tensors use the operation registered for their backend. CPU tensors with
+    // numeric data are handled in JS so postprocessing does not initialize a runtime session.
+    const backendOp = await TensorOpRegistry.resolve('top_k', [x], { fallback: false, required: false });
+    if (!backendOp && x.backend === 'cpu' && JS_TOPK_TYPES.has(x.type)) {
+        return topk_data(x, k);
+    }
+    const op = backendOp ?? (await TensorOpRegistry.resolve('top_k', [x]));
     return await op({
         x,
         k: new Tensor('int64', [BigInt(k)], [1]),
     });
+}
+
+const JS_TOPK_TYPES = new Set(['float32', 'float64', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32']);
+
+/**
+ * Top-k along the last axis of a CPU tensor. Matches ONNX `TopK` with `largest=1, sorted=1`:
+ * values are sorted in descending order, and equal values keep ascending index order.
+ * @param {Tensor} x
+ * @param {number} k
+ * @returns {[Tensor, Tensor]}
+ */
+function topk_data(x, k) {
+    const data = /** @type {import('./maths.js').TypedArray} */ (x.data);
+    const n = x.dims.at(-1);
+    const rows = n === 0 ? 0 : data.length / n;
+
+    // @ts-ignore
+    const values = new data.constructor(rows * k);
+    const indices = new BigInt64Array(rows * k);
+    const order = new Array(n);
+    for (let row = 0; row < rows; ++row) {
+        const offset = row * n;
+        for (let i = 0; i < n; ++i) order[i] = i;
+        order.sort((a, b) => data[offset + b] - data[offset + a] || a - b);
+        for (let i = 0; i < k; ++i) {
+            values[row * k + i] = data[offset + order[i]];
+            indices[row * k + i] = BigInt(order[i]);
+        }
+    }
+    const dims = [...x.dims.slice(0, -1), k];
+    return [new Tensor(x.type, values, dims), new Tensor('int64', indices, dims)];
 }
 
 const arrayToIndexTensor = (array) => new Tensor('int64', array, [array.length]);

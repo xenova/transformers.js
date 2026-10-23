@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 
-import { Tensor, cat, stack, layer_norm, ones_like, zeros_like, full_like, rand, std_mean } from "../../src/transformers.js";
+import { Tensor, TensorOpRegistry, cat, stack, layer_norm, ones_like, zeros_like, full_like, rand, std_mean, topk } from "../../src/transformers.js";
 import { init } from "../init.js";
 
 init();
@@ -53,6 +53,64 @@ describe("Tensor operations", () => {
     expect(() => Tensor.fromBackendStorage(storage)).toThrow("does not match shape [2] (2)");
     expect(() => Tensor.fromBackendStorage({ ...storage, size: 2, backend: "" })).toThrow("`backend`");
     expect(() => Tensor.fromBackendStorage({ ...storage, size: 2, type: "invalid" })).toThrow("Unsupported backend tensor type");
+  });
+
+  describe("topk", () => {
+    it("computes top-k of CPU tensors without a registered operation", async () => {
+      const resolve = jest.spyOn(TensorOpRegistry, "resolve");
+      const x = new Tensor("float32", new Float32Array([1, 3, 2, 3, 0, -1, 5, 4]), [2, 4]);
+
+      const [values, indices] = await topk(x, 3);
+
+      expect(values.type).toBe("float32");
+      expect(values.dims).toEqual([2, 3]);
+      expect(values.tolist()).toEqual([
+        [3, 3, 2],
+        [5, 4, 0],
+      ]);
+      expect(indices.type).toBe("int64");
+      expect(indices.tolist()).toEqual([
+        [1n, 3n, 2n],
+        [2n, 3n, 0n],
+      ]);
+      // Only the backend lookup runs; the default (ONNX) implementation is never resolved.
+      expect(resolve).toHaveBeenCalledTimes(1);
+      expect(resolve).toHaveBeenCalledWith("top_k", [x], { fallback: false, required: false });
+      resolve.mockRestore();
+    });
+
+    it("clamps k and defaults to the full last dimension", async () => {
+      const x = new Tensor("int32", new Int32Array([2, 7, 5]), [3]);
+      expect((await topk(x, 10))[0].tolist()).toEqual([7, 5, 2]);
+      expect((await topk(x))[1].tolist()).toEqual([1n, 2n, 0n]);
+    });
+
+    it("dispatches backend-owned tensors to the registered operation", async () => {
+      const result = [new Tensor("float32", [1], [1]), new Tensor("int64", [0n], [1])];
+      const implementation = { top_k: jest.fn(async () => result) };
+      TensorOpRegistry.register("test-topk-backend", implementation);
+      const x = Tensor.fromBackendStorage({
+        backend: "test-topk-backend",
+        handle: {},
+        type: "float32",
+        dims: [2],
+        size: 2,
+        location: "gpu-buffer",
+        get data() {
+          throw new Error("not on CPU");
+        },
+        dispose() {},
+      });
+
+      try {
+        await expect(topk(x, 1)).resolves.toBe(result);
+        const [{ x: input, k }] = implementation.top_k.mock.calls[0];
+        expect(input).toBe(x);
+        expect(k.tolist()).toEqual([1n]);
+      } finally {
+        TensorOpRegistry.unregister("test-topk-backend", implementation);
+      }
+    });
   });
 
   describe("cat", () => {

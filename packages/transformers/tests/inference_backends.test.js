@@ -1,6 +1,7 @@
 import { jest } from "@jest/globals";
 
-import { getModelId, isInferenceBackend, isOnnxSessionProvider, isSessionInferenceProvider, loadInferenceModel, normalizeInferenceModel, validateInferenceBackendTask, validateInferenceModelTask } from "../src/backends/inference.js";
+import { getModelId, getModelPipelineStep, isInferenceBackend, isOnnxSessionProvider, isSessionInferenceProvider, loadInferenceModel, normalizeInferenceModel, validateInferenceBackendTask, validateInferenceModelTask } from "../src/backends/inference.js";
+import { BertModel } from "../src/transformers.js";
 import { OnnxInferenceProvider } from "@huggingface/transformers-onnxruntime";
 import { AutoModel } from "../src/models/auto/modeling_auto.js";
 import { PreTrainedModel } from "../src/models/modeling_utils.js";
@@ -196,6 +197,65 @@ describe("inference backends", () => {
     await expect(TestModel.from_pretrained(provider)).resolves.toBe("loaded");
 
     expect(TestModel._from_pretrained).toHaveBeenCalledWith("test/session-provider", expect.objectContaining({ inferenceProvider: provider, getModelFile: expect.any(Function) }));
+  });
+
+  it("uses built-in session roles when a session provider omits getSessionConfig", async () => {
+    const session = { inputNames: ["input_ids"], outputNames: ["last_hidden_state"], run: jest.fn(), release: jest.fn() };
+    const provider = {
+      modelId: "test/session-provider",
+      sessionProvider: { version: 1 },
+      constructSessions: jest.fn(async () => ({ model: session })),
+    };
+
+    const model = await BertModel.from_pretrained(provider, { config: { model_type: "bert" } });
+
+    expect(provider.constructSessions).toHaveBeenCalledWith({ model: "model" }, expect.objectContaining({ inferenceProvider: provider }), undefined);
+    expect(model.sessions.model).toBe(session);
+  });
+
+  it("lets session providers override or reject session roles", async () => {
+    const constructSessions = jest.fn(async () => ({ model: { inputNames: [], outputNames: [], run: jest.fn(), release: jest.fn() } }));
+    const provider = {
+      modelId: "test/session-provider",
+      sessionProvider: { version: 1 },
+      constructSessions,
+      getSessionConfig: jest.fn(() => ({ sessions: { model: "custom_model" } })),
+    };
+
+    await BertModel.from_pretrained(provider, { config: { model_type: "bert" } });
+    expect(provider.getSessionConfig).toHaveBeenCalledWith("EncoderOnly", expect.anything(), expect.objectContaining({ textOnly: false }));
+    expect(constructSessions).toHaveBeenCalledWith({ model: "custom_model" }, expect.anything(), undefined);
+
+    provider.getSessionConfig = () => null;
+    await expect(BertModel.from_pretrained(provider, { config: { model_type: "bert" } })).rejects.toThrow("does not define session artifacts");
+  });
+
+  it("accepts models that only implement generate()", () => {
+    const generate = jest.fn();
+    const model = normalizeInferenceModel({ generate, dispose() {} });
+    expect(model.generate).toBe(generate);
+    expect(() => model({})).toThrow("does not implement `forward(inputs)`");
+    expect(() => normalizeInferenceModel({ dispose() {} })).toThrow("implement `generate(options)`");
+  });
+
+  it("validates model-owned pipeline step declarations", () => {
+    const forward = async () => ({});
+    const dispose = () => {};
+    expect(() => normalizeInferenceModel({ forward, dispose, capabilities: { pipelineSteps: { version: 2 } } })).toThrow("version: 1");
+    expect(() => normalizeInferenceModel({ forward, dispose, capabilities: { pipelineSteps: { version: 1, preprocess: ["image-classification"] } } })).toThrow("must implement `preprocess(task, ...)`");
+    expect(() => normalizeInferenceModel({ forward, dispose, preprocess() {}, capabilities: { pipelineSteps: { version: 1, preprocess: ["audio-classification"] } } })).toThrow("unsupported task(s): audio-classification");
+    expect(() => normalizeInferenceModel({ forward, dispose, postprocess() {}, capabilities: { pipelineSteps: { version: 1, postprocess: ["image-classification"] } } })).toThrow("unsupported task(s)");
+    expect(() => normalizeInferenceModel({ forward, dispose, preprocess() {}, capabilities: { pipelineSteps: { version: 1, preprocess: ["image-classification"] } } })).not.toThrow();
+  });
+
+  it("resolves model-owned pipeline steps per task", async () => {
+    const preprocess = jest.fn(async (task, images) => ({ task, images }));
+    const model = { preprocess, capabilities: { pipelineSteps: { version: 1, preprocess: ["image-classification"] } } };
+
+    await expect(getModelPipelineStep(model, "preprocess", "image-classification")(["image"])).resolves.toEqual({ task: "image-classification", images: ["image"] });
+    expect(getModelPipelineStep(model, "preprocess", "object-detection")).toBeNull();
+    expect(getModelPipelineStep(model, "postprocess", "image-classification")).toBeNull();
+    expect(getModelPipelineStep({}, "preprocess", "image-classification")).toBeNull();
   });
 
   it("represents string IDs with the ONNX fallback backend", async () => {

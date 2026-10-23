@@ -149,10 +149,14 @@ export function createYoloModel(model: CompiledModel, descriptor: LiteRtModelDes
         forward,
         capabilities: {
             forward: { version: 1 },
-            objectDetection: { version: 1, preprocess: 'model', postprocess: 'model' },
+            pipelineSteps: { version: 1, preprocess: ['object-detection'], postprocess: ['object-detection'] },
         },
-        preprocessObjectDetection: preprocessYolo,
-        postProcessObjectDetection: postProcessYolo,
+        preprocess: (_task: string, images: RawImage[]) => preprocessYolo(images),
+        postprocess: (
+            _task: string,
+            outputs: YoloOutput,
+            { threshold, targetSizes }: { threshold?: number; targetSizes?: number[][] | null } = {},
+        ) => postProcessYolo(outputs, threshold, targetSizes),
         dispose: () => model.delete(),
     });
 }
