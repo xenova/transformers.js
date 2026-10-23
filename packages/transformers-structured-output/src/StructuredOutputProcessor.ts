@@ -14,6 +14,14 @@ export type ResponseFormat =
     | { type: 'json_schema'; json_schema: JSONSchema }
     | { type: 'regex'; regex: string };
 
+export type StructuredOutputOptions = {
+    /**
+     * Whether the prompt was rendered with thinking enabled. When `false`, the constraint
+     * applies to the first content token instead of allowing an optional thinking region.
+     */
+    enable_thinking?: boolean;
+};
+
 type GenerationState = {
     constraint: TokenConstraint;
     enableThinking?: boolean;
@@ -37,10 +45,11 @@ export class StructuredOutputProcessor extends LogitsProcessorList {
         prepareTokenizer(tokenizer);
     }
 
-    constructor(tokenizer: TokenizerSource, responseFormat: ResponseFormat) {
+    constructor(tokenizer: TokenizerSource, responseFormat: ResponseFormat, options: StructuredOutputOptions = {}) {
         super();
         this.state = {
             constraint: createTokenConstraint(tokenizer, responseFormat),
+            enableThinking: options.enable_thinking,
         };
         this.push(new ConstraintLogitsProcessor(this.state));
     }
@@ -49,12 +58,6 @@ export class StructuredOutputProcessor extends LogitsProcessorList {
 class ConstraintLogitsProcessor extends LogitsProcessor {
     constructor(private readonly state: GenerationState) {
         super();
-    }
-
-    setGenerationContext({ enable_thinking }: { enable_thinking?: boolean }): void {
-        if (this.state.processedInputLength !== undefined)
-            throw new Error('Generation context must be set before generation starts.');
-        this.state.enableThinking = enable_thinking;
     }
 
     _call(inputIds: bigint[][], logits: Tensor) {

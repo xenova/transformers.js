@@ -1,19 +1,22 @@
 import { compileRegex } from './regex';
 import type { ConstraintState, TokenizerSource } from './types';
 
-type Matcher = { machine: ConstraintState<unknown>; eager: boolean };
+type Matcher = { machine: ConstraintState<unknown>; eager: boolean; source: string };
 type MatchProgress = { state: unknown; accepted: boolean };
 export type ProtocolConfig = {
     thinkingOpen: Matcher;
     thinkingClose: Uint8Array[];
     contentOpen?: Matcher;
+    /** Content opener after a thinking region, which may first repeat the start anchor. */
+    contentOpenAfterThinking?: Matcher;
     contentClose?: Matcher;
-    startAnchors?: Uint8Array[];
+    startAnchor?: Matcher;
 };
 type ProtocolState =
     | { phase: 'start'; structured?: unknown; thinking?: MatchProgress; content?: MatchProgress }
     | { phase: 'thinking'; closeBuffer: Uint8Array }
-    | { phase: 'content' | 'ending'; progress: MatchProgress }
+    | { phase: 'content'; progress: MatchProgress; opener: Matcher }
+    | { phase: 'ending'; progress: MatchProgress }
     | { phase: 'structured'; state: unknown }
     | { phase: 'dead' | 'finished' };
 
@@ -24,9 +27,13 @@ export function withResponseProtocol(
     const payload = (state: unknown): ProtocolState =>
         structured.viable(state) ? { phase: 'structured', state } : { phase: 'dead' };
     const afterThinking = (): ProtocolState =>
-        protocol.contentOpen === undefined
+        protocol.contentOpenAfterThinking === undefined
             ? payload(structured.initial)
-            : { phase: 'content', progress: initialMatch(protocol.contentOpen) };
+            : {
+                  phase: 'content',
+                  progress: initialMatch(protocol.contentOpenAfterThinking),
+                  opener: protocol.contentOpenAfterThinking,
+              };
     const initial: ProtocolState = {
         phase: 'start',
         structured: protocol.contentOpen === undefined ? structured.initial : undefined,
@@ -43,7 +50,10 @@ export function withResponseProtocol(
         if (next.complete === 'after') return phase === 'ending' ? { phase: 'finished' } : payload(structured.initial);
         if (next.complete === 'before' && phase === 'content')
             return payload(structured.transition(structured.initial, byte));
-        return next.progress === undefined ? { phase: 'dead' } : { phase, progress: next.progress };
+        if (next.progress === undefined) return { phase: 'dead' };
+        return phase === 'content'
+            ? { phase, progress: next.progress, opener: matcher }
+            : { phase, progress: next.progress };
     };
     const transition = (state: ProtocolState, byte: number): ProtocolState => {
         switch (state.phase) {
@@ -59,7 +69,7 @@ export function withResponseProtocol(
                     : { phase: 'dead' };
             }
             case 'content':
-                return framed('content', state.progress, protocol.contentOpen!, byte);
+                return framed('content', state.progress, state.opener, byte);
             case 'ending':
                 return framed('ending', state.progress, protocol.contentClose!, byte);
             case 'thinking': {
@@ -87,11 +97,7 @@ export function withResponseProtocol(
     return {
         initial,
         initialize: (bytes, context) => {
-            let start = -1;
-            for (const anchor of protocol.startAnchors ?? []) {
-                const index = lastIndexOfBytes(bytes, anchor);
-                if (index >= 0) start = Math.max(start, index + anchor.length);
-            }
+            const start = protocol.startAnchor === undefined ? -1 : lastMatchEnd(protocol.startAnchor.machine, bytes);
             let state: ProtocolState = initial;
             let atContentBoundary = false;
             if (start >= 0) {
@@ -119,7 +125,8 @@ export function withResponseProtocol(
             }
             if (state.phase !== 'start') return state;
             if (state.structured !== undefined) return payload(state.structured);
-            if (state.content !== undefined) return { phase: 'content', progress: state.content };
+            if (state.content !== undefined)
+                return { phase: 'content', progress: state.content, opener: protocol.contentOpen! };
             throw new Error('The prompt is incompatible with disabled thinking.');
         },
         transition,
@@ -194,34 +201,60 @@ function advanceLiteralSearch(
     return { buffer: next, complete: complete && !canExtend ? 'after' : undefined };
 }
 
+const warnedTemplates = new Set<string>();
+
+/**
+ * Builds the thinking-aware protocol from the tokenizer's response template. Templates the
+ * protocol cannot represent fall back to the plain constraint with a one-time warning, so an
+ * unsupported template never turns a working constraint into an error.
+ */
 export function responseProtocol(source: TokenizerSource): ProtocolConfig | undefined {
     const template = asRecord(asRecord(source)?.response_template);
     const fields = asRecord(template?.fields);
-    const thinking = asRecord(fields?.thinking);
+    const thinking = asRecord(fields?.reasoning_content);
     const content = asRecord(fields?.content);
-    if (thinking === undefined || content === undefined) return undefined;
-    if (template?.start_anchor_pattern !== undefined) {
-        throw new Error(
-            'Thinking-aware constraints do not support start_anchor_pattern; use start_anchor with a literal string or list of strings.',
-        );
+    if (template === undefined || thinking === undefined || content === undefined) return undefined;
+    try {
+        return buildProtocol(template, thinking, content);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!warnedTemplates.has(message)) {
+            warnedTemplates.add(message);
+            console.warn(
+                `StructuredOutputProcessor: ${message} Falling back to constraining the response from its first token.`,
+            );
+        }
+        return undefined;
     }
+}
+function buildProtocol(
+    template: Record<string, unknown>,
+    thinking: Record<string, unknown>,
+    content: Record<string, unknown>,
+): ProtocolConfig {
     if (thinking.close_pattern !== undefined)
-        throw new Error(
-            'Thinking-aware constraints do not support a thinking close_pattern; use close with a literal string or list of strings.',
-        );
+        throw new Error('Thinking-aware constraints do not support a reasoning_content close_pattern.');
     const thinkingOpen = anchorMatcher(thinking, 'open', 'open_pattern');
-    const thinkingClose = literalAnchor(thinking.close, 'response_template.fields.thinking.close');
+    const thinkingClose = literalAnchor(thinking.close, 'response_template.fields.reasoning_content.close');
     if (thinkingOpen === undefined || thinkingClose === undefined)
-        throw new Error('Thinking-aware constraints require supported thinking open and literal close delimiters.');
+        throw new Error('Thinking-aware constraints require reasoning_content open and literal close delimiters.');
     const contentOpen = anchorMatcher(content, 'open', 'open_pattern');
     if ((content.open !== undefined || content.open_pattern !== undefined) && contentOpen === undefined)
         throw new Error('Thinking-aware constraints require a supported content opener.');
+    const startAnchor = anchorMatcher(template, 'start_anchor', 'start_anchor_pattern');
+    // Multi-message formats (gpt-oss) start a new assistant message between thinking and the
+    // final answer, e.g. `<|end|><|start|>assistant<|channel|>final<|message|>`.
+    const contentOpenAfterThinking =
+        contentOpen === undefined || startAnchor === undefined
+            ? contentOpen
+            : compileMatcher(`(?:${startAnchor.source})?(?:${contentOpen.source})`, contentOpen.eager);
     return {
         thinkingOpen,
         thinkingClose,
         contentOpen,
+        contentOpenAfterThinking,
         contentClose: anchorMatcher(content, 'close', 'close_pattern'),
-        startAnchors: literalAnchor(template?.start_anchor, 'response_template.start_anchor'),
+        startAnchor,
     };
 }
 function anchorMatcher(field: Record<string, unknown>, literalKey: string, patternKey: string): Matcher | undefined {
@@ -232,16 +265,19 @@ function anchorMatcher(field: Record<string, unknown>, literalKey: string, patte
             .map((literal) => new TextDecoder().decode(literal).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&'))
             .join('|');
         const canExtend = literals.some((a) => literals.some((b) => a !== b && startsWithBytes(a, b)));
-        return { machine: compileRegex(source) as ConstraintState<unknown>, eager: !canExtend };
+        return compileMatcher(source, !canExtend);
     }
     if (typeof field[patternKey] === 'string') {
         try {
-            return { machine: compileRegex(field[patternKey] as string) as ConstraintState<unknown>, eager: false };
+            return compileMatcher(field[patternKey] as string, false);
         } catch (error) {
             throw new Error(`Unsupported response template ${patternKey}: ${String(error)}`);
         }
     }
     return undefined;
+}
+function compileMatcher(source: string, eager: boolean): Matcher {
+    return { machine: compileRegex(source) as ConstraintState<unknown>, eager, source };
 }
 function literalAnchor(value: unknown, name: string): Uint8Array[] | undefined {
     const values = typeof value === 'string' ? [value] : Array.isArray(value) ? value : undefined;
@@ -266,10 +302,25 @@ function startsWithBytes(value: Uint8Array, prefix: Uint8Array): boolean {
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
     return a.length === b.length && startsWithBytes(a, b);
 }
-function lastIndexOfBytes(value: Uint8Array, search: Uint8Array): number {
-    for (let start = value.length - search.length; start >= 0; --start)
-        if (startsWithBytes(value.subarray(start), search)) return start;
-    return -1;
+// End of the last non-overlapping match, scanning left to right like the parser's `matchAll`.
+function lastMatchEnd(machine: ConstraintState<unknown>, bytes: Uint8Array): number {
+    let last = -1;
+    for (let start = 0; start < bytes.length; ) {
+        let state = machine.initial;
+        let end = -1;
+        for (let i = start; i < bytes.length; ++i) {
+            state = machine.transition(state, bytes[i]);
+            if (!machine.viable(state)) break;
+            if (machine.accepting(state)) end = i + 1;
+        }
+        if (end > start) {
+            last = end;
+            start = end;
+        } else {
+            ++start;
+        }
+    }
+    return last;
 }
 function asRecord(value: unknown): Record<string, unknown> | undefined {
     return value !== null && (typeof value === 'object' || typeof value === 'function')

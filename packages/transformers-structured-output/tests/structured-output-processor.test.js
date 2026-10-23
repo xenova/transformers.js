@@ -1,4 +1,5 @@
-import { LogitsProcessorList, PreTrainedTokenizer, Tensor, TextGenerationPipeline } from "@huggingface/transformers";
+import { jest } from "@jest/globals";
+import { PreTrainedTokenizer, Tensor } from "@huggingface/transformers";
 
 import { StructuredOutputProcessor } from "../dist/index.js";
 
@@ -14,11 +15,66 @@ const thinkingTokenizer = {
   response_template: {
     start_anchor: "<assistant>",
     fields: {
-      thinking: { open: "<think>", close: "</think>", content: "text" },
+      reasoning_content: { open: "<think>", close: "</think>", content: "text" },
       content: { close: "<eos>", content: "text" },
     },
   },
 };
+
+// Verbatim `response_template`s from the Hub (tokenizer_config.json).
+const QWEN3_RESPONSE_TEMPLATE = {
+  defaults: { role: "assistant" },
+  start_anchor: "<|im_start|>assistant\n",
+  fields: {
+    reasoning_content: { open: "<think>", close: "</think>", content: "text" },
+    tool_calls: {
+      open_pattern: "\\s*<tool_call>",
+      close: "</tool_call>",
+      repeats: true,
+      content: "json",
+      transform: { type: "function", function: "{content}" },
+    },
+    content: { close_pattern: "\\s*(?:<\\|im_end\\|>|<\\|endoftext\\|>|<\\|eot_id\\|>)", content: "text" },
+  },
+};
+const GPT_OSS_RESPONSE_TEMPLATE = {
+  defaults: { role: "assistant" },
+  start_anchor: "<|start|>assistant",
+  fields: {
+    reasoning_content: { open: "<|channel|>analysis<|message|>", close: "<|end|>", content: "text" },
+    content: { open: "<|channel|>final<|message|>", close: ["<|end|>", "<|return|>"], content: "text" },
+    tool_calls: {
+      open_pattern: "<\\|channel\\|>commentary to=functions\\.(?P<name>\\w+).*?<\\|message\\|>",
+      close: "<|call|>",
+      repeats: true,
+      content: "json",
+      transform: { type: "function", function: { name: "{name}", arguments: "{content}" } },
+    },
+  },
+};
+const GRANITE_3_3_RESPONSE_TEMPLATE = {
+  defaults: { role: "assistant" },
+  start_anchor_pattern: "<\\|start_of_role\\|>assistant(?:\\s+\\[[^\\n]*\\])?<\\|end_of_role\\|>",
+  fields: {
+    reasoning_content: { open: "<think>", close: "</think>", content: "text" },
+    tool_calls: {
+      open: "<|tool_call|>",
+      close: "<|end_of_text|>",
+      content: "json",
+      transform_each: true,
+      transform: { type: "function", function: { name: "{name}", arguments: "{arguments}" } },
+    },
+    content: {
+      close: "<|end_of_text|>",
+      content: "text",
+      content_args: { strip_prefix: "<response>", strip_suffix: "</response>" },
+    },
+  },
+};
+
+function encodeIds(text) {
+  return Array.from(new TextEncoder().encode(text), BigInt);
+}
 
 function logits() {
   return new Tensor("float32", new Float32Array(EOS_TOKEN_ID + 1).fill(1), [1, EOS_TOKEN_ID + 1]);
@@ -153,29 +209,8 @@ describe("StructuredOutputProcessor", () => {
     expect(isAllowed(final, EOS_TOKEN_ID)).toBe(true);
   });
 
-  it.each(["direct", "nested", "extended"])("forwards disabled thinking context through a %s processor list", async (kind) => {
-    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "json_object" });
-    const mockTokenizer = Object.assign(() => ({ input_ids: new Tensor("int64", BigInt64Array.of(0n), [1, 1]) }), {
-      apply_chat_template: () => "<assistant>",
-      batch_decode: () => ["<assistant>"],
-    });
-    const pipe = new TextGenerationPipeline({
-      task: "text-generation",
-      tokenizer: mockTokenizer,
-      model: { generate: async ({ input_ids }) => input_ids },
-    });
-
-    const nested = new LogitsProcessorList();
-    nested.push(processor);
-    const outer = new LogitsProcessorList();
-    if (kind === "nested") outer.push(nested);
-    else outer.extend(nested);
-
-    await pipe([{ role: "user", content: "hi" }], {
-      tokenizer_encode_kwargs: { enable_thinking: false },
-      logits_processor: kind === "direct" ? processor : outer,
-    });
-
+  it("applies constraints from the first token when thinking is disabled", () => {
+    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "json_object" }, { enable_thinking: false });
     const scores = logits();
     processor([[0n]], scores);
     expect(isAllowed(scores, "<".charCodeAt(0))).toBe(false);
@@ -264,7 +299,7 @@ describe("StructuredOutputProcessor", () => {
         ...thinkingTokenizer.response_template,
         fields: {
           ...thinkingTokenizer.response_template.fields,
-          thinking: { open: "<think>", close: ["</think>", "</think>\n"], content: "text" },
+          reasoning_content: { open: "<think>", close: ["</think>", "</think>\n"], content: "text" },
         },
       },
     };
@@ -340,31 +375,29 @@ describe("StructuredOutputProcessor", () => {
     expect(isAllowed(content, "x".charCodeAt(0))).toBe(false);
   });
 
-  it("rejects pattern start anchors instead of ignoring prompt replay", () => {
+  it("replays the prompt after the last start_anchor_pattern match", () => {
     const source = {
       ...thinkingTokenizer,
-      response_template: {
-        start_anchor_pattern: "<assistant>\\s*",
-        fields: thinkingTokenizer.response_template.fields,
-      },
+      response_template: { start_anchor_pattern: "<assistant( [a-z]+)?>", fields: thinkingTokenizer.response_template.fields },
     };
-    expect(() => new StructuredOutputProcessor(source, { type: "json_object" })).toThrow("start_anchor_pattern");
+    const processor = new StructuredOutputProcessor(source, { type: "regex", regex: "ok" });
+    const scores = logits();
+    processor([encodeIds("<assistant>no<assistant x><think>reasoning</think>")], scores);
+    expect(isAllowed(scores, "o".charCodeAt(0))).toBe(true);
+    expect(isAllowed(scores, "<".charCodeAt(0))).toBe(false);
   });
 
   it("replays completed disabled-thinking prefills before applying constraints", () => {
-    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "regex", regex: "ok" });
-    processor.setGenerationContext({ enable_thinking: false });
+    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "regex", regex: "ok" }, { enable_thinking: false });
     const input = Array.from(new TextEncoder().encode("<assistant><think>\n</think>"), BigInt);
     const scores = logits();
     processor([input], scores);
     expect(isAllowed(scores, "o".charCodeAt(0))).toBe(true);
     expect(isAllowed(scores, "<".charCodeAt(0))).toBe(false);
-    expect(() => processor.setGenerationContext({ enable_thinking: true })).toThrow("before generation");
   });
 
   it.each([false, true])("ignores prompt framing whitespace after a completed thinking block (thinking=%s)", (enable_thinking) => {
-    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "regex", regex: "ok" });
-    processor.setGenerationContext({ enable_thinking });
+    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "regex", regex: "ok" }, { enable_thinking });
     const input = Array.from(new TextEncoder().encode("<assistant><think>\n\n</think>\n\n"), BigInt);
     const scores = logits();
     processor([input], scores);
@@ -384,8 +417,7 @@ describe("StructuredOutputProcessor", () => {
   });
 
   it("rejects unfinished thinking prefills when thinking is explicitly disabled", () => {
-    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "regex", regex: "ok" });
-    processor.setGenerationContext({ enable_thinking: false });
+    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "regex", regex: "ok" }, { enable_thinking: false });
     const input = Array.from(new TextEncoder().encode("<assistant><think>"), BigInt);
     expect(() => processor([input], logits())).toThrow("unfinished thinking");
   });
@@ -417,7 +449,7 @@ describe("StructuredOutputProcessor", () => {
         ...thinkingTokenizer.response_template,
         fields: {
           ...thinkingTokenizer.response_template.fields,
-          thinking: { open_pattern: "<think>\\s*", close: "</think>", content: "text" },
+          reasoning_content: { open_pattern: "<think>\\s*", close: "</think>", content: "text" },
         },
       },
     };
@@ -429,19 +461,103 @@ describe("StructuredOutputProcessor", () => {
     expect(isAllowed(final, EOS_TOKEN_ID)).toBe(true);
   });
 
-  it("rejects unsupported thinking close patterns instead of constraining reasoning", () => {
-    const unsupportedTokenizer = {
-      ...thinkingTokenizer,
-      response_template: {
-        ...thinkingTokenizer.response_template,
-        fields: {
-          ...thinkingTokenizer.response_template.fields,
-          thinking: { open: "<think>", close_pattern: "</think>\\s*", content: "text" },
+  it.each([
+    ["a reasoning_content close_pattern", { reasoning_content: { open: "<think>", close_pattern: "</think>\\s*", content: "text" } }, "close_pattern"],
+    ["an unsupported content opener", { content: { open_pattern: "(?P<x>a)", content: "text" } }, "open_pattern"],
+  ])("falls back to the plain constraint for %s", (_, fields, warning) => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const source = {
+        ...thinkingTokenizer,
+        response_template: {
+          ...thinkingTokenizer.response_template,
+          fields: { ...thinkingTokenizer.response_template.fields, ...fields },
         },
-      },
-    };
+      };
+      const processor = new StructuredOutputProcessor(source, { type: "json_object" });
+      const scores = logits();
+      processor([[0n]], scores);
+      expect(isAllowed(scores, "<".charCodeAt(0))).toBe(false);
+      expect(isAllowed(scores, "{".charCodeAt(0))).toBe(true);
+      new StructuredOutputProcessor(source, { type: "json_object" });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain(warning);
+    } finally {
+      warn.mockRestore();
+    }
+  });
 
-    expect(() => new StructuredOutputProcessor(unsupportedTokenizer, { type: "json_object" })).toThrow("thinking close_pattern");
+  describe("verbatim Hub response templates", () => {
+    const withTemplate = (response_template) => ({ ...tokenizer, response_template });
+    const feed = (processor, inputIds, text) => {
+      for (const tokenId of new TextEncoder().encode(text)) {
+        const scores = logits();
+        processor([inputIds], scores);
+        expect(isAllowed(scores, tokenId)).toBe(true);
+        inputIds.push(BigInt(tokenId));
+      }
+    };
+    const prompt = (anchor) => encodeIds(`<|system|>be brief<|user|>hi${anchor}`);
+
+    it("Qwen3: allows <think> or JSON at the first step", () => {
+      const processor = new StructuredOutputProcessor(withTemplate(QWEN3_RESPONSE_TEMPLATE), { type: "json_object" });
+      const scores = logits();
+      processor([prompt("<|im_start|>assistant\n")], scores);
+      expect(isAllowed(scores, "<".charCodeAt(0))).toBe(true);
+      expect(isAllowed(scores, "{".charCodeAt(0))).toBe(true);
+      expect(isAllowed(scores, "x".charCodeAt(0))).toBe(false);
+    });
+
+    it("Qwen3: constrains the answer after a generated thinking block", () => {
+      const processor = new StructuredOutputProcessor(withTemplate(QWEN3_RESPONSE_TEMPLATE), { type: "json_object" });
+      const inputIds = prompt("<|im_start|>assistant\n");
+      feed(processor, inputIds, '<think>\nfree-form\n</think>\n\n{"a":1}');
+      const final = logits();
+      processor([inputIds], final);
+      expect(isAllowed(final, EOS_TOKEN_ID)).toBe(true);
+      expect(isAllowed(final, "x".charCodeAt(0))).toBe(false);
+      feed(processor, inputIds, "<|im_end|>");
+    });
+
+    it("Qwen3: constrains from the first token after a prefilled empty thinking block", () => {
+      const processor = new StructuredOutputProcessor(withTemplate(QWEN3_RESPONSE_TEMPLATE), { type: "json_object" });
+      const scores = logits();
+      processor([prompt("<|im_start|>assistant\n<think>\n\n</think>\n\n")], scores);
+      expect(isAllowed(scores, "{".charCodeAt(0))).toBe(true);
+      expect(isAllowed(scores, "<".charCodeAt(0))).toBe(false);
+    });
+
+    it("gpt-oss: requires a channel header and accepts a new assistant message before the final channel", () => {
+      const processor = new StructuredOutputProcessor(withTemplate(GPT_OSS_RESPONSE_TEMPLATE), { type: "json_object" });
+      const inputIds = prompt("<|start|>assistant");
+      const first = logits();
+      processor([inputIds], first);
+      expect(isAllowed(first, "<".charCodeAt(0))).toBe(true);
+      expect(isAllowed(first, "{".charCodeAt(0))).toBe(false);
+      feed(processor, inputIds, '<|channel|>analysis<|message|>reasoning<|end|><|start|>assistant<|channel|>final<|message|>{"a":1}');
+      const final = logits();
+      processor([inputIds], final);
+      expect(isAllowed(final, EOS_TOKEN_ID)).toBe(true);
+      feed(processor, inputIds, "<|return|>");
+    });
+
+    it("gpt-oss: constrains the final channel without analysis", () => {
+      const processor = new StructuredOutputProcessor(withTemplate(GPT_OSS_RESPONSE_TEMPLATE), { type: "json_object" });
+      const inputIds = prompt("<|start|>assistant");
+      feed(processor, inputIds, "<|channel|>final<|message|>");
+      const scores = logits();
+      processor([inputIds], scores);
+      expect(isAllowed(scores, "{".charCodeAt(0))).toBe(true);
+      expect(isAllowed(scores, "x".charCodeAt(0))).toBe(false);
+    });
+
+    it("Granite 3.3: replays the prompt after start_anchor_pattern", () => {
+      const processor = new StructuredOutputProcessor(withTemplate(GRANITE_3_3_RESPONSE_TEMPLATE), { type: "json_object" });
+      const scores = logits();
+      processor([prompt("<|start_of_role|>assistant [thinking]<|end_of_role|><think>")], scores);
+      expect(isAllowed(scores, "x".charCodeAt(0))).toBe(true);
+      expect(isAllowed(scores, EOS_TOKEN_ID)).toBe(false);
+    });
   });
 
   it("allows a response-template content closer only after a complete answer", async () => {

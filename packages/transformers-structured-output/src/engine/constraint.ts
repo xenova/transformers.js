@@ -78,7 +78,7 @@ export function createTokenConstraint(
         vocabSize: tokenizer.data.tokens.length,
         initializePrompt(tokenIds, context) {
             if (machine.initialize === undefined) return;
-            const promptIds = protocol?.startAnchors === undefined ? [] : tokenIds;
+            const promptIds = protocol?.startAnchor === undefined ? [] : tokenIds;
             const length = promptIds.reduce(
                 (total, tokenId) => total + tokenizer.data.tokens[Number(tokenId)].length,
                 0,
