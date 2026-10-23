@@ -402,6 +402,22 @@ describe("StructuredOutputProcessor", () => {
     const scores = logits();
     processor([input], scores);
     expect(isAllowed(scores, "o".charCodeAt(0))).toBe(true);
+    expect(isAllowed(scores, "x".charCodeAt(0))).toBe(false);
+  });
+
+  it("allows bounded framing whitespace before the payload during generation", async () => {
+    const processor = new StructuredOutputProcessor(thinkingTokenizer, { type: "regex", regex: "ok" });
+    const inputIds = await consume(processor, "<think>reasoning</think>\n\n \n");
+    const capped = logits();
+    processor([inputIds], capped);
+    expect(isAllowed(capped, "o".charCodeAt(0))).toBe(true);
+    expect(isAllowed(capped, "\n".charCodeAt(0))).toBe(false);
+    expect(isAllowed(capped, " ".charCodeAt(0))).toBe(false);
+
+    const inside = new StructuredOutputProcessor(thinkingTokenizer, { type: "regex", regex: "ok" });
+    const insideIds = await consume(inside, "<think>reasoning</think>o");
+    const scores = logits();
+    inside([insideIds], scores);
     expect(isAllowed(scores, "\n".charCodeAt(0))).toBe(false);
   });
 
@@ -517,6 +533,15 @@ describe("StructuredOutputProcessor", () => {
       expect(isAllowed(final, EOS_TOKEN_ID)).toBe(true);
       expect(isAllowed(final, "x".charCodeAt(0))).toBe(false);
       feed(processor, inputIds, "<|im_end|>");
+    });
+
+    it("Qwen3: allows the usual blank line between </think> and a regex answer", () => {
+      const processor = new StructuredOutputProcessor(withTemplate(QWEN3_RESPONSE_TEMPLATE), { type: "regex", regex: "ok" });
+      const inputIds = prompt("<|im_start|>assistant\n");
+      feed(processor, inputIds, "<think>\nfree-form\n</think>\n\nok");
+      const final = logits();
+      processor([inputIds], final);
+      expect(isAllowed(final, EOS_TOKEN_ID)).toBe(true);
     });
 
     it("Qwen3: constrains from the first token after a prefilled empty thinking block", () => {

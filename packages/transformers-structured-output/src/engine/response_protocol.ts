@@ -12,12 +12,16 @@ export type ProtocolConfig = {
     contentClose?: Matcher;
     startAnchor?: Matcher;
 };
+// Templates frame the answer with whitespace after a closed thinking block or content opener
+// (Qwen3 emits `</think>\n\n`). It precedes, rather than belongs to, the constrained payload.
+const MAX_FRAMING_WHITESPACE = 4;
+
 type ProtocolState =
     | { phase: 'start'; structured?: unknown; thinking?: MatchProgress; content?: MatchProgress }
     | { phase: 'thinking'; closeBuffer: Uint8Array }
     | { phase: 'content'; progress: MatchProgress; opener: Matcher }
     | { phase: 'ending'; progress: MatchProgress }
-    | { phase: 'structured'; state: unknown }
+    | { phase: 'structured'; state: unknown; framing?: number }
     | { phase: 'dead' | 'finished' };
 
 export function withResponseProtocol(
@@ -26,9 +30,10 @@ export function withResponseProtocol(
 ): ConstraintState<ProtocolState> {
     const payload = (state: unknown): ProtocolState =>
         structured.viable(state) ? { phase: 'structured', state } : { phase: 'dead' };
+    const boundary: ProtocolState = { phase: 'structured', state: structured.initial, framing: 0 };
     const afterThinking = (): ProtocolState =>
         protocol.contentOpenAfterThinking === undefined
-            ? payload(structured.initial)
+            ? boundary
             : {
                   phase: 'content',
                   progress: initialMatch(protocol.contentOpenAfterThinking),
@@ -47,9 +52,8 @@ export function withResponseProtocol(
         byte: number,
     ): ProtocolState => {
         const next = advanceMatch(matcher, progress, byte);
-        if (next.complete === 'after') return phase === 'ending' ? { phase: 'finished' } : payload(structured.initial);
-        if (next.complete === 'before' && phase === 'content')
-            return payload(structured.transition(structured.initial, byte));
+        if (next.complete === 'after') return phase === 'ending' ? { phase: 'finished' } : boundary;
+        if (next.complete === 'before' && phase === 'content') return transition(boundary, byte);
         if (next.progress === undefined) return { phase: 'dead' };
         return phase === 'content'
             ? { phase, progress: next.progress, opener: matcher }
@@ -64,6 +68,8 @@ export function withResponseProtocol(
             case 'structured': {
                 const next = structured.transition(state.state, byte);
                 if (structured.viable(next)) return next === state.state ? state : payload(next);
+                if (state.framing !== undefined && state.framing < MAX_FRAMING_WHITESPACE && isFramingWhitespace(byte))
+                    return { phase: 'structured', state: state.state, framing: state.framing + 1 };
                 return structured.accepting(state.state) && protocol.contentClose !== undefined
                     ? framed('ending', initialMatch(protocol.contentClose), protocol.contentClose, byte)
                     : { phase: 'dead' };
@@ -84,8 +90,8 @@ export function withResponseProtocol(
                 if (thinking?.complete === 'before')
                     return transition({ phase: 'thinking', closeBuffer: new Uint8Array() }, byte);
                 const content = state.content && advanceMatch(protocol.contentOpen!, state.content, byte);
-                if (content?.complete === 'after') return payload(structured.initial);
-                if (content?.complete === 'before') return payload(structured.transition(structured.initial, byte));
+                if (content?.complete === 'after') return boundary;
+                if (content?.complete === 'before') return transition(boundary, byte);
                 const next = state.structured === undefined ? undefined : structured.transition(state.structured, byte);
                 const direct = next !== undefined && structured.viable(next) ? next : undefined;
                 if (thinking?.progress === undefined && content?.progress === undefined)
@@ -99,21 +105,7 @@ export function withResponseProtocol(
         initialize: (bytes, context) => {
             const start = protocol.startAnchor === undefined ? -1 : lastMatchEnd(protocol.startAnchor.machine, bytes);
             let state: ProtocolState = initial;
-            let atContentBoundary = false;
-            if (start >= 0) {
-                for (let i = start; i < bytes.length; ++i) {
-                    // Chat templates can prefill framing newlines after a closed thinking
-                    // block or content opener. They precede, rather than belong to, the
-                    // constrained payload. Only skip them in the prompt, never generation.
-                    if (atContentBoundary && isFramingWhitespace(bytes[i])) continue;
-                    const next = transition(state, bytes[i]);
-                    atContentBoundary =
-                        state.phase !== 'structured' &&
-                        next.phase === 'structured' &&
-                        next.state === structured.initial;
-                    state = next;
-                }
-            }
+            if (start >= 0) for (let i = start; i < bytes.length; ++i) state = transition(state, bytes[i]);
             if (state.phase === 'dead')
                 throw new Error('The prompt prefill does not satisfy the response protocol or constraint.');
             if (context?.enable_thinking !== false) return state;
@@ -153,7 +145,8 @@ export function withResponseProtocol(
             if (state.phase === 'thinking') return `thinking:${Array.from(state.closeBuffer).join(',')}`;
             if (state.phase !== 'structured') return undefined;
             const key = structured.maskKey?.(state.state);
-            return key === undefined ? undefined : `structured:${key}`;
+            if (key === undefined) return undefined;
+            return state.framing === undefined ? `structured:${key}` : `framing:${state.framing}:${key}`;
         },
     };
 }

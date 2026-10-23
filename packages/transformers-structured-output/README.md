@@ -33,7 +33,7 @@ A processor tracks the state of one generation. Create a new `StructuredOutputPr
 
 ### Thinking models
 
-When the tokenizer defines `response_template.fields.reasoning_content` and `response_template.fields.content`, thinking is treated as an optional region before the answer. The processor allows either the thinking opener or constrained content at the start of the response, leaves the thinking body unconstrained, and applies the requested constraint when final content begins. The prompt is replayed from the last `start_anchor` (or `start_anchor_pattern`) match, so prefilled thinking blocks and content openers are taken into account.
+When the tokenizer defines `response_template.fields.reasoning_content` and `response_template.fields.content`, thinking is treated as an optional region before the answer. The processor allows either the thinking opener or constrained content at the start of the response, leaves the thinking body unconstrained, and applies the requested constraint when final content begins. The prompt is replayed from the last `start_anchor` (or `start_anchor_pattern`) match, so prefilled thinking blocks and content openers are taken into account. Up to four whitespace characters are allowed between a closed thinking block (or content opener) and the constrained answer, matching templates that emit `</think>\n\n` before the answer.
 
 If the prompt was rendered with thinking disabled, pass the same setting to the processor so the constraint applies to the first content token:
 
