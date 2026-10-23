@@ -140,7 +140,7 @@ function aliasReasoningFields(conversation) {
         const reasoning = message.reasoning_content ?? message.thinking ?? message.reasoning;
         return reasoning === undefined || reasoning === null
             ? message
-            : { ...message, thinking: reasoning, reasoning_content: reasoning };
+            : { thinking: reasoning, ...message, reasoning_content: reasoning };
     });
 }
 

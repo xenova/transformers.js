@@ -720,11 +720,22 @@ it("aliases reasoning fields for chat template compatibility without mutating me
     _compiled_template_cache: new Map(),
     chat_template: "{{ messages[0].thinking }}|{{ messages[0].reasoning_content }}",
   });
-  const conversations = [[{ role: "assistant", reasoning_content: "canonical" }], [{ role: "assistant", thinking: "legacy" }], [{ role: "assistant", reasoning: "older" }], [{ role: "assistant", reasoning_content: "preferred", thinking: "ignored", reasoning: "ignored" }]];
+  const conversations = [[{ role: "assistant", reasoning_content: "canonical" }], [{ role: "assistant", thinking: "legacy" }], [{ role: "assistant", reasoning: "older" }], [{ role: "assistant", reasoning_content: "preferred", reasoning: "ignored" }]];
   const original = structuredClone(conversations);
 
   expect(conversations.map((messages) => local.apply_chat_template(messages, { tokenize: false }))).toEqual(["canonical|canonical", "legacy|legacy", "older|older", "preferred|preferred"]);
   expect(conversations).toEqual(original);
+});
+
+it("keeps an explicit thinking field when it conflicts with reasoning_content", () => {
+  const local = Object.assign(Object.create(PreTrainedTokenizer.prototype), {
+    config: {},
+    _compiled_template_cache: new Map(),
+    chat_template: "{{ messages[0].thinking }}|{{ messages[0].reasoning_content }}",
+  });
+  const messages = [{ role: "assistant", reasoning_content: "canonical", thinking: "explicit" }];
+
+  expect(local.apply_chat_template(messages, { tokenize: false })).toBe("explicit|canonical");
 });
 
 describe("Chat templates", () => {
