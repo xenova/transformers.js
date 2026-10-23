@@ -29,6 +29,22 @@ await model.generate({
 
 Constraints currently support a single generated sequence at a time. Generation throws when the logical batch size is not `1` rather than sharing mutable grammar state across sequences.
 
+A processor tracks the state of one generation. Create a new `StructuredOutputProcessor` for every `generate()` or pipeline call; constructing one is cheap once the tokenizer has been prepared (see `StructuredOutputProcessor.warmup()`).
+
+### Thinking models
+
+When the tokenizer defines `response_template.fields.reasoning_content` and `response_template.fields.content`, thinking is treated as an optional region before the answer. The processor allows either the thinking opener or constrained content at the start of the response, leaves the thinking body unconstrained, and applies the requested constraint when final content begins. The prompt is replayed from the last `start_anchor` (or `start_anchor_pattern`) match, so prefilled thinking blocks and content openers are taken into account. Up to four whitespace characters are allowed between a closed thinking block (or content opener) and the constrained answer, matching templates that emit `</think>\n\n` before the answer.
+
+If the prompt was rendered with thinking disabled, pass the same setting to the processor so the constraint applies to the first content token:
+
+```js
+const processor = new StructuredOutputProcessor(tokenizer, responseFormat, { enable_thinking: false });
+```
+
+Without `enable_thinking: false`, thinking stays optional. Prompt prefills are validated: completed thinking blocks are accepted, but invalid answer prefills, and unfinished thinking blocks with thinking disabled, raise errors. Once content satisfies the constraint, the processor allows the response template's content closer or the model's EOS token.
+
+Thinking close delimiters must be literals (or a list of literals). Openers, content closers and start anchors may be literals or patterns supported by the constraint regex engine. If the response template uses anything else, the processor logs a warning once and falls back to constraining the response from its first token.
+
 ## Supported constraints
 
 The JSON engine implements a practical JSON Schema 2020-12 profile. This includes deep `const` and `enum`, exact decimal bounds and `multipleOf`, tuple and homogeneous arrays, `contains`, deep `uniqueItems`, object property and dependency assertions, `allOf`/`anyOf`/`oneOf`/`not`, conditionals, local `$ref`, recursive `$defs`, draft-07 compatibility, and root-level `x-guidance` separators. String `pattern` and recognized `format` assertions are rejected because they cannot be enforced incrementally; unknown format names remain annotations. External and dynamic references and unevaluated-property/item assertions also remain unsupported.
